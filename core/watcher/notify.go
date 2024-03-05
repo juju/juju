@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 )
 
 // NotifyChannel is a channel that receives a single value to indicate that the

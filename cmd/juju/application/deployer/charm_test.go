@@ -5,12 +5,13 @@ package deployer
 
 import (
 	"bytes"
+	"context"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
@@ -112,7 +113,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 			OS: "ubuntu"},
 	}
 
-	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+	repoCharm.uploadExistingPendingResources = func(_ context.Context, appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
 		c.Assert(appName, gc.Equals, dInfo.Name)
 		return nil
 	}
@@ -161,7 +162,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 			OS: "ubuntu"},
 	}
 
-	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+	repoCharm.uploadExistingPendingResources = func(_ context.Context, appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
 		c.Assert(appName, gc.Equals, dInfo.Name)
 		return nil
 	}
@@ -198,7 +199,7 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
 		Stdout: writer,
 	}
 
-	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+	repoCharm.uploadExistingPendingResources = func(_ context.Context, appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
 		c.Fatalf("Do not upload pending resources if errors")
 		return nil
 	}
@@ -209,10 +210,45 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to deploy charm \"testme\"")
 }
 
+func (s *charmSuite) TestDeployFromPredeployed(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
+	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
+	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
+
+	dCharm := s.newDeployCharm()
+	dCharm.validateCharmBaseWithName = func(_ corebase.Base, _ string, _ string) error {
+		return nil
+	}
+	dCharm.validateResourcesNeededForLocalDeploy = func(_ *charm.Meta) error {
+		return nil
+	}
+
+	predeployedCharm := &predeployedLocalCharm{
+		deployCharm:  *dCharm,
+		userCharmURL: s.url,
+		base:         corebase.MustParseBaseFromString("ubuntu@22.04"),
+	}
+
+	writer := mocks.NewMockWriter(ctrl)
+	writer.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
+	ctx := &cmd.Context{
+		Stderr: writer,
+		Stdout: writer,
+	}
+
+	err := predeployedCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *charmSuite) newDeployCharm() *deployCharm {
 	return &deployCharm{
 		configOptions: s.configFlag,
 		deployResources: func(
+			context.Context,
 			string,
 			resources.CharmID,
 			map[string]string,
@@ -223,7 +259,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 			return s.deployResourceIDs, nil
 		},
 		id: application.CharmID{
-			URL:    s.url,
+			URL:    s.url.String(),
 			Origin: commoncharm.Origin{Base: corebase.MakeDefaultBase("ubuntu", "20.04")},
 		},
 		flagSet:  &gnuflag.FlagSet{},

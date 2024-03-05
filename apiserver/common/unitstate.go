@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -131,7 +131,6 @@ func (u *UnitStateAPI) State(ctx context.Context, args params.Entities) (params.
 		res[i].RelationState, _ = unitState.RelationState()
 		res[i].StorageState, _ = unitState.StorageState()
 		res[i].SecretState, _ = unitState.SecretState()
-		res[i].MeterStatusState, _ = unitState.MeterStatusState()
 	}
 
 	return params.UnitStateResults{Results: res}, nil
@@ -184,9 +183,6 @@ func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArg
 		}
 		if arg.SecretState != nil {
 			unitState.SetSecretState(*arg.SecretState)
-		}
-		if arg.MeterStatusState != nil {
-			unitState.SetMeterStatusState(*arg.MeterStatusState)
 		}
 
 		ops := unit.SetStateOperation(

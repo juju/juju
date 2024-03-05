@@ -39,11 +39,11 @@ func (s *linkLayerDevicesStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.otherState = s.NewStateForModelNamed(c, "other-model")
-	s.otherStateMachine, err = s.otherState.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.otherStateMachine, err = s.otherState.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.spaces = map[string]corenetwork.SpaceInfo{
@@ -762,15 +762,15 @@ func (s *linkLayerDevicesStateSuite) TestAddDeviceOpsWithAddresses(c *gc.C) {
 	c.Assert(addrs[0].Value(), gc.Equals, "10.1.1.1")
 }
 
-func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
-	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
+func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, cidr, providerSubnetID string) {
+	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	spaceInfo, err := space.NetworkSpace()
 	c.Assert(err, gc.IsNil)
 	s.spaces[spaceName] = spaceInfo
 
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:       CIDR,
+		CIDR:       cidr,
 		SpaceID:    space.Id(),
 		ProviderId: corenetwork.Id(providerSubnetID),
 	})

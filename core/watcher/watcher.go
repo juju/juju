@@ -4,7 +4,7 @@
 package watcher
 
 import (
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 )
 
 // Watcher defines a worker that defines changes for a given type of T.

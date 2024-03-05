@@ -5,6 +5,7 @@ package backups
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"text/template"
 	"time"
@@ -26,7 +27,7 @@ type APIClient interface {
 	// Create sends an RPC request to create a new backup.
 	Create(notes string, noDownload bool) (*params.BackupsMetadataResult, error)
 	// Download pulls the backup archive file.
-	Download(filename string) (io.ReadCloser, error)
+	Download(ctx context.Context, filename string) (io.ReadCloser, error)
 }
 
 // CommandBase is the base type for backups sub-commands.

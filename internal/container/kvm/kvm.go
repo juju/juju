@@ -4,6 +4,7 @@
 package kvm
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,7 +13,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
@@ -148,6 +149,7 @@ func (manager *containerManager) Namespace() instance.Namespace {
 }
 
 func (manager *containerManager) CreateContainer(
+	_ context.Context,
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
 	base corebase.Base,

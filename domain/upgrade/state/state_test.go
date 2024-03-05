@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +17,7 @@ import (
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -47,6 +47,48 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.upgradeUUID = uuid
+}
+
+func (s *stateSuite) TestEnsureUpgradeTypesMatchCore(c *gc.C) {
+	db := s.DB()
+
+	// This locks in the behaviour that the upgrade types in the database
+	// should match the upgrade types in the core upgrade package.
+
+	rows, err := db.Query(`SELECT id, type FROM upgrade_state_type`)
+	c.Assert(err, jc.ErrorIsNil)
+	defer rows.Close()
+
+	received := make(map[upgrade.State]string)
+
+	// Ensure all the upgrade types that are in the database are also in the
+	// core upgrade package.
+	for rows.Next() {
+		var (
+			id   int
+			name string
+		)
+		err = rows.Scan(&id, &name)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(upgrade.State(id).String(), gc.Equals, name)
+
+		// Ensure that we don't have any entries that are not parsable.
+		state, err := upgrade.ParseState(name)
+		c.Assert(err, jc.ErrorIsNil)
+
+		received[state] = name
+	}
+
+	c.Assert(rows.Err(), jc.ErrorIsNil)
+
+	// Ensure all the upgrade types in the core upgrade package are also in the
+	// database.
+	for state, name := range upgrade.States {
+		r, ok := received[state]
+		c.Check(ok, jc.IsTrue)
+		c.Check(r, gc.Equals, name)
+	}
 }
 
 func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
@@ -88,7 +130,7 @@ func (s *stateSuite) TestSetControllerReady(c *gc.C) {
 }
 
 func (s *stateSuite) TestSetControllerReadyWithoutUpgrade(c *gc.C) {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 
 	err := s.st.SetControllerReady(context.Background(), domainupgrade.UUID(uuid), "0")
 	c.Assert(err, gc.NotNil)
@@ -229,7 +271,7 @@ func (s *stateSuite) TestStartUpgradeCalledMultipleTimes(c *gc.C) {
 }
 
 func (s *stateSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	err := s.st.StartUpgrade(context.Background(), domainupgrade.UUID(uuid))
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }

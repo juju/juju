@@ -4,6 +4,7 @@
 package imagemetadata
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -225,7 +226,7 @@ func (im *ImageMetadata) productId() string {
 // server.
 type SimplestreamsFetcher interface {
 	NewDataSource(simplestreams.Config) simplestreams.DataSource
-	GetMetadata([]simplestreams.DataSource, simplestreams.GetMetadataParams) ([]interface{}, *simplestreams.ResolveInfo, error)
+	GetMetadata(context.Context, []simplestreams.DataSource, simplestreams.GetMetadataParams) ([]interface{}, *simplestreams.ResolveInfo, error)
 }
 
 // Fetch returns a list of images for the specified cloud matching the
@@ -233,7 +234,7 @@ type SimplestreamsFetcher interface {
 // which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and
 // onlySigned is false, then unsigned data is used.
-func Fetch(fetcher SimplestreamsFetcher, sources []simplestreams.DataSource, cons *ImageConstraint) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
+func Fetch(ctx context.Context, fetcher SimplestreamsFetcher, sources []simplestreams.DataSource, cons *ImageConstraint) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
 		LookupConstraint: cons,
@@ -244,7 +245,7 @@ func Fetch(fetcher SimplestreamsFetcher, sources []simplestreams.DataSource, con
 		},
 	}
 
-	items, resolveInfo, err := fetcher.GetMetadata(sources, params)
+	items, resolveInfo, err := fetcher.GetMetadata(ctx, sources, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

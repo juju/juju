@@ -8,7 +8,7 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -78,7 +78,7 @@ func (c *downloadCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	// Download the archive.
-	resultArchive, err := client.Download(c.RemoteFilename)
+	resultArchive, err := client.Download(ctx, c.RemoteFilename)
 	if err != nil {
 		return errors.Trace(err)
 	}

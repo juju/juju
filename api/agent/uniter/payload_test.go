@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -425,10 +425,6 @@ func (s *stubFacade) APICall(ctx context.Context, objType string, version int, i
 	}
 	handler(response, resp)
 	return nil
-}
-
-func (s *stubFacade) Context() context.Context {
-	return context.Background()
 }
 
 type unitMethods struct{}

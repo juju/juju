@@ -33,9 +33,9 @@ func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]stri
 }
 
 // Namespaces returns names of the namespaces on the cluster.
-func (k *kubernetesClient) Namespaces() ([]string, error) {
+func (k *kubernetesClient) Namespaces(ctx context.Context) ([]string, error) {
 	namespaces := k.client().CoreV1().Namespaces()
-	ns, err := namespaces.List(context.TODO(), v1.ListOptions{})
+	ns, err := namespaces.List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing namespaces")
 	}
@@ -50,8 +50,8 @@ func (k *kubernetesClient) Namespaces() ([]string, error) {
 }
 
 // GetNamespace returns the namespace for the specified name.
-func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
-	ns, err := k.getNamespaceByName(name)
+func (k *kubernetesClient) GetNamespace(ctx context.Context, name string) (*core.Namespace, error) {
+	ns, err := k.getNamespaceByName(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -63,8 +63,8 @@ func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
 
 // getNamespaceByName is used internally for bootstrap.
 // Note: it should be never used by something else. "GetNamespace" is what you should use.
-func (k *kubernetesClient) getNamespaceByName(name string) (*core.Namespace, error) {
-	ns, err := k.client().CoreV1().Namespaces().Get(context.TODO(), name, v1.GetOptions{})
+func (k *kubernetesClient) getNamespaceByName(ctx context.Context, name string) (*core.Namespace, error) {
+	ns, err := k.client().CoreV1().Namespaces().Get(ctx, name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("namespace %q", name)
 	}
@@ -75,8 +75,8 @@ func (k *kubernetesClient) getNamespaceByName(name string) (*core.Namespace, err
 }
 
 // listNamespacesByAnnotations filters namespaces by annotations.
-func (k *kubernetesClient) listNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error) {
-	namespaces, err := k.client().CoreV1().Namespaces().List(context.TODO(), v1.ListOptions{})
+func (k *kubernetesClient) listNamespacesByAnnotations(ctx context.Context, annotations k8sannotations.Annotation) ([]core.Namespace, error) {
+	namespaces, err := k.client().CoreV1().Namespaces().List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -115,7 +115,7 @@ func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error 
 }
 
 // createNamespace creates a namespace with the input name.
-func (k *kubernetesClient) createNamespace(name string) error {
+func (k *kubernetesClient) createNamespace(ctx context.Context, name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	ns.SetLabels(utils.LabelsMerge(
 		ns.GetLabels(),
@@ -126,21 +126,21 @@ func (k *kubernetesClient) createNamespace(name string) error {
 		return errors.Trace(err)
 	}
 
-	_, err := k.client().CoreV1().Namespaces().Create(context.TODO(), ns, v1.CreateOptions{})
+	_, err := k.client().CoreV1().Namespaces().Create(ctx, ns, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return errors.AlreadyExistsf("namespace %q", name)
 	}
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteNamespace() error {
+func (k *kubernetesClient) deleteNamespace(ctx context.Context) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
 	// deleteNamespace is used as a means to implement Destroy().
 	// All model resources are provisioned in the namespace;
 	// deleting the namespace will also delete those resources.
-	ns, err := k.GetNamespace(k.namespace)
+	ns, err := k.GetNamespace(ctx, k.namespace)
 	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
@@ -152,7 +152,7 @@ func (k *kubernetesClient) deleteNamespace() error {
 		return errors.Trace(err)
 	}
 
-	err = k.client().CoreV1().Namespaces().Delete(context.TODO(), k.namespace, v1.DeleteOptions{
+	err = k.client().CoreV1().Namespaces().Delete(ctx, k.namespace, v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {

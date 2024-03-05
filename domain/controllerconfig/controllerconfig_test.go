@@ -27,7 +27,7 @@ var _ = gc.Suite(&controllerconfigSuite{})
 
 func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
 	st := domainstate.NewState(s.TxnRunnerFactory())
-	srv := service.NewService(st, nil)
+	srv := service.NewService(st)
 
 	cfgMap := map[string]any{
 		controller.AuditingEnabled:        true,

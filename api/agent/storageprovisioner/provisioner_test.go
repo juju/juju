@@ -6,7 +6,7 @@ package storageprovisioner_test
 import (
 	"errors"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -340,7 +340,7 @@ func (s *provisionerSuite) TestVolumeAttachmentPlans(c *gc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: storage.BlockDevice{
+			BlockDevice: params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -377,7 +377,7 @@ func (s *provisionerSuite) TestVolumeAttachmentPlans(c *gc.C) {
 
 func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	blockDeviceResults := []params.BlockDeviceResult{{
-		Result: storage.BlockDevice{
+		Result: params.BlockDevice{
 			DeviceName: "xvdf1",
 			HardwareId: "kjlaksjdlasjdklasd123123",
 			Size:       1024,
@@ -721,7 +721,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *gc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: storage.BlockDevice{
+			BlockDevice: params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -747,7 +747,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *gc.C) {
 							"chap-secret": "supersecretpassword",
 						},
 					},
-					BlockDevice: storage.BlockDevice{
+					BlockDevice: params.BlockDevice{
 						DeviceName: "sda",
 					},
 				},
@@ -787,7 +787,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *gc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: storage.BlockDevice{
+			BlockDevice: params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -813,7 +813,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *gc.C) {
 							"chap-secret": "supersecretpassword",
 						},
 					},
-					BlockDevice: storage.BlockDevice{
+					BlockDevice: params.BlockDevice{
 						DeviceName: "sda",
 					},
 				},

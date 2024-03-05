@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -16,36 +17,50 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-type ObjectStoreFactorySuite struct {
+type objectStoreFactorySuite struct {
 	testing.IsolationSuite
-
-	session *MockMongoSession
 }
 
-var _ = gc.Suite(&ObjectStoreFactorySuite{})
+var _ = gc.Suite(&objectStoreFactorySuite{})
 
-func (s *ObjectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
+func (s *objectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can create an object store with the default backend.
 
-	obj, err := ObjectStoreFactory(context.Background(), DefaultBackendType(), "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
+	obj, err := ObjectStoreFactory(
+		context.Background(),
+		DefaultBackendType(),
+		"inferi",
+		WithLogger(jujutesting.NewCheckLogger(c)),
+		WithMetadataService(stubMetadataService{}),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obj, gc.NotNil)
+
+	workertest.CleanKill(c, obj)
 }
 
-func (s *ObjectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {
+func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// As file backed object stores are not supported, ensure we get an error
-	// when trying to create one.
-
-	_, err := ObjectStoreFactory(context.Background(), objectstore.FileBackend, "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
+	_, err := ObjectStoreFactory(
+		context.Background(),
+		objectstore.BackendType("blah"),
+		"inferi",
+		WithLogger(jujutesting.NewCheckLogger(c)),
+		WithMetadataService(stubMetadataService{}),
+	)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *ObjectStoreFactorySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *objectStoreFactorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.session = NewMockMongoSession(ctrl)
 	return ctrl
+}
+
+type stubMetadataService struct{}
+
+func (stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+	return nil
 }

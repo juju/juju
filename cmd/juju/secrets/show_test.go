@@ -6,7 +6,7 @@ package secrets_test
 import (
 	"fmt"
 
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4/cmdtesting"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -76,6 +76,13 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 				LatestExpireTime: &expire,
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
+			Access: []coresecrets.AccessInfo{
+				{
+					Target: "application-gitlab",
+					Scope:  "relation-key",
+					Role:   coresecrets.RoleView,
+				},
+			},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -92,6 +99,10 @@ func (s *ShowSuite) TestShow(c *gc.C) {
   label: foobar
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
+  access:
+  - target: application-gitlab
+    scope: relation-key
+    role: view
 `[1:], uri.ID))
 }
 

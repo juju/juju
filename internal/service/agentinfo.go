@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/agent/tools"
 )

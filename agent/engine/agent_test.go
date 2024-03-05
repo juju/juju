@@ -4,12 +4,14 @@
 package engine_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -51,23 +53,23 @@ func (s *AgentManifoldSuite) TestOutput(c *gc.C) {
 }
 
 func (s *AgentManifoldSuite) TestStartAgentMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *AgentManifoldSuite) TestStartFailure(c *gc.C) {
 	expectAgent := &dummyAgent{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name": expectAgent,
 	})
 	s.SetErrors(errors.New("some error"))
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -78,11 +80,11 @@ func (s *AgentManifoldSuite) TestStartFailure(c *gc.C) {
 
 func (s *AgentManifoldSuite) TestStartSuccess(c *gc.C) {
 	expectAgent := &dummyAgent{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name": expectAgent,
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, s.worker)
 	s.CheckCalls(c, []testing.StubCall{{

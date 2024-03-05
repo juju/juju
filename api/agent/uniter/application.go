@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/life"
@@ -54,8 +54,8 @@ func (s *Application) Life() life.Value {
 
 // Refresh refreshes the contents of the application from the underlying
 // state.
-func (s *Application) Refresh() error {
-	life, err := s.client.life(s.tag)
+func (s *Application) Refresh(ctx context.Context) error {
+	life, err := s.client.life(ctx, s.tag)
 	if err != nil {
 		return err
 	}

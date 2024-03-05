@@ -1,1 +1,2 @@
 fakeaction:
+  additionalProperties: true

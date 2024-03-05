@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/rpcreflect"

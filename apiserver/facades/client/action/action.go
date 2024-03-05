@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -42,18 +42,18 @@ func newActionAPI(
 	st State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	getLeadershipReader func(string) (leadership.Reader, error),
+	getLeadershipReader func() (leadership.Reader, error),
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	m, err := st.Model()
+	leaders, err := getLeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	leaders, err := getLeadershipReader(m.ModelTag().Id())
+	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

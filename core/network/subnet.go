@@ -82,9 +82,6 @@ type SubnetInfo struct {
 	// or if this subnet information comes from a provider.
 	FanInfo *FanCIDRs
 
-	// IsPublic describes whether a subnet is public or not.
-	IsPublic bool
-
 	// Life represents the current life-cycle status of the subnets.
 	Life life.Value
 }

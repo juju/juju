@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -50,8 +50,9 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	s.units = nil
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
+	st := s.ControllerModel(c).State()
 	for i := 0; i <= 2; i++ {
-		machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -75,7 +76,6 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 
 	// Create a relation.
 	f.MakeApplication(c, nil)
-	st := s.ControllerModel(c).State()
 	eps, err := st.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -96,11 +96,11 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 
 func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 	c *gc.C,
-	factory func(_ facade.Context) error,
+	factory func(_ facade.ModelContext) error,
 ) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		Resources_:      s.resources,
 		State_:          s.ControllerModel(c).State(),
@@ -151,7 +151,7 @@ func (s *firewallerBaseSuite) testLife(
 	})
 
 	// Remove a machine and make sure it's detected.
-	err = s.machines[1].Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.machines[1].Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)

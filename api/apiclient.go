@@ -26,15 +26,16 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/parallel"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/parallel"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/facades"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/internal/proxy"
@@ -66,7 +67,6 @@ type rpcConnection interface {
 
 // conn is the internal implementation of the Connection interface.
 type conn struct {
-	ctx    context.Context
 	client rpcConnection
 	conn   jsoncodec.JSONConn
 	clock  clock.Clock
@@ -247,13 +247,12 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		host = dialResult.addr
 	}
 
-	pingerFacadeVersions := FacadeVersions["Pinger"]
+	pingerFacadeVersions := facadeVersions["Pinger"]
 	if len(pingerFacadeVersions) == 0 {
 		return nil, errors.Errorf("pinger facade version is required")
 	}
 
 	c := &conn{
-		ctx:                 context.Background(),
 		client:              client,
 		conn:                dialResult.conn,
 		clock:               opts.Clock,
@@ -323,12 +322,10 @@ func PerferredHost(info *Info) string {
 
 // loginWithContext wraps conn.Login with code that terminates
 // if the context is cancelled.
-// TODO(rogpeppe) pass Context into Login (and all API calls) so
-// that this becomes unnecessary.
 func loginWithContext(ctx context.Context, st *conn, info *Info) error {
 	result := make(chan error, 1)
 	go func() {
-		result <- st.Login(info.Tag, info.Password, info.Nonce, info.Macaroons)
+		result <- st.Login(ctx, info.Tag, info.Password, info.Nonce, info.Macaroons)
 	}()
 	select {
 	case err := <-result:
@@ -358,20 +355,15 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return t.fallback.RoundTrip(req)
 }
 
-// Context returns the context associated with this conn.
-func (c *conn) Context() context.Context {
-	return c.ctx
-}
-
 // ConnectStream implements StreamConnector.ConnectStream. The stream
 // returned will apply a 30-second write deadline, so WriteJSON should
 // only be called from one goroutine.
-func (c *conn) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+func (c *conn) ConnectStream(ctx context.Context, path string, attrs url.Values) (base.Stream, error) {
 	path, err := apiPath(c.modelTag.Id(), path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.connectStreamWithRetry(path, attrs, nil)
+	conn, err := c.connectStreamWithRetry(ctx, path, attrs, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -383,21 +375,21 @@ func (c *conn) ConnectStream(path string, attrs url.Values) (base.Stream, error)
 // endpoint needs one) can be specified in the headers. The stream
 // returned will apply a 30-second write deadline, so WriteJSON should
 // only be called from one goroutine.
-func (c *conn) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (c *conn) ConnectControllerStream(ctx context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	if !strings.HasPrefix(path, "/") {
 		return nil, errors.Errorf("path %q is not absolute", path)
 	}
 	if strings.HasPrefix(path, modelRoot) {
 		return nil, errors.Errorf("path %q is model-specific", path)
 	}
-	conn, err := c.connectStreamWithRetry(path, attrs, headers)
+	conn, err := c.connectStreamWithRetry(ctx, path, attrs, headers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return conn, nil
 }
 
-func (c *conn) connectStreamWithRetry(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (c *conn) connectStreamWithRetry(ctx context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	if !c.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
 	}
@@ -414,7 +406,7 @@ func (c *conn) connectStreamWithRetry(path string, attrs url.Values, headers htt
 	if params.ErrCode(err) != params.CodeDischargeRequired {
 		return nil, errors.Trace(err)
 	}
-	if err := c.bakeryClient.HandleError(c.ctx, c.cookieURL, bakeryError(err)); err != nil {
+	if err := c.bakeryClient.HandleError(ctx, c.cookieURL, bakeryError(err)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Try again with the discharged macaroon.
@@ -638,7 +630,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	addrs := info.Addrs[:]
 
 	if info.Proxier != nil {
-		if err := info.Proxier.Start(); err != nil {
+		if err := info.Proxier.Start(ctx); err != nil {
 			return nil, errors.Annotate(err, "starting proxy for api connection")
 		}
 		logger.Debugf("starting proxier for connection")
@@ -1288,13 +1280,16 @@ func (c *conn) Broken() <-chan struct{} {
 }
 
 // IsBroken implements api.Connection.
-func (c *conn) IsBroken() bool {
+func (c *conn) IsBroken(ctx context.Context) bool {
 	select {
 	case <-c.broken:
 		return true
+	case <-ctx.Done():
+		logger.Debugf("connection ping context expired")
+		return true
 	default:
 	}
-	if err := c.ping(context.TODO()); err != nil {
+	if err := c.ping(ctx); err != nil {
 		logger.Debugf("connection ping failed: %v", err)
 		return true
 	}
@@ -1365,7 +1360,7 @@ func (c *conn) PublicDNSName() string {
 // Facade we will want to use. It needs to line up the versions that the server
 // reports to us, with the versions that our client knows how to use.
 func (c *conn) BestFacadeVersion(facade string) int {
-	return bestVersion(FacadeVersions[facade], c.facadeVersions[facade])
+	return facades.BestVersion(facadeVersions[facade], c.facadeVersions[facade])
 }
 
 // serverRoot returns the cached API server address and port used

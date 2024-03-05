@@ -4,7 +4,7 @@
 package cloud
 
 import (
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"

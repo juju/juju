@@ -4,11 +4,11 @@
 package uniter_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -89,7 +90,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
-	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 // setupState creates 2 machines, 2 services and adds a unit to each service.
@@ -132,15 +133,15 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	})
 }
 
-func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.Context {
-	return facadetest.Context{
+func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
+	return facadetest.ModelContext{
 		State_:             s.ControllerModel(c).State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    s.DefaultModelServiceFactory(c),
-		ObjectStore_:       testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
+		ObjectStore_:       testing.NewObjectStore(c, s.ControllerModelUUID()),
 	}
 }
 
@@ -149,7 +150,7 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
-	uniterAPI, err := uniter.NewUniterAPI(facadeContext)
+	uniterAPI, err := uniter.NewUniterAPI(context.Background(), facadeContext)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
 }
@@ -201,7 +202,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 		Tag: unit.Tag(),
 	}
 
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

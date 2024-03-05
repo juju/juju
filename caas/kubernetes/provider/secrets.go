@@ -33,6 +33,7 @@ func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
 
 // ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries.
 func (k *kubernetesClient) ensureOCIImageSecret(
+	ctx context.Context,
 	name string,
 	labels map[string]string,
 	secretData []byte,
@@ -50,21 +51,21 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 		},
 	}
 	logger.Debugf("ensuring docker secret %q", name)
-	return k.ensureSecret(newSecret)
+	return k.ensureSecret(ctx, newSecret)
 }
 
-func (k *kubernetesClient) ensureSecret(sec *core.Secret) (func(), error) {
+func (k *kubernetesClient) ensureSecret(ctx context.Context, sec *core.Secret) (func(), error) {
 	cleanUp := func() {}
-	out, err := k.createSecret(sec)
+	out, err := k.createSecret(ctx, sec)
 	if err == nil {
 		logger.Debugf("secret %q created", out.GetName())
-		cleanUp = func() { _ = k.deleteSecret(out.GetName(), out.GetUID()) }
+		cleanUp = func() { _ = k.deleteSecret(ctx, out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
 	if !errors.Is(err, errors.AlreadyExists) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listSecrets(sec.GetLabels())
+	_, err = k.listSecrets(ctx, sec.GetLabels())
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// sec.Name is already used for an existing secret.
@@ -72,17 +73,17 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) (func(), error) {
 		}
 		return cleanUp, errors.Trace(err)
 	}
-	err = k.updateSecret(sec)
+	err = k.updateSecret(ctx, sec)
 	logger.Debugf("updating secret %q", sec.GetName())
 	return cleanUp, errors.Trace(err)
 }
 
 // updateSecret updates a secret resource.
-func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
+func (k *kubernetesClient) updateSecret(ctx context.Context, sec *core.Secret) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	_, err := k.client().CoreV1().Secrets(k.namespace).Update(context.TODO(), sec, v1.UpdateOptions{})
+	_, err := k.client().CoreV1().Secrets(k.namespace).Update(ctx, sec, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("secret %q", sec.GetName())
 	}
@@ -90,11 +91,11 @@ func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
 }
 
 // getSecret return a secret resource.
-func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
+func (k *kubernetesClient) getSecret(ctx context.Context, secretName string) (*core.Secret, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(context.TODO(), secretName, v1.GetOptions{})
+	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("secret %q", secretName)
@@ -105,12 +106,12 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 }
 
 // createSecret creates a secret resource.
-func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, error) {
+func (k *kubernetesClient) createSecret(ctx context.Context, secret *core.Secret) (*core.Secret, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
 	utils.PurifyResource(secret)
-	out, err := k.client().CoreV1().Secrets(k.namespace).Create(context.TODO(), secret, v1.CreateOptions{})
+	out, err := k.client().CoreV1().Secrets(k.namespace).Create(ctx, secret, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("secret %q", secret.GetName())
 	}
@@ -118,25 +119,25 @@ func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, erro
 }
 
 // deleteSecret deletes a secret resource.
-func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error {
+func (k *kubernetesClient) deleteSecret(ctx context.Context, secretName string, uid types.UID) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	err := k.client().CoreV1().Secrets(k.namespace).Delete(context.TODO(), secretName, utils.NewPreconditionDeleteOptions(uid))
+	err := k.client().CoreV1().Secrets(k.namespace).Delete(ctx, secretName, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret, error) {
+func (k *kubernetesClient) listSecrets(ctx context.Context, labels map[string]string) ([]core.Secret, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
 	listOps := v1.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labels).String(),
 	}
-	secList, err := k.client().CoreV1().Secrets(k.namespace).List(context.TODO(), listOps)
+	secList, err := k.client().CoreV1().Secrets(k.namespace).List(ctx, listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -149,8 +150,8 @@ func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret,
 var timeoutForSecretTokenGet = 10 * time.Second
 
 // GetSecretToken returns the token content for the specified secret name.
-func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), timeoutForSecretTokenGet)
+func (k *kubernetesClient) GetSecretToken(ctx context.Context, name string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeoutForSecretTokenGet)
 	defer cancel()
 
 	secret, err := proxy.FetchTokenReadySecret(
@@ -168,7 +169,7 @@ func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
 // GetJujuSecret implements SecretsStore.
 func (k *kubernetesClient) GetJujuSecret(ctx context.Context, backendId string) (secrets.SecretValue, error) {
 	// backendId is the secret name.
-	secret, err := k.getSecret(backendId)
+	secret, err := k.getSecret(ctx, backendId)
 	if k8serrors.IsForbidden(err) {
 		logger.Tracef("getting secret %q: %v", backendId, err)
 		return nil, errors.Unauthorizedf("cannot access %q", backendId)
@@ -208,7 +209,7 @@ func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, valu
 // DeleteJujuSecret implements SecretsStore.
 func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, backendId string) error {
 	// backendId is the secret name.
-	secret, err := k.getSecret(backendId)
+	secret, err := k.getSecret(ctx, backendId)
 	if k8serrors.IsForbidden(err) {
 		logger.Tracef("deleting secret %q: %v", backendId, err)
 		return errors.Unauthorizedf("cannot access %q", backendId)

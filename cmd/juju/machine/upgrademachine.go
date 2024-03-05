@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/names/v5"
+	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/client"
@@ -259,7 +259,7 @@ func (c *upgradeMachineCommand) trapInterrupt(ctx *cmd.Context) func() {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 
-	cancelCtx, cancel := context.WithCancel(context.TODO())
+	cancelCtx, cancel := context.WithCancel(ctx)
 	go func() {
 		for range interrupted {
 			select {

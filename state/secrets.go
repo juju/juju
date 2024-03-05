@@ -14,7 +14,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/tomb.v2"
 
@@ -94,6 +94,7 @@ type SecretsStore interface {
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
+	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -397,6 +398,13 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		if p.Label != nil && *p.Label != metadataDoc.Label {
 			// OwnerTag has already been validated.
 			owner, _ := names.ParseTag(metadataDoc.OwnerTag)
+			if metadataDoc.Label != "" {
+				removeOldLabelOps, err := s.st.removeOwnerSecretLabelOps(owner, metadataDoc.Label)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, removeOldLabelOps...)
+			}
 			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(owner, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -860,6 +868,38 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	return errors.Trace(err)
 }
 
+// SecretGrants returns the list of access information of the secret for the specified role.
+func (s *secretsStore) SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error) {
+	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
+	defer closer()
+
+	if err := s.st.checkExists(uri); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var docs []secretPermissionDoc
+	err := secretPermissionsCollection.Find(
+		bson.M{
+			"_id": bson.M{
+				"$regex": fmt.Sprintf("%s#.*", uri.ID),
+			},
+			"role": role,
+		},
+	).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot retrieve secret permissions for %s", uri.String())
+	}
+	var results []secrets.AccessInfo
+	for _, doc := range docs {
+		results = append(results, secrets.AccessInfo{
+			Target: doc.Subject,
+			Scope:  doc.Scope,
+			Role:   secrets.SecretRole(doc.Role),
+		})
+	}
+	return results, nil
+}
+
 // GetSecret gets the secret metadata for the specified URL.
 func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, error) {
 	if uri == nil {
@@ -1279,18 +1319,28 @@ func (st *State) uniqueSecretConsumerLabelOps(consumerTag names.Tag, label strin
 	return append(ops, ops2...), nil
 }
 
+// uniqueSecretLabelBaseOps is used when creating or updating a secret with an owner label, or
+// when saving a secret consumer record. It checks that the label is not used twice:
+// - a unit of the same application consuming an application owned secret cannot use the same label
+// as is used in the secret metadata of any application owned secret.
+// The check is done when creating a new application owned secret, or saving a consumer record.
 func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []txn.Op, _ error) {
 	col, close := st.db().GetCollection(refcountsC)
 	defer close()
 
-	var keyPattern string
+	var (
+		keyPattern string
+		errorMsg   string
+	)
+
 	switch tag := tag.(type) {
 	case names.ApplicationTag:
-		// Ensure no units use this label for both owner and consumer label..
+		// Ensure no units use this label for both owner and consumer label.
 		keyPattern = fmt.Sprintf(
 			"^%s:(%s|%s)#unit-%s-[0-9]+#%s$",
 			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, tag.Name, label,
 		)
+		errorMsg = fmt.Sprintf("secret label %q for a unit of application %q already exists", label, tag.Name)
 	case names.UnitTag:
 		// Ensure no application owned secret uses this label.
 		applicationName, _ := names.UnitApplication(tag.Id())
@@ -1300,8 +1350,10 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 			"^%s:(%s|%s)#%s#%s$",
 			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, appTag.String(), label,
 		)
+		errorMsg = fmt.Sprintf("secret label %q for application %q already exists", label, applicationName)
 	case names.ModelTag:
 		keyPattern = fmt.Sprintf("^%s:%s#%s#%s$", st.ModelUUID(), secretOwnerLabelKeyPrefix, tag.String(), label)
+		errorMsg = fmt.Sprintf("user secret label %q already exists", label)
 	default:
 		return nil, errors.NotSupportedf("tag type %T", tag)
 	}
@@ -1311,7 +1363,7 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 		return nil, errors.Trace(err)
 	}
 	if count > 0 {
-		return nil, errors.WithType(errors.Errorf("secret label %q for %q already exists", label, tag), LabelExists)
+		return nil, errors.WithType(errors.New(errorMsg), LabelExists)
 	}
 
 	return []txn.Op{
@@ -1346,11 +1398,34 @@ func (st *State) uniqueSecretLabelOpsRaw(tag names.Tag, label, role string, keyG
 	return []txn.Op{countOp, incOp}, nil
 }
 
-func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error) {
+func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag, label string) ([]txn.Op, error) {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+
+	key := secretOwnerLabelKey(ownerTag, label)
+	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count == 0 {
+		return []txn.Op{countOp}, nil
+	}
+
+	return []txn.Op{
+		{
+			C:      refcountsC,
+			Id:     secretOwnerLabelKey(ownerTag, label),
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}, nil
+}
+
+func (st *State) removeOwnerSecretLabelsOps(ownerTag names.Tag) ([]txn.Op, error) {
 	return st.removeSecretLabelOps(ownerTag, secretOwnerLabelKey)
 }
 
-func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, error) {
+func (st *State) removeConsumerSecretLabelsOps(consumerTag names.Tag) ([]txn.Op, error) {
 	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
 }
 

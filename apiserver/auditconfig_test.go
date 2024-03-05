@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +19,8 @@ import (
 	servertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing/factory"
@@ -48,23 +51,35 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		Target:  log,
 	}
 
+	userTag := names.NewUserTag("bobbrown")
+	password := "shhh..."
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	password := "shhh..."
-	user := f.MakeUser(c, &factory.UserParams{
-		Password: password,
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
 	})
 	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:       user.Tag().String(),
+		AuthTag:       userTag.String(),
 		Credentials:   password,
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
 	loginTime := s.Clock.Now()
-	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err = conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	// Nothing's logged at this point because there haven't been any
@@ -95,7 +110,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		return math.Abs(t.Sub(loginTime).Seconds()) < 1.0
 	})
 	c.Assert(convo, mc, auditlog.Conversation{
-		Who:       user.Tag().Id(),
+		Who:       userTag.Id(),
 		What:      "hey you guys",
 		ModelName: "controller",
 		ModelUUID: s.ControllerModelUUID(),
@@ -128,22 +143,34 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) 
 		Target:  log,
 	}
 
+	userTag := names.NewUserTag("bobbrown")
+	password := "shhh..."
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	password := "shhh..."
-	user := f.MakeUser(c, &factory.UserParams{
-		Password: password,
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
 	})
 	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:       user.Tag().String(),
+		AuthTag:       userTag.String(),
 		Credentials:   password,
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err = conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	// No error yet since logging the conversation is deferred until
 	// something happens.
 	c.Assert(err, jc.ErrorIsNil)
@@ -166,22 +193,34 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 		Target:         log,
 	}
 
+	userTag := names.NewUserTag("bobbrown")
+	password := "shhh..."
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	password := "shhh..."
-	user := f.MakeUser(c, &factory.UserParams{
-		Password: password,
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
 	})
 	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:       user.Tag().String(),
+		AuthTag:       userTag.String(),
 		Credentials:   password,
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err = conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	// Nothing's logged at this point because there haven't been any

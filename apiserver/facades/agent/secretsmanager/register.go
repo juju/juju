@@ -4,12 +4,11 @@
 package secretsmanager
 
 import (
-	stdContext "context"
 	"reflect"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/api"
@@ -21,25 +20,25 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/apicaller"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SecretsManager", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return NewSecretManagerAPIV1(ctx)
+	registry.MustRegister("SecretsManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return NewSecretManagerAPIV1(stdCtx, ctx)
 	}, reflect.TypeOf((*SecretsManagerAPIV1)(nil)))
-	registry.MustRegister("SecretsManager", 2, func(ctx facade.Context) (facade.Facade, error) {
-		return NewSecretManagerAPI(ctx)
+	registry.MustRegister("SecretsManager", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return NewSecretManagerAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
 }
 
 // NewSecretManagerAPIV1 creates a SecretsManagerAPIV1.
 // TODO - drop when we no longer support juju 3.1.x
-func NewSecretManagerAPIV1(context facade.Context) (*SecretsManagerAPIV1, error) {
-	api, err := NewSecretManagerAPI(context)
+func NewSecretManagerAPIV1(stdCtx context.Context, context facade.ModelContext) (*SecretsManagerAPIV1, error) {
+	api, err := NewSecretManagerAPI(stdCtx, context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -47,7 +46,7 @@ func NewSecretManagerAPIV1(context facade.Context) (*SecretsManagerAPIV1, error)
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
-func NewSecretManagerAPI(ctx facade.Context) (*SecretsManagerAPI, error) {
+func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*SecretsManagerAPI, error) {
 	if !ctx.Auth().AuthUnitAgent() && !ctx.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -61,16 +60,15 @@ func NewSecretManagerAPI(ctx facade.Context) (*SecretsManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	stdCtx := context.Background()
 	cloudService := serviceFactory.Cloud()
 	credentialSerivce := serviceFactory.Credential()
-	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
+	secretBackendConfigGetter := func(stdCtx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), true, cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
-	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce)
 	}
-	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+	secretBackendDrainConfigGetter := func(stdCtx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), cloudService, credentialSerivce, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	controllerAPI := common.NewControllerConfigAPI(
@@ -78,8 +76,8 @@ func NewSecretManagerAPI(ctx facade.Context) (*SecretsManagerAPI, error) {
 		serviceFactory.ControllerConfig(),
 		serviceFactory.ExternalController(),
 	)
-	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
-		info, err := controllerAPI.ControllerAPIInfoForModels(stdContext.TODO(), params.Entities{Entities: []params.Entity{{
+	remoteClientGetter := func(stdCtx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error) {
+		info, err := controllerAPI.ControllerAPIInfoForModels(stdCtx, params.Entities{Entities: []params.Entity{{
 			Tag: names.NewModelTag(uri.SourceUUID).String(),
 		}}})
 		if err != nil {
@@ -113,12 +111,13 @@ func NewSecretManagerAPI(ctx facade.Context) (*SecretsManagerAPI, error) {
 		secretsTriggers:     ctx.State(),
 		secretsConsumer:     ctx.State(),
 		clock:               clock.WallClock,
+		controllerUUID:      ctx.State().ControllerUUID(),
 		modelUUID:           ctx.State().ModelUUID(),
 		backendConfigGetter: secretBackendConfigGetter,
 		adminConfigGetter:   secretBackendAdminConfigGetter,
 		drainConfigGetter:   secretBackendDrainConfigGetter,
 		remoteClientGetter:  remoteClientGetter,
 		crossModelState:     ctx.State().RemoteEntities(),
-		logger:              ctx.Logger().ChildWithLabels("secretsmanager", corelogger.SECRETS),
+		logger:              ctx.Logger().ChildWithTags("secretsmanager", corelogger.SECRETS),
 	}, nil
 }

@@ -5,7 +5,7 @@ package engine
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	tomb "gopkg.in/tomb.v2"
 )
 

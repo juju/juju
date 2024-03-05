@@ -29,22 +29,23 @@ const (
 	Error
 )
 
+// States holds all the possible states.
+var States = map[State]string{
+	Created:        "created",
+	Started:        "started",
+	DBCompleted:    "db-completed",
+	StepsCompleted: "steps-completed",
+	Error:          "error",
+}
+
 // ParseState returns the state from a string.
 func ParseState(str string) (State, error) {
-	switch str {
-	case "created":
-		return Created, nil
-	case "started":
-		return Started, nil
-	case "db-completed":
-		return DBCompleted, nil
-	case "steps-completed":
-		return StepsCompleted, nil
-	case "error":
-		return Error, nil
-	default:
-		return 0, errors.Errorf("unknown state %q", str)
+	for state, s := range States {
+		if s == str {
+			return state, nil
+		}
 	}
+	return 0, errors.Errorf("unknown state %q", str)
 }
 
 // TransitionTo returns an error if the transition is not allowed.
@@ -82,20 +83,10 @@ func (s State) IsTerminal() bool {
 }
 
 func (s State) String() string {
-	switch s {
-	case Created:
-		return "created"
-	case Started:
-		return "started"
-	case DBCompleted:
-		return "db-completed"
-	case StepsCompleted:
-		return "steps-completed"
-	case Error:
-		return "error"
-	default:
-		return "unknown"
+	if str, ok := States[s]; ok {
+		return str
 	}
+	return "unknown"
 }
 
 // Info holds the information about database upgrade

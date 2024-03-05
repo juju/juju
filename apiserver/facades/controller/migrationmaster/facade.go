@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
@@ -29,7 +29,11 @@ import (
 
 // ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
-	ExportModel(ctx context.Context, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
+	// ExportModel exports a model to a description.Model.
+	// It requires a known set of leaders to be passed in, so that applications
+	// can have their leader set correctly once imported.
+	// The objectstore is used to retrieve charms and resources for export.
+	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
 }
 
 // UpgradeService provides a subset of the upgrade domain service methods.
@@ -49,7 +53,7 @@ type API struct {
 	authorizer              facade.Authorizer
 	resources               facade.Resources
 	presence                facade.Presence
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
+	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
@@ -68,7 +72,7 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
@@ -163,7 +167,7 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		return empty, errors.Annotate(err, "retrieving model owner")
 	}
 
-	vers, err := api.backend.AgentVersion()
+	vers, err := api.backend.AgentVersion(ctx)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving agent version")
 	}

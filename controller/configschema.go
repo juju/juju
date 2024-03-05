@@ -6,7 +6,6 @@ package controller
 import (
 	"fmt"
 
-	"github.com/juju/romulus"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 )
@@ -41,7 +40,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AgentLogfileMaxSize:              schema.String(),
 	ModelLogfileMaxBackups:           schema.ForceInt(),
 	ModelLogfileMaxSize:              schema.String(),
-	ModelLogsSize:                    schema.String(),
 	PruneTxnQueryCount:               schema.ForceInt(),
 	PruneTxnSleepTime:                schema.TimeDurationString(),
 	PublicDNSAddress:                 schema.String(),
@@ -50,7 +48,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:            schema.String(),
 	CAASImageRepo:                    schema.String(),
 	Features:                         schema.String(),
-	MeteringURL:                      schema.String(),
 	MaxCharmStateSize:                schema.ForceInt(),
 	MaxAgentStateSize:                schema.ForceInt(),
 	MigrationMinionWaitMax:           schema.TimeDurationString(),
@@ -64,6 +61,12 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryStackTraces:         schema.Bool(),
 	OpenTelemetrySampleRatio:         schema.String(),
 	ObjectStoreType:                  schema.String(),
+	ObjectStoreS3Endpoint:            schema.String(),
+	ObjectStoreS3StaticKey:           schema.String(),
+	ObjectStoreS3StaticSecret:        schema.String(),
+	ObjectStoreS3StaticSession:       schema.String(),
+	SystemSSHKeys:                    schema.String(),
+	JujudControllerSnapSource:        schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -94,7 +97,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AgentLogfileMaxSize:              fmt.Sprintf("%vM", DefaultAgentLogfileMaxSize),
 	ModelLogfileMaxBackups:           DefaultModelLogfileMaxBackups,
 	ModelLogfileMaxSize:              fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
-	ModelLogsSize:                    fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
 	PruneTxnQueryCount:               DefaultPruneTxnQueryCount,
 	PruneTxnSleepTime:                DefaultPruneTxnSleepTime,
 	PublicDNSAddress:                 schema.Omit,
@@ -103,7 +105,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:            schema.Omit,
 	CAASImageRepo:                    schema.Omit,
 	Features:                         schema.Omit,
-	MeteringURL:                      romulus.DefaultAPIRoot,
 	MaxCharmStateSize:                DefaultMaxCharmStateSize,
 	MaxAgentStateSize:                DefaultMaxAgentStateSize,
 	MigrationMinionWaitMax:           DefaultMigrationMinionWaitMax,
@@ -117,6 +118,12 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryStackTraces:         DefaultOpenTelemetryStackTraces,
 	OpenTelemetrySampleRatio:         fmt.Sprintf("%.02f", DefaultOpenTelemetrySampleRatio),
 	ObjectStoreType:                  schema.Omit,
+	ObjectStoreS3Endpoint:            schema.Omit,
+	ObjectStoreS3StaticKey:           schema.Omit,
+	ObjectStoreS3StaticSecret:        schema.Omit,
+	ObjectStoreS3StaticSession:       schema.Omit,
+	SystemSSHKeys:                    schema.Omit,
+	JujudControllerSnapSource:        DefaultJujudControllerSnapSource,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -251,10 +258,6 @@ they don't have any access rights to the controller itself`,
 		Type:        environschema.Tstring,
 		Description: `The maximum size of the log file written out by the controller on behalf of workers running for a model`,
 	},
-	ModelLogsSize: {
-		Type:        environschema.Tstring,
-		Description: `The size of the capped collections used to hold the logs for the models`,
-	},
 	PruneTxnQueryCount: {
 		Type:        environschema.Tint,
 		Description: `The number of transactions to read in a single query`,
@@ -287,10 +290,6 @@ Use "caas-image-repo" instead.`,
 	Features: {
 		Type:        environschema.Tstring,
 		Description: `A comma-delimited list of runtime changeable features to be updated`,
-	},
-	MeteringURL: {
-		Type:        environschema.Tstring,
-		Description: `The url for metrics`,
 	},
 	MaxCharmStateSize: {
 		Type:        environschema.Tint,
@@ -337,5 +336,29 @@ will be output if tracing is enabled.`,
 	ObjectStoreType: {
 		Type:        environschema.Tstring,
 		Description: `The type of object store backend to use for storing blobs`,
+	},
+	ObjectStoreS3Endpoint: {
+		Type:        environschema.Tstring,
+		Description: `The s3 endpoint for the object store backend`,
+	},
+	ObjectStoreS3StaticKey: {
+		Type:        environschema.Tstring,
+		Description: `The s3 static key for the object store backend`,
+	},
+	ObjectStoreS3StaticSecret: {
+		Type:        environschema.Tstring,
+		Description: `The s3 static secret for the object store backend`,
+	},
+	ObjectStoreS3StaticSession: {
+		Type:        environschema.Tstring,
+		Description: `The s3 static session for the object store backend`,
+	},
+	SystemSSHKeys: {
+		Type:        environschema.Tstring,
+		Description: `Defines the system ssh keys`,
+	},
+	JujudControllerSnapSource: {
+		Type:        environschema.Tstring,
+		Description: `The source for the jujud-controller snap.`,
 	},
 }

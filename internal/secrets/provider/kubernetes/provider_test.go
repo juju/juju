@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -32,7 +32,7 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
-func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud bool) {
+func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud, sameController bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -44,7 +44,7 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 	s.PatchEnvironment("KUBERNETES_SERVICE_PORT", "8888")
 
 	broker.EXPECT().EnsureSecretAccessToken(
-		tag, []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, nil,
+		gomock.Any(), tag, []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, nil,
 	).Return("token", nil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
@@ -64,7 +64,7 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 		},
 	}
 
-	backendCfg, err := p.RestrictedConfig(adminCfg, false, tag,
+	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, sameController, false, tag,
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
@@ -78,19 +78,25 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 			"is-controller-cloud": isControllerCloud,
 		},
 	}
-	if isControllerCloud {
+	if isControllerCloud && sameController {
 		expected.Config["endpoint"] = "https://8.6.8.6:8888"
+		expected.Config["is-controller-cloud"] = false
+	} else {
 		expected.Config["is-controller-cloud"] = false
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
 }
 
 func (s *providerSuite) TestRestrictedConfigWithTag(c *gc.C) {
-	s.assertRestrictedConfigWithTag(c, false)
+	s.assertRestrictedConfigWithTag(c, false, false)
 }
 
 func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloud(c *gc.C) {
-	s.assertRestrictedConfigWithTag(c, true)
+	s.assertRestrictedConfigWithTag(c, true, true)
+}
+
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentController(c *gc.C) {
+	s.assertRestrictedConfigWithTag(c, true, false)
 }
 
 func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
@@ -121,11 +127,11 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 
 	gomock.InOrder(
 		broker.EXPECT().EnsureSecretAccessToken(
-			tag, nil, nil, []string{"rev-1", "rev-2"},
+			gomock.Any(), tag, nil, nil, []string{"rev-1", "rev-2"},
 		).Return("token", nil),
 	)
 
-	err = p.CleanupSecrets(adminCfg, tag, provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
+	err = p.CleanupSecrets(context.Background(), adminCfg, tag, provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

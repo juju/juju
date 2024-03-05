@@ -10,7 +10,7 @@ import (
 	"net/url"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -45,11 +45,12 @@ type APICaller interface {
 	// method should not include a host part.
 	HTTPClient() (*httprequest.Client, error)
 
+	// RootHTTPClient returns an httprequest.Client pointing to
+	// the API server root path.
+	RootHTTPClient() (*httprequest.Client, error)
+
 	// BakeryClient returns the bakery client for this connection.
 	BakeryClient() MacaroonDischarger
-
-	// Context returns the standard context for this connection.
-	Context() context.Context
 
 	StreamConnector
 	ControllerStreamConnector
@@ -72,7 +73,7 @@ type StreamConnector interface {
 	// when making the initial HTTP request.
 	//
 	// The path must start with a "/".
-	ConnectStream(path string, attrs url.Values) (Stream, error)
+	ConnectStream(ctx context.Context, path string, attrs url.Values) (Stream, error)
 }
 
 // ControllerStreamConnector is implemented by the client-facing State object.
@@ -84,7 +85,7 @@ type ControllerStreamConnector interface {
 	// request.
 	//
 	// The path must be absolute and can't start with "/model".
-	ConnectControllerStream(path string, attrs url.Values, headers http.Header) (Stream, error)
+	ConnectControllerStream(ctx context.Context, path string, attrs url.Values, headers http.Header) (Stream, error)
 }
 
 // Stream represents a streaming connection to the API.
@@ -145,15 +146,10 @@ func NewFacadeCaller(caller APICaller, facadeName string, options ...Option) Fac
 // NewFacadeCallerForVersion wraps an APICaller for a given facade
 // name and version.
 func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int, options ...Option) FacadeCaller {
-	// Derive the context from the API caller context if it's available. The
-	// default will be a noop tracer if none is found.
-	tracer, _ := coretrace.TracerFromContext(caller.Context())
-
 	fc := facadeCaller{
 		facadeName:  facadeName,
 		bestVersion: version,
 		caller:      caller,
-		tracer:      tracer,
 	}
 
 	for _, option := range options {

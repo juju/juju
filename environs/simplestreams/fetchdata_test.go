@@ -5,6 +5,7 @@ package simplestreams_test
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	jc "github.com/juju/testing/checkers"
@@ -130,14 +131,14 @@ func (s *fetchDataSuite) setupDataSource(key string) {
 }
 
 func (s *fetchDataSuite) assertFetchData(c *gc.C) {
-	data, _, err := simplestreams.FetchData(s.source, "this.path.doesnt.matter.for.test.either", s.requireSigned)
+	data, _, err := simplestreams.FetchData(context.Background(), s.source, "this.path.doesnt.matter.for.test.either", s.requireSigned)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert([]byte(s.expectedData), gc.DeepEquals, data)
 	s.source.CheckCallNames(c, s.expectedCalls...)
 }
 
 func (s *fetchDataSuite) assertFetchDataFail(c *gc.C, msg string) {
-	data, _, err := simplestreams.FetchData(s.source, "this.path.doesnt.matter.for.test.either", s.requireSigned)
+	data, _, err := simplestreams.FetchData(context.Background(), s.source, "this.path.doesnt.matter.for.test.either", s.requireSigned)
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(data, gc.IsNil)
 	s.source.CheckCallNames(c, s.expectedCalls...)

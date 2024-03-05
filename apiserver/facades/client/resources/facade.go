@@ -6,20 +6,20 @@ package resources
 import (
 	"context"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/charm/repository"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/rpc/params"
 )
@@ -47,7 +47,7 @@ type API struct {
 
 // NewFacade creates a public API facade for resources. It is
 // used for API registration.
-func NewFacade(ctx facade.Context) (*API, error) {
+func NewFacade(ctx facade.ModelContext) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -72,14 +72,14 @@ func NewFacade(ctx facade.Context) (*API, error) {
 		case charm.CharmHub.Matches(schema):
 			chURL, _ := modelCfg.CharmHubURL()
 			chClient, err := charmhub.NewClient(charmhub.Config{
-				URL:        chURL,
-				HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
-				Logger:     logger,
+				URL:           chURL,
+				HTTPClient:    ctx.HTTPClient(facade.CharmhubHTTPClient),
+				LoggerFactory: charmhub.LoggoLoggerFactory(logger),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return repository.NewCharmHubRepository(logger.ChildWithLabels("charmhub", corelogger.CHARMHUB), chClient), nil
+			return repository.NewCharmHubRepository(logger.ChildWithTags("charmhub", corelogger.CHARMHUB), chClient), nil
 
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil
@@ -225,14 +225,14 @@ func (a *API) addPendingResource(appName string, chRes charmresource.Resource) (
 }
 
 func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) { // note the concrete error type
-	ApplicationTag, err := names.ParseApplicationTag(tagStr)
+	applicationTag, err := names.ParseApplicationTag(tagStr)
 	if err != nil {
-		return ApplicationTag, &params.Error{
+		return applicationTag, &params.Error{
 			Message: err.Error(),
 			Code:    params.CodeBadRequest,
 		}
 	}
-	return ApplicationTag, nil
+	return applicationTag, nil
 }
 
 func errorResult(err error) params.ResourcesResult {

@@ -8,7 +8,7 @@ import (
 	"io"
 
 	"github.com/juju/ansiterm"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/core/status"
 )
@@ -152,12 +152,10 @@ type PrintWriter struct {
 
 // Printf writes each value.
 func (w *PrintWriter) Printf(ctx *ansiterm.Context, format string, values ...interface{}) {
-	for _, v := range values {
-		if ctx != nil {
-			ctx.Fprintf(w, format, v) //if ctx != nil {"%v" =format
-		} else {
-			fmt.Fprintf(w, format, v)
-		}
+	if ctx != nil {
+		ctx.Fprintf(w, format, values...) //if ctx != nil {"%v" =format
+	} else {
+		fmt.Fprintf(w, format, values...)
 	}
 }
 

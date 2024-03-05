@@ -49,8 +49,7 @@ func DeploymentScalePatcher(deploy apps.DeploymentInterface) ScalePatcher {
 		deployment, err := deploy.Patch(c, n, p, d, o, s...)
 		if k8serrors.IsNotFound(err) {
 			return 0, errors.NotFoundf("deployment %q", n)
-		}
-		if err != nil {
+		} else if err != nil {
 			return 0, errors.Annotatef(err, "scale patching deployment %q", n)
 		}
 		return *deployment.Spec.Replicas, nil
@@ -96,9 +95,6 @@ func PatchReplicasToScale(
 		patch,
 		meta.PatchOptions{},
 	)
-	if k8serrors.IsNotFound(err) {
-		return errors.NewNotFound(err, name)
-	}
 	if err != nil {
 		return errors.Annotatef(err, "setting scale to %d for %q", scale, name)
 	}
@@ -124,8 +120,7 @@ func StatefulSetScalePatcher(stateSet apps.StatefulSetInterface) ScalePatcher {
 		ss, err := stateSet.Patch(c, n, p, d, o, s...)
 		if k8serrors.IsNotFound(err) {
 			return 0, errors.NotFoundf("statefulset %q", n)
-		}
-		if err != nil {
+		} else if err != nil {
 			return 0, errors.Annotatef(err, "scale patching statefulset %q", n)
 		}
 		return *ss.Spec.Replicas, nil

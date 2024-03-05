@@ -6,7 +6,7 @@ package state_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
@@ -40,7 +40,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	var err error
 
 	// Add machine
-	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add first container
 	s.c1, err = s.State.AddMachineInsideMachine(state.MachineTemplate{

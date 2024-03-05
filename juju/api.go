@@ -9,8 +9,8 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/network"
@@ -46,6 +46,9 @@ type NewAPIConnectionParams struct {
 	// will be scoped to the model with that UUID; otherwise it will be
 	// scoped to the controller.
 	ModelUUID string
+
+	// APIEndpoints, if set, override any other api endpoints.
+	APIEndpoints []string
 }
 
 var errNoAddresses = errors.ConstError("no API addresses")
@@ -189,6 +192,9 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		Addrs:          controller.APIEndpoints,
 		CACert:         controller.CACert,
 		ControllerUUID: controller.ControllerUUID,
+	}
+	if len(args.APIEndpoints) > 0 {
+		apiInfo.Addrs = args.APIEndpoints
 	}
 	if controller.Proxy != nil {
 		apiInfo.Proxier = controller.Proxy.Proxier

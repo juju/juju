@@ -4,12 +4,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -55,7 +54,7 @@ func prepare(ctx *cmd.Context, controllerName string, store jujuclient.ClientSto
 	// identify region and endpoint info that we need. Not sure what
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
-	return environs.New(context.TODO(), environs.OpenParams{
+	return environs.New(ctx, environs.OpenParams{
 		Cloud:  params.Cloud,
 		Config: cfg,
 	})
@@ -258,7 +257,7 @@ func (c *imageMetadataCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(fetcher, base, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(ctx, fetcher, base, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return errors.Errorf("image metadata files could not be created: %v", err)
 	}

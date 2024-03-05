@@ -18,12 +18,16 @@ import (
 	"os"
 	"os/user"
 	"time"
+
+	"github.com/canonical/lxd/shared/api"
+
+	"github.com/juju/juju/core/instance"
 )
 
 // The following file exists because we can no longer import the
-// github.com/lxc/lxd/shared package when we build with CGO_ENABLED=1. Using
-// CGO will then compile in some lxc/lxd C code, which causes problems when
-// attempting to cross-compile.
+// github.com/canonical/lxd/shared package when we build with CGO_ENABLED=1.
+// Using CGO will then compile in some lxc/lxd C code, which causes problems
+// when attempting to cross-compile.
 
 // IsUnixSocket returns true if the given path is either a Unix socket
 // or a symbolic link pointing at a Unix socket.
@@ -134,4 +138,16 @@ func mynames() ([]string, error) {
 
 	ret := []string{h, "127.0.0.1/8", "::1/128"}
 	return ret, nil
+}
+
+// NormaliseVirtType converts the "any" type, which represents an unspecified
+// virtual type to a container type. Juju doesn't current support the idea of
+// selecting any type of container type.
+func NormaliseVirtType(virtType instance.VirtType) api.InstanceType {
+	switch virtType {
+	case instance.InstanceTypeVM:
+		return api.InstanceTypeVM
+	default:
+		return api.InstanceTypeContainer
+	}
 }

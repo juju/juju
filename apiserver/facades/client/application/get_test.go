@@ -6,7 +6,7 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -53,7 +53,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	api, err := application.NewAPIBase(
-		application.GetState(st),
+		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
 		storageAccess,
 		s.authorizer,
@@ -63,6 +63,8 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		application.GetModel(model),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Machine(),
+		serviceFactory.Application(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
@@ -70,7 +72,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
-		jujutesting.NewObjectStore(c, st.ControllerModelUUID(), st),
+		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = api
@@ -185,7 +187,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	api, err := application.NewAPIBase(
-		application.GetState(st),
+		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
 		storageAccess,
 		s.authorizer,
@@ -195,6 +197,8 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		application.GetModel(mod),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Machine(),
+		serviceFactory.Application(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
@@ -202,7 +206,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
-		jujutesting.NewObjectStore(c, st.ControllerModelUUID(), st),
+		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

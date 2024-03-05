@@ -7,14 +7,19 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/version/v2"
 
+	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
 )
 
 // ModelCreationArgs supplies the information required for instantiating a new
 // model.
 type ModelCreationArgs struct {
+	// AgentVersion is the target version for agents running under this model.
+	AgentVersion version.Number
+
 	// Cloud is the name of the cloud to associate with the model.
 	// Must not be empty for a valid struct.
 	Cloud string
@@ -32,50 +37,12 @@ type ModelCreationArgs struct {
 	// Must not be empty for a valid struct.
 	Name string
 
-	// Owner is the name of the owner for the model.
-	// Must not be empty for a valid struct.
-	Owner string
+	// Owner is the uuid of the user that owns this model in the Juju controller.
+	Owner user.UUID
 
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.
-	Type Type
-}
-
-// Type represents the type of a model.
-type Type string
-
-// UUID represents a model unique identifier.
-type UUID string
-
-const (
-	// TypeCAAS is the type used for CAAS models.
-	TypeCAAS Type = "caas"
-
-	// TypeIAAS is the type used for IAAS models.
-	TypeIAAS Type = "iaas"
-)
-
-// IsValid returns true if the value of Type is a known valid type.
-// Currently supported values are:
-// - TypeCAAS
-// - TypeIAAS
-// - TypeNone
-func (t Type) IsValid() bool {
-	switch t {
-	case TypeCAAS,
-		TypeIAAS:
-		return true
-	}
-	return false
-}
-
-// NewUUID is a convince function for generating new model uuid id's.
-func NewUUID() (UUID, error) {
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return UUID(""), err
-	}
-	return UUID(uuid.String()), nil
+	Type coremodel.ModelType
 }
 
 // Validate is responsible for checking all of the fields of ModelCreationArgs
@@ -87,8 +54,8 @@ func (m ModelCreationArgs) Validate() error {
 	if m.Name == "" {
 		return fmt.Errorf("%w name cannot be empty", errors.NotValid)
 	}
-	if m.Owner == "" {
-		return fmt.Errorf("%w owner cannot be empty", errors.NotValid)
+	if err := m.Owner.Validate(); err != nil {
+		return fmt.Errorf("%w owner: %w", errors.NotValid, err)
 	}
 	if !m.Type.IsValid() {
 		return fmt.Errorf("%w model type of %q", errors.NotSupported, m.Type)
@@ -99,25 +66,4 @@ func (m ModelCreationArgs) Validate() error {
 		}
 	}
 	return nil
-}
-
-// Validate ensures the consistency of the UUID.
-func (u UUID) Validate() error {
-	if u == "" {
-		return errors.New("empty uuid")
-	}
-	if !utils.IsValidUUIDString(string(u)) {
-		return errors.Errorf("invalid uuid %q", u)
-	}
-	return nil
-}
-
-// String implements the stringer interface for Type.
-func (t Type) String() string {
-	return string(t)
-}
-
-// String implements the stringer interface for UUID.
-func (u UUID) String() string {
-	return string(u)
 }

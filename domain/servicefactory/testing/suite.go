@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/model"
-	modeltesting "github.com/juju/juju/domain/model/testing"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain/modelmanager/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
@@ -28,11 +28,11 @@ type ServiceFactorySuite struct {
 
 	// ControllerModelUUID is the unique id for the controller model. If not set
 	// will be set during test set up.
-	ControllerModelUUID model.UUID
+	ControllerModelUUID coremodel.UUID
 
 	// DefaultModelUUID is the unique id for the default model. If not set
 	// will be set during test set up.
-	DefaultModelUUID model.UUID
+	DefaultModelUUID coremodel.UUID
 }
 
 type stubDBDeleter struct {

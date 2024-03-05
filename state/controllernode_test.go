@@ -51,5 +51,5 @@ func (s *ControllerNodeSuite) TestSetMongoPassword(c *gc.C) {
 func (s *ControllerNodeSuite) TestAgentTools(c *gc.C) {
 	node, err := s.State.AddControllerNode()
 	c.Assert(err, jc.ErrorIsNil)
-	testAgentTools(c, state.NewObjectStore(c, s.State), node, "controller "+node.Id())
+	testAgentTools(c, state.NewObjectStore(c, s.State.ModelUUID()), node, "controller "+node.Id())
 }

@@ -4,6 +4,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -60,6 +61,7 @@ func validateUploadAllowed(env environs.ConfigGetter, toolsArch *string, toolsBa
 
 // findPackagedTools returns a list of tools for in simplestreams.
 func findPackagedTools(
+	ctx context.Context,
 	env environs.BootstrapEnviron,
 	ss envtools.SimplestreamsFetcher,
 	vers *version.Number,
@@ -76,7 +78,7 @@ func findPackagedTools(
 		}
 	}
 	logger.Infof("looking for bootstrap agent binaries: version=%v", vers)
-	toolsList, findToolsErr := findBootstrapTools(env, ss, vers, arch, base)
+	toolsList, findToolsErr := findBootstrapTools(ctx, env, ss, vers, arch, base)
 	logger.Infof("found %d packaged agent binaries", len(toolsList))
 	if findToolsErr != nil {
 		return nil, findToolsErr
@@ -106,7 +108,7 @@ func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ erro
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,
 // all tools matching the current major.minor version are chosen.
-func findBootstrapTools(env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *version.Number, arch *string, base *corebase.Base) (list coretools.List, err error) {
+func findBootstrapTools(ctx context.Context, env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *version.Number, arch *string, base *corebase.Base) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := jujuversion.Current
 	var filter coretools.Filter
@@ -121,5 +123,5 @@ func findBootstrapTools(env environs.BootstrapEnviron, ss envtools.Simplestreams
 		filter.Number = *vers
 	}
 	streams := envtools.PreferredStreams(vers, env.Config().Development(), env.Config().AgentStream())
-	return findTools(ss, env, cliVersion.Major, cliVersion.Minor, streams, filter)
+	return findTools(ctx, ss, env, cliVersion.Major, cliVersion.Minor, streams, filter)
 }

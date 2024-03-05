@@ -4,6 +4,8 @@
 package caasoperatorupgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -41,7 +43,7 @@ func (s *provisionerSuite) TestUpgrader(c *gc.C) {
 		}
 		return nil
 	})
-	err := client.Upgrade("application-foo", version.MustParse("6.6.6"))
+	err := client.Upgrade(context.Background(), "application-foo", version.MustParse("6.6.6"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(called, jc.IsTrue)
 }

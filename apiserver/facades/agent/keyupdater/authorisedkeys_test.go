@@ -6,15 +6,15 @@ package keyupdater_test
 import (
 	"context"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -26,6 +26,7 @@ type authorisedKeysSuite struct {
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
+	controllerConfig controller.Config
 	rawMachine       *state.Machine
 	unrelatedMachine *state.Machine
 	keyupdater       *keyupdater.KeyUpdaterAPI
@@ -35,6 +36,10 @@ type authorisedKeysSuite struct {
 
 var _ = gc.Suite(&authorisedKeysSuite{})
 
+func (s *authorisedKeysSuite) ControllerConfig(_ context.Context) (controller.Config, error) {
+	return s.controllerConfig, nil
+}
+
 func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.resources = common.NewResources()
@@ -43,29 +48,25 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Create machines to work with
 	var err error
-	s.rawMachine, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.unrelatedMachine, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.unrelatedMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as a controller
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.rawMachine.Tag(),
 	}
-	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     st,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	})
+	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(
+		s.authorizer, s.resources, st, s,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsController(c *gc.C) {
-	endPoint, err := keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     s.ControllerModel(c).State(),
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	})
+	endPoint, err := keyupdater.NewKeyUpdaterAPI(
+		s.authorizer, s.resources, s.ControllerModel(c).State(), s,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
@@ -73,11 +74,9 @@ func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsController(c *gc.C) {
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewUnitTag("ubuntu/1")
-	endPoint, err := keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     s.ControllerModel(c).State(),
-		Resources_: s.resources,
-		Auth_:      anAuthoriser,
-	})
+	endPoint, err := keyupdater.NewKeyUpdaterAPI(
+		anAuthoriser, s.resources, s.ControllerModel(c).State(), s,
+	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -152,6 +151,33 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: []string{"key1", "key2"}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+// TestAuthorisedKeysWithControllerConfig is looking to see that when we set a
+// system wide key in controller config this is aggregated with the per model
+// config.
+func (s *authorisedKeysSuite) TestAuthorisedKeysWithControllerConfig(c *gc.C) {
+	s.setAuthorizedKeys(c, "key1\nkey2")
+	s.controllerConfig = controller.Config{
+		controller.SystemSSHKeys: "controller-key",
+	}
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: s.rawMachine.Tag().String()},
+			{Tag: s.unrelatedMachine.Tag().String()},
+			{Tag: "machine-42"},
+		},
+	}
+	results, err := s.keyupdater.AuthorisedKeys(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: []string{"key1", "key2", "controller-key"}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

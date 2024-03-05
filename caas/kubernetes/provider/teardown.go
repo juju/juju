@@ -59,8 +59,8 @@ func (k *kubernetesClient) deleteClusterRoleBindingsModelTeardown(
 	errChan chan<- error,
 ) {
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		k.deleteClusterRoleBindings, func(selector k8slabels.Selector) error {
-			_, err := k.listClusterRoleBindings(selector)
+		k.deleteClusterRoleBindings, func(ctx context.Context, selector k8slabels.Selector) error {
+			_, err := k.listClusterRoleBindings(ctx, selector)
 			return err
 		},
 	)
@@ -74,8 +74,8 @@ func (k *kubernetesClient) deleteClusterRolesModelTeardown(
 	errChan chan<- error,
 ) {
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		k.deleteClusterRoles, func(selector k8slabels.Selector) error {
-			_, err := k.listClusterRoles(selector)
+		k.deleteClusterRoles, func(ctx context.Context, selector k8slabels.Selector) error {
+			_, err := k.listClusterRoles(ctx, selector)
 			return err
 		},
 	)
@@ -115,11 +115,11 @@ func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 		return k8slabels.NewSelector()
 	}
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		func(_ k8slabels.Selector) error {
-			return k.deleteCustomResources(getSelector)
+		func(ctx context.Context, _ k8slabels.Selector) error {
+			return k.deleteCustomResources(ctx, getSelector)
 		},
-		func(_ k8slabels.Selector) error {
-			_, err := k.listCustomResources(getSelector)
+		func(ctx context.Context, _ k8slabels.Selector) error {
+			_, err := k.listCustomResources(ctx, getSelector)
 			return err
 		},
 	)
@@ -133,8 +133,8 @@ func (k *kubernetesClient) deleteCustomResourceDefinitionsModelTeardown(
 	errChan chan<- error,
 ) {
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		k.deleteCustomResourceDefinitions, func(selector k8slabels.Selector) error {
-			_, err := k.listCustomResourceDefinitions(selector)
+		k.deleteCustomResourceDefinitions, func(ctx context.Context, selector k8slabels.Selector) error {
+			_, err := k.listCustomResourceDefinitions(ctx, selector)
 			return err
 		},
 	)
@@ -148,8 +148,8 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurationsModelTeardown(
 	errChan chan<- error,
 ) {
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		k.deleteMutatingWebhookConfigurations, func(selector k8slabels.Selector) error {
-			_, err := k.listMutatingWebhookConfigurations(selector)
+		k.deleteMutatingWebhookConfigurations, func(ctx context.Context, selector k8slabels.Selector) error {
+			_, err := k.listMutatingWebhookConfigurations(ctx, selector)
 			return err
 		},
 	)
@@ -163,8 +163,8 @@ func (k *kubernetesClient) deleteValidatingWebhookConfigurationsModelTeardown(
 	errChan chan<- error,
 ) {
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		k.deleteValidatingWebhookConfigurations, func(selector k8slabels.Selector) error {
-			_, err := k.listValidatingWebhookConfigurations(selector)
+		k.deleteValidatingWebhookConfigurations, func(ctx context.Context, selector k8slabels.Selector) error {
+			_, err := k.listValidatingWebhookConfigurations(ctx, selector)
 			return err
 		},
 	)
@@ -177,14 +177,14 @@ func (k *kubernetesClient) deleteStorageClassesModelTeardown(
 	errChan chan<- error,
 ) {
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		k.deleteStorageClasses, func(selector k8slabels.Selector) error {
-			_, err := k.ListStorageClasses(selector)
+		k.deleteStorageClasses, func(ctx context.Context, selector k8slabels.Selector) error {
+			_, err := k.ListStorageClasses(ctx, selector)
 			return err
 		},
 	)
 }
 
-type deleterChecker func(k8slabels.Selector) error
+type deleterChecker func(context.Context, k8slabels.Selector) error
 
 func ensureResourcesDeletedFunc(
 	ctx context.Context,
@@ -206,7 +206,7 @@ func ensureResourcesDeletedFunc(
 		}
 	}()
 
-	if err = deleter(selector); err != nil {
+	if err = deleter(ctx, selector); err != nil {
 		if errors.Is(err, errors.NotFound) {
 			err = nil
 		}
@@ -222,7 +222,7 @@ func ensureResourcesDeletedFunc(
 			err = errors.Trace(ctx.Err())
 			return
 		case <-ticker.Chan():
-			err = checker(selector)
+			err = checker(ctx, selector)
 			if errors.Is(err, errors.NotFound) {
 				// Deleted already.
 				err = nil
@@ -258,7 +258,7 @@ func (k *kubernetesClient) deleteNamespaceModelTeardown(ctx context.Context, wg 
 	}
 	defer w.Kill()
 
-	if err = k.deleteNamespace(); err != nil {
+	if err = k.deleteNamespace(ctx); err != nil {
 		err = errors.Annotatef(err, "deleting model namespace %q", k.namespace)
 		return
 	}
@@ -269,7 +269,7 @@ func (k *kubernetesClient) deleteNamespaceModelTeardown(ctx context.Context, wg 
 			return
 		case <-w.Changes():
 			// Ensures the namespace to be deleted - notfound error expected.
-			_, err = k.GetNamespace(k.namespace)
+			_, err = k.GetNamespace(ctx, k.namespace)
 			if errors.Is(err, errors.NotFound) {
 				// Namespace has been deleted.
 				err = nil

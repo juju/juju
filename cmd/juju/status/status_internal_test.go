@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/names/v4"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
@@ -143,7 +143,6 @@ func (s *StatusSuite) newContext() *context {
 					Type:        "iaas",
 					CloudTag:    "cloud-dummy",
 					CloudRegion: "dummy-region",
-					SLA:         "unsupported",
 					Version:     currentVersion.String(),
 					ModelStatus: params.DetailedStatus{
 						Status: status.Available.String(),
@@ -173,7 +172,6 @@ var (
 			"current": "available",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"sla": "unsupported",
 	}
 
 	machine0 = M{
@@ -482,13 +480,14 @@ var (
 		"exposed": true,
 	})
 	loggingCharm = M{
-		"charm":        "logging",
-		"charm-origin": "charmhub",
-		"charm-name":   "logging",
-		"charm-rev":    1,
-		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      true,
-		"scale":        2,
+		"charm":         "logging",
+		"charm-origin":  "charmhub",
+		"charm-name":    "logging",
+		"charm-rev":     1,
+		"charm-channel": "stable",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
+		"exposed":       true,
+		"scale":         2,
 		"application-status": M{
 			"current": "error",
 			"message": "somehow lost in all those logs",
@@ -1714,12 +1713,13 @@ var statusTests = []testCase{
 						},
 					}),
 					"varnish": M{
-						"charm":        "varnish",
-						"charm-origin": "charmhub",
-						"charm-name":   "varnish",
-						"charm-rev":    1,
-						"base":         M{"name": "ubuntu", "channel": "12.10"},
-						"exposed":      true,
+						"charm":         "varnish",
+						"charm-origin":  "charmhub",
+						"charm-name":    "varnish",
+						"charm-channel": "stable",
+						"charm-rev":     1,
+						"base":          M{"name": "ubuntu", "channel": "12.10"},
+						"exposed":       true,
 						"application-status": M{
 							"current": "waiting",
 							"message": "waiting for machine",
@@ -1855,12 +1855,13 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"riak": M{
-						"charm":        "riak",
-						"charm-origin": "charmhub",
-						"charm-name":   "riak",
-						"charm-rev":    7,
-						"base":         M{"name": "ubuntu", "channel": "12.10"},
-						"exposed":      true,
+						"charm":         "riak",
+						"charm-origin":  "charmhub",
+						"charm-name":    "riak",
+						"charm-rev":     7,
+						"charm-channel": "stable",
+						"base":          M{"name": "ubuntu", "channel": "12.10"},
+						"exposed":       true,
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2294,7 +2295,7 @@ var statusTests = []testCase{
 		},
 	),
 	test( // 14
-		"unit with out of date charm",
+		"unit with out of date charm, switching from repo to local",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
@@ -2322,10 +2323,8 @@ var statusTests = []testCase{
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": mysqlCharm(M{
-						"charm":        "local:quantal/mysql-1",
-						"charm-origin": "local",
-						"exposed":      true,
+					"mysql": localMysqlCharm(M{
+						"charm": "local:quantal/mysql-1",
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2391,7 +2390,6 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"charm":          "mysql",
 						"charm-rev":      2,
 						"can-upgrade-to": "ch:mysql-23",
 						"exposed":        true,
@@ -2459,10 +2457,8 @@ var statusTests = []testCase{
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": mysqlCharm(M{
-						"charm":        "local:quantal/mysql-1",
-						"charm-origin": "local",
-						"exposed":      true,
+					"mysql": localMysqlCharm(M{
+						"charm": "local:quantal/mysql-1",
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2498,164 +2494,6 @@ var statusTests = []testCase{
 		},
 	),
 	test( // 17
-		"deploy two applications; set meter statuses on one",
-		addMachine{machineId: "0", job: coremodel.JobManageModel},
-		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
-		startAliveMachine{"0", ""},
-		setMachineStatus{"0", status.Started, ""},
-
-		addMachine{machineId: "1", job: coremodel.JobHostUnits},
-		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
-		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
-		startAliveMachine{"1", ""},
-		setMachineStatus{"1", status.Started, ""},
-
-		addMachine{machineId: "2", job: coremodel.JobHostUnits},
-		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
-		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
-		startAliveMachine{"2", ""},
-		setMachineStatus{"2", status.Started, ""},
-
-		addMachine{machineId: "3", job: coremodel.JobHostUnits},
-		recordAgentStartInformation{machineId: "3", hostname: "loud-silence"},
-		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
-		startAliveMachine{"3", ""},
-		setMachineStatus{"3", status.Started, ""},
-		setMachineInstanceStatus{"3", status.Started, "I am number three"},
-
-		addMachine{machineId: "4", job: coremodel.JobHostUnits},
-		setAddresses{"4", network.NewSpaceAddresses("10.0.4.1")},
-		recordAgentStartInformation{machineId: "4", hostname: "antediluvian-furniture"},
-		startAliveMachine{"4", ""},
-		setMachineStatus{"4", status.Started, ""},
-
-		addCharmHubCharm{"mysql"},
-		addApplication{name: "mysql", charm: "mysql"},
-		setApplicationExposed{"mysql", true},
-
-		addCharmHubCharm{"metered"},
-		addApplication{name: "applicationwithmeterstatus", charm: "metered"},
-
-		addAliveUnit{"mysql", "1"},
-		addAliveUnit{"applicationwithmeterstatus", "2"},
-		addAliveUnit{"applicationwithmeterstatus", "3"},
-		addAliveUnit{"applicationwithmeterstatus", "4"},
-
-		setApplicationExposed{"mysql", true},
-
-		setAgentStatus{"mysql/0", status.Idle, "", nil},
-		setUnitStatus{"mysql/0", status.Active, "", nil},
-		setAgentStatus{"applicationwithmeterstatus/0", status.Idle, "", nil},
-		setUnitStatus{"applicationwithmeterstatus/0", status.Active, "", nil},
-		setAgentStatus{"applicationwithmeterstatus/1", status.Idle, "", nil},
-		setUnitStatus{"applicationwithmeterstatus/1", status.Active, "", nil},
-		setAgentStatus{"applicationwithmeterstatus/2", status.Idle, "", nil},
-		setUnitStatus{"applicationwithmeterstatus/2", status.Active, "", nil},
-
-		setUnitMeterStatus{"applicationwithmeterstatus/1", "GREEN", "test green status"},
-		setUnitMeterStatus{"applicationwithmeterstatus/2", "RED", "test red status"},
-
-		expect{
-			what: "simulate just the two applications and a bootstrap node",
-			output: M{
-				"model": model,
-				"machines": M{
-					"0": machine0,
-					"1": machine1,
-					"2": machine2,
-					"3": machine3,
-					"4": machine4,
-				},
-				"applications": M{
-					"mysql": mysqlCharm(M{
-						"exposed": true,
-						"application-status": M{
-							"current": "active",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"units": M{
-							"mysql/0": M{
-								"machine": "1",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"public-address": "10.0.1.1",
-							},
-						},
-						"endpoint-bindings": M{
-							"":               network.AlphaSpaceName,
-							"server":         network.AlphaSpaceName,
-							"server-admin":   network.AlphaSpaceName,
-							"metrics-client": network.AlphaSpaceName,
-						},
-					}),
-
-					"applicationwithmeterstatus": meteredCharm(M{
-						"application-status": M{
-							"current": "active",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"units": M{
-							"applicationwithmeterstatus/0": M{
-								"machine": "2",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"public-address": "10.0.2.1",
-							},
-							"applicationwithmeterstatus/1": M{
-								"machine": "3",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"meter-status": M{
-									"color":   "green",
-									"message": "test green status",
-								},
-								"public-address": "10.0.3.1",
-							},
-							"applicationwithmeterstatus/2": M{
-								"machine": "4",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"meter-status": M{
-									"color":   "red",
-									"message": "test red status",
-								},
-								"public-address": "10.0.4.1",
-							},
-						},
-					}),
-				},
-				"storage": M{},
-				"controller": M{
-					"timestamp": "15:04:05+07:00",
-				},
-			},
-		},
-	),
-	test( // 18
 		"upgrade available",
 		setToolsUpgradeAvailable{},
 		expect{
@@ -2673,7 +2511,6 @@ var statusTests = []testCase{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
-					"sla": "unsupported",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2685,7 +2522,7 @@ var statusTests = []testCase{
 			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
-	test( // 19
+	test( // 18
 		"consistent workload version",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -2749,7 +2586,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 20
+	test( // 19
 		"mixed workload version",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -2835,7 +2672,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 21
+	test( // 20
 		"instance with localhost addresses",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", []network.SpaceAddress{
@@ -2863,7 +2700,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 22
+	test( // 21
 		"instance with IPv6 addresses",
 		addMachine{machineId: "0", cons: machineCons, job: coremodel.JobManageModel},
 		setAddresses{"0", []network.SpaceAddress{
@@ -2917,7 +2754,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 23
+	test( // 22
 		"a remote application",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -3014,70 +2851,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 24
-		"set meter status on the model",
-		setSLA{"advanced"},
-		setModelMeterStatus{"RED", "status message"},
-		expect{
-			what: "simulate just the two applications and a bootstrap node",
-			output: M{
-				"model": M{
-					"name":       "controller",
-					"type":       "iaas",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"region":     "dummy-region",
-					"version":    "1.2.3",
-					"model-status": M{
-						"current": "available",
-						"since":   "01 Apr 15 01:23+10:00",
-					},
-					"meter-status": M{
-						"color":   "red",
-						"message": "status message",
-					},
-					"sla": "advanced",
-				},
-				"machines":     M{},
-				"applications": M{},
-				"storage":      M{},
-				"controller": M{
-					"timestamp": "15:04:05+07:00",
-				},
-			},
-			stderr: "\nModel \"controller\" is empty.\n",
-		},
-	),
-	test( // 25
-		"set sla on the model",
-		setSLA{"advanced"},
-		expect{
-			what: "set sla on the model",
-			output: M{
-				"model": M{
-					"name":       "controller",
-					"type":       "iaas",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"region":     "dummy-region",
-					"version":    "1.2.3",
-					"model-status": M{
-						"current": "available",
-						"since":   "01 Apr 15 01:23+10:00",
-					},
-					"sla": "advanced",
-				},
-				"machines":     M{},
-				"applications": M{},
-				"storage":      M{},
-				"controller": M{
-					"timestamp": "15:04:05+07:00",
-				},
-			},
-			stderr: "\nModel \"controller\" is empty.\n",
-		},
-	),
-	test( //26
+	test( // 23
 		"deploy application with endpoint bound to space",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -3098,7 +2872,7 @@ var statusTests = []testCase{
 		addApplication{name: "wordpress", charm: "wordpress", binding: map[string]string{"db-client": "", "logging-dir": "", "cache": "", "db": "myspace1", "monitoring-port": "", "url": "", "admin-api": "", "foo-bar": ""}},
 		addAliveUnit{"wordpress", "1"},
 	),
-	test( // 27
+	test( // 24
 		"application with lxd profiles",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -3128,10 +2902,14 @@ var statusTests = []testCase{
 					"1": machine1WithLXDProfile,
 				},
 				"applications": M{
-					"lxd-profile": lxdProfileCharm(M{
-						"charm":        "local:quantal/lxd-profile-1",
-						"charm-origin": "local",
-						"exposed":      true,
+					"lxd-profile": M{
+						"charm":         "local:quantal/lxd-profile-1",
+						"charm-origin":  "local",
+						"exposed":       true,
+						"charm-name":    "lxd-profile",
+						"charm-rev":     1,
+						"charm-profile": "juju-controller-lxd-profile-1",
+						"base":          M{"name": "ubuntu", "channel": "12.10"},
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -3156,7 +2934,7 @@ var statusTests = []testCase{
 							"another": network.AlphaSpaceName,
 							"ubuntu":  network.AlphaSpaceName,
 						},
-					}),
+					},
 				},
 				"storage": M{},
 				"controller": M{
@@ -3165,7 +2943,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 28
+	test( // 25
 		"suspended model",
 		setModelSuspended{"invalid credential", "bad password"},
 		expect{
@@ -3184,7 +2962,6 @@ var statusTests = []testCase{
 						"reason":  "bad password",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
-					"sla": "unsupported",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -3200,61 +2977,51 @@ var statusTests = []testCase{
 
 func mysqlCharm(extras M) M {
 	charm := M{
-		"charm":        "mysql",
-		"charm-origin": "charmhub",
-		"charm-name":   "mysql",
-		"charm-rev":    1,
-		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      false,
-	}
-	return composeCharms(charm, extras)
-}
-
-func lxdProfileCharm(extras M) M {
-	charm := M{
-		"charm":         "lxd-profile",
+		"charm":         "mysql",
 		"charm-origin":  "charmhub",
-		"charm-name":    "lxd-profile",
+		"charm-name":    "mysql",
 		"charm-rev":     1,
-		"charm-profile": "juju-controller-lxd-profile-1",
+		"charm-channel": "stable",
 		"base":          M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
 }
 
-func meteredCharm(extras M) M {
+func localMysqlCharm(extras M) M {
 	charm := M{
-		"charm":        "metered",
-		"charm-origin": "charmhub",
-		"charm-name":   "metered",
+		"charm":        "mysql",
+		"charm-origin": "local",
+		"charm-name":   "mysql",
 		"charm-rev":    1,
 		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      false,
+		"exposed":      true,
 	}
 	return composeCharms(charm, extras)
 }
 
 func dummyCharm(extras M) M {
 	charm := M{
-		"charm":        "dummy",
-		"charm-origin": "charmhub",
-		"charm-name":   "dummy",
-		"charm-rev":    1,
-		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      false,
+		"charm":         "dummy",
+		"charm-origin":  "charmhub",
+		"charm-name":    "dummy",
+		"charm-rev":     1,
+		"charm-channel": "stable",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
+		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
 }
 
 func wordpressCharm(extras M) M {
 	charm := M{
-		"charm":        "wordpress",
-		"charm-origin": "charmhub",
-		"charm-name":   "wordpress",
-		"charm-rev":    3,
-		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      false,
+		"charm":         "wordpress",
+		"charm-origin":  "charmhub",
+		"charm-name":    "wordpress",
+		"charm-rev":     3,
+		"charm-channel": "stable",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
+		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
 }
@@ -3268,14 +3035,6 @@ func composeCharms(origin, extras M) M {
 		result[key] = value
 	}
 	return result
-}
-
-type setSLA struct {
-	level string
-}
-
-func (s setSLA) step(c *gc.C, ctx *context) {
-	ctx.api.result.Model.SLA = s.level
 }
 
 type setModelSuspended struct {
@@ -3695,7 +3454,13 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	info, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
 
-	series := charm.MustParseURL(info.url).Series
+	curl := charm.MustParseURL(info.url)
+	var channel string
+	if charm.CharmHub.Matches(curl.Schema) {
+		channel = "stable"
+	}
+
+	series := curl.Series
 	if series == "" {
 		series = "quantal"
 	}
@@ -3703,8 +3468,9 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	app := params.ApplicationStatus{
-		Charm: info.url,
-		Base:  params.Base{Name: base.OS, Channel: base.Channel.String()},
+		Charm:        info.url,
+		CharmChannel: channel,
+		Base:         params.Base{Name: base.OS, Channel: base.Channel.String()},
 		Status: params.DetailedStatus{
 			Status: status.Unknown.String(),
 			Since:  &now,
@@ -3712,7 +3478,6 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 		Units:            make(map[string]params.UnitStatus),
 		Relations:        make(map[string][]string),
 		EndpointBindings: make(map[string]string),
-		MeterStatuses:    make(map[string]params.MeterStatus),
 	}
 	if as.charm == "lxd-profile" {
 		app.CharmProfile = "juju-controller-lxd-profile-1"
@@ -3881,7 +3646,14 @@ func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
 	app, ok := ctx.api.result.Applications[ssc.name]
 	c.Assert(ok, jc.IsTrue)
 
+	curl := charm.MustParseURL(ssc.charm)
+	var channel string
+	if charm.CharmHub.Matches(curl.Schema) {
+		channel = "stable"
+	}
+
 	app.Charm = ssc.charm
+	app.CharmChannel = channel
 	ctx.api.result.Applications[ssc.name] = app
 }
 
@@ -3991,36 +3763,6 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 		}
 	}
 	ctx.api.result.Applications[aau.applicationName] = app
-}
-
-type setUnitMeterStatus struct {
-	unitName string
-	color    string
-	message  string
-}
-
-func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
-	appName, _ := names.UnitApplication(s.unitName)
-	app, ok := ctx.api.result.Applications[appName]
-	c.Assert(ok, jc.IsTrue)
-
-	app.MeterStatuses[s.unitName] = params.MeterStatus{
-		Color:   strings.ToLower(s.color),
-		Message: s.message,
-	}
-	ctx.api.result.Applications[appName] = app
-}
-
-type setModelMeterStatus struct {
-	color   string
-	message string
-}
-
-func (s setModelMeterStatus) step(c *gc.C, ctx *context) {
-	ctx.api.result.Model.MeterStatus = params.MeterStatus{
-		Color:   strings.ToLower(s.color),
-		Message: s.message,
-	}
 }
 
 type setUnitAsLeader struct {
@@ -4904,16 +4646,16 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 }
 
 var expectedTabularStatus = `
-Model       Controller  Cloud/Region        Version  SLA          Timestamp       Notes
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  upgrade available: 1.2.4
+Model       Controller  Cloud/Region        Version  Timestamp       Notes
+controller  kontroll    dummy/dummy-region  1.2.3    15:04:05+07:00  upgrade available: 1.2.4
 
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Channel  Rev  Exposed  Message
-logging    a bit too lo...  error            2  logging               1  yes      somehow lost in all those logs
-mysql      5.7.13           maintenance    1/2  mysql                 1  yes      installing all the things
-wordpress  4.5.3            active           1  wordpress             3  yes      
+logging    a bit too lo...  error            2  logging    stable     1  yes      somehow lost in all those logs
+mysql      5.7.13           maintenance    1/2  mysql      stable     1  yes      installing all the things
+wordpress  4.5.3            active           1  wordpress  stable     3  yes      
 
 Unit          Workload     Agent  Machine  Public address  Ports  Message
 mysql/0*      maintenance  idle   2        10.0.2.1               installing all the things
@@ -4958,6 +4700,7 @@ func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "")
 	c.Assert(stdout, jc.Contains, "display-name: snowflake")
+	c.Assert(stdout, jc.Contains, "stable")
 }
 
 func (s *StatusSuite) TestStatusWithFormatJson(c *gc.C) {
@@ -5299,10 +5042,6 @@ foo/0  waiting   allocating  10.0.0.1  80,1555-1559/TCP
 
 func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 	longMessage := "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-	longMeterStatus := meterStatus{
-		Color:   "blue",
-		Message: longMessage,
-	}
 	longStatusInfo := statusInfoContents{
 		Current: status.Active,
 		Message: longMessage,
@@ -5310,12 +5049,11 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 
 	status := formattedStatus{
 		Model: modelStatus{
-			Name:        "m",
-			Controller:  "c",
-			Cloud:       "localhost",
-			Version:     "3.0.0",
-			Status:      longStatusInfo,
-			MeterStatus: &longMeterStatus,
+			Name:       "m",
+			Controller: "c",
+			Cloud:      "localhost",
+			Version:    "3.0.0",
+			Status:     longStatusInfo,
 		},
 		Applications: map[string]applicationStatus{
 			"foo": {
@@ -5328,14 +5066,12 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 						JujuStatusInfo:     longStatusInfo,
 						Machine:            "0",
 						PublicAddress:      "10.53.62.100",
-						MeterStatus:        &longMeterStatus,
 						Subordinates: map[string]unitStatus{
 							"foo/1": {
 								WorkloadStatusInfo: longStatusInfo,
 								JujuStatusInfo:     longStatusInfo,
 								Machine:            "0/lxd/0",
 								PublicAddress:      "10.53.62.101",
-								MeterStatus:        &longMeterStatus,
 							},
 						},
 					},
@@ -5401,10 +5137,6 @@ Unit     Workload  Agent   Machine  Public address  Ports  Message
 foo/0    active    active  0        10.53.62.100           Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
   foo/1  active    active  0/lxd/0  10.53.62.101           Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 
-Entity  Meter status  Message
-model   blue          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
-foo/0   blue          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
-
 Machine  State   Address       Inst id  Base          AZ  Message
 0        active  10.53.62.100           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 0/lxd/0  active  10.53.62.101           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
@@ -5421,47 +5153,6 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	code, _, stderr := runStatus(c, ctx, "--no-color", "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
 	c.Check(stderr, gc.Equals, "ERROR unable to obtain the current status\n")
-}
-
-func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
-	status := formattedStatus{
-		Applications: map[string]applicationStatus{
-			"foo": {
-				Units: map[string]unitStatus{
-					"foo/0": {
-						MeterStatus: &meterStatus{
-							Color:   "strange",
-							Message: "warning: stable strangelets",
-						},
-					},
-					"foo/1": {
-						MeterStatus: &meterStatus{
-							Color:   "up",
-							Message: "things are looking up",
-						},
-					},
-				},
-			},
-		},
-	}
-	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, status)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
-Model  Controller  Cloud/Region  Version
-                                 
-
-App  Version  Status  Scale  Charm  Channel  Rev  Exposed  Message
-foo                     0/2                    0  no       
-
-Unit   Workload  Agent  Machine  Public address  Ports  Message
-foo/0                                                   
-foo/1                                                   
-
-Entity  Meter status  Message
-foo/0   strange       warning: stable strangelets  
-foo/1   up            things are looking up        
-`[1:])
 }
 
 // Filtering Feature
@@ -5630,7 +5321,6 @@ var statusTimeTest = test(
 					"current": "available",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
-				"sla": "unsupported",
 			},
 			"machines": M{
 				"0": machine0,
@@ -5669,12 +5359,10 @@ var statusTimeTest = test(
 )
 
 func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
-	func(t testCase) {
-		// Prepare context and run all steps to setup.
-		ctx := s.newContext()
-		ctx.expectIsoTime = true
-		ctx.run(c, t.steps)
-	}(statusTimeTest)
+	// Prepare context and run all steps to setup.
+	ctx := s.newContext()
+	ctx.expectIsoTime = true
+	ctx.run(c, statusTimeTest.steps)
 }
 
 func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
@@ -5926,8 +5614,8 @@ func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "\nModel \"controller\" is empty.\n")
 	expected := `
-Model       Controller  Cloud/Region        Version  SLA          Timestamp
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
+Model       Controller  Cloud/Region        Version  Timestamp
+controller  kontroll    dummy/dummy-region  1.2.3    15:04:05+07:00
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(output, gc.Equals, expected)
@@ -5939,8 +5627,8 @@ func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "Nothing matched specified filter.\n")
 	expected := `
-Model       Controller  Cloud/Region        Version  SLA          Timestamp
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
+Model       Controller  Cloud/Region        Version  Timestamp
+controller  kontroll    dummy/dummy-region  1.2.3    15:04:05+07:00
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(output, gc.Equals, expected)

@@ -4,6 +4,8 @@
 package credentialmanager_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -31,7 +33,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "InvalidateModelCredential", args, result).SetArg(3, results).Return(nil)
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.InvalidateModelCredential("auth fail")
+	err := client.InvalidateModelCredential(context.Background(), "auth fail")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -46,7 +48,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "InvalidateModelCredential", args, result).SetArg(3, results).Return(nil)
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.InvalidateModelCredential("")
+	err := client.InvalidateModelCredential(context.Background(), "")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -60,6 +62,6 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "InvalidateModelCredential", args, result).Return(errors.New("foo"))
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.InvalidateModelCredential("")
+	err := client.InvalidateModelCredential(context.Background(), "")
 	c.Assert(err, gc.ErrorMatches, "foo")
 }

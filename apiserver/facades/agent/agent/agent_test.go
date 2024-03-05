@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -52,10 +52,10 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
@@ -74,7 +74,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 		Tag: s.machine1.Tag(),
 	}
 
-	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService common.CredentialService) (*agent.AgentAPI, error) {
@@ -92,7 +92,7 @@ func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		Auth_: auth,
 	}
 	_, err := agent.NewAgentAPIV3(ctx)
@@ -170,14 +170,14 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.container.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.container.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.container.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine1.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine1.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.machine1.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := s.agentAPI(c, s.authorizer, nil)

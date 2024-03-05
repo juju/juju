@@ -8,10 +8,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
@@ -109,7 +108,7 @@ func newListResourcesArgs(applications []string) (params.ListResourcesArgs, erro
 }
 
 // Upload sends the provided resource blob up to Juju.
-func (c Client) Upload(application, name, filename, pendingID string, reader io.ReadSeeker) error {
+func (c Client) Upload(ctx context.Context, application, name, filename, pendingID string, reader io.ReadSeeker) error {
 	uReq, err := NewUploadRequest(application, name, filename, reader)
 	if err != nil {
 		return errors.Trace(err)
@@ -123,7 +122,7 @@ func (c Client) Upload(application, name, filename, pendingID string, reader io.
 	}
 
 	var response params.UploadResult // ignored
-	if err := c.httpClient.Do(c.facade.RawAPICaller().Context(), req, &response); err != nil {
+	if err := c.httpClient.Do(ctx, req, &response); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -136,7 +135,7 @@ type CharmID struct {
 
 	// URL of the given charm, includes the reference name and a revision.
 	// Old style charm URLs are also supported i.e. charmstore.
-	URL *charm.URL
+	URL string
 
 	// Origin holds the origin of a charm. This includes the source of the
 	// charm, along with the revision and channel to identify where the charm
@@ -203,9 +202,7 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, resour
 	}
 	args.Tag = tag.String()
 	args.Resources = apiResources
-	if chID.URL != nil {
-		args.URL = chID.URL.String()
-	}
+	args.URL = chID.URL
 	args.CharmOrigin = params.CharmOrigin{
 		Source:       chID.Origin.Source.String(),
 		ID:           chID.Origin.ID,
@@ -224,7 +221,7 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, resour
 // pendingID first, then it uses the client.Upload to actually send it.
 // Pending resources IDs are required for resources uploaded before
 // AddApplication has been called.
-func (c Client) UploadPendingResource(application string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+func (c Client) UploadPendingResource(ctx context.Context, application string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
 	if !names.IsValidApplication(application) {
 		return "", errors.Errorf("invalid application %q", application)
 	}
@@ -241,7 +238,7 @@ func (c Client) UploadPendingResource(application string, res charmresource.Reso
 	if reader == nil {
 		return pendingID, nil
 	}
-	return pendingID, c.Upload(application, res.Name, filename, pendingID, reader)
+	return pendingID, c.Upload(ctx, application, res.Name, filename, pendingID, reader)
 }
 
 func resolveErrors(errs []error) error {

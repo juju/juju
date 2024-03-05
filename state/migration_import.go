@@ -11,15 +11,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
@@ -41,8 +42,15 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
+// MachineSaver instances save a machine to dqlite state.
+type MachineSaver interface {
+	Save(context.Context, string) error
+}
+
 // Import the database agnostic model representation into the database.
-func (ctrl *Controller) Import(model description.Model, controllerConfig controller.Config) (_ *Model, _ *State, err error) {
+func (ctrl *Controller) Import(
+	model description.Model, controllerConfig controller.Config, machineSaver MachineSaver, applicationSaver ApplicationSaver,
+) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -122,10 +130,12 @@ func (ctrl *Controller) Import(model description.Model, controllerConfig control
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
-		st:      newSt,
-		dbModel: dbModel,
-		model:   model,
-		logger:  logger,
+		st:               newSt,
+		dbModel:          dbModel,
+		model:            model,
+		logger:           logger,
+		machineSaver:     machineSaver,
+		applicationSaver: applicationSaver,
 	}
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
@@ -207,22 +217,6 @@ func (ctrl *Controller) Import(model description.Model, controllerConfig control
 	// we don't start model workers for it before the migration process
 	// is complete.
 
-	// Update the sequences to match that the source.
-
-	if err := dbModel.SetSLA(
-		model.SLA().Level(),
-		model.SLA().Owner(),
-		[]byte(model.SLA().Credentials()),
-	); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	if MeterStatusFromString(model.MeterStatus().Code()).String() != MeterNotAvailable.String() {
-		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
-
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
@@ -270,6 +264,14 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 		attrs[config.SecretBackendKey] = config.DefaultSecretBackend
 	}
 
+	// Remove obsolete and no longer supported syslog forward config.
+	for _, a := range []string{
+		"logforward-enabled", "syslog-host", "syslog-ca-cert", "syslog-client-cert", "syslog-client-key",
+		"logging-output",
+	} {
+		delete(attrs, a)
+	}
+
 	return config.New(config.NoDefaults, attrs)
 }
 
@@ -302,10 +304,12 @@ func (m *ImportStateMigration) Run() error {
 }
 
 type importer struct {
-	st      *State
-	dbModel *Model
-	model   description.Model
-	logger  loggo.Logger
+	st               *State
+	dbModel          *Model
+	model            description.Model
+	logger           loggo.Logger
+	machineSaver     MachineSaver
+	applicationSaver ApplicationSaver
 	// applicationUnits is populated at the end of loading the applications, and is a
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
@@ -429,6 +433,11 @@ func (i *importer) machines() error {
 			i.logger.Errorf("error importing machine: %s", err)
 			return errors.Annotate(err, m.Id())
 		}
+		// We need skeleton machines in dqlite.
+		if err := i.machineSaver.Save(context.TODO(), m.Id()); err != nil {
+			i.logger.Errorf("error importing machine: %s", err)
+			return errors.Annotate(err, m.Id())
+		}
 	}
 
 	i.logger.Debugf("importing machines succeeded")
@@ -526,9 +535,6 @@ func (i *importer) machine(m description.Machine) error {
 	if err := i.importStatusHistory(machine.globalInstanceKey(), instance.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
-	if err := i.importMachineBlockDevices(machine, m); err != nil {
-		return errors.Trace(err)
-	}
 
 	// Now that this machine exists in the database, process each of the
 	// containers in this machine.
@@ -536,30 +542,6 @@ func (i *importer) machine(m description.Machine) error {
 		if err := i.machine(container); err != nil {
 			return errors.Annotate(err, container.Id())
 		}
-	}
-	return nil
-}
-
-func (i *importer) importMachineBlockDevices(machine *Machine, m description.Machine) error {
-	var devices []BlockDeviceInfo
-	for _, device := range m.BlockDevices() {
-		devices = append(devices, BlockDeviceInfo{
-			DeviceName:     device.Name(),
-			DeviceLinks:    device.Links(),
-			Label:          device.Label(),
-			UUID:           device.UUID(),
-			HardwareId:     device.HardwareID(),
-			WWN:            device.WWN(),
-			BusAddress:     device.BusAddress(),
-			Size:           device.Size(),
-			FilesystemType: device.FilesystemType(),
-			InUse:          device.InUse(),
-			MountPoint:     device.MountPoint(),
-		})
-	}
-
-	if err := machine.SetMachineBlockDevices(devices...); err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }
@@ -982,10 +964,16 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		return errors.Trace(err)
 	}
 
+	var unitArgs []applicationservice.AddUnitParams
 	for _, unit := range a.Units() {
 		if err := i.unit(a, unit, ctrlCfg); err != nil {
 			return errors.Trace(err)
 		}
+		n := unit.Name()
+		unitArgs = append(unitArgs, applicationservice.AddUnitParams{UnitName: &n})
+	}
+	if err := i.applicationSaver.Save(context.TODO(), a.Name(), unitArgs...); err != nil {
+		return errors.Trace(err)
 	}
 
 	if err := i.applicationOffers(a); err != nil {
@@ -1184,11 +1172,7 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  &workloadStatusDoc,
 		workloadVersionDoc: &workloadVersionDoc,
-		meterStatusDoc: &meterStatusDoc{
-			Code: u.MeterStatusCode(),
-			Info: u.MeterStatusInfo(),
-		},
-		containerDoc: cloudContainer,
+		containerDoc:       cloudContainer,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -1270,9 +1254,6 @@ func (i *importer) importUnitState(unit *Unit, u description.Unit, ctrlCfg contr
 	if storageState := u.StorageState(); storageState != "" {
 		us.SetStorageState(storageState)
 	}
-	if meterStatusState := u.MeterStatusState(); meterStatusState != "" {
-		us.SetMeterStatusState(meterStatusState)
-	}
 
 	// No state to persist.
 	if !us.Modified() {
@@ -1348,7 +1329,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		ExposedEndpoints:     exposedEndpoints,
 		MinUnits:             a.MinUnits(),
 		Tools:                agentTools,
-		MetricCredentials:    a.MetricsCredentials(),
 		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),
@@ -1771,12 +1751,20 @@ func (i *importer) remoteEntities() error {
 		src: i.model,
 		dst: i.st.db(),
 	}
+	offerUUIDByName := make(map[string]string)
+	for _, app := range i.model.Applications() {
+		for _, offer := range app.Offers() {
+			offerUUIDByName[offer.OfferName()] = offer.OfferUUID()
+		}
+	}
 	migration.Add(func() error {
 		m := ImportRemoteEntities{}
-		return m.Execute(applicationOffersStateShim{stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
-		}}, migration.dst)
+		return m.Execute(&applicationOffersStateShim{
+			offerUUIDByName: offerUUIDByName,
+			stateModelNamspaceShim: stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
+			}}, migration.dst)
 	})
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)
@@ -1816,14 +1804,14 @@ func (i *importer) spaces() error {
 		}
 
 		if s.Id() == "" {
-			if _, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public()); err != nil {
+			if _, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil); err != nil {
 				i.logger.Errorf("error importing space %s: %s", s.Name(), err)
 				return errors.Annotate(err, s.Name())
 			}
 			continue
 		}
 
-		ops := i.st.addSpaceTxnOps(s.Id(), s.Name(), network.Id(s.ProviderID()), s.Public())
+		ops := i.st.addSpaceTxnOps(s.Id(), s.Name(), network.Id(s.ProviderID()))
 		if err := i.st.db().RunTransaction(ops); err != nil {
 			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
@@ -1891,7 +1879,6 @@ func (i *importer) subnets() error {
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			AvailabilityZones: subnet.AvailabilityZones(),
-			IsPublic:          subnet.IsPublic(),
 			SpaceID:           subnet.SpaceID(),
 
 			// SpaceName will only be present when migrating from pre-2.7

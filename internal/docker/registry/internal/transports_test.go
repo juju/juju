@@ -271,3 +271,275 @@ func (s *transportSuite) TestUnwrapNetError(c *gc.C) {
 	c.Assert(unwrapedErr, jc.ErrorIs, errors.NotFound)
 	c.Assert(unwrapedErr, gc.ErrorMatches, `Get "https://example.com": jujud-operator:2.6.6 not found`)
 }
+
+func (s *transportSuite) TestChallengeTransportTokenRefresh(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
+
+	url, err := url.Parse(`https://example.com`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gomock.InOrder(
+		// 1st try failed - bearer token was missing.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusUnauthorized,
+					Body:       io.NopCloser(nil),
+					Header: http.Header{
+						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+							`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
+						},
+					},
+				}, nil
+			},
+		),
+		// Refresh OAuth Token.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		// retry.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+			},
+		),
+	)
+	t := internal.NewChallengeTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
+	_, err = t.RoundTrip(&http.Request{
+		Header: http.Header{},
+		URL:    url,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *transportSuite) TestChallengeTransportBasic(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
+
+	url, err := url.Parse(`https://example.com`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gomock.InOrder(
+		// 1st try failed - bearer token was missing.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusUnauthorized,
+					Body:       io.NopCloser(nil),
+					Header: http.Header{
+						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+							`Basic realm="my realm"`,
+						},
+					},
+				}, nil
+			},
+		),
+		// retry.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+			},
+		),
+	)
+	t := internal.NewChallengeTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
+	_, err = t.RoundTrip(&http.Request{
+		Header: http.Header{},
+		URL:    url,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
+
+	url, err := url.Parse(`https://example.com`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gomock.InOrder(
+		// 1st try failed - bearer token was missing.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusUnauthorized,
+					Body:       io.NopCloser(nil),
+					Header: http.Header{
+						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+							`Basic realm="my realm"`,
+							`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
+						},
+					},
+				}, nil
+			},
+		),
+		// retry.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(nil)}, nil
+			},
+		),
+		// Refresh OAuth Token.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		// retry.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+			},
+		),
+
+		// re-use last successful
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusUnauthorized,
+					Body:       io.NopCloser(nil),
+					Header: http.Header{
+						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+							`Basic realm="my realm"`,
+							`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
+						},
+					},
+				}, nil
+			},
+		),
+		// Refresh OAuth Token.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		// retry.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+			},
+		),
+
+		// re-use last successful
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusUnauthorized,
+					Body:       io.NopCloser(nil),
+					Header: http.Header{
+						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+							`Basic realm="my realm"`,
+							`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
+						},
+					},
+				}, nil
+			},
+		),
+		// Refresh OAuth Token.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		// still bad
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusUnauthorized,
+					Body:       io.NopCloser(nil),
+					Header: http.Header{
+						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+							`Basic realm="my realm"`,
+							`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
+						},
+					},
+				}, nil
+			},
+		),
+		// retry with basic again.
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
+				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+			},
+		),
+	)
+	t := internal.NewChallengeTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
+	_, err = t.RoundTrip(&http.Request{
+		Header: http.Header{},
+		URL:    url,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Reuse
+	_, err = t.RoundTrip(&http.Request{
+		Header: http.Header{},
+		URL:    url,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Reauth
+	_, err = t.RoundTrip(&http.Request{
+		Header: http.Header{},
+		URL:    url,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}

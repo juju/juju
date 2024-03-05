@@ -12,11 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -28,6 +26,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	coreresources "github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -57,8 +56,7 @@ func (s *UploadSuite) setup(c *gc.C) *gomock.Controller {
 func (s *UploadSuite) TestUpload(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	ctx := context.TODO()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
+	ctx := context.Background()
 
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
@@ -73,7 +71,7 @@ func (s *UploadSuite) TestUpload(c *gc.C) {
 
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
-	err = s.client.Upload("a-application", "spam", "foo.zip", "", strings.NewReader(data))
+	err = s.client.Upload(context.Background(), "a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -111,7 +109,7 @@ func (m reqMatcher) String() string {
 func (s *UploadSuite) TestUploadBadApplication(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	err := s.client.Upload("???", "spam", "file.zip", "", nil)
+	err := s.client.Upload(context.Background(), "???", "spam", "file.zip", "", nil)
 	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
 }
 
@@ -129,10 +127,9 @@ func (s *UploadSuite) TestUploadFailed(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=foo.zip")
 	req.ContentLength = int64(len(data))
 
-	ctx := context.TODO()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
+	ctx := context.Background()
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
-	err = s.client.Upload("a-application", "spam", "foo.zip", "", strings.NewReader(data))
+	err = s.client.Upload(ctx, "a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -152,7 +149,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 		},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{uuid.String()}
 	result := new(params.AddPendingResourcesResult)
@@ -161,7 +158,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	}
 	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, result).SetArg(3, results).Return(nil)
 
-	cURL := charm.MustParseURL("ch:spam")
+	cURL := "ch:spam"
 	pendingIDs, err := s.client.AddPendingResources(resources.AddPendingResourcesArgs{
 		ApplicationID: "a-application",
 		CharmID: resources.CharmID{
@@ -188,7 +185,7 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
@@ -207,12 +204,11 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	req.ContentLength = int64(len(data))
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
-	ctx := context.TODO()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
+	ctx := context.Background()
 	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
-	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
+	uploadID, err := s.client.UploadPendingResource(ctx, "a-application", res[0].Resource, "file.zip", strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadID, gc.Equals, expected)
 }
@@ -225,7 +221,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
@@ -233,7 +229,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 	}
 	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 
-	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", nil)
+	uploadID, err := s.client.UploadPendingResource(context.Background(), "a-application", res[0].Resource, "file.zip", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadID, gc.Equals, expected)
 }
@@ -243,7 +239,7 @@ func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *gc.C) {
 	defer ctrl.Finish()
 
 	res, _ := newResourceResult(c, "spam")
-	_, err := s.client.UploadPendingResource("???", res[0].Resource, "file.zip", nil)
+	_, err := s.client.UploadPendingResource(context.Background(), "???", res[0].Resource, "file.zip", nil)
 	c.Assert(err, gc.ErrorMatches, `.*invalid application.*`)
 }
 
@@ -255,7 +251,7 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
@@ -273,12 +269,11 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	req.ContentLength = int64(len(data))
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
-	ctx := context.TODO()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
+	ctx := context.Background()
 	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 
-	_, err = s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
+	_, err = s.client.UploadPendingResource(ctx, "a-application", res[0].Resource, "file.zip", strings.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 

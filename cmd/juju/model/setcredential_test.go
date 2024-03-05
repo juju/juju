@@ -6,10 +6,10 @@ package model_test
 import (
 	"regexp"
 
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
+	_ "github.com/juju/juju/internal/provider/ec2" // needed when getting valid local credentials
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/ec2" // needed when getting valid local credentials
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )

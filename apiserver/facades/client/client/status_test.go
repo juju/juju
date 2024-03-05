@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -20,10 +20,15 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
+	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -39,7 +44,8 @@ type statusSuite struct {
 var _ = gc.Suite(&statusSuite{})
 
 func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
-	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	st := s.ControllerModel(c).State()
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -50,8 +56,6 @@ func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
 func (s *statusSuite) TestFullStatus(c *gc.C) {
 	machine := s.addMachine(c)
 	st := s.ControllerModel(c).State()
-	c.Assert(st.SetSLA("essential", "test-user", []byte("")), jc.ErrorIsNil)
-	c.Assert(st.SetModelMeterStatus("GREEN", "goo"), jc.ErrorIsNil)
 	conn := s.OpenModelAPI(c, st.ModelUUID())
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
@@ -59,9 +63,6 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.Model.Name, gc.Equals, "controller")
 	c.Check(status.Model.Type, gc.Equals, "iaas")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
-	c.Check(status.Model.SLA, gc.Equals, "essential")
-	c.Check(status.Model.MeterStatus.Color, gc.Equals, "green")
-	c.Check(status.Model.MeterStatus.Message, gc.Equals, "goo")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Offers, gc.HasLen, 0)
@@ -75,20 +76,6 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(resultMachine.Id, gc.Equals, machine.Id())
 	c.Check(resultMachine.Base, jc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10/stable"})
 	c.Check(resultMachine.LXDProfiles, gc.HasLen, 0)
-}
-
-func (s *statusSuite) TestUnsupportedNoModelMeterStatus(c *gc.C) {
-	s.addMachine(c)
-	st := s.ControllerModel(c).State()
-	c.Assert(st.SetSLA("unsupported", "test-user", []byte("")), jc.ErrorIsNil)
-	c.Assert(st.SetModelMeterStatus("RED", "nope"), jc.ErrorIsNil)
-	conn := s.OpenModelAPI(c, st.ModelUUID())
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.Model.SLA, gc.Equals, "unsupported")
-	c.Check(status.Model.MeterStatus.Color, gc.Equals, "")
-	c.Check(status.Model.MeterStatus.Message, gc.Equals, "")
 }
 
 func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
@@ -235,13 +222,13 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 			"in the way the addresses are processed"))
 }
 
-func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
+func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, cidr, providerSubnetID string) {
 	st := s.ControllerModel(c).State()
-	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.AddSubnet(network.SubnetInfo{
-		CIDR:       CIDR,
+		CIDR:       cidr,
 		SpaceID:    space.Id(),
 		ProviderId: network.Id(providerSubnetID),
 	})
@@ -318,157 +305,11 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 	c.Check(mStatus.Containers, gc.HasLen, 1)
 }
 
-var testUnits = []struct {
-	unitName       string
-	setStatus      *state.MeterStatus
-	expectedStatus *params.MeterStatus
-}{{
-	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
-	expectedStatus: &params.MeterStatus{Color: "green", Message: "test information"},
-}, {
-	setStatus:      &state.MeterStatus{Code: state.MeterAmber, Info: "test information"},
-	expectedStatus: &params.MeterStatus{Color: "amber", Message: "test information"},
-}, {
-	setStatus:      &state.MeterStatus{Code: state.MeterRed, Info: "test information"},
-	expectedStatus: &params.MeterStatus{Color: "red", Message: "test information"},
-}, {
-	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
-	expectedStatus: &params.MeterStatus{Color: "green", Message: "test information"},
-}, {},
-}
-
-func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	c.Assert(st.SetSLA("advanced", "test-user", nil), jc.ErrorIsNil)
-	c.Assert(st.SetModelMeterStatus("RED", "thing"), jc.ErrorIsNil)
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	modelMeterStatus := status.Model.MeterStatus
-	c.Assert(modelMeterStatus.Color, gc.Equals, "red")
-	c.Assert(modelMeterStatus.Message, gc.Equals, "thing")
-}
-
-func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	release()
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 0)
-
-	for i, unit := range testUnits {
-		u, err := app.AddUnit(state.AddUnitParams{})
-		testUnits[i].unitName = u.Name()
-		c.Assert(err, jc.ErrorIsNil)
-		if unit.setStatus != nil {
-			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	appStatus, ok := status.Applications[app.Name()]
-	c.Assert(ok, gc.Equals, true)
-
-	c.Assert(appStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
-	for _, unit := range testUnits {
-		unitStatus, ok := appStatus.MeterStatuses[unit.unitName]
-
-		if unit.expectedStatus != nil {
-			c.Assert(ok, gc.Equals, true)
-			c.Assert(&unitStatus, gc.DeepEquals, unit.expectedStatus)
-		} else {
-			c.Assert(ok, gc.Equals, false)
-		}
-	}
-}
-
-func (s *statusUnitTestSuite) TestNoMeterStatusWhenNotRequired(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	release()
-	app := f.MakeApplication(c, nil)
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 0)
-
-	for i, unit := range testUnits {
-		u, err := app.AddUnit(state.AddUnitParams{})
-		testUnits[i].unitName = u.Name()
-		c.Assert(err, jc.ErrorIsNil)
-		if unit.setStatus != nil {
-			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	appStatus, ok := status.Applications[app.Name()]
-	c.Assert(ok, gc.Equals, true)
-
-	c.Assert(appStatus.MeterStatuses, gc.HasLen, 0)
-}
-
-func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	release()
-	app := f.MakeApplication(c, nil)
-	c.Assert(app.SetMetricCredentials([]byte("magic-ticket")), jc.ErrorIsNil)
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 0)
-
-	for i, unit := range testUnits {
-		u, err := app.AddUnit(state.AddUnitParams{})
-		testUnits[i].unitName = u.Name()
-		c.Assert(err, jc.ErrorIsNil)
-		if unit.setStatus != nil {
-			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	appStatus, ok := status.Applications[app.Name()]
-	c.Assert(ok, gc.Equals, true)
-
-	c.Assert(appStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
-	for _, unit := range testUnits {
-		unitStatus, ok := appStatus.MeterStatuses[unit.unitName]
-
-		if unit.expectedStatus != nil {
-			c.Assert(ok, gc.Equals, true)
-			c.Assert(&unitStatus, gc.DeepEquals, unit.expectedStatus)
-		} else {
-			c.Assert(ok, gc.Equals, false)
-		}
-	}
-}
-
 func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "ch:amd64/quantal/wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
 			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
@@ -493,36 +334,40 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	})
 }
 
-func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	release()
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-3"})
-	meteredCharmNew := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-5"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	u := f.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-		SetCharmURL: true,
-	})
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	unitStatus, ok := status.Applications[app.Name()].Units[u.Name()]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "")
+func defaultCharmOrigin(curlStr string) *state.CharmOrigin {
+	// Use ParseURL here in test until either the charm and/or application
+	// can easily provide the same data.
+	curl, _ := charm.ParseURL(curlStr)
+	var source string
+	var channel *state.Channel
+	if charm.CharmHub.Matches(curl.Schema) {
+		source = corecharm.CharmHub.String()
+		channel = &state.Channel{
+			Risk: "stable",
+		}
+	} else if charm.Local.Matches(curl.Schema) {
+		source = corecharm.Local.String()
+	}
 
-	err = app.SetCharm(state.SetCharmConfig{
-		Charm: meteredCharmNew,
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
-	c.Assert(err, jc.ErrorIsNil)
+	b, _ := base.GetBaseFromSeries(curl.Series)
 
-	status, err = client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	unitStatus, ok = status.Applications[app.Name()].Units[u.Name()]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/metered-3")
+	platform := &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		OS:           b.OS,
+		Channel:      b.Channel.String(),
+	}
+
+	return &state.CharmOrigin{
+		Source:   source,
+		Type:     "charm",
+		Revision: intPtr(curl.Revision),
+		Channel:  channel,
+		Platform: platform,
+	}
+}
+
+func intPtr(i int) *int {
+	return &i
 }
 
 func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
@@ -539,8 +384,9 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 		Application: app,
 	})
 	subordApp := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: subordCharm,
-		Name:  "subord",
+		Charm:       subordCharm,
+		CharmOrigin: defaultCharmOrigin(subordCharm.URL()),
+		Name:        "subord",
 	})
 
 	subEndpoint, err := subordApp.Endpoint("info")
@@ -569,8 +415,9 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	c.Assert(unitStatus.Charm, gc.Equals, "")
 
 	err = subordApp.SetCharm(state.SetCharmConfig{
-		Charm: subordCharmNew,
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+		Charm:       subordCharmNew,
+		CharmOrigin: defaultCharmOrigin(subordCharmNew.URL()),
+	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err = client.Status(nil)
@@ -702,7 +549,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	mig, err := state2.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
@@ -985,7 +832,7 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(
 		state,
-		testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		clock.WallClock,
 		newCharmhubClient, loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -998,7 +845,8 @@ func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
 
 // AddMachine adds a new machine to state.
 func (s *statusUpgradeUnitSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
-	m, err := s.ControllerModel(c).State().AddOneMachine(state.MachineTemplate{
+	st := s.ControllerModel(c).State()
+	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{job},
 	})
@@ -1023,12 +871,20 @@ func (s *statusUpgradeUnitSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName
 	return dummy
 }
 
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
+}
+
 // AddApplication adds an application for the specified charm to state.
 func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationName string) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
 	revision := ch.Revision()
-	_, err := s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
+
+	st := s.ControllerModel(c).State()
+	_, err := st.AddApplication(s.InstancePrechecker(c, st), state.AddApplicationArgs{
 		Name:  applicationName,
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
@@ -1046,7 +902,7 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 				Risk:  "stable",
 			},
 		},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

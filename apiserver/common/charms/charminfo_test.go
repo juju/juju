@@ -6,9 +6,9 @@ package charms_test
 import (
 	"context"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -41,7 +41,6 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 	ch.EXPECT().Config().Return(&charm.Config{})
 	ch.EXPECT().Meta().Return(&charm.Meta{Name: "foo"})
 	ch.EXPECT().Actions().Return(&charm.Actions{})
-	ch.EXPECT().Metrics().Return(&charm.Metrics{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
 	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
 	ch.EXPECT().URL().Return("ch:foo-1")

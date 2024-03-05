@@ -10,11 +10,30 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
+// BlockDevice is a block device present on a machine.
+// NB: the json labels are camel case not lower case because
+// originally a mistake was made and we need to retain on the
+// wire compatibility.
+type BlockDevice struct {
+	DeviceName     string   `json:"DeviceName"`
+	DeviceLinks    []string `json:"DeviceLinks"`
+	Label          string   `json:"Label"`
+	UUID           string   `json:"UUID"`
+	HardwareId     string   `json:"HardwareId"`
+	WWN            string   `json:"WWN"`
+	BusAddress     string   `json:"BusAddress"`
+	Size           uint64   `json:"Size"`
+	FilesystemType string   `json:"FilesystemType"`
+	InUse          bool     `json:"InUse"`
+	MountPoint     string   `json:"MountPoint"`
+	SerialId       string   `json:"SerialId"`
+}
+
 // MachineBlockDevices holds a machine tag and the block devices present
 // on that machine.
 type MachineBlockDevices struct {
-	Machine      string                `json:"machine"`
-	BlockDevices []storage.BlockDevice `json:"block-devices,omitempty"`
+	Machine      string        `json:"machine"`
+	BlockDevices []BlockDevice `json:"block-devices,omitempty"`
 }
 
 // SetMachineBlockDevices holds the arguments for recording the block
@@ -26,8 +45,8 @@ type SetMachineBlockDevices struct {
 // BlockDeviceResult holds the result of an API call to retrieve details
 // of a block device.
 type BlockDeviceResult struct {
-	Result storage.BlockDevice `json:"result"`
-	Error  *Error              `json:"error,omitempty"`
+	Result BlockDevice `json:"result"`
+	Error  *Error      `json:"error,omitempty"`
 }
 
 // BlockDeviceResults holds the result of an API call to retrieve details
@@ -39,8 +58,8 @@ type BlockDeviceResults struct {
 // BlockDevicesResult holds the result of an API call to retrieve details
 // of all block devices relating to some entity.
 type BlockDevicesResult struct {
-	Result []storage.BlockDevice `json:"result"`
-	Error  *Error                `json:"error,omitempty"`
+	Result []BlockDevice `json:"result"`
+	Error  *Error        `json:"error,omitempty"`
 }
 
 // BlockDevicesResults holds the result of an API call to retrieve details
@@ -223,7 +242,7 @@ type VolumeAttachmentPlan struct {
 	// BlockDevice should only be set by machine agents after
 	// the AttachVolume() function is called. It represents the machines
 	// view of the block device represented by the plan.
-	BlockDevice storage.BlockDevice `json:"block-device,omitempty"`
+	BlockDevice BlockDevice `json:"block-device,omitempty"`
 }
 
 type VolumeAttachmentPlans struct {

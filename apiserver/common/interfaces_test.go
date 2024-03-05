@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

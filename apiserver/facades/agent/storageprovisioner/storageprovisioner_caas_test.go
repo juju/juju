@@ -7,10 +7,10 @@ import (
 	"context"
 	"sort"
 
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -68,8 +68,11 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
 	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(
+		context.Background(),
+		nil, // tests which need a watcher factory need to create an api with a non nil value.
 		backend,
 		storageBackend,
+		s.DefaultModelServiceFactory(c).BlockDevice(),
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		s.resources,
 		s.authorizer,

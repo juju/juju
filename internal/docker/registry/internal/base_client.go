@@ -16,7 +16,7 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/internal/docker"
 )
@@ -120,8 +120,8 @@ func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoD
 			),
 		)
 	}
-	return newTokenTransport(
-		transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Content(), "", false,
+	return newChallengeTransport(
+		transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Content(),
 	), nil
 }
 

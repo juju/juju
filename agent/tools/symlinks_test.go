@@ -9,8 +9,8 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/symlink"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/symlink"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"

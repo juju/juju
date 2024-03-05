@@ -10,10 +10,9 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -120,7 +118,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
 		controllerStacker, err := provider.NewcontrollerStackForTest(
-			envtesting.BootstrapContext(context.TODO(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
+			envtesting.BootstrapContext(context.Background(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		return controllerStacker
@@ -176,13 +174,13 @@ func (s *bootstrapSuite) TestFindControllerNamespace(c *gc.C) {
 	for _, test := range tests {
 		client := fake.NewSimpleClientset()
 		_, err := client.CoreV1().Namespaces().Create(
-			context.TODO(),
+			context.Background(),
 			&test.Namespace,
 			v1.CreateOptions{},
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		ns, err := provider.FindControllerNamespace(
-			client, test.ControllerUUID)
+			context.Background(), client, test.ControllerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ns, jc.DeepEquals, &test.Namespace)
 	}
@@ -334,7 +332,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
+	_, err := s.mockNamespaces.Get(context.Background(), s.namespace, v1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 
 	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
@@ -368,7 +366,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
-	APIPort := s.controllerCfg.APIPort()
+	apiPort := s.controllerCfg.APIPort()
 	ns := &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   s.namespace,
@@ -390,8 +388,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
-					TargetPort: intstr.FromInt(APIPort),
-					Port:       int32(APIPort),
+					TargetPort: intstr.FromInt(apiPort),
+					Port:       int32(apiPort),
 				},
 			},
 			ExternalIPs: []string{"10.0.0.1"},
@@ -412,8 +410,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
-					TargetPort: intstr.FromInt(APIPort),
-					Port:       int32(APIPort),
+					TargetPort: intstr.FromInt(apiPort),
+					Port:       int32(apiPort),
 				},
 			},
 			ClusterIP:   svcPublicIP,
@@ -511,7 +509,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Spec: core.PersistentVolumeClaimSpec{
 						StorageClassName: &scName,
 						AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-						Resources: core.ResourceRequirements{
+						Resources: core.VolumeResourceRequirements{
 							Requests: core.ResourceList{
 								core.ResourceStorage: resource.MustParse("10000Mi"),
 							},
@@ -835,7 +833,7 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 
-test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
+test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
 
 mkdir -p /var/lib/pebble/default/layers
 cat > /var/lib/pebble/default/layers/001-jujud.yaml <<EOF
@@ -1123,7 +1121,7 @@ exec /opt/pebble run --http :38811 --verbose
 	statefulsetChanges := statefulsetWatcher.ResultChan()
 
 	go func() {
-		errChan <- controllerStacker.Deploy()
+		errChan <- controllerStacker.Deploy(context.Background())
 	}()
 	go func(clk *testclock.Clock) {
 		for {
@@ -1164,7 +1162,7 @@ exec /opt/pebble run --http :38811 --verbose
 				pp, err := s.mockPods.Create(context.Background(), p, v1.CreateOptions{})
 				c.Assert(err, jc.ErrorIsNil)
 
-				_, err = s.broker.GetPod(podName)
+				_, err = s.broker.GetPod(context.Background(), podName)
 				c.Assert(err, jc.ErrorIsNil)
 				podFirer()
 				pp.Status.Phase = core.PodRunning
@@ -1226,7 +1224,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
+	_, err := s.mockNamespaces.Get(context.Background(), s.namespace, v1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 
 	var watchers []k8swatcher.KubernetesNotifyWatcher
@@ -1251,8 +1249,6 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	controllerStacker := s.controllerStackerGetter()
 	mockStdCtx := mocks.NewMockContext(ctrl)
-	ctx := cmd.BootstrapContext(mockStdCtx, cmdtesting.Context(c))
-	controllerStacker.SetContext(ctx)
 
 	ns := &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -1276,7 +1272,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- controllerStacker.Deploy()
+		errChan <- controllerStacker.Deploy(mockStdCtx)
 	}()
 
 	select {

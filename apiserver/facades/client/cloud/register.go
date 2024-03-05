@@ -11,19 +11,19 @@ import (
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential/service"
-	"github.com/juju/juju/domain/model"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Cloud", 7, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Cloud", 7, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV7(ctx) // Do not set error if forcing credential update.
 	}, reflect.TypeOf((*CloudAPI)(nil)))
 }
 
 // newFacadeV7 is used for API registration.
-func newFacadeV7(context facade.Context) (*CloudAPI, error) {
+func newFacadeV7(context facade.ModelContext) (*CloudAPI, error) {
 	serviceFactory := context.ServiceFactory()
 	systemState, err := context.StatePool().SystemState()
 	if err != nil {
@@ -33,8 +33,8 @@ func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 		WithLegacyUpdater(systemState.CloudCredentialUpdated).
 		WithLegacyRemover(systemState.RemoveModelsCredential)
 
-	credentialCallContextGetter := func(ctx stdcontext.Context, modelUUID model.UUID) (service.CredentialValidationContext, error) {
-		modelState, err := context.StatePool().Get(string(modelUUID))
+	credentialCallContextGetter := func(ctx stdcontext.Context, modelUUID coremodel.UUID) (service.CredentialValidationContext, error) {
+		modelState, err := context.StatePool().Get(modelUUID.String())
 		if err != nil {
 			return service.CredentialValidationContext{}, err
 		}
@@ -58,7 +58,7 @@ func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 			ControllerUUID: m.ControllerUUID(),
 			Config:         cfg,
 			MachineService: credentialcommon.NewMachineService(modelState.State),
-			ModelType:      model.Type(m.Type()),
+			ModelType:      coremodel.ModelType(m.Type()),
 			Cloud:          *cld,
 			Region:         m.CloudRegion(),
 		}, nil

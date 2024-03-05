@@ -11,13 +11,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/resource"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -56,7 +56,7 @@ type BundleAPI struct {
 }
 
 // NewFacade provides the required signature for facade registration.
-func newFacade(ctx facade.Context) (*BundleAPI, error) {
+func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 	authorizer := ctx.Auth()
 	st := ctx.State()
 
@@ -621,14 +621,14 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 }
 
 func bundleDataRemoteApplications(remoteApps []description.RemoteApplication) map[string]*charm.SaasSpec {
-	Saas := make(map[string]*charm.SaasSpec, len(remoteApps))
+	saas := make(map[string]*charm.SaasSpec, len(remoteApps))
 	for _, application := range remoteApps {
 		newSaas := &charm.SaasSpec{
 			URL: application.URL(),
 		}
-		Saas[application.Name()] = newSaas
+		saas[application.Name()] = newSaas
 	}
-	return Saas
+	return saas
 }
 
 func bundleDataRelations(relations []description.Relation) [][]string {

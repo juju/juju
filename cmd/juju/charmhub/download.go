@@ -13,11 +13,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/charm/v13"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/arch"
@@ -36,6 +35,12 @@ Download a charm to the current directory from the CharmHub store
 by a specified name. Downloading for a specific base can be done via
 --base. --base can be specified using the OS name and the version of
 the OS, separated by @. For example, --base ubuntu@22.04.
+
+By default, the latest revision in the default channel will be
+downloaded. To download the latest revision from another channel,
+use --channel. To download a specific revision, use --revision,
+which cannot be used together with --arch, --base, --channel or
+--series.
 
 Adding a hyphen as the second argument allows the download to be piped
 to stdout.
@@ -61,6 +66,7 @@ type downloadCommand struct {
 
 	channel       string
 	charmOrBundle string
+	revision      int
 	archivePath   string
 	pipeToStdout  bool
 	noProgress    bool
@@ -92,6 +98,7 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.series, "series", SeriesAll, "specify a series. DEPRECATED use --base")
 	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
+	f.IntVar(&c.revision, "revision", -1, "specify a revision of the charm to download")
 	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
 	f.BoolVar(&c.noProgress, "no-progress", false, "disable the progress bar")
 }
@@ -101,6 +108,14 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *downloadCommand) Init(args []string) error {
 	if c.base != "" && (c.series != "" && c.series != SeriesAll) {
 		return errors.New("--series and --base cannot be specified together")
+	}
+
+	hasArch := c.arch != ArchAll && c.arch != ""
+	hasBase := c.base != ""
+	hasChannel := c.channel != ""
+	hasSeries := c.series != SeriesAll && c.series != ""
+	if c.revision != -1 && (hasArch || hasBase || hasChannel || hasSeries) {
+		return errors.New("--revision cannot be specified together with --arch, --base, --channel or --series")
 	}
 
 	if err := c.charmHubCommand.Init(args); err != nil {
@@ -165,8 +180,8 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	}
 
 	cfg := charmhub.Config{
-		URL:    c.charmHubURL,
-		Logger: downloadLogger{Context: cmdContext},
+		URL:           c.charmHubURL,
+		LoggerFactory: downloadLoggerFactory{Context: cmdContext},
 	}
 
 	if c.pipeToStdout {
@@ -193,7 +208,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	}
 
 	pArch := c.arch
-	if pArch == "all" || pArch == "" {
+	if pArch == ArchAll || pArch == "" {
 		pArch = arch.DefaultArchitecture
 	}
 	if base.Empty() {
@@ -219,8 +234,13 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		path = fmt.Sprintf("%s_r%d.%s", entity.Name, entity.Revision, entityType)
 	}
 
-	cmdContext.Infof("Fetching %s %q revision %d using %q channel and base %q",
-		entityType, entity.Name, entity.Revision, normChannel, normBase)
+	if c.revision == -1 {
+		cmdContext.Infof("Fetching %s %q revision %d using %q channel and base %q",
+			entityType, entity.Name, entity.Revision, normChannel, normBase)
+	} else {
+		cmdContext.Infof("Fetching %s %q revision %d",
+			entityType, entity.Name, entity.Revision)
+	}
 
 	resourceURL, err := url.Parse(entity.Download.URL)
 	if err != nil {
@@ -282,13 +302,21 @@ func (c *downloadCommand) refresh(
 		return nil, nil, errors.Trace(err)
 	}
 
-	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: normBase.Architecture,
-		Name:         normBase.OS,
-		Channel:      normBase.Channel,
-	})
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+	var refreshConfig charmhub.RefreshConfig
+	if c.revision == -1 {
+		refreshConfig, err = charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
+			Architecture: normBase.Architecture,
+			Name:         normBase.OS,
+			Channel:      normBase.Channel,
+		})
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	} else {
+		refreshConfig, err = charmhub.InstallOneFromRevision(c.charmOrBundle, c.revision)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
 	}
 
 	results, err := client.Refresh(ctx, refreshConfig)
@@ -304,6 +332,9 @@ func (c *downloadCommand) refresh(
 	for _, res := range results {
 		if res.Error != nil {
 			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
+				if c.revision != -1 {
+					return nil, nil, errors.Errorf("unable to locate %s revison %d: %s", c.charmOrBundle, c.revision, res.Error.Message)
+				}
 				possibleBases, err := c.suggested(cmdContext, base, normChannel.String(), res.Error.Extra.Releases)
 				// The following will attempt to refresh the charm with the
 				// suggested series. If it can't do that, it will give up after
@@ -372,27 +403,43 @@ func (c *downloadCommand) calculateHash(path string) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-type downloadLogger struct {
+type downloadLoggerFactory struct {
 	Context *cmd.Context
 }
 
+func (d downloadLoggerFactory) Child(name string) charmhub.Logger {
+	return downloadLogger{
+		factory: d,
+	}
+}
+
+func (d downloadLoggerFactory) ChildWithTags(name string, labels ...string) charmhub.Logger {
+	return downloadLogger{
+		factory: d,
+	}
+}
+
+type downloadLogger struct {
+	factory downloadLoggerFactory
+}
+
 func (d downloadLogger) IsTraceEnabled() bool {
-	return !d.Context.Quiet()
+	return !d.factory.Context.Quiet()
 }
 
 func (d downloadLogger) Errorf(msg string, args ...interface{}) {
-	d.Context.Verbosef(msg, args...)
+	d.factory.Context.Verbosef(msg, args...)
+}
+
+func (d downloadLogger) Warningf(msg string, args ...interface{}) {
+	d.factory.Context.Verbosef(msg, args...)
 }
 
 func (d downloadLogger) Debugf(msg string, args ...interface{}) {
-	d.Context.Verbosef(msg, args...)
+	d.factory.Context.Verbosef(msg, args...)
 }
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
-
-func (d downloadLogger) ChildWithLabels(name string, labels ...string) loggo.Logger {
-	return logger.ChildWithLabels(name, labels...)
-}
 
 type stdoutFileSystem struct{}
 

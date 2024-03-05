@@ -10,13 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
@@ -44,9 +45,9 @@ func (s *CharmSuite) destroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *CharmSuite) remove(c *gc.C) {
+func (s *CharmSuite) remove(c *gc.C, store objectstore.ObjectStore) {
 	s.destroy(c)
-	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State))
+	err := s.charm.Remove(context.Background(), store)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -99,9 +100,10 @@ func (s *CharmSuite) testCharm(c *gc.C) {
 		charm.ActionSpec{
 			Description: "Take a snapshot of the database.",
 			Params: map[string]interface{}{
-				"type":        "object",
-				"title":       "snapshot",
-				"description": "Take a snapshot of the database.",
+				"type":                 "object",
+				"title":                "snapshot",
+				"description":          "Take a snapshot of the database.",
+				"additionalProperties": true,
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
@@ -144,9 +146,10 @@ func (s *CharmSuite) TestCharmFromSha256(c *gc.C) {
 		charm.ActionSpec{
 			Description: "Take a snapshot of the database.",
 			Params: map[string]interface{}{
-				"type":        "object",
-				"title":       "snapshot",
-				"description": "Take a snapshot of the database.",
+				"type":                 "object",
+				"title":                "snapshot",
+				"description":          "Take a snapshot of the database.",
+				"additionalProperties": true,
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
@@ -159,19 +162,19 @@ func (s *CharmSuite) TestCharmFromSha256(c *gc.C) {
 }
 
 func (s *CharmSuite) TestRemovedCharmNotFound(c *gc.C) {
-	s.remove(c)
+	s.remove(c, state.NewObjectStore(c, s.State.ModelUUID()))
 	s.checkRemoved(c)
 }
 
 func (s *CharmSuite) TestRemovedCharmNotListed(c *gc.C) {
-	s.remove(c)
+	s.remove(c, state.NewObjectStore(c, s.State.ModelUUID()))
 	charms, err := s.State.AllCharms()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(charms, gc.HasLen, 0)
 }
 
 func (s *CharmSuite) TestRemoveWithoutDestroy(c *gc.C) {
-	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State))
+	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, "still alive")
 }
 
@@ -206,18 +209,17 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 func (s *CharmSuite) TestRemoveDeletesStorage(c *gc.C) {
 	// We normally don't actually set up charm storage in state
 	// tests, but we need it here.
-	stor := state.NewObjectStore(c, s.State)
 	path := s.charm.StoragePath()
-	err := stor.Put(context.Background(), path, strings.NewReader("abc"), 3)
+	err := s.objectStore.Put(context.Background(), path, strings.NewReader("abc"), 3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.destroy(c)
-	closer, _, err := stor.Get(context.Background(), path)
+	closer, _, err := s.objectStore.Get(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 	closer.Close()
 
-	s.remove(c)
-	_, _, err = stor.Get(context.Background(), path)
+	s.remove(c, s.objectStore)
+	_, _, err = s.objectStore.Get(context.Background(), path)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -233,7 +235,7 @@ func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(args, state.NewObjectStore(c, s.State))
+	_, err := s.State.AddApplication(defaultInstancePrechecker, args, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
@@ -251,7 +253,7 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(args, state.NewObjectStore(c, s.State))
+	_, err := s.State.AddApplication(defaultInstancePrechecker, args, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
@@ -280,7 +282,7 @@ func (s *CharmSuite) TestDestroyUnreferencedCharm(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
 	})
-	err := app.Destroy(state.NewObjectStore(c, s.State))
+	err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.charm.Destroy()
@@ -300,7 +302,7 @@ func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
 	info := s.dummyCharm(c, "ch:quantal/dummy-2")
 	newCh, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCh}, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// unit should still reference original charm until updated
@@ -320,7 +322,7 @@ func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("calling app.Destroy()")
-	c.Assert(app.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(app.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	removeUnit(c, s.State, unit)
 
 	assertCleanupCount(c, s.State, 2)
@@ -454,7 +456,7 @@ func (s *CharmSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 func (s *CharmSuite) TestPrepareLocalCharmUploadRemoved(c *gc.C) {
 	// Remove the fixture charm and try to re-add it; it gets a new
 	// revision.
-	s.remove(c)
+	s.remove(c, state.NewObjectStore(c, s.State.ModelUUID()))
 	curl, err := s.State.PrepareLocalCharmUpload(s.curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl.Revision, gc.Equals, charm.MustParseURL(s.curl).Revision+1)
@@ -767,7 +769,7 @@ func (s *CharmSuite) TestAddCharmMetadataUpdatesPlaceholder(c *gc.C) {
 
 func (s *CharmSuite) TestAllCharmURLs(c *gc.C) {
 	ch2 := state.AddTestingCharmhubCharmForSeries(c, s.State, "jammy", "dummy")
-	state.AddTestingApplication(c, s.State, "testme-jammy", ch2)
+	state.AddTestingApplication(c, s.State, s.objectStore, "testme-jammy", ch2)
 
 	curls, err := s.State.AllCharmURLs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -787,13 +789,11 @@ func assertCustomCharm(
 	series string,
 	meta *charm.Meta,
 	config *charm.Config,
-	metrics *charm.Metrics,
 	revision int,
 ) {
 	// Check Charm interface method results.
 	c.Assert(ch.Meta(), gc.DeepEquals, meta)
 	c.Assert(ch.Config(), gc.DeepEquals, config)
-	c.Assert(ch.Metrics(), gc.DeepEquals, metrics)
 	c.Assert(ch.Revision(), gc.DeepEquals, revision)
 
 	// Test URL matches charm and expected series.
@@ -818,14 +818,13 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
 		config := chd.Config()
-		metrics := chd.Metrics()
 		revision := chd.Revision()
 
 		ch := s.AddTestingCharm(c, name)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, revision)
+		assertCustomCharm(c, ch, "quantal", meta, config, revision)
 
 		ch = s.AddSeriesCharm(c, name, "bionic")
-		assertCustomCharm(c, ch, "bionic", meta, config, metrics, revision)
+		assertCustomCharm(c, ch, "bionic", meta, config, revision)
 	})
 }
 
@@ -844,9 +843,8 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
 		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
-		metrics := chd.Metrics()
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
+		assertCustomCharm(c, ch, "quantal", meta, config, 123)
 	})
 }
 
@@ -869,27 +867,6 @@ func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
 	})
 }
 
-var metricsYaml = `
-metrics:
-  blips:
-    description: A custom metric.
-    type: gauge
-`
-
-func (s *CharmTestHelperSuite) TestMetricsCharm(c *gc.C) {
-	metrics, err := charm.ReadMetrics(bytes.NewBuffer([]byte(metricsYaml)))
-	c.Assert(err, jc.ErrorIsNil)
-
-	forEachStandardCharm(c, func(name string) {
-		chd := testcharms.Repo.CharmDir(name)
-		meta := chd.Meta()
-		config := chd.Config()
-
-		ch := s.AddMetricsCharm(c, name, metricsYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
-	})
-}
-
 var metaYamlSnippet = `
 summary: blah
 description: blah blah
@@ -899,13 +876,12 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
 		chd := testcharms.Repo.CharmDir(name)
 		config := chd.Config()
-		metrics := chd.Metrics()
 		metaYaml := "name: " + name + metaYamlSnippet
 		meta, err := charm.ReadMeta(bytes.NewBuffer([]byte(metaYaml)))
 		c.Assert(err, jc.ErrorIsNil)
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
+		assertCustomCharm(c, ch, "quantal", meta, config, 123)
 	})
 }
 
@@ -958,10 +934,13 @@ func (s *CharmTestHelperSuite) TestManifestCharm(c *gc.C) {
 	})
 }
 
-func (s *CharmTestHelperSuite) TestTestingCharm(c *gc.C) {
-	added := state.AddTestingCharmFromRepo(c, s.State, "metered", testcharms.CharmRepo())
-	c.Assert(added.Metrics(), gc.NotNil)
+func removeUnit(c *gc.C, st *state.State, unit *state.Unit) {
+	ensureUnitDead(c, unit)
+	err := unit.Remove(state.NewObjectStore(c, st.ModelUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+}
 
-	charmDir := testcharms.CharmRepo().CharmDir("metered")
-	c.Assert(charmDir.Metrics(), gc.DeepEquals, added.Metrics())
+func ensureUnitDead(c *gc.C, unit *state.Unit) {
+	err := unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
 }

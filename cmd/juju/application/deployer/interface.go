@@ -4,11 +4,13 @@
 package deployer
 
 import (
+	"context"
+
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
-	"github.com/juju/cmd/v3"
-	"github.com/juju/names/v4"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -28,7 +30,7 @@ import (
 
 // DeployerFactory contains a method to get a deployer.
 type DeployerFactory interface {
-	GetDeployer(DeployerConfig, ModelConfigGetter, Resolver) (Deployer, error)
+	GetDeployer(context.Context, DeployerConfig, ModelConfigGetter, Resolver) (Deployer, error)
 }
 
 // Deployer defines the functionality of a deployer returned by the
@@ -54,7 +56,7 @@ type ModelAPI interface {
 // command needs for charms.
 type CharmDeployAPI interface {
 	CharmInfo(string) (*apicharms.CharmInfo, error)
-	ListCharmResources(curl *charm.URL, origin commoncharm.Origin) ([]charmresource.Resource, error)
+	ListCharmResources(curl string, origin commoncharm.Origin) ([]charmresource.Resource, error)
 }
 
 // OfferAPI represents the methods of the API the deploy command needs
@@ -130,7 +132,7 @@ type Bundle interface {
 // Resolver defines what we need to resolve a charm or bundle and
 // read the bundle data.
 type Resolver interface {
-	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
+	GetBundle(context.Context, *charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
 	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error)
 }

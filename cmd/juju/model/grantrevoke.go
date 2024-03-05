@@ -6,9 +6,9 @@ package model
 import (
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/client/applicationoffers"
 	jujucmd "github.com/juju/juju/cmd"

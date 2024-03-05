@@ -19,10 +19,10 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/permission"
+	internalpassword "github.com/juju/juju/internal/password"
 )
 
 const userGlobalKeyPrefix = "us"
@@ -110,11 +110,11 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 
 	if password != "" {
-		salt, err := utils.RandomSalt()
+		salt, err := internalpassword.RandomSalt()
 		if err != nil {
 			return nil, err
 		}
-		user.doc.PasswordHash = utils.UserPasswordHash(password, salt)
+		user.doc.PasswordHash = internalpassword.UserPasswordHash(password, salt)
 		user.doc.PasswordSalt = salt
 	}
 
@@ -166,13 +166,13 @@ func (st *State) recreateExistingUser(u *User, name, displayName, password, crea
 
 		// update the password
 		if password != "" {
-			salt, err := utils.RandomSalt()
+			salt, err := internalpassword.RandomSalt()
 			if err != nil {
 				return nil, err
 			}
 			updateUser = append(updateUser,
 				bson.DocElem{"$set", bson.D{
-					{"passwordhash", utils.UserPasswordHash(password, salt)},
+					{"passwordhash", internalpassword.UserPasswordHash(password, salt)},
 					{"passwordsalt", salt},
 				}},
 			)
@@ -308,7 +308,7 @@ func createInitialUserOps(controllerUUID string, user names.UserTag, password, s
 		DocID:        lowercaseName,
 		Name:         user.Name(),
 		DisplayName:  user.Name(),
-		PasswordHash: utils.UserPasswordHash(password, salt),
+		PasswordHash: internalpassword.UserPasswordHash(password, salt),
 		PasswordSalt: salt,
 		CreatedBy:    user.Name(),
 		DateCreated:  dateCreated,
@@ -489,26 +489,6 @@ func (u *User) UserTag() names.UserTag {
 	return names.NewLocalUserTag(name)
 }
 
-// LastLogin returns when this User last connected through the API in UTC.
-// The resulting time will be nil if the user has never logged in.  In the
-// normal case, the LastLogin is the last time that the user connected through
-// the API server.
-func (u *User) LastLogin() (time.Time, error) {
-	lastLogins, closer := u.st.db().GetRawCollection(userLastLoginC)
-	defer closer()
-
-	var lastLogin userLastLoginDoc
-	err := lastLogins.FindId(u.doc.DocID).Select(bson.D{{"last-login", 1}}).One(&lastLogin)
-	if err != nil {
-		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, newNeverLoggedInError(u.UserTag().Name()))
-		}
-		return time.Time{}, errors.Trace(err)
-	}
-
-	return lastLogin.LastLogin.UTC(), nil
-}
-
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
 func (u *User) UpdateLastLogin() (err error) {
@@ -545,11 +525,11 @@ func (u *User) SetPassword(password string) error {
 	if err := u.ensureNotDeleted(); err != nil {
 		return errors.Annotate(err, "cannot set password")
 	}
-	salt, err := utils.RandomSalt()
+	salt, err := internalpassword.RandomSalt()
 	if err != nil {
 		return err
 	}
-	return u.SetPasswordHash(utils.UserPasswordHash(password, salt), salt)
+	return u.SetPasswordHash(internalpassword.UserPasswordHash(password, salt), salt)
 }
 
 // SetPasswordHash stores the hash and the salt of the
@@ -598,7 +578,7 @@ func (u *User) PasswordValid(password string) bool {
 		return false
 	}
 	if u.doc.PasswordSalt != "" {
-		return utils.UserPasswordHash(password, u.doc.PasswordSalt) == u.doc.PasswordHash
+		return internalpassword.UserPasswordHash(password, u.doc.PasswordSalt) == u.doc.PasswordHash
 	}
 	return false
 }

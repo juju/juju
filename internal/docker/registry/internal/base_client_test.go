@@ -83,7 +83,6 @@ func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controll
 				}, nil
 			},
 		),
-		// registry.Ping()
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})

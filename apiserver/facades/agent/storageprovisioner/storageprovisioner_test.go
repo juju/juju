@@ -6,8 +6,8 @@ package storageprovisioner_test
 import (
 	"context"
 
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -41,8 +41,11 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = storageprovisioner.NewStorageProvisionerAPIv4(
+		context.Background(),
+		nil,
 		backend,
 		storageBackend,
+		s.DefaultModelServiceFactory(c).BlockDevice(),
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		common.NewResources(),
 		authorizer,

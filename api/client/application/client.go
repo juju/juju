@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
@@ -148,7 +148,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName:  args.ApplicationName,
-			CharmURL:         args.CharmID.URL.String(),
+			CharmURL:         args.CharmID.URL,
 			CharmOrigin:      &origin,
 			Channel:          origin.Risk,
 			NumUnits:         args.NumUnits,
@@ -242,8 +242,7 @@ func (c *Client) GetConfig(branchName string, appNames ...string) ([]map[string]
 type CharmID struct {
 
 	// URL of the given charm, includes the reference name and a revision.
-	// Old style charm URLs are also supported i.e. charmstore.
-	URL *charm.URL
+	URL string
 
 	// Origin holds the origin of a charm. This includes the source of the
 	// charm, along with the revision and channel to identify where the charm
@@ -327,7 +326,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 
 	args := params.ApplicationSetCharm{
 		ApplicationName:    cfg.ApplicationName,
-		CharmURL:           cfg.CharmID.URL.String(),
+		CharmURL:           cfg.CharmID.URL,
 		CharmOrigin:        &paramsCharmOrigin,
 		Channel:            origin.Risk,
 		ConfigSettings:     cfg.ConfigSettings,

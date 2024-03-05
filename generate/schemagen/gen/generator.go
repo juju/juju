@@ -20,8 +20,6 @@ import (
 	"github.com/juju/juju/internal/rpcreflect"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package gen -destination describeapi_mock.go -write_package_comment=false github.com/juju/juju/generate/schemagen/gen APIServer,Registry,PackageRegistry,Linker
-
 type APIServer interface {
 	AllFacades() Registry
 	AdminFacadeDetails() []facade.Details
@@ -38,7 +36,7 @@ type PackageRegistry interface {
 }
 
 type Linker interface {
-	Links(string, facade.Factory) []string
+	Links(string, facade.MultiModelFactory) []string
 }
 
 // Option to be passed to Connect to customize the resulting instance.

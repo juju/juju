@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -27,14 +27,15 @@ type clientMacaroonIntegrationSuite struct {
 
 var _ = gc.Suite(&clientMacaroonIntegrationSuite{})
 
-func (s *clientMacaroonIntegrationSuite) createTestClient(c *gc.C) *charms.Client {
+func (s *clientMacaroonIntegrationSuite) createTestClient(c *gc.C) *charms.LocalCharmClient {
 	username := "testuser@somewhere"
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
 	cookieJar := jujutesting.NewClearableCookieJar()
 	s.DischargerLogin = func() string { return username }
 	api := s.OpenAPI(c, nil, cookieJar)
-	charmClient := charms.NewClient(api)
+	charmClient, err := charms.NewLocalCharmClient(api)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic
@@ -51,12 +52,13 @@ func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmWithFailedDischarge(c 
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, jujuversion.Current)
-	c.Assert(err, gc.ErrorMatches, `Post https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(err, gc.ErrorMatches, `Put https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(savedURL, gc.IsNil)
 }
 
 func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmSuccess(c *gc.C) {
-	charmClient := charms.NewClient(s.OpenControllerModelAPI(c))
+	charmClient, err := charms.NewLocalCharmClient(s.OpenControllerModelAPI(c))
+	c.Assert(err, jc.ErrorIsNil)
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),

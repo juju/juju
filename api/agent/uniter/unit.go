@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -63,14 +63,14 @@ func (u *Unit) Resolved() params.ResolvedMode {
 }
 
 // Refresh updates the cached local copy of the unit's data.
-func (u *Unit) Refresh() error {
+func (u *Unit) Refresh(ctx context.Context) error {
 	var results params.UnitRefreshResults
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: u.tag.String()},
 		},
 	}
-	err := u.client.facade.FacadeCall(context.TODO(), "Refresh", args, &results)
+	err := u.client.facade.FacadeCall(ctx, "Refresh", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -94,14 +94,14 @@ func (u *Unit) Refresh() error {
 }
 
 // SetUnitStatus sets the status of the unit.
-func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: u.tag.String(), Status: unitStatus.String(), Info: info, Data: data},
 		},
 	}
-	err := u.client.facade.FacadeCall(context.TODO(), "SetUnitStatus", args, &result)
+	err := u.client.facade.FacadeCall(ctx, "SetUnitStatus", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -109,14 +109,14 @@ func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[str
 }
 
 // UnitStatus gets the status details of the unit.
-func (u *Unit) UnitStatus() (params.StatusResult, error) {
+func (u *Unit) UnitStatus(ctx context.Context) (params.StatusResult, error) {
 	var results params.StatusResults
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: u.tag.String()},
 		},
 	}
-	err := u.client.facade.FacadeCall(context.TODO(), "UnitStatus", args, &results)
+	err := u.client.facade.FacadeCall(ctx, "UnitStatus", args, &results)
 	if err != nil {
 		return params.StatusResult{}, errors.Trace(err)
 	}
@@ -143,47 +143,6 @@ func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[s
 		return err
 	}
 	return result.OneError()
-}
-
-// AddMetrics adds the metrics for the unit.
-func (u *Unit) AddMetrics(metrics []params.Metric) error {
-	var result params.ErrorResults
-	args := params.MetricsParams{
-		Metrics: []params.MetricsParam{{
-			Tag:     u.tag.String(),
-			Metrics: metrics,
-		}},
-	}
-	err := u.client.facade.FacadeCall(context.TODO(), "AddMetrics", args, &result)
-	if err != nil {
-		return errors.Annotate(err, "unable to add metric")
-	}
-	return result.OneError()
-}
-
-// AddMetricBatches makes an api call to the uniter requesting it to store metrics batches in state.
-func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error, error) {
-	p := params.MetricBatchParams{
-		Batches: make([]params.MetricBatchParam, len(batches)),
-	}
-
-	batchResults := make(map[string]error, len(batches))
-
-	for i, batch := range batches {
-		p.Batches[i].Tag = u.tag.String()
-		p.Batches[i].Batch = batch
-
-		batchResults[batch.UUID] = nil
-	}
-	results := new(params.ErrorResults)
-	err := u.client.facade.FacadeCall(context.TODO(), "AddMetricBatches", p, results)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to send metric batches")
-	}
-	for i, result := range results.Results {
-		batchResults[batches[i].UUID] = result.Error
-	}
-	return batchResults, nil
 }
 
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or
@@ -228,14 +187,14 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 }
 
 // Application returns the unit's application.
-func (u *Unit) Application() (*Application, error) {
+func (u *Unit) Application(ctx context.Context) (*Application, error) {
 	application := &Application{
 		client: u.client,
 		tag:    u.ApplicationTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	err := application.Refresh()
+	err := application.Refresh(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -677,48 +636,6 @@ func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 	return statusResult, nil
 }
 
-// MeterStatus returns the meter status of the unit.
-func (u *Unit) MeterStatus() (statusCode, statusInfo string, rErr error) {
-	var results params.MeterStatusResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.client.facade.FacadeCall(context.TODO(), "GetMeterStatus", args, &results)
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return "", "", errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", "", errors.Trace(result.Error)
-	}
-	return result.Code, result.Info, nil
-}
-
-// WatchMeterStatus returns a watcher for observing changes to the
-// unit's meter status.
-func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.client.facade.FacadeCall(context.TODO(), "WatchMeterStatus", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewNotifyWatcher(u.client.facade.RawAPICaller(), result)
-	return w, nil
-}
-
 // WatchStorage returns a watcher for observing changes to the
 // unit's storage attachments.
 func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
@@ -1027,6 +944,15 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 	}
 }
 
+// AddTrackLatest records the URIs for which the latest revision should be tracked.
+func (b *CommitHookParamsBuilder) AddTrackLatest(trackLatest []string) {
+	if len(trackLatest) == 0 {
+		return
+	}
+	b.arg.TrackLatest = make([]string, len(trackLatest))
+	copy(b.arg.TrackLatest, trackLatest)
+}
+
 // SecretGrantRevokeArgs holds parameters for updating a secret's access.
 type SecretGrantRevokeArgs struct {
 	URI             *secrets.URI
@@ -1036,6 +962,18 @@ type SecretGrantRevokeArgs struct {
 	Role            secrets.SecretRole
 }
 
+// Equal returns true if the two SecretGrantRevokeArgs are equal.
+func (arg SecretGrantRevokeArgs) Equal(other SecretGrantRevokeArgs) bool {
+	return arg.URI.ID == other.URI.ID &&
+		arg.Role == other.Role &&
+		((arg.ApplicationName == nil && other.ApplicationName == nil) ||
+			(arg.ApplicationName != nil && other.ApplicationName != nil && *arg.ApplicationName == *other.ApplicationName)) &&
+		((arg.UnitName == nil && other.UnitName == nil) ||
+			(arg.UnitName != nil && other.UnitName != nil && *arg.UnitName == *other.UnitName)) &&
+		((arg.RelationKey == nil && other.RelationKey == nil) ||
+			(arg.RelationKey != nil && other.RelationKey != nil && *arg.RelationKey == *other.RelationKey))
+}
+
 // AddSecretGrants records requests to grant secret access.
 func (b *CommitHookParamsBuilder) AddSecretGrants(grants []SecretGrantRevokeArgs) {
 	if len(grants) == 0 {
@@ -1043,7 +981,7 @@ func (b *CommitHookParamsBuilder) AddSecretGrants(grants []SecretGrantRevokeArgs
 	}
 	b.arg.SecretGrants = make([]params.GrantRevokeSecretArg, len(grants))
 	for i, g := range grants {
-		b.arg.SecretGrants[i] = grantRevokeArgsToParams(&g)
+		b.arg.SecretGrants[i] = g.ToParams()
 	}
 }
 
@@ -1054,28 +992,29 @@ func (b *CommitHookParamsBuilder) AddSecretRevokes(revokes []SecretGrantRevokeAr
 	}
 	b.arg.SecretRevokes = make([]params.GrantRevokeSecretArg, len(revokes))
 	for i, g := range revokes {
-		b.arg.SecretRevokes[i] = grantRevokeArgsToParams(&g)
+		b.arg.SecretRevokes[i] = g.ToParams()
 	}
 }
 
-func grantRevokeArgsToParams(p *SecretGrantRevokeArgs) params.GrantRevokeSecretArg {
+// ToParams converts a SecretGrantRevokeArgs to a params.GrantRevokeSecretArg.
+func (arg SecretGrantRevokeArgs) ToParams() params.GrantRevokeSecretArg {
 	var subjectTag, scopeTag string
-	if p.ApplicationName != nil {
-		subjectTag = names.NewApplicationTag(*p.ApplicationName).String()
+	if arg.ApplicationName != nil {
+		subjectTag = names.NewApplicationTag(*arg.ApplicationName).String()
 	}
-	if p.UnitName != nil {
-		subjectTag = names.NewUnitTag(*p.UnitName).String()
+	if arg.UnitName != nil {
+		subjectTag = names.NewUnitTag(*arg.UnitName).String()
 	}
-	if p.RelationKey != nil {
-		scopeTag = names.NewRelationTag(*p.RelationKey).String()
+	if arg.RelationKey != nil {
+		scopeTag = names.NewRelationTag(*arg.RelationKey).String()
 	} else {
 		scopeTag = subjectTag
 	}
 	return params.GrantRevokeSecretArg{
-		URI:         p.URI.String(),
+		URI:         arg.URI.String(),
 		ScopeTag:    scopeTag,
 		SubjectTags: []string{subjectTag},
-		Role:        string(p.Role),
+		Role:        string(arg.Role),
 	}
 }
 

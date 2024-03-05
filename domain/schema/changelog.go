@@ -65,7 +65,7 @@ CREATE TABLE change_log_witness (
 }
 
 // changeLogTriggersForTable is a helper function to generate the necessary
-// triggers for a table to have it's crud operations tracked in the schemas
+// triggers for a table to have its CRUD operations tracked in the schema's
 // change_log table.
 func changeLogTriggersForTable(table, columnName string, namespaceID tableNamespaceID) func() schema.Patch {
 	return func() schema.Patch {
@@ -88,5 +88,34 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[3]s, DATETIME('now'));
 END;`[1:], table, namespaceID, columnName))
+	}
+}
+
+// changeLogTriggersForTableWithColumn is a helper function to generate the necessary
+// triggers for a table to have its CRUD operations on certain column tracked in the schema's
+// change_log table.
+func changeLogTriggersForTableOnColumn(table, primaryKey, columnName string, namespaceID tableNamespaceID) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+CREATE TRIGGER trg_log_%[1]s_%[3]s_insert
+AFTER INSERT ON %[1]s FOR EACH ROW
+WHEN NEW.%[3]s IS NOT NULL
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[4]s, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_%[1]s_%[3]s_update
+AFTER UPDATE ON %[1]s FOR EACH ROW
+WHEN NEW.%[3]s != OLD.%[3]s
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[4]s, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_%[1]s_%[3]s_delete
+AFTER DELETE ON %[1]s FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[4]s, DATETIME('now'));
+END;`[1:], table, namespaceID, columnName, primaryKey))
 	}
 }

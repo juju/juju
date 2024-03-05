@@ -4,6 +4,7 @@
 package clientconfig
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,8 +12,8 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/utils/v3"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/utils/v4"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -26,13 +27,13 @@ var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 type K8sCredentialResolver func(string, *clientcmdapi.Config, string) (*clientcmdapi.Config, error)
 
 // GetJujuAdminServiceAccountResolver returns a function for ensuring juju admin service account created with admin cluster role binding setup.
-func GetJujuAdminServiceAccountResolver(clock jujuclock.Clock) K8sCredentialResolver {
+func GetJujuAdminServiceAccountResolver(ctx context.Context, clock jujuclock.Clock) K8sCredentialResolver {
 	return func(credentialUID string, config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
 		clientset, err := newK8sClientSet(config, contextName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return ensureJujuAdminServiceAccount(clientset, credentialUID, config, contextName, clock)
+		return ensureJujuAdminServiceAccount(ctx, clientset, credentialUID, config, contextName, clock)
 	}
 }
 

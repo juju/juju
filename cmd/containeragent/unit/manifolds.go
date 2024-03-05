@@ -4,15 +4,16 @@
 package unit
 
 import (
+	"context"
 	"os"
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
@@ -21,36 +22,41 @@ import (
 	agentlifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
-	"github.com/juju/juju/upgrades"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
-	"github.com/juju/juju/worker/apiaddressupdater"
-	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/apiconfigwatcher"
-	"github.com/juju/juju/worker/caasprober"
-	"github.com/juju/juju/worker/caasunitsmanager"
-	"github.com/juju/juju/worker/caasunitterminationworker"
-	"github.com/juju/juju/worker/caasupgrader"
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/leadership"
-	"github.com/juju/juju/worker/lifeflag"
-	wlogger "github.com/juju/juju/worker/logger"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/migrationflag"
-	"github.com/juju/juju/worker/migrationminion"
-	"github.com/juju/juju/worker/muxhttpserver"
-	"github.com/juju/juju/worker/proxyupdater"
-	"github.com/juju/juju/worker/retrystrategy"
-	"github.com/juju/juju/worker/s3caller"
-	"github.com/juju/juju/worker/secretsdrainworker"
-	"github.com/juju/juju/worker/simplesignalhandler"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/upgradestepsmachine"
+	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/upgradesteps"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/agent"
+	"github.com/juju/juju/internal/worker/apiaddressupdater"
+	"github.com/juju/juju/internal/worker/apicaller"
+	"github.com/juju/juju/internal/worker/apiconfigwatcher"
+	"github.com/juju/juju/internal/worker/caasprober"
+	"github.com/juju/juju/internal/worker/caasunitsmanager"
+	"github.com/juju/juju/internal/worker/caasunitterminationworker"
+	"github.com/juju/juju/internal/worker/caasupgrader"
+	"github.com/juju/juju/internal/worker/fortress"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/leadership"
+	"github.com/juju/juju/internal/worker/lifeflag"
+	wlogger "github.com/juju/juju/internal/worker/logger"
+	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/migrationflag"
+	"github.com/juju/juju/internal/worker/migrationminion"
+	"github.com/juju/juju/internal/worker/muxhttpserver"
+	"github.com/juju/juju/internal/worker/proxyupdater"
+	"github.com/juju/juju/internal/worker/retrystrategy"
+	"github.com/juju/juju/internal/worker/secretsdrainworker"
+	"github.com/juju/juju/internal/worker/simplesignalhandler"
+	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/uniter"
+	"github.com/juju/juju/internal/worker/units3caller"
+	"github.com/juju/juju/internal/worker/upgradestepsmachine"
 )
 
 // manifoldsConfig allows specialisation of the result of Manifolds.
@@ -72,7 +78,7 @@ type manifoldsConfig struct {
 	// ValidateMigration is called by the migrationminion during the
 	// migration process to check that the agent will be ok when
 	// connected to the new target controller.
-	ValidateMigration func(base.APICaller) error
+	ValidateMigration func(context.Context, base.APICaller) error
 
 	// PreviousAgentVersion passes through the version the unit
 	// agent was running before the current restart.
@@ -192,10 +198,10 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// The S3 API caller is a shim API that wraps the /charms REST
 		// API for uploading and downloading charms. It provides a
 		// S3-compatible API.
-		s3CallerName: s3caller.Manifold(s3caller.ManifoldConfig{
+		s3CallerName: units3caller.Manifold(units3caller.ManifoldConfig{
 			APICallerName: apiCallerName,
-			NewClient:     s3caller.NewS3Client,
-			Logger:        loggo.GetLogger("juju.worker.s3caller"),
+			NewClient:     units3caller.NewS3Client,
+			Logger:        loggo.GetLogger("juju.worker.units3caller"),
 		}),
 
 		deadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
@@ -257,8 +263,11 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
 			UpgradeSteps:         config.UpgradeSteps,
-			Logger:               loggo.GetLogger("juju.worker.upgradestepsmachine"),
-			Clock:                config.Clock,
+			NewAgentStatusSetter: func(ctx context.Context, a base.APICaller) (upgradesteps.StatusSetter, error) {
+				return noopStatusSetter{}, nil
+			},
+			Logger: loggo.GetLogger("juju.worker.upgradestepsmachine"),
+			Clock:  config.Clock,
 		})),
 
 		// The migration workers collaborate to run migrations;
@@ -286,7 +295,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
+			Logger:            loggo.GetLoggerWithTags("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -374,6 +383,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			ModelType:                    model.CAAS,
 			APICallerName:                apiCallerName,
 			S3CallerName:                 s3CallerName,
+			TraceName:                    traceName,
 			MachineLock:                  config.MachineLock,
 			Clock:                        config.Clock,
 			LeadershipTrackerName:        leadershipTrackerName,
@@ -385,6 +395,14 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 			ContainerNames:               config.ContainerNames,
 		}))),
+
+		traceName: trace.Manifold(trace.ManifoldConfig{
+			AgentName:       agentName,
+			Clock:           config.Clock,
+			Logger:          loggo.GetLogger("juju.worker.trace"),
+			NewTracerWorker: trace.NewTracerWorker,
+			Kind:            coretrace.KindUnit,
+		}),
 
 		// The CAAS unit termination worker handles SIGTERM from the container runtime.
 		caasUnitTerminationWorker: ifNotMigrating(ifNotDead(caasunitterminationworker.Manifold(caasunitterminationworker.ManifoldConfig{
@@ -446,6 +464,7 @@ const (
 	s3CallerName         = "s3-caller"
 	uniterName           = "uniter"
 	logSenderName        = "log-sender"
+	traceName            = "trace"
 
 	charmDirName          = "charm-dir"
 	leadershipTrackerName = "leadership-tracker"
@@ -478,3 +497,9 @@ const (
 	deadFlagName    = "dead-flag"
 	notDeadFlagName = "not-dead-flag"
 )
+
+type noopStatusSetter struct{}
+
+func (noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]any) error {
+	return nil
+}

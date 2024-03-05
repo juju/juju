@@ -18,7 +18,7 @@ import (
 )
 
 // ensureK8sService ensures a k8s service resource.
-func (k *kubernetesClient) ensureK8sService(spec *core.Service) (func(), error) {
+func (k *kubernetesClient) ensureK8sService(ctx context.Context, spec *core.Service) (func(), error) {
 	cleanUp := func() {}
 	if k.namespace == "" {
 		return cleanUp, errNoNamespace
@@ -26,29 +26,29 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) (func(), error) 
 
 	api := k.client().CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
-	existing, err := api.Get(context.TODO(), spec.Name, meta.GetOptions{})
+	existing, err := api.Get(ctx, spec.Name, meta.GetOptions{})
 	if err == nil {
 		spec.Spec.ClusterIP = existing.Spec.ClusterIP
 		spec.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
 	}
-	_, err = api.Update(context.TODO(), spec, meta.UpdateOptions{})
+	_, err = api.Update(ctx, spec, meta.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		var svcCreated *core.Service
-		svcCreated, err = api.Create(context.TODO(), spec, meta.CreateOptions{})
+		svcCreated, err = api.Create(ctx, spec, meta.CreateOptions{})
 		if err == nil {
-			cleanUp = func() { _ = k.deleteService(svcCreated.GetName()) }
+			cleanUp = func() { _ = k.deleteService(ctx, svcCreated.GetName()) }
 		}
 	}
 	return cleanUp, errors.Trace(err)
 }
 
 // deleteService deletes a service resource.
-func (k *kubernetesClient) deleteService(serviceName string) error {
+func (k *kubernetesClient) deleteService(ctx context.Context, serviceName string) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
 	services := k.client().CoreV1().Services(k.namespace)
-	err := services.Delete(context.TODO(), serviceName, meta.DeleteOptions{
+	err := services.Delete(ctx, serviceName, meta.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -64,7 +64,7 @@ func findServiceForApplication(
 	legacyLabels bool,
 ) (*core.Service, error) {
 	labels := utils.LabelsForApp(appName, legacyLabels)
-	servicesList, err := serviceI.List(context.TODO(), meta.ListOptions{
+	servicesList, err := serviceI.List(ctx, meta.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})
 

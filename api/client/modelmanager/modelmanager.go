@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/base"
@@ -276,12 +276,6 @@ func (c *Client) ListModelSummaries(user string, all bool) ([]base.UserModelSumm
 				Status:    summary.Migration.Status,
 				StartTime: summary.Migration.Start,
 				EndTime:   summary.Migration.End,
-			}
-		}
-		if summary.SLA != nil {
-			summaries[i].SLA = &base.SLASummary{
-				Level: summary.SLA.Level,
-				Owner: summary.SLA.Owner,
 			}
 		}
 	}

@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/testing"
@@ -36,6 +38,12 @@ type uniterNetworkInfoSuite struct {
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
+
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
+}
 
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
@@ -65,7 +73,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.st = s.ControllerModel(c).State()
 	for spaceName, cidrs := range net {
-		space, err := s.st.AddSpace(spaceName, "", nil, false)
+		space, err := s.st.AddSpace(spaceName, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		for _, cidr := range cidrs {
@@ -77,7 +85,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		}
 	}
 
-	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
+	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10, s.InstancePrechecker(c, s.st))
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -86,7 +94,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress-extra-bindings",
 		URL:  "ch:amd64/quantal/wordpress-extra-bindings-4",
 	})
-	s.wordpress, err = s.st.AddApplication(state.AddApplicationArgs{
+	s.wordpress, err = s.st.AddApplication(s.InstancePrechecker(c, s.st), state.AddApplicationArgs{
 		Name:        "wordpress",
 		Charm:       s.wpCharm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
@@ -96,14 +104,14 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 			"foo-bar":   "layertwo",   // extra-binding to L2
 			"":          "wp-default", // explicitly specified default space
 		},
-	}, testing.NewObjectStore(c, s.st.ModelUUID(), s.st))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
 
-	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
+	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20, s.InstancePrechecker(c, s.st))
 
 	s.mysqlCharm = f.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
@@ -133,8 +141,8 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.setupUniterAPIForUnit(c, s.wordpressUnit)
 }
 
-func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
-	machine, err := s.st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int, prechecker environs.InstancePrechecker) *state.Machine {
+	machine, err := s.st.AddMachine(prechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -710,7 +718,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	)
 
 	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
+	api, err := uniter.NewUniterAPI(context.Background(), s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.CommitHookChanges(context.Background(), req)
@@ -770,7 +778,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	req, _ := b.Build()
 
 	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
+	api, err := uniter.NewUniterAPI(context.Background(), s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.CommitHookChanges(context.Background(), req)

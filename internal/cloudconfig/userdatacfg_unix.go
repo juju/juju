@@ -14,13 +14,13 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/os"
@@ -340,12 +340,6 @@ func (w *unixConfigure) ConfigureJuju() error {
 		return errors.Trace(err)
 	}
 
-	// Don't remove tools tarball until after bootstrap agent
-	// runs, so it has a chance to add it to its catalogue.
-	defer w.conf.AddRunCmd(
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.icfg.AgentVersion()),
-	)
-
 	// We add the machine agent's configuration info
 	// before running bootstrap-state so that bootstrap-state
 	// has a chance to rewrite it to change the password.
@@ -474,7 +468,6 @@ func (w *unixConfigure) configureBootstrap() error {
 		"--timeout", w.icfg.Bootstrap.Timeout.String(),
 		"--data-dir", shquote(w.icfg.DataDir),
 		loggingOption,
-		shquote(bootstrapParamsFile),
 	}
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
 	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))

@@ -38,6 +38,20 @@ type deployChecker interface {
 	environs.ConstraintsChecker
 }
 
+// NewInstancePrechecker returns a new instance prechecker that uses the
+// specified cloudService and credentialService to create the underlying
+// deployChecker.
+func NewInstancePrechecker(st *state.State, cloudService CloudService, credentialService CredentialService) (environs.InstancePrechecker, error) {
+	policy := &environStatePolicy{
+		st:                st,
+		cloudService:      cloudService,
+		credentialService: credentialService,
+		getEnviron:        GetNewEnvironFunc(environs.New),
+		getBroker:         GetNewCAASBrokerFunc(caas.New),
+	}
+	return policy.Prechecker()
+}
+
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of either environs.Environ
 // or caas.Broker and related types.
@@ -119,31 +133,6 @@ func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallCon
 		return nil, errors.Trace(err)
 	}
 	return checker.ConstraintsValidator(ctx)
-}
-
-// InstanceDistributor implements state.Policy.
-func (p *environStatePolicy) InstanceDistributor() (envcontext.Distributor, error) {
-	if p.credentialService == nil {
-		return nil, errors.NotSupportedf("InstanceDistributor check without credential service")
-	}
-	model, err := p.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if model.Type() != state.ModelTypeIAAS {
-		// Only IAAS models support machines, hence distribution.
-		return nil, errors.NotImplementedf("InstanceDistributor")
-	}
-	// DistributeInstances doesn't make any calls to fetch instance types,
-	// so it doesn't help to use getDeployChecker() here.
-	env, err := p.getEnviron(model, p.cloudService, p.credentialService)
-	if err != nil {
-		return nil, err
-	}
-	if d, ok := env.(envcontext.Distributor); ok {
-		return d, nil
-	}
-	return nil, errors.NotImplementedf("InstanceDistributor")
 }
 
 // StorageProviderRegistry implements state.Policy.

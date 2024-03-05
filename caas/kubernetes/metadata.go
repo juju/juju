@@ -4,6 +4,8 @@
 package kubernetes
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	storagev1 "k8s.io/api/storage/v1"
 )
@@ -43,7 +45,7 @@ const (
 // ClusterMetadataChecker provides an API to query cluster metadata.
 type ClusterMetadataChecker interface {
 	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
-	GetClusterMetadata(storageClass string) (result *ClusterMetadata, err error)
+	GetClusterMetadata(ctx context.Context, storageClass string) (result *ClusterMetadata, err error)
 }
 
 // ClusterMetadata defines metadata about a cluster.

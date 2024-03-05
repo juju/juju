@@ -50,7 +50,15 @@ var fullAccessApplicationNamespaceRules = []rbacv1.PolicyRule{
 	},
 }
 
-var defaultApplicationClusterRules []rbacv1.PolicyRule
+var defaultApplicationClusterRules = []rbacv1.PolicyRule{
+	{
+		// TODO - these are only needed to determine legacy labels or not.
+		// We need to migrate away from legacy labels.
+		APIGroups: []string{""},
+		Resources: []string{"namespaces"},
+		Verbs:     []string{"get", "list"},
+	},
+}
 
 var fullAccessApplicationClusterRules = []rbacv1.PolicyRule{
 	{

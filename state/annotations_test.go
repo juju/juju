@@ -5,12 +5,12 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -28,7 +28,7 @@ func (s *AnnotationsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	var err error
-	s.testEntity, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.testEntity, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -170,7 +170,7 @@ func (s *AnnotationsModelSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
 }
 
 func (s *AnnotationsModelSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",

@@ -18,15 +18,15 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Secrets", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Secrets", 1, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newSecretsAPIV1(ctx)
 	}, reflect.TypeOf((*SecretsAPI)(nil)))
-	registry.MustRegister("Secrets", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Secrets", 2, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newSecretsAPI(ctx)
 	}, reflect.TypeOf((*SecretsAPI)(nil)))
 }
 
-func newSecretsAPIV1(context facade.Context) (*SecretsAPIV1, error) {
+func newSecretsAPIV1(context facade.ModelContext) (*SecretsAPIV1, error) {
 	api, err := newSecretsAPI(context)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -35,7 +35,7 @@ func newSecretsAPIV1(context facade.Context) (*SecretsAPIV1, error) {
 }
 
 // newSecretsAPI creates a SecretsAPI.
-func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
+func newSecretsAPI(context facade.ModelContext) (*SecretsAPI, error) {
 	if !context.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -49,23 +49,23 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	adminBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminBackendConfigGetter := func(ctx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(
-			stdcontext.Background(), secrets.SecretsModel(model),
+			ctx, secrets.SecretsModel(model),
 			serviceFactory.Cloud(), serviceFactory.Credential(),
 		)
 	}
-	backendConfigGetterForUserSecretsWrite := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetterForUserSecretsWrite := func(ctx stdcontext.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		// User secrets are owned by the model.
 		authTag := model.ModelTag()
 		return secrets.BackendConfigInfo(
-			stdcontext.Background(), secrets.SecretsModel(model),
+			ctx, secrets.SecretsModel(model), true,
 			serviceFactory.Cloud(), serviceFactory.Credential(),
 			[]string{backendID}, false, authTag, leadershipChecker,
 		)
 	}
 
-	backendGetter := func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+	backendGetter := func(ctx stdcontext.Context, cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 		p, err := provider.Provider(cfg.BackendType)
 		if err != nil {
 			return nil, errors.Trace(err)

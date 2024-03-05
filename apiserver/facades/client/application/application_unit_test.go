@@ -10,13 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/assumes"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/assumes"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -39,12 +38,14 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -67,6 +68,8 @@ type ApplicationSuite struct {
 	ecService          *mocks.MockECService
 	cloudService       *commonmocks.MockCloudService
 	credService        *commonmocks.MockCredentialService
+	machineSaver       *mocks.MockMachineSaver
+	applicationSaver   *mocks.MockApplicationSaver
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
@@ -163,6 +166,9 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
+	s.machineSaver = mocks.NewMockMachineSaver(ctrl)
+	s.applicationSaver = mocks.NewMockApplicationSaver(ctrl)
+
 	s.ecService = mocks.NewMockECService(ctrl)
 
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
@@ -207,11 +213,13 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.model,
 		s.cloudService,
 		s.credService,
+		s.machineSaver,
+		s.applicationSaver,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationSaver, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -1660,7 +1668,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 
 	s.expectDefaultK8sModelConfig()
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
+	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		k8sconstants.StorageProviderType,
@@ -1748,8 +1756,14 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
-			NumUnits:        1,
+			CharmOrigin: &params.CharmOrigin{
+				Source:       "local",
+				Architecture: "amd64",
+				Base: params.Base{
+					Name:    "ubuntu",
+					Channel: "22.04/stable",
+				}},
+			NumUnits: 1,
 		}},
 	}
 	result, err := s.api.Deploy(context.Background(), args)
@@ -1775,8 +1789,15 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
-			NumUnits:        1,
+			CharmOrigin: &params.CharmOrigin{
+				Source:       "local",
+				Architecture: "amd64",
+				Base: params.Base{
+					Name:    "ubuntu",
+					Channel: "22.04/stable",
+				},
+			},
+			NumUnits: 1,
 		}},
 	}
 	result, err := s.api.Deploy(context.Background(), args)
@@ -1852,7 +1873,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
+	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(nil, errors.NotFoundf("pool"))
 	s.registry.EXPECT().StorageProvider(storage.ProviderType("k8s-operator-storage")).Return(nil, errors.NotFoundf(`provider type "k8s-operator-storage"`))
 
@@ -1912,7 +1933,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),
 	)
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(errors.NotFoundf("storage class"))
+	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(errors.NotFoundf("storage class"))
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1949,7 +1970,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),
 	)
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
+	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1971,12 +1992,16 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	newUnit := s.expectUnit(ctrl, "postgresql/99")
-	newUnit.EXPECT().AssignWithPolicy(state.AssignCleanEmpty)
+	unitName := "postgresql/99"
+	newUnit := s.expectUnit(ctrl, unitName)
+	newUnit.EXPECT().AssignWithPolicy(state.AssignNew)
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
+
+	s.machineSaver.EXPECT().Save(gomock.Any(), "99")
+	s.applicationSaver.EXPECT().Save(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	results, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -2004,14 +2029,18 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	newUnit := s.expectUnit(ctrl, "postgresql/99")
-	newUnit.EXPECT().AssignWithPolicy(state.AssignCleanEmpty)
+	unitName := "postgresql/99"
+	newUnit := s.expectUnit(ctrl, unitName)
+	newUnit.EXPECT().AssignWithPolicy(state.AssignNew)
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AddUnit(state.AddUnitParams{
 		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
 	}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
+
+	s.machineSaver.EXPECT().Save(gomock.Any(), "99")
+	s.applicationSaver.EXPECT().Save(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -2331,7 +2360,6 @@ func (s *ApplicationSuite) TestSetRelationSuspendedPermission(c *gc.C) {
 	offerConn.EXPECT().OfferUUID().Return("offer-uuid")
 	offerConn.EXPECT().UserName().Return("fred")
 	s.backend.EXPECT().OfferConnectionForRelation("wordpress:db mysql:db").Return(offerConn, nil)
-	s.backend.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{OfferUUID: "mysql"}, nil)
 
 	results, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
@@ -2413,7 +2441,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	controllerUUID := utils.MustNewUUID().String()
+	controllerUUID := uuid.MustNewUUID().String()
 
 	s.addRemoteApplicationParams.ExternalControllerUUID = controllerUUID
 
@@ -2509,12 +2537,12 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(s.expectRemoteApplication(ctrl, state.Alive, status.Active), nil)
 
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
+	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.SourceModelTag = names.NewModelTag(uuid.MustNewUUID().String()).String()
 
 	results, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
 			ApplicationOfferDetails: params.ApplicationOfferDetails{
-				SourceModelTag:         names.NewModelTag(utils.MustNewUUID().String()).String(),
+				SourceModelTag:         names.NewModelTag(uuid.MustNewUUID().String()).String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "a database",
@@ -3284,74 +3312,6 @@ func assertConfigTest(c *gc.C, results params.ApplicationGetConfigResults, resPr
 				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
 			},
 		}...)})
-}
-
-func (s *ApplicationSuite) TestSetMetricCredentialsOneArg(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectApplication(ctrl, "mysql")
-	app.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
-	s.backend.EXPECT().Application("mysql").Return(app, nil)
-
-	results, err := s.api.SetMetricCredentials(context.Background(), params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
-		ApplicationName:   "mysql",
-		MetricCredentials: []byte("creds 1234"),
-	}}})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
-}
-
-func (s *ApplicationSuite) TestSetMetricCredentialsTwoArgsBothPass(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app0 := s.expectApplication(ctrl, "mysql")
-	app0.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
-	s.backend.EXPECT().Application("mysql").Return(app0, nil)
-
-	app1 := s.expectApplication(ctrl, "wordpress")
-	app1.EXPECT().SetMetricCredentials([]byte("creds 4567")).Return(nil)
-	s.backend.EXPECT().Application("wordpress").Return(app1, nil)
-
-	results, err := s.api.SetMetricCredentials(context.Background(), params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
-		ApplicationName:   "mysql",
-		MetricCredentials: []byte("creds 1234"),
-	}, {
-		ApplicationName:   "wordpress",
-		MetricCredentials: []byte("creds 4567"),
-	}}})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
-}
-
-func (s *ApplicationSuite) TestSetMetricCredentialsTwoArgsSecondFails(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectApplication(ctrl, "mysql")
-	app.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
-	s.backend.EXPECT().Application("mysql").Return(app, nil)
-	s.backend.EXPECT().Application("not-an-application").Return(nil, errors.NotFoundf(`application "not-an-application"`))
-
-	results, err := s.api.SetMetricCredentials(context.Background(), params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
-		ApplicationName:   "mysql",
-		MetricCredentials: []byte("creds 1234"),
-	}, {
-		ApplicationName:   "not-an-application",
-		MetricCredentials: []byte("creds 4567"),
-	}}})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
-		{},
-		{Error: &params.Error{Message: `application "not-an-application" not found`, Code: "not found"}},
-	}})
 }
 
 func (s *ApplicationSuite) TestCompatibleSettingsParsing(c *gc.C) {

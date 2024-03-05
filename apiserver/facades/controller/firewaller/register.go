@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -16,13 +17,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Firewaller", 7, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Firewaller", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFirewallerAPIV7(ctx)
 	}, reflect.TypeOf((*FirewallerAPI)(nil)))
 }
 
 // newFirewallerAPIV7 creates a new server-side FirewallerAPIv7 facade.
-func newFirewallerAPIV7(ctx facade.Context) (*FirewallerAPI, error) {
+func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {

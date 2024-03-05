@@ -15,23 +15,21 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/feature"
-	"github.com/juju/juju/internal/logfwd/syslog"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -195,24 +193,6 @@ const (
 	// of k=v pairs, defining the tags for ResourceTags.
 	ResourceTagsKey = "resource-tags"
 
-	// LogForwardEnabled determines whether the log forward functionality is enabled.
-	LogForwardEnabled = "logforward-enabled"
-
-	// LogFwdSyslogHost sets the hostname:port of the syslog server.
-	LogFwdSyslogHost = "syslog-host"
-
-	// LogFwdSyslogCACert sets the certificate of the CA that signed the syslog
-	// server certificate.
-	LogFwdSyslogCACert = "syslog-ca-cert"
-
-	// LogFwdSyslogClientCert sets the client certificate for syslog
-	// forwarding.
-	LogFwdSyslogClientCert = "syslog-client-cert"
-
-	// LogFwdSyslogClientKey sets the client key for syslog
-	// forwarding.
-	LogFwdSyslogClientKey = "syslog-client-key"
-
 	// AutomaticallyRetryHooks determines whether the uniter will
 	// automatically retry a hook that has failed
 	AutomaticallyRetryHooks = "automatically-retry-hooks"
@@ -304,10 +284,6 @@ const (
 	// DisableTelemetryKey is a key for determining whether telemetry on juju
 	// models will be done.
 	DisableTelemetryKey = "disable-telemetry"
-
-	// LoggingOutputKey is a key for determining the destination of output for
-	// logging.
-	LoggingOutputKey = "logging-output"
 
 	// DefaultBaseKey is a key for determining the base a model should
 	// explicitly use for charms unless otherwise provided.
@@ -561,7 +537,6 @@ var defaultConfigValues = map[string]interface{}{
 	NumContainerProvisionWorkersKey: 4,
 	ResourceTagsKey:                 "",
 	LoggingConfigKey:                "",
-	LoggingOutputKey:                "",
 	AutomaticallyRetryHooks:         true,
 	"enable-os-refresh-update":      true,
 	"enable-os-upgrade":             true,
@@ -587,9 +562,6 @@ var defaultConfigValues = map[string]interface{}{
 	AgentMetadataURLKey:          "",
 	ContainerImageStreamKey:      "released",
 	ContainerImageMetadataURLKey: "",
-
-	// Log forward settings.
-	LogForwardEnabled: false,
 
 	// Proxy settings.
 	HTTPProxyKey:      "",
@@ -716,12 +688,6 @@ func Validate(cfg, old *Config) error {
 	if v, ok := cfg.defined[LoggingConfigKey].(string); ok {
 		if _, err := loggo.ParseConfigString(v); err != nil {
 			return err
-		}
-	}
-
-	if lfCfg, ok := cfg.LogFwdSyslog(); ok {
-		if err := lfCfg.Validate(); err != nil {
-			return errors.Annotate(err, "invalid syslog forwarding config")
 		}
 	}
 
@@ -871,10 +837,6 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if err := cfg.validateCIDRs(cfg.SAASIngressAllow(), false); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := cfg.validateLoggingOutput(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1262,42 +1224,6 @@ func (c *Config) SnapStoreProxyURL() string {
 	return c.asString(SnapStoreProxyURLKey)
 }
 
-// LogFwdSyslog returns the syslog forwarding config.
-func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
-	partial := false
-	var lfCfg syslog.RawConfig
-
-	if s, ok := c.defined[LogForwardEnabled]; ok {
-		partial = true
-		lfCfg.Enabled = s.(bool)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
-		partial = true
-		lfCfg.Host = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
-		partial = true
-		lfCfg.CACert = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
-		partial = true
-		lfCfg.ClientCert = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogClientKey]; ok && s != "" {
-		partial = true
-		lfCfg.ClientKey = s.(string)
-	}
-
-	if !partial {
-		return nil, false
-	}
-	return &lfCfg, true
-}
-
 // FirewallMode returns whether the firewall should
 // manage ports per machine, globally, or not at all.
 // (FwInstance, FwGlobal, or FwNone).
@@ -1573,40 +1499,6 @@ func (c *Config) validateCIDRs(cidrs []string, allowEmpty bool) error {
 	return nil
 }
 
-// LoggingOutput is a for determining the destination of output for
-// logging.
-func (c *Config) LoggingOutput() ([]string, bool) {
-	outputs, ok := c.defined[LoggingOutputKey]
-	if !ok {
-		return []string{}, false
-	}
-	if m, ok := outputs.(string); ok {
-		s := set.NewStrings()
-		for _, v := range strings.Split(strings.TrimSpace(m), ",") {
-			if v == "" {
-				continue
-			}
-			s.Add(strings.TrimSpace(v))
-		}
-		if s.Size() > 0 {
-			return s.SortedValues(), true
-		}
-	}
-	return []string{}, false
-}
-
-func (c *Config) validateLoggingOutput() error {
-	outputs, _ := c.LoggingOutput()
-	for _, output := range outputs {
-		switch strings.TrimSpace(output) {
-		case corelogger.DatabaseName, corelogger.SyslogName:
-		default:
-			return errors.NotValidf("logging-output %q", output)
-		}
-	}
-	return nil
-}
-
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -1811,13 +1703,6 @@ var alwaysOptional = schema.Defaults{
 	AgentVersionKey:   schema.Omit,
 	AuthorizedKeysKey: schema.Omit,
 	ExtraInfoKey:      schema.Omit,
-
-	LogForwardEnabled:      schema.Omit,
-	LogFwdSyslogHost:       schema.Omit,
-	LogFwdSyslogCACert:     schema.Omit,
-	LogFwdSyslogClientCert: schema.Omit,
-	LogFwdSyslogClientKey:  schema.Omit,
-	LoggingOutputKey:       schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -2286,31 +2171,6 @@ global or per instance security groups.`,
 		Type:        environschema.Tattrs,
 		Group:       environschema.EnvironGroup,
 	},
-	LogForwardEnabled: {
-		Description: `Whether syslog forwarding is enabled.`,
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
-	},
-	LogFwdSyslogHost: {
-		Description: `The hostname:port of the syslog server.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LogFwdSyslogCACert: {
-		Description: `The certificate of the CA that signed the syslog server certificate, in PEM format.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LogFwdSyslogClientCert: {
-		Description: `The syslog client certificate in PEM format.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LogFwdSyslogClientKey: {
-		Description: `The syslog client key in PEM format.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
 	"ssl-hostname-verification": {
 		Description: "Whether SSL hostname verification is enabled (default true)",
 		Type:        environschema.Tbool,
@@ -2455,11 +2315,6 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 	},
 	CharmHubURLKey: {
 		Description: `The url for CharmHub API calls`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LoggingOutputKey: {
-		Description: `The logging output destination: database and/or syslog. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

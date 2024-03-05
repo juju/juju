@@ -21,7 +21,7 @@ var (
 )
 
 func init() {
-	klog.SetLogger(newKlogAdapter())
+	klog.SetLogger(newKlogAdaptor())
 
 	caas.RegisterContainerProvider(constants.CAASProviderType, providerInstance)
 

@@ -116,8 +116,8 @@ func (s *SecretURISuite) TestName(c *gc.C) {
 }
 
 func (s *SecretURISuite) TestNew(c *gc.C) {
-	URI := secrets.NewURI()
-	_, err := xid.FromString(URI.ID)
+	uri := secrets.NewURI()
+	_, err := xid.FromString(uri.ID)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -129,11 +129,11 @@ func (s *SecretURISuite) TestWithSource(c *gc.C) {
 }
 
 func (s *SecretURISuite) TestIsLocal(c *gc.C) {
-	URI := secrets.NewURI()
-	c.Assert(URI.IsLocal("other-uuid"), jc.IsTrue)
-	URI2 := URI.WithSource("some-uuid")
-	c.Assert(URI2.IsLocal("some-uuid"), jc.IsTrue)
-	c.Assert(URI2.IsLocal("other-uuid"), jc.IsFalse)
+	uri := secrets.NewURI()
+	c.Assert(uri.IsLocal("other-uuid"), jc.IsTrue)
+	uri2 := uri.WithSource("some-uuid")
+	c.Assert(uri2.IsLocal("some-uuid"), jc.IsTrue)
+	c.Assert(uri2.IsLocal("other-uuid"), jc.IsFalse)
 }
 
 type SecretSuite struct{}

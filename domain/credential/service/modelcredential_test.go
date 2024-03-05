@@ -488,7 +488,7 @@ func (m *mockCaasBroker) Namespaces() ([]string, error) {
 	return m.namespacesFunc()
 }
 
-func (m *mockCaasBroker) CheckCloudCredentials() error {
+func (m *mockCaasBroker) CheckCloudCredentials(_ context.Context) error {
 	// The k8s provider implements this via a list namespaces call to the cluster
 	_, err := m.namespacesFunc()
 	return err

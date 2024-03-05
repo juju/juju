@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/cert"
+	"github.com/juju/utils/v4/cert"
 
 	"github.com/juju/juju/core/paths"
 )

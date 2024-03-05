@@ -7,15 +7,53 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/state"
 )
 
-// EntityAuthenticator performs authentication for juju entities.
-type AgentAuthenticator struct{}
+// Logger is the minimal logging interface required by the authenticator.
+type Logger interface {
+	Debugf(string, ...interface{})
+}
 
-var _ EntityAuthenticator = (*AgentAuthenticator)(nil)
+// AgentAuthenticatorFactory is a factory for creating authenticators, which
+// can create authenticators for a given state.
+type AgentAuthenticatorFactory struct {
+	legacyState *state.State
+	logger      Logger
+}
+
+// NewAgentAuthenticatorFactory returns a new agent authenticator factory, for
+// a known state.
+func NewAgentAuthenticatorFactory(legacyState *state.State, logger Logger) AgentAuthenticatorFactory {
+	return AgentAuthenticatorFactory{
+		legacyState: legacyState,
+		logger:      logger,
+	}
+}
+
+// Authenticator returns an authenticator using the factory's state.
+func (f AgentAuthenticatorFactory) Authenticator() EntityAuthenticator {
+	return agentAuthenticator{
+		state:  f.legacyState,
+		logger: f.logger,
+	}
+}
+
+// AuthenticatorForState returns an authenticator for the given state.
+func (f AgentAuthenticatorFactory) AuthenticatorForState(st *state.State) EntityAuthenticator {
+	return agentAuthenticator{
+		state:  st,
+		logger: f.logger,
+	}
+}
+
+type agentAuthenticator struct {
+	state  *state.State
+	logger Logger
+}
 
 type taggedAuthenticator interface {
 	state.Entity
@@ -24,11 +62,20 @@ type taggedAuthenticator interface {
 
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
-func (*AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error) {
-	entity, err := entityFinder.FindEntity(authParams.AuthTag)
+func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error) {
+	switch authParams.AuthTag.Kind() {
+	case names.UserTagKind:
+		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+	default:
+		return a.fallbackAuth(ctx, authParams)
+	}
+}
+
+func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthParams) (state.Entity, error) {
+	entity, err := a.state.FindEntity(authParams.AuthTag)
 	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("cannot authenticate unknown entity: %v", authParams.AuthTag)
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -38,7 +85,7 @@ func (*AgentAuthenticator) Authenticate(ctx context.Context, entityFinder Entity
 		return nil, errors.Trace(apiservererrors.ErrBadRequest)
 	}
 	if !authenticator.PasswordValid(authParams.Credentials) {
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
 	// If this is a machine agent connecting, we need to check the

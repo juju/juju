@@ -29,7 +29,6 @@ type ModelDefaultsProvider interface {
 type Service struct {
 	defaultsProvider ModelDefaultsProvider
 	st               State
-	watcherFactory   WatcherFactory
 }
 
 // State represents the state entity for accessing and setting per
@@ -67,12 +66,10 @@ type WatcherFactory interface {
 func NewService(
 	defaultsProvider ModelDefaultsProvider,
 	st State,
-	wf WatcherFactory,
 ) *Service {
 	return &Service{
 		defaultsProvider: defaultsProvider,
 		st:               st,
-		watcherFactory:   wf,
 	}
 }
 
@@ -272,12 +269,6 @@ func (s *Service) UpdateModelConfig(
 	return nil
 }
 
-// Watch returns a watcher that returns keys for any changes to model
-// config.
-func (s *Service) Watch() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewNamespaceWatcher("model_config", changestream.All, s.st.AllKeysQuery())
-}
-
 // dummySecretsBackendProvider implements validators.SecretBackendProvider and
 // always returns true.
 // TODO (tlm): These needs to be swapped out with an actual checker when we have
@@ -290,12 +281,12 @@ type dummySecretsBackendProvider struct{}
 type dummySpaceProvider struct{}
 
 // HasSecretsBackend implements validators.SecretBackendProvider
-func (_ *dummySecretsBackendProvider) HasSecretsBackend(_ string) (bool, error) {
+func (*dummySecretsBackendProvider) HasSecretsBackend(_ string) (bool, error) {
 	return true, nil
 }
 
 // HasSpace implements validators.SpaceProvider
-func (_ *dummySpaceProvider) HasSpace(_ string) (bool, error) {
+func (*dummySpaceProvider) HasSpace(_ string) (bool, error) {
 	return true, nil
 }
 
@@ -312,4 +303,33 @@ func (s *Service) updateModelConfigValidator(
 	}
 	agg.Validators = append(agg.Validators, additional...)
 	return agg
+}
+
+// WatchableService defines the service for interacting with ModelConfig
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService creates a new WatchableService for interacting with
+// ModelConfig and the ability to create watchers.
+func NewWatchableService(
+	defaultsProvider ModelDefaultsProvider,
+	st State,
+	watcherFactory WatcherFactory,
+) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			defaultsProvider: defaultsProvider,
+			st:               st,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// Watch returns a watcher that returns keys for any changes to model
+// config.
+func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewNamespaceWatcher("model_config", changestream.All, s.st.AllKeysQuery())
 }

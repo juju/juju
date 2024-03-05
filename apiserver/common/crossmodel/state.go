@@ -5,7 +5,7 @@ package crossmodel
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
@@ -125,17 +125,12 @@ func (st stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) 
 	return remoteApplicationShim{a}, nil
 }
 
-func (st stateShim) OfferNameForRelation(key string) (string, error) {
+func (st stateShim) OfferUUIDForRelation(key string) (string, error) {
 	oc, err := st.State.OfferConnectionForRelation(key)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	appOffers := state.NewApplicationOffers(st.State)
-	offer, err := appOffers.ApplicationOfferForUUID(oc.OfferUUID())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return offer.OfferName, nil
+	return oc.OfferUUID(), nil
 }
 
 func (st stateShim) GetRemoteEntity(token string) (names.Tag, error) {

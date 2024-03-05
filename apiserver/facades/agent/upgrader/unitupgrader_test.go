@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -49,7 +49,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine and unit to work with
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -69,14 +69,19 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to the machine.
-	s.rawMachine, err = s.rawUnit.AssignToCleanMachine()
+	err = s.rawUnit.AssignToNewMachine(s.InstancePrechecker(c, st))
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := s.rawUnit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.rawMachine, err = st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the unit agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.rawUnit.Tag(),
 	}
-	s.upgrader, err = upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	s.upgrader, err = upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     st,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -124,7 +129,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("7")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
@@ -138,7 +143,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a unit agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
@@ -165,7 +170,7 @@ func (s *unitUpgraderSuite) TestToolsNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
@@ -215,7 +220,7 @@ func (s *unitUpgraderSuite) TestSetToolsNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
@@ -277,7 +282,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,

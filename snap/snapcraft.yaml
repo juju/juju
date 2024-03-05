@@ -1,5 +1,5 @@
 name: juju
-version: 4.0-beta2
+version: 4.0-beta3
 summary: Juju - a model-driven operator lifecycle manager for K8s and machines
 license: AGPL-3.0
 description: |
@@ -391,10 +391,10 @@ parts:
     after:
       - libdqlite
     plugin: juju-go
-    go-channel: 1.20/stable
+    go-channel: 1.21/stable
     source: .
     go-packages:
-      - github.com/juju/juju/cmd/jujud
+      - github.com/juju/juju/cmd/jujud-controller
     go-external-strings:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
@@ -407,7 +407,9 @@ parts:
     go-cgo-cflags: "-I/usr/local/musl/include"
     go-cgo-ldflags: "-luv -lraft -ldqlite -llz4 -lsqlite3"
     go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-
+    override-build: |
+      snapcraftctl build
+      mv ${SNAPCRAFT_PART_INSTALL}/bin/jujud-controller ${SNAPCRAFT_PART_INSTALL}/bin/jujud
 
   juju:
     after:
@@ -534,3 +536,4 @@ plugs:
     interface: personal-files
     read:
       - $HOME/.novarc
+

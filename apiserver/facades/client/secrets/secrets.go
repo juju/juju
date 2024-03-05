@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
@@ -40,9 +40,9 @@ type SecretsAPI struct {
 	secretsState    SecretsState
 	secretsConsumer SecretsConsumer
 
-	adminBackendConfigGetter               func() (*provider.ModelBackendConfigInfo, error)
-	backendConfigGetterForUserSecretsWrite func(backendID string) (*provider.ModelBackendConfigInfo, error)
-	backendGetter                          func(*provider.ModelBackendConfig) (provider.SecretsBackend, error)
+	adminBackendConfigGetter               func(ctx context.Context) (*provider.ModelBackendConfigInfo, error)
+	backendConfigGetterForUserSecretsWrite func(ctx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error)
+	backendGetter                          func(context.Context, *provider.ModelBackendConfig) (provider.SecretsBackend, error)
 }
 
 // SecretsAPIV1 is the backend for the Secrets facade v1.
@@ -59,8 +59,14 @@ func (s *SecretsAPI) checkCanWrite() error {
 }
 
 func (s *SecretsAPI) checkCanAdmin() error {
-	_, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
-	return err
+	isAdmin, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if isAdmin {
+		return nil
+	}
+	return apiservererrors.ErrPerm
 }
 
 // ListSecrets lists available secrets.
@@ -129,6 +135,15 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			CreateTime:       m.CreateTime,
 			UpdateTime:       m.UpdateTime,
 		}
+		grants, err := s.secretsState.SecretGrants(m.URI, coresecrets.RoleView)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, g := range grants {
+			secretResult.Access = append(secretResult.Access, params.AccessInfo{
+				TargetTag: g.Target, ScopeTag: g.Scope, Role: g.Role,
+			})
+		}
 		for _, r := range revisionMetadata[m.URI.ID] {
 			backendName := r.BackendName
 			if backendName == nil {
@@ -155,7 +170,7 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			if arg.Filter.Revision != nil {
 				rev = *arg.Filter.Revision
 			}
-			val, err := s.secretContentFromBackend(m.URI, rev)
+			val, err := s.secretContentFromBackend(ctx, m.URI, rev)
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
 			}
@@ -169,13 +184,13 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 	return result, nil
 }
 
-func (s *SecretsAPI) getBackendInfo() error {
-	info, err := s.adminBackendConfigGetter()
+func (s *SecretsAPI) getBackendInfo(ctx context.Context) error {
+	info, err := s.adminBackendConfigGetter(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for id, cfg := range info.Configs {
-		s.backends[id], err = s.backendGetter(&cfg)
+		s.backends[id], err = s.backendGetter(ctx, &cfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -184,9 +199,9 @@ func (s *SecretsAPI) getBackendInfo() error {
 	return nil
 }
 
-func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (coresecrets.SecretValue, error) {
+func (s *SecretsAPI) secretContentFromBackend(ctx context.Context, uri *coresecrets.URI, rev int) (coresecrets.SecretValue, error) {
 	if s.activeBackendID == "" {
-		err := s.getBackendInfo()
+		err := s.getBackendInfo(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -206,7 +221,7 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 		if !ok {
 			return nil, errors.NotFoundf("external secret backend %q, have %q", backendID, s.backends)
 		}
-		val, err = backend.GetContent(context.TODO(), ref.RevisionID)
+		val, err = backend.GetContent(ctx, ref.RevisionID)
 		if err == nil || !errors.Is(err, errors.NotFound) || lastBackendID == backendID {
 			return val, errors.Trace(err)
 		}
@@ -216,7 +231,7 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 			continue
 		}
 		// The active backend may have changed.
-		if initErr := s.getBackendInfo(); initErr != nil {
+		if initErr := s.getBackendInfo(ctx); initErr != nil {
 			return nil, errors.Trace(initErr)
 		}
 		if s.activeBackendID == backendID {
@@ -225,13 +240,13 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 	}
 }
 
-func (s *SecretsAPI) getBackendForUserSecretsWrite() (provider.SecretsBackend, error) {
+func (s *SecretsAPI) getBackendForUserSecretsWrite(ctx context.Context) (provider.SecretsBackend, error) {
 	if s.activeBackendID == "" {
-		if err := s.getBackendInfo(); err != nil {
+		if err := s.getBackendInfo(ctx); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	cfgInfo, err := s.backendConfigGetterForUserSecretsWrite(s.activeBackendID)
+	cfgInfo, err := s.backendConfigGetterForUserSecretsWrite(ctx, s.activeBackendID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -240,7 +255,7 @@ func (s *SecretsAPI) getBackendForUserSecretsWrite() (provider.SecretsBackend, e
 		// This should never happen.
 		return nil, errors.NotFoundf("secret backend %q", s.activeBackendID)
 	}
-	return s.backendGetter(&cfg)
+	return s.backendGetter(ctx, &cfg)
 }
 
 // CreateSecrets isn't on the v1 API.
@@ -254,13 +269,13 @@ func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecret
 	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackendForUserSecretsWrite()
+	backend, err := s.getBackendForUserSecretsWrite(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		ID, err := s.createSecret(backend, arg)
-		result.Results[i].Result = ID
+		id, err := s.createSecret(ctx, backend, arg)
+		result.Results[i].Result = id
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}
@@ -276,7 +291,7 @@ func (t successfulToken) Check() error {
 	return nil
 }
 
-func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.CreateSecretArg) (_ string, errOut error) {
+func (s *SecretsAPI) createSecret(ctx context.Context, backend provider.SecretsBackend, arg params.CreateSecretArg) (_ string, errOut error) {
 	if arg.OwnerTag != "" && arg.OwnerTag != s.modelUUID {
 		return "", errors.NotValidf("owner tag %q", arg.OwnerTag)
 	}
@@ -295,7 +310,7 @@ func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.Cr
 	if len(arg.Content.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
-	revId, err := backend.SaveContent(context.TODO(), uri, 1, coresecrets.NewSecretValue(arg.Content.Data))
+	revId, err := backend.SaveContent(ctx, uri, 1, coresecrets.NewSecretValue(arg.Content.Data))
 	if err != nil && !errors.Is(err, errors.NotSupported) {
 		return "", errors.Trace(err)
 	}
@@ -304,7 +319,7 @@ func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.Cr
 			if errOut != nil {
 				// If we failed to create the secret, we should delete the
 				// secret value from the backend.
-				if err2 := backend.DeleteContent(context.TODO(), revId); err2 != nil &&
+				if err2 := backend.DeleteContent(ctx, revId); err2 != nil &&
 					!errors.Is(err2, errors.NotSupported) &&
 					!errors.Is(err2, errors.NotFound) {
 					logger.Errorf("failed to delete secret %q: %v", revId, err2)
@@ -377,12 +392,12 @@ func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSe
 	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackendForUserSecretsWrite()
+	backend, err := s.getBackendForUserSecretsWrite(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		err := s.updateSecret(backend, arg)
+		err := s.updateSecret(ctx, backend, arg)
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}
@@ -391,7 +406,7 @@ func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSe
 	return result, nil
 }
 
-func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.UpdateUserSecretArg) (errOut error) {
+func (s *SecretsAPI) updateSecret(ctx context.Context, backend provider.SecretsBackend, arg params.UpdateUserSecretArg) (errOut error) {
 	if err := arg.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -414,7 +429,7 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 		return errors.Trace(err)
 	}
 	if len(arg.Content.Data) > 0 {
-		revId, err := backend.SaveContent(context.TODO(), uri, md.LatestRevision+1, coresecrets.NewSecretValue(arg.Content.Data))
+		revId, err := backend.SaveContent(ctx, uri, md.LatestRevision+1, coresecrets.NewSecretValue(arg.Content.Data))
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
@@ -423,7 +438,7 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 				if errOut != nil {
 					// If we failed to update the secret, we should delete the
 					// secret value from the backend for the new revision.
-					if err2 := backend.DeleteContent(context.TODO(), revId); err2 != nil &&
+					if err2 := backend.DeleteContent(ctx, revId); err2 != nil &&
 						!errors.Is(err2, errors.NotSupported) &&
 						!errors.Is(err2, errors.NotFound) {
 						logger.Errorf("failed to delete secret %q: %v", revId, err2)
@@ -458,7 +473,7 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 		if len(pruneArg.Revisions) == 0 {
 			return nil
 		}
-		pruneResult, err := s.RemoveSecrets(context.TODO(), params.DeleteSecretArgs{Args: []params.DeleteSecretArg{pruneArg}})
+		pruneResult, err := s.RemoveSecrets(ctx, params.DeleteSecretArgs{Args: []params.DeleteSecretArg{pruneArg}})
 		if err != nil {
 			// We don't want to fail the update if we can't prune the unused secret revisions because they will be picked up later
 			// when the secret has any new obsolute revisions.
@@ -478,6 +493,7 @@ func (s *SecretsAPIV1) RemoveSecrets(ctx context.Context, _ struct{}) {}
 func (s *SecretsAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	// TODO(secrets): JUJU-4719.
 	return commonsecrets.RemoveUserSecrets(
+		ctx,
 		s.secretsState, s.adminBackendConfigGetter,
 		s.authTag, args, s.modelUUID,
 		func(uri *coresecrets.URI) error {

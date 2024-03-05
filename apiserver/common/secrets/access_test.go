@@ -4,8 +4,7 @@
 package secrets_test
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -45,7 +44,7 @@ func (s *secretsSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	gomock.InOrder(
-		secretsConsumer.EXPECT().SecretAccess(uri, authTag).Return(coresecrets.RoleNone, errors.NotFoundf("")),
+		secretsConsumer.EXPECT().SecretAccess(uri, authTag).Return(coresecrets.RoleNone, nil),
 		secretsConsumer.EXPECT().SecretAccess(uri, names.NewApplicationTag("mariadb")).Return(coresecrets.RoleManage, nil),
 		leadershipChecker.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(token),
 		token.EXPECT().Check().Return(nil),

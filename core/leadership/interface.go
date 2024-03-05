@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 )
 
 // TODO (manadart 2018-10-05) Add interfaces to the end of this line,

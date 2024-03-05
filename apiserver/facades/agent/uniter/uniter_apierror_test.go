@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -39,7 +39,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 
-	facadeContext := facadetest.Context{
+	facadeContext := facadetest.ModelContext{
 		State_:             s.ControllerModel(c).State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         resources,
@@ -48,6 +48,6 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	}
 
 	serviceFactory := s.ControllerServiceFactory(c)
-	_, err := uniter.NewUniterAPIWithServices(facadeContext, serviceFactory.ControllerConfig(), serviceFactory.Cloud(), serviceFactory.Credential())
+	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, serviceFactory.ControllerConfig(), serviceFactory.Cloud(), serviceFactory.Credential(), serviceFactory.Unit())
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

@@ -4,18 +4,19 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/charm/v13"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
 // dummyHookContext implements hooks.Context,
@@ -81,7 +82,7 @@ func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, er
 	return nil, errors.NotFoundf("StorageInstance")
 }
 
-func (dummyHookContext) UnitStatus() (*jujuc.StatusInfo, error) {
+func (dummyHookContext) UnitStatus(context.Context) (*jujuc.StatusInfo, error) {
 	return &jujuc.StatusInfo{}, nil
 }
 

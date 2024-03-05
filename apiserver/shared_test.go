@@ -8,22 +8,22 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
+	"github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/lease"
-	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type sharedServerContextSuite struct {

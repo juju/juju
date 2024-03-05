@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
+	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
@@ -23,10 +24,10 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -104,7 +105,7 @@ func (s *SimpleStreamsToolsSuite) uploadStreams(c *gc.C, versions toolstesting.S
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	jujuversion.Current = s.origCurrentVersion
 	attrs = coretesting.FakeConfig().Merge(attrs)
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.Background(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
@@ -179,7 +180,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
 		streams := envtools.PreferredStreams(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
-		actual, err := envtools.FindTools(ss, s.env, test.major, test.minor, streams, coretools.Filter{})
+		actual, err := envtools.FindTools(context.Background(), ss, s.env, test.major, test.minor, streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -209,7 +210,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	_, err := envtools.FindTools(ss,
+	_, err := envtools.FindTools(context.Background(), ss,
 		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
@@ -274,7 +275,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindExactTools(ss, s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
+		actual, err := envtools.FindExactTools(context.Background(), ss, s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
 		if test.err == nil {
 			if !c.Check(err, jc.ErrorIsNil) {
 				continue
@@ -357,7 +358,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
 			"proposed": test.proposed,
 			"released": test.released,
 		})
-		actual, err := envtools.FindTools(ss,
+		actual, err := envtools.FindTools(context.Background(), ss,
 			s.env, test.major, test.minor, test.streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {

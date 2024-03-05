@@ -24,9 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
@@ -49,21 +48,11 @@ const (
 	serverEntity  = "charms"
 )
 
-// Logger is the interface to use for logging requests and errors.
-type Logger interface {
-	IsTraceEnabled() bool
-
-	Errorf(string, ...interface{})
-	Tracef(string, ...interface{})
-
-	ChildWithLabels(string, ...string) loggo.Logger
-}
-
 // Config holds configuration for creating a new charm hub client.
 // The zero value is a valid default configuration.
 type Config struct {
 	// Logger to use during the API requests. This field is required.
-	Logger Logger
+	LoggerFactory LoggerFactory
 
 	// URL holds the base endpoint URL of the Charmhub API,
 	// with no trailing slash, not including the version.
@@ -98,16 +87,15 @@ type Client struct {
 	downloadClient  *downloadClient
 	refreshClient   *refreshClient
 	resourcesClient *resourcesClient
-	logger          Logger
 }
 
 // NewClient creates a new Charmhub client from the supplied configuration.
 func NewClient(config Config) (*Client, error) {
-	logger := config.Logger
-	if logger == nil {
-		return nil, errors.NotValidf("nil logger")
+	loggerFactory := config.LoggerFactory
+	if loggerFactory == nil {
+		return nil, errors.NotValidf("nil logger factory")
 	}
-	logger = logger.ChildWithLabels("client", corelogger.CHARMHUB)
+	logger := loggerFactory.ChildWithTags("client", corelogger.CHARMHUB)
 
 	url := config.URL
 	if url == "" {
@@ -116,7 +104,7 @@ func NewClient(config Config) (*Client, error) {
 
 	httpClient := config.HTTPClient
 	if httpClient == nil {
-		httpClient = DefaultHTTPClient(logger)
+		httpClient = DefaultHTTPClient(loggerFactory)
 	}
 
 	fs := config.FileSystem
@@ -165,7 +153,6 @@ func NewClient(config Config) (*Client, error) {
 		// refresh response.
 		downloadClient:  newDownloadClient(httpClient, fs, logger),
 		resourcesClient: newResourcesClient(resourcesPath, restClient, logger),
-		logger:          logger,
 	}, nil
 }
 

@@ -9,11 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

@@ -4,8 +4,8 @@
 package params
 
 import (
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/assumes"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/assumes"
 )
 
 // ApplicationCharmResults contains a set of ApplicationCharmResults.
@@ -48,11 +48,6 @@ type CharmsList struct {
 // CharmsListResult stores result from a charms.List call
 type CharmsListResult struct {
 	CharmURLs []string `json:"charm-urls"`
-}
-
-// IsMeteredResult stores result from a charms.IsMetered call
-type IsMeteredResult struct {
-	Metered bool `json:"metered"`
 }
 
 // CharmOption mirrors charm.Option
@@ -143,7 +138,6 @@ type Charm struct {
 	Config     map[string]CharmOption `json:"config"`
 	Meta       *CharmMeta             `json:"meta,omitempty"`
 	Actions    *CharmActions          `json:"actions,omitempty"`
-	Metrics    *CharmMetrics          `json:"metrics,omitempty"`
 	Manifest   *CharmManifest         `json:"manifest,omitempty"`
 	LXDProfile *CharmLXDProfile       `json:"lxd-profile,omitempty"`
 }
@@ -168,12 +162,6 @@ type CharmMetric struct {
 // CharmPlan mirrors charm.Plan
 type CharmPlan struct {
 	Required bool `json:"required"`
-}
-
-// CharmMetrics mirrors charm.Metrics.
-type CharmMetrics struct {
-	Metrics map[string]CharmMetric `json:"metrics"`
-	Plan    CharmPlan              `json:"plan"`
 }
 
 // CharmDeployment mirrors charm.Deployment.

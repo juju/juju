@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -61,9 +61,6 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.CreatedBy(), gc.Equals, creator)
 	c.Assert(user.DateCreated().After(now) ||
 		user.DateCreated().Equal(now), jc.IsTrue)
-	lastLogin, err := user.LastLogin()
-	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
-	c.Assert(lastLogin, gc.DeepEquals, time.Time{})
 
 	user, err = s.State.User(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,9 +71,6 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.CreatedBy(), gc.Equals, creator)
 	c.Assert(user.DateCreated().After(now) ||
 		user.DateCreated().Equal(now), jc.IsTrue)
-	lastLogin, err = user.LastLogin()
-	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
-	c.Assert(lastLogin, gc.DeepEquals, time.Time{})
 }
 
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
@@ -97,17 +91,6 @@ func (s *UserSuite) TestString(c *gc.C) {
 	c.Assert(user.String(), gc.Equals, "foo")
 }
 
-func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
-	now := testing.NonZeroTime().Round(time.Second).UTC()
-	user := s.Factory.MakeUser(c, nil)
-	err := user.UpdateLastLogin()
-	c.Assert(err, jc.ErrorIsNil)
-	lastLogin, err := user.LastLogin()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lastLogin.After(now) ||
-		lastLogin.Equal(now), jc.IsTrue)
-}
-
 func (s *UserSuite) TestSetPassword(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	testSetPassword(c, s.State, func() (state.Authenticator, error) {
@@ -120,7 +103,7 @@ func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
 	salt, hash := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(hash, gc.Not(gc.Equals), "")
 	c.Assert(salt, gc.Not(gc.Equals), "")
-	c.Assert(utils.UserPasswordHash("a-password", salt), gc.Equals, hash)
+	c.Assert(password.UserPasswordHash("a-password", salt), gc.Equals, hash)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
@@ -426,16 +409,16 @@ func (s *UserSuite) activeUsers(c *gc.C) []string {
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
-	salt, err := utils.RandomSalt()
+	salt, err := password.RandomSalt()
 	c.Assert(err, jc.ErrorIsNil)
-	err = user.SetPasswordHash(utils.UserPasswordHash("foo", salt), salt)
+	err = user.SetPasswordHash(password.UserPasswordHash("foo", salt), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
 	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
 
 	// User passwords should *not* use the fast PasswordHash function
-	hash := utils.AgentPasswordHash("foo-12345678901234567890")
+	hash := password.AgentPasswordHash("foo-12345678901234567890")
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.SetPasswordHash(hash, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,16 +430,16 @@ func (s *UserSuite) TestSetPasswordHashUppercaseName(c *gc.C) {
 	name := "NameWithUppercase"
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: name})
 
-	salt, err := utils.RandomSalt()
+	salt, err := password.RandomSalt()
 	c.Assert(err, jc.ErrorIsNil)
-	err = user.SetPasswordHash(utils.UserPasswordHash("foo", salt), salt)
+	err = user.SetPasswordHash(password.UserPasswordHash("foo", salt), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
 	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
 
 	// User passwords should *not* use the fast PasswordHash function
-	hash := utils.AgentPasswordHash("foo-12345678901234567890")
+	hash := password.AgentPasswordHash("foo-12345678901234567890")
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.SetPasswordHash(hash, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -467,7 +450,7 @@ func (s *UserSuite) TestSetPasswordHashUppercaseName(c *gc.C) {
 func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
-	err := user.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
+	err := user.SetPasswordHash(password.UserPasswordHash("foo", "salted"), "salted")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)

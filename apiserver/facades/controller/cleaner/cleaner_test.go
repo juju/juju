@@ -17,6 +17,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	machineservice "github.com/juju/juju/domain/machine/service"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	unitservice "github.com/juju/juju/domain/unit/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -25,9 +29,12 @@ import (
 type CleanerSuite struct {
 	coretesting.BaseSuite
 
-	st         *mockState
-	api        *cleaner.CleanerAPI
-	authoriser apiservertesting.FakeAuthorizer
+	st                 *mockState
+	machineService     *machineservice.Service
+	applicationService *applicationservice.Service
+	unitService        *unitservice.Service
+	api                *cleaner.CleanerAPI
+	authoriser         apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&CleanerSuite{})
@@ -42,9 +49,22 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	cleaner.PatchState(s, s.st)
 	var err error
 	res := common.NewResources()
-	s.api, err = cleaner.NewCleanerAPI(facadetest.Context{
+	s.machineService = machineservice.NewService(nil)
+	s.applicationService = applicationservice.NewService(nil)
+	s.unitService = unitservice.NewService(nil)
+	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory().
+			WithMachineService(func() *machineservice.Service {
+				return s.machineService
+			}).
+			WithApplicationService(func() *applicationservice.Service {
+				return s.applicationService
+			}).
+			WithUnitService(func() *unitservice.Service {
+				return s.unitService
+			}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api, gc.NotNil)
@@ -53,7 +73,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
-	api, err := cleaner.NewCleanerAPI(facadetest.Context{
+	api, err := cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Auth_: anAuthoriser,
 	})
 	c.Assert(api, gc.IsNil)
@@ -81,6 +101,10 @@ func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
 	err := s.api.Cleanup(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Cleanup")
+	s.st.CheckCalls(c, []testing.StubCall{{
+		FuncName: "Cleanup",
+		Args:     []any{s.machineService, s.applicationService, s.unitService},
+	}})
 }
 
 func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {
@@ -133,7 +157,7 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 	return w
 }
 
-func (st *mockState) Cleanup(context.Context, objectstore.ObjectStore) error {
-	st.MethodCall(st, "Cleanup")
+func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationRemover, ur state.UnitRemover) error {
+	st.MethodCall(st, "Cleanup", mr, ar, ur)
 	return st.NextErr()
 }

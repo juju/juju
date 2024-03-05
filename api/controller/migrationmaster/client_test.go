@@ -12,12 +12,11 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -59,7 +59,7 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	w, err := client.Watch()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatch)
-	stub.CheckCalls(c, []jujutesting.StubCall{{"MigrationMaster.Watch", []interface{}{"", nil}}})
+	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.Watch", Args: []interface{}{"", nil}}})
 }
 
 func (s *ClientSuite) TestWatchCallError(c *gc.C) {
@@ -78,8 +78,8 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	macsJSON, err := json.Marshal(macs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUUID := utils.MustNewUUID().String()
-	controllerUUID := utils.MustNewUUID().String()
+	modelUUID := uuid.MustNewUUID().String()
+	controllerUUID := uuid.MustNewUUID().String()
 	controllerTag := names.NewControllerTag(controllerUUID)
 	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result interface{}) error {
@@ -136,7 +136,7 @@ func (s *ClientSuite) TestSetPhase(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.SetPhase", []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.SetPhase", Args: []interface{}{"", expectedArg}},
 	})
 }
 
@@ -160,7 +160,7 @@ func (s *ClientSuite) TestSetStatusMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedArg := params.SetMigrationStatusMessageArgs{Message: "foo"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.SetStatusMessage", []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.SetStatusMessage", Args: []interface{}{"", expectedArg}},
 	})
 }
 
@@ -190,7 +190,7 @@ func (s *ClientSuite) TestModelInfo(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	model, err := client.ModelInfo()
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.ModelInfo", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, jc.DeepEquals, migration.ModelInfo{
@@ -218,7 +218,7 @@ func (s *ClientSuite) TestSourceControllerInfo(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	info, relatedModels, err := client.SourceControllerInfo()
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.SourceControllerInfo", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []interface{}{"", nil}},
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(info, jc.DeepEquals, migration.SourceControllerInfo{
@@ -241,7 +241,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "blam")
 	expectedArg := params.PrechecksArgs{}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.Prechecks", []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.Prechecks", Args: []interface{}{"", expectedArg}},
 	})
 }
 
@@ -332,7 +332,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	out, err := client.Export()
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.Export", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.Export", Args: []interface{}{"", nil}},
 	})
 	c.Assert(out, gc.DeepEquals, migration.SerializedModel{
 		Bytes:  []byte("foo"),
@@ -424,7 +424,7 @@ func setupFakeHTTP() (*migrationmaster.Client, *fakeDoer) {
 
 func (s *ClientSuite) TestOpenResource(c *gc.C) {
 	client, doer := setupFakeHTTP()
-	r, err := client.OpenResource("app", "blob")
+	r, err := client.OpenResource(context.Background(), "app", "blob")
 	c.Assert(err, jc.ErrorIsNil)
 	checkReader(c, r, "resourceful")
 	c.Check(doer.method, gc.Equals, "GET")
@@ -441,7 +441,7 @@ func (s *ClientSuite) TestReap(c *gc.C) {
 	err := client.Reap()
 	c.Check(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.Reap", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.Reap", Args: []interface{}{"", nil}},
 	})
 }
 
@@ -474,7 +474,7 @@ func (s *ClientSuite) TestWatchMinionReports(c *gc.C) {
 	w, err := client.WatchMinionReports()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatch)
-	stub.CheckCalls(c, []jujutesting.StubCall{{"MigrationMaster.WatchMinionReports", []interface{}{"", nil}}})
+	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []interface{}{"", nil}}})
 }
 
 func (s *ClientSuite) TestWatchMinionReportsError(c *gc.C) {
@@ -515,7 +515,7 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 	out, err := client.MinionReports()
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.MinionReports", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.MinionReports", Args: []interface{}{"", nil}},
 	})
 	c.Assert(out, gc.DeepEquals, migration.MinionReports{
 		MigrationId:             "id",
@@ -607,15 +607,14 @@ func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
 
 	c.Assert(*caller.path, gc.Equals, "/log")
 	c.Assert(*caller.attrs, gc.DeepEquals, url.Values{
+		"version":       {"2"},
 		"replay":        {"true"},
 		"noTail":        {"true"},
 		"startTime":     {"2016-12-02T10:24:01.001Z"},
 		"includeEntity": nil,
 		"includeModule": nil,
-		"includeLabel":  nil,
 		"excludeEntity": nil,
 		"excludeModule": nil,
-		"excludeLabel":  nil,
 	})
 }
 
@@ -630,11 +629,7 @@ func (fakeConnector) BestFacadeVersion(string) int {
 	return 0
 }
 
-func (fakeConnector) Context() context.Context {
-	return context.Background()
-}
-
-func (c fakeConnector) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+func (c fakeConnector) ConnectStream(_ context.Context, path string, attrs url.Values) (base.Stream, error) {
 	*c.path = path
 	*c.attrs = attrs
 	return nil, errors.New("colonel abrams")
@@ -648,10 +643,6 @@ type fakeHTTPCaller struct {
 
 func (fakeHTTPCaller) BestFacadeVersion(string) int {
 	return 0
-}
-
-func (r *fakeHTTPCaller) Context() context.Context {
-	return context.Background()
 }
 
 func (c fakeHTTPCaller) HTTPClient() (*httprequest.Client, error) {

@@ -12,17 +12,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/keyvalues"
+	"github.com/juju/utils/v4/keyvalues"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
@@ -47,18 +46,19 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/feature"
+	_ "github.com/juju/juju/internal/provider/all" // Import all the providers for bootstrap.
+	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/all" // Import all the providers for bootstrap.
-	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -599,7 +599,7 @@ func (c *bootstrapCommand) initializeFirstModel(
 		return nil, store.SetCurrentModel(c.controllerName, c.initialModelName)
 	}
 
-	initialModelUUID, err := utils.NewUUID()
+	initialModelUUID, err := uuid.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -645,39 +645,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	var (
 		initialModel     *jujuclient.ModelDetails
 		isCAASController bool
-
-		// The stdCtx is used as a placeholder for the defer below. This will
-		// be replaced with a context that can be cancelled later on.
-		stdCtx = context.TODO()
 	)
-
-	defer func() {
-		// If the context is an error state, then don't continue on processing
-		// the bootstrap command.
-		if stdCtx.Err() != nil {
-			return
-		}
-
-		resultErr = handleChooseCloudRegionError(ctx, resultErr)
-		if !c.showClouds && resultErr == nil {
-			if initialModel != nil {
-				ctx.Infof("Initial model %q added", c.initialModelName)
-				return
-			}
-
-			workloadType := ""
-			if isCAASController {
-				workloadType = "k8s "
-			}
-
-			ctx.Infof(`
-Now you can run
-	juju add-model <model-name>
-to create a new model to deploy %sworkloads.
-`, workloadType)
-		}
-	}()
-
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
@@ -845,7 +813,34 @@ to create a new model to deploy %sworkloads.
 	defer ctx.StopInterruptNotify(interrupted)
 
 	var cancel context.CancelFunc
-	stdCtx, cancel = context.WithTimeout(context.Background(), bootstrapCfg.bootstrap.BootstrapTimeout)
+	stdCtx, cancel := context.WithTimeout(ctx, bootstrapCfg.bootstrap.BootstrapTimeout)
+
+	defer func() {
+		// If the context is an error state, then don't continue on processing
+		// the bootstrap command.
+		if stdCtx.Err() != nil {
+			return
+		}
+
+		resultErr = handleChooseCloudRegionError(ctx, resultErr)
+		if !c.showClouds && resultErr == nil {
+			if initialModel != nil {
+				ctx.Infof("Initial model %q added", c.initialModelName)
+				return
+			}
+
+			workloadType := ""
+			if isCAASController {
+				workloadType = "k8s "
+			}
+
+			ctx.Infof(`
+Now you can run
+	juju add-model <model-name>
+to create a new model to deploy %sworkloads.
+`, workloadType)
+		}
+	}()
 
 	go func() {
 		for range interrupted {
@@ -958,11 +953,23 @@ to create a new model to deploy %sworkloads.
 		c.controllerName, cloudRegion,
 	)
 
+	// handleBootstrapErrorFunc is a function that will be called to clean up
+	// the environment if the bootstrap process fails.
+	handleBootstrapErrorFunc := func() error {
+		callCtx := envcontext.WithoutCredentialInvalidator(ctx)
+		return environsDestroy(
+			c.controllerName, environ, callCtx, store,
+		)
+	}
+
 	// If we error out for any reason, clean up the environment.
 	defer func() {
-		if resultErr != nil {
-			if c.KeepBrokenEnvironment {
-				ctx.Infof(`
+		if resultErr == nil {
+			return
+		}
+
+		if c.KeepBrokenEnvironment {
+			ctx.Infof(`
 bootstrap failed but --keep-broken was specified.
 This means that cloud resources are left behind, but not registered to
 your local client, as the controller was not successfully created.
@@ -972,20 +979,15 @@ When you are ready to clean up the failed controller, use your cloud console or
 equivalent CLI tools to terminate the instances and remove remaining resources.
 
 See `[1:] + "`juju kill-controller`" + `.`)
-			} else {
-				logger.Errorf("%v", resultErr)
-				logger.Debugf("(error details: %v)", errors.Details(resultErr))
-				// Set resultErr to cmd.ErrSilent to prevent
-				// logging the error twice.
-				resultErr = cmd.ErrSilent
-				handleBootstrapError(ctx, func() error {
-					callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-					return environsDestroy(
-						c.controllerName, environ, callCtx, store,
-					)
-				})
-			}
+			return
 		}
+
+		logger.Errorf("%v", resultErr)
+		logger.Debugf("(error details: %v)", errors.Details(resultErr))
+		// Set resultErr to cmd.ErrSilent to prevent
+		// logging the error twice.
+		resultErr = cmd.ErrSilent
+		handleBootstrapError(ctx, handleBootstrapErrorFunc)
 	}()
 
 	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.MetadataSource == "" && envMetadataSrc != "" {
@@ -1123,7 +1125,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	} else if env, ok := environ.(caas.ServiceManager); ok {
 		// CAAS.
 		var svc *caas.Service
-		svc, err = env.GetService(k8sconstants.JujuControllerStackName, false)
+		svc, err = env.GetService(callCtx, k8sconstants.JujuControllerStackName, false)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1139,7 +1141,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 
 	var proxier proxy.Proxier
 	if conInfo, ok := environ.(environs.ConnectorInfo); ok {
-		proxier, err = conInfo.ConnectionProxyInfo()
+		proxier, err = conInfo.ConnectionProxyInfo(callCtx)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
@@ -1429,11 +1431,11 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	error,
 ) {
 
-	controllerModelUUID, err := utils.NewUUID()
+	controllerModelUUID, err := uuid.NewUUID()
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
-	controllerUUID, err := utils.NewUUID()
+	controllerUUID, err := uuid.NewUUID()
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
@@ -1594,6 +1596,9 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, fmt.Errorf("%q is no longer supported controller configuration",
 			controller.CAASOperatorImagePath)
 	}
+	if _, ok := controllerConfigAttrs[controller.SystemSSHKeys]; ok {
+		return bootstrapConfigs{}, fmt.Errorf("%q is not a user configurable item. Please unset this and continue.", controller.SystemSSHKeys)
+	}
 	if v, ok := controllerConfigAttrs[controller.CAASImageRepo]; ok {
 		if v, ok := v.(string); ok {
 			repoDetails, err := docker.LoadImageRepoDetails(v)
@@ -1649,18 +1654,17 @@ func (c *bootstrapCommand) bootstrapConfigs(
 }
 
 func (c *bootstrapCommand) InitialModelConfig(
-	initialModelUUID utils.UUID,
+	initialModelUUID uuid.UUID,
 	inheritedControllerAttrs,
 	userConfigAttrs map[string]interface{},
 	environ environs.ConfigGetter,
 ) map[string]interface{} {
-
-	InitialModelConfig := map[string]interface{}{
+	initialModelConfig := map[string]interface{}{
 		"name":         c.initialModelName,
 		config.UUIDKey: initialModelUUID.String(),
 	}
 	for k, v := range inheritedControllerAttrs {
-		InitialModelConfig[k] = v
+		initialModelConfig[k] = v
 	}
 
 	// We copy across any user supplied attributes to the hosted model config.
@@ -1669,17 +1673,17 @@ func (c *bootstrapCommand) InitialModelConfig(
 	controllerModelConfigAttrs := environ.Config().AllAttrs()
 	for k, v := range userConfigAttrs {
 		if _, ok := controllerModelConfigAttrs[k]; ok {
-			InitialModelConfig[k] = v
+			initialModelConfig[k] = v
 		}
 	}
 	// Ensure that certain config attributes are not included in the hosted
 	// model config. These attributes may be modified during bootstrap; by
 	// removing them from this map, we ensure the modified values are
 	// inherited.
-	delete(InitialModelConfig, config.AuthorizedKeysKey)
-	delete(InitialModelConfig, config.AgentVersionKey)
+	delete(initialModelConfig, config.AuthorizedKeysKey)
+	delete(initialModelConfig, config.AgentVersionKey)
 
-	return InitialModelConfig
+	return initialModelConfig
 }
 
 // runInteractive queries the user about bootstrap config interactively at the

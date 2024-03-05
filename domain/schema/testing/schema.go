@@ -18,7 +18,7 @@ type SchemaApplier struct {
 
 func (s *SchemaApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnRunner) {
 	s.Schema.Hook(func(i int) error {
-		c.Log("Applying schema change", i)
+		//c.Log("Applying schema change", i)
 		return nil
 	})
 	changeSet, err := s.Schema.Ensure(ctx, runner)

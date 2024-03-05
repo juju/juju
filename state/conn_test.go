@@ -5,15 +5,16 @@ package state_test
 
 import (
 	"github.com/juju/mgo/v3"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -33,6 +34,8 @@ type ConnSuite struct {
 	controllers  *mgo.Collection
 	policy       statetesting.MockPolicy
 	modelTag     names.ModelTag
+
+	objectStore objectstore.ObjectStore
 }
 
 func (s *ConnSuite) SetUpTest(c *gc.C) {
@@ -49,6 +52,8 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.StateSuite.SetUpTest(c)
+
+	s.objectStore = state.NewObjectStore(c, s.State.ModelUUID())
 
 	s.modelTag = s.Model.ModelTag()
 
@@ -72,27 +77,27 @@ func (s *ConnSuite) AddTestingCharmWithSeries(c *gc.C, name string, series strin
 }
 
 func (s *ConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplication(c, s.State, name, ch)
+	return state.AddTestingApplication(c, s.State, s.objectStore, name, ch)
 }
 
 func (s *ConnSuite) AddTestingApplicationForBase(c *gc.C, base state.Base, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplicationForBase(c, s.State, base, name, ch)
+	return state.AddTestingApplicationForBase(c, s.State, s.objectStore, base, name, ch)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithNumUnits(c *gc.C, numUnits int, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplicationWithNumUnits(c, s.State, numUnits, name, ch)
+	return state.AddTestingApplicationWithNumUnits(c, s.State, s.objectStore, numUnits, name, ch)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.State, name, ch, storage)
+	return state.AddTestingApplicationWithStorage(c, s.State, s.objectStore, name, ch, storage)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithDevices(c *gc.C, name string, ch *state.Charm, devs map[string]state.DeviceConstraints) *state.Application {
-	return state.AddTestingApplicationWithDevices(c, s.State, name, ch, devs)
+	return state.AddTestingApplicationWithDevices(c, s.State, s.objectStore, name, ch, devs)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return state.AddTestingApplicationWithBindings(c, s.State, name, ch, bindings)
+	return state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, name, ch, bindings)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
@@ -141,7 +146,7 @@ func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revision 
 func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.State {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": modelName,
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
 	_, otherState, err := s.Controller.NewModel(state.ModelArgs{

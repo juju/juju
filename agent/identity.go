@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 )
 
 var ErrNoStateServingInfo = errors.New("StateServingInfo missing")

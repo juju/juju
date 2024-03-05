@@ -4,7 +4,7 @@
 package jwt_test
 
 import (
-	. "testing"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 

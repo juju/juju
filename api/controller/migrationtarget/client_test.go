@@ -15,9 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -74,9 +73,14 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
 	}
-	stub.CheckCalls(c, []jujutesting.StubCall{
-		{FuncName: "MigrationTarget.Prechecks", Args: []interface{}{"", expectedArg}},
-	})
+	stub.CheckCallNames(c, "MigrationTarget.Prechecks")
+
+	arg := stub.Calls()[0].Args[1].(params.MigrationModelInfo)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.FacadeVersions", gc.Not(gc.HasLen), 0)
+
+	c.Assert(arg, mc, expectedArg)
 }
 
 func (s *ClientSuite) TestImport(c *gc.C) {
@@ -128,7 +132,7 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
 	caller := fakeConnector{Stub: &jujutesting.Stub{}}
 	client := migrationtarget.NewClient(caller)
-	stream, err := client.OpenLogTransferStream("bad-dad")
+	stream, err := client.OpenLogTransferStream(context.Background(), "bad-dad")
 	c.Assert(stream, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "sound hound")
 
@@ -196,37 +200,37 @@ func (s *ClientSuite) TestCheckMachines(c *gc.C) {
 
 func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	const charmBody = "charming"
-	curl := charm.MustParseURL("ch:foo-2")
-	doer := newFakeDoer(c, params.CharmsResponse{
-		CharmURL: curl.String(),
-	})
+	curl := "ch:foo-2"
+	charmRef := "foo-abcdef0"
+	doer := newFakeDoer(c, "", map[string]string{"Juju-Curl": curl})
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
-	outCurl, err := client.UploadCharm("uuid", curl, strings.NewReader(charmBody))
+	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, charmRef, strings.NewReader(charmBody))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outCurl, gc.DeepEquals, curl)
-	c.Assert(doer.method, gc.Equals, "POST")
-	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=&name=foo&revision=2&schema=ch&series=")
+	c.Assert(doer.method, gc.Equals, "PUT")
+	c.Assert(doer.url, gc.Equals, "/migrate/charms/foo-abcdef0")
+	c.Assert(doer.headers.Get("Juju-Curl"), gc.Equals, curl)
 	c.Assert(doer.body, gc.Equals, charmBody)
 }
 
 func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
 	const charmBody = "charming"
-	curl := charm.MustParseURL("ch:s390x/bionic/juju-qa-test-15")
-	doer := newFakeDoer(c, params.CharmsResponse{
-		CharmURL: curl.String(),
-	})
+	curl := "ch:s390x/bionic/juju-qa-test-15"
+	charmRef := "juju-qa-test-abcdef0"
+	doer := newFakeDoer(c, "", map[string]string{"Juju-Curl": curl})
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
-	outCurl, err := client.UploadCharm("uuid", curl, strings.NewReader(charmBody))
+	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, charmRef, strings.NewReader(charmBody))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outCurl, gc.DeepEquals, curl)
-	c.Assert(doer.method, gc.Equals, "POST")
-	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=s390x&name=juju-qa-test&revision=15&schema=ch&series=bionic")
+	c.Assert(doer.method, gc.Equals, "PUT")
+	c.Assert(doer.url, gc.Equals, "/migrate/charms/juju-qa-test-abcdef0")
+	c.Assert(doer.headers.Get("Juju-Curl"), gc.Equals, curl)
 	c.Assert(doer.body, gc.Equals, charmBody)
 }
 
@@ -236,12 +240,13 @@ func (s *ClientSuite) TestUploadTools(c *gc.C) {
 	someTools := &tools.Tools{Version: vers}
 	doer := newFakeDoer(c, params.ToolsResult{
 		ToolsList: []*tools.Tools{someTools},
-	})
+	}, nil)
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
 	toolsList, err := client.UploadTools(
+		context.Background(),
 		"uuid",
 		strings.NewReader(toolsBody),
 		vers,
@@ -256,7 +261,7 @@ func (s *ClientSuite) TestUploadTools(c *gc.C) {
 
 func (s *ClientSuite) TestUploadResource(c *gc.C) {
 	const resourceBody = "resourceful"
-	doer := newFakeDoer(c, "")
+	doer := newFakeDoer(c, "", nil)
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{Doer: doer},
 	}
@@ -265,7 +270,7 @@ func (s *ClientSuite) TestUploadResource(c *gc.C) {
 	res := resourcetesting.NewResource(c, nil, "blob", "app", resourceBody).Resource
 	res.Revision = 1
 
-	err := client.UploadResource("uuid", res, strings.NewReader(resourceBody))
+	err := client.UploadResource(context.Background(), "uuid", res, strings.NewReader(resourceBody))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doer.method, gc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=1&size=11&timestamp=%d&type=file&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
@@ -275,7 +280,7 @@ func (s *ClientSuite) TestUploadResource(c *gc.C) {
 
 func (s *ClientSuite) TestSetUnitResource(c *gc.C) {
 	const resourceBody = "resourceful"
-	doer := newFakeDoer(c, "")
+	doer := newFakeDoer(c, "", nil)
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{Doer: doer},
 	}
@@ -284,7 +289,7 @@ func (s *ClientSuite) TestSetUnitResource(c *gc.C) {
 	res := resourcetesting.NewResource(c, nil, "blob", "app", resourceBody).Resource
 	res.Revision = 2
 
-	err := client.SetUnitResource("uuid", "app/0", res)
+	err := client.SetUnitResource(context.Background(), "uuid", "app/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doer.method, gc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=2&size=11&timestamp=%d&type=file&unit=app%%2F0&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
@@ -293,7 +298,7 @@ func (s *ClientSuite) TestSetUnitResource(c *gc.C) {
 }
 
 func (s *ClientSuite) TestPlaceholderResource(c *gc.C) {
-	doer := newFakeDoer(c, "")
+	doer := newFakeDoer(c, "", nil)
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{Doer: doer},
 	}
@@ -303,7 +308,7 @@ func (s *ClientSuite) TestPlaceholderResource(c *gc.C) {
 	res.Revision = 3
 	res.Size = 123
 
-	err := client.SetPlaceholderResource("uuid", res)
+	err := client.SetPlaceholderResource(context.Background(), "uuid", res)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doer.method, gc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=3&size=123&type=file", res.Fingerprint.Hex())
@@ -348,11 +353,7 @@ func (fakeConnector) BestFacadeVersion(string) int {
 	return 0
 }
 
-func (fakeConnector) Context() context.Context {
-	return context.Background()
-}
-
-func (c fakeConnector) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (c fakeConnector) ConnectControllerStream(_ context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	c.Stub.AddCall("ConnectControllerStream", path, attrs, headers)
 	return nil, errors.New("sound hound")
 }
@@ -367,15 +368,15 @@ func (fakeHTTPCaller) BestFacadeVersion(string) int {
 	return 0
 }
 
-func (c fakeHTTPCaller) HTTPClient() (*httprequest.Client, error) {
+func (c fakeHTTPCaller) RootHTTPClient() (*httprequest.Client, error) {
 	return c.httpClient, c.err
 }
 
-func (r *fakeHTTPCaller) Context() context.Context {
+func (*fakeHTTPCaller) Context() context.Context {
 	return context.Background()
 }
 
-func newFakeDoer(c *gc.C, respBody interface{}) *fakeDoer {
+func newFakeDoer(c *gc.C, respBody interface{}, respHeaders map[string]string) *fakeDoer {
 	body, err := json.Marshal(respBody)
 	c.Assert(err, jc.ErrorIsNil)
 	resp := &http.Response{
@@ -384,6 +385,9 @@ func newFakeDoer(c *gc.C, respBody interface{}) *fakeDoer {
 	}
 	resp.Header = make(http.Header)
 	resp.Header.Add("Content-Type", "application/json")
+	for k, v := range respHeaders {
+		resp.Header.Set(k, v)
+	}
 	return &fakeDoer{
 		response: resp,
 	}
@@ -392,14 +396,16 @@ func newFakeDoer(c *gc.C, respBody interface{}) *fakeDoer {
 type fakeDoer struct {
 	response *http.Response
 
-	method string
-	url    string
-	body   string
+	method  string
+	url     string
+	body    string
+	headers http.Header
 }
 
 func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 	d.method = req.Method
 	d.url = req.URL.String()
+	d.headers = req.Header
 
 	// If the body is nil, don't do anything about reading the req.Body
 	// The underlying net http go library deals with nil bodies for requests,

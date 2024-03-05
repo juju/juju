@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"github.com/juju/juju/core/modelmigration"
+	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	lease "github.com/juju/juju/domain/lease/modelmigration"
@@ -30,4 +31,6 @@ func ImportOperations(coordinator Coordinator, logger Logger) {
 	lease.RegisterImport(coordinator, logger)
 	externalcontroller.RegisterImport(coordinator)
 	credential.RegisterImport(coordinator)
+	// When machines are handled, they need to be done before block devices.
+	blockdevice.RegisterImport(coordinator)
 }

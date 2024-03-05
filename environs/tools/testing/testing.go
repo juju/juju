@@ -5,6 +5,7 @@ package testing
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -115,7 +116,7 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 	c.Assert(err, jc.ErrorIsNil)
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = tools.MergeAndWriteMetadata(ss, store, stream, stream, toolsList, false)
+	err = tools.MergeAndWriteMetadata(context.Background(), ss, store, stream, stream, toolsList, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Sign metadata
@@ -153,6 +154,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	indexRef, err := ss.GetIndexWithFormat(
+		context.Background(),
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, jc.ErrorIsNil)
 

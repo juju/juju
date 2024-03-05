@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/state"
@@ -43,13 +43,13 @@ func (s *backend) ModelOwner() (names.UserTag, error) {
 }
 
 // AgentVersion implements Backend.
-func (s *backend) AgentVersion() (version.Number, error) {
+func (s *backend) AgentVersion(ctx context.Context) (version.Number, error) {
 	m, err := s.Model()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
 
-	cfg, err := m.ModelConfig(context.TODO())
+	cfg, err := m.ModelConfig(ctx)
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}

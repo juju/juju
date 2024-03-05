@@ -4,11 +4,12 @@
 package secretsmanager
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
@@ -43,7 +44,7 @@ func NewTestAPI(
 	backendConfigGetter commonsecrets.BackendConfigGetter,
 	adminConfigGetter commonsecrets.BackendAdminConfigGetter,
 	drainConfigGetter commonsecrets.BackendDrainConfigGetter,
-	remoteClientGetter func(uri *coresecrets.URI) (CrossModelSecretsClient, error),
+	remoteClientGetter func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error),
 	crossModelState CrossModelState,
 	authTag names.Tag,
 	clock clock.Clock,
@@ -66,7 +67,8 @@ func NewTestAPI(
 		remoteClientGetter:  remoteClientGetter,
 		crossModelState:     crossModelState,
 		clock:               clock,
+		controllerUUID:      coretesting.ControllerTag.Id(),
 		modelUUID:           coretesting.ModelTag.Id(),
-		logger:              loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogger.SECRETS),
+		logger:              loggo.GetLoggerWithTags("juju.apiserver.secretsmanager", corelogger.SECRETS),
 	}, nil
 }

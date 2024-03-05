@@ -6,7 +6,7 @@ package credentialvalidator_test
 import (
 	"context"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"

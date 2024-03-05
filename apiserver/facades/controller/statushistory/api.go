@@ -16,13 +16,12 @@ import (
 // API is the concrete implementation of the Pruner endpoint.
 type API struct {
 	*common.ModelWatcher
-	cancel     <-chan struct{}
 	st         *state.State
 	authorizer facade.Authorizer
 }
 
 // Model returns the model for a context (override for tests).
-var Model = func(ctx facade.Context) (state.ModelAccessor, error) {
+var Model = func(ctx facade.ModelContext) (state.ModelAccessor, error) {
 	return ctx.State().Model()
 }
 
@@ -36,5 +35,5 @@ func (api *API) Prune(ctx context.Context, p params.StatusHistoryPruneArgs) erro
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}
-	return Prune(api.cancel, api.st, p.MaxHistoryTime, p.MaxHistoryMB)
+	return Prune(ctx.Done(), api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

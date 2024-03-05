@@ -6,7 +6,7 @@ package agenttest
 import (
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 )
 

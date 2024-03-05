@@ -8,14 +8,14 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/names/v5"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/worker/introspection"
+	"github.com/juju/juju/internal/worker/introspection"
 )
 
 // MetricSink describes a way to unregister a model metrics collector. This

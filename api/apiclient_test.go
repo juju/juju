@@ -24,8 +24,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -1187,7 +1187,7 @@ func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
 		RPCConnection: newRPCConnection(),
 		Clock:         new(fakeClock),
 	})
-	c.Assert(conn.IsBroken(), jc.IsFalse)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsFalse)
 }
 
 func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
@@ -1198,7 +1198,7 @@ func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
 		Clock:         new(fakeClock),
 		Broken:        broken,
 	})
-	c.Assert(conn.IsBroken(), jc.IsTrue)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsTrue)
 }
 
 func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
@@ -1206,7 +1206,7 @@ func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
 		RPCConnection: newRPCConnection(errors.New("no biscuit")),
 		Clock:         new(fakeClock),
 	})
-	c.Assert(conn.IsBroken(), jc.IsTrue)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsTrue)
 }
 
 func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
@@ -1229,7 +1229,7 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
-	err := testConn.Login(names.NewUserTag("fred"), "secret", "", nil)
+	err := testConn.Login(context.Background(), names.NewUserTag("fred"), "secret", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	calls := conn.stub.Calls()
@@ -1247,7 +1247,7 @@ func (s *apiclientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 
-	reader, err := conn.ConnectStream("foo", nil)
+	reader, err := conn.ConnectStream(context.Background(), "foo", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot make API path from non-slash-prefixed path "foo"`)
 	c.Assert(reader, gc.Equals, nil)
 }
@@ -1260,7 +1260,7 @@ func (s *apiclientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	reader, err := conn.ConnectStream("/", nil)
+	reader, err := conn.ConnectStream(context.Background(), "/", nil)
 	c.Assert(err, gc.ErrorMatches, "bad connection")
 	c.Assert(reader, gc.IsNil)
 }
@@ -1273,7 +1273,7 @@ func (s *apiclientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	reader, err := conn.ConnectStream("/", nil)
+	reader, err := conn.ConnectStream(context.Background(), "/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: EOF")
 	c.Assert(reader, gc.IsNil)
 }
@@ -1286,7 +1286,7 @@ func (s *apiclientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	reader, err := conn.ConnectStream("/", nil)
+	reader, err := conn.ConnectStream(context.Background(), "/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to unmarshal initial response: .*")
 	c.Assert(reader, gc.IsNil)
 }
@@ -1300,7 +1300,7 @@ func (s *apiclientSuite) TestConnectStreamErrorReadError(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	reader, err := conn.ConnectStream("/", nil)
+	reader, err := conn.ConnectStream(context.Background(), "/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: bad read")
 	c.Assert(reader, gc.IsNil)
 }
@@ -1320,7 +1320,7 @@ func (s *apiclientSuite) TestConnectControllerStreamRejectsRelativePaths(c *gc.C
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	reader, err := conn.ConnectControllerStream("foo", nil, nil)
+	reader, err := conn.ConnectControllerStream(context.Background(), "foo", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `path "foo" is not absolute`)
 	c.Assert(reader, gc.IsNil)
 }
@@ -1329,7 +1329,7 @@ func (s *apiclientSuite) TestConnectControllerStreamRejectsModelPaths(c *gc.C) {
 	info := s.APIInfo()
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	reader, err := conn.ConnectControllerStream("/model/foo", nil, nil)
+	reader, err := conn.ConnectControllerStream(context.Background(), "/model/foo", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `path "/model/foo" is model-specific`)
 	c.Assert(reader, gc.IsNil)
 }
@@ -1345,7 +1345,7 @@ func (s *apiclientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	_, err = conn.ConnectControllerStream("/something", nil, headers)
+	_, err = conn.ConnectControllerStream(context.Background(), "/something", nil, headers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(catcher.Headers().Get("thomas"), gc.Equals, "cromwell")
 	c.Assert(catcher.Headers().Get("anne"), gc.Equals, "boleyn")
@@ -1361,7 +1361,7 @@ func (s *apiclientSuite) TestConnectStreamWithoutLogin(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	_, err = conn.ConnectStream("/path", nil)
+	_, err = conn.ConnectStream(context.Background(), "/path", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot use ConnectStream without logging in`)
 }
 
@@ -1372,10 +1372,10 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	params := common.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
 		IncludeModule: []string{"c", "d"},
-		IncludeLabel:  []string{"e", "f"},
+		IncludeLabels: map[string]string{"e": "f"},
 		ExcludeEntity: []string{"g", "h"},
 		ExcludeModule: []string{"i", "j"},
-		ExcludeLabel:  []string{"k", "l"},
+		ExcludeLabels: map[string]string{"k": "l"},
 		Limit:         100,
 		Backlog:       200,
 		Level:         loggo.ERROR,
@@ -1385,12 +1385,13 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	}
 
 	urlValues := url.Values{
+		"version":       []string{"2"},
 		"includeEntity": params.IncludeEntity,
 		"includeModule": params.IncludeModule,
-		"includeLabel":  params.IncludeLabel,
+		"includeLabels": []string{"e=f"},
 		"excludeEntity": params.ExcludeEntity,
 		"excludeModule": params.ExcludeModule,
-		"excludeLabel":  params.ExcludeLabel,
+		"excludeLabels": []string{"k=l"},
 		"maxLines":      {"100"},
 		"backlog":       {"200"},
 		"level":         {"ERROR"},
@@ -1435,7 +1436,7 @@ func (s *apiclientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	_, err = conn.ConnectStream("/path", nil)
+	_, err = conn.ConnectStream(context.Background(), "/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	connectURL, err := url.Parse(catcher.Location())
 	c.Assert(err, jc.ErrorIsNil)

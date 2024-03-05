@@ -8,8 +8,8 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -20,12 +20,12 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("KeyManager", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("KeyManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV1(ctx)
 	}, reflect.TypeOf((*KeyManagerAPI)(nil)))
 }
 
-func newFacadeV1(ctx facade.Context) (*KeyManagerAPI, error) {
+func newFacadeV1(ctx facade.ModelContext) (*KeyManagerAPI, error) {
 	// Only clients can access the key manager service.
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {

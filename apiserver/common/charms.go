@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -27,18 +28,21 @@ type ReadObjectStore interface {
 // ReadCharmFromStorage fetches the charm at the specified path from the store
 // and copies it to a temp directory in dataDir.
 func ReadCharmFromStorage(ctx context.Context, objectStore ReadObjectStore, dataDir, storagePath string) (string, error) {
+	// Use the storage to retrieve and save the charm archive.
+	reader, _, err := objectStore.Get(ctx, storagePath)
+	if err != nil {
+		if errors.Is(err, domain.ErrNoRecord) {
+			return "", errors.NewNotFound(err, "charm not found in model storage")
+		}
+		return "", errors.Annotate(err, "cannot get charm from model storage")
+	}
+	defer reader.Close()
+
 	// Ensure the working directory exists.
 	tmpDir := filepath.Join(dataDir, "charm-get-tmp")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return "", errors.Annotate(err, "cannot create charms tmp directory")
 	}
-
-	// Use the storage to retrieve and save the charm archive.
-	reader, _, err := objectStore.Get(ctx, storagePath)
-	if err != nil {
-		return "", errors.Annotate(err, "cannot get charm from model storage")
-	}
-	defer reader.Close()
 
 	charmFile, err := os.CreateTemp(tmpDir, "charm")
 	if err != nil {

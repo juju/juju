@@ -4,14 +4,14 @@
 package unit
 
 import (
-	"github.com/juju/cmd/v3"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/names/v5"
+	"github.com/juju/utils/v4/voyeur"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/internal/worker/logsender"
 )
 
 type (

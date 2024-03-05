@@ -11,7 +11,7 @@ import (
 // Backend defines the methods the machine undertaker needs from
 // state.State.
 type Backend interface {
-	// AllRemovedMachines returns all of the machines which have been
+	// AllMachineRemovals returns all of the machines which have been
 	// marked for removal.
 	AllMachineRemovals() ([]string, error)
 

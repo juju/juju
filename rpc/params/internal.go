@@ -4,8 +4,13 @@
 package params
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
@@ -264,8 +269,6 @@ type UnitStateResult struct {
 	StorageState string `json:"storage-state,omitempty"`
 	// SecretState is internal secret state for this unit.
 	SecretState string `json:"secret-state,omitempty"`
-	// MeterStatusState encodes the meter status state for this unit.
-	MeterStatusState string `json:"meter-status-state,omitempty"`
 }
 
 // UnitStateResults holds multiple unit state maps or errors.
@@ -287,13 +290,12 @@ type SetUnitStateArgs struct {
 // to be evaluated for changes to the persisted data.  A pointer to nil or
 // empty data will cause the persisted data to be deleted.
 type SetUnitStateArg struct {
-	Tag              string             `json:"tag"`
-	CharmState       *map[string]string `json:"charm-state,omitempty"`
-	UniterState      *string            `json:"uniter-state,omitempty"`
-	RelationState    *map[int]string    `json:"relation-state,omitempty"`
-	StorageState     *string            `json:"storage-state,omitempty"`
-	SecretState      *string            `json:"secret-state,omitempty"`
-	MeterStatusState *string            `json:"meter-status-state,omitempty"`
+	Tag           string             `json:"tag"`
+	CharmState    *map[string]string `json:"charm-state,omitempty"`
+	UniterState   *string            `json:"uniter-state,omitempty"`
+	RelationState *map[int]string    `json:"relation-state,omitempty"`
+	StorageState  *string            `json:"storage-state,omitempty"`
+	SecretState   *string            `json:"secret-state,omitempty"`
 }
 
 // CommitHookChangesArgs serves as a container for CommitHookChangesArg objects
@@ -314,6 +316,7 @@ type CommitHookChangesArg struct {
 	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitempty"`
 	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
 	SecretCreates        []CreateSecretArg      `json:"secret-creates,omitempty"`
+	TrackLatest          []string               `json:"secret-track-latest,omitempty"`
 	SecretUpdates        []UpdateSecretArg      `json:"secret-updates,omitempty"`
 	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
 	SecretRevokes        []GrantRevokeSecretArg `json:"secret-revokes,omitempty"`
@@ -829,56 +832,6 @@ type ProvisioningInfoResults struct {
 	Results []ProvisioningInfoResult `json:"results"`
 }
 
-// Metric holds a single metric.
-type Metric struct {
-	Key    string            `json:"key"`
-	Value  string            `json:"value"`
-	Time   time.Time         `json:"time"`
-	Labels map[string]string `json:"labels,omitempty"`
-}
-
-// MetricsParam contains the metrics for a single unit.
-type MetricsParam struct {
-	Tag     string   `json:"tag"`
-	Metrics []Metric `json:"metrics"`
-}
-
-// MetricsParams contains the metrics for multiple units.
-type MetricsParams struct {
-	Metrics []MetricsParam `json:"metrics"`
-}
-
-// MetricBatch is a list of metrics with metadata.
-type MetricBatch struct {
-	UUID     string    `json:"uuid"`
-	CharmURL string    `json:"charm-url"`
-	Created  time.Time `json:"created"`
-	Metrics  []Metric  `json:"metrics"`
-}
-
-// MetricBatchParam contains a single metric batch.
-type MetricBatchParam struct {
-	Tag   string      `json:"tag"`
-	Batch MetricBatch `json:"batch"`
-}
-
-// MetricBatchParams contains multiple metric batches.
-type MetricBatchParams struct {
-	Batches []MetricBatchParam `json:"batches"`
-}
-
-// MeterStatusResult holds unit meter status or error.
-type MeterStatusResult struct {
-	Code  string `json:"code"`
-	Info  string `json:"info"`
-	Error *Error `json:"error,omitempty"`
-}
-
-// MeterStatusResults holds meter status results for multiple units.
-type MeterStatusResults struct {
-	Results []MeterStatusResult `json:"results"`
-}
-
 // SingularClaim represents a request for exclusive administrative access
 // to an entity (model or controller) on the part of the claimant.
 type SingularClaim struct {
@@ -893,7 +846,22 @@ type SingularClaims struct {
 }
 
 // LogMessage is a structured logging entry.
+// It is used to stream log records to the log streamer client
+// from the api server /logs endpoint.
+// The client is used for model migration and debug-log.
 type LogMessage struct {
+	Entity    string            `json:"tag"`
+	Timestamp time.Time         `json:"ts"`
+	Severity  string            `json:"sev"`
+	Module    string            `json:"mod"`
+	Location  string            `json:"loc"`
+	Message   string            `json:"msg"`
+	Labels    map[string]string `json:"lab,omitempty"`
+}
+
+// LogMessageV1 is a structured logging entry
+// for older clients expecting an array of labels.
+type LogMessageV1 struct {
 	Entity    string    `json:"tag"`
 	Timestamp time.Time `json:"ts"`
 	Severity  string    `json:"sev"`
@@ -901,6 +869,57 @@ type LogMessage struct {
 	Location  string    `json:"loc"`
 	Message   string    `json:"msg"`
 	Labels    []string  `json:"lab"`
+}
+
+type logMessageJSON struct {
+	Entity    string    `json:"tag"`
+	Timestamp time.Time `json:"ts"`
+	Severity  string    `json:"sev"`
+	Module    string    `json:"mod"`
+	Location  string    `json:"loc"`
+	Message   string    `json:"msg"`
+	Labels    any       `json:"lab,omitempty"`
+}
+
+// UnmarshalJSON unmarshalls an incoming log message
+// in either v1 or later format.
+func (m *LogMessage) UnmarshalJSON(data []byte) error {
+	var jm logMessageJSON
+	if err := json.Unmarshal(data, &jm); err != nil {
+		return errors.Trace(err)
+	}
+	m.Timestamp = jm.Timestamp
+	m.Entity = jm.Entity
+	m.Severity = jm.Severity
+	m.Module = jm.Module
+	m.Location = jm.Location
+	m.Message = jm.Message
+	m.Labels = unmarshallLogLabels(jm.Labels)
+	return nil
+}
+
+func unmarshallLogLabels(in any) map[string]string {
+	var result map[string]string
+	switch lab := in.(type) {
+	case []any:
+		if len(lab) > 0 {
+			out := make([]string, len(lab))
+			for i, v := range lab {
+				out[i] = fmt.Sprint(v)
+			}
+			result = map[string]string{
+				loggo.LoggerTags: strings.Join(out, ","),
+			}
+		}
+	case map[string]any:
+		result = map[string]string{}
+		for k, v := range lab {
+			result[k] = fmt.Sprint(v)
+		}
+	default:
+		// Either missing or not supported.
+	}
+	return result
 }
 
 // ResourceUploadResult is used to return some details about an

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/domain/model"
+	coremodel "github.com/juju/juju/core/model"
 	_ "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
@@ -35,15 +35,15 @@ type State interface {
 	ConfigDefaults(context.Context) map[string]any
 
 	// ModelCloudDefaults returns the defaults associated with the model's cloud.
-	ModelCloudDefaults(context.Context, model.UUID) (map[string]string, error)
+	ModelCloudDefaults(context.Context, coremodel.UUID) (map[string]string, error)
 
 	// ModelCloudRegionDefaults returns the defaults associated with the models
 	// set cloud region.
-	ModelCloudRegionDefaults(context.Context, model.UUID) (map[string]string, error)
+	ModelCloudRegionDefaults(context.Context, coremodel.UUID) (map[string]string, error)
 
 	// ModelProviderConfigSchema returns the providers config schema source based on
 	// the cloud set for the model.
-	ModelProviderConfigSchema(context.Context, model.UUID) (config.ConfigSchemaSource, error)
+	ModelProviderConfigSchema(context.Context, coremodel.UUID) (config.ConfigSchemaSource, error)
 }
 
 // Service defines a service for interacting with the underlying default
@@ -59,12 +59,19 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 	return f(ctx)
 }
 
+// NewService returns a new Service for interacting with model defaults state.
+func NewService(st State) *Service {
+	return &Service{
+		st: st,
+	}
+}
+
 // ModelDefaults will return the default config values to be used for a model
 // and it's config. If no model for uuid is found then a error satisfying
 // [github.com/juju/juju/domain/model/errors.NotFound] will be returned.
 func (s *Service) ModelDefaults(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 ) (modeldefaults.Defaults, error) {
 	if err := uuid.Validate(); err != nil {
 		return modeldefaults.Defaults{}, fmt.Errorf("model uuid: %w", err)
@@ -132,16 +139,9 @@ func (s *Service) ModelDefaults(
 // error that satisfies
 // [github.com/juju/juju/domain/model/errors.NotFound].
 func (s *Service) ModelDefaultsProvider(
-	uuid model.UUID,
+	uuid coremodel.UUID,
 ) ModelDefaultsProviderFunc {
 	return func(ctx context.Context) (modeldefaults.Defaults, error) {
 		return s.ModelDefaults(ctx, uuid)
-	}
-}
-
-// NewService returns a new Service for interacting with model defaults state.
-func NewService(st State) *Service {
-	return &Service{
-		st: st,
 	}
 }

@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"mime"
@@ -13,14 +14,14 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/juju/testing"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -107,6 +108,12 @@ func (s *restSuite) charmsURI(query string) string {
 	return url.String()
 }
 
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
+}
+
 func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	// Setup the charm and mysql application in the default model.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "mysql")
@@ -122,18 +129,21 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	})
 	apitesting.AssertResponse(c, resp, http.StatusOK, "application/json")
 
+	store := s.ObjectStore(c, s.ControllerModelUUID())
+
 	curl := fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision())
-	mysqlCh, err := s.ControllerModel(c).State().Charm(curl)
+	st := s.ControllerModel(c).State()
+	mysqlCh, err := st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
+	_, err = st.AddApplication(s.InstancePrechecker(c, st), state.AddApplicationArgs{
 		Name:        "mysql",
 		Charm:       mysqlCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an offer for the application.
-	offers := state.NewApplicationOffers(s.ControllerModel(c).State())
+	offers := state.NewApplicationOffers(st)
 	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "remote-app-offer",
 		ApplicationName: "mysql",
@@ -147,11 +157,11 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name: "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
+	_, err = st.AddApplication(s.InstancePrechecker(c, st), state.AddApplicationArgs{
 		Name:        "dummy",
 		Charm:       dummyCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, store)
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "notfound-remote-app-offer",

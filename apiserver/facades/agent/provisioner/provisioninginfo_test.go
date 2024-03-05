@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -49,7 +49,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
 	}
-	placementMachine, err := st.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -143,7 +143,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 		Constraints: constraints.MustParse("root-disk-source=static-pool"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 	}
-	machine, err := st.AddOneMachine(template)
+	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -171,7 +171,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		Constraints: cons,
 		Placement:   "valid",
 	}
-	placementMachine, err := st.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -237,7 +237,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 		VLANTag:           43,
 	})
 
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
+	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -321,7 +321,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 	s.addSpacesAndSubnets(c)
 
 	st := s.ControllerModel(c).State()
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
+	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -376,7 +376,7 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 	})
 
 	cons := constraints.MustParse("spaces=^space1")
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
+	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
@@ -418,9 +418,9 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Add a couple of spaces.
-	space1, err := st.AddSpace("space1", "first space id", nil, true)
+	space1, err := st.AddSpace("space1", "first space id", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	space2, err := st.AddSpace("space2", "", nil, false) // no provider ID
+	space2, err := st.AddSpace("space2", "", nil) // no provider ID
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
@@ -436,7 +436,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Add an empty space.
-	_, err := st.AddSpace("empty", "", nil, true)
+	_, err := st.AddSpace("empty", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consEmptySpace := constraints.MustParse("cores=123 mem=8G spaces=empty")
@@ -452,7 +452,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		Constraints: consMissingSpace,
 		Placement:   "valid",
 	}}
-	placementMachines, err := st.AddMachines(templates...)
+	placementMachines, err := st.AddMachines(s.InstancePrechecker(c, st), templates...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(placementMachines, gc.HasLen, 2)
 
@@ -476,7 +476,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	profileMachine, err := st.AddOneMachine(state.MachineTemplate{
+	profileMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -541,7 +541,8 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}
-	placementMachine, err := s.ControllerModel(c).State().AddOneMachine(template)
+	st := s.ControllerModel(c).State()
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -600,7 +601,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 		},
 	}
-	machine, err := st.AddOneMachine(template)
+	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision just one of the volumes, but neither of the attachments.
@@ -655,7 +656,8 @@ func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	m, err := s.ControllerModel(c).State().AddOneMachine(template)
+	st := s.ControllerModel(c).State()
+	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -690,7 +692,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),

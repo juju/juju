@@ -43,7 +43,8 @@ func (s *clientSuite) TestClientEnableHA(c *gc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableHA", args, res).SetArg(3, results).Return(nil)
-	client := highavailability.NewClientFromCaller(mockFacadeCaller)
+	mockClient := basemocks.NewMockClientFacade(ctrl)
+	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)
 
 	result, err := client.EnableHA(3, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,4 +52,31 @@ func (s *clientSuite) TestClientEnableHA(c *gc.C) {
 	c.Assert(result.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(result.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(result.Removed, gc.HasLen, 0)
+}
+
+func (s *clientSuite) TestControllerDetails(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	res := new(params.ControllerDetailsResults)
+	results := params.ControllerDetailsResults{
+		Results: []params.ControllerDetails{{
+			ControllerId: "666",
+			APIAddresses: []string{"address"},
+		}}}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ControllerDetails", nil, res).SetArg(3, results).Return(nil)
+	mockClient := basemocks.NewMockClientFacade(ctrl)
+	mockClient.EXPECT().BestAPIVersion().Return(3)
+	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)
+
+	result, err := client.ControllerDetails()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]highavailability.ControllerDetails{
+		"666": {
+			ControllerID: "666",
+			APIEndpoints: []string{"address"},
+		},
+	})
 }

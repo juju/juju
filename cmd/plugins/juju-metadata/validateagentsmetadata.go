@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/version/v2"
@@ -220,7 +220,7 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 	}
 	params.Stream = c.stream
 
-	versions, resolveInfo, err := tools.ValidateToolsMetadata(ss, &tools.ToolsMetadataLookupParams{
+	versions, resolveInfo, err := tools.ValidateToolsMetadata(context, ss, &tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,
 		Version:              c.exactVersion,
 		Major:                c.major,

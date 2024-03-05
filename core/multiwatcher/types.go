@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -551,15 +551,8 @@ type ModelInfo struct {
 	Config          map[string]interface{}
 	Status          StatusInfo
 	Constraints     constraints.Value
-	SLA             ModelSLAInfo
 
 	UserPermissions map[string]permission.Access
-}
-
-// ModelSLAInfo describes the SLA info for a model.
-type ModelSLAInfo struct {
-	Level string
-	Owner string
 }
 
 // EntityID returns a unique identifier for a model.

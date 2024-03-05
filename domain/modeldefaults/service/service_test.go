@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/model"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modeltesting "github.com/juju/juju/domain/model/testing"
 	"github.com/juju/juju/domain/modeldefaults/service/testing"
 )
 
@@ -46,7 +46,7 @@ func (_ *serviceSuite) TestModelDefaultsProviderNotFound(c *gc.C) {
 		Defaults: map[string]any{
 			"wallyworld": "peachy",
 		},
-		CloudDefaults: map[model.UUID]map[string]string{
+		CloudDefaults: map[coremodel.UUID]map[string]string{
 			uuid: {
 				"foo": "bar",
 			},
@@ -74,12 +74,12 @@ func (_ *serviceSuite) TestModelDefaults(c *gc.C) {
 		Defaults: map[string]any{
 			"wallyworld": "peachy",
 		},
-		CloudDefaults: map[model.UUID]map[string]string{
+		CloudDefaults: map[coremodel.UUID]map[string]string{
 			uuid: {
 				"foo": "bar",
 			},
 		},
-		CloudRegionDefaults: map[model.UUID]map[string]string{
+		CloudRegionDefaults: map[coremodel.UUID]map[string]string{
 			uuid: {
 				"bar": "foo",
 			},

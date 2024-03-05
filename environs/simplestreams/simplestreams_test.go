@@ -4,6 +4,7 @@
 package simplestreams_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -344,7 +345,7 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 	}
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	items, resolveInfo, err := ss.GetMetadata(sources, params)
+	items, resolveInfo, err := ss.GetMetadata(context.Background(), sources, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(items, gc.HasLen, 0)
 	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -496,7 +497,7 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 		}
 		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 		indexRef, err := ss.GetIndexWithFormat(
-			s.Source, s.IndexPath(), sstesting.Index_v1,
+			context.Background(), s.Source, s.IndexPath(), sstesting.Index_v1,
 			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue

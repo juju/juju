@@ -10,7 +10,7 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
@@ -80,7 +80,7 @@ func (c *Client) UpgradeModel(
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+func (c *Client) UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
 	req, err := http.NewRequest("POST", fmt.Sprintf("/tools?binaryVersion=%s", vers), r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
@@ -94,7 +94,7 @@ func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary) (tools.List, 
 		return nil, errors.Trace(err)
 	}
 
-	if err := httpClient.Do(c.facade.RawAPICaller().Context(), req, &resp); err != nil {
+	if err := httpClient.Do(ctx, req, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return resp.ToolsList, nil

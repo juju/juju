@@ -5,13 +5,13 @@ package resource
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -38,7 +38,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 
 func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	deps := uploadDeps{stub: s.stub}
-	cURL := charm.MustParseURL("spam")
+	cURL := "spam"
 	chID := apiresources.CharmID{
 		URL: cURL,
 	}
@@ -55,7 +55,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 		},
 	}
 
-	ids, err := DeployResources(DeployResourcesArgs{
+	ids, err := DeployResources(context.Background(), DeployResourcesArgs{
 		ApplicationID:  "mysql",
 		CharmID:        chID,
 		ResourceValues: nil,
@@ -83,7 +83,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 
 func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
-	cURL := charm.MustParseURL("spam")
+	cURL := "spam"
 	chID := apiresources.CharmID{
 		URL: cURL,
 	}
@@ -110,7 +110,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 		"upload": "foobar.txt",
 	}
 	revisions := map[string]int{}
-	ids, err := du.upload(files, revisions)
+	ids, err := du.upload(context.Background(), files, revisions)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ids, gc.DeepEquals, map[string]string{
 		"upload": "id-upload",
@@ -137,7 +137,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 
 func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 	deps := uploadDeps{stub: s.stub}
-	cURL := charm.MustParseURL("spam")
+	cURL := "spam"
 	chID := apiresources.CharmID{
 		URL: cURL,
 	}
@@ -164,7 +164,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 	revisions := map[string]int{
 		"store": 3,
 	}
-	ids, err := du.upload(files, revisions)
+	ids, err := du.upload(context.Background(), files, revisions)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ids, gc.DeepEquals, map[string]string{
 		"upload": "id-upload",
@@ -186,7 +186,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 
 func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
-	cURL := charm.MustParseURL("spam")
+	cURL := "spam"
 	chID := apiresources.CharmID{
 		URL: cURL,
 	}
@@ -215,7 +215,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 	revisions := map[string]int{
 		"store": 3,
 	}
-	ids, err := du.upload(files, revisions)
+	ids, err := du.upload(context.Background(), files, revisions)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ids, gc.DeepEquals, map[string]string{
 		"upload": "id-upload",
@@ -257,7 +257,7 @@ func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
 
 	files := map[string]string{"some bad resource": "foobar.txt"}
 	revisions := map[string]int{}
-	_, err := du.upload(files, revisions)
+	_, err := du.upload(context.Background(), files, revisions)
 	c.Check(err, gc.ErrorMatches, `unrecognized resource "some bad resource"`)
 
 	s.stub.CheckNoCalls(c)
@@ -280,7 +280,7 @@ func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
 
 	files := map[string]string{}
 	revisions := map[string]int{"some bad resource": 2}
-	_, err := du.upload(files, revisions)
+	_, err := du.upload(context.Background(), files, revisions)
 	c.Check(err, gc.ErrorMatches, `unrecognized resource "some bad resource"`)
 
 	s.stub.CheckNoCalls(c)
@@ -306,7 +306,7 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 
 	files := map[string]string{"res1": "foobar.txt"}
 	revisions := map[string]int{}
-	_, err := du.upload(files, revisions)
+	_, err := du.upload(context.Background(), files, revisions)
 	c.Check(err, gc.ErrorMatches, `file for resource "res1".*`)
 	c.Check(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 }
@@ -398,7 +398,7 @@ password: 'hunter2',,
 			deps.data = []byte(t.fileContents)
 		}
 
-		cURL := charm.MustParseURL("mysql-k8s")
+		cURL := "mysql-k8s"
 		chID := apiresources.CharmID{
 			URL: cURL,
 		}
@@ -421,7 +421,7 @@ password: 'hunter2',,
 			resources:     resourceMeta,
 			filesystem:    deps,
 		}
-		ids, err := du.upload(passedResourceValues, map[string]int{})
+		ids, err := du.upload(context.Background(), passedResourceValues, map[string]int{})
 		if t.uploadError != "" {
 			c.Assert(err, gc.ErrorMatches, t.uploadError)
 			continue
@@ -554,7 +554,7 @@ func (s uploadDeps) AddPendingResources(applicationID string, charmID apiresourc
 	return ids, nil
 }
 
-func (s uploadDeps) UploadPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
+func (s uploadDeps) UploadPendingResource(_ context.Context, applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
 	data := new(bytes.Buffer)
 
 	// we care the right data has been passed, not the right io.ReaderSeeker pointer.

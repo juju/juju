@@ -101,16 +101,16 @@ func toCaaSStorageProvisioner(sc *storagev1.StorageClass) *kubernetes.StoragePro
 // ValidateCloudEndpoint returns nil if the current model can talk to the kubernetes
 // endpoint.  Used as validation during model upgrades.
 // Implements environs.CloudEndpointChecker
-func (k *kubernetesClient) ValidateCloudEndpoint(_ environscontext.ProviderCallContext) error {
-	_, err := k.GetClusterMetadata("")
+func (k *kubernetesClient) ValidateCloudEndpoint(ctx environscontext.ProviderCallContext) error {
+	_, err := k.GetClusterMetadata(ctx, "")
 	return errors.Trace(err)
 }
 
 // GetClusterMetadata implements ClusterMetadataChecker. If a nominated storage
 // class is provided
-func (k *kubernetesClient) GetClusterMetadata(nominatedStorageClass string) (*kubernetes.ClusterMetadata, error) {
+func (k *kubernetesClient) GetClusterMetadata(ctx context.Context, nominatedStorageClass string) (*kubernetes.ClusterMetadata, error) {
 	return GetClusterMetadata(
-		context.TODO(),
+		ctx,
 		nominatedStorageClass,
 		k.client().CoreV1().Nodes(),
 		k.client().StorageV1().StorageClasses(),
@@ -135,7 +135,7 @@ func GetClusterMetadata(
 	}
 
 	// We may have the workload storage but still need to look for operator storage.
-	storageClasses, err := storageClassI.List(context.TODO(), v1.ListOptions{})
+	storageClasses, err := storageClassI.List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing storage classes")
 	}

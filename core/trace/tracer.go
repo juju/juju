@@ -10,9 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
-
-	"github.com/juju/juju/core/database"
+	"github.com/juju/names/v5"
 )
 
 const (
@@ -22,6 +20,10 @@ const (
 	// This error indicates to consuming workers that their dependency has
 	// become unmet and a restart by the dependency engine is imminent.
 	ErrTracerDying = errors.ConstError("tracer worker is dying")
+)
+
+const (
+	controllerNamespace = "controller"
 )
 
 // Option are options that can be passed to the Tracer.Start() method.
@@ -177,7 +179,12 @@ func Namespace(worker, namespace string) TracerNamespace {
 // ShortNamespace returns a short representation of the namespace.
 func (ns TracerNamespace) ShortNamespace() string {
 	// Don't shorten the controller namespace.
-	if ns.Namespace == database.ControllerNS {
+	if ns.Namespace == controllerNamespace {
+		return ns.Namespace
+	}
+	// If the namespace is less than 6 characters then return the whole
+	// namespace.
+	if len(ns.Namespace) < 6 {
 		return ns.Namespace
 	}
 	return ns.Namespace[:6]
@@ -185,29 +192,44 @@ func (ns TracerNamespace) ShortNamespace() string {
 
 // String returns a short representation of the namespace.
 func (ns TracerNamespace) String() string {
+	if ns.Namespace == "" {
+		return ns.Worker
+	}
 	return fmt.Sprintf("%s:%s", ns.Worker, ns.Namespace)
 }
 
-// WithTag returns a new TaggedTracerNamespace.
-func (ns TracerNamespace) WithTag(tag names.Tag) TaggedTracerNamespace {
+// WithTagAndKind returns a new TaggedTracerNamespace.
+func (ns TracerNamespace) WithTagAndKind(tag names.Tag, kind Kind) TaggedTracerNamespace {
 	return TaggedTracerNamespace{
 		TracerNamespace: ns,
 		Tag:             tag,
+		Kind:            kind,
 	}
 }
 
 // TaggedTracerNamespace is a TracerNamespace with a tag.
 type TaggedTracerNamespace struct {
 	TracerNamespace
-	Tag names.Tag
-}
-
-func (ns TaggedTracerNamespace) ServiceName() string {
-	// TODO (stickupkid): This won't always be jujud, work out the right
-	// agent binary.
-	return fmt.Sprintf("jujud-%s", ns.ShortNamespace())
+	Tag  names.Tag
+	Kind Kind
 }
 
 func (ns TaggedTracerNamespace) String() string {
-	return fmt.Sprintf("%s:%s:%s", ns.Tag.String(), ns.Worker, ns.Namespace)
+	return fmt.Sprintf("%s:%s", ns.Kind, ns.ShortNamespace())
+}
+
+// Kind represents the source of the trace. Either the trace will come
+// from a controller, unit or client.
+// We can expand on these later, for example we can add machine or worker kinds,
+// but for now this is enough.
+type Kind string
+
+const (
+	KindController Kind = "controller"
+	KindUnit       Kind = "unit"
+	KindClient     Kind = "client"
+)
+
+func (k Kind) String() string {
+	return string(k)
 }

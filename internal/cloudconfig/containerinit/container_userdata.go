@@ -6,7 +6,7 @@ package containerinit
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cloudconfig"

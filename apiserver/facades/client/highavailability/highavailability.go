@@ -11,17 +11,21 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -33,13 +37,37 @@ type NodeService interface {
 	CurateNodes(context.Context, []string, []string) error
 }
 
+// MachineSaver instances save a machine to dqlite state.
+type MachineSaver interface {
+	Save(context.Context, string) error
+}
+
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+}
+
+// ControllerConfigGetter instances read the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(ctx context.Context) (controller.Config, error)
+}
+
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	st          *state.State
-	nodeService NodeService
-	authorizer  facade.Authorizer
-	logger      loggo.Logger
+	st                   *state.State
+	prechecker           environs.InstancePrechecker
+	nodeService          NodeService
+	machineSaver         MachineSaver
+	applicationSaveSaver ApplicationSaver
+	controllerConfig     ControllerConfigGetter
+	authorizer           facade.Authorizer
+	logger               loggo.Logger
+}
+
+// HighAvailabilityAPIV2 implements v2 of the high availability facade.
+type HighAvailabilityAPIV2 struct {
+	HighAvailabilityAPI
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -112,6 +140,11 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	if err = validateCurrentControllers(st, cfg, controllerIds); err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
+	// Check if the object store is backed by filesystem storage.
+	if cfg.ObjectStoreType() == objectstore.FileBackend {
+		return params.ControllersChanges{}, errors.NewNotSupported(nil, "cannot enable-ha with filesystem backed object store")
+	}
+
 	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
 
 	if err = validatePlacementForSpaces(st, spec.Constraints.Spaces, spec.Placement); err != nil {
@@ -119,7 +152,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 
 	// Might be nicer to pass the spec itself to this method.
-	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
+	changes, addedUnits, err := st.EnableHA(api.prechecker, spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
@@ -130,6 +163,23 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	err = api.nodeService.CurateNodes(ctx, append(changes.Added, changes.Converted...), changes.Removed)
 	if err != nil {
 		return params.ControllersChanges{}, err
+	}
+
+	// Add the dqlite records for new machines.
+	for _, m := range changes.Added {
+		if err := api.machineSaver.Save(ctx, m); err != nil {
+			return params.ControllersChanges{}, err
+		}
+	}
+	if len(addedUnits) > 0 {
+		addUnitArgs := make([]applicationservice.AddUnitParams, len(addedUnits))
+		for i := range addUnitArgs {
+			n := addedUnits[i]
+			addUnitArgs[i].UnitName = &n
+		}
+		if err := api.applicationSaveSaver.Save(ctx, application.ControllerApplicationName, addUnitArgs...); err != nil {
+			return params.ControllersChanges{}, err
+		}
 	}
 
 	return controllersChanges(changes), nil
@@ -278,4 +328,67 @@ func machineIdsToTags(ids ...string) []string {
 		result = append(result, names.NewMachineTag(id).String())
 	}
 	return result
+}
+
+// ControllerDetails is only available on V3 or later.
+func (api *HighAvailabilityAPIV2) ControllerDetails(_ struct{}) {}
+
+// ControllerDetails returns details about each controller node.
+func (api *HighAvailabilityAPI) ControllerDetails(
+	ctx context.Context,
+) (params.ControllerDetailsResults, error) {
+	results := params.ControllerDetailsResults{}
+
+	err := api.authorizer.HasPermission(permission.LoginAccess, api.st.ControllerTag())
+	if err != nil {
+		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	cfg, err := api.controllerConfig.ControllerConfig(ctx)
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
+	apiPort := cfg.APIPort()
+
+	nodes, err := api.st.ControllerNodes()
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
+
+	for _, n := range nodes {
+		m, err := api.st.Machine(n.Id())
+		if err != nil {
+			return results, apiservererrors.ServerError(err)
+		}
+		addr, err := m.PublicAddress()
+		if err != nil {
+			// Usually this indicates that no addresses have been set on the
+			// machine yet.
+			addr = network.SpaceAddress{}
+		}
+		mAddrs := m.Addresses()
+		if len(mAddrs) == 0 {
+			// At least give it the newly created DNSName address, if it exists.
+			if addr.Value != "" {
+				mAddrs = append(mAddrs, addr)
+			}
+		}
+		hp := make(network.HostPorts, len(mAddrs))
+		for i, addr := range mAddrs {
+			hp[i] = network.MachineHostPort{
+				MachineAddress: addr.MachineAddress,
+				NetPort:        network.NetPort(apiPort),
+			}
+		}
+		hp = hp.FilterUnusable().Unique()
+		results.Results = append(results.Results, params.ControllerDetails{
+			ControllerId: m.Id(),
+			APIAddresses: hp.Strings(),
+		})
+		// Sort for testing.
+		sort.Slice(results.Results, func(i, j int) bool {
+			return results.Results[i].ControllerId < results.Results[j].ControllerId
+		})
+	}
+	return results, nil
 }

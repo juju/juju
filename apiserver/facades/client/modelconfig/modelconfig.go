@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -340,26 +340,6 @@ func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.Se
 		return errors.Trace(err)
 	}
 	return c.backend.SetModelConstraints(args.Constraints)
-}
-
-// SetSLALevel sets the sla level on the model.
-func (c *ModelConfigAPI) SetSLALevel(ctx context.Context, args params.ModelSLA) error {
-	if err := c.checkCanWrite(); err != nil {
-		return err
-	}
-	return c.backend.SetSLA(args.Level, args.Owner, args.Credentials)
-
-}
-
-// SLALevel returns the current sla level for the model.
-func (c *ModelConfigAPI) SLALevel(ctx context.Context) (params.StringResult, error) {
-	result := params.StringResult{}
-	level, err := c.backend.SLALevel()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	result.Result = level
-	return result, nil
 }
 
 // Sequences returns the model's sequence names and next values.

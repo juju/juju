@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -155,9 +155,6 @@ func (api *UpgradeStepsAPI) WriteAgentState(ctx context.Context, args params.Set
 		}
 		if data.StorageState != nil {
 			us.SetStorageState(*data.StorageState)
-		}
-		if data.MeterStatusState != nil {
-			us.SetMeterStatusState(*data.MeterStatusState)
 		}
 
 		op := u.SetStateOperation(

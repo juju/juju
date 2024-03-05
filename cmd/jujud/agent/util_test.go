@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -29,49 +29,35 @@ import (
 	"github.com/juju/juju/agent/addons"
 	agentconfig "github.com/juju/juju/agent/config"
 	agenterrors "github.com/juju/juju/agent/errors"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/internal/mongo/mongometrics"
-	"github.com/juju/juju/internal/mongo/mongotest"
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/upgrades"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/authenticationworker"
+	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/dbaccessor/testing"
+	"github.com/juju/juju/internal/worker/diskmanager"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/dbaccessor"
-	"github.com/juju/juju/worker/dbaccessor/testing"
-	"github.com/juju/juju/worker/diskmanager"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machiner"
 )
 
 const (
 	initialMachinePassword = "machine-password-1234567890"
 )
 
-var fastDialOpts = api.DialOpts{
-	Timeout:    coretesting.LongWait,
-	RetryDelay: coretesting.ShortWait,
-}
-
 type commonMachineSuite struct {
-	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
 	// FakeJujuXDGDataHomeSuite is needed only because the
 	// authenticationworker writes to ~/.ssh.
@@ -88,9 +74,8 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 
 	// Stub out executables etc used by workers.
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 	s.PatchValue(&authenticationworker.SSHUser, "")
-	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
+	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]blockdevice.BlockDevice, error) {
 		return nil, nil
 	})
 	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
@@ -109,17 +94,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	// mock out the start method so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
-
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir)
-}
-
-func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
-	// Wait for channel to be active.
-	select {
-	case <-aChannel:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for %v", intent)
-	}
 }
 
 func fakeCmd(path string) {
@@ -170,8 +144,10 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
 func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
+	m, err := s.ControllerModel(c).State().AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(wallyworld) - we need the dqlite model database to be available.
+	// s.createMachine(c, m.Id())
 	return s.primeAgentWithMachine(c, m, vers)
 }
 
@@ -250,11 +226,8 @@ func NewTestMachineAgentFactory(
 			rootDir:                     rootDir,
 			initialUpgradeCheckComplete: gate.NewLock(),
 			loopDeviceManager:           &mockLoopDeviceManager{},
-			newDBWorkerFunc:             newDBWorkerFunc,
 			newIntrospectionSocketName:  addons.DefaultIntrospectionSocketName,
 			prometheusRegistry:          prometheusRegistry,
-			mongoTxnCollector:           mongometrics.NewTxnCollector(),
-			mongoDialCollector:          mongometrics.NewDialCollector(),
 			preUpgradeSteps:             preUpgradeSteps,
 			upgradeSteps:                upgradeSteps,
 			isCaasAgent:                 isCAAS,
@@ -418,43 +391,3 @@ func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (FakeAgentConfig) CheckArgs([]string) error { return nil }
-
-// minModelWorkersEnviron implements just enough of environs.Environ
-// to allow model workers to run.
-type minModelWorkersEnviron struct {
-	environs.Environ
-	environs.LXDProfiler
-}
-
-func (e *minModelWorkersEnviron) Config() *config.Config {
-	attrs := coretesting.FakeConfig()
-	cfg, err := config.New(config.UseDefaults, attrs)
-	if err != nil {
-		panic(err)
-	}
-	return cfg
-}
-
-func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
-	return nil
-}
-
-func (e *minModelWorkersEnviron) AllRunningInstances(envcontext.ProviderCallContext) ([]instances.Instance, error) {
-	return nil, nil
-}
-
-func (e *minModelWorkersEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
-	return nil, environs.ErrNoInstances
-}
-
-func (*minModelWorkersEnviron) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
-	return nil
-}
-
-func (*minModelWorkersEnviron) LXDProfileNames(containerName string) ([]string, error) {
-	return nil, nil
-}
-
-func (*minModelWorkersEnviron) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
-	return profilesNames, nil
-}

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/terms-client/v2/api"
 	"github.com/juju/terms-client/v2/api/wireformat"
 	jujutesting "github.com/juju/testing"

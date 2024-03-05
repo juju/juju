@@ -4,8 +4,10 @@
 package caasapplication_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -45,7 +47,7 @@ func (s *provisionerSuite) TestUnitIntroduction(c *gc.C) {
 		}
 		return nil
 	})
-	unitConfig, err := client.UnitIntroduction("pod-name", "pod-uuid")
+	unitConfig, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(unitConfig, gc.NotNil)
@@ -70,7 +72,7 @@ func (s *provisionerSuite) TestUnitIntroductionFail(c *gc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 	c.Assert(called, jc.IsTrue)
 }
@@ -92,7 +94,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *gc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 	c.Assert(called, jc.IsTrue)
 }
@@ -114,7 +116,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *gc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
 	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 	c.Assert(called, jc.IsTrue)
 }
@@ -149,7 +151,7 @@ func (s *provisionerSuite) TestUnitTerminating(c *gc.C) {
 			}
 			return nil
 		})
-		unitTermination, err := client.UnitTerminating(names.NewUnitTag("app/0"))
+		unitTermination, err := client.UnitTerminating(context.Background(), names.NewUnitTag("app/0"))
 		if test.err == nil {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {

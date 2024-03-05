@@ -41,7 +41,7 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 	}
 	env, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(stdcontext.TODO(), c),
+		envtesting.BootstrapContext(stdcontext.Background(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),

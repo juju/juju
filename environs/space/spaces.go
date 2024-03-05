@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -26,15 +26,12 @@ type ReloadSpacesState interface {
 	// AllSpaces returns all spaces for the model.
 	AllSpaces() ([]network.SpaceInfo, error)
 	// AddSpace creates and returns a new space.
-	AddSpace(string, network.Id, []string, bool) (network.SpaceInfo, error)
+	AddSpace(string, network.Id, []string) (network.SpaceInfo, error)
 	// SaveProviderSubnets loads subnets into state.
 	SaveProviderSubnets([]network.SubnetInfo, string) error
 	// ConstraintsBySpaceName returns all Constraints that include a positive
 	// or negative space constraint for the input space name.
 	ConstraintsBySpaceName(string) ([]Constraints, error)
-	// DefaultEndpointBindingSpace returns the current space ID to be used for
-	// the default endpoint binding.
-	DefaultEndpointBindingSpace() (string, error)
 	// AllEndpointBindingsSpaceNames returns a set of spaces names for all the
 	// endpoint bindings.
 	AllEndpointBindingsSpaceNames() (set.Strings, error)
@@ -132,7 +129,7 @@ func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo) error {
 			spaceName := network.ConvertSpaceName(string(spaceInfo.Name), spaceNames)
 
 			logger.Debugf("Adding space %s from provider %s", spaceName, string(spaceInfo.ProviderId))
-			space, err := s.state.AddSpace(spaceName, spaceInfo.ProviderId, []string{}, false)
+			space, err := s.state.AddSpace(spaceName, spaceInfo.ProviderId, []string{})
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -185,10 +182,10 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 		return nil, nil
 	}
 
-	defaultEndpointBinding, err := s.state.DefaultEndpointBindingSpace()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	// TODO (manadart 2024-01-29): The alpha space ID here is scaffolding and
+	// should be replaced with the configured model default space upon
+	// migrating this logic to Dqlite.
+	defaultEndpointBinding := network.AlphaSpaceId
 
 	allEndpointBindings, err := s.state.AllEndpointBindingsSpaceNames()
 	if err != nil {

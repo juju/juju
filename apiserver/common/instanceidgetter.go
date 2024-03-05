@@ -6,7 +6,7 @@ package common
 import (
 	"context"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"

@@ -13,12 +13,12 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 )
 
@@ -46,7 +46,7 @@ func (s *streamSuite) TestWithNoNamespace(c *gc.C) {
 	s.expectClock()
 	s.expectMetrics()
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -70,7 +70,7 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -96,11 +96,11 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 
 	chg := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -121,9 +121,13 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -132,11 +136,11 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 
 	chg := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -153,7 +157,7 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 
 	chg = change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
@@ -174,9 +178,13 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -185,11 +193,11 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 
 	chg := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -221,11 +229,11 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 
 	chg := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -261,11 +269,11 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 
 	chg := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var (
@@ -301,11 +309,11 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 
 	chg := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var (
@@ -351,11 +359,11 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
 
 	chg := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -375,23 +383,27 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
 func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
 		// Insert a change and wait for it to be streamed.
 		chg := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, chg)
 
@@ -423,6 +435,9 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 	s.expectClock()
 	s.expectMetrics()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	var duration int64
 	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
 	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
@@ -433,21 +448,24 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 
 		ch := make(chan time.Time)
 		go func() {
-			ch <- time.Now()
+			select {
+			case ch <- time.Now():
+			case <-done:
+			}
 		}()
 		return ch
 	}).AnyTimes()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
 		// Insert a change and wait for it to be streamed.
 		chg := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, chg)
 
@@ -484,13 +502,13 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Insert a change and wait for it to be streamed.
 	chg := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
@@ -511,7 +529,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 	// We should never witness the following change until the term is done.
 	chg = change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, chg)
 
@@ -565,7 +583,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	for i := 0; i < 4; i++ {
 		ch := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
 		inserts = append(inserts, ch)
@@ -580,13 +598,13 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	for i := 0; i < 4; i++ {
 		ch := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -627,13 +645,13 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	for i := 0; i < 10; i++ {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -678,7 +696,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	for i := 0; i < 4; i++ {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
 		inserts = append(inserts, ch)
@@ -693,13 +711,13 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	for i := 0; i < 4; i++ {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -745,7 +763,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	for i := 0; i < 4; i++ {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
 		inserts = append(inserts, ch)
@@ -767,13 +785,13 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	for i := 0; i < 4; i++ {
 		ch := change{
 			id:   ((i % 2) + 1) * 1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -816,7 +834,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	expectNotifyBlock := func(block bool) {
@@ -836,7 +854,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	first := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, first)
 
@@ -877,8 +895,12 @@ func constructWatermark(start, finish int) string {
 func (s *streamSuite) TestReport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
 	s.expectMetrics()
@@ -899,14 +921,14 @@ func (s *streamSuite) TestReport(c *gc.C) {
 		return true
 	})
 
-	id := utils.MustNewUUID().String()
+	id := uuid.MustNewUUID().String()
 	stream := New(id, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
 		chg := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, chg)
 
@@ -973,8 +995,12 @@ func (s *streamSuite) TestReport(c *gc.C) {
 func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
 	s.expectMetrics()
@@ -994,14 +1020,14 @@ func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 		return true
 	})
 
-	tag := utils.MustNewUUID().String()
+	tag := uuid.MustNewUUID().String()
 	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
 		chg := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, chg)
 
@@ -1034,8 +1060,12 @@ func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
 	s.expectMetrics()
@@ -1055,14 +1085,14 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 		return true
 	})
 
-	tag := utils.MustNewUUID().String()
+	tag := uuid.MustNewUUID().String()
 	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks-1; i++ {
 		chg := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, chg)
 
@@ -1095,8 +1125,12 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
 	s.expectMetrics()
@@ -1116,7 +1150,7 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 		return true
 	})
 
-	tag := utils.MustNewUUID().String()
+	tag := uuid.MustNewUUID().String()
 	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
@@ -1124,7 +1158,7 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 	insertAndWitness := func(c *gc.C, id int) {
 		chg := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, chg)
 
@@ -1176,7 +1210,7 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
 
 	first := change{
 		id:   1000,
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid.MustNewUUID().String(),
 	}
 	s.insertChange(c, first)
 
@@ -1193,7 +1227,7 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	for i := 0; i < 10; i++ {
 		ch := change{
 			id:   1000,
@@ -1219,7 +1253,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
 	for i := 0; i < 10; i++ {
 		ch := change{
 			id:   1000,
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
 		changes[i] = ch
@@ -1244,7 +1278,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C)
 	for i := 0; i < 10; i++ {
 		var (
 			ch   change
-			uuid = utils.MustNewUUID().String()
+			uuid = uuid.MustNewUUID().String()
 		)
 		// Grouping is done via uuid, so we should only ever see the last change
 		// when grouping them.
@@ -1280,9 +1314,9 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 	changes := make([]change, 5)
 
 	var (
-		uuid0 = utils.MustNewUUID().String()
-		uuid1 = utils.MustNewUUID().String()
-		uuid2 = utils.MustNewUUID().String()
+		uuid0 = uuid.MustNewUUID().String()
+		uuid1 = uuid.MustNewUUID().String()
+		uuid2 = uuid.MustNewUUID().String()
 	)
 
 	{ // Group ID: 0, Row ID: 1
@@ -1495,7 +1529,7 @@ func (s *streamSuite) TestCreateWatermarkTwice(c *gc.C) {
 func (s *streamSuite) newStream() *Stream {
 	return &Stream{
 		db:         s.TxnRunner(),
-		id:         utils.MustNewUUID().String(),
+		id:         uuid.MustNewUUID().String(),
 		metrics:    s.metrics,
 		watermarks: make([]*termView, changestream.DefaultNumTermWatermarks),
 	}

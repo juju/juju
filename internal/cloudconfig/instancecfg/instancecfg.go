@@ -15,12 +15,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v4/shell"
+	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
@@ -270,6 +271,10 @@ type SSHKeyPair struct {
 // This structure will be passed to the bootstrap agent. To do so, the
 // Marshal and Unmarshal methods must be used.
 type StateInitializationParams struct {
+	// AgentVersion is the desired agent version to run for models created as
+	// part of state initialization.
+	AgentVersion version.Number
+
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
 
@@ -303,8 +308,11 @@ type StateInitializationParams struct {
 	// ControllerCharmChannel is used when deploying the controller charm.
 	ControllerCharmChannel charm.Channel
 
-	// ControllerInheritedConfig is a set of config attributes to be shared by all
-	// models managed by this controller.
+	// ControllerInheritedConfig is a set of default config attributes to be set
+	// as defaults on the cloud that is in use by the controller
+	// ("the controller cloud"). These default config attributes do not actually
+	// get applied to every model in reality just to models that use the same
+	// cloud as the controller.
 	ControllerInheritedConfig map[string]interface{}
 
 	// RegionInheritedConfig holds region specific configuration attributes to
@@ -347,6 +355,7 @@ type StateInitializationParams struct {
 }
 
 type stateInitializationParamsInternal struct {
+	AgentVersion                            string                            `yaml:"agent-version"`
 	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
@@ -379,6 +388,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		return nil, errors.Annotate(err, "marshalling cloud definition")
 	}
 	internal := stateInitializationParamsInternal{
+		AgentVersion:                            p.AgentVersion.String(),
 		ControllerConfig:                        p.ControllerConfig,
 		ControllerModelConfig:                   p.ControllerModelConfig.AllAttrs(),
 		ControllerModelEnvironVersion:           p.ControllerModelEnvironVersion,
@@ -421,7 +431,12 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	agentVersion, err := version.Parse(internal.AgentVersion)
+	if err != nil {
+		return fmt.Errorf("parsing agent-version in state initialisation params: %w", err)
+	}
 	*p = StateInitializationParams{
+		AgentVersion:                            agentVersion,
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
 		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,
@@ -809,6 +824,7 @@ func NewBootstrapInstanceConfig(
 	if err != nil {
 		return nil, err
 	}
+	icfg.AuthorizedKeys = config.SystemSSHKeys()
 	icfg.PublicImageSigningKey = publicImageSigningKey
 	icfg.ControllerConfig = make(map[string]interface{})
 	for k, v := range config {
@@ -897,7 +913,8 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	cloudInitUserData map[string]interface{},
 	profiles []string,
 ) error {
-	icfg.AuthorizedKeys = authorizedKeys
+	systemSSHKeys := icfg.ControllerConfig.SystemSSHKeys()
+	icfg.AuthorizedKeys = ssh.ConcatAuthorisedKeys(systemSSHKeys, authorizedKeys)
 	if icfg.AgentEnvironment == nil {
 		icfg.AgentEnvironment = make(map[string]string)
 	}
@@ -931,7 +948,10 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 // it is better that this functionality be collected in one place here than
 // that it be spread out across 3 or 4 providers, but this is its only
 // redeeming feature.
-func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) {
+func FinishInstanceConfig(
+	icfg *InstanceConfig,
+	cfg *config.Config,
+) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
 	if err := PopulateInstanceConfig(
 		icfg,

@@ -15,6 +15,10 @@ const (
 	// SingularControllerNamespace is the namespace used to manage
 	// controller leases.
 	SingularControllerNamespace = "singular-controller"
+
+	// ObjectStoreNamespace is the namespace used to manage
+	// object store files.
+	ObjectStoreNamespace = "object-store"
 )
 
 // Claimer exposes lease acquisition and expiry notification capabilities.

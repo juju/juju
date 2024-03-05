@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
@@ -54,6 +54,7 @@ type SecretsState interface {
 type SecretsMetaState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
+	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 	ChangeSecretBackend(state.ChangeSecretBackendParams) error
 }
 

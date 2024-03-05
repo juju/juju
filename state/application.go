@@ -11,16 +11,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -95,7 +95,6 @@ type applicationDoc struct {
 	MinUnits             int          `bson:"minunits"`
 	Tools                *tools.Tools `bson:",omitempty"`
 	TxnRevno             int64        `bson:"txn-revno"`
-	MetricCredentials    []byte       `bson:"metric-credentials"`
 
 	// Exposed is set to true when the application is exposed.
 	Exposed bool `bson:"exposed"`
@@ -775,13 +774,13 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, secretConsumerPermissionsOps...)
-	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(a.ApplicationTag())
+	secretLabelOps, err := a.st.removeOwnerSecretLabelsOps(a.ApplicationTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, secretLabelOps...)
 
-	secretLabelOps, err = a.st.removeConsumerSecretLabelOps(a.ApplicationTag())
+	secretLabelOps, err = a.st.removeConsumerSecretLabelsOps(a.ApplicationTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1576,7 +1575,7 @@ func (a *Application) upgradeStorageOps(
 				countMin = int(cons.Count)
 			}
 			_, unitOps, err := sb.addUnitStorageOps(
-				meta, u, name, cons, countMin,
+				a.st, meta, u, name, cons, countMin,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1647,14 +1646,21 @@ type SetCharmConfig struct {
 	EndpointBindings map[string]string
 }
 
-// SetCharm changes the charm for the application.
-func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore) (err error) {
-	defer errors.DeferredAnnotatef(
-		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm.URL(),
-	)
+func (a *Application) validateSetCharmConfig(cfg SetCharmConfig) error {
 	if cfg.Charm.Meta().Subordinate != a.doc.Subordinate {
 		return errors.Errorf("cannot change an application's subordinacy")
 	}
+	origin := cfg.CharmOrigin
+	if origin == nil {
+		return errors.NotValidf("nil charm origin")
+	}
+	if origin.Platform == nil {
+		return errors.BadRequestf("charm origin platform is nil")
+	}
+	if (origin.ID != "" && origin.Hash == "") || (origin.ID == "" && origin.Hash != "") {
+		return errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
+	}
+
 	currentCharm, err := a.st.Charm(*a.doc.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
@@ -1679,11 +1685,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore
 		}
 	}
 
-	updatedSettings, err := cfg.Charm.Config().ValidateSettings(cfg.ConfigSettings)
-	if err != nil {
-		return errors.Annotate(err, "validating config settings")
-	}
-
 	// we don't need to check that this is a charm.LXDProfiler, as we can
 	// state that the function exists.
 	if profile := cfg.Charm.LXDProfile(); profile != nil {
@@ -1695,6 +1696,25 @@ func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore
 		if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {
 			return errors.Annotate(err, "validating lxd profile")
 		}
+	}
+	return nil
+}
+
+// SetCharm changes the charm for the application.
+func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore) (err error) {
+	defer errors.DeferredAnnotatef(
+		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm.URL(),
+	)
+
+	// Validate the input. ValidateSettings validates and transforms
+	// leaving it here.
+	if err := a.validateSetCharmConfig(cfg); err != nil {
+		return errors.Trace(err)
+	}
+
+	updatedSettings, err := cfg.Charm.Config().ValidateSettings(cfg.ConfigSettings)
+	if err != nil {
+		return errors.Annotate(err, "validating config settings")
 	}
 
 	var newCharmModifiedVersion int
@@ -1734,15 +1754,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore
 			updates := bson.D{
 				{"forcecharm", cfg.ForceUnits},
 			}
-			// Local charms will not have a channel in their charm origin
-			// TODO: (hml) 2023-02-03
-			// With juju 3.0, SetCharm should always have a CharmOrigin.
-			// Compatibility with the Update application facade method
-			// is no longer necessary.
-			if cfg.CharmOrigin != nil && cfg.CharmOrigin.Channel != nil {
-				updates = append(updates, bson.DocElem{"charm-origin.channel", cfg.CharmOrigin.Channel})
-			}
-			// Charm URL already set; just update the force flag and channel.
+			// Charm URL already set; just update the force flag.
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
 				Id:     a.doc.DocID,
@@ -1789,59 +1801,15 @@ func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore
 			newCharmModifiedVersion++
 		}
 
-		// TODO: (hml) 2023-02-03
-		// With juju 3.0, SetCharm should always have a CharmOrigin.
-		// Compatibility with the Update application facade method
-		// is no longer necessary. Modify checks appropriately.
-		if cfg.CharmOrigin != nil {
-			origin := a.doc.CharmOrigin
-			// If either the charm origin ID or Hash is set before a charm is
-			// downloaded, charm download will fail for charms with a forced series.
-			// The logic (refreshConfig) in sending the correct request to charmhub
-			// will break.
-			if (origin.ID != "" && origin.Hash == "") || (origin.ID == "" && origin.Hash != "") {
-				return nil, errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
-			}
-			if cfg.CharmOrigin.ID != "" {
-				origin.ID = cfg.CharmOrigin.ID
-			}
-			if cfg.CharmOrigin.Hash != "" {
-				origin.Hash = cfg.CharmOrigin.Hash
-			}
-			if cfg.CharmOrigin.Type != "" {
-				origin.Type = cfg.CharmOrigin.Type
-			}
-			if cfg.CharmOrigin.Source != "" {
-				origin.Source = cfg.CharmOrigin.Source
-			}
-			if cfg.CharmOrigin.Revision != nil {
-				origin.Revision = cfg.CharmOrigin.Revision
-			}
-			if cfg.CharmOrigin.Channel != nil {
-				origin.Channel = cfg.CharmOrigin.Channel
-			}
-			if cfg.CharmOrigin.Platform != nil {
-				if cfg.CharmOrigin.Platform.Channel != "" {
-					origin.Platform.OS = cfg.CharmOrigin.Platform.OS
-					origin.Platform.Channel = cfg.CharmOrigin.Platform.Channel
-				}
-				if cfg.CharmOrigin.Platform.Architecture != "" {
-					origin.Platform.Architecture = cfg.CharmOrigin.Platform.Architecture
-				}
-			}
-			// Update in the application facade also calls
-			// SetCharm, though it has no current user in the
-			// application api client. Just in case: do not
-			// update the CharmOrigin if nil.
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     a.doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"charm-origin", origin},
-				}}},
-			})
-		}
+		// Update the charm origin
+		ops = append(ops, txn.Op{
+			C:      applicationsC,
+			Id:     a.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"charm-origin", *cfg.CharmOrigin},
+			}}},
+		})
 
 		// Always update bindings regardless of whether we upgrade to a
 		// new version or stay at the previous version.
@@ -1904,8 +1872,8 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 				C:      applicationsC,
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"charm-origin.id", id},
+				Update: bson.D{{Name: "$set", Value: bson.D{
+					{Name: "charm-origin.id", Value: id},
 				}}},
 			})
 		}
@@ -1914,8 +1882,8 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 				C:      applicationsC,
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"charm-origin.hash", hash},
+				Update: bson.D{{Name: "$set", Value: bson.D{
+					{Name: "charm-origin.hash", Value: hash},
 				}}},
 			})
 		}
@@ -1934,12 +1902,12 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 }
 
 // checkBaseForSetCharm verifies that the
-func checkBaseForSetCharm(currentPlatform *Platform, ch *Charm, ForceBase bool) error {
+func checkBaseForSetCharm(currentPlatform *Platform, ch *Charm, forceBase bool) error {
 	curBase, err := corebase.ParseBase(currentPlatform.OS, currentPlatform.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !ForceBase {
+	if !forceBase {
 		return errors.Trace(corecharm.BaseIsCompatibleWithCharm(curBase, ch))
 	}
 	// Even with forceBase=true, we do not allow a charm to be used which is for
@@ -2508,7 +2476,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		StatusInfo: status.MessageInstallingAgent,
 		Updated:    now.UnixNano(),
 	}
-	meterStatus := &meterStatusDoc{Code: MeterNotSet.String()}
 
 	workloadVersionDoc := &statusDoc{
 		Status:  status.Unknown,
@@ -2543,7 +2510,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  unitStatusDoc,
 		workloadVersionDoc: workloadVersionDoc,
-		meterStatusDoc:     meterStatus,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -2624,6 +2590,7 @@ func (a *Application) addUnitStorageOps(
 	platform := a.CharmOrigin().Platform
 	sSeries, _ := corebase.GetSeriesFromChannel(platform.OS, platform.Channel)
 	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
+		a.st,
 		sb,
 		unitTag,
 		charm.Meta(),
@@ -2643,6 +2610,7 @@ func (a *Application) addUnitStorageOps(
 			)
 		}
 		ops, err := sb.attachStorageOps(
+			a.st,
 			si,
 			unitTag,
 			sSeries,
@@ -2963,11 +2931,11 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretOwnerLabelOps, err := a.st.removeOwnerSecretLabelOps(u.Tag())
+	secretOwnerLabelOps, err := a.st.removeOwnerSecretLabelsOps(u.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelOps(u.Tag())
+	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelsOps(u.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
@@ -2983,7 +2951,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 			Assert: append(observedFieldsMatch, asserts...),
 			Remove: true,
 		},
-		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalWorkloadVersionKey()),
@@ -3469,39 +3436,6 @@ func (a *Application) defaultEndpointBindings() (map[string]string, error) {
 	return DefaultEndpointBindingsForCharm(a.st, appCharm.Meta())
 }
 
-// MetricCredentials returns any metric credentials associated with this application.
-func (a *Application) MetricCredentials() []byte {
-	return a.doc.MetricCredentials
-}
-
-// SetMetricCredentials updates the metric credentials associated with this application.
-func (a *Application) SetMetricCredentials(b []byte) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
-			if err != nil {
-				return nil, errors.Trace(err)
-			} else if !alive {
-				return nil, applicationNotAliveErr
-			}
-		}
-		ops := []txn.Op{
-			{
-				C:      applicationsC,
-				Id:     a.doc.DocID,
-				Assert: isAliveDoc,
-				Update: bson.M{"$set": bson.M{"metric-credentials": b}},
-			},
-		}
-		return ops, nil
-	}
-	if err := a.st.db().Run(buildTxn); err != nil {
-		return errors.Annotatef(err, "cannot update metric credentials")
-	}
-	a.doc.MetricCredentials = b
-	return nil
-}
-
 // StorageConstraints returns the storage constraints for the application.
 func (a *Application) StorageConstraints() (map[string]StorageConstraints, error) {
 	cons, err := readStorageConstraints(a.st, a.storageConstraintsKey())
@@ -3750,10 +3684,10 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 // SetPassword sets the password for the application's agent.
 // TODO(caas) - consider a separate CAAS application entity
 func (a *Application) SetPassword(password string) error {
-	if len(password) < utils.MinAgentPasswordLength {
+	if len(password) < internalpassword.MinAgentPasswordLength {
 		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	passwordHash := utils.AgentPasswordHash(password)
+	passwordHash := internalpassword.AgentPasswordHash(password)
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
@@ -3771,7 +3705,7 @@ func (a *Application) SetPassword(password string) error {
 // PasswordValid returns whether the given password is valid
 // for the given application.
 func (a *Application) PasswordValid(password string) bool {
-	agentHash := utils.AgentPasswordHash(password)
+	agentHash := internalpassword.AgentPasswordHash(password)
 	return agentHash == a.doc.PasswordHash
 }
 

@@ -4,8 +4,10 @@
 package usersecrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -26,7 +28,7 @@ type UserSecretsManager struct {
 	modelUUID      string
 
 	secretsState        SecretsState
-	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
+	backendConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 }
 
 // WatchRevisionsToPrune returns a watcher for notifying when:
@@ -49,8 +51,9 @@ func (s *UserSecretsManager) WatchRevisionsToPrune() (params.StringsWatchResult,
 }
 
 // DeleteRevisions deletes the specified revisions of the specified secret.
-func (s *UserSecretsManager) DeleteRevisions(args params.DeleteSecretArgs) (params.ErrorResults, error) {
+func (s *UserSecretsManager) DeleteRevisions(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	return commonsecrets.RemoveUserSecrets(
+		ctx,
 		s.secretsState, s.backendConfigGetter,
 		s.authTag, args, s.modelUUID,
 		func(uri *coresecrets.URI) error {

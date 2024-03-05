@@ -7,18 +7,18 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -35,7 +35,7 @@ var _ = gc.Suite(&remoteApplicationSuite{})
 
 func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.externalControllerUUID = utils.MustNewUUID().String()
+	s.externalControllerUUID = uuid.MustNewUUID().String()
 	s.makeRemoteApplication(c, "mysql", "me/model.mysql")
 }
 
@@ -1140,13 +1140,13 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDying(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s1", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
@@ -1159,13 +1159,13 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 	// there is no conflict initially but a local application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddApplication(state.AddApplicationArgs{
+		_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 			Name: "s1", Charm: charm,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 				OS:      "ubuntu",
 				Channel: "20.04/stable",
 			}},
-		}, state.NewObjectStore(c, s.State))
+		}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

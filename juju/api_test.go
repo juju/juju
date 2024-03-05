@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -179,6 +179,21 @@ func (s *NewAPIClientSuite) TestWithMacaroons(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Macaroons, gc.DeepEquals, []macaroon.Slice{{mac}})
+}
+
+func (s *NewAPIClientSuite) TestWithAddressOverride(c *gc.C) {
+	store := newClientStore(c, "controllername")
+	ad, err := store.AccountDetails("controllername")
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, _, err := juju.ConnectionInfo(juju.NewAPIConnectionParams{
+		ControllerName: "controllername",
+		Store:          store,
+		AccountDetails: ad,
+		APIEndpoints:   []string{"address-override"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Addrs, gc.DeepEquals, []string{"address-override"})
 }
 
 func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {

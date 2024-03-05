@@ -7,6 +7,7 @@ import (
 	"testing"
 	time "time"
 
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -21,6 +22,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package stream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
 func TestPackage(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	gc.TestingT(t)
 }
 
@@ -83,10 +86,17 @@ func (s *baseSuite) expectAfter() chan<- time.Time {
 
 func (s *baseSuite) expectAfterAnyTimes() {
 	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
+}
+
+func (s *baseSuite) expectBackoffAnyTimes(done chan struct{}) {
 	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
 		ch := make(chan time.Time)
 		go func() {
-			ch <- time.Now()
+			select {
+			case ch <- time.Now():
+			case <-done:
+				return
+			}
 		}()
 		return ch
 	}).AnyTimes()

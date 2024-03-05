@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 // SourcePrecheck checks the state of the source controller to make
@@ -406,7 +406,7 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 		}
 	}
 
-	cloudspec, err := ctx.environscloudspecGetter(names.NewModelTag(model.UUID()))
+	cloudspec, err := ctx.environscloudspecGetter(stdCtx, names.NewModelTag(model.UUID()))
 	if err != nil {
 		return errors.Trace(err)
 	}

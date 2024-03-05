@@ -10,24 +10,26 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 )
 
-type ErrorsSuite struct{}
+type ErrorsSuite struct {
+	baseSuite
+}
 
 var _ = gc.Suite(&ErrorsSuite{})
 
-func (ErrorsSuite) TestHandleBasicAPIErrors(c *gc.C) {
+func (s *ErrorsSuite) TestHandleBasicAPIErrors(c *gc.C) {
 	var list transport.APIErrors
-	err := handleBasicAPIErrors(list, &FakeLogger{})
+	err := handleBasicAPIErrors(list, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (ErrorsSuite) TestHandleBasicAPIErrorsNotFound(c *gc.C) {
+func (s *ErrorsSuite) TestHandleBasicAPIErrorsNotFound(c *gc.C) {
 	list := transport.APIErrors{{Code: transport.ErrorCodeNotFound, Message: "foo"}}
-	err := handleBasicAPIErrors(list, &FakeLogger{})
+	err := handleBasicAPIErrors(list, s.logger)
 	c.Assert(err, gc.ErrorMatches, `charm or bundle not found`)
 }
 
-func (ErrorsSuite) TestHandleBasicAPIErrorsOther(c *gc.C) {
+func (s *ErrorsSuite) TestHandleBasicAPIErrorsOther(c *gc.C) {
 	list := transport.APIErrors{{Code: "other", Message: "foo"}}
-	err := handleBasicAPIErrors(list, &FakeLogger{})
+	err := handleBasicAPIErrors(list, s.logger)
 	c.Assert(err, gc.ErrorMatches, `foo`)
 }

@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/names/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -22,15 +22,14 @@ import (
 	"github.com/juju/juju/cmd/containeragent/unit"
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	"github.com/juju/juju/internal/worker/logsender"
 	jnames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/logsender"
 )
 
 type containerUnitAgentSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 
 	rootDir          string
 	dataDir          string
@@ -199,7 +198,7 @@ func (s *containerUnitAgentSuite) TestChangeConfig(c *gc.C) {
 	select {
 	case result := <-configChangedCh:
 		c.Check(result, jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for config changed signal")
 	}
 }

@@ -4,10 +4,11 @@
 package usersecrets_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -60,7 +61,7 @@ func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.facade, err = usersecrets.NewTestAPI(
 		s.authorizer, s.resources, s.authTag,
 		coretesting.ControllerTag.Id(), coretesting.ModelTag.Id(), s.state,
-		func() (*provider.ModelBackendConfigInfo, error) {
+		func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 			return &provider.ModelBackendConfigInfo{
 				ActiveID: "backend-id",
 				Configs: map[string]provider.ModelBackendConfig{
@@ -127,11 +128,13 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 	s.provider.EXPECT().NewBackend(cfg).Return(s.backend, nil)
 	s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
 	s.provider.EXPECT().CleanupSecrets(
+		gomock.Any(),
 		cfg, names.NewUserTag("foo"),
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
 	results, err := s.facade.DeleteRevisions(
+		context.Background(),
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{
 				{
@@ -157,6 +160,7 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) {
 	}, nil).Times(2)
 
 	results, err := s.facade.DeleteRevisions(
+		context.Background(),
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{
 				{

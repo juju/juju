@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -35,6 +35,7 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		s.st,
 		nil, // storage
 		nil, // pool
+		nil, // block device getter
 		nil, // resources
 		authorizer,
 		nil, // presence

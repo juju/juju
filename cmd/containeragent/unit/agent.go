@@ -4,6 +4,7 @@
 package unit
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -14,16 +15,16 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/utils/v3/voyeur"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/utils/v4/voyeur"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
@@ -40,13 +41,13 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/upgrade"
+	"github.com/juju/juju/internal/upgrades"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/introspection"
+	"github.com/juju/juju/internal/worker/logsender"
+	uniterworker "github.com/juju/juju/internal/worker/uniter"
 	jnames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/introspection"
-	"github.com/juju/juju/worker/logsender"
-	uniterworker "github.com/juju/juju/worker/uniter"
 )
 
 var (
@@ -362,7 +363,7 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
-func (c *containerUnitAgent) validateMigration(apiCaller base.APICaller) error {
+func (c *containerUnitAgent) validateMigration(ctx context.Context, apiCaller base.APICaller) error {
 	// TODO(mjs) - more extensive checks to come.
 	tag := c.CurrentConfig().Tag()
 	unitTag, ok := tag.(names.UnitTag)
@@ -370,11 +371,11 @@ func (c *containerUnitAgent) validateMigration(apiCaller base.APICaller) error {
 		return errors.NotValidf("expected a unit tag; got %q", tag)
 	}
 	facade := uniter.NewClient(apiCaller, unitTag)
-	_, err := facade.Unit(unitTag)
+	_, err := facade.Unit(ctx, unitTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	model, err := facade.Model()
+	model, err := facade.Model(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

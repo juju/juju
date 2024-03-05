@@ -8,10 +8,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -79,8 +79,8 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
 	defer s.ctrl.Finish()
 
-	constructor := func(context facade.Context) error {
-		_, err := firewaller.NewFirewallerAPIV7(context)
+	constructor := func(ctx facade.ModelContext) error {
+		_, err := firewaller.NewFirewallerAPIV7(ctx)
 		return err
 	}
 	s.testFirewallerFailsWithNonControllerUser(c, constructor)
@@ -194,7 +194,8 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	defer s.ctrl.Finish()
 
-	m, err := s.ControllerModel(c).State().AddOneMachine(state.MachineTemplate{
+	st := s.ControllerModel(c).State()
+	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
@@ -287,7 +288,7 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 
 	// Set up a spaces with two subnets
 	st := s.ControllerModel(c).State()
-	sp, err := st.AddSpace("outer-space", network.Id("outer-1"), nil, true)
+	sp, err := st.AddSpace("outer-space", network.Id("outer-1"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.AddSubnet(network.SubnetInfo{

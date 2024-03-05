@@ -6,13 +6,13 @@ package main
 import (
 	"os"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
+	_ "github.com/juju/juju/internal/provider/all"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	_ "github.com/juju/juju/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.plugins.metadata")

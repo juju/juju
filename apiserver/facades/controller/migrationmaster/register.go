@@ -4,27 +4,26 @@
 package migrationmaster
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/internal/migration"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("MigrationMaster", 3, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("MigrationMaster", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newMigrationMasterFacade(ctx) // Adds MinionReportTimeout.
 	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newMigrationMasterFacade exists to provide the required signature for API
 // registration, converting st to backend.
-func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
+func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 	pool := ctx.StatePool()
 	modelState := ctx.State()
 
@@ -38,7 +37,7 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
 
-	leadership, err := ctx.LeadershipReader(modelState.ModelUUID())
+	leadership, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -50,10 +49,7 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(
 		controllerState,
 		backend,
-		migration.NewModelExporter(
-			backend,
-			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
-		),
+		ctx.ModelExporter(backend),
 		ctx.ObjectStore(),
 		preCheckBackend,
 		migration.PoolShim(pool),

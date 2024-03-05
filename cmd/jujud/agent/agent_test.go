@@ -4,12 +4,12 @@
 package agent
 
 import (
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/loggo"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/core/network"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/internal/worker/proxyupdater"
 )
 
 type acCreator func() (cmd.Command, agentconf.AgentConf)
@@ -51,7 +51,6 @@ type AgentSuite struct {
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
-	agenttest.InstallFakeEnsureMongo(s, s.DataDir)
 	// Set API host ports so FindTools/Tools API calls succeed.
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
@@ -59,7 +58,7 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	controllerConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
+	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&proxyupdater.NewWorker, func(proxyupdater.Config) (worker.Worker, error) {
 		return newDummyWorker(), nil

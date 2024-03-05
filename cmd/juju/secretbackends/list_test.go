@@ -6,7 +6,7 @@ package secretbackends_test
 import (
 	"time"
 
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

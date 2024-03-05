@@ -9,17 +9,15 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/internal/uuid"
 )
 
-// ExternalController represents a single row from the database when
-// external_controller is joined with external_controller_address and
-// external_model.
+// Autocert is a named certificate.
 type Autocert struct {
-	// Name is the autocert cache name (primary key).
+	// Name is the autocert name. It uniquely identifies the certificate.
 	Name string `db:"name"`
 
 	// Data represents the binary (encoded) contents of the autocert.
@@ -45,7 +43,7 @@ func (st *State) Put(ctx context.Context, name string, data []byte) error {
 		return errors.Trace(err)
 	}
 
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -72,7 +70,7 @@ func (st *State) Get(ctx context.Context, name string) ([]byte, error) {
 	}
 
 	q := `
-SELECT (name, data) AS &Autocert.*
+SELECT (name, data) AS (&Autocert.*)
 FROM   autocert_cache 
 WHERE  name = $M.name`
 	s, err := sqlair.Prepare(q, Autocert{}, sqlair.M{})
@@ -84,7 +82,7 @@ WHERE  name = $M.name`
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s, sqlair.M{"name": name}).Get(&row))
 	}); err != nil {
-		if err.Error() == sql.ErrNoRows.Error() {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.Annotatef(errors.NotFound, "autocert %s", name)
 		}
 		return nil, errors.Annotate(err, "querying autocert cache")

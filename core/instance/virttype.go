@@ -6,26 +6,45 @@ package instance
 import (
 	"strings"
 
-	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 )
 
 // VirtType represents the type of virtualisation used by a container.
-type VirtType = api.InstanceType
+type VirtType string
 
 const (
 	// DefaultInstanceType is the default instance type to use when no virtType
 	// is specified.
-	DefaultInstanceType = api.InstanceTypeContainer
+	DefaultInstanceType VirtType = "container"
+
+	// AnyInstanceType is a special instance type that represents an unspecified
+	// virtual type. If this is used, then the instance type will be determined
+	// by the default instance type.
+	AnyInstanceType VirtType = ""
+
+	// InstanceTypeContainer is the instance type for a container.
+	InstanceTypeContainer VirtType = "container"
+
+	// InstanceTypeVM is the instance type for a virtual machine.
+	InstanceTypeVM VirtType = "virtual-machine"
 )
+
+// IsAny returns true if the VirtType is AnyInstanceType.
+func (v VirtType) IsAny() bool {
+	return v == AnyInstanceType || v == ""
+}
+
+func (v VirtType) String() string {
+	return string(v)
+}
 
 // ParseVirtType parses a string into a VirtType.
 func ParseVirtType(s string) (VirtType, error) {
 	switch strings.ToLower(s) {
 	case "container":
-		return api.InstanceTypeContainer, nil
+		return InstanceTypeContainer, nil
 	case "virtual-machine":
-		return api.InstanceTypeVM, nil
+		return InstanceTypeVM, nil
 	case "":
 		// Constraints are optional and the absence of a constraint will
 		// fallback to the default instance type (container). This allows
@@ -44,14 +63,4 @@ func MustParseVirtType(s string) VirtType {
 		panic(err)
 	}
 	return v
-}
-
-// NormaliseVirtType converts the "any" type, which represents an unspecified
-// virtual type to a container type. Juju doesn't current support the idea of
-// selecting any type of container type.
-func NormaliseVirtType(virtType api.InstanceType) api.InstanceType {
-	if virtType == api.InstanceTypeAny {
-		return api.InstanceTypeContainer
-	}
-	return virtType
 }

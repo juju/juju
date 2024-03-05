@@ -51,7 +51,6 @@ type ControllerStackerForTest interface {
 	GetSharedSecretAndSSLKey(*gc.C) (string, string)
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
-	SetContext(ctx environs.BootstrapContext)
 }
 
 func (cs *controllerStack) GetControllerAgentConfigContent(c *gc.C) string {
@@ -84,10 +83,6 @@ func (cs *controllerStack) GetControllerSvcSpec(cloudType string, cfg *podcfg.Bo
 	return cs.getControllerSvcSpec(cloudType, cfg)
 }
 
-func (cs *controllerStack) SetContext(ctx environs.BootstrapContext) {
-	cs.ctx = ctx
-}
-
 func NewcontrollerStackForTest(
 	ctx environs.BootstrapContext,
 	stackName,
@@ -95,7 +90,7 @@ func NewcontrollerStackForTest(
 	broker *kubernetesClient,
 	pcfg *podcfg.ControllerPodConfig,
 ) (ControllerStackerForTest, error) {
-	cs, err := newcontrollerStack(ctx, stackName, storageClass, broker, pcfg)
+	cs, err := newControllerStack(ctx, stackName, storageClass, broker, pcfg)
 	if err != nil {
 		return nil, err
 	}
@@ -108,9 +103,9 @@ func NewProvider() caas.ContainerEnvironProvider {
 
 func NewProviderWithFakes(
 	runner CommandRunner,
-	credentialGetter func(CommandRunner) (jujucloud.Credential, error),
+	credentialGetter func(context.Context, CommandRunner) (jujucloud.Credential, error),
 	getter func(CommandRunner) (jujucloud.Cloud, error),
-	brokerGetter func(environs.OpenParams) (ClusterMetadataStorageChecker, error)) caas.ContainerEnvironProvider {
+	brokerGetter func(context.Context, environs.OpenParams) (ClusterMetadataStorageChecker, error)) caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{
 		environProviderCredentials: environProviderCredentials{
 			cmdRunner:               runner,
@@ -123,7 +118,7 @@ func NewProviderWithFakes(
 }
 
 func NewProviderCredentials(
-	getter func(CommandRunner) (jujucloud.Credential, error),
+	getter func(context.Context, CommandRunner) (jujucloud.Credential, error),
 ) environProviderCredentials {
 	return environProviderCredentials{
 		builtinCredentialGetter: getter,
@@ -146,10 +141,10 @@ func GetCloudProviderFromNodeMeta(node core.Node) (string, string) {
 	return getCloudRegionFromNodeMeta(node)
 }
 
-func (k *kubernetesClient) GetPod(podName string) (*core.Pod, error) {
-	return k.getPod(podName)
+func (k *kubernetesClient) GetPod(ctx context.Context, podName string) (*core.Pod, error) {
+	return k.getPod(ctx, podName)
 }
 
-func (k *kubernetesClient) GetStatefulSet(name string) (*apps.StatefulSet, error) {
-	return k.getStatefulSet(name)
+func (k *kubernetesClient) GetStatefulSet(ctx context.Context, name string) (*apps.StatefulSet, error) {
+	return k.getStatefulSet(ctx, name)
 }

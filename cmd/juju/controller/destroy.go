@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	controllerapi "github.com/juju/juju/api/controller/controller"
@@ -584,7 +584,7 @@ func (c *destroyCommandBase) getControllerEnviron(
 	// fall back position.
 	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
 	if errors.Is(err, errors.NotFound) {
-		return c.getControllerEnvironFromAPI(sysAPI, controllerName)
+		return c.getControllerEnvironFromAPI(ctx, sysAPI)
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting environ using bootstrap config from client store")
 	}
@@ -636,14 +636,14 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 		Config:         cfg,
 	}
 	if cloud.CloudTypeIsCAAS(bootstrapConfig.CloudType) {
-		return caas.New(stdcontext.TODO(), openParams)
+		return caas.New(ctx, openParams)
 	}
-	return environs.New(stdcontext.TODO(), openParams)
+	return environs.New(ctx, openParams)
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
+	ctx stdcontext.Context,
 	api destroyControllerAPI,
-	controllerName string,
 ) (environs.Environ, error) {
 	if api == nil {
 		return nil, errors.New(
@@ -666,7 +666,7 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config from API")
 	}
-	return environs.New(stdcontext.TODO(), environs.OpenParams{
+	return environs.New(ctx, environs.OpenParams{
 		ControllerUUID: ctrlCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         cfg,

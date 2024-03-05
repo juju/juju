@@ -32,12 +32,10 @@ const (
 func (s *MultiModelRunnerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.testRunner = &recordingRunner{}
-	logsC := logCollectionName(modelUUID)
 	s.multiModelRunner = &multiModelRunner{
 		rawRunner: s.testRunner,
 		modelUUID: modelUUID,
 		schema: CollectionSchema{
-			logsC:     {},
 			machinesC: {},
 			modelsC:   {global: true},
 			"other":   {global: true},
@@ -286,9 +284,8 @@ type objIdDoc struct {
 
 func (s *MultiModelRunnerSuite) TestWithObjectIds(c *gc.C) {
 	id := bson.NewObjectId()
-	logsC := logCollectionName(modelUUID)
 	inOps := []txn.Op{{
-		C:      logsC,
+		C:      machinesC,
 		Id:     id,
 		Insert: &objIdDoc{Id: id},
 	}}
@@ -297,7 +294,7 @@ func (s *MultiModelRunnerSuite) TestWithObjectIds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedOps := []txn.Op{{
-		C:  logsC,
+		C:  machinesC,
 		Id: id,
 		Insert: bson.D{
 			{"_id", id},

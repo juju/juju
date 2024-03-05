@@ -46,15 +46,13 @@ type WatcherFactory interface {
 
 // Service provides the API for working with external controllers.
 type Service struct {
-	st             State
-	watcherFactory WatcherFactory
+	st State
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, watcherFactory WatcherFactory) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		st:             st,
-		watcherFactory: watcherFactory,
+		st: st,
 	}
 }
 
@@ -95,17 +93,6 @@ func (s *Service) UpdateExternalController(
 	return errors.Annotate(err, "updating external controller state")
 }
 
-// Watch returns a watcher that observes changes to external controllers.
-func (s *Service) Watch() (watcher.StringsWatcher, error) {
-	if s.watcherFactory != nil {
-		return s.watcherFactory.NewUUIDsWatcher(
-			"external_controller",
-			changestream.Create|changestream.Update,
-		)
-	}
-	return nil, errors.NotYetAvailablef("external controller watcher")
-}
-
 // ImportExternalControllers imports the list of MigrationControllerInfo
 // external controllers on one single transaction.
 func (s *Service) ImportExternalControllers(
@@ -134,4 +121,32 @@ func (s *Service) ControllersForModels(
 	modelUUIDs ...string,
 ) ([]crossmodel.ControllerInfo, error) {
 	return s.st.ControllersForModels(ctx, modelUUIDs...)
+}
+
+// WatchableService provides the API for working with external controllers
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// Watch returns a watcher that observes changes to external controllers.
+func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+	if s.watcherFactory != nil {
+		return s.watcherFactory.NewUUIDsWatcher(
+			"external_controller",
+			changestream.Create|changestream.Update,
+		)
+	}
+	return nil, errors.NotYetAvailablef("external controller watcher")
 }

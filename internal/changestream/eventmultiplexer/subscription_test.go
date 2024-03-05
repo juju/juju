@@ -9,7 +9,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
@@ -65,7 +65,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
 	}}
 
 	go func() {
-		err := sub.dispatch(context.TODO(), changes)
+		err := sub.dispatch(context.Background(), changes)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 

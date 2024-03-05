@@ -8,11 +8,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	jujucloud "github.com/juju/juju/cloud"

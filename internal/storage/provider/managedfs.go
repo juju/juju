@@ -14,8 +14,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 )
@@ -33,7 +34,7 @@ const (
 type managedFilesystemSource struct {
 	run                runCommandFunc
 	dirFuncs           dirFuncs
-	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice
+	volumeBlockDevices map[names.VolumeTag]blockdevice.BlockDevice
 	filesystems        map[names.FilesystemTag]storage.Filesystem
 }
 
@@ -44,7 +45,7 @@ type managedFilesystemSource struct {
 // block devices and filesystems created by the source. The caller must not
 // update the maps during calls to the source's methods.
 func NewManagedFilesystemSource(
-	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice,
+	volumeBlockDevices map[names.VolumeTag]blockdevice.BlockDevice,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 ) storage.FilesystemSource {
 	return &managedFilesystemSource{
@@ -63,10 +64,10 @@ func (s *managedFilesystemSource) ValidateFilesystemParams(arg storage.Filesyste
 	return nil
 }
 
-func (s *managedFilesystemSource) backingVolumeBlockDevice(v names.VolumeTag) (storage.BlockDevice, error) {
+func (s *managedFilesystemSource) backingVolumeBlockDevice(v names.VolumeTag) (blockdevice.BlockDevice, error) {
 	blockDevice, ok := s.volumeBlockDevices[v]
 	if !ok {
-		return storage.BlockDevice{}, errors.Errorf(
+		return blockdevice.BlockDevice{}, errors.Errorf(
 			"backing-volume %s is not yet attached", v.Id(),
 		)
 	}
@@ -110,7 +111,7 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 		arg.Volume,
 		storage.FilesystemInfo{
 			arg.Tag.String(),
-			blockDevice.Size,
+			blockDevice.SizeMiB,
 		},
 	}, nil
 }
@@ -208,7 +209,7 @@ func createFilesystem(run runCommandFunc, devicePath string) error {
 	return nil
 }
 
-func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, UUID, mountPoint string, readOnly bool) error {
+func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, uuid, mountPoint string, readOnly bool) error {
 	logger.Debugf("attempting to mount filesystem on %q at %q", devicePath, mountPoint)
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
@@ -240,7 +241,7 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, UUID, mo
 	if mtabEntry == "" {
 		return nil
 	}
-	return ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, mtabEntry)
+	return ensureFstabEntry(etcDir, devicePath, uuid, mountPoint, mtabEntry)
 }
 
 // extractMtabEntry returns any /etc/mtab entry for the specified
@@ -272,7 +273,7 @@ func extractMtabEntry(etcDir string, devicePath, mountPoint string) (string, err
 
 // ensureFstabEntry creates an entry in /etc/fstab for the specified
 // device path and mount point so long as there's no existing entry already.
-func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error {
+func ensureFstabEntry(etcDir, devicePath, uuid, mountPoint, entry string) error {
 	f, err := os.Open(filepath.Join(etcDir, "fstab"))
 	if err != nil && !os.IsNotExist(err) {
 		return errors.Annotate(err, "opening /etc/fstab")
@@ -309,7 +310,7 @@ func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error 
 		}
 	}
 
-	uuidField := "UUID=" + UUID
+	uuidField := "UUID=" + uuid
 	addNewEntry := true
 	// Scan all the fstab lines, searching for one
 	// which describes the entry we want to create.
@@ -330,7 +331,7 @@ func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error 
 			goto writeLine
 		}
 		// We have a match, if UUID is not yet known, retain the line.
-		if UUID == "" {
+		if uuid == "" {
 			addNewEntry = false
 			goto writeLine
 		}
@@ -346,7 +347,7 @@ func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error 
 	}
 
 	if addNewEntry {
-		if UUID != "" {
+		if uuid != "" {
 			if len(resultFields) >= 2 { // just being defensive, check should never fail.
 				_, err := newFsTab.WriteString(fmt.Sprintf("# %s was on %s during installation\n", resultFields[1], resultFields[0]))
 				if err != nil {
@@ -445,7 +446,7 @@ func isMounted(dirFuncs dirFuncs, mountPoint string) (bool, string, error) {
 }
 
 // devicePath returns the device path for the given block device.
-func devicePath(dev storage.BlockDevice) string {
+func devicePath(dev blockdevice.BlockDevice) string {
 	return path.Join("/dev", dev.DeviceName)
 }
 

@@ -9,20 +9,20 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/objectstore"
-	"github.com/juju/juju/worker/trace"
 )
 
 // SharedHub represents the methods of the pubsub.StructuredHub
@@ -34,7 +34,7 @@ type SharedHub interface {
 }
 
 // sharedServerContext contains a number of components that are unchangeable in the API server.
-// These components need to be exposed through the facade.Context. Instead of having the methods
+// These components need to be exposed through the facade.ModelContext. Instead of having the methods
 // of newAPIHandler and newAPIRoot take ever-increasing numbers of parameters, they will instead
 // have a pointer to the sharedServerContext.
 //
@@ -47,7 +47,6 @@ type sharedServerContext struct {
 	presence             presence.Recorder
 	leaseManager         lease.Manager
 	logger               loggo.Logger
-	cancel               <-chan struct{}
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter

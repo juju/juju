@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 )
 
 // jujuXDGDataHome stores the path to the juju configuration
@@ -49,19 +49,19 @@ func JujuXDGDataHomePath(names ...string) string {
 
 // JujuXDGDataHomeDir returns the directory where juju should store application-specific files
 func JujuXDGDataHomeDir() string {
-	JujuXDGDataHomeDir := JujuXDGDataHome()
-	if JujuXDGDataHomeDir != "" {
-		return JujuXDGDataHomeDir
+	homeDir := JujuXDGDataHome()
+	if homeDir != "" {
+		return homeDir
 	}
-	JujuXDGDataHomeDir = os.Getenv(JujuXDGDataHomeEnvKey)
-	if JujuXDGDataHomeDir == "" {
+	homeDir = os.Getenv(JujuXDGDataHomeEnvKey)
+	if homeDir == "" {
 		if runtime.GOOS == "windows" {
-			JujuXDGDataHomeDir = jujuXDGDataHomeWin()
+			homeDir = jujuXDGDataHomeWin()
 		} else {
-			JujuXDGDataHomeDir = jujuXDGDataHomeLinux()
+			homeDir = jujuXDGDataHomeLinux()
 		}
 	}
-	return JujuXDGDataHomeDir
+	return homeDir
 }
 
 // jujuXDGDataHomeLinux returns the directory where juju should store application-specific files on Linux.

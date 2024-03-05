@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -30,7 +30,7 @@ type undertakerSuite struct {
 
 var _ = gc.Suite(&undertakerSuite{})
 
-func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName string) (*mockState, *undertaker.UndertakerAPI) {
+func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName string, secretsConfigError error) (*mockState, *undertaker.UndertakerAPI) {
 	machineNo := "1"
 	if isSystem {
 		machineNo = "0"
@@ -45,7 +45,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	s.secrets = &mockSecrets{}
 	s.PatchValue(&undertaker.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
 
-	secretBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	secretBackendConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -56,7 +56,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 					},
 				},
 			},
-		}, nil
+		}, secretsConfigError
 	}
 	api, err := undertaker.NewUndertaker(st, nil, authorizer, secretBackendConfigGetter, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +74,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 			st,
 			nil,
 			authorizer,
-			func() (*provider.ModelBackendConfigInfo, error) {
+			func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 				return nil, errors.NotImplemented
 			},
 			nil,
@@ -84,8 +84,8 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestModelInfo(c *gc.C) {
-	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
-	st, api := s.setupStateAndAPI(c, true, "admin")
+	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
+	st, api := s.setupStateAndAPI(c, true, "admin", nil)
 	for _, test := range []struct {
 		st        *mockState
 		api       *undertaker.UndertakerAPI
@@ -119,7 +119,7 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestProcessDyingModel(c *gc.C) {
-	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
+	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
 	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -134,7 +134,7 @@ func (s *undertakerSuite) TestProcessDyingModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
-	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
+	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
 	_, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -143,7 +143,7 @@ func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
-	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
+	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
 
 	// Set model to dying
 	otherSt.model.life = state.Dying
@@ -152,7 +152,7 @@ func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
-	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
+	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
 
 	// Set model to dead
 	otherSt.model.life = state.Dying
@@ -166,8 +166,23 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 	c.Assert(s.secrets.cleanedUUID, gc.Equals, otherSt.model.uuid)
 }
 
+func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *gc.C) {
+	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", errors.NotFound)
+
+	// Set model to dead
+	otherSt.model.life = state.Dying
+	err := hostedAPI.ProcessDyingModel(context.Background())
+	c.Assert(err, gc.IsNil)
+
+	err = hostedAPI.RemoveModel(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(otherSt.removed, jc.IsTrue)
+	c.Assert(s.secrets.cleanedUUID, gc.Equals, "")
+}
+
 func (s *undertakerSuite) TestModelConfig(c *gc.C) {
-	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
+	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
 
 	cfg, err := hostedAPI.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -175,7 +190,7 @@ func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestSetStatus(c *gc.C) {
-	mock, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
+	mock, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
 
 	results, err := hostedAPI.SetStatus(
 		context.Background(),
@@ -195,7 +210,7 @@ func (s *undertakerSuite) TestSetStatus(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestSetStatusControllerPermissions(c *gc.C) {
-	_, hostedAPI := s.setupStateAndAPI(c, true, "hostedmodel")
+	_, hostedAPI := s.setupStateAndAPI(c, true, "hostedmodel", nil)
 	results, err := hostedAPI.SetStatus(
 		context.Background(),
 		params.SetStatus{
@@ -211,7 +226,7 @@ func (s *undertakerSuite) TestSetStatusControllerPermissions(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestSetStatusNonControllerPermissions(c *gc.C) {
-	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
+	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
 	results, err := hostedAPI.SetStatus(
 		context.Background(),
 		params.SetStatus{

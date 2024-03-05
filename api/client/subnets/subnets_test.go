@@ -4,10 +4,8 @@
 package subnets_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -30,7 +28,6 @@ func (s *SubnetsSuite) TestNewAPISuccess(c *gc.C) {
 
 	apiCaller := basemocks.NewMockAPICallCloser(ctrl)
 	apiCaller.EXPECT().BestFacadeVersion("Subnets").Return(4)
-	apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	api := subnets.NewAPI(apiCaller)
 	c.Check(api, gc.NotNil)

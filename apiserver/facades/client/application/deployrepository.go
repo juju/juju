@@ -9,17 +9,16 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
@@ -54,7 +54,7 @@ type DeployFromRepository interface {
 // DeployFromRepositoryState defines a common set of functions for retrieving state
 // objects.
 type DeployFromRepositoryState interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, ApplicationSaver, objectstore.ObjectStore) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -66,7 +66,6 @@ type DeployFromRepositoryState interface {
 	services.StateBackend
 
 	network.SpaceLookup
-	DefaultEndpointBindingSpace() (string, error)
 	Space(id string) (*state.Space, error)
 }
 
@@ -74,19 +73,21 @@ type DeployFromRepositoryState interface {
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
-	state      DeployFromRepositoryState
-	store      objectstore.ObjectStore
-	validator  DeployFromRepositoryValidator
-	stateCharm func(Charm) *state.Charm
+	state            DeployFromRepositoryState
+	store            objectstore.ObjectStore
+	validator        DeployFromRepositoryValidator
+	stateCharm       func(Charm) *state.Charm
+	applicationSaver ApplicationSaver
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
-func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, store objectstore.ObjectStore, validator DeployFromRepositoryValidator) DeployFromRepository {
+func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, applicationSaver ApplicationSaver, store objectstore.ObjectStore, validator DeployFromRepositoryValidator) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
-		state:      state,
-		store:      store,
-		validator:  validator,
-		stateCharm: CharmToStateCharm,
+		state:            state,
+		store:            store,
+		validator:        validator,
+		stateCharm:       CharmToStateCharm,
+		applicationSaver: applicationSaver,
 	}
 }
 
@@ -146,7 +147,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
 		Storage:           stateStorageConstraints(dt.storage),
-	}, api.store)
+	}, api.applicationSaver, api.store)
 
 	if addApplicationErr != nil {
 		// Check the pending resources that are added before the AddApplication is called
@@ -370,7 +371,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	}
 
 	// Various checks of the resolved charm against the arg provided.
-	dt, rcErrs := v.resolvedCharmValidation(resolvedCharm, arg)
+	dt, rcErrs := v.resolvedCharmValidation(ctx, resolvedCharm, arg)
 	if len(rcErrs) > 0 {
 		errs = append(errs, rcErrs...)
 	}
@@ -423,7 +424,7 @@ func validateAndParseAttachStorage(input []string, numUnits int) ([]names.Storag
 	return attachStorage, errs
 }
 
-func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
+func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Context, resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
 	var cons constraints.Value
@@ -473,7 +474,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm ch
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(context.Background(), resolvedCharm.Meta().Assumes, v.model, v.cloudService, v.credentialService, v.state.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(ctx, resolvedCharm.Meta().Assumes, v.model, v.cloudService, v.credentialService, v.state.ControllerConfig); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}
@@ -826,7 +827,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		return nil, corecharm.Origin{}, nil, errors.BadRequestf("%q is not a charm", arg.CharmName)
 	}
 
-	resolvedCharm := corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata)
+	resolvedCharm := corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata)
 	if resolvedCharm.Meta().Name == bootstrap.ControllerCharmName {
 		return nil, corecharm.Origin{}, nil, errors.NotSupportedf("manual deploy of the controller charm")
 	}
@@ -879,7 +880,7 @@ func (v *deployFromRepositoryValidator) getCharmRepository(ctx context.Context, 
 	v.mu.Unlock()
 
 	repoFactory := v.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:             deployRepoLogger,
+		LoggerFactory:      services.LoggoLoggerFactory(deployRepoLogger),
 		CharmhubHTTPClient: v.charmhubHTTPClient,
 		StateBackend:       v.state,
 		ModelBackend:       v.model,

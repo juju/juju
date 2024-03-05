@@ -4,7 +4,7 @@
 package storage
 
 import (
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"

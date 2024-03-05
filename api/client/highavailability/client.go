@@ -58,3 +58,32 @@ func (c *Client) EnableHA(
 	}
 	return result.Result, nil
 }
+
+// ControllerDetails holds details of a controller.
+type ControllerDetails struct {
+	ControllerID string
+	APIEndpoints []string
+}
+
+func (c *Client) ControllerDetails() (map[string]ControllerDetails, error) {
+	if c.BestAPIVersion() < 3 {
+		return nil, errors.NotImplemented
+	}
+	var details params.ControllerDetailsResults
+	err := c.facade.FacadeCall(context.TODO(), "ControllerDetails", nil, &details)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]ControllerDetails)
+	for _, r := range details.Results {
+		if r.Error != nil {
+			return nil, r.Error
+		}
+		result[r.ControllerId] = ControllerDetails{
+			ControllerID: r.ControllerId,
+			APIEndpoints: r.APIAddresses,
+		}
+	}
+	return result, nil
+}

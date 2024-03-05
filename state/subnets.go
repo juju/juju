@@ -37,7 +37,6 @@ type subnetDoc struct {
 	CIDR              string   `bson:"cidr"`
 	VLANTag           int      `bson:"vlantag,omitempty"`
 	AvailabilityZones []string `bson:"availability-zones,omitempty"`
-	IsPublic          bool     `bson:"is-public,omitempty"`
 	SpaceID           string   `bson:"space-id,omitempty"`
 	FanLocalUnderlay  string   `bson:"fan-local-underlay,omitempty"`
 	FanOverlay        string   `bson:"fan-overlay,omitempty"`
@@ -69,11 +68,6 @@ func (s *Subnet) FanOverlay() string {
 
 func (s *Subnet) FanLocalUnderlay() string {
 	return s.doc.FanLocalUnderlay
-}
-
-// IsPublic returns true if the subnet is public.
-func (s *Subnet) IsPublic() bool {
-	return s.doc.IsPublic
 }
 
 // EnsureDead sets the Life of the subnet to Dead if it is Alive.
@@ -360,7 +354,6 @@ func (s *Subnet) networkSubnet() network.SubnetInfo {
 		VLANTag:           s.doc.VLANTag,
 		AvailabilityZones: s.doc.AvailabilityZones,
 		FanInfo:           fanInfo,
-		IsPublic:          s.doc.IsPublic,
 		SpaceID:           s.spaceID,
 		Life:              s.Life().Value(),
 		// SpaceName and ProviderSpaceID are populated by Space.NetworkSpace().
@@ -468,7 +461,6 @@ func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []
 		SpaceID:           args.SpaceID,
 		FanLocalUnderlay:  args.FanLocalUnderlay(),
 		FanOverlay:        args.FanOverlay(),
-		IsPublic:          args.IsPublic,
 	}
 	ops := []txn.Op{
 		{

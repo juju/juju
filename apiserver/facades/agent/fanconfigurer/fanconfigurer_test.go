@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/names/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"

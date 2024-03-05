@@ -14,9 +14,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/model"
-	modeltesting "github.com/juju/juju/domain/model/testing"
 )
 
 type serviceSuite struct {
@@ -79,12 +79,12 @@ func (s *serviceSuite) TestModelList(c *gc.C) {
 
 	uuid := modeltesting.GenModelUUID(c)
 
-	s.state.EXPECT().List(gomock.Any()).Return([]model.UUID{uuid}, nil)
+	s.state.EXPECT().List(gomock.Any()).Return([]coremodel.UUID{uuid}, nil)
 
 	svc := NewService(s.state, s.dbDeleter)
 	uuids, err := svc.ModelList(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuids, gc.DeepEquals, []model.UUID{uuid})
+	c.Check(uuids, gc.DeepEquals, []coremodel.UUID{uuid})
 }
 
 func (s *serviceSuite) TestDelete(c *gc.C) {

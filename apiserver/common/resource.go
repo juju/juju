@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 )
 

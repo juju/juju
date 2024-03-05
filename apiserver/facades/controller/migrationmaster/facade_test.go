@@ -8,11 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -61,8 +61,8 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.controllerUUID = utils.MustNewUUID().String()
-	s.modelUUID = utils.MustNewUUID().String()
+	s.controllerUUID = uuid.MustNewUUID().String()
+	s.modelUUID = uuid.MustNewUUID().String()
 
 	s.model = description.NewModel(description.ModelArgs{
 		Type:               "iaas",
@@ -175,7 +175,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	exp.ModelUUID().Return("model-uuid")
 	exp.ModelName().Return("model-name", nil)
 	exp.ModelOwner().Return(names.NewUserTag("owner"), nil)
-	exp.AgentVersion().Return(version.MustParse("1.2.3"), nil)
+	exp.AgentVersion(gomock.Any()).Return(version.MustParse("1.2.3"), nil)
 
 	mod, err := s.mustMakeAPI(c).ModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -613,7 +613,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.resources,
 		s.authorizer,
 		&stubPresence{},
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
 		s.credentialService,
 		s.upgradeService,

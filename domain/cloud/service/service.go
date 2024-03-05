@@ -41,15 +41,13 @@ type State interface {
 
 // Service provides the API for working with clouds.
 type Service struct {
-	st             State
-	watcherFactory WatcherFactory
+	st State
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, watcherFactory WatcherFactory) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		st:             st,
-		watcherFactory: watcherFactory,
+		st: st,
 	}
 }
 
@@ -83,10 +81,25 @@ func (s *Service) Get(ctx context.Context, name string) (*cloud.Cloud, error) {
 	return &result, nil
 }
 
-// WatchCloud returns a watcher that observes changes to the specified cloud.
-func (s *Service) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
-	if s.watcherFactory != nil {
-		return s.st.WatchCloud(ctx, s.watcherFactory.NewValueWatcher, name)
+// WatchableService defines a service for interacting with the underlying state
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the
+// input state and watcher factory.
+func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: watcherFactory,
 	}
-	return nil, errors.NotYetAvailablef("cloud watcher")
+}
+
+// WatchCloud returns a watcher that observes changes to the specified cloud.
+func (s *WatchableService) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+	return s.st.WatchCloud(ctx, s.watcherFactory.NewValueWatcher, name)
 }

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
@@ -24,7 +24,7 @@ var logger = loggo.GetLogger("juju.apiserver.common.errors")
 const (
 	// TODO(juju3): move to params
 	ErrBadId              = errors.ConstError("id not found")
-	ErrBadCreds           = errors.ConstError("invalid entity name or password")
+	ErrUnauthorized       = errors.ConstError("invalid entity name or password")
 	ErrNoCreds            = errors.ConstError("no credentials provided")
 	ErrLoginExpired       = errors.ConstError("login expired")
 	ErrPerm               = errors.ConstError("permission denied")
@@ -59,7 +59,7 @@ var singletonErrorCodes = map[errors.ConstError]string{
 	leadership.ErrClaimDenied:                    params.CodeLeadershipClaimDenied,
 	lease.ErrClaimDenied:                         params.CodeLeaseClaimDenied,
 	ErrBadId:                                     params.CodeNotFound,
-	ErrBadCreds:                                  params.CodeUnauthorized,
+	ErrUnauthorized:                              params.CodeUnauthorized,
 	ErrNoCreds:                                   params.CodeNoCreds,
 	ErrLoginExpired:                              params.CodeLoginExpired,
 	ErrPerm:                                      params.CodeUnauthorized,

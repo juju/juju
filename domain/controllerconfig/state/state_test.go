@@ -6,6 +6,7 @@ package state
 import (
 	ctx "context"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -33,7 +34,7 @@ func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
 		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil)
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig, err := st.ControllerConfig(ctx.Background())
@@ -47,12 +48,12 @@ func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
 	err := st.UpdateControllerConfig(ctx.Background(), map[string]string{
 		controller.PublicDNSAddress: "controller.test.com:1234",
 		controller.APIPortOpenDelay: "100ms",
-	}, nil)
+	}, nil, alwaysValid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateControllerConfig(ctx.Background(), map[string]string{
 		controller.AuditLogMaxBackups: "10",
-	}, nil)
+	}, nil, alwaysValid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
@@ -68,7 +69,7 @@ func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
 
 }
 
-func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
+func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	ctrlConfig := map[string]string{
@@ -77,14 +78,14 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 	}
 
 	// Initial values.
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil)
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now with different DNS address and API port open delay.
 	ctrlConfig[controller.PublicDNSAddress] = "updated-controller.test.com:1234"
 	ctrlConfig[controller.APIPortOpenDelay] = "200ms"
 
-	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil)
+	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
@@ -106,4 +107,23 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 	err = row.Scan(&apiPortOpenDelay)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(apiPortOpenDelay, gc.Equals, "200ms")
+}
+
+func (s *stateSuite) TestUpdateControllerWithValidation(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctrlConfig := map[string]string{
+		controller.PublicDNSAddress: "controller.test.com:1234",
+		controller.APIPortOpenDelay: "100ms",
+	}
+
+	// Initial values.
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, func(m map[string]string) error {
+		return errors.Errorf("boom")
+	})
+	c.Assert(err, gc.ErrorMatches, `boom`)
+}
+
+func alwaysValid(_ map[string]string) error {
+	return nil
 }

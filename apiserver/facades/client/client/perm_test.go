@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -256,10 +255,9 @@ func opClientGetAnnotations(c *gc.C, st api.Connection, _ *state.State) (func(),
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(ann, gc.DeepEquals, []params.AnnotationsGetResult{{
-		EntityTag:   "application-wordpress",
-		Annotations: map[string]string{},
-	}})
+	c.Assert(ann, gc.HasLen, 1)
+	c.Assert(ann[0].EntityTag, gc.Equals, "application-wordpress")
+	c.Assert(ann[0].Annotations, gc.DeepEquals, map[string]string(nil))
 	return func() {}, nil
 }
 
@@ -286,7 +284,7 @@ func opClientApplicationSetCharm(c *gc.C, st api.Connection, _ *state.State) (fu
 	cfg := application.SetCharmConfig{
 		ApplicationName: "nosuch",
 		CharmID: application.CharmID{
-			URL:    charm.MustParseURL("local:quantal/wordpress"),
+			URL:    "local:wordpress",
 			Origin: apicharm.Origin{Source: "local"},
 		},
 	}

@@ -6,14 +6,14 @@ package caasapplication
 import (
 	"context"
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -22,13 +22,20 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-// ControllerState defines the API methods on the ControllerState facade.
+// ControllerConfigService defines the API methods on the ControllerState facade.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
 }
 
 // Facade defines the API methods on the CAASApplication facade.
@@ -37,6 +44,7 @@ type Facade struct {
 	resources               facade.Resources
 	ctrlSt                  ControllerState
 	controllerConfigService ControllerConfigService
+	applicationSaver        ApplicationSaver
 	state                   State
 	model                   Model
 	clock                   clock.Clock
@@ -51,6 +59,7 @@ func NewFacade(
 	ctrlSt ControllerState,
 	st State,
 	controllerConfigService ControllerConfigService,
+	applicationSaver ApplicationSaver,
 	broker Broker,
 	clock clock.Clock,
 	logger loggo.Logger,
@@ -68,6 +77,7 @@ func NewFacade(
 		ctrlSt:                  ctrlSt,
 		state:                   st,
 		controllerConfigService: controllerConfigService,
+		applicationSaver:        applicationSaver,
 		model:                   model,
 		clock:                   clock,
 		broker:                  broker,
@@ -157,15 +167,18 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		upsert.ObservedAttachedVolumeIDs = append(upsert.ObservedAttachedVolumeIDs, fs.Volume.VolumeId)
 	}
 
-	password, err := utils.RandomPassword()
+	pass, err := password.RandomPassword()
 	if err != nil {
 		return errResp(err)
 	}
-	passwordHash := utils.AgentPasswordHash(password)
+	passwordHash := password.AgentPasswordHash(pass)
 	upsert.PasswordHash = &passwordHash
 
 	unit, err := application.UpsertCAASUnit(upsert)
 	if err != nil {
+		return errResp(err)
+	}
+	if err := f.applicationSaver.Save(ctx, application.Name(), applicationservice.AddUnitParams{UnitName: upsert.UnitName}); err != nil {
 		return errResp(err)
 	}
 
@@ -190,7 +203,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	caCert, _ := controllerConfig.CACert()
 	version, _ := f.model.AgentVersion()
 	dataDir := paths.DataDir(paths.OSUnixLike)
-	logDir := paths.LogDir(paths.OSUnixLike)
+	logDir := path.Join(paths.LogDir(paths.OSUnixLike), "juju")
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
@@ -202,7 +215,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 			Model:             f.model.Tag().(names.ModelTag),
 			APIAddresses:      addrs,
 			CACert:            caCert,
-			Password:          password,
+			Password:          pass,
 			UpgradedToVersion: version,
 		},
 	)

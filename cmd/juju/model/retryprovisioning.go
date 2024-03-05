@@ -6,10 +6,10 @@ package model
 import (
 	"fmt"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"

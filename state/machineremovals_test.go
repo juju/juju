@@ -6,7 +6,7 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -65,7 +65,7 @@ func (s *MachineRemovalSuite) TestMarkForRemovalRequiresDeadness(c *gc.C) {
 func (s *MachineRemovalSuite) TestMarkForRemovalAssertsMachineStillExists(c *gc.C) {
 	m := s.makeMachine(c, true)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(m.Remove(state.NewObjectStore(c, s.State)), gc.IsNil)
+		c.Assert(m.Remove(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 	}).Check()
 	err := m.MarkForRemoval()
 	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine 0 not found")
@@ -125,7 +125,7 @@ func (s *MachineRemovalSuite) createRemovalWatcher(c *gc.C, st *state.State) (
 }
 
 func (s *MachineRemovalSuite) makeMachine(c *gc.C, deadAlready bool) *state.Machine {
-	m, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	if deadAlready {
 		deadenMachine(c, m)

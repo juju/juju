@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/clock"
@@ -15,13 +16,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SecretBackends", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("SecretBackends", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newSecretBackendsAPI(ctx)
 	}, reflect.TypeOf((*SecretBackendsAPI)(nil)))
 }
 
 // newSecretBackendsAPI creates a SecretBackendsAPI.
-func newSecretBackendsAPI(context facade.Context) (*SecretBackendsAPI, error) {
+func newSecretBackendsAPI(context facade.ModelContext) (*SecretBackendsAPI, error) {
 	if !context.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}

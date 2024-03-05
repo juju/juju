@@ -4,10 +4,10 @@
 package charmrevisionupdater_test
 
 import (
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/resource"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/resource"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -172,10 +172,10 @@ func (charmhubMetricsMatcher) String() string {
 }
 
 type facadeContextShim struct {
-	facade.Context // Make it fulfil the interface, but we only define a couple of methods
-	state          *state.State
-	authorizer     facade.Authorizer
-	logger         loggo.Logger
+	facade.ModelContext // Make it fulfil the interface, but we only define a couple of methods
+	state               *state.State
+	authorizer          facade.Authorizer
+	logger              loggo.Logger
 }
 
 func (s facadeContextShim) Auth() facade.Authorizer {

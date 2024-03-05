@@ -10,10 +10,10 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
 
@@ -38,7 +38,6 @@ type consumedSecretsWatcherFunc func(CrossModelRelationsState, string) (state.St
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
-	ctx        context.Context
 	st         CrossModelRelationsState
 	fw         firewall.State
 	resources  facade.Resources
@@ -69,7 +68,6 @@ func NewCrossModelRelationsAPI(
 	logger loggo.Logger,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
-		ctx:                    context.Background(),
 		st:                     st,
 		fw:                     fw,
 		resources:              resources,
@@ -97,7 +95,7 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(ctx context.Context
 		offerUUID = oc.OfferUUID()
 	}
 	auth := api.authCtxt.Authenticator()
-	return auth.CheckRelationMacaroons(api.ctx, api.st.ModelUUID(), offerUUID, relationTag, mac, version)
+	return auth.CheckRelationMacaroons(ctx, api.st.ModelUUID(), offerUUID, relationTag, mac, version)
 }
 
 // PublishRelationChanges publishes relation changes to the
@@ -127,12 +125,35 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 		}
 		// Look up the application on the remote side of this relation
 		// ie from the model which published this change.
-		remoteAppTag, err := api.st.GetRemoteEntity(change.ApplicationOrOfferToken)
+		appOrOfferTag, err := api.st.GetRemoteEntity(change.ApplicationOrOfferToken)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, remoteAppTag, change); err != nil {
+		// The tag is either an application tag (consuming side),
+		// or an offer tag (offering side).
+		var applicationTag names.Tag
+		if err == nil {
+			switch k := appOrOfferTag.Kind(); k {
+			case names.ApplicationTagKind:
+				applicationTag = appOrOfferTag
+			case names.ApplicationOfferTagKind:
+				// For an offer tag, load the offer and get the offered app from that.
+				offer, err := api.st.ApplicationOfferForUUID(appOrOfferTag.Id())
+				if err != nil && !errors.IsNotFound(err) {
+					results.Results[i].Error = apiservererrors.ServerError(err)
+					continue
+				}
+				if err == nil {
+					applicationTag = names.NewApplicationTag(offer.ApplicationName)
+				}
+			default:
+				// Should never happen.
+				results.Results[i].Error = apiservererrors.ServerError(errors.NotValidf("offer app tag kind %q", k))
+				continue
+			}
+		}
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -153,14 +174,14 @@ func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
 		Results: make([]params.RegisterRemoteRelationResult, len(relations.Relations)),
 	}
 	for i, relation := range relations.Relations {
-		id, err := api.registerRemoteRelation(relation)
+		id, err := api.registerRemoteRelation(ctx, relation)
 		results.Results[i].Result = id
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
+func (api *CrossModelRelationsAPI) registerRemoteRelation(ctx context.Context, relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
 	api.logger.Debugf("register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
@@ -173,7 +194,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Check that the supplied macaroon allows access.
 	auth := api.authCtxt.Authenticator()
-	attr, err := auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
+	attr, err := auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -269,8 +290,9 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		// Again, if it already exists, that's fine.
 		if err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return nil, errors.Annotate(err, "adding remote relation")
+		} else if err == nil {
+			api.logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
 		}
-		api.logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
 	}
 	_, err = api.st.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: sourceModelTag.Id(), Username: username,
@@ -294,12 +316,9 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	api.logger.Debugf("relation token %v exported for %v ", relation.RelationToken, localRel.Tag().Id())
 
 	// Export the local offer from this model so we can tell the caller what the remote id is.
-	// The offer is exported as an application name since it models the behaviour of an application
-	// as far as the consuming side is concerned, and also needs to be unique.
-	// This allows > 1 offers off the one application to be made.
-	// NB we need to export the application last so that everything else is in place when the worker is
+	// NB we need to export the offer last so that everything else is in place when the worker is
 	// woken up by the watcher.
-	token, err := api.st.ExportLocalEntity(names.NewApplicationOfferTag(appOffer.OfferName))
+	token, err := api.st.ExportLocalEntity(names.NewApplicationOfferTag(appOffer.OfferUUID))
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "exporting local application offer %q", appOffer.OfferName)
 	}
@@ -307,7 +326,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(
-		api.ctx, api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
+		ctx, api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
@@ -481,6 +500,7 @@ func watchConsumedSecrets(st CrossModelRelationsState, appName string) (state.St
 // WatchOfferStatus starts an OfferStatusWatcher for
 // watching the status of an offer.
 func (api *CrossModelRelationsAPI) WatchOfferStatus(
+	ctx context.Context,
 	offerArgs params.OfferArgs,
 ) (params.OfferStatusWatchResults, error) {
 	results := params.OfferStatusWatchResults{
@@ -490,7 +510,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 	auth := api.authCtxt.Authenticator()
 	for i, arg := range offerArgs.Args {
 		// Ensure the supplied macaroon allows access.
-		_, err := auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err := auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -542,7 +562,7 @@ func (api *CrossModelRelationsAPI) WatchConsumedSecretsChanges(ctx context.Conte
 		}
 
 		// Ensure the supplied macaroon allows access.
-		_, err = auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), offerUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err = auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), offerUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

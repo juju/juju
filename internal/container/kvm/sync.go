@@ -4,6 +4,7 @@
 package kvm
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -43,7 +44,7 @@ func (p syncParams) One() (*imagedownloads.Metadata, error) {
 	if err := p.exists(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return imagedownloads.One(p.fetcher, p.arch, p.version, p.stream, p.fType, p.srcFunc)
+	return imagedownloads.One(context.TODO(), p.fetcher, p.arch, p.version, p.stream, p.fType, p.srcFunc)
 }
 
 func (p syncParams) exists() error {

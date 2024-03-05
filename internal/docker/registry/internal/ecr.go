@@ -74,13 +74,13 @@ func newElasticContainerRegistry(repoDetails docker.ImageRepoDetails, transport 
 
 func newElasticContainerRegistryForTest(
 	repoDetails docker.ImageRepoDetails, transport http.RoundTripper,
-	ECRClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error),
+	ecrClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error),
 ) (RegistryInternal, error) {
 	c, err := newBase(repoDetails, transport, normalizeRepoDetailsElasticContainerRegistry)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &elasticContainerRegistry{baseClient: c, ECRClientFunc: ECRClientFunc}, nil
+	return &elasticContainerRegistry{baseClient: c, ECRClientFunc: ecrClientFunc}, nil
 }
 
 func normalizeRepoDetailsElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) error {

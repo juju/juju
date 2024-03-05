@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/names/v4"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -113,12 +113,6 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]bas
 				Status:    migration.Status,
 				StartTime: migration.Start,
 				EndTime:   migration.End,
-			}
-		}
-		if info.Result.SLA != nil {
-			results[i].SLA = &base.SLASummary{
-				Level: info.Result.SLA.Level,
-				Owner: info.Result.SLA.Owner,
 			}
 		}
 		if len(info.Result.Users) > 0 {

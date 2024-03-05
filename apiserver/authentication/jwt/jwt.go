@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
@@ -207,6 +207,8 @@ func PermissionFromToken(token jwt.Token, subject names.Tag) (permission.Access,
 		validate = permission.ValidateModelAccess
 	case names.CloudTagKind:
 		validate = permission.ValidateCloudAccess
+	case names.ApplicationOfferTagKind:
+		validate = permission.ValidateOfferAccess
 	default:
 		return "", errors.NotValidf("%q as a target", subject)
 	}

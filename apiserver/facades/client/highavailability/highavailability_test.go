@@ -53,14 +53,14 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 	st := s.ControllerModel(c).State()
 	var err error
-	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
+	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachines(state.MachineTemplate{
+	_, err = st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
@@ -77,7 +77,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
-	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
@@ -286,6 +286,16 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestEnableHAControllerConfigWithFileBackedObjectStore(c *gc.C) {
+	st := s.ControllerModel(c).State()
+	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
+	controllerSettings.Set(controller.ObjectStoreType, "file")
+	controllerSettings.Write()
+
+	_, err := s.enableHA(c, 3, emptyCons, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot enable-ha with filesystem backed object store`)
+}
+
 func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
 	// Block all changes.
 	s.BlockAllChanges(c, "TestBlockEnableHA")
@@ -332,14 +342,14 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	machine1Cons := constraints.MustParse("mem=8G")
-	_, err := st.AddMachines(state.MachineTemplate{
+	_, err := st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: machine1Cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
@@ -369,7 +379,7 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	sp, err := st.AddSpace("ha-space", "", nil, true)
+	sp, err := st.AddSpace("ha-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
@@ -380,14 +390,14 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 	controllerConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m1, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m1, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a1 := network.NewSpaceAddress("192.168.6.6")
 	a1.SpaceID = sp.Id()
 	err = m1.SetProviderAddresses(controllerConfig, a1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m2, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m2, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a2 := network.NewSpaceAddress("192.168.6.7")
 	a2.SpaceID = sp.Id()
@@ -401,7 +411,7 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	_, err := st.AddSpace("ha-space", "", nil, true)
+	_, err := st.AddSpace("ha-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
@@ -409,7 +419,7 @@ func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) 
 	_, err = controllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
@@ -528,7 +538,7 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	st2 := f.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
-	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
+	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st2,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
@@ -590,10 +600,32 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	st := f.MakeCAASModel(c, nil)
 	defer st.Close()
 
-	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
+	_, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
+}
+
+func (s *clientSuite) TestControllerDetails(c *gc.C) {
+	cfg, err := s.ControllerServiceFactory(c).ControllerConfig().ControllerConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort := cfg.APIPort()
+
+	_, err = s.enableHA(c, 3, emptyCons, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	d, err := s.haServer.ControllerDetails(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(d, jc.DeepEquals, params.ControllerDetailsResults{
+		Results: []params.ControllerDetails{
+			{ControllerId: "0", APIAddresses: []string{
+				fmt.Sprintf("cloud-local0.internal:%d", apiPort),
+				fmt.Sprintf("[fc00::0]:%d", apiPort)}},
+			// No addresses for machines 1 and 2 yet.
+			{ControllerId: "1"},
+			{ControllerId: "2"},
+		},
+	})
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
@@ -49,10 +49,6 @@ type ModelSummary struct {
 	CloudTag           string
 	CloudRegion        string
 	CloudCredentialTag string
-
-	// SLA contains the information about the SLA for the model, if set.
-	SLALevel string
-	SLAOwner string
 
 	// Needs Config()
 	ProviderType string
@@ -109,8 +105,6 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 			Owner:              doc.Owner,
 			ControllerUUID:     doc.ControllerUUID,
 			IsController:       doc.UUID == st.modelTag.Id(),
-			SLALevel:           string(doc.SLA.Level),
-			SLAOwner:           doc.SLA.Owner,
 			CloudTag:           names.NewCloudTag(doc.Cloud).String(),
 			CloudRegion:        doc.CloudRegion,
 			CloudCredentialTag: cloudCred,

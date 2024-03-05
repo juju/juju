@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	stdcontext "context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -12,18 +13,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
@@ -36,6 +37,9 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -324,9 +328,6 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			}
 		}
 	}
-
-	// Logs are in a separate database so don't get caught by that loop.
-	_ = removeModelLogs(st.MongoSession(), modelUUID)
 
 	// Now remove the model.
 	model, err := st.Model()
@@ -1126,9 +1127,18 @@ func (st *State) CloudService(id string) (*CloudService, error) {
 	return svc.CloudService()
 }
 
+// CharmRef is an indirection to a charm, this allows us to pass in a charm,
+// without having a full concrete charm.
+type CharmRef interface {
+	Meta() *charm.Meta
+	Manifest() *charm.Manifest
+	URL() string
+}
+
+// AddApplicationArgs defines the arguments for AddApplication method.
 type AddApplicationArgs struct {
 	Name              string
-	Charm             *Charm
+	Charm             CharmRef
 	CharmOrigin       *CharmOrigin
 	Storage           map[string]StorageConstraints
 	Devices           map[string]DeviceConstraints
@@ -1142,10 +1152,15 @@ type AddApplicationArgs struct {
 	Resources         map[string]string
 }
 
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+}
+
 // AddApplication creates a new application, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddApplication(args AddApplicationArgs, store objectstore.ObjectStore) (_ *Application, err error) {
+func (st *State) AddApplication(prechecker environs.InstancePrechecker, args AddApplicationArgs, applicationSaver ApplicationSaver, store objectstore.ObjectStore) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 
 	// Sanity checks.
@@ -1269,12 +1284,12 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 	nowNano := st.clock().Now().UnixNano()
 	switch model.Type() {
 	case ModelTypeIAAS:
-		if err := st.processIAASModelApplicationArgs(&args); err != nil {
+		if err := st.processIAASModelApplicationArgs(prechecker, &args); err != nil {
 			return nil, errors.Trace(err)
 		}
 	case ModelTypeCAAS:
 		hasResources = true // all k8s apps start with the assumption of resources
-		if err := st.processCAASModelApplicationArgs(&args); err != nil {
+		if err := st.processCAASModelApplicationArgs(prechecker, &args); err != nil {
 			return nil, errors.Trace(err)
 		}
 		scale = args.NumUnits
@@ -1346,7 +1361,9 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 	removeNils(args.CharmConfig)
 	removeNils(appConfigAttrs)
 
+	var unitNames []string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		unitNames = []string{}
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
 		if attempt > 0 {
@@ -1427,6 +1444,7 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			unitNames = append(unitNames, unitName)
 			ops = append(ops, unitOps...)
 			if model.Type() != ModelTypeCAAS {
 				placement := instance.Placement{}
@@ -1442,6 +1460,14 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 	_, _ = probablyUpdateStatusHistory(st.db(), app.globalKey(), statusDoc)
 
 	if err = st.db().Run(buildTxn); err == nil {
+		unitArgs := make([]applicationservice.AddUnitParams, len(unitNames))
+		for i := range unitNames {
+			n := unitNames[i]
+			unitArgs[i].UnitName = &n
+		}
+		if err := applicationSaver.Save(context.TODO(), args.Name, unitArgs...); err != nil {
+			return nil, errors.Trace(err)
+		}
 		// Refresh to pick the txn-revno.
 		if err = app.Refresh(); err != nil {
 			return nil, errors.Trace(err)
@@ -1482,7 +1508,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	return Base{appBase.OS, appBase.Channel.String()}, errors.Trace(err)
 }
 
-func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
+func (st *State) processIAASModelApplicationArgs(prechecker environs.InstancePrechecker, args *AddApplicationArgs) error {
 	appBase, err := st.processCommonModelApplicationArgs(args)
 	if err != nil {
 		return errors.Trace(err)
@@ -1545,7 +1571,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			}
 			subordinate := args.Charm.Meta().Subordinate
 			if err := validateUnitMachineAssignment(
-				m, appBase, subordinate, storagePools,
+				st, m, appBase, subordinate, storagePools,
 			); err != nil {
 				return errors.Annotatef(
 					err, "cannot deploy to machine %s", m,
@@ -1556,7 +1582,10 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			// precheck the args since we're not starting an instance.
 
 		case directivePlacement:
-			if err := st.precheckInstance(
+
+			if err := precheckInstance(
+				context.Background(),
+				prechecker,
 				appBase,
 				args.Constraints,
 				data.directive,
@@ -1568,7 +1597,9 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	}
 	// We want to check the constraints if there's no placement at all.
 	if len(args.Placement) == 0 {
-		if err := st.precheckInstance(
+		if err := precheckInstance(
+			context.Background(),
+			prechecker,
 			appBase,
 			args.Constraints,
 			"",
@@ -1581,7 +1612,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	return nil
 }
 
-func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error {
+func (st *State) processCAASModelApplicationArgs(prechecker environs.InstancePrechecker, args *AddApplicationArgs) error {
 	appSeries, err := st.processCommonModelApplicationArgs(args)
 	if err != nil {
 		return errors.Trace(err)
@@ -1589,7 +1620,9 @@ func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error
 	if len(args.Placement) > 0 {
 		return errors.NotValidf("placement directives on k8s models")
 	}
-	return st.precheckInstance(
+	return precheckInstance(
+		context.Background(),
+		prechecker,
 		appSeries,
 		args.Constraints,
 		"",
@@ -1624,7 +1657,7 @@ func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 
 // AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
 // assignments.
-func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error) {
+func (st *State) AssignStagedUnits(prechecker environs.InstancePrechecker, ids []string) ([]UnitAssignmentResult, error) {
 	query := bson.D{{"_id", bson.D{{"$in", ids}}}}
 	unitAssignments, err := st.unitAssignments(query)
 	if err != nil {
@@ -1632,7 +1665,7 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	}
 	results := make([]UnitAssignmentResult, len(unitAssignments))
 	for i, a := range unitAssignments {
-		err := st.assignStagedUnit(a)
+		err := st.assignStagedUnit(prechecker, a)
 		results[i].Unit = a.Unit
 		results[i].Error = err
 	}
@@ -1671,23 +1704,23 @@ func removeStagedAssignmentOp(id string) txn.Op {
 	}
 }
 
-func (st *State) assignStagedUnit(a UnitAssignment) error {
+func (st *State) assignStagedUnit(prechecker environs.InstancePrechecker, a UnitAssignment) error {
 	u, err := st.Unit(a.Unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if a.Scope == "" && a.Directive == "" {
-		return errors.Trace(st.AssignUnit(u, AssignCleanEmpty))
+		return errors.Trace(st.AssignUnit(prechecker, u, AssignNew))
 	}
 
 	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
 
-	return errors.Trace(st.AssignUnitWithPlacement(u, placement))
+	return errors.Trace(st.AssignUnitWithPlacement(prechecker, u, placement))
 }
 
 // AssignUnitWithPlacement chooses a machine using the given placement directive
 // and then assigns the unit to it.
-func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement) error {
+func (st *State) AssignUnitWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, placement *instance.Placement) error {
 	// TODO(natefinch) this should be done as a single transaction, not two.
 	// Mark https://launchpad.net/bugs/1506994 fixed when done.
 
@@ -1696,10 +1729,10 @@ func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placeme
 		return errors.Trace(err)
 	}
 	if data.placementType() == directivePlacement {
-		return unit.assignToNewMachine(data.directive)
+		return unit.assignToNewMachine(prechecker, data.directive)
 	}
 
-	m, err := st.addMachineWithPlacement(unit, data)
+	m, err := st.addMachineWithPlacement(prechecker, unit, data)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1754,7 +1787,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 
 // addMachineWithPlacement finds a machine that matches the given
 // placement directive for the given unit.
-func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Machine, error) {
+func (st *State) addMachineWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, data *placementData) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1860,7 +1893,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 		if mId != "" {
 			return st.AddMachineInsideMachine(template, mId, data.containerType)
 		}
-		return st.AddMachineInsideNewMachine(template, template, data.containerType)
+		return st.AddMachineInsideNewMachine(prechecker, template, template, data.containerType)
 	case directivePlacement:
 		return nil, errors.NotSupportedf(
 			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
@@ -2484,7 +2517,7 @@ func (st *State) UnitsInError() ([]*Unit, error) {
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the model, this may lead to new instances being launched
 // within the model.
-func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+func (st *State) AssignUnit(prechecker environs.InstancePrechecker, u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
@@ -2497,18 +2530,8 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return errors.Trace(err)
 		}
 		return u.AssignToMachine(m)
-	case AssignClean:
-		if _, err = u.AssignToCleanMachine(); errors.Cause(err) != noCleanMachines {
-			return errors.Trace(err)
-		}
-		return u.AssignToNewMachineOrContainer()
-	case AssignCleanEmpty:
-		if _, err = u.AssignToCleanEmptyMachine(); errors.Cause(err) != noCleanMachines {
-			return errors.Trace(err)
-		}
-		return u.AssignToNewMachineOrContainer()
 	case AssignNew:
-		return errors.Trace(u.AssignToNewMachine())
+		return errors.Trace(u.AssignToNewMachine(prechecker))
 	}
 	return errors.Errorf("unknown unit assignment policy: %q", policy)
 }
@@ -2563,51 +2586,6 @@ func (st *State) networkEntityGlobalKey(globalKey string, providerId corenetwork
 	return st.docID(globalKey + ":" + string(providerId))
 }
 
-// SetSLA sets the SLA on the current connected model.
-func (st *State) SetSLA(level, owner string, credentials []byte) error {
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return model.SetSLA(level, owner, credentials)
-}
-
-// SetModelMeterStatus sets the meter status for the current connected model.
-func (st *State) SetModelMeterStatus(status, info string) error {
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return model.SetMeterStatus(status, info)
-}
-
-// ModelMeterStatus returns the meter status for the current connected model.
-func (st *State) ModelMeterStatus() (MeterStatus, error) {
-	model, err := st.Model()
-	if err != nil {
-		return MeterStatus{MeterNotAvailable, ""}, errors.Trace(err)
-	}
-	return model.MeterStatus(), nil
-}
-
-// SLALevel returns the SLA level of the current connected model.
-func (st *State) SLALevel() (string, error) {
-	model, err := st.Model()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return model.SLALevel(), nil
-}
-
-// SLACredential returns the SLA credential of the current connected model.
-func (st *State) SLACredential() ([]byte, error) {
-	model, err := st.Model()
-	if err != nil {
-		return []byte{}, errors.Trace(err)
-	}
-	return model.SLACredential(), nil
-}
-
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	'a': names.ApplicationTagKind + "-",
@@ -2645,4 +2623,38 @@ func TagFromDocID(docID string) names.Tag {
 	default:
 		return nil
 	}
+}
+
+// precheckInstance is a helper function that calls the prechecker to
+// precheck an instance.
+func precheckInstance(ctx stdcontext.Context, prechecker environs.InstancePrechecker, base Base, cons constraints.Value, placement string, volumeAttachments []storage.VolumeAttachmentParams) error {
+	mBase, err := corebase.ParseBase(base.OS, base.Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = prechecker.PrecheckInstance(
+		envcontext.WithoutCredentialInvalidator(ctx),
+		environs.PrecheckInstanceParams{
+			Base:              mBase,
+			Constraints:       cons,
+			Placement:         placement,
+			VolumeAttachments: volumeAttachments,
+		},
+	)
+	// If prechecker is not supported, then we'll just ignore the error.
+	if errors.Is(err, errors.NotSupported) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+// NoopInstancePrechecker is a no-op implementation of
+// environs.InstancePrechecker. This is used when we don't have any environ
+// or broker to precheck instances against.
+// This is intended to be used in tests.
+type NoopInstancePrechecker struct{}
+
+func (NoopInstancePrechecker) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
+	return errors.NotSupportedf("prechecking instances")
 }

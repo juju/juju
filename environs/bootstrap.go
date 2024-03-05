@@ -135,6 +135,7 @@ type BootstrapLogger interface {
 // it is being invoked.
 type BootstrapContext interface {
 	BootstrapLogger
+	context.Context
 
 	// InterruptNotify starts watching for interrupt signals
 	// on behalf of the caller, sending them to the supplied
@@ -150,7 +151,4 @@ type BootstrapContext interface {
 	// ShouldVerifyCredentials indicates whether the caller's cloud
 	// credentials should be verified.
 	ShouldVerifyCredentials() bool
-
-	// Context is the context.Context value for this bootstrap command.
-	Context() context.Context
 }

@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -73,7 +73,7 @@ func (s *EnvironUpgraderSuite) TestAuthController(c *gc.C) {
 func (s *EnvironUpgraderSuite) TestAuthNonController(c *gc.C) {
 	s.authorizer.Controller = false
 	s.authorizer.Tag = names.NewUserTag("admin")
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		Auth_: s.authorizer,
 	}
 	_, err := environupgrader.NewStateFacade(ctx)

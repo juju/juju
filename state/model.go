@@ -14,9 +14,8 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
-	jujuutils "github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -117,12 +117,6 @@ type modelDoc struct {
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
 
-	// SLA is the current support level of the model.
-	SLA slaDoc `bson:"sla"`
-
-	// MeterStatus is the current meter status of the model.
-	MeterStatus modelMeterStatusdoc `bson:"meter-status"`
-
 	// PasswordHash is used by the caas model operator.
 	PasswordHash string `bson:"passwordhash"`
 
@@ -134,56 +128,6 @@ type modelDoc struct {
 	// DestroyTimeout is the timeout passed in when the
 	// model was destroyed.
 	DestroyTimeout *time.Duration `bson:"destroy-timeout,omitempty"`
-}
-
-// slaLevel enumerates the support levels available to a model.
-type slaLevel string
-
-const (
-	slaNone        = slaLevel("")
-	SLAUnsupported = slaLevel("unsupported")
-	SLAEssential   = slaLevel("essential")
-	SLAStandard    = slaLevel("standard")
-	SLAAdvanced    = slaLevel("advanced")
-)
-
-// String implements fmt.Stringer returning the string representation of an
-// SLALevel.
-func (l slaLevel) String() string {
-	if l == slaNone {
-		l = SLAUnsupported
-	}
-	return string(l)
-}
-
-// newSLALevel returns a new SLA level from a string representation.
-func newSLALevel(level string) (slaLevel, error) {
-	l := slaLevel(level)
-	if l == slaNone {
-		l = SLAUnsupported
-	}
-	switch l {
-	case SLAUnsupported, SLAEssential, SLAStandard, SLAAdvanced:
-		return l, nil
-	}
-	return l, errors.NotValidf("SLA level %q", level)
-}
-
-// slaDoc represents the state of the SLA on the model.
-type slaDoc struct {
-	// Level is the current support level set on the model.
-	Level slaLevel `bson:"level"`
-
-	// Owner is the SLA owner of the model.
-	Owner string `bson:"owner,omitempty"`
-
-	// Credentials authenticates the support level setting.
-	Credentials []byte `bson:"credentials"`
-}
-
-type modelMeterStatusdoc struct {
-	Code string `bson:"code"`
-	Info string `bson:"info"`
 }
 
 // modelEntityRefsDoc records references to the top-level entities in the
@@ -432,9 +376,6 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
-	if err := InitDbLogsForModel(session, uuid, args.ControllerConfig.ModelLogsSizeMB()); err != nil {
-		return nil, nil, errors.Annotate(err, "initialising model logs collection")
-	}
 	return newModel, newSt, nil
 }
 
@@ -452,10 +393,10 @@ func (m *Model) ModelTag() names.ModelTag {
 
 // SetPassword sets the password for the model's agent.
 func (m *Model) SetPassword(password string) error {
-	if len(password) < jujuutils.MinAgentPasswordLength {
+	if len(password) < internalpassword.MinAgentPasswordLength {
 		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	passwordHash := jujuutils.AgentPasswordHash(password)
+	passwordHash := internalpassword.AgentPasswordHash(password)
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     m.doc.UUID,
@@ -483,7 +424,7 @@ func (m *Model) String() string {
 // PasswordValid returns whether the given password is valid
 // for the given application.
 func (m *Model) PasswordValid(password string) bool {
-	agentHash := jujuutils.AgentPasswordHash(password)
+	agentHash := internalpassword.AgentPasswordHash(password)
 	if agentHash == m.doc.PasswordHash {
 		return true
 	}
@@ -607,10 +548,10 @@ func (m *Model) Status() (status.StatusInfo, error) {
 
 // localID returns the local id value by stripping off the model uuid prefix
 // if it is there.
-func (m *Model) localID(ID string) string {
-	modelUUID, localID, ok := splitDocID(ID)
+func (m *Model) localID(id string) string {
+	modelUUID, localID, ok := splitDocID(id)
 	if !ok || modelUUID != m.doc.UUID {
-		return ID
+		return id
 	}
 	return localID
 }
@@ -682,73 +623,6 @@ func (m *Model) LatestToolsVersion() version.Number {
 		return version.Zero
 	}
 	return v
-}
-
-// SLALevel returns the SLA level as a string.
-func (m *Model) SLALevel() string {
-	return m.doc.SLA.Level.String()
-}
-
-// SLAOwner returns the SLA owner as a string. Note that this may differ from
-// the model owner.
-func (m *Model) SLAOwner() string {
-	return m.doc.SLA.Owner
-}
-
-// SLACredential returns the SLA credential.
-func (m *Model) SLACredential() []byte {
-	return m.doc.SLA.Credentials
-}
-
-// SetSLA sets the SLA on the model.
-func (m *Model) SetSLA(level, owner string, credentials []byte) error {
-	l, err := newSLALevel(level)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ops := []txn.Op{{
-		C:  modelsC,
-		Id: m.doc.UUID,
-		Update: bson.D{{"$set", bson.D{{"sla", slaDoc{
-			Level:       l,
-			Owner:       owner,
-			Credentials: credentials,
-		}}}}},
-	}}
-	err = m.st.db().RunTransaction(ops)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return m.Refresh()
-}
-
-// SetMeterStatus sets the current meter status for this model.
-func (m *Model) SetMeterStatus(status, info string) error {
-	if _, err := isValidMeterStatusCode(status); err != nil {
-		return errors.Trace(err)
-	}
-	ops := []txn.Op{{
-		C:  modelsC,
-		Id: m.doc.UUID,
-		Update: bson.D{{"$set", bson.D{{"meter-status", modelMeterStatusdoc{
-			Code: status,
-			Info: info,
-		}}}}},
-	}}
-	err := m.st.db().RunTransaction(ops)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return m.Refresh()
-}
-
-// MeterStatus returns the current meter status for this model.
-func (m *Model) MeterStatus() MeterStatus {
-	ms := m.doc.MeterStatus
-	return MeterStatus{
-		Code: MeterStatusFromString(ms.Code),
-		Info: ms.Info,
-	}
 }
 
 // EnvironVersion is the version of the model's environ -- the related

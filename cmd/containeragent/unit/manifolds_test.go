@@ -72,6 +72,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"not-dead-flag",
 
 		"signal-handler",
+
+		"trace",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -120,6 +122,8 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *gc.C) {
 		"not-dead-flag",
 
 		"signal-handler",
+
+		"trace",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -153,6 +157,8 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"not-dead-flag",
 		"signal-handler",
 		"caas-zombie-prober",
+
+		"trace",
 	)
 	config := unit.ManifoldsConfig{}
 	manifolds := unit.Manifolds(config)
@@ -213,6 +219,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"migration-fortress",
 		"migration-inactive-flag",
 		"not-dead-flag",
+		"trace",
 	},
 
 	"log-sender": {
@@ -294,6 +301,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"s3-caller",
 		"uniter",
 		"not-dead-flag",
+		"trace",
 	},
 	"upgrade-steps-flag": {
 		"upgrade-steps-gate",
@@ -326,6 +334,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"s3-caller",
 		"uniter",
 		"not-dead-flag",
+		"trace",
 	},
 	"caas-units-manager": {
 		"agent",
@@ -364,5 +373,8 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
+	},
+	"trace": {
+		"agent",
 	},
 }

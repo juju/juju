@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -34,7 +34,7 @@ type CloudSpecer interface {
 type CloudSpecAPI struct {
 	resources facade.Resources
 
-	getCloudSpec                           func(names.ModelTag) (environscloudspec.CloudSpec, error)
+	getCloudSpec                           func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	watchCloudSpec                         func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error)
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecCredentialContent        func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error)
@@ -48,7 +48,7 @@ type CloudSpecAPIV2 struct {
 // NewCloudSpec returns a new CloudSpecAPI.
 func NewCloudSpec(
 	resources facade.Resources,
-	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	getCloudSpec func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecCredentialContent func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
@@ -66,7 +66,7 @@ func NewCloudSpec(
 
 func NewCloudSpecV2(
 	resources facade.Resources,
-	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	getCloudSpec func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecCredentialContent func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
@@ -110,7 +110,7 @@ func (s CloudSpecAPI) CloudSpec(ctx context.Context, args params.Entities) (para
 // GetCloudSpec constructs the CloudSpec for a validated and authorized model.
 func (s CloudSpecAPI) GetCloudSpec(ctx context.Context, tag names.ModelTag) params.CloudSpecResult {
 	var result params.CloudSpecResult
-	spec, err := s.getCloudSpec(tag)
+	spec, err := s.getCloudSpec(ctx, tag)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result

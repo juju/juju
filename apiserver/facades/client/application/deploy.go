@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/assumes"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/assumes"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -57,7 +58,7 @@ type DeployApplicationParams struct {
 }
 
 type ApplicationDeployer interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, ApplicationSaver, objectstore.ObjectStore) (Application, error)
 	ControllerConfig() (controller.Config, error)
 }
 
@@ -65,10 +66,21 @@ type UnitAdder interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
 }
 
+// MachineSaver instances save a machine to dqlite state.
+type MachineSaver interface {
+	Save(context.Context, string) error
+}
+
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+}
+
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
 	ctx context.Context, st ApplicationDeployer, model Model, cloudService common.CloudService,
 	credentialService common.CredentialService,
+	applicationSaver ApplicationSaver,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
 ) (Application, error) {
@@ -128,13 +140,16 @@ func DeployApplication(
 	if !args.Charm.Meta().Subordinate {
 		asa.Constraints = args.Constraints
 	}
-	return st.AddApplication(asa, store)
+	return st.AddApplication(asa, applicationSaver, store)
 }
 
 // addUnits starts n units of the given application using the specified placement
 // directives to allocate the machines.
 func addUnits(
+	ctx context.Context,
 	unitAdder UnitAdder,
+	machineService MachineSaver,
+	applicationSaver ApplicationSaver,
 	appName string,
 	n int,
 	placement []*instance.Placement,
@@ -142,8 +157,7 @@ func addUnits(
 	assignUnits bool,
 ) ([]Unit, error) {
 	units := make([]Unit, n)
-	// Hard code for now till we implement a different approach.
-	policy := state.AssignCleanEmpty
+	policy := state.AssignNew
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{
@@ -151,6 +165,10 @@ func addUnits(
 		})
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
+		}
+		unitName := unit.Name()
+		if err := applicationSaver.Save(ctx, appName, applicationservice.AddUnitParams{UnitName: &unitName}); err != nil {
+			return nil, errors.Annotatef(err, "cannot add unit %q to application %q", unitName, appName)
 		}
 		units[i] = unit
 		if !assignUnits {
@@ -162,13 +180,37 @@ func addUnits(
 			if err := unit.AssignWithPolicy(policy); err != nil {
 				return nil, errors.Trace(err)
 			}
-			continue
+		} else {
+			if err := unit.AssignWithPlacement(placement[i]); err != nil {
+				return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
+			}
 		}
-		if err := unit.AssignWithPlacement(placement[i]); err != nil {
-			return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
+
+		// Get assigned machine and ensure it exists in dqlite.
+		id, err := unit.AssignedMachineId()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting assigned machine for unit: %q", unit.Name())
+		}
+		if err := saveMachineInfo(ctx, machineService, id); err != nil {
+			return nil, errors.Annotatef(err, "saving assigned machine %q for unit: %q", id, unit.Name())
 		}
 	}
 	return units, nil
+}
+
+func saveMachineInfo(ctx context.Context, machineService MachineSaver, machineId string) error {
+	// This is temporary - just insert the machine id all al the parent ones.
+	for machineId != "" {
+		if err := machineService.Save(ctx, machineId); err != nil {
+			return errors.Annotatef(err, "saving info for machine %q", machineId)
+		}
+		parent := names.NewMachineTag(machineId).Parent()
+		if parent == nil {
+			break
+		}
+		machineId = parent.Id()
+	}
+	return nil
 }
 
 func stateStorageConstraints(cons map[string]storage.Constraints) map[string]state.StorageConstraints {

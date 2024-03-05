@@ -289,7 +289,7 @@ def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
 def maybe_inject_ssh_keys(remote, env):
     use_ssh_key = getattr(remote, "use_ssh_key", None)
     if callable(use_ssh_key):
-        identity_file = os.path.join(env.juju_home, "ssh", "juju_id_rsa")
+        identity_file = os.path.join(env.juju_home, "ssh", "juju_id_ed25519")
         use_ssh_key(identity_file)
 
 

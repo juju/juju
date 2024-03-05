@@ -7,12 +7,11 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -30,13 +29,14 @@ import (
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/image"
 	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
+	"github.com/juju/juju/internal/provider/lxd"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/internal/upgrades/upgradevalidation"
+	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades/upgradevalidation"
-	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
 var ubuntuVersions = []string{
@@ -62,6 +62,7 @@ var ubuntuVersions = []string{
 	"22.10",
 	"23.04",
 	"23.10",
+	"24.04",
 }
 
 var controllerCfg = controller.Config{
@@ -137,7 +138,7 @@ func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return s.registryProvider, nil
 		},
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(stdcontext.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
 		},
 		s.upgradeService,
@@ -208,7 +209,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	)
 
 	ctrlModelTag := coretesting.ModelTag
-	model1ModelUUID, err := utils.NewUUID()
+	model1ModelUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
@@ -330,7 +331,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	)
 
 	ctrlModelTag := coretesting.ModelTag
-	model1ModelUUID, err := utils.NewUUID()
+	model1ModelUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
@@ -433,7 +434,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	)
 
 	ctrlModelTag := coretesting.ModelTag
-	model1ModelUUID, err := utils.NewUUID()
+	model1ModelUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)

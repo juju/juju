@@ -9,8 +9,8 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	logger     = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodel", corelogger.CMR)
-	authlogger = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
+	logger     = loggo.GetLoggerWithTags("juju.apiserver.common.crossmodel", corelogger.CMR)
+	authlogger = loggo.GetLoggerWithTags("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
@@ -130,12 +130,7 @@ func CheckCanConsume(auth authoriser, backend offerBackend, controllerTag, model
 	} else if err == nil {
 		return true, nil
 	}
-
-	offer, err := backend.ApplicationOfferForUUID(oc.OfferUUID())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	err = auth.EntityHasPermission(user, permission.ConsumeAccess, names.NewApplicationOfferTag(offer.ApplicationName))
+	err = auth.EntityHasPermission(user, permission.ConsumeAccess, names.NewApplicationOfferTag(oc.OfferUUID()))
 	return err == nil, err
 }
 
@@ -237,7 +232,7 @@ func handleChangedUnits(change params.RemoteRelationChangeEvent, applicationTag 
 // GetOfferingRelationTokens returns the tokens for the relation and the offer
 // of the passed in relation tag.
 func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, string, error) {
-	offerName, err := backend.OfferNameForRelation(tag.Id())
+	offerUUID, err := backend.OfferUUIDForRelation(tag.Id())
 	if err != nil {
 		return "", "", errors.Annotatef(err, "getting offer for relation %q", tag.Id())
 	}
@@ -245,9 +240,9 @@ func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, 
 	if err != nil {
 		return "", "", errors.Annotatef(err, "getting token for relation %q", tag.Id())
 	}
-	offerToken, err := backend.GetToken(names.NewApplicationOfferTag(offerName))
+	offerToken, err := backend.GetToken(names.NewApplicationOfferTag(offerUUID))
 	if err != nil {
-		return "", "", errors.Annotatef(err, "getting token for application offer %q", offerName)
+		return "", "", errors.Annotatef(err, "getting token for application offer %q", offerUUID)
 	}
 	return relationToken, offerToken, nil
 }

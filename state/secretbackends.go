@@ -159,15 +159,15 @@ func (s *secretBackendsStorage) toSecretBackend(doc *secretBackendDoc) *secrets.
 	}
 }
 
-func (st *State) checkBackendExists(ID string) error {
+func (st *State) checkBackendExists(id string) error {
 	secretBackendCollection, closer := st.db().GetCollection(secretBackendsC)
 	defer closer()
-	n, err := secretBackendCollection.FindId(ID).Count()
+	n, err := secretBackendCollection.FindId(id).Count()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if n == 0 {
-		return errors.NotFoundf("secret backend %q", ID)
+		return errors.NotFoundf("secret backend %q", id)
 	}
 	return nil
 }
@@ -269,14 +269,14 @@ func (s *secretBackendsStorage) GetSecretBackend(name string) (*secrets.SecretBa
 }
 
 // GetSecretBackendByID gets the secret backend with the given ID.
-func (s *secretBackendsStorage) GetSecretBackendByID(ID string) (*secrets.SecretBackend, error) {
+func (s *secretBackendsStorage) GetSecretBackendByID(id string) (*secrets.SecretBackend, error) {
 	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
 	defer closer()
 
 	var doc secretBackendDoc
-	err := secretBackendsColl.FindId(ID).One(&doc)
+	err := secretBackendsColl.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("secret backend %q", ID)
+		return nil, errors.NotFoundf("secret backend %q", id)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -424,11 +424,11 @@ type secretBackendRotationDoc struct {
 	NextRotateTime time.Time `bson:"next-rotate-time"`
 }
 
-func (s *secretBackendsStorage) tokenRotationOps(ID string, name *string, nextRotateTime *time.Time) ([]txn.Op, error) {
+func (s *secretBackendsStorage) tokenRotationOps(id string, name *string, nextRotateTime *time.Time) ([]txn.Op, error) {
 	if nextRotateTime == nil && name == nil {
 		return []txn.Op{{
 			C:      secretBackendsRotateC,
-			Id:     ID,
+			Id:     id,
 			Remove: true,
 		}}, nil
 	}
@@ -436,14 +436,14 @@ func (s *secretBackendsStorage) tokenRotationOps(ID string, name *string, nextRo
 	defer closer()
 
 	var doc secretBackendRotationDoc
-	err := secretBackendRotateCollection.FindId(ID).One(&doc)
+	err := secretBackendRotateCollection.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return []txn.Op{{
 			C:      secretBackendsRotateC,
-			Id:     ID,
+			Id:     id,
 			Assert: txn.DocMissing,
 			Insert: secretBackendRotationDoc{
-				DocID:          ID,
+				DocID:          id,
 				Name:           *name,
 				NextRotateTime: (*nextRotateTime).Round(time.Second).UTC(),
 			},
@@ -462,7 +462,7 @@ func (s *secretBackendsStorage) tokenRotationOps(ID string, name *string, nextRo
 
 	return []txn.Op{{
 		C:      secretBackendsRotateC,
-		Id:     ID,
+		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.M{"$set": toUpdate},
 	}}, nil
@@ -470,19 +470,19 @@ func (s *secretBackendsStorage) tokenRotationOps(ID string, name *string, nextRo
 
 // SecretBackendRotated records that the given secret backend token was rotated and
 // sets the next rotate time.
-func (s *secretBackendsStorage) SecretBackendRotated(ID string, next time.Time) error {
+func (s *secretBackendsStorage) SecretBackendRotated(id string, next time.Time) error {
 	secretBadckendRotateCollection, closer := s.st.db().GetCollection(secretBackendsRotateC)
 	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if err := s.st.checkBackendExists(ID); err != nil {
+		if err := s.st.checkBackendExists(id); err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		var currentDoc secretBackendRotationDoc
-		err := secretBadckendRotateCollection.FindId(ID).One(&currentDoc)
+		err := secretBadckendRotateCollection.FindId(id).One(&currentDoc)
 		if errors.Cause(err) == mgo.ErrNotFound {
-			return nil, errors.NotFoundf("token rotation info for secret backend %q", ID)
+			return nil, errors.NotFoundf("token rotation info for secret backend %q", id)
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -493,7 +493,7 @@ func (s *secretBackendsStorage) SecretBackendRotated(ID string, next time.Time) 
 		}
 		ops := []txn.Op{{
 			C:      secretBackendsRotateC,
-			Id:     ID,
+			Id:     id,
 			Assert: bson.D{{"txn-revno", currentDoc.TxnRevno}},
 			Update: bson.M{"$set": bson.M{
 				"next-rotate-time": next,
@@ -558,14 +558,14 @@ func (w *secretBackendRotationWatcher) initial() ([]corewatcher.SecretBackendRot
 
 	iter := secretBackendRotateCollection.Find(nil).Iter()
 	for iter.Next(&doc) {
-		ID := w.backend.localID(doc.DocID)
+		id := w.backend.localID(doc.DocID)
 		w.known[doc.DocID] = secretBackendRotateWatcherDetails{
 			txnRevNo: doc.TxnRevno,
-			ID:       ID,
+			ID:       id,
 			Name:     doc.Name,
 		}
 		details = append(details, corewatcher.SecretBackendRotateChange{
-			ID:              ID,
+			ID:              id,
 			Name:            doc.Name,
 			NextTriggerTime: doc.NextRotateTime.UTC(),
 		})
@@ -607,14 +607,14 @@ func (w *secretBackendRotationWatcher) merge(details []corewatcher.SecretBackend
 		return details, nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
-		ID := w.backend.localID(doc.DocID)
+		id := w.backend.localID(doc.DocID)
 		w.known[changeID] = secretBackendRotateWatcherDetails{
 			txnRevNo: doc.TxnRevno,
-			ID:       ID,
+			ID:       id,
 			Name:     doc.Name,
 		}
 		details = append(details, corewatcher.SecretBackendRotateChange{
-			ID:              ID,
+			ID:              id,
 			Name:            doc.Name,
 			NextTriggerTime: doc.NextRotateTime.UTC(),
 		})

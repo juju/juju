@@ -7,11 +7,11 @@ import (
 	"io"
 	"net"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/spaces"
@@ -82,7 +82,7 @@ type SpaceCommandBase struct {
 // like missing/invalid name or CIDRs (validated when given, but it's
 // an error for CIDRs to be empty if cidrsOptional is false).
 func ParseNameAndCIDRs(args []string, cidrsOptional bool) (
-	name string, CIDRs set.Strings, err error,
+	name string, cidrs set.Strings, err error,
 ) {
 	defer errors.DeferredAnnotatef(&err, "invalid arguments specified")
 
@@ -94,8 +94,8 @@ func ParseNameAndCIDRs(args []string, cidrsOptional bool) (
 		return name, nil, errors.Trace(err)
 	}
 
-	CIDRs, err = CheckCIDRs(args[1:], cidrsOptional)
-	return name, CIDRs, errors.Trace(err)
+	cidrs, err = CheckCIDRs(args[1:], cidrsOptional)
+	return name, cidrs, errors.Trace(err)
 }
 
 // CheckName checks whether name is a valid space name.
@@ -112,28 +112,28 @@ func CheckName(name string) (string, error) {
 // if no CIDRs are provided, unless cidrsOptional is true.
 func CheckCIDRs(args []string, cidrsOptional bool) (set.Strings, error) {
 	// Validate any given CIDRs.
-	CIDRs := set.NewStrings()
+	cidrs := set.NewStrings()
 	for _, arg := range args {
 		_, ipNet, err := net.ParseCIDR(arg)
 		if err != nil {
 			logger.Debugf("cannot parse %q: %v", arg, err)
-			return CIDRs, errors.Errorf("%q is not a valid CIDR", arg)
+			return cidrs, errors.Errorf("%q is not a valid CIDR", arg)
 		}
 		cidr := ipNet.String()
-		if CIDRs.Contains(cidr) {
+		if cidrs.Contains(cidr) {
 			if cidr == arg {
-				return CIDRs, errors.Errorf("duplicate subnet %q specified", cidr)
+				return cidrs, errors.Errorf("duplicate subnet %q specified", cidr)
 			}
-			return CIDRs, errors.Errorf("subnet %q overlaps with %q", arg, cidr)
+			return cidrs, errors.Errorf("subnet %q overlaps with %q", arg, cidr)
 		}
-		CIDRs.Add(cidr)
+		cidrs.Add(cidr)
 	}
 
-	if CIDRs.IsEmpty() && !cidrsOptional {
-		return CIDRs, errors.New("CIDRs required but not provided")
+	if cidrs.IsEmpty() && !cidrsOptional {
+		return cidrs, errors.New("CIDRs required but not provided")
 	}
 
-	return CIDRs, nil
+	return cidrs, nil
 }
 
 // APIShim forwards SpaceAPI methods to the real API facade for
@@ -279,9 +279,6 @@ type SubnetInfo struct {
 	// It may be empty if this is not a fan subnet,
 	// or if this subnet information comes from a provider.
 	FanInfo *network.FanCIDRs `json:"fan-info,omitempty" yaml:"fan-info,omitempty"`
-
-	// IsPublic describes whether a subnet is public or not.
-	IsPublic bool `json:"is-public,omitempty" yaml:"is-public,omitempty"`
 }
 
 // SpaceInfo defines a network space.

@@ -5,7 +5,7 @@ package networkingcommon
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -102,7 +102,7 @@ type NetworkBacking interface {
 	SetAvailabilityZones(network.AvailabilityZones) error
 
 	// AddSpace creates a space
-	AddSpace(string, network.Id, []string, bool) (BackingSpace, error)
+	AddSpace(string, network.Id, []string) (BackingSpace, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)

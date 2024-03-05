@@ -5,52 +5,22 @@ package model
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
 )
 
 type typesSuite struct {
-	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&typesSuite{})
 
-func (s *typesSuite) TestUUIDValidate(c *gc.C) {
-	tests := []struct {
-		uuid string
-		err  *string
-	}{
-		{
-			uuid: "",
-			err:  ptr("empty uuid"),
-		},
-		{
-			uuid: "invalid",
-			err:  ptr("invalid uuid.*"),
-		},
-		{
-			uuid: utils.MustNewUUID().String(),
-		},
-	}
-
-	for i, test := range tests {
-		c.Logf("test %d: %q", i, test.uuid)
-		err := UUID(test.uuid).Validate()
-
-		if test.err == nil {
-			c.Check(err, gc.IsNil)
-			continue
-		}
-
-		c.Check(err, gc.ErrorMatches, *test.err)
-	}
-}
-
-func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
+func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 	tests := []struct {
 		Args    ModelCreationArgs
 		ErrTest error
@@ -60,8 +30,8 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "",
-				Owner:       "wallyworld-ipv6",
-				Type:        TypeCAAS,
+				Owner:       userUUID,
+				Type:        coremodel.CAAS,
 			},
 			ErrTest: errors.NotValid,
 		},
@@ -71,7 +41,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
 				Owner:       "",
-				Type:        TypeCAAS,
+				Type:        coremodel.CAAS,
 			},
 			ErrTest: errors.NotValid,
 		},
@@ -80,8 +50,8 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       "wallyworld-ipv6",
-				Type:        Type("ipv6-only"),
+				Owner:       userUUID,
+				Type:        coremodel.ModelType("ipv6-only"),
 			},
 			ErrTest: errors.NotSupported,
 		},
@@ -90,8 +60,8 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       "wallyworld-ipv6",
-				Type:        TypeIAAS,
+				Owner:       userUUID,
+				Type:        coremodel.IAAS,
 			},
 			ErrTest: errors.NotValid,
 		},
@@ -100,8 +70,8 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "",
 				Name:        "my-awesome-model",
-				Owner:       "wallyworld-ipv6",
-				Type:        TypeIAAS,
+				Owner:       userUUID,
+				Type:        coremodel.IAAS,
 			},
 			ErrTest: nil,
 		},
@@ -113,8 +83,8 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 					Owner: "wallyworld",
 				},
 				Name:  "my-awesome-model",
-				Owner: "wallyworld-ipv6",
-				Type:  TypeIAAS,
+				Owner: userUUID,
+				Type:  coremodel.IAAS,
 			},
 			ErrTest: errors.NotValid,
 		},
@@ -123,8 +93,8 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       "wallyworld-ipv6",
-				Type:        TypeIAAS,
+				Owner:       userUUID,
+				Type:        coremodel.IAAS,
 			},
 			ErrTest: nil,
 		},
@@ -138,8 +108,8 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 					Name:  "mycred",
 				},
 				Name:  "my-awesome-model",
-				Owner: "wallyworld-ipv6",
-				Type:  TypeIAAS,
+				Owner: userUUID,
+				Type:  coremodel.IAAS,
 			},
 			ErrTest: nil,
 		},
@@ -153,19 +123,4 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			c.Assert(err, jc.ErrorIs, test.ErrTest)
 		}
 	}
-}
-
-func (s *typesSuite) TestValidModelTypes(c *gc.C) {
-	validTypes := []Type{
-		TypeCAAS,
-		TypeIAAS,
-	}
-
-	for _, vt := range validTypes {
-		c.Assert(vt.IsValid(), jc.IsTrue)
-	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

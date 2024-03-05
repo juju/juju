@@ -9,14 +9,13 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
@@ -103,7 +103,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 
 	// Attempt to create another model with a different UUID but the
 	// same owner and name as the first.
-	newUUID, err := utils.NewUUID()
+	newUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg2 := testing.CustomModelConfig(c, testing.Attrs{
 		"name": cfg.Name(),
@@ -169,7 +169,7 @@ func (s *ModelSuite) TestNewCAASModelDifferentUser(c *gc.C) {
 
 	// Attempt to create another model with a different UUID and owner
 	// but the name as the first.
-	newUUID, err := utils.NewUUID()
+	newUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg2 := testing.CustomModelConfig(c, testing.Attrs{
 		"name": cfg.Name(),
@@ -209,7 +209,7 @@ func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 
 	// Attempt to create another model with a different UUID but the
 	// same owner and name as the first.
-	newUUID, err := utils.NewUUID()
+	newUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg2 := testing.CustomModelConfig(c, testing.Attrs{
 		"name": cfg.Name(),
@@ -318,7 +318,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, modelTag)
 
 	// Ensure the model is functional by adding a machine
-	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the default model was created.
@@ -392,90 +392,6 @@ func (s *ModelSuite) TestModelExistsNoModel(c *gc.C) {
 	c.Check(modelExists, jc.IsFalse)
 }
 
-func (s *ModelSuite) TestSLA(c *gc.C) {
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-
-	model, st, err := s.Controller.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               "dummy",
-		CloudRegion:             "dummy-region",
-		Config:                  cfg,
-		Owner:                   owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	level, err := st.SLALevel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(level, gc.Equals, "unsupported")
-	c.Assert(model.SLACredential(), gc.DeepEquals, []byte{})
-	for _, goodLevel := range []string{"unsupported", "essential", "standard", "advanced"} {
-		err = st.SetSLA(goodLevel, "bob", []byte("auth "+goodLevel))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(model.Refresh(), jc.ErrorIsNil)
-		level, err = st.SLALevel()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(level, gc.Equals, goodLevel)
-		c.Assert(model.SLALevel(), gc.Equals, goodLevel)
-		c.Assert(model.SLAOwner(), gc.Equals, "bob")
-		c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth "+goodLevel))
-	}
-
-	defaultLevel, err := state.NewSLALevel("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaultLevel, gc.Equals, state.SLAUnsupported)
-
-	err = model.SetSLA("nope", "nobody", []byte("auth nope"))
-	c.Assert(err, gc.ErrorMatches, `.*SLA level "nope" not valid.*`)
-
-	c.Assert(model.SLALevel(), gc.Equals, "advanced")
-	c.Assert(model.SLAOwner(), gc.Equals, "bob")
-	c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth advanced"))
-	slaCreds, err := st.SLACredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(slaCreds, gc.DeepEquals, []byte("auth advanced"))
-}
-
-func (s *ModelSuite) TestMeterStatus(c *gc.C) {
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-
-	model, st, err := s.Controller.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               "dummy",
-		CloudRegion:             "dummy-region",
-		Config:                  cfg,
-		Owner:                   owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	ms, err := st.ModelMeterStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms.Code, gc.Equals, state.MeterNotAvailable)
-	c.Assert(ms.Info, gc.Equals, "")
-
-	for i, validStatus := range []string{"RED", "GREEN", "AMBER"} {
-		info := fmt.Sprintf("info setting %d", i)
-		err = st.SetModelMeterStatus(validStatus, info)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(model.Refresh(), jc.ErrorIsNil)
-		ms, err = st.ModelMeterStatus()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ms.Code.String(), gc.Equals, validStatus)
-		c.Assert(ms.Info, gc.Equals, info)
-	}
-
-	err = model.SetMeterStatus("PURPLE", "foobar")
-	c.Assert(err, gc.ErrorMatches, `meter status "PURPLE" not valid`)
-
-	c.Assert(ms.Code, gc.Equals, state.MeterAmber)
-	c.Assert(ms.Info, gc.Equals, "info setting 2")
-}
-
 func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
 	defer otherState.Close()
@@ -536,15 +452,15 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 	// Add a machine/unit/application and destroy it, to
 	// ensure we're only counting entities that are alive.
 	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	err := m.Destroy(state.NewObjectStore(c, s.State))
+	err := m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	one := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "one",
 	})
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
-	err = one.Destroy(state.NewObjectStore(c, s.State))
+	err = one.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -568,9 +484,9 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 
 func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider")})
 	app := state.AddTestingApplicationWithBindings(
-		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})
 
 	model, err := s.State.Model()
@@ -596,9 +512,9 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 
 func (s *ModelSuite) TestAllEndpointBindingsSpaceNames(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider")})
 	state.AddTestingApplicationWithBindings(
-		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})
 
 	spaceNames, err := s.State.AllEndpointBindingsSpaceNames()
@@ -619,7 +535,7 @@ func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 }
 
 func createTestModelConfig(c *gc.C, controllerUUID string) (*config.Config, string) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",
@@ -774,7 +690,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	// add some machines and applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherSt.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = otherSt.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -787,7 +703,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = otherSt.AddApplication(args, state.NewObjectStore(c, otherSt))
+	_, err = otherSt.AddApplication(defaultInstancePrechecker, args, mockApplicationSaver{}, state.NewObjectStore(c, otherSt.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -1228,7 +1144,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
 		c.Assert(model.Life(), gc.Equals, state.Dying)
 
-		err := app.Destroy(state.NewObjectStore(c, s.State))
+		err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(model.UniqueIndexExists(), jc.IsTrue)
@@ -1253,7 +1169,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	// add some machines and applications
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -1266,7 +1182,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = st.AddApplication(args, state.NewObjectStore(c, st))
+	_, err = st.AddApplication(defaultInstancePrechecker, args, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
@@ -1302,7 +1218,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := st.AddOneMachine(state.MachineTemplate{
+	machine, err := st.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
@@ -1337,7 +1253,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	err = sb.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
 	// The filesystem will be gone, but the volume is persistent and should
 	// not have been removed.
@@ -1353,7 +1269,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := st.AddOneMachine(state.MachineTemplate{
+	machine, err := st.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
@@ -1385,7 +1301,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	err = sb.RemoveVolumeAttachment(machine.MachineTag(), volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
 	// The volume is persistent and should not have been removed along with
 	// the machine it was attached to.
@@ -1653,7 +1569,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress := state.AddTestingApplication(c, ms, "wordpress", state.AddTestingCharm(c, ms, "wordpress"))
+	wordpress := state.AddTestingApplication(c, ms, s.objectStore, "wordpress", state.AddTestingCharm(c, ms, "wordpress"))
 	eps, err := ms.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ms.AddRelation(eps...)
@@ -1684,14 +1600,14 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, remoteApp, state.Dying)
 
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = localRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Cleanups
@@ -1811,7 +1727,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {
-	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st))
+	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1869,6 +1785,6 @@ func assertAllMachinesDeadAndRemove(c *gc.C, st *state.State) {
 		}
 
 		c.Assert(m.Life(), gc.Equals, state.Dead)
-		c.Assert(m.Remove(state.NewObjectStore(c, st)), jc.ErrorIsNil)
+		c.Assert(m.Remove(state.NewObjectStore(c, st.ModelUUID())), jc.ErrorIsNil)
 	}
 }

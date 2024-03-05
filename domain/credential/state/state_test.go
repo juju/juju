@@ -13,24 +13,28 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/domain/model"
+	userstate "github.com/juju/juju/domain/user/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
 type credentialSuite struct {
 	changestreamtesting.ControllerSuite
+	userUUID user.UUID
+	userName string
 }
 
 var _ = gc.Suite(&credentialSuite{})
@@ -38,11 +42,29 @@ var _ = gc.Suite(&credentialSuite{})
 func (s *credentialSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
+	s.userName = "test-user"
+	s.userUUID = s.addOwner(c, s.userName)
+
 	s.addCloud(c, cloud.Cloud{
 		Name:      "stratus",
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
+}
+
+func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	userState := userstate.NewState(s.TxnRunnerFactory())
+	err = userState.AddUser(
+		context.Background(),
+		userUUID,
+		name,
+		"test user",
+		userUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return userUUID
 }
 
 func (s *credentialSuite) addCloud(c *gc.C, cloud cloud.Cloud) string {
@@ -73,7 +95,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 		Revoked: true,
 		Label:   "foobar",
 	}
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	existingInvalid, err := st.UpsertCloudCredential(ctx, id, credInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,7 +118,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialNoValues(c *gc.C) {
 		Attributes: map[string]string{},
 		Label:      "foobar",
 	}
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	existingInvalid, err := st.UpsertCloudCredential(ctx, id, credInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +145,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
 		Label: "foobar",
 	}
 	ctx := context.Background()
-	_, err := st.UpsertCloudCredential(ctx, credential.ID{Cloud: "stratus", Owner: "bob"}, credInfo)
+	_, err := st.UpsertCloudCredential(ctx, credential.ID{Cloud: "stratus", Owner: s.userName}, credInfo)
 	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
 }
 
@@ -140,7 +162,7 @@ func (s *credentialSuite) TestCreateInvalidCredential(c *gc.C) {
 		Invalid:       true,
 		InvalidReason: "because am testing you",
 	}
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	_, err := st.UpsertCloudCredential(ctx, id, credInfo)
 	c.Assert(err, gc.ErrorMatches, "adding invalid credential not supported")
@@ -157,7 +179,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialExisting(c *gc.C) {
 		},
 		Label: "foobar",
 	}
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	existingInvalid, err := st.UpsertCloudCredential(ctx, id, credInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,23 +218,24 @@ func (s *credentialSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C) {
 		},
 		Label: "foobar",
 	}
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	_, err := st.UpsertCloudCredential(ctx, id, credInfo)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(
-		`updating credential: validating credential "foobar" owned by "bob" for cloud "stratus": supported auth-types ["access-key" "userpass"], "oauth2" not supported`))
+		`updating credential: validating credential "foobar" owned by "test-user" for cloud "stratus": supported auth-types ["access-key" "userpass"], "oauth2" not supported`))
 }
 
 func (s *credentialSuite) TestCloudCredentialsEmpty(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	creds, err := st.CloudCredentialsForOwner(context.Background(), "bob", "dummy")
+	creds, err := st.CloudCredentialsForOwner(context.Background(), s.userName, "dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds, gc.HasLen, 0)
 }
 
 func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
+	s.addOwner(c, "mary")
 
 	cred1Info := credential.CloudCredentialInfo{
 		AuthType: string(cloud.AccessKeyAuthType),
@@ -222,7 +245,7 @@ func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
 		},
 	}
 	ctx := context.Background()
-	_, err := st.UpsertCloudCredential(ctx, credential.ID{Cloud: "stratus", Owner: "bob", Name: "bobcred1"}, cred1Info)
+	_, err := st.UpsertCloudCredential(ctx, credential.ID{Cloud: "stratus", Owner: s.userName, Name: "bobcred1"}, cred1Info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred2Info := credential.CloudCredentialInfo{
@@ -232,7 +255,7 @@ func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
 			"qux": "qux val",
 		},
 	}
-	_, err = st.UpsertCloudCredential(ctx, credential.ID{Cloud: "stratus", Owner: "bob", Name: "bobcred2"}, cred2Info)
+	_, err = st.UpsertCloudCredential(ctx, credential.ID{Cloud: "stratus", Owner: s.userName, Name: "bobcred2"}, cred2Info)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.UpsertCloudCredential(ctx, credential.ID{Cloud: "stratus", Owner: "mary", Name: "foobar"}, cred2Info)
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,14 +271,12 @@ func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
 		CloudName:           "stratus",
 	}
 
-	for _, userName := range []string{"bob", "bob"} {
-		creds, err := st.CloudCredentialsForOwner(ctx, userName, "stratus")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(creds, jc.DeepEquals, map[string]credential.CloudCredentialResult{
-			"stratus/bob/bobcred1": cred1Result,
-			"stratus/bob/bobcred2": cred2Result,
-		})
-	}
+	creds, err := st.CloudCredentialsForOwner(ctx, s.userName, "stratus")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds, jc.DeepEquals, map[string]credential.CloudCredentialResult{
+		"stratus/test-user/bobcred1": cred1Result,
+		"stratus/test-user/bobcred2": cred2Result,
+	})
 }
 
 func (s *credentialSuite) assertCredentialInvalidated(c *gc.C, st *State, id credential.ID) {
@@ -297,7 +318,7 @@ func (s *credentialSuite) assertCredentialInvalidated(c *gc.C, st *State, id cre
 
 func (s *credentialSuite) TestInvalidateCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	s.assertCredentialInvalidated(c, st, credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"})
+	s.assertCredentialInvalidated(c, st, credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"})
 }
 
 func (s *credentialSuite) assertCredentialMarkedValid(c *gc.C, st *State, id credential.ID, credInfo credential.CloudCredentialInfo) {
@@ -315,7 +336,7 @@ func (s *credentialSuite) assertCredentialMarkedValid(c *gc.C, st *State, id cre
 func (s *credentialSuite) TestMarkInvalidCredentialAsValidExplicitly(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	// This call will ensure that there is an invalid credential to test with.
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	s.assertCredentialInvalidated(c, st, id)
 
 	credInfo := credential.CloudCredentialInfo{
@@ -330,7 +351,7 @@ func (s *credentialSuite) TestMarkInvalidCredentialAsValidExplicitly(c *gc.C) {
 
 func (s *credentialSuite) TestMarkInvalidCredentialAsValidImplicitly(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	// This call will ensure that there is an invalid credential to test with.
 	s.assertCredentialInvalidated(c, st, id)
 
@@ -354,7 +375,7 @@ func (s *credentialSuite) TestRemoveCredentials(c *gc.C) {
 			"bar": "bar val",
 		},
 	}
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "bobcred1"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "bobcred1"}
 	ctx := context.Background()
 	_, err := st.UpsertCloudCredential(ctx, id, cred1Info)
 	c.Assert(err, jc.ErrorIsNil)
@@ -369,8 +390,8 @@ func (s *credentialSuite) TestRemoveCredentials(c *gc.C) {
 func (s *credentialSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	out, err := st.AllCloudCredentialsForOwner(context.Background(), "bob")
-	c.Assert(err, gc.ErrorMatches, "cloud credentials for \"bob\" not found")
+	out, err := st.AllCloudCredentialsForOwner(context.Background(), s.userName)
+	c.Assert(err, gc.ErrorMatches, "cloud credentials for \"test-user\" not found")
 	c.Assert(out, gc.IsNil)
 }
 
@@ -400,10 +421,13 @@ func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, id credentia
 func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	idOne := credential.ID{Cloud: "cirrus", Owner: "bob", Name: "foobar"}
-	idTwo := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	idOne := credential.ID{Cloud: "cirrus", Owner: s.userName, Name: "foobar"}
+	idTwo := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	one := s.createCloudCredential(c, st, idOne)
 	two := s.createCloudCredential(c, st, idTwo)
+
+	// We need to add mary here so that they are a valid user.
+	s.addOwner(c, "mary")
 
 	// Added to make sure it is not returned.
 	s.createCloudCredential(c, st, credential.ID{Cloud: "cumulus", Owner: "mary", Name: "foobar"})
@@ -416,7 +440,7 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 		CloudCredentialInfo: two,
 		CloudName:           "stratus",
 	}
-	out, err := st.AllCloudCredentialsForOwner(context.Background(), "bob")
+	out, err := st.AllCloudCredentialsForOwner(context.Background(), s.userName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, map[credential.ID]credential.CloudCredentialResult{
 		idOne: resultOne, idTwo: resultTwo})
@@ -425,7 +449,7 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 func (s *credentialSuite) TestInvalidateCloudCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	one := s.createCloudCredential(c, st, id)
 	c.Assert(one.Invalid, jc.IsFalse)
 
@@ -443,7 +467,7 @@ func (s *credentialSuite) TestInvalidateCloudCredential(c *gc.C) {
 func (s *credentialSuite) TestInvalidateCloudCredentialNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	err := st.InvalidateCloudCredential(ctx, id, "reason")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -474,7 +498,7 @@ func (s *credentialSuite) watcherFunc(c *gc.C, expectedChangeValue string) watch
 func (s *credentialSuite) TestWatchCredentialNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	_, err := st.WatchCredential(ctx, s.watcherFunc(c, ""), id)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -482,7 +506,7 @@ func (s *credentialSuite) TestWatchCredentialNotFound(c *gc.C) {
 
 func (s *credentialSuite) TestWatchCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	s.createCloudCredential(c, st, id)
 
 	var uuid string
@@ -525,7 +549,7 @@ func (s *credentialSuite) TestNoModelsUsingCloudCredential(c *gc.C) {
 	ctx := context.Background()
 	result, err := st.ModelsUsingCloudCredential(ctx, credential.ID{
 		Cloud: "cirrus",
-		Owner: "bob",
+		Owner: s.userName,
 		Name:  "foobar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -535,7 +559,7 @@ func (s *credentialSuite) TestNoModelsUsingCloudCredential(c *gc.C) {
 func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	id := credential.ID{Cloud: "stratus", Owner: "bob", Name: "foobar"}
+	id := credential.ID{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	one := s.createCloudCredential(c, st, id)
 	c.Assert(one.Invalid, jc.IsFalse)
 
@@ -547,9 +571,10 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 		}
 		result, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		INSERT INTO model_metadata (model_uuid, name, owner_uuid, model_type_id, cloud_uuid, cloud_credential_uuid)
-		SELECT %q, %q, "admin", 0,
+		SELECT %q, %q, %q, 0,
 			(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
-			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`, modelUUID, name),
+			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`,
+			modelUUID, name, s.userUUID),
 		)
 		if err != nil {
 			return err
@@ -562,8 +587,8 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 		return nil
 	}
 
-	modelUUID := utils.MustNewUUID().String()
-	modelUUID2 := utils.MustNewUUID().String()
+	modelUUID := uuid.MustNewUUID().String()
+	modelUUID2 := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertOne(ctx, tx, modelUUID, "mymodel"); err != nil {
 			return err
@@ -577,12 +602,12 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 
 	result, err := st.ModelsUsingCloudCredential(context.Background(), credential.ID{
 		Cloud: "stratus",
-		Owner: "bob",
+		Owner: s.userName,
 		Name:  "foobar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[model.UUID]string{
-		model.UUID(modelUUID):  "mymodel",
-		model.UUID(modelUUID2): "mymodel2",
+	c.Assert(result, jc.DeepEquals, map[coremodel.UUID]string{
+		coremodel.UUID(modelUUID):  "mymodel",
+		coremodel.UUID(modelUUID2): "mymodel2",
 	})
 }

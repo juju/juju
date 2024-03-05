@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/charm/v13"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -384,7 +384,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C
 	withCharmDeployable(
 		s.fakeAPI, curl, defaultBase,
 		&charm.Meta{Name: "lxd-profile"},
-		nil, false, 0, nil, nil,
+		false, 0, nil, nil,
 	)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
@@ -453,7 +453,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *
 	)
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    wordpressURL,
+			URL:    wordpressURL.String(),
 			Origin: commoncharm.Origin{Source: "local"},
 		},
 		CharmOrigin:     commoncharm.Origin{Source: "local", Base: defaultBase},
@@ -534,7 +534,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 	base := base.MustParseBaseFromString("ubuntu@20.04/stable")
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    wordpressURL,
+			URL:    wordpressURL.String(),
 			Origin: commoncharm.Origin{Source: "charm-hub", Base: base, Architecture: "amd64", Risk: "stable"},
 		},
 		CharmOrigin:     commoncharm.Origin{Source: "charm-hub", Base: base, Architecture: "amd64", Risk: "stable"},
@@ -617,7 +617,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithChannel(c *gc.C) {
 	withCharmDeployable(
 		s.fakeAPI, ubURL, defaultBase,
 		&charm.Meta{Name: "ubuntu"},
-		nil, false, 0, nil, nil,
+		false, 0, nil, nil,
 	)
 
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
@@ -649,7 +649,7 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	withCharmDeployable(
 		s.fakeAPI, inURL, defaultBase,
 		&charm.Meta{Name: "aws-integrator", Series: []string{"jammy"}},
-		nil, false, 0, nil, nil,
+		false, 0, nil, nil,
 	)
 
 	origin := commoncharm.Origin{
@@ -659,11 +659,10 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	}
 
 	deployURL := *inURL
-	deployURL.Series = "jammy"
 
 	dArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    &deployURL,
+			URL:    deployURL.String(),
 			Origin: origin,
 		},
 		CharmOrigin:     origin,
@@ -687,7 +686,7 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	withCharmDeployable(
 		s.fakeAPI, ubURL, defaultBase,
 		&charm.Meta{Name: "ubuntu", Series: []string{"jammy"}},
-		nil, false, 0, nil, nil,
+		false, 0, nil, nil,
 	)
 
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
@@ -710,7 +709,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 	withCharmDeployable(
 		s.fakeAPI, inURL, defaultBase,
 		&charm.Meta{Name: "apache2", Series: []string{"jammy"}},
-		nil, false, 0, nil, nil,
+		false, 0, nil, nil,
 	)
 
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
@@ -777,7 +776,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	withCharmDeployable(
 		s.fakeAPI, inURL, defaultBase,
 		&charm.Meta{Name: "wordpress", Series: []string{"jammy"}},
-		nil, false, 0, nil, nil,
+		false, 0, nil, nil,
 	)
 
 	mac, err := jujutesting.NewMacaroon("id")

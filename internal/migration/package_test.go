@@ -10,11 +10,12 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 	"github.com/juju/juju/testing"
-	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService
+//go:generate go run go.uber.org/mock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService,ModelManagerService
+//go:generate go run go.uber.org/mock/mockgen -package migration_test -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ServiceFactoryGetter,ServiceFactory
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

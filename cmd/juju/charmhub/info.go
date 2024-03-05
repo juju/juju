@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/charm/v13"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -159,8 +159,8 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 	}
 
 	cfg := charmhub.Config{
-		URL:    c.charmHubURL,
-		Logger: logger,
+		URL:           c.charmHubURL,
+		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
 	}
 
 	client, err := c.CharmHubClientFunc(cfg)

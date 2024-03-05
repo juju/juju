@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -24,32 +24,18 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 // APIv7 provides the Charms API facade for version 7.
-// v7 guarantees SupportedBases will be provided in ResolveCharms
 type APIv7 struct {
 	*API
-}
-
-// APIv6 provides the Charms API facade for version 6.
-// It removes the AddCharmWithAuthorization function, as
-// we no longer support macaroons.
-type APIv6 struct {
-	*APIv7
-}
-
-// APIv5 provides the Charms API facade for version 5.
-type APIv5 struct {
-	*APIv6
 }
 
 // API implements the charms interface and is the concrete
@@ -249,17 +235,6 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 	})
 }
 
-// AddCharmWithAuthorization adds the given charm URL (which must include
-// revision) to the environment, if it does not exist yet. Local charms are
-// not supported, only charm hub URLs. See also AddLocalCharm().
-//
-// Since the charm macaroons are no longer supported, this is the same as
-// AddCharm. We keep it for backwards compatibility in APIv5.
-func (a *APIv5) AddCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
-	a.logger.Tracef("AddCharmWithAuthorization %+v", args)
-	return a.addCharmWithAuthorization(ctx, args)
-}
-
 func (a *API) addCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	if commoncharm.OriginSource(args.Origin.Source) != commoncharm.OriginCharmHub {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
@@ -329,7 +304,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 	metaRes := essentialMeta[0]
 
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
-		Charm: corecharm.NewCharmInfoAdapter(metaRes),
+		Charm: corecharm.NewCharmInfoAdaptor(metaRes),
 		ID:    args.URL,
 	})
 	if err != nil {
@@ -414,51 +389,9 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 	}
 
 	result.Origin = archOrigin
-
-	switch {
-	case resultURL.Series != "" && len(resolvedBases) == 0:
-		base, err := base.GetBaseFromSeries(resultURL.Series)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-			return result
-		}
-		result.SupportedBases = []params.Base{{Name: base.OS, Channel: base.Channel.String()}}
-	default:
-		result.SupportedBases = transform.Slice(resolvedBases, convertCharmBase)
-	}
+	result.SupportedBases = transform.Slice(resolvedBases, convertCharmBase)
 
 	return result
-}
-
-// ResolveCharms resolves the given charm URLs with an optionally specified
-// preferred channel.  Channel provided via CharmOrigin.
-// We need to include SupportedSeries in facade version 6
-func (a *APIv6) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResultsV6, error) {
-	res, err := a.API.ResolveCharms(ctx, args)
-	if err != nil {
-		return params.ResolveCharmWithChannelResultsV6{}, errors.Trace(err)
-	}
-	results, err := transform.SliceOrErr(res.Results, func(result params.ResolveCharmWithChannelResult) (params.ResolveCharmWithChannelResultV6, error) {
-		supportedSeries, err := transform.SliceOrErr(result.SupportedBases, func(pBase params.Base) (string, error) {
-			b, err := base.ParseBase(pBase.Name, pBase.Channel)
-			if err != nil {
-				return "", err
-			}
-			return base.GetSeriesFromBase(b)
-		})
-		if err != nil {
-			return params.ResolveCharmWithChannelResultV6{}, err
-		}
-		return params.ResolveCharmWithChannelResultV6{
-			URL:             result.URL,
-			Origin:          result.Origin,
-			Error:           result.Error,
-			SupportedSeries: supportedSeries,
-		}, nil
-	})
-	return params.ResolveCharmWithChannelResultsV6{
-		Results: results,
-	}, err
 }
 
 func convertCharmBase(in corecharm.Platform) params.Base {
@@ -500,31 +433,13 @@ func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (cor
 	a.mu.Unlock()
 
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:             a.logger,
+		LoggerFactory:      services.LoggoLoggerFactory(a.logger),
 		CharmhubHTTPClient: a.charmhubHTTPClient,
 		StateBackend:       a.backendState,
 		ModelBackend:       a.backendModel,
 	})
 
 	return repoFactory.GetCharmRepository(ctx, src)
-}
-
-// IsMetered returns whether or not the charm is metered.
-// TODO (cderici) only used for metered charms in cmd MeteredDeployAPI,
-// kept for client compatibility, remove in juju 4.0
-func (a *API) IsMetered(ctx context.Context, args params.CharmURL) (params.IsMeteredResult, error) {
-	if err := a.checkCanRead(); err != nil {
-		return params.IsMeteredResult{}, errors.Trace(err)
-	}
-
-	aCharm, err := a.backendState.Charm(args.URL)
-	if err != nil {
-		return params.IsMeteredResult{Metered: false}, errors.Trace(err)
-	}
-	if aCharm.Metrics() != nil && len(aCharm.Metrics().Metrics) > 0 {
-		return params.IsMeteredResult{Metered: true}, nil
-	}
-	return params.IsMeteredResult{Metered: false}, nil
 }
 
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a

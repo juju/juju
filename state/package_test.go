@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/secrets"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -26,7 +27,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace
 //go:generate go run go.uber.org/mock/mockgen -package state -destination migration_import_input_mock_test.go github.com/juju/juju/state RemoteEntitiesInput,RelationNetworksInput,RemoteApplicationsInput,ApplicationOfferStateDocumentFactory,ApplicationOfferInput,FirewallRulesInput,FirewallRulesOutput
-//go:generate go run go.uber.org/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description/v4 ApplicationOffer,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
+//go:generate go run go.uber.org/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description/v5 ApplicationOffer,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/operation_mock.go github.com/juju/juju/state ModelOperation
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/application_ports_mock.go github.com/juju/juju/state ApplicationPortRanges
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgrader_mock.go github.com/juju/juju/state Upgrader
@@ -54,8 +55,8 @@ func SetModelTypeToCAAS(c *gc.C, st *State, m *Model) {
 
 // AddTestingApplicationWithEmptyBindings mimics an application
 // from an old version of Juju, with no bindings entry.
-func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, name string, ch *Charm) *Application {
-	app := addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm) *Application {
+	app := addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:   st,
 		name: name,
 		ch:   ch,

@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
@@ -93,7 +93,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmHub(c *gc.C) 
 		},
 	}
 
-	err := bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err := bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, gc.ErrorMatches, `cannot resolve charm or bundle "no-such": bundle not found`)
 }
 
@@ -102,8 +102,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl := charm.MustParseURL("ch:focal/mysql")
-	wordpressCurl := charm.MustParseURL("ch:focal/wordpress")
+	mysqlCurl := charm.MustParseURL("ch:mysql")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -147,9 +147,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl, err := charm.ParseURL("focal/mysql")
+	mysqlCurl, err := charm.ParseURL("mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	wordpressCurl, err := charm.ParseURL("focal/wordpress")
+	wordpressCurl, err := charm.ParseURL("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	chUnits := []charmUnit{
 		{
@@ -169,7 +169,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
@@ -251,7 +251,7 @@ func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *gc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(multiApplicationBundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 3)
 	s.assertDeployArgs(c, fullGatewayURL.String(), "istio-ingressgateway", "ubuntu", "20.04")
@@ -264,8 +264,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mariadbCurl := charm.MustParseURL("ch:jammy/mariadb-k8s")
-	gitlabCurl := charm.MustParseURL("ch:jammy/gitlab-k8s")
+	mariadbCurl := charm.MustParseURL("ch:mariadb-k8s")
+	gitlabCurl := charm.MustParseURL("ch:gitlab-k8s")
 	chUnits := []charmUnit{
 		{
 			curl:                 gitlabCurl,
@@ -439,7 +439,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundleWithRevision))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "ubuntu", "20.04")
@@ -505,8 +505,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl := charm.MustParseURL("ch:jammy/mysql")
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	mysqlCurl := charm.MustParseURL("ch:mysql")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -614,7 +614,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 }
 
 func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *charm.URL {
-	fullCurl := curl.WithSeries("focal")
 	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
 	s.bundleResolver.EXPECT().ResolveCharm(
 		curl,
@@ -629,7 +628,7 @@ func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *c
 		}).Times(3)
 
 	s.deployerAPI.EXPECT().AddCharm(
-		fullCurl,
+		curl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
@@ -639,15 +638,15 @@ func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *c
 		})
 
 	charmInfo := &apicharms.CharmInfo{
-		Revision: fullCurl.Revision,
-		URL:      fullCurl.String(),
+		Revision: curl.Revision,
+		URL:      curl.String(),
 		Meta: &charm.Meta{
 			Containers: map[string]charm.Container{"workload": {}},
 		},
 	}
-	s.expectCharmInfo(fullCurl.String(), charmInfo)
+	s.expectCharmInfo(curl.String(), charmInfo)
 	s.expectDeploy()
-	return fullCurl
+	return curl
 }
 
 const kubernetesBitcoinBundle = `
@@ -669,8 +668,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	bitcoinCurl := charm.MustParseURL("ch:focal/bitcoin-miner")
-	dashboardCurl := charm.MustParseURL("ch:focal/dashboard4miner")
+	bitcoinCurl := charm.MustParseURL("ch:bitcoin-miner")
+	dashboardCurl := charm.MustParseURL("ch:dashboard4miner")
 	chUnits := []charmUnit{
 		{
 			curl:                 bitcoinCurl,
@@ -730,8 +729,8 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl := charm.MustParseURL("ch:jammy/mysql")
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	mysqlCurl := charm.MustParseURL("ch:mysql")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -750,10 +749,10 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 
 	if !dryRun {
 		s.expectAddCharm(false)
-		s.expectCharmInfo("ch:jammy/mysql", &apicharms.CharmInfo{URL: mysqlCurl.String(), Meta: &charm.Meta{}})
+		s.expectCharmInfo("ch:mysql", &apicharms.CharmInfo{URL: mysqlCurl.String(), Meta: &charm.Meta{}})
 		s.expectSetCharm(c, "mysql")
 		s.expectAddCharm(false)
-		s.expectCharmInfo("ch:jammy/wordpress", &apicharms.CharmInfo{URL: wordpressCurl.String(), Meta: &charm.Meta{}})
+		s.expectCharmInfo("ch:wordpress", &apicharms.CharmInfo{URL: wordpressCurl.String(), Meta: &charm.Meta{}})
 		s.expectSetCharm(c, "wordpress")
 	}
 
@@ -829,7 +828,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
+	djangoCurl := charm.MustParseURL("ch:django")
 	charmInfo := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
 		URL:      djangoCurl.String(),
@@ -846,6 +845,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 
 	spec := s.bundleDeploySpec()
 	spec.deployResources = func(
+		_ context.Context,
 		_ string,
 		_ resources.CharmID,
 		filesAndRevisions map[string]string,
@@ -882,7 +882,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
-	djangoCurl := charm.MustParseURL("ch:focal/django")
+	djangoCurl := charm.MustParseURL("ch:django")
 	charmInfo := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
 		URL:      djangoCurl.String(),
@@ -899,6 +899,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 
 	spec := s.bundleDeploySpec()
 	spec.deployResources = func(
+		_ context.Context,
 		_ string,
 		_ resources.CharmID,
 		filesAndRevisions map[string]string,
@@ -959,7 +960,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	s.expectResolveCharm(nil)
 	s.expectResolveCharm(nil)
 
-	mysqlCurl := charm.MustParseURL("ch:jammy/mysql")
+	mysqlCurl := charm.MustParseURL("ch:mysql")
 	s.expectAddCharm(false)
 	s.expectSetCharm(c, "mysql")
 	charmInfo := &apicharms.CharmInfo{
@@ -970,7 +971,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	}
 	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	s.expectAddCharm(false)
 	s.expectSetCharm(c, "wordpress")
 	wpCharmInfo := &apicharms.CharmInfo{
@@ -1039,9 +1040,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *gc.C) {
 	s.expectAddCharm(false)
 	s.expectAddCharm(false)
 	s.expectAddCharm(false)
-	s.expectCharmInfo("ch:jammy/mysql", &apicharms.CharmInfo{Meta: &charm.Meta{}})
-	s.expectCharmInfo("ch:jammy/varnish", &apicharms.CharmInfo{Meta: &charm.Meta{}})
-	s.expectCharmInfo("ch:jammy/wordpress", &apicharms.CharmInfo{Meta: &charm.Meta{}})
+	s.expectCharmInfo("ch:mysql", &apicharms.CharmInfo{Meta: &charm.Meta{}})
+	s.expectCharmInfo("ch:varnish", &apicharms.CharmInfo{Meta: &charm.Meta{}})
+	s.expectCharmInfo("ch:wordpress", &apicharms.CharmInfo{Meta: &charm.Meta{}})
 	s.expectSetCharm(c, "mysql")
 	s.expectSetCharm(c, "wordpress")
 	s.expectDeploy()
@@ -1073,7 +1074,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *gc.C) {
 const machineUnitPlacementBundle = `
       applications:
           wordpress:
-              charm: ch:focal/wordpress
+              charm: ch:wordpress
               num_units: 2
               to:
                   - 1
@@ -1081,7 +1082,7 @@ const machineUnitPlacementBundle = `
               options:
                   blog-title: these are the voyages
           mysql:
-              charm: ch:focal/mysql
+              charm: ch:mysql
               num_units: 2
               to:
                   - lxd:wordpress/0
@@ -1162,7 +1163,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C)
 
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
+	djangoCurl := charm.MustParseURL("ch:django")
 	charmInfo := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
 		URL:      djangoCurl.String(),
@@ -1198,7 +1199,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
 	s.expectWatchAll()
 	s.expectResolveCharm(nil)
 
-	djangoCurl := charm.MustParseURL("ch:focal/django")
+	djangoCurl := charm.MustParseURL("ch:django")
 	s.expectResolveCharmWithBases([]string{"ubuntu@22.04", "ubuntu@20.04"}, nil)
 	s.expectAddCharm(false)
 	s.expectAddCharm(false)
@@ -1247,7 +1248,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 	s.expectWatchAll()
 	s.expectResolveCharm(nil)
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
@@ -1268,7 +1269,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 		{Entity: &params.UnitInfo{Name: "wordpress/1", MachineId: "1"}},
 	}, nil)
 
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
+	djangoCurl := charm.MustParseURL("ch:django")
 	s.expectResolveCharm(nil)
 	charmInfo2 := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
@@ -1318,7 +1319,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *gc.C) {
 	s.expectAddContainer("0", "0/lxd/1", "", "lxd")
 	s.expectAddContainer("1", "1/lxd/1", "", "lxd")
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
 		URL: wordpressCurl.String(),
@@ -1332,7 +1333,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *gc.C) {
 	s.expectAddOneUnit("wordpress", "0/lxd/0", "0")
 	s.expectAddOneUnit("wordpress", "1/lxd/0", "1")
 
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
+	djangoCurl := charm.MustParseURL("ch:django")
 	s.expectResolveCharm(nil)
 	charmInfo2 := &apicharms.CharmInfo{
 		URL: djangoCurl.String(),
@@ -1400,7 +1401,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	s.expectAddContainer("0", "0/kvm/0", "20.04", "kvm")
 
 	// Setup for mem charm
-	memCurl := charm.MustParseURL("ch:focal/mem")
+	memCurl := charm.MustParseURL("ch:mem")
 	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: memCurl.Revision,
@@ -1417,7 +1418,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	s.expectAddOneUnit("mem", "2", "2")
 
 	// Setup for django charm
-	djangoCurl := charm.MustParseURL("ch:focal/django")
+	djangoCurl := charm.MustParseURL("ch:django")
 	s.expectResolveCharm(nil)
 	charmInfo2 := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
@@ -1436,7 +1437,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	s.expectAddOneUnit("django", "0/kvm/0", "4")
 
 	// Setup for rails charm
-	railsCurl := charm.MustParseURL("ch:focal/rails")
+	railsCurl := charm.MustParseURL("ch:rails")
 	s.expectResolveCharm(nil)
 	charmInfo3 := &apicharms.CharmInfo{
 		Revision: railsCurl.Revision,
@@ -1476,7 +1477,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSwitch(c *gc.C) {
 
 	s.expectGetAnnotationsEmpty()
 
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
+	djangoCurl := charm.MustParseURL("ch:django")
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
 	charmInfo := &apicharms.CharmInfo{
@@ -1489,7 +1490,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSwitch(c *gc.C) {
 	s.expectSetCharm(c, "django")
 	s.expectDeploy()
 
-	railsCurl := charm.MustParseURL("ch:jammy/rails")
+	railsCurl := charm.MustParseURL("ch:rails")
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
 	rCharmInfo := &apicharms.CharmInfo{
@@ -1534,8 +1535,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
-	memCurl := charm.MustParseURL("ch:jammy/mem")
+	djangoCurl := charm.MustParseURL("ch:django")
+	memCurl := charm.MustParseURL("ch:mem")
 	chUnits := []charmUnit{
 		{
 			curl:                 memCurl,
@@ -1587,8 +1588,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotationsChanges(c *gc.C
 	s.expectWatchAll()
 	s.expectResolveCharmWithBases([]string{"ubuntu@18.04", "ubuntu@22.04", "ubuntu@16.04"}, nil)
 	s.expectAddCharm(false)
-	s.expectCharmInfo("ch:jammy/django", &apicharms.CharmInfo{
-		URL:  "ch:jammy/django",
+	s.expectCharmInfo("ch:django", &apicharms.CharmInfo{
+		URL:  "ch:django",
 		Meta: &charm.Meta{},
 	})
 
@@ -1627,7 +1628,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	s.expectAddCharm(false)
 	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
@@ -1654,7 +1655,7 @@ machines:
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(quickBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, gc.ErrorMatches, `cannot create machine for holding wp unit: invalid container type "bad"`)
 }
 
@@ -1675,7 +1676,7 @@ func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	s.expectAddCharm(false)
 	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
@@ -1750,7 +1751,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	chUnits := []charmUnit{
 		{
 			curl:                 wordpressCurl,
@@ -1785,10 +1786,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
-	mysqlCurl := charm.MustParseURL("ch:jammy/mysql")
-	pgresCurl := charm.MustParseURL("ch:jammy/postgres")
-	varnishCurl := charm.MustParseURL("ch:jammy/varnish")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
+	mysqlCurl := charm.MustParseURL("ch:mysql")
+	pgresCurl := charm.MustParseURL("ch:postgres")
+	varnishCurl := charm.MustParseURL("ch:varnish")
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -1820,10 +1821,10 @@ applications:
         charm: ch:mysql
         num_units: 1
     postgres:
-        charm: ch:focal/postgres
+        charm: ch:postgres
         num_units: 1
     varnish:
-        charm: ch:focal/varnish
+        charm: ch:varnish
         num_units: 1
 relations:
     - ["wordpress:db", "mysql:server"]
@@ -1863,8 +1864,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl := charm.MustParseURL("local:jammy/mysql-1")
-	wordpressCurl := charm.MustParseURL("local:jammy/wordpress-3")
+	mysqlCurl := charm.MustParseURL("local:mysql-1")
+	wordpressCurl := charm.MustParseURL("local:wordpress-3")
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -1898,7 +1899,7 @@ relations:
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
@@ -1931,8 +1932,8 @@ func (s *BundleDeployRepositorySuite) assertDeployBundleLocalPathInvalidSeriesWi
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl := charm.MustParseURL("local:jammy/mysql-1")
-	wordpressCurl := charm.MustParseURL("local:jammy/wordpress-3")
+	mysqlCurl := charm.MustParseURL("local:mysql-1")
+	wordpressCurl := charm.MustParseURL("local:wordpress-3")
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -1966,7 +1967,7 @@ relations:
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
@@ -2033,7 +2034,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	grafanaCurl, err := charm.ParseURL("ch:jammy/grafana")
+	grafanaCurl, err := charm.ParseURL("ch:grafana")
 	c.Assert(err, jc.ErrorIsNil)
 	chUnits := []charmUnit{{
 		curl:                 grafanaCurl,
@@ -2047,7 +2048,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc
 	bundleDeploymentSpec := s.bundleDeploySpec()
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha", "beta")
 
-	err = bundleDeploy(charm.CharmHub, bundleData, bundleDeploymentSpec)
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, bundleDeploymentSpec)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2064,7 +2065,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBinding
 	bundleDeploymentSpec := s.bundleDeploySpec()
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha")
 
-	err = bundleDeploy(charm.CharmHub, bundleData, bundleDeploymentSpec)
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, bundleDeploymentSpec)
 	c.Assert(err, gc.ErrorMatches, `space "beta" not found`)
 }
 
@@ -2090,7 +2091,9 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 }
 
 func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons constraints.Value) bundleDeploySpec {
-	deployResourcesFunc := func(_ string,
+	deployResourcesFunc := func(
+		_ context.Context,
+		_ string,
 		_ resources.CharmID,
 		_ map[string]string,
 		_ map[string]charmresource.Meta,
@@ -2115,7 +2118,7 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons const
 func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, os, channel string) {
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args %s", appName))
-	c.Assert(arg.CharmID.URL.String(), gc.Equals, curl)
+	c.Assert(arg.CharmID.URL, gc.Equals, curl)
 	c.Assert(arg.CharmOrigin.Base.OS, gc.Equals, os)
 	c.Assert(arg.CharmOrigin.Base.Channel.Track, gc.Equals, channel, gc.Commentf("%s", pretty.Sprint(arg)))
 }
@@ -2189,7 +2192,6 @@ func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
 	s.deployerAPI.EXPECT().BestFacadeVersion("Resources").Return(666).AnyTimes()
-	s.deployerAPI.EXPECT().Context().Return(context.Background()).AnyTimes()
 	s.deployerAPI.EXPECT().BestFacadeVersion("Charms").Return(666).AnyTimes()
 	s.deployerAPI.EXPECT().HTTPClient().Return(&httprequest.Client{}, nil).AnyTimes()
 	s.bundleResolver = mocks.NewMockResolver(ctrl)
@@ -2215,7 +2217,7 @@ func (s *BundleDeployRepositorySuite) runDeployWithSpec(c *gc.C, bundle string, 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, spec)
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, spec)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

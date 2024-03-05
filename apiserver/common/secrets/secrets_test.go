@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -299,9 +299,9 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(&adminCfg, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, wanted, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, true, cloudService, credentialService, wanted, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -412,9 +412,9 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(&adminCfg, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"backend-id"}, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, true, cloudService, credentialService, []string{"backend-id"}, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -525,7 +525,7 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(&adminCfg, true, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, true, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.DrainBackendConfigInfo(context.Background(), "backend-id", model, cloudService, credentialService, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
@@ -617,9 +617,9 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(&adminCfg, false, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"backend-id"}, false, appTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, true, cloudService, credentialService, []string{"backend-id"}, false, appTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -673,7 +673,7 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 		p.EXPECT().Initialise(gomock.Any()).Return(nil),
 	)
 
-	_, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"some-id"}, false, badTag, leadershipChecker)
+	_, err := secrets.BackendConfigInfo(context.Background(), model, true, cloudService, credentialService, []string{"some-id"}, false, badTag, leadershipChecker)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
 }
 
@@ -704,6 +704,13 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 		LatestExpireTime: &now,
 		NextRotateTime:   &now,
 	}}, nil)
+	secretsMetaState.EXPECT().SecretGrants(uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{
+		{
+			Target: "application-gitlab",
+			Scope:  "relation-key",
+			Role:   coresecrets.RoleView,
+		},
+	}, nil)
 	secretsMetaState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
 		Revision: 666,
 		ValueRef: &coresecrets.ValueRef{
@@ -735,6 +742,9 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 			}, {
 				Revision: 667,
 			}},
+			Access: []params.AccessInfo{
+				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
+			},
 		}},
 	})
 }
@@ -759,7 +769,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *gc.C) {
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -777,6 +787,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveSecretsForAgent(
+		context.Background(),
 		removeState, adminConfigGetter,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
@@ -818,7 +829,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -836,6 +847,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveSecretsForAgent(
+		context.Background(),
 		removeState, adminConfigGetter,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
@@ -886,7 +898,7 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -904,6 +916,7 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveSecretsForAgent(
+		context.Background(),
 		removeState, adminConfigGetter,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
@@ -952,11 +965,12 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 	mockprovider.EXPECT().NewBackend(cfg).Return(backend, nil)
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
 	mockprovider.EXPECT().CleanupSecrets(
+		gomock.Any(),
 		cfg, names.NewUserTag("foo"),
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -974,6 +988,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveUserSecrets(
+		context.Background(),
 		removeState, adminConfigGetter,
 		names.NewUserTag("foo"),
 		params.DeleteSecretArgs{
@@ -1029,11 +1044,12 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 	mockprovider.EXPECT().NewBackend(cfg).Return(backend, nil)
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
 	mockprovider.EXPECT().CleanupSecrets(
+		gomock.Any(),
 		cfg, names.NewUserTag("foo"),
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -1051,6 +1067,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveUserSecrets(
+		context.Background(),
 		removeState, adminConfigGetter,
 		names.NewUserTag("foo"),
 		params.DeleteSecretArgs{

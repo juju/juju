@@ -14,18 +14,16 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery/form"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/state"
 )
 
 type localLoginHandlers struct {
 	authCtxt   *authContext
-	finder     state.EntityFinder
 	userTokens map[string]string
 }
 
@@ -57,8 +55,8 @@ func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
 	_ = mux.AddHandler("POST", localUserIdentityLocationPath+"/form", dischargeMux)
 }
 
-func (h *localLoginHandlers) bakeryError(w http.ResponseWriter, err error) {
-	httpbakery.WriteError(context.TODO(), w, err)
+func (h *localLoginHandlers) bakeryError(ctx context.Context, w http.ResponseWriter, err error) {
+	httpbakery.WriteError(ctx, w, err)
 }
 
 func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Request) {
@@ -75,7 +73,7 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 	}
 	loginRequest := form.LoginRequest{}
 	if err := httprequest.Unmarshal(reqParams, &loginRequest); err != nil {
-		h.bakeryError(w, errors.Annotate(err, "can't unmarshal login request"))
+		h.bakeryError(ctx, w, errors.Annotate(err, "can't unmarshal login request"))
 		return
 	}
 
@@ -83,22 +81,22 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 	password := loginRequest.Body.Form["password"].(string)
 	userTag := names.NewUserTag(username)
 	if !userTag.IsLocal() {
-		h.bakeryError(w, errors.NotValidf("non-local username %q", username))
+		h.bakeryError(ctx, w, errors.NotValidf("non-local username %q", username))
 		return
 	}
 
 	authenticator := h.authCtxt.authenticator(req.Host)
-	if _, err := authenticator.Authenticate(ctx, h.finder, authentication.AuthParams{
+	if _, err := authenticator.Authenticate(ctx, authentication.AuthParams{
 		AuthTag:     userTag,
 		Credentials: password,
 	}); err != nil {
-		h.bakeryError(w, err)
+		h.bakeryError(ctx, w, err)
 		return
 	}
 
 	token, err := newID()
 	if err != nil {
-		h.bakeryError(w, errors.Annotate(err, "cannot generate token"))
+		h.bakeryError(ctx, w, errors.Annotate(err, "cannot generate token"))
 		return
 	}
 	h.userTokens[token] = username

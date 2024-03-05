@@ -100,7 +100,7 @@ func (s *UnitStatusSuite) checkGetSetStatus(c *gc.C) {
 
 func (s *UnitStatusSuite) TestGetSetStatusDying(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -108,7 +108,7 @@ func (s *UnitStatusSuite) TestGetSetStatusDying(c *gc.C) {
 
 func (s *UnitStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,7 +120,7 @@ func (s *UnitStatusSuite) TestGetSetStatusDead(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()

@@ -23,7 +23,7 @@ var _ = gc.Suite(&VolumeStatusSuite{})
 func (s *VolumeStatusSuite) SetUpTest(c *gc.C) {
 	s.StorageStateSuiteBase.SetUpTest(c)
 
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+	machine, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{

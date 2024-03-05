@@ -5,13 +5,14 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -98,7 +99,7 @@ func (c *syncAgentBinaryCommand) Init(args []string) error {
 // SyncToolAPI provides an interface with a subset of the
 // modelupgrader.Client API. This exists to enable mocking.
 type SyncToolAPI interface {
-	UploadTools(r io.ReadSeeker, v version.Binary) (coretools.List, error)
+	UploadTools(ctx context.Context, r io.ReadSeeker, v version.Binary) (coretools.List, error)
 	Close() error
 }
 
@@ -153,20 +154,20 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 		defer api.Close()
-		adapter := syncToolAPIAdapter{api}
-		sctx.TargetToolsUploader = adapter
+		adaptor := syncToolAPIAdaptor{api}
+		sctx.TargetToolsUploader = adaptor
 	}
-	return block.ProcessBlockedError(syncTools(sctx), block.BlockChange)
+	return block.ProcessBlockedError(syncTools(ctx, sctx), block.BlockChange)
 }
 
-// syncToolAPIAdapter implements sync.ToolsFinder and
+// syncToolAPIAdaptor implements sync.ToolsFinder and
 // sync.ToolsUploader, adapting a syncToolAPI. This
 // enables the use of sync.SyncTools.
-type syncToolAPIAdapter struct {
+type syncToolAPIAdaptor struct {
 	SyncToolAPI
 }
 
-func (s syncToolAPIAdapter) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {
-	_, err := s.SyncToolAPI.UploadTools(bytes.NewReader(data), tools.Version)
+func (s syncToolAPIAdaptor) UploadTools(ctx context.Context, toolsDir, stream string, tools *coretools.Tools, data []byte) error {
+	_, err := s.SyncToolAPI.UploadTools(ctx, bytes.NewReader(data), tools.Version)
 	return err
 }

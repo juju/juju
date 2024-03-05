@@ -17,15 +17,15 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jujuos "github.com/juju/os/v2"
 	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	k8scmd "k8s.io/client-go/tools/clientcmd"
@@ -49,14 +49,14 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -1206,7 +1206,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	base := corebase.MustParseBaseFromString("ubuntu@22.04")
-	err = imagemetadata.MergeAndWriteMetadata(ss, base, im, cloudSpec, sourceStor)
+	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }
@@ -1435,20 +1435,20 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
-		loggo.ERROR,
-		"failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
+		Level:   loggo.ERROR,
+		Message: "failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
 	}})
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
-	BuildAgentTarballAlwaysFails := func(
+	buildAgentTarballAlwaysFails := func(
 		bool, string, func(version.Number) version.Number,
 	) (*sync.BuiltAgent, error) {
 		return nil, errors.New("an error")
 	}
 
 	s.setupAutoUploadTest(c, "1.7.3", "jammy")
-	s.PatchValue(&sync.BuildAgentTarball, BuildAgentTarballAlwaysFails)
+	s.PatchValue(&sync.BuildAgentTarball, buildAgentTarballAlwaysFails)
 
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
@@ -1465,8 +1465,8 @@ No packaged binary found, preparing local Juju agent binary
 `[1:])
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
-		loggo.ERROR,
-		"failed to bootstrap model: cannot package bootstrap agent binary: an error",
+		Level:   loggo.ERROR,
+		Message: "failed to bootstrap model: cannot package bootstrap agent binary: an error",
 	}})
 }
 
@@ -1502,10 +1502,10 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: dummy.Bootstrap is broken"},
-		{loggo.DEBUG, "(error details.*)"},
-		{loggo.DEBUG, "cleaning up after failed bootstrap"},
-		{loggo.ERROR, "error cleaning up: dummy.Destroy is broken"},
+		{Level: loggo.ERROR, Message: "failed to bootstrap model: dummy.Bootstrap is broken"},
+		{Level: loggo.DEBUG, Message: "(error details.*)"},
+		{Level: loggo.DEBUG, Message: "cleaning up after failed bootstrap"},
+		{Level: loggo.ERROR, Message: "error cleaning up: dummy.Destroy is broken"},
 	})
 }
 
@@ -2339,7 +2339,7 @@ clouds:
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	list, err := envtools.FindTools(ss,
+	list, err := envtools.FindTools(context.Background(), ss,
 		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())

@@ -4,7 +4,7 @@
 package migrations
 
 import (
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 )
 

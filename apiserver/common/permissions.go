@@ -5,7 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade"
@@ -113,5 +113,8 @@ func HasModelAdmin(
 	}
 
 	err = authorizer.HasPermission(permission.AdminAccess, modelTag)
-	return err == nil, err
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, err
+	}
+	return err == nil, nil
 }

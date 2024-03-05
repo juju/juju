@@ -6,7 +6,7 @@ package bootstrap
 import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
@@ -133,10 +133,10 @@ func PrepareController(
 	}
 	if isCAASController {
 		details.ModelType = model.CAAS
-		env, err = caas.Open(ctx.Context(), p, openParams)
+		env, err = caas.Open(ctx, p, openParams)
 	} else {
 		details.ModelType = model.IAAS
-		env, err = environs.Open(ctx.Context(), p, openParams)
+		env, err = environs.Open(ctx, p, openParams)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	jujutesting "github.com/juju/testing"
@@ -459,18 +459,6 @@ var configTests = []configTest{
 			"mode": "strict,requires-prompts",
 		}),
 	}, {
-		about:       "Logging output flag specified",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"logging-output": "database",
-		}),
-	}, {
-		about:       "Logging output multiple flag specified",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"logging-output": "database,syslog",
-		}),
-	}, {
 		about:       "valid uuid",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -527,65 +515,6 @@ var configTests = []configTest{
 		}),
 		err: `resource-tags: expected "key=value", got "a"`,
 	}, {
-		about:       "Invalid syslog ca cert format",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
-			"logforward-enabled": true,
-			"syslog-host":        "localhost:1234",
-			"syslog-ca-cert":     "abc",
-			"syslog-client-cert": testing.CACert,
-			"syslog-client-key":  testing.CAKey,
-		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: no certificates found`,
-	}, {
-		about:       "Invalid syslog ca cert",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
-			"logforward-enabled": true,
-			"syslog-host":        "localhost:1234",
-			"syslog-ca-cert":     invalidCACert,
-			"syslog-client-cert": testing.CACert,
-			"syslog-client-key":  testing.CAKey,
-		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: x509: malformed certificate`,
-	}, {
-		about:       "invalid syslog cert",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"logforward-enabled": true,
-			"syslog-host":        "10.0.0.1:12345",
-			"syslog-ca-cert":     testing.CACert,
-			"syslog-client-cert": invalidCACert,
-			"syslog-client-key":  testing.CAKey,
-		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: x509: malformed certificate`,
-	}, {
-		about:       "invalid syslog key",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"logforward-enabled": true,
-			"syslog-host":        "10.0.0.1:12345",
-			"syslog-ca-cert":     testing.CACert,
-			"syslog-client-cert": testing.CACert,
-			"syslog-client-key":  invalidCAKey,
-		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: failed to parse private key`,
-	}, {
-		about:       "Mismatched syslog cert and key",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"logforward-enabled": true,
-			"syslog-host":        "10.0.0.1:12345",
-			"syslog-ca-cert":     testing.CACert,
-			"syslog-client-cert": testing.ServerCert,
-			"syslog-client-key":  serverKey2,
-		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`,
-	}, {
 		about:       "net-bond-reconfigure-delay value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -602,18 +531,6 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"transmit-vendor-metrics": false,
-		}),
-	}, {
-		about:       "Valid syslog config values",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
-			"logforward-enabled": true,
-			"syslog-host":        "localhost:1234",
-			"syslog-ca-cert":     testing.CACert,
-			"syslog-client-cert": testing.ServerCert,
-			"syslog-client-key":  testing.ServerKey,
 		}),
 	}, {
 		about:       "Valid container-inherit-properties",
@@ -685,6 +602,7 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []jujutesting.TestFile{
 		{Name: ".ssh/id_dsa.pub", Data: "dsa"},
 		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
+		{Name: ".ssh/id_ed25519.pub", Data: "ed25519\n"},
 		{Name: ".ssh/identity.pub", Data: "identity"},
 		{Name: ".ssh/authorized_keys", Data: "auth0\n# first\nauth1\n\n"},
 		{Name: ".ssh/authorized_keys2", Data: "auth2\nauth3\n"},
@@ -750,33 +668,6 @@ func (test configTest) check(c *gc.C) {
 
 	keys, _ := test.attrs["authorized-keys"].(string)
 	c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
-
-	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
-	if v, ok := test.attrs["logforward-enabled"].(bool); ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Assert(lfCfg.Enabled, gc.Equals, v)
-	}
-	if v, ok := test.attrs["syslog-ca-cert"].(string); v != "" {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Assert(lfCfg.CACert, gc.Equals, v)
-	} else if ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.CACert, gc.Equals, "")
-	}
-	if v, ok := test.attrs["syslog-client-cert"].(string); v != "" {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Assert(lfCfg.ClientCert, gc.Equals, v)
-	} else if ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.ClientCert, gc.Equals, "")
-	}
-	if v, ok := test.attrs["syslog-client-key"].(string); v != "" {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Assert(lfCfg.ClientKey, gc.Equals, v)
-	} else if ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.ClientKey, gc.Equals, "")
-	}
 
 	if v, ok := test.attrs["ssl-hostname-verification"]; ok {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
@@ -1321,44 +1212,6 @@ func (s *ConfigSuite) TestApplicationOfferAllowList(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "empty cidrs not valid")
 }
 
-func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {
-	config := newTestConfig(c, testing.Attrs{})
-	loggingOutput, ok := config.LoggingOutput()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{})
-
-	config = newTestConfig(c, testing.Attrs{
-		"logging-output": "database,syslog",
-	})
-	loggingOutput, ok = config.LoggingOutput()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
-
-	// Space doesn't matter
-	config = newTestConfig(c, testing.Attrs{
-		"logging-output": " database,                   syslog",
-	})
-	loggingOutput, ok = config.LoggingOutput()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
-
-	// Test order doesn't matter
-	config = newTestConfig(c, testing.Attrs{
-		"logging-output": "syslog,database",
-	})
-	loggingOutput, ok = config.LoggingOutput()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
-
-	// Test singular
-	config = newTestConfig(c, testing.Attrs{
-		"logging-output": "syslog",
-	})
-	loggingOutput, ok = config.LoggingOutput()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{"syslog"})
-}
-
 func (s *ConfigSuite) TestCharmHubURLSettingValue(c *gc.C) {
 	url := "http://meshuggah-rocks.com/charmhub"
 	config := newTestConfig(c, testing.Attrs{
@@ -1686,30 +1539,6 @@ func (s *ConfigSuite) TestTelemetryConfigDoesNotExist(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Telemetry(), jc.IsTrue)
 }
-
-var serverKey2 = `
------BEGIN RSA PRIVATE KEY-----
-MIIBPAIBAAJBALgI8m2TSdKefUOXkaluDrqbv1ua9gl2ec2ZrYQPDOQwDUoFXxQp
-Pn9Z/8QTshu7Nvvl0bRLgt32HyIp6xdb29MCAwEAAQJBAIa5fgf7gFqgzeDyj57y
-Q/QWWpMMMTuiMO7zptP7VJui18u7IdswycELNuniV2mncNGKEycV1d8osNpl+hBF
-e+ECIQDglKen9ciXbhJ4aN+U/tEULfzBhLJ0UxZobLau1eDUcQIhANHIJhdCTlW0
-7Q25YBXQP9KO2JkrBQ4yF6OcdS413IaDAiEA0XxY12eA8SAPwpmw1P7McJJlDu6E
-t9U5NbcSwQtoaUECIBabwncpPzX/bLjY7KENM4Omv3Mqbr4L6f5JA1v6lAyvAiEA
-1DgNkh2nlhR1AFbTY/MfFmIGq2KDMYeTWGP6XmiYOOg=
------END RSA PRIVATE KEY-----
-`[1:]
-
-var invalidCAKey = `
------BEGIN RSA PRIVATE KEY-----
-MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
------END RSA PRIVATE KEY-----
-`[1:]
-
-var invalidCACert = `
------BEGIN CERTIFICATE-----
-MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
------END CERTIFICATE-----
-`[1:]
 
 var validCloudInitUserData = `
 packages:

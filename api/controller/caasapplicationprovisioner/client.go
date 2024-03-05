@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
@@ -422,7 +422,6 @@ func (c *Client) DestroyUnits(unitNames []string) error {
 	args := params.DestroyUnitsParams{}
 	args.Units = make([]params.DestroyUnitParams, 0, len(unitNames))
 
-	fmt.Println(unitNames)
 	for _, unitName := range unitNames {
 		tag := names.NewUnitTag(unitName)
 		args.Units = append(args.Units, params.DestroyUnitParams{

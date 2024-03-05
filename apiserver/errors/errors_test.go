@@ -10,7 +10,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
@@ -91,7 +91,7 @@ var errorTransformTests = []struct {
 		return errors.Is(e, apiservererrors.NoAddressSetError)
 	},
 }, {
-	err:        apiservererrors.ErrBadCreds,
+	err:        apiservererrors.ErrUnauthorized,
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,

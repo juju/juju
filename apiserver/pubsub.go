@@ -10,7 +10,7 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/internal/feature"

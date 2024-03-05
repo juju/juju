@@ -8,8 +8,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/juju/cmd/v3"
-	"github.com/juju/loggo"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/loggo/v2"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/juju/juju/juju/osenv"

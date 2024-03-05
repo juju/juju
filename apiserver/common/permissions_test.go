@@ -5,11 +5,14 @@ package common_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/testing"
 )
@@ -118,7 +121,7 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 			title:            "user has lesser offer permissions than required",
 			userGetterAccess: permission.ReadAccess,
 			user:             names.NewUserTag("validuser"),
-			target:           names.NewApplicationOfferTag("hosted-mysql"),
+			target:           names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
 			access:           permission.WriteAccess,
 			expected:         false,
 		},
@@ -126,7 +129,7 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 			title:            "user has equal offer permission than required",
 			userGetterAccess: permission.ConsumeAccess,
 			user:             names.NewUserTag("validuser"),
-			target:           names.NewApplicationOfferTag("hosted-mysql"),
+			target:           names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
 			access:           permission.ConsumeAccess,
 			expected:         true,
 		},
@@ -134,7 +137,7 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 			title:            "user has greater offer permission than required",
 			userGetterAccess: permission.AdminAccess,
 			user:             names.NewUserTag("validuser"),
-			target:           names.NewApplicationOfferTag("hosted-mysql"),
+			target:           names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
 			access:           permission.ConsumeAccess,
 			expected:         true,
 		},
@@ -142,7 +145,7 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 			title:            "user requests controller permission on offer",
 			userGetterAccess: permission.ReadAccess,
 			user:             names.NewUserTag("validuser"),
-			target:           names.NewApplicationOfferTag("hosted-mysql"),
+			target:           names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
 			access:           permission.AddModelAccess,
 			expected:         false,
 		},
@@ -236,4 +239,56 @@ func (r *PermissionSuite) TestEveryoneAtExternal(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(hasPermission, gc.Equals, t.expected)
 	}
+}
+
+func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	auth := mocks.NewMockAuthorizer(ctrl)
+	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil)
+
+	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(has, jc.IsTrue)
+}
+
+func (r *PermissionSuite) TestHasModelAdminYes(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	auth := mocks.NewMockAuthorizer(ctrl)
+	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
+
+	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(has, jc.IsTrue)
+}
+
+func (r *PermissionSuite) TestHasModelAdminNo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	auth := mocks.NewMockAuthorizer(ctrl)
+	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(authentication.ErrorEntityMissingPermission)
+
+	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(has, jc.IsFalse)
+}
+
+func (r *PermissionSuite) TestHasModelAdminError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	auth := mocks.NewMockAuthorizer(ctrl)
+	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	someError := errors.New("error")
+	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(someError)
+
+	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
+	c.Assert(err, jc.ErrorIs, someError)
+	c.Assert(has, jc.IsFalse)
 }

@@ -55,7 +55,7 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerStore := jujuclient.NewMemStore()
-	ctx := envtesting.BootstrapTODOContext(c)
+	ctx := envtesting.BootstrapTestContext(c)
 	controllerCfg := controller.Config{
 		controller.ControllerUUIDKey:       testing.ControllerTag.Id(),
 		controller.CACertKey:               testing.CACert,

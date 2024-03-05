@@ -4,9 +4,9 @@
 package resources
 
 import (
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/resources"

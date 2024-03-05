@@ -4,11 +4,12 @@
 package provider
 
 import (
+	"context"
 	"sort"
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -74,7 +75,7 @@ type SecretBackendProvider interface {
 
 	// CleanupSecrets removes any ACLs / resources associated
 	// with the removed secrets.
-	CleanupSecrets(cfg *ModelBackendConfig, tag names.Tag, removed SecretRevisions) error
+	CleanupSecrets(ctx context.Context, cfg *ModelBackendConfig, tag names.Tag, removed SecretRevisions) error
 
 	// CleanupModel removes any secrets / ACLs / resources
 	// associated with the model config.
@@ -83,7 +84,7 @@ type SecretBackendProvider interface {
 	// RestrictedConfig returns the config needed to create a
 	// secrets backend client restricted to manage the specified
 	// owned secrets and read shared secrets for the given entity tag.
-	RestrictedConfig(adminCfg *ModelBackendConfig, forDrain bool, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
+	RestrictedConfig(ctx context.Context, adminCfg *ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
 
 	// NewBackend creates a secrets backend client using the
 	// specified model config.

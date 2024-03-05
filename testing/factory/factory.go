@@ -7,15 +7,13 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"strconv"
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
-	"github.com/juju/names/v4"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -29,10 +27,15 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -44,16 +47,27 @@ const (
 )
 
 type Factory struct {
-	pool *state.StatePool
-	st   *state.State
+	pool       *state.StatePool
+	st         *state.State
+	prechecker environs.InstancePrechecker
 }
 
 var index uint32
 
 func NewFactory(st *state.State, pool *state.StatePool) *Factory {
 	return &Factory{
-		st:   st,
-		pool: pool,
+		st:         st,
+		pool:       pool,
+		prechecker: state.NoopInstancePrechecker{},
+	}
+}
+
+// NewFactoryWithPrechecker returns a new factory with the given prechecker.
+func NewFactoryWithPrechecker(st *state.State, pool *state.StatePool, prechecker environs.InstancePrechecker) *Factory {
+	return &Factory{
+		st:         st,
+		pool:       pool,
+		prechecker: prechecker,
 	}
 }
 
@@ -132,14 +146,6 @@ type RelationParams struct {
 	Endpoints []state.Endpoint
 }
 
-type MetricParams struct {
-	Unit       *state.Unit
-	Time       *time.Time
-	Metrics    []state.Metric
-	Sent       bool
-	DeleteTime *time.Time
-}
-
 type ModelParams struct {
 	Type                    state.ModelType
 	Name                    string
@@ -156,7 +162,6 @@ type SpaceParams struct {
 	Name       string
 	ProviderID network.Id
 	SubnetIDs  []string
-	IsPublic   bool
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -283,7 +288,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 	}
 	if params.Password == "" {
 		var err error
-		params.Password, err = utils.RandomPassword()
+		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Characteristics == nil {
@@ -372,7 +377,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	if params.Characteristics != nil {
 		machineTemplate.HardwareCharacteristics = *params.Characteristics
 	}
-	machine, err := factory.st.AddOneMachine(machineTemplate)
+	machine, err := factory.st.AddOneMachine(factory.prechecker, machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	if setProvisioned {
 		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
@@ -501,7 +506,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	}
 	if params.Password == "" {
 		var err error
-		params.Password, err = utils.RandomPassword()
+		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.CharmOrigin == nil {
@@ -528,7 +533,12 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			}}
 	}
 
-	rSt := factory.st.Resources(NewObjectStore(c, factory.st))
+	objectStore := NewObjectStore(c,
+		factory.st.ModelUUID(),
+		objectstoretesting.MemoryMetadataService(),
+		objectstoretesting.MemoryClaimer(),
+	)
+	rSt := factory.st.Resources(objectStore)
 
 	resourceMap := make(map[string]string)
 	for name, res := range params.Charm.Meta().Resources {
@@ -542,7 +552,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 
 	appConfig, err := coreconfig.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := factory.st.AddApplication(state.AddApplicationArgs{
+	application, err := factory.st.AddApplication(factory.prechecker, state.AddApplicationArgs{
 		Name:              params.Name,
 		Charm:             params.Charm,
 		CharmOrigin:       params.CharmOrigin,
@@ -553,7 +563,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
 		Placement:         params.Placement,
-	}, NewObjectStore(c, factory.st))
+	}, mockApplicationSaver{}, objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -589,6 +599,12 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	}
 
 	return application, params.Password
+}
+
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
 }
 
 // MakeUnit creates an application unit with specified params, filling in
@@ -640,7 +656,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 	if params.Password == "" {
 		var err error
-		params.Password, err = utils.RandomPassword()
+		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	unit, err := params.Application.AddUnit(state.AddUnitParams{})
@@ -682,54 +698,6 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 
 	return unit, params.Password
-}
-
-// MakeMetric makes a metric with specified params, filling in
-// sane defaults for missing values.
-// If params is not specified, defaults are used.
-func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricBatch {
-	now := time.Now().Round(time.Second).UTC()
-	if params == nil {
-		params = &MetricParams{}
-	}
-	if params.Unit == nil {
-		meteredCharm := factory.MakeCharm(c, &CharmParams{Name: "metered", URL: "ch:quantal/metered"})
-		meteredApplication := factory.MakeApplication(c, &ApplicationParams{Charm: meteredCharm})
-		params.Unit = factory.MakeUnit(c, &UnitParams{Application: meteredApplication, SetCharmURL: true})
-	}
-	if params.Time == nil {
-		params.Time = &now
-	}
-	if params.Metrics == nil {
-		params.Metrics = []state.Metric{{
-			Key:    "pings",
-			Value:  strconv.Itoa(uniqueInteger()),
-			Time:   *params.Time,
-			Labels: map[string]string{"foo": "bar"},
-		}}
-	}
-
-	chURL := params.Unit.CharmURL()
-	c.Assert(chURL, gc.NotNil)
-
-	metric, err := factory.st.AddMetrics(
-		state.BatchParam{
-			UUID:     utils.MustNewUUID().String(),
-			Created:  *params.Time,
-			CharmURL: *chURL,
-			Metrics:  params.Metrics,
-			Unit:     params.Unit.UnitTag(),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	if params.Sent {
-		t := now
-		if params.DeleteTime != nil {
-			t = *params.DeleteTime
-		}
-		err := metric.SetSent(t)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	return metric
 }
 
 // MakeRelation create a relation with specified params, filling in sane
@@ -809,7 +777,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		cfgType = "kubernetes"
 	}
 
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": params.Name,
@@ -871,7 +839,7 @@ func (factory *Factory) MakeSpace(c *gc.C, params *SpaceParams) *state.Space {
 	if params.Name == "" {
 		params.Name = uniqueString("space-")
 	}
-	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.SubnetIDs, params.IsPublic)
+	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.SubnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	return space
 }
@@ -886,12 +854,14 @@ func (factory *Factory) currentCfg(c *gc.C) *config.Config {
 	return currentCfg
 }
 
-func NewObjectStore(c *gc.C, st *state.State) objectstore.ObjectStore {
+func NewObjectStore(c *gc.C, modelUUID string, metadataService internalobjectstore.MetadataService, claimer internalobjectstore.Claimer) objectstore.ObjectStore {
 	store, err := internalobjectstore.ObjectStoreFactory(
 		context.Background(),
 		internalobjectstore.DefaultBackendType(),
-		st.ModelUUID(),
-		internalobjectstore.WithMongoSession(st),
+		modelUUID,
+		internalobjectstore.WithRootDir(c.MkDir()),
+		internalobjectstore.WithMetadataService(metadataService),
+		internalobjectstore.WithClaimer(claimer),
 		internalobjectstore.WithLogger(testing.NewCheckLogger(c)),
 	)
 	c.Assert(err, jc.ErrorIsNil)

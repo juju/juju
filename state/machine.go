@@ -9,15 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -159,6 +159,12 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	return machine
 }
 
+// DocID returns the machine doc id.
+// Deprecated: this is only used for migration to the domain model.
+func (m *Machine) DocID() string {
+	return m.doc.DocID
+}
+
 // Id returns the machine id.
 func (m *Machine) Id() string {
 	return m.doc.Id
@@ -167,6 +173,13 @@ func (m *Machine) Id() string {
 // Principals returns the principals for the machine.
 func (m *Machine) Principals() []string {
 	return m.doc.Principals
+}
+
+// AddPrincipal adds a principal to the machine.
+func (m *Machine) AddPrincipal(name string) {
+	m.doc.Clean = false
+	m.doc.Principals = append(m.doc.Principals, name)
+	sort.Strings(m.doc.Principals)
 }
 
 // Base returns the os base running on the machine.
@@ -183,6 +196,11 @@ func (m *Machine) ContainerType() instance.ContainerType {
 // for the model that this machine is in.
 func (m *Machine) ModelUUID() string {
 	return m.doc.ModelUUID
+}
+
+// FileSystems returns the names of the filesystems attached to the machine.
+func (m *Machine) FileSystems() []string {
+	return m.doc.Filesystems
 }
 
 // ForceDestroyed returns whether the destruction of a dying/dead
@@ -566,10 +584,10 @@ func (m *Machine) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	if len(password) < utils.MinAgentPasswordLength {
+	if len(password) < internalpassword.MinAgentPasswordLength {
 		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	passwordHash := utils.AgentPasswordHash(password)
+	passwordHash := internalpassword.AgentPasswordHash(password)
 	op := m.UpdateOperation()
 	op.PasswordHash = &passwordHash
 	if err := m.st.ApplyOperation(op); err != nil {
@@ -595,7 +613,7 @@ func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	agentHash := utils.AgentPasswordHash(password)
+	agentHash := internalpassword.AgentPasswordHash(password)
 	return agentHash == m.doc.PasswordHash
 }
 
@@ -1175,7 +1193,6 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		removeConstraintsOp(m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
-		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.globalKey()),
 		removeInstanceDataOp(m.doc.DocID),
@@ -2094,11 +2111,6 @@ func (m *Machine) markInvalidContainers() error {
 		}
 	}
 	return nil
-}
-
-// SetMachineBlockDevices sets the block devices visible on the machine.
-func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
-	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
 // VolumeAttachments returns the machine's volume attachments.

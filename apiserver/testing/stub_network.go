@@ -11,9 +11,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -25,7 +24,8 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	providercommon "github.com/juju/juju/provider/common"
+	providercommon "github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -143,7 +143,6 @@ type FakeSpace struct {
 	SpaceId   string
 	SpaceName string
 	SubnetIds []string
-	Public    bool
 	NextErr   errReturner
 }
 
@@ -393,7 +392,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 
 	// Make sure we use the stub provider.
 	extraAttrs := coretesting.Attrs{
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 		"type": StubProviderType,
 		"name": envName,
 	}
@@ -570,12 +569,12 @@ func (sb *StubBacking) AddSubnet(subnetInfo networkingcommon.BackingSubnetInfo) 
 	return fs, nil
 }
 
-func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []string, public bool) (networkingcommon.BackingSpace, error) {
-	sb.MethodCall(sb, "AddSpace", name, providerId, subnets, public)
+func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []string) (networkingcommon.BackingSpace, error) {
+	sb.MethodCall(sb, "AddSpace", name, providerId, subnets)
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
-	fs := &FakeSpace{SpaceName: name, SubnetIds: subnets, Public: public}
+	fs := &FakeSpace{SpaceName: name, SubnetIds: subnets}
 	sb.Spaces = append(sb.Spaces, fs)
 	return fs, nil
 }

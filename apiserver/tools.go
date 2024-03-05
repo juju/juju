@@ -242,7 +242,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	}
 
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	exactTools, err := envtools.FindExactTools(ss, env, v.Number, v.Release, v.Arch)
+	exactTools, err := envtools.FindExactTools(ctx, ss, env, v.Number, v.Release, v.Arch)
 	if err != nil {
 		return err
 	}
@@ -250,7 +250,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	// No need to verify the server's identity because we verify the SHA-256 hash.
 	logger.Infof("fetching %v agent binaries from %v", v, exactTools.URL)
 	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
-	resp, err := client.Get(context.TODO(), exactTools.URL)
+	resp, err := client.Get(ctx, exactTools.URL)
 	if err != nil {
 		return err
 	}

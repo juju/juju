@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/actions"
@@ -203,6 +203,7 @@ func (s *ActionSuite) TestAddActionInsertsDefaults(c *gc.C) {
 	schemas := map[string]string{
 		"simple": `
 act:
+  additionalProperties: true
   params:
     val:
       type: string
@@ -210,6 +211,7 @@ act:
 `[1:],
 		"complicated": `
 act:
+  additionalProperties: true
   params:
     val:
       type: object
@@ -648,7 +650,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	preventUnitDestroyRemove(c, unit)
 
 	// make unit state Dying
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// can add action to a dying unit
@@ -673,7 +675,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 
 	killUnit := jujutxn.TestHook{
 		Before: func() {
-			c.Assert(unit.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+			c.Assert(unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 			c.Assert(unit.EnsureDead(), gc.IsNil)
 		},
 	}

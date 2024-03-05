@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"context"
+
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 
@@ -17,8 +19,10 @@ import (
 
 type environProviderCredentials struct {
 	cmdRunner               CommandRunner
-	builtinCredentialGetter func(CommandRunner) (cloud.Credential, error)
+	builtinCredentialGetter func(context.Context, CommandRunner) (cloud.Credential, error)
 }
+
+var _ environs.ProviderCredentials = (*environProviderCredentials)(nil)
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
@@ -70,9 +74,9 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
 	cloudName := cld.Name
 	if cloudName != k8s.K8sCloudMicrok8s {
-		return registerCredentialsKubeConfig(cld)
+		return registerCredentialsKubeConfig(context.TODO(), cld)
 	}
-	cred, err := p.builtinCredentialGetter(p.cmdRunner)
+	cred, err := p.builtinCredentialGetter(context.TODO(), p.cmdRunner)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -89,6 +93,7 @@ func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[st
 }
 
 func registerCredentialsKubeConfig(
+	ctx context.Context,
 	cld cloud.Cloud,
 ) (map[string]*cloud.CloudCredential, error) {
 	k8sConfig, err := clientconfig.GetLocalKubeConfig()
@@ -101,7 +106,7 @@ func registerCredentialsKubeConfig(
 		return make(map[string]*cloud.CloudCredential), nil
 	}
 
-	resolver := clientconfig.GetJujuAdminServiceAccountResolver(jujuclock.WallClock)
+	resolver := clientconfig.GetJujuAdminServiceAccountResolver(ctx, jujuclock.WallClock)
 	conf, err := resolver(cld.Name, k8sConfig, cld.Name)
 	if err != nil {
 		return make(map[string]*cloud.CloudCredential), errors.Annotatef(

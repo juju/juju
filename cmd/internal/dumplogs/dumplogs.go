@@ -9,23 +9,23 @@ package dumplogs
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/internal/mongo"
 	corenames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
@@ -191,30 +191,33 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	tailer, err := state.NewLogTailer(st, corelogger.LogTailerParams{NoTail: true}, nil)
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
+
+	fileName := corelogger.ModelLogFile(c.agentConfig.CurrentConfig().LogDir(), st.ModelUUID(), modelOwnerAndName)
+	tailer, err := logtailer.NewLogTailer(st.ControllerModelUUID(), fileName, logtailer.LogTailerParams{NoTail: true})
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
 	}
+	defer func() {
+		_ = worker.Stop(tailer)
+	}()
+
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs
 		if !ok {
 			break
 		}
-		_, _ = writer.WriteString(c.format(
-			rec.Time,
-			rec.Level,
-			rec.Entity,
-			rec.Module,
-			rec.Message,
-			rec.Labels,
-		) + "\n")
+		line, err := json.Marshal(rec)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, _ = writer.WriteString(fmt.Sprintf("%s\n", line))
 	}
 
 	return nil
-}
-
-func (c *dumpLogsCommand) format(timestamp time.Time, level loggo.Level, entity, module, message string, labels []string) string {
-	ts := timestamp.In(time.UTC).Format("2006-01-02 15:04:05")
-	return fmt.Sprintf("%s: %s %s %s %s %s", entity, ts, level, module, message, strings.Join(labels, ","))
 }

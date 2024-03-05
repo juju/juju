@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -51,37 +51,11 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewFacade(facadetest.Context{
+	s.api, err = charms.NewFacade(facadetest.ModelContext{
 		Auth_:  s.auth,
 		State_: s.ControllerModel(c).State(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	meteredCharm := f.MakeCharm(
-		c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/xenial/metered"})
-	info, err := s.api.CharmInfo(context.Background(), params.CharmURL{
-		URL: meteredCharm.URL(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	expected := &params.CharmMetrics{
-		Plan: params.CharmPlan{
-			Required: true,
-		},
-		Metrics: map[string]params.CharmMetric{
-			"pings": {
-				Type:        "gauge",
-				Description: "Description of the metric."},
-			"pongs": {
-				Type:        "gauge",
-				Description: "Description of the metric."},
-			"juju-units": {
-				Type:        "",
-				Description: ""}}}
-	c.Assert(info.Metrics, jc.DeepEquals, expected)
 }
 
 func (s *charmsSuite) TestListCharmsNoFilter(c *gc.C) {
@@ -110,28 +84,6 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 	c.Check(found.CharmURLs, jc.DeepEquals, expected)
 }
 
-func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	metered, err := s.api.IsMetered(context.Background(), params.CharmURL{
-		URL: charm.URL(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metered.Metered, jc.IsFalse)
-}
-
-func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
-	metered, err := s.api.IsMetered(context.Background(), params.CharmURL{
-		URL: meteredCharm.URL(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metered.Metered, jc.IsTrue)
-}
-
 type charmsMockSuite struct {
 	model        *mocks.MockBackendModel
 	state        *mocks.MockBackendState
@@ -154,7 +106,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	api := s.api(c)
 
 	curl := "ch:testme"
-	seriesCurl := "ch:amd64/focal/testme"
+	fullCurl := "ch:amd64/testme"
 
 	edgeOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
@@ -176,13 +128,13 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 				Architecture: "amd64",
 			}},
 			{Reference: curl, Origin: stableOrigin},
-			{Reference: seriesCurl, Origin: edgeOrigin},
+			{Reference: fullCurl, Origin: edgeOrigin},
 		},
 	}
 
 	expected := []params.ResolveCharmWithChannelResult{
 		{
-			URL:    seriesCurl,
+			URL:    fullCurl,
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -190,7 +142,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 				{Name: "ubuntu", Channel: "16.04"},
 			},
 		}, {
-			URL:    seriesCurl,
+			URL:    fullCurl,
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -199,7 +151,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			},
 		},
 		{
-			URL:    seriesCurl,
+			URL:    fullCurl,
 			Origin: edgeOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -228,95 +180,6 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
-}
-
-func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectResolveWithPreferredChannelNoSeries()
-	api := s.api(c)
-
-	seriesCurl := "ch:amd64/focal/testme"
-
-	edgeOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmHub.String(),
-		Type:         "charm",
-		Risk:         "edge",
-		Architecture: "amd64",
-	}
-
-	args := params.ResolveCharmsWithChannel{
-		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: seriesCurl, Origin: edgeOrigin},
-		},
-	}
-
-	expected := []params.ResolveCharmWithChannelResult{{
-		URL:            seriesCurl,
-		Origin:         edgeOrigin,
-		SupportedBases: []params.Base{{Name: "ubuntu", Channel: "20.04/stable"}},
-	}}
-	result, err := api.ResolveCharms(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results, jc.DeepEquals, expected)
-}
-
-func (s *charmsMockSuite) TestResolveCharmV6(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectResolveWithPreferredChannel(3, nil)
-	apiv6 := charms.APIv6{
-		&charms.APIv7{
-			API: s.api(c),
-		},
-	}
-
-	curl := "ch:testme"
-	seriesCurl := "ch:amd64/focal/testme"
-
-	edgeOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmHub.String(),
-		Type:         "charm",
-		Risk:         "edge",
-		Architecture: "amd64",
-	}
-	stableOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmHub.String(),
-		Type:         "charm",
-		Risk:         "stable",
-		Architecture: "amd64",
-	}
-
-	args := params.ResolveCharmsWithChannel{
-		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: curl, Origin: params.CharmOrigin{
-				Source:       corecharm.CharmHub.String(),
-				Architecture: "amd64",
-			}},
-			{Reference: curl, Origin: stableOrigin},
-			{Reference: seriesCurl, Origin: edgeOrigin},
-		},
-	}
-
-	expected := []params.ResolveCharmWithChannelResultV6{
-		{
-			URL:             seriesCurl,
-			Origin:          stableOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
-		}, {
-			URL:             seriesCurl,
-			Origin:          stableOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
-		},
-		{
-			URL:             seriesCurl,
-			Origin:          edgeOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
-		},
-	}
-	result, err := apiv6.ResolveCharms(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results, jc.DeepEquals, expected)
 }
 
 func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
@@ -686,42 +549,11 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 			curl := &charm.URL{
 				Schema:       "ch",
 				Name:         name,
-				Series:       "focal",
 				Architecture: "amd64",
 				Revision:     -1,
 			}
 			return curl, resolvedOrigin, bases, err
 		}).Times(times)
-}
-
-func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().ResolveWithPreferredChannel(
-		gomock.Any(),
-		gomock.AssignableToTypeOf(""),
-		gomock.AssignableToTypeOf(corecharm.Origin{}),
-	).DoAndReturn(
-		func(_ context.Context, name string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
-			resolvedOrigin := requestedOrigin
-			resolvedOrigin.Type = "charm"
-
-			if requestedOrigin.Channel == nil || requestedOrigin.Channel.Risk == "" {
-				if requestedOrigin.Channel == nil {
-					resolvedOrigin.Channel = new(charm.Channel)
-				}
-
-				resolvedOrigin.Channel.Risk = "stable"
-			}
-			// ensure the charm url returned is filled out
-			curl := &charm.URL{
-				Schema:       "ch",
-				Name:         name,
-				Series:       "focal",
-				Architecture: "amd64",
-				Revision:     -1,
-			}
-			return curl, resolvedOrigin, []string{}, nil
-		})
 }
 
 func (s *charmsMockSuite) expectApplication(name string) {

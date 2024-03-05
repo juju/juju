@@ -9,13 +9,13 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -70,6 +71,9 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	if s.ApiServerSuite.ControllerModelConfigAttrs == nil {
 		s.ApiServerSuite.ControllerModelConfigAttrs = make(map[string]any)
 	}
+	s.ApiServerSuite.ControllerConfigAttrs = map[string]any{
+		controller.SystemSSHKeys: "testSystemSSH",
+	}
 	s.ApiServerSuite.ControllerModelConfigAttrs["image-stream"] = "daily"
 	s.ApiServerSuite.SetUpTest(c)
 
@@ -83,7 +87,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		s.machines = append(s.machines, testing.AddControllerMachine(c, st))
 	}
 	for i := 0; i < 5; i++ {
-		machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -99,7 +103,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPIV11(facadetest.Context{
+	provisionerAPI, err := provisioner.NewProvisionerAPIV11(context.Background(), facadetest.ModelContext{
 		Auth_:           s.authorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -127,7 +131,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 	anAuthorizer.Controller = true
 	// Works with a controller, which is not a machine agent.
 	st := s.ControllerModel(c).State()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -139,7 +143,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 
 	// But fails with neither a machine agent or a controller.
 	anAuthorizer.Controller = false
-	aProvisioner, err = provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err = provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -217,7 +221,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	st := s.ControllerModel(c).State()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -303,7 +307,7 @@ func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 	})
 
 	// Remove the subordinate and make sure it's detected.
-	err = s.machines[1].Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.machines[1].Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -577,7 +581,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = names.NewMachineTag("1")
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -780,7 +784,7 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1014,7 +1018,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 
 	// Add a few controllers, provision two of them.
 	st := s.ControllerModel(c).State()
-	_, err = st.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = st.EnableHA(state.NoopInstancePrechecker{}, 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1082,7 +1086,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	provisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1154,7 +1158,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, err = s.ControllerModel(c).State().EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = s.ControllerModel(c).State().EnableHA(s.InstancePrechecker(c, s.ControllerModel(c).State()), 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1208,7 +1212,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	provisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1248,7 +1252,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	}
-	consMachine, err := s.ControllerModel(c).State().AddOneMachine(template)
+	consMachine, err := s.ControllerModel(c).State().AddOneMachine(s.InstancePrechecker(c, s.ControllerModel(c).State()), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine0Constraints, err := s.machines[0].Constraints()
@@ -1292,7 +1296,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	err = s.machines[0].SetInstanceInfo("i-am", "", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumesMachine, err := st.AddOneMachine(state.MachineTemplate{
+	volumesMachine, err := st.AddOneMachine(s.InstancePrechecker(c, s.ControllerModel(c).State()), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
@@ -1447,7 +1451,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1501,7 +1505,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1585,7 +1589,11 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys())
+	// We are looking to see here that the controller config system keys are
+	// being concatenated with the model config authorised keys in the return
+	// value. Because of how controller config works we can only inject these in
+	// SetupTest.
+	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys()+"\ntestSystemSSH")
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.LegacyProxy.HasProxySet(), jc.IsFalse)
 	c.Check(results.JujuProxy, gc.DeepEquals, expectedProxy)
@@ -1630,7 +1638,11 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys())
+	// We are looking to see here that the controller config system keys are
+	// being concatenated with the model config authorised keys in the return
+	// value. Because of how controller config works we can only inject these in
+	// SetupTest.
+	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys()+"\ntestSystemSSH")
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.LegacyProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.JujuProxy.HasProxySet(), jc.IsFalse)
@@ -1676,7 +1688,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerAPI(context.Background(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1810,7 +1822,7 @@ func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 
 	controllerCfg := coretesting.FakeControllerConfig()
 
-	err := st.SetAPIHostPorts(controllerCfg, hostPorts)
+	err := st.SetAPIHostPorts(controllerCfg, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.provisioner.APIAddresses(context.Background())

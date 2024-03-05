@@ -48,8 +48,9 @@ func (u *upgradeCAASControllerBridge) Namespace() string {
 	return u.namespaceFn()
 }
 
-func controllerUpgrade(appName string, vers version.Number, broker UpgradeCAASControllerBroker) error {
+func controllerUpgrade(ctx context.Context, appName string, vers version.Number, broker UpgradeCAASControllerBroker) error {
 	return upgradeOperatorOrControllerStatefulSet(
+		ctx,
 		appName,
 		appName,
 		false,
@@ -60,19 +61,20 @@ func controllerUpgrade(appName string, vers version.Number, broker UpgradeCAASCo
 		broker.Client().AppsV1().StatefulSets(broker.Namespace()))
 }
 
-func (k *kubernetesClient) upgradeController(vers version.Number) error {
+func (k *kubernetesClient) upgradeController(ctx context.Context, vers version.Number) error {
 	broker := &upgradeCAASControllerBridge{
 		clientFn:    k.client,
 		namespaceFn: k.GetCurrentNamespace,
 		isLegacyFn:  k.IsLegacyLabels,
 	}
-	return controllerUpgrade(bootstrap.ControllerModelName, vers, broker)
+	return controllerUpgrade(ctx, bootstrap.ControllerModelName, vers, broker)
 }
 
 // InClusterCredentialUpgrade implements upgrades.upgradeKubernetesClusterCredential
 // used in the Juju 2.9.6 upgrade step
-func (k *kubernetesClient) InClusterCredentialUpgrade() error {
+func (k *kubernetesClient) InClusterCredentialUpgrade(ctx context.Context) error {
 	return inClusterCredentialUpgrade(
+		ctx,
 		k.client(),
 		k.IsLegacyLabels(),
 		k.GetCurrentNamespace(),
@@ -80,11 +82,11 @@ func (k *kubernetesClient) InClusterCredentialUpgrade() error {
 }
 
 func inClusterCredentialUpgrade(
+	ctx context.Context,
 	client kubernetes.Interface,
 	legacyLabels bool,
 	namespace string,
 ) error {
-	ctx := context.TODO()
 	labels := providerutils.LabelsForApp("controller", legacyLabels)
 
 	saName, cleanUps, err := ensureControllerServiceAccount(

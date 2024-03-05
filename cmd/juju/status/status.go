@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/viddy"
 
 	"github.com/juju/juju/api/client/client"
@@ -366,7 +366,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		// A change was made in cmd/v3.0.2 output.go that broke the consistency in output for the
+		// A change was made in cmd/v4.0.2 output.go that broke the consistency in output for the
 		// default formatter by removing the newline delimiter. Hence we prefix '\n' in the text below.
 		// https://github.com/juju/cmd/commit/be22fa661a798055c801f1511aee226db249ef95
 		ctx.Infof("\nModel %q is empty.", modelName)

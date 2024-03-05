@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -139,7 +139,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	ctx := stdcontext.WithValue(stdcontext.Background(), bootstrap.SimplestreamsFetcherContextKey, ss)
 	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
 	t.ProviderCallContext = envcontext.WithoutCredentialInvalidator(ctx)
 }
@@ -237,7 +237,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
-	e2 := t.Open(c, t.BootstrapContext.Context(), e.Config())
+	e2 := t.Open(c, t.BootstrapContext, e.Config())
 	controllerInstances2, err := e2.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)

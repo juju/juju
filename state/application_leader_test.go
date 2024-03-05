@@ -6,7 +6,7 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -211,7 +211,7 @@ func (s *ApplicationLeaderSuite) preventRemove(c *gc.C) {
 func (s *ApplicationLeaderSuite) destroyApplication(c *gc.C) {
 	killApplication, err := s.State.Application(s.application.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	err = killApplication.Destroy(state.NewObjectStore(c, s.State))
+	err = killApplication.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -36,7 +36,7 @@ func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Value) (*state.Machine, error) {
-	return s.State.AddOneMachine(state.MachineTemplate{
+	return s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
@@ -284,7 +284,7 @@ func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
 
 func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("virt-type=blah")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -292,13 +292,13 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [kvm]"))
 }
 
 func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C) {
 	cons := constraints.MustParse("virt-type=kvm")
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -306,14 +306,14 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 }
 
 func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 	posCons := constraints.MustParse("arch=amd64 spaces=db")
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -321,12 +321,12 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
 	negCons := constraints.MustParse("arch=amd64 spaces=^db2")
-	negApplication, err := s.State.AddApplication(state.AddApplicationArgs{
+	negApplication, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "unimportant",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -334,7 +334,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		}},
 		Charm:       s.testCharm,
 		Constraints: negCons,
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(negApplication, gc.NotNil)
 
@@ -363,7 +363,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 
 func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C) {
 	posCons := constraints.MustParse("spaces=db")
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -371,7 +371,7 @@ func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C)
 		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 

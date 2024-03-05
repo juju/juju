@@ -58,12 +58,15 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MaxDebugLogDuration,
 		controller.MaxPruneTxnBatchSize,
 		controller.MaxPruneTxnPasses,
-		controller.MeteringURL,
 		controller.MigrationMinionWaitMax,
 		controller.ModelLogfileMaxBackups,
 		controller.ModelLogfileMaxSize,
 		controller.MongoMemoryProfile,
 		controller.ObjectStoreType,
+		controller.ObjectStoreS3Endpoint,
+		controller.ObjectStoreS3StaticKey,
+		controller.ObjectStoreS3StaticSecret,
+		controller.ObjectStoreS3StaticSession,
 		controller.OpenTelemetryEnabled,
 		controller.OpenTelemetryEndpoint,
 		controller.OpenTelemetryInsecure,
@@ -74,6 +77,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.PublicDNSAddress,
 		controller.QueryTracingEnabled,
 		controller.QueryTracingThreshold,
+		controller.SystemSSHKeys,
+		controller.JujudControllerSnapSource,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
@@ -108,9 +113,9 @@ func (s *ControllerSuite) TestControllerInfo(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestSetMachineAddressesControllerCharm(c *gc.C) {
-	controller, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	controller, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	worker, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	worker, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerApp := s.AddTestingApplication(c, "controller", s.AddTestingCharm(c, "juju-controller"))

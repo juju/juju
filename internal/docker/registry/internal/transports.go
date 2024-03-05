@@ -27,6 +27,78 @@ func (f dynamicTransportFunc) RoundTrip(req *http.Request) (*http.Response, erro
 	return transport.RoundTrip(req)
 }
 
+type challengeTransport struct {
+	baseTransport    http.RoundTripper
+	currentTransport http.RoundTripper
+
+	username  string
+	password  string
+	authToken string
+}
+
+func newChallengeTransport(
+	transport http.RoundTripper, username string, password string, authToken string,
+) http.RoundTripper {
+	return &challengeTransport{
+		baseTransport: transport,
+		username:      username,
+		password:      password,
+		authToken:     authToken,
+	}
+}
+
+func (t *challengeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	transport := t.baseTransport
+	if t.currentTransport != nil {
+		transport = t.currentTransport
+	}
+	resp, err := transport.RoundTrip(req)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	originalResp := resp
+	if !isUnauthorizedResponse(originalResp) {
+		return resp, nil
+	}
+	for _, c := range challenge.ResponseChallenges(originalResp) {
+		if err != nil {
+			logger.Warningf("authentication failed: %s", err.Error())
+			err = nil
+		}
+		switch strings.ToLower(c.Scheme) {
+		case "bearer":
+			tokenTransport := &tokenTransport{
+				transport: t.baseTransport,
+				username:  t.password,
+				password:  t.password,
+				authToken: t.authToken,
+			}
+			err = tokenTransport.refreshOAuthToken(originalResp)
+			if err != nil {
+				continue
+			}
+			transport = tokenTransport
+		case "basic":
+			transport = newBasicTransport(t.baseTransport, t.username, t.password, t.authToken)
+		default:
+			err = fmt.Errorf("unknown WWW-Authenticate challenge scheme: %s", c.Scheme)
+			continue
+		}
+		resp, err = transport.RoundTrip(req)
+		if err == nil && !isUnauthorizedResponse(resp) {
+			t.currentTransport = transport
+			return resp, nil
+		}
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if t.password == "" && t.authToken == "" {
+		return nil, errors.NewUnauthorized(err, "authorization is required for a private registry")
+	}
+	return resp, nil
+}
+
 type basicTransport struct {
 	transport http.RoundTripper
 	username  string
@@ -75,19 +147,19 @@ type tokenTransport struct {
 	username        string
 	password        string
 	authToken       string
-	OAuthToken      string
+	oauthToken      string
 	reuseOAuthToken bool
 }
 
 func newTokenTransport(
-	transport http.RoundTripper, username, password, authToken, OAuthToken string, reuseOAuthToken bool,
+	transport http.RoundTripper, username, password, authToken, oauthToken string, reuseOAuthToken bool,
 ) http.RoundTripper {
 	return &tokenTransport{
 		transport:       transport,
 		username:        username,
 		password:        password,
 		authToken:       authToken,
-		OAuthToken:      OAuthToken,
+		oauthToken:      oauthToken,
 		reuseOAuthToken: reuseOAuthToken,
 	}
 }
@@ -131,8 +203,6 @@ func (t tokenResponse) token() string {
 }
 
 func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
-	t.OAuthToken = ""
-
 	parameters := getChallengeParameters(t.scheme(), failedResp)
 	if len(parameters) == 0 {
 		return errors.NewForbidden(nil, "failed to refresh bearer token")
@@ -180,13 +250,13 @@ func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
 	if err = decoder.Decode(&tr); err != nil {
 		return fmt.Errorf("unable to decode token response: %s", err)
 	}
-	t.OAuthToken = tr.token()
+	t.oauthToken = tr.token()
 	return nil
 }
 
 func (t *tokenTransport) authorizeRequest(req *http.Request) error {
-	if t.OAuthToken != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("%s %s", t.scheme(), t.OAuthToken))
+	if t.oauthToken != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("%s %s", t.scheme(), t.oauthToken))
 	}
 	return nil
 }
@@ -197,7 +267,7 @@ func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if !t.reuseOAuthToken {
 			// We usually do not re-use the OAuth token because each API call might have different scope.
 			// But some of the provider use long life token and there is no need to refresh.
-			t.OAuthToken = ""
+			t.oauthToken = ""
 		}
 	}()
 

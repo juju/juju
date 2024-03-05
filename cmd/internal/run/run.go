@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/exec"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -29,8 +29,8 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/worker/uniter"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.run")

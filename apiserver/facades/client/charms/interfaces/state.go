@@ -4,12 +4,12 @@
 package interfaces
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
 
@@ -30,7 +30,6 @@ type BackendState interface {
 	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	Machine(string) (Machine, error)
-	state.MongoSessioner
 	ModelUUID() string
 	ModelConstraints() (constraints.Value, error)
 }

@@ -11,17 +11,18 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -90,16 +91,20 @@ func (st *State) maintainControllersOps(newIds []string, bootstrapOnly bool) ([]
 // exhausted; thereafter any new machines are started according to the constraints and series.
 // MachineID is the id of the machine where the apiserver is running.
 func (st *State) EnableHA(
+	prechecker environs.InstancePrechecker,
 	numControllers int, cons constraints.Value, base Base, placement []string,
-) (ControllersChanges, error) {
+) (ControllersChanges, []string, error) {
 
 	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
-		return ControllersChanges{}, errors.New("number of controllers must be odd and non-negative")
+		return ControllersChanges{}, nil, errors.New("number of controllers must be odd and non-negative")
 	}
 	if numControllers > controller.MaxPeers {
-		return ControllersChanges{}, errors.Errorf("controller count is too large (allowed %d)", controller.MaxPeers)
+		return ControllersChanges{}, nil, errors.Errorf("controller count is too large (allowed %d)", controller.MaxPeers)
 	}
-	var change ControllersChanges
+	var (
+		change     ControllersChanges
+		addedUnits []string
+	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		desiredControllerCount := numControllers
 		votingCount, err := st.getVotingControllerCount()
@@ -145,17 +150,17 @@ func (st *State) EnableHA(
 		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
-		ops, change, err = st.enableHAIntentionOps(intent, cons, base)
+		ops, change, addedUnits, err = st.enableHAIntentionOps(prechecker, intent, cons, base)
 		return ops, err
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		err = errors.Annotatef(err, "failed to enable HA with %d controllers", numControllers)
-		return ControllersChanges{}, err
+		return ControllersChanges{}, nil, err
 	}
-	return change, nil
+	return change, addedUnits, nil
 }
 
-// Change in controllers after the ensure availability txn has committed.
+// ControllersChanges in controllers after the ensure availability txn has committed.
 type ControllersChanges struct {
 	Added      []string
 	Removed    []string
@@ -165,17 +170,21 @@ type ControllersChanges struct {
 
 // enableHAIntentionOps returns operations to fulfil the desired intent.
 func (st *State) enableHAIntentionOps(
+	prechecker environs.InstancePrechecker,
 	intent *enableHAIntent,
 	cons constraints.Value,
 	base Base,
-) ([]txn.Op, ControllersChanges, error) {
-	var ops []txn.Op
-	var change ControllersChanges
+) ([]txn.Op, ControllersChanges, []string, error) {
+	var (
+		ops        []txn.Op
+		change     ControllersChanges
+		addedUnits []string
+	)
 
 	// TODO(wallyworld) - only need until we transition away from enable-ha
 	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
 	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, ControllersChanges{}, errors.Trace(err)
+		return nil, ControllersChanges{}, nil, errors.Trace(err)
 	}
 
 	for _, m := range intent.convert {
@@ -185,9 +194,10 @@ func (st *State) enableHAIntentionOps(
 		if controllerApp != nil {
 			unitName, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{machineID: m.Id()}, nil)
 			if err != nil {
-				return nil, ControllersChanges{}, errors.Trace(err)
+				return nil, ControllersChanges{}, nil, errors.Trace(err)
 			}
 			ops = append(ops, unitOps...)
+			addedUnits = append(addedUnits, unitName)
 			addToMachineOp := txn.Op{
 				C:      machinesC,
 				Id:     m.doc.DocID,
@@ -229,14 +239,14 @@ func (st *State) enableHAIntentionOps(
 		if controllerApp != nil {
 			controllerUnitName, err = controllerApp.newUnitName()
 			if err != nil {
-				return nil, ControllersChanges{}, errors.Trace(err)
+				return nil, ControllersChanges{}, nil, errors.Trace(err)
 			}
 			template.Dirty = true
 			template.principals = []string{controllerUnitName}
 		}
-		mdoc, addOps, err := st.addMachineOps(template)
+		mdoc, addOps, err := st.addMachineOps(prechecker, template)
 		if err != nil {
-			return nil, ControllersChanges{}, errors.Trace(err)
+			return nil, ControllersChanges{}, nil, errors.Trace(err)
 		}
 		if isController(mdoc) {
 			controllerIds = append(controllerIds, mdoc.Id)
@@ -249,8 +259,9 @@ func (st *State) enableHAIntentionOps(
 				machineID: mdoc.Id,
 			}, nil)
 			if err != nil {
-				return nil, ControllersChanges{}, errors.Trace(err)
+				return nil, ControllersChanges{}, nil, errors.Trace(err)
 			}
+			addedUnits = append(addedUnits, controllerUnitName)
 			ops = append(ops, unitOps...)
 		}
 	}
@@ -260,10 +271,10 @@ func (st *State) enableHAIntentionOps(
 	}
 	ssOps, err := st.maintainControllersOps(controllerIds, false)
 	if err != nil {
-		return nil, ControllersChanges{}, errors.Annotate(err, "cannot prepare machine add operations")
+		return nil, ControllersChanges{}, nil, errors.Annotate(err, "cannot prepare machine add operations")
 	}
 	ops = append(ops, ssOps...)
-	return ops, change, nil
+	return ops, change, addedUnits, nil
 }
 
 type enableHAIntent struct {
@@ -579,10 +590,10 @@ func (c *controllerNode) SetMongoPassword(password string) error {
 
 // SetPassword implements Authenticator.
 func (c *controllerNode) SetPassword(password string) error {
-	if len(password) < utils.MinAgentPasswordLength {
+	if len(password) < internalpassword.MinAgentPasswordLength {
 		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	passwordHash := utils.AgentPasswordHash(password)
+	passwordHash := internalpassword.AgentPasswordHash(password)
 	ops := []txn.Op{{
 		C:      controllerNodesC,
 		Id:     c.doc.DocID,
@@ -598,7 +609,7 @@ func (c *controllerNode) SetPassword(password string) error {
 
 // PasswordValid implements Authenticator.
 func (c *controllerNode) PasswordValid(password string) bool {
-	agentHash := utils.AgentPasswordHash(password)
+	agentHash := internalpassword.AgentPasswordHash(password)
 	return agentHash == c.doc.PasswordHash
 }
 

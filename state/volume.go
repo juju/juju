@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/status"
@@ -145,6 +145,22 @@ type volumeAttachmentDoc struct {
 	Life      Life                    `bson:"life"`
 	Info      *VolumeAttachmentInfo   `bson:"info,omitempty"`
 	Params    *VolumeAttachmentParams `bson:"params,omitempty"`
+}
+
+// BlockDeviceInfo describes information about a block device.
+type BlockDeviceInfo struct {
+	DeviceName     string   `bson:"devicename"`
+	DeviceLinks    []string `bson:"devicelinks,omitempty"`
+	Label          string   `bson:"label,omitempty"`
+	UUID           string   `bson:"uuid,omitempty"`
+	HardwareId     string   `bson:"hardwareid,omitempty"`
+	WWN            string   `bson:"wwn,omitempty"`
+	BusAddress     string   `bson:"busaddress,omitempty"`
+	Size           uint64   `bson:"size"`
+	FilesystemType string   `bson:"fstype,omitempty"`
+	InUse          bool     `bson:"inuse"`
+	MountPoint     string   `bson:"mountpoint,omitempty"`
+	SerialId       string   `bson:"serialid,omitempty"`
 }
 
 type volumeAttachmentPlanDoc struct {

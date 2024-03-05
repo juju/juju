@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
+	"github.com/juju/names/v5"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/instance"

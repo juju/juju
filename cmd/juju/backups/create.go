@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -149,7 +149,7 @@ func (c *createCommand) decideFilename(ctx *cmd.Context, filename string, timest
 }
 
 func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom string, archiveFilename string) error {
-	resultArchive, err := client.Download(copyFrom)
+	resultArchive, err := client.Download(ctx, copyFrom)
 	if err != nil {
 		return errors.Trace(err)
 	}

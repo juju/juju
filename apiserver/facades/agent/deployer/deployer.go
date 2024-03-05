@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -24,6 +24,12 @@ import (
 // ControllerConfigGetter is the interface that the facade needs to get controller config.
 type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// UnitRemover deletes a unit from the dqlite database.
+// This allows us to initially weave some dqlite support into the cleanup workflow.
+type UnitRemover interface {
+	Delete(context.Context, string) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -44,6 +50,7 @@ type DeployerAPI struct {
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
 func NewDeployerAPI(
 	controllerConfigGetter ControllerConfigGetter,
+	unitRemover UnitRemover,
 	authorizer facade.Authorizer,
 	st *state.State,
 	store objectstore.ObjectStore,
@@ -75,7 +82,7 @@ func NewDeployerAPI(
 	}
 
 	return &DeployerAPI{
-		Remover:                common.NewRemover(st, store, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
+		Remover:                common.NewRemover(st, store, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc, unitRemover),
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),

@@ -49,7 +49,7 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	st := testing.NewState()
 	defer st.Close()
 
-	svc := NewService(defaults, st, st)
+	svc := NewWatchableService(defaults, st, st)
 
 	watcher, err := svc.Watch()
 	c.Assert(err, jc.ErrorIsNil)

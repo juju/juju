@@ -15,4 +15,7 @@ const (
 	// UnknownCloud describes an error that occurs when a credential for cloud
 	// not known to the controller is updated.
 	UnknownCloud = errors.ConstError("unknown cloud")
+
+	// UserNotFound describes an error that occurs when a user is not found.
+	UserNotFound = errors.ConstError("user not found")
 )

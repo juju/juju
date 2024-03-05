@@ -8,21 +8,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
@@ -2104,20 +2103,6 @@ func (u *Unit) WatchApplicationConfigSettingsHash() (StringsWatcher, error) {
 	return newSettingsHashWatcher(u.st, applicationConfigKey), nil
 }
 
-// WatchMeterStatus returns a watcher observing changes that affect the meter status
-// of a unit.
-func (u *Unit) WatchMeterStatus() NotifyWatcher {
-	return newDocWatcher(u.st, []docKey{
-		{
-			meterStatusC,
-			u.st.docID(u.globalMeterStatusKey()),
-		}, {
-			meterStatusC,
-			metricsManagerKey(u.st),
-		},
-	})
-}
-
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field that is specific to an application name.  Used by
@@ -3444,65 +3429,6 @@ func (m *Machine) WatchForRebootEvent() NotifyWatcher {
 		return false
 	}
 	return newNotifyCollWatcher(m.st, rebootC, filter)
-}
-
-// blockDevicesWatcher notifies about changes to all block devices
-// associated with a machine.
-type blockDevicesWatcher struct {
-	commonWatcher
-	machineId string
-	out       chan struct{}
-}
-
-var _ NotifyWatcher = (*blockDevicesWatcher)(nil)
-
-func newBlockDevicesWatcher(backend modelBackend, machineId string) NotifyWatcher {
-	w := &blockDevicesWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		machineId:     machineId,
-		out:           make(chan struct{}),
-	}
-	w.tomb.Go(func() error {
-		defer close(w.out)
-		return w.loop()
-	})
-	return w
-}
-
-// Changes returns the event channel for w.
-func (w *blockDevicesWatcher) Changes() <-chan struct{} {
-	return w.out
-}
-
-func (w *blockDevicesWatcher) loop() error {
-	docID := w.backend.docID(w.machineId)
-	changes := make(chan watcher.Change)
-	w.watcher.Watch(blockDevicesC, docID, changes)
-	defer w.watcher.Unwatch(blockDevicesC, docID, changes)
-	blockDevices, err := getBlockDevices(w.db, w.machineId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	out := w.out
-	for {
-		select {
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-changes:
-			newBlockDevices, err := getBlockDevices(w.db, w.machineId)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if !reflect.DeepEqual(newBlockDevices, blockDevices) {
-				blockDevices = newBlockDevices
-				out = w.out
-			}
-		case out <- struct{}{}:
-			out = nil
-		}
-	}
 }
 
 // WatchForMigration returns a notify watcher which reports when

@@ -4,6 +4,7 @@
 package main
 
 import (
+	stdcontext "context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -16,7 +17,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/juju/juju/apiserver"
@@ -28,7 +29,9 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
+	"github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/generate/schemagen/gen"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
 
@@ -149,7 +152,7 @@ type defaultLinker struct {
 	watcherRegistry facade.WatcherRegistry
 }
 
-func (l defaultLinker) Links(facadeName string, factory facade.Factory) []string {
+func (l defaultLinker) Links(facadeName string, factory facade.MultiModelFactory) []string {
 	var a []string
 	for i, kindStr := range kinds {
 		if l.isAvailable(facadeName, factory, entityKind(i)) {
@@ -159,7 +162,7 @@ func (l defaultLinker) Links(facadeName string, factory facade.Factory) []string
 	return a
 }
 
-func (l defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind entityKind) (ok bool) {
+func (l defaultLinker) isAvailable(facadeName string, factory facade.MultiModelFactory, kind entityKind) (ok bool) {
 	if factory == nil {
 		// Admin facade only.
 		return true
@@ -183,7 +186,7 @@ func (l defaultLinker) isAvailable(facadeName string, factory facade.Factory, ki
 		},
 		watcherRegistry: l.watcherRegistry,
 	}
-	_, err := factory(ctx)
+	_, err := factory(stdcontext.Background(), ctx)
 	return errors.Cause(err) != apiservererrors.ErrPerm
 }
 
@@ -210,7 +213,7 @@ var kinds = []string{
 }
 
 type context struct {
-	facade.Context
+	facade.MultiModelContext
 	auth            authorizer
 	watcherRegistry facade.WatcherRegistry
 }
@@ -245,10 +248,6 @@ func (c context) ControllerTag() names.ControllerTag {
 
 func (c context) Dispose() {}
 
-func (c context) Cancel() <-chan struct{} {
-	return make(chan struct{})
-}
-
 func (c context) ControllerDB() (changestream.WatchableDB, error) {
 	return nil, nil
 }
@@ -259,6 +258,10 @@ func (c context) DBDeleter() coredatabase.DBDeleter {
 
 func (c context) ObjectStore() objectstore.ObjectStore {
 	return nil
+}
+
+func (c context) ServiceFactory() servicefactory.ServiceFactory {
+	return testing.NewTestingServiceFactory()
 }
 
 type authorizer struct {

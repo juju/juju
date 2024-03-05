@@ -4,7 +4,7 @@
 package initialize_test
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -38,8 +38,8 @@ func (s *initCommandSuit) TestConfigFromEnv(c *gc.C) {
 }
 
 func (s *initCommandSuit) TestDefaultIdentityOnK8S(c *gc.C) {
-	ID, err := initialize.Identity()
+	id, err := initialize.Identity()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ID.PodName, gc.DeepEquals, `gitlab-0`)
-	c.Assert(ID.PodUUID, gc.DeepEquals, `gitlab-uuid`)
+	c.Assert(id.PodName, gc.DeepEquals, `gitlab-0`)
+	c.Assert(id.PodUUID, gc.DeepEquals, `gitlab-uuid`)
 }

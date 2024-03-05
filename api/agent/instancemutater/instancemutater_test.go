@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -49,7 +49,7 @@ func (s *instanceMutaterSuite) TestMachineCallsLife(c *gc.C) {
 	}
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults)
 	api := instancemutater.NewClient(apiCaller)
-	m, err := api.Machine(names.NewMachineTag("0"))
+	m, err := api.Machine(context.Background(), names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(m.Tag().String(), gc.Equals, s.tag.String())
@@ -62,7 +62,7 @@ func (s *instanceMutaterSuite) TestWatchMachines(c *gc.C) {
 		s.expectWatchModelMachines,
 		s.expectStringsWatcher,
 	)
-	ch, err := api.WatchModelMachines()
+	ch, err := api.WatchModelMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// watch for the changes
@@ -81,7 +81,7 @@ func (s *instanceMutaterSuite) TestWatchMachinesServerError(c *gc.C) {
 	api := s.clientForScenario(c,
 		s.expectWatchModelMachinesWithError,
 	)
-	_, err := api.WatchModelMachines()
+	_, err := api.WatchModelMachines(context.Background())
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
@@ -90,7 +90,6 @@ func (s *instanceMutaterSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)
-	s.apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	return ctrl
 }

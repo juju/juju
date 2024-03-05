@@ -5,13 +5,14 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
@@ -236,7 +237,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 	s.PatchEnvironment("JUJU_HOME", path)
 
 	s.PatchValue(&cloud.FetchAndMaybeUpdatePublicClouds,
-		func(access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
+		func(_ context.Context, access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
 			return nil, "", nil
 		})
 
@@ -264,7 +265,7 @@ func (s *MainSuite) assertRunUpdateCloud(c *gc.C, expectedCalled bool) {
 
 	called := false
 	s.PatchValue(&cloud.FetchAndMaybeUpdatePublicClouds,
-		func(access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
+		func(_ context.Context, access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
 			called = true
 			return nil, "", nil
 		})
@@ -312,9 +313,9 @@ var commandNames = []string{
 	"add-machine",
 	"add-model",
 	"add-secret-backend",
+	"add-secret",
 	"add-space",
 	"add-ssh-key",
-	"add-secret",
 	"add-storage",
 	"add-unit",
 	"add-user",
@@ -329,8 +330,8 @@ var commandNames = []string{
 	"change-user-password",
 	"charm-resources",
 	"clouds",
-	"collect-metrics",
 	"config",
+	"constraints",
 	"consume",
 	"controller-config",
 	"controllers",
@@ -353,8 +354,8 @@ var commandNames = []string{
 	"disable-user",
 	"disabled-commands",
 	"documentation",
-	"download",
 	"download-backup",
+	"download",
 	"enable-command",
 	"enable-destroy-controller",
 	"enable-ha",
@@ -362,16 +363,14 @@ var commandNames = []string{
 	"exec",
 	"export-bundle",
 	"expose",
-	"find",
 	"find-offers",
+	"find",
 	"firewall-rules",
-	"constraints",
-	"model-constraints",
-	"grant",
-	"grant-secret",
 	"grant-cloud",
-	"help",
+	"grant-secret",
+	"grant",
 	"help-tool",
+	"help",
 	"import-filesystem",
 	"import-ssh-key",
 	"info",
@@ -396,16 +395,16 @@ var commandNames = []string{
 	"list-secrets",
 	"list-spaces",
 	"list-ssh-keys",
-	"list-storage",
 	"list-storage-pools",
+	"list-storage",
 	"list-subnets",
 	"list-users",
 	"login",
 	"logout",
 	"machines",
-	"metrics",
 	"migrate",
 	"model-config",
+	"model-constraints",
 	"model-default",
 	"model-defaults",
 	"models",
@@ -431,31 +430,30 @@ var commandNames = []string{
 	"remove-secret",
 	"remove-space",
 	"remove-ssh-key",
-	"remove-storage",
 	"remove-storage-pool",
+	"remove-storage",
 	"remove-unit",
 	"remove-user",
 	"rename-space",
-	"resolved",
 	"resolve",
+	"resolved",
 	"resources",
 	"resume-relation",
 	"retry-provisioning",
-	"revoke",
 	"revoke-cloud",
 	"revoke-secret",
+	"revoke",
 	"run",
 	"scale-application",
 	"scp",
-	"secrets",
 	"secret-backends",
+	"secrets",
 	"set-application-base",
-	"set-credential",
 	"set-constraints",
+	"set-credential",
 	"set-default-credentials",
 	"set-default-region",
 	"set-firewall-rule",
-	"set-meter-status",
 	"set-model-constraints",
 	"show-action",
 	"show-application",
@@ -467,20 +465,20 @@ var commandNames = []string{
 	"show-model",
 	"show-offer",
 	"show-operation",
-	"show-secret",
 	"show-secret-backend",
+	"show-secret",
+	"show-space",
 	"show-status-log",
 	"show-storage",
-	"show-space",
 	"show-task",
 	"show-unit",
 	"show-user",
 	"spaces",
-	"ssh",
 	"ssh-keys",
+	"ssh",
 	"status",
-	"storage",
 	"storage-pools",
+	"storage",
 	"subnets",
 	"suspend-relation",
 	"switch",
@@ -489,16 +487,16 @@ var commandNames = []string{
 	"unexpose",
 	"unregister",
 	"update-cloud",
-	"update-k8s",
-	"update-public-clouds",
 	"update-credential",
 	"update-credentials",
+	"update-k8s",
+	"update-public-clouds",
 	"update-secret-backend",
 	"update-secret",
 	"update-storage-pool",
 	"upgrade-controller",
-	"upgrade-model",
 	"upgrade-machine",
+	"upgrade-model",
 	"users",
 	"version",
 	"wait-for",

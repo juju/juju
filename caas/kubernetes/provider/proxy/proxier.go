@@ -4,6 +4,7 @@
 package proxy
 
 import (
+	"context"
 	"net"
 	"net/url"
 
@@ -99,7 +100,7 @@ func (p *Proxier) Port() string {
 	return p.tunnel.LocalPort
 }
 
-func (p *Proxier) Start() (err error) {
+func (p *Proxier) Start(ctx context.Context) (err error) {
 	tunnel, err := kubernetes.NewTunnelForConfig(
 		&p.restConfig,
 		kubernetes.TunnelKindServices,
@@ -116,7 +117,7 @@ func (p *Proxier) Start() (err error) {
 	defer func() {
 		err = errors.Annotate(err, "connecting k8s proxy")
 	}()
-	err = p.tunnel.ForwardPort()
+	err = p.tunnel.ForwardPort(ctx)
 	urlErr, ok := errors.Cause(err).(*url.Error)
 	if !ok {
 		return errors.Trace(err)

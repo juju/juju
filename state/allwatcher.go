@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -150,10 +150,6 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 		Cloud:           e.Cloud,
 		CloudRegion:     e.CloudRegion,
 		CloudCredential: e.CloudCredential,
-		SLA: multiwatcher.ModelSLAInfo{
-			Level: e.SLA.Level.String(),
-			Owner: e.SLA.Owner,
-		},
 	}
 
 	oldInfo := ctx.store.Get(info.EntityID())

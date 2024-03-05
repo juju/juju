@@ -19,12 +19,12 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
@@ -596,7 +596,7 @@ func (c *registerCommand) secretKeyLogin(
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(true),
 		jujuhttp.WithCookieJar(cookieJar),
-		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {

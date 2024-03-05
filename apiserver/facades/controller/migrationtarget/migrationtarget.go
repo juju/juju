@@ -5,10 +5,14 @@ package migrationtarget
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
+	"github.com/vallerion/rscanner"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -16,15 +20,15 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/facades"
+	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/modelmigration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/credential"
 	credentialservice "github.com/juju/juju/domain/credential/service"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/migration"
@@ -33,7 +37,10 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
+// ModelImporter defines an interface for importing models.
 type ModelImporter interface {
+	// ImportModel takes a serialized description model (yaml bytes) and returns
+	// a state model and state state.
 	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
 }
 
@@ -56,6 +63,11 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ModelManagerService describes the method needed to update model metadata.
+type ModelManagerService interface {
+	Create(context.Context, coremodel.UUID) error
+}
+
 // UpgradeService provides a subset of the upgrade domain service methods.
 type UpgradeService interface {
 	// IsUpgrading returns whether the controller is currently upgrading.
@@ -65,20 +77,23 @@ type UpgradeService interface {
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state                       *state.State
-	modelImporter               ModelImporter
-	externalControllerService   ExternalControllerService
-	cloudService                common.CloudService
-	upgradeService              UpgradeService
-	credentialService           credentialcommon.CredentialService
-	credentialValidator         credentialservice.CredentialValidator
-	credentialCallContextGetter credentialservice.ValidationContextGetter
-	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
-	pool                        *state.StatePool
-	authorizer                  facade.Authorizer
-	presence                    facade.Presence
-	getEnviron                  stateenvirons.NewEnvironFunc
-	getCAASBroker               stateenvirons.NewCAASBrokerFunc
+	state                           *state.State
+	modelImporter                   ModelImporter
+	externalControllerService       ExternalControllerService
+	cloudService                    common.CloudService
+	upgradeService                  UpgradeService
+	credentialService               credentialcommon.CredentialService
+	credentialValidator             credentialservice.CredentialValidator
+	credentialCallContextGetter     credentialservice.ValidationContextGetter
+	credentialInvalidatorGetter     environscontext.ModelCredentialInvalidatorGetter
+	pool                            *state.StatePool
+	authorizer                      facade.Authorizer
+	presence                        facade.Presence
+	getEnviron                      stateenvirons.NewEnvironFunc
+	getCAASBroker                   stateenvirons.NewCAASBrokerFunc
+	requiredMigrationFacadeVersions facades.FacadeVersions
+
+	logDir string
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -86,10 +101,15 @@ type APIV1 struct {
 	*API
 }
 
+// APIV2 implements the V2 version of the API facade.
+type APIV2 struct {
+	*APIV1
+}
+
 // NewAPI returns a new APIV1. Accepts a NewEnvironFunc and envcontext.ProviderCallContext
 // for testing purposes.
 func NewAPI(
-	ctx facade.Context,
+	ctx facade.ModelContext,
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
@@ -101,31 +121,26 @@ func NewAPI(
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
+	requiredMigrationFacadeVersions facades.FacadeVersions,
+	logDir string,
 ) (*API, error) {
-	var (
-		st   = ctx.State()
-		pool = ctx.StatePool()
-
-		scope         = modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil)
-		controller    = state.NewController(pool)
-		modelImporter = migration.NewModelImporter(controller, scope, controllerConfigService)
-	)
-
 	return &API{
-		state:                       st,
-		modelImporter:               modelImporter,
-		pool:                        pool,
-		externalControllerService:   externalControllerService,
-		cloudService:                cloudService,
-		upgradeService:              upgradeService,
-		credentialService:           credentialService,
-		credentialValidator:         validator,
-		credentialCallContextGetter: credentialCallContextGetter,
-		credentialInvalidatorGetter: credentialInvalidatorGetter,
-		authorizer:                  authorizer,
-		presence:                    ctx.Presence(),
-		getEnviron:                  getEnviron,
-		getCAASBroker:               getCAASBroker,
+		state:                           ctx.State(),
+		modelImporter:                   ctx.ModelImporter(),
+		pool:                            ctx.StatePool(),
+		externalControllerService:       externalControllerService,
+		cloudService:                    cloudService,
+		upgradeService:                  upgradeService,
+		credentialService:               credentialService,
+		credentialValidator:             validator,
+		credentialCallContextGetter:     credentialCallContextGetter,
+		credentialInvalidatorGetter:     credentialInvalidatorGetter,
+		authorizer:                      authorizer,
+		presence:                        ctx.Presence(),
+		getEnviron:                      getEnviron,
+		getCAASBroker:                   getCAASBroker,
+		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
+		logDir:                          logDir,
 	}, nil
 }
 
@@ -140,6 +155,36 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
 func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) error {
+	// If there are no required migration facade versions, then we
+	// don't need to check anything.
+	if len(api.requiredMigrationFacadeVersions) > 0 {
+		// Ensure that when attempting to migrate a model, the source
+		// controller has the required facades for the migration.
+		sourceFacadeVersions := facades.FacadeVersions{}
+		for name, versions := range model.FacadeVersions {
+			sourceFacadeVersions[name] = versions
+		}
+		if !facades.CompleteIntersection(api.requiredMigrationFacadeVersions, sourceFacadeVersions) {
+			majorMinor := fmt.Sprintf("%d.%d",
+				model.ControllerAgentVersion.Major,
+				model.ControllerAgentVersion.Minor,
+			)
+
+			// If the patch is zero, then we don't need to mention it.
+			var patchMessage string
+			if model.ControllerAgentVersion.Patch > 0 {
+				patchMessage = fmt.Sprintf(", that is greater than %s.%d", majorMinor, model.ControllerAgentVersion.Patch)
+			}
+
+			return errors.Errorf(`
+Source controller does not support required facades for performing migration.
+Upgrade the controller to a newer version of %s%s or migrate to a controller
+with an earlier version of the target controller and try again.
+
+`[1:], majorMinor, patchMessage)
+		}
+	}
+
 	ownerTag, err := names.ParseUserTag(model.OwnerTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -310,12 +355,6 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 // point for streaming logs from the source if the transfer was
 // interrupted.
 //
-// For performance reasons, not every time is tracked, so if the
-// target controller died during the transfer the latest log time
-// might be up to 2 minutes earlier. If the transfer was interrupted
-// in some other way (like the source controller going away or a
-// network partition) the time will be up-to-date.
-//
 // Log messages are assumed to be sent in time order (which is how
 // debug-log emits them). If that isn't the case then this mechanism
 // can't be used to avoid duplicates when logtransfer is restarted.
@@ -328,16 +367,53 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	}
 	defer release()
 
-	tracker := state.NewLastSentLogTracker(api.state, model.UUID(), "migration-logtransfer")
-	defer tracker.Close()
-	_, timestamp, err := tracker.Get()
-	if errors.Cause(err) == state.ErrNeverForwarded {
+	// Look up the last line in the model log file and get the timestamp.
+	modelOwnerAndName := corelogger.ModelFilePrefix(model.Owner().Id(), model.Name())
+	modelLogFile := corelogger.ModelLogFile(api.logDir, model.UUID(), modelOwnerAndName)
+
+	f, err := os.Open(modelLogFile)
+	if err != nil && !os.IsNotExist(err) {
+		return time.Time{}, errors.Annotatef(err, "opening file %q", modelLogFile)
+	} else if err != nil {
 		return time.Time{}, nil
 	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	fs, err := f.Stat()
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
 	}
-	return time.Unix(0, timestamp).In(time.UTC), nil
+	scanner := rscanner.NewScanner(f, fs.Size())
+
+	var lastTimestamp time.Time
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) == 0 {
+			continue
+		}
+		var err error
+		lastTimestamp, err = logLineTimestamp(line)
+		if err == nil {
+			break
+		}
+
+	}
+	return lastTimestamp, nil
+}
+
+func logLineTimestamp(line string) (time.Time, error) {
+	parts := strings.SplitN(line, " ", 7)
+	if len(parts) < 7 {
+		return time.Time{}, errors.Errorf("invalid log line %q", line)
+	}
+	timeStr := parts[1] + " " + parts[2]
+	timeStamp, err := time.Parse("2006-01-02 15:04:05", timeStr)
+	if err != nil {
+		return time.Time{}, errors.Annotatef(err, "invalid log timestamp %q", timeStr)
+	}
+	return timeStamp, nil
 }
 
 // AdoptResources asks the cloud provider to update the controller
@@ -418,7 +494,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
 	}
 
-	callCtx, err := api.credentialCallContextGetter(ctx, model.UUID(m.UUID()))
+	callCtx, err := api.credentialCallContextGetter(ctx, coremodel.UUID(m.UUID()))
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

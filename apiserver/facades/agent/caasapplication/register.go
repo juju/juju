@@ -4,6 +4,7 @@
 package caasapplication
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -15,13 +16,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CAASApplication", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CAASApplication", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateFacade(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }
 
 // newStateFacade provides the signature required for facade registration.
-func newStateFacade(ctx facade.Context) (*Facade, error) {
+func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	st := ctx.State()
@@ -46,6 +47,7 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 		systemState,
 		&stateShim{State: st},
 		serviceFactory.ControllerConfig(),
+		serviceFactory.Application(),
 		broker,
 		ctx.StatePool().Clock(),
 		ctx.Logger().Child("caasapplication"),

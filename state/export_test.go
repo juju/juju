@@ -11,21 +11,19 @@ import (
 	"strconv"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	txntesting "github.com/juju/txn/v3/testing"
-	jutils "github.com/juju/utils/v3"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
@@ -36,25 +34,25 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testcharms/repo"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/testing"
 )
 
 const (
 	MachinesC         = machinesC
 	ModelEntityRefsC  = modelEntityRefsC
 	ApplicationsC     = applicationsC
-	OfferConnectionsC = offerConnectionsC
 	EndpointBindingsC = endpointBindingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
-	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC
@@ -64,7 +62,6 @@ const (
 var (
 	BinarystorageNew              = &binarystorageNew
 	MachineIdLessThan             = machineIdLessThan
-	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey
 	CloudGlobalKey                = cloudGlobalKey
 	ModelGlobalKey                = modelGlobalKey
@@ -264,16 +261,16 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	return sch
 }
 
-func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplication(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:   st,
 		name: name,
 		ch:   ch,
 	})
 }
 
-func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch *Charm) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationForBase(c *gc.C, st *State, objectStore objectstore.ObjectStore, base Base, name string, ch *Charm) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st: st,
 		origin: &CharmOrigin{Platform: &Platform{
 			OS:      base.OS,
@@ -284,8 +281,8 @@ func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch
 	})
 }
 
-func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name string, ch *Charm) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationWithNumUnits(c *gc.C, st *State, objectStore objectstore.ObjectStore, numUnits int, name string, ch *Charm) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:       st,
 		numUnits: numUnits,
 		name:     name,
@@ -293,7 +290,7 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 	})
 }
 
-func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
 	curl := charm.MustParseURL(ch.URL())
 	series := curl.Series
 	base, err := corebase.GetBaseFromSeries(series)
@@ -314,7 +311,7 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 			Channel: base.Channel.String(),
 		},
 	}
-	return addTestingApplication(c, addTestingApplicationParams{
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
@@ -323,8 +320,8 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 	})
 }
 
-func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationWithDevices(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
@@ -332,8 +329,8 @@ func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm
 	})
 }
 
-func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationWithBindings(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, bindings map[string]string) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:       st,
 		name:     name,
 		ch:       ch,
@@ -352,7 +349,7 @@ type addTestingApplicationParams struct {
 	numUnits int
 }
 
-func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
+func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params addTestingApplicationParams) *Application {
 	c.Assert(params.ch, gc.NotNil)
 	origin := params.origin
 	curl := charm.MustParseURL(params.ch.URL())
@@ -382,7 +379,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 			},
 		}
 	}
-	app, err := params.st.AddApplication(AddApplicationArgs{
+	app, err := params.st.AddApplication(testInstancePrechecker{}, AddApplicationArgs{
 		Name:             params.name,
 		Charm:            params.ch,
 		CharmOrigin:      origin,
@@ -390,9 +387,15 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		Storage:          params.storage,
 		Devices:          params.devices,
 		NumUnits:         params.numUnits,
-	}, NewObjectStore(c, params.st))
+	}, mockApplicationSaver{}, objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	return app
+}
+
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
 }
 
 func addCustomCharmWithManifest(c *gc.C, st *State, repo *repo.CharmRepo, name, filename, content, series string, revision int, manifest bool) *Charm {
@@ -586,7 +589,7 @@ func (m *Model) SetDead() error {
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     m.doc.UUID,
-		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+		Update: bson.D{{Name: "$set", Value: bson.D{{Name: "life", Value: Dead}}}},
 	}, {
 		C:      usermodelnameC,
 		Id:     m.uniqueIndexID(),
@@ -651,33 +654,6 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.SpaceHostPort) {
 	hostsPorts := fromNetworkHostsPorts(netHostsPorts)
 	newNetHostsPorts := networkHostsPorts(hostsPorts)
 	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
-}
-
-// MakeLogDoc creates a database document for a single log message.
-func MakeLogDoc(
-	entity string,
-	t time.Time,
-	module string,
-	location string,
-	level loggo.Level,
-	msg string,
-	labels []string,
-) *logDoc {
-	return &logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     t.UnixNano(),
-		Entity:   entity,
-		Version:  version.Current.String(),
-		Module:   module,
-		Location: location,
-		Level:    int(level),
-		Message:  msg,
-		Labels:   labels,
-	}
-}
-
-func SpaceDoc(s *Space) spaceDoc {
-	return s.doc
 }
 
 func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
@@ -861,10 +837,8 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 			Status:    ActionCompleted,
 		})
 		for j := 0; j < actionsPerOperation; j++ {
-			id, err := jutils.NewUUID()
-			c.Assert(err, jc.ErrorIsNil)
 			actionDocs = append(actionDocs, actionDoc{
-				DocId:     id.String(),
+				DocId:     uuid.MustNewUUID().String(),
 				ModelUUID: unit.st.ModelUUID(),
 				Receiver:  unit.Name(),
 				Completed: age,
@@ -909,7 +883,7 @@ func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
 	err := actionCollectionWriter.Insert(actionDocs...)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, id := range ids {
-		err = actionCollectionWriter.UpdateId(id, bson.D{{"$unset", bson.M{"operation": 1}}})
+		err = actionCollectionWriter.UpdateId(id, bson.D{{Name: "$unset", Value: bson.M{"operation": 1}}})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -928,34 +902,18 @@ func GetInternalWorkers(st *State) worker.Worker {
 // ResourceStoragePath returns the path used to store resource content
 // in the managed blob store, given the resource ID.
 func ResourceStoragePath(c *gc.C, st *State, id string) string {
-	p := st.Resources(NewObjectStore(c, st)).(*resourcePersistence)
+	p := st.Resources(NewObjectStore(c, st.ModelUUID())).(*resourcePersistence)
 	_, storagePath, err := p.getResource(id)
 	c.Assert(err, jc.ErrorIsNil)
 	return storagePath
 }
 
 func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedResource {
-	persist := st.Resources(NewObjectStore(c, st)).(*resourcePersistence)
+	persist := st.Resources(NewObjectStore(c, st.ModelUUID())).(*resourcePersistence)
 	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
 	r, err := persist.stageResource(res, storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	return r
-}
-
-// IsBlobStored returns true if a given storage path is in used in the
-// managed blob store.
-func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
-	stor := NewObjectStore(c, st)
-	r, _, err := stor.Get(context.Background(), storagePath)
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return false
-		}
-		c.Fatalf("Get failed: %v", err)
-		return false
-	}
-	r.Close()
-	return true
 }
 
 // AssertNoCleanupsWithKind checks that there are no cleanups
@@ -1031,11 +989,6 @@ func GetPopulatedSettings(cfg map[string]interface{}) *Settings {
 		disk: copyMap(cfg, nil),
 		core: copyMap(cfg, nil),
 	}
-}
-
-// NewSLALevel returns a new SLA level.
-func NewSLALevel(level string) (slaLevel, error) {
-	return newSLALevel(level)
 }
 
 func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {
@@ -1210,10 +1163,6 @@ func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait tim
 	st.scheduleForceCleanup(kind, name, maxWait)
 }
 
-func GetCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
-	return getCollectionCappedInfo(coll)
-}
-
 func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 	actionNotifications, closer := m.st.db().GetCollection(actionNotificationsC)
 	defer closer()
@@ -1230,9 +1179,17 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 	return actionIDs, nil
 }
 
-func NewObjectStore(c *gc.C, st *State) objectstore.ObjectStore {
+// NewObjectStore returns an in-memory object store for testing.
+func NewObjectStore(c *gc.C, namespace string) objectstore.ObjectStore {
 	// This will be removed when the worker object store is enabled by default.
-	store, err := internalobjectstore.NewStateObjectStore(context.Background(), st.ModelUUID(), st, coretesting.NewCheckLogger(c))
+	store, err := internalobjectstore.NewFileObjectStore(context.Background(), internalobjectstore.FileObjectStoreConfig{
+		Namespace:       namespace,
+		RootDir:         c.MkDir(),
+		MetadataService: objectstoretesting.MemoryObjectStore(),
+		Claimer:         objectstoretesting.MemoryClaimer(),
+		Logger:          testing.NewCheckLogger(c),
+		Clock:           clock.WallClock,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return store
 }

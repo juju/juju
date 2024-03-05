@@ -7,16 +7,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -25,7 +24,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -38,7 +39,7 @@ type Backend interface {
 	Application(string) (Application, error)
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, ApplicationSaver, objectstore.ObjectStore) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -101,7 +102,6 @@ type Application interface {
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
-	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationBase(state.Base, bool) error
 	UpdateCharmConfig(string, charm.Settings) error
@@ -129,7 +129,6 @@ type Bindings interface {
 type Charm interface {
 	CharmMeta
 	Config() *charm.Config
-	Metrics() *charm.Metrics
 	Actions() *charm.Actions
 	Revision() int
 	IsUploaded() bool
@@ -239,6 +238,7 @@ type Generation interface {
 
 type stateShim struct {
 	*state.State
+	prechecker environs.InstancePrechecker
 }
 
 type modelShim struct {
@@ -287,8 +287,12 @@ func (s *storageShim) FilesystemAccess() storagecommon.FilesystemAccess {
 }
 
 // NewStateApplication converts a state.Application into an Application.
-func NewStateApplication(st *state.State, app *state.Application) Application {
-	return stateApplicationShim{app, st}
+func NewStateApplication(st *state.State, prechecker environs.InstancePrechecker, app *state.Application) Application {
+	return stateApplicationShim{
+		Application: app,
+		st:          st,
+		prechecker:  prechecker,
+	}
 }
 
 // CharmToStateCharm converts a Charm into a state.Charm. This is
@@ -304,15 +308,23 @@ func (s stateShim) Application(name string) (Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateApplicationShim{a, s.State}, nil
+	return stateApplicationShim{
+		Application: a,
+		st:          s.State,
+		prechecker:  s.prechecker,
+	}, nil
 }
 
-func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(args, store)
+func (s stateShim) AddApplication(args state.AddApplicationArgs, applicationSaver ApplicationSaver, store objectstore.ObjectStore) (Application, error) {
+	a, err := s.State.AddApplication(s.prechecker, args, applicationSaver, store)
 	if err != nil {
 		return nil, err
 	}
-	return stateApplicationShim{a, s.State}, nil
+	return stateApplicationShim{
+		Application: a,
+		st:          s.State,
+		prechecker:  s.prechecker,
+	}, nil
 }
 
 // Note that the usedID is only used in some of the implementations of the
@@ -370,12 +382,12 @@ type RemoteApplication interface {
 
 func (s stateShim) RemoteApplication(name string) (RemoteApplication, error) {
 	app, err := s.State.RemoteApplication(name)
-	return &remoteApplicationShim{app}, err
+	return &remoteApplicationShim{RemoteApplication: app}, err
 }
 
 func (s stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) (RemoteApplication, error) {
 	app, err := s.State.AddRemoteApplication(args)
-	return &remoteApplicationShim{app}, err
+	return &remoteApplicationShim{RemoteApplication: app}, err
 }
 
 func (s stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
@@ -383,7 +395,7 @@ func (s stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateRelationShim{r, s.State}, nil
+	return stateRelationShim{Relation: r, st: s.State}, nil
 }
 
 func (s stateShim) SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {
@@ -396,7 +408,7 @@ func (s stateShim) Charm(curl string) (Charm, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateCharmShim{ch}, nil
+	return stateCharmShim{Charm: ch}, nil
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -404,7 +416,7 @@ func (s stateShim) Model() (Model, error) {
 	if err != nil {
 		return nil, err
 	}
-	return modelShim{m}, nil
+	return modelShim{Model: m}, nil
 }
 
 func (s stateShim) Relation(id int) (Relation, error) {
@@ -412,7 +424,7 @@ func (s stateShim) Relation(id int) (Relation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateRelationShim{r, s.State}, nil
+	return stateRelationShim{Relation: r, st: s.State}, nil
 }
 
 func (s stateShim) InferActiveRelation(names ...string) (Relation, error) {
@@ -420,7 +432,7 @@ func (s stateShim) InferActiveRelation(names ...string) (Relation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateRelationShim{r, s.State}, nil
+	return stateRelationShim{Relation: r, st: s.State}, nil
 }
 
 func (s stateShim) Machine(name string) (Machine, error) {
@@ -428,7 +440,7 @@ func (s stateShim) Machine(name string) (Machine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateMachineShim{m}, nil
+	return stateMachineShim{Machine: m}, nil
 }
 
 func (s stateShim) Unit(name string) (Unit, error) {
@@ -436,7 +448,7 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateUnitShim{u, s.State}, nil
+	return stateUnitShim{Unit: u, st: s.State, prechecker: s.prechecker}, nil
 }
 
 func (s stateShim) UnitsInError() ([]Unit, error) {
@@ -446,7 +458,11 @@ func (s stateShim) UnitsInError() ([]Unit, error) {
 	}
 	result := make([]Unit, len(units))
 	for i, u := range units {
-		result[i] = stateUnitShim{u, s.State}
+		result[i] = stateUnitShim{
+			Unit:       u,
+			st:         s.State,
+			prechecker: s.prechecker,
+		}
 	}
 	return result, nil
 }
@@ -479,7 +495,8 @@ func (s stateShim) Branch(name string) (Generation, error) {
 
 type stateApplicationShim struct {
 	*state.Application
-	st *state.State
+	st         *state.State
+	prechecker environs.InstancePrechecker
 }
 
 func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
@@ -487,7 +504,11 @@ func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateUnitShim{u, a.st}, nil
+	return stateUnitShim{
+		Unit:       u,
+		st:         a.st,
+		prechecker: a.prechecker,
+	}, nil
 }
 
 func (a stateApplicationShim) Charm() (Charm, bool, error) {
@@ -505,7 +526,11 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 	}
 	out := make([]Unit, len(units))
 	for i, u := range units {
-		out[i] = stateUnitShim{u, a.st}
+		out[i] = stateUnitShim{
+			Unit:       u,
+			st:         a.st,
+			prechecker: a.prechecker,
+		}
 	}
 	return out, nil
 }
@@ -517,7 +542,7 @@ func (a stateApplicationShim) Relations() ([]Relation, error) {
 	}
 	out := make([]Relation, len(rels))
 	for i, r := range rels {
-		out[i] = stateRelationShim{r, a.st}
+		out[i] = stateRelationShim{Relation: r, st: a.st}
 	}
 	return out, nil
 }
@@ -548,7 +573,7 @@ func (r stateRelationShim) Unit(unitName string) (RelationUnit, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return stateRelationUnitShim{ru}, nil
+	return stateRelationUnitShim{RelationUnit: ru}, nil
 }
 
 func (r stateRelationShim) AllRemoteUnits(appName string) ([]RelationUnit, error) {
@@ -558,7 +583,7 @@ func (r stateRelationShim) AllRemoteUnits(appName string) ([]RelationUnit, error
 	}
 	out := make([]RelationUnit, len(rus))
 	for i, ru := range rus {
-		out[i] = stateRelationUnitShim{ru}
+		out[i] = stateRelationUnitShim{RelationUnit: ru}
 	}
 	return out, nil
 }
@@ -577,15 +602,16 @@ func (ru stateRelationUnitShim) Settings() (map[string]interface{}, error) {
 
 type stateUnitShim struct {
 	*state.Unit
-	st *state.State
+	st         *state.State
+	prechecker environs.InstancePrechecker
 }
 
 func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
-	return u.st.AssignUnit(u.Unit, policy)
+	return u.st.AssignUnit(u.prechecker, u.Unit, policy)
 }
 
 func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement) error {
-	return u.st.AssignUnitWithPlacement(u.Unit, placement)
+	return u.st.AssignUnitWithPlacement(u.prechecker, u.Unit, placement)
 }
 
 type Subnet interface {

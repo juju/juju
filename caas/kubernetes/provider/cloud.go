@@ -4,9 +4,10 @@
 package provider
 
 import (
+	"context"
+
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ClientConfigFuncGetter returns a function returning az reader that will read a k8s cluster config for a given cluster type
@@ -106,7 +108,7 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (environs.OpenParams, error) {
 	// To get a k8s client, we need a config with minimal information.
 	// It's not used unless operating on a real model but we need to supply it.
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return environs.OpenParams{}, errors.Trace(err)
 	}
@@ -179,19 +181,19 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
-	broker, err := p.brokerGetter(openParams)
+	broker, err := p.brokerGetter(ctx, openParams)
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
 	if cld.Name == k8s.K8sCloudMicrok8s {
-		if err := ensureMicroK8sSuitable(broker); err != nil {
+		if err := ensureMicroK8sSuitable(ctx, broker); err != nil {
 			return cld, errors.Trace(err)
 		}
 	}
 	storageUpdateParams := KubeCloudStorageParams{
 		MetadataChecker: broker,
 		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
-			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata("")
+			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(ctx, "")
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -211,8 +213,8 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	return cld, nil
 }
 
-func checkDefaultStorageExist(broker ClusterMetadataStorageChecker) error {
-	storageClasses, err := broker.ListStorageClasses(k8slabels.NewSelector())
+func checkDefaultStorageExist(ctx context.Context, broker ClusterMetadataStorageChecker) error {
+	storageClasses, err := broker.ListStorageClasses(ctx, k8slabels.NewSelector())
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "cannot list storage classes")
 	}
@@ -224,8 +226,8 @@ func checkDefaultStorageExist(broker ClusterMetadataStorageChecker) error {
 	return errors.NotFoundf("default storage")
 }
 
-func checkDNSAddonEnabled(broker ClusterMetadataStorageChecker) error {
-	pods, err := broker.ListPods("kube-system", k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}))
+func checkDNSAddonEnabled(ctx context.Context, broker ClusterMetadataStorageChecker) error {
+	pods, err := broker.ListPods(ctx, "kube-system", k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}))
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "cannot list kube-dns pods")
 	}
@@ -235,8 +237,8 @@ func checkDNSAddonEnabled(broker ClusterMetadataStorageChecker) error {
 	return errors.NotFoundf("dns pod")
 }
 
-func ensureMicroK8sSuitable(broker ClusterMetadataStorageChecker) error {
-	err := checkDefaultStorageExist(broker)
+func ensureMicroK8sSuitable(ctx context.Context, broker ClusterMetadataStorageChecker) error {
+	err := checkDefaultStorageExist(ctx, broker)
 	if errors.Is(err, errors.NotFound) {
 		return errors.New("required storage addon is not enabled")
 	}
@@ -244,7 +246,7 @@ func ensureMicroK8sSuitable(broker ClusterMetadataStorageChecker) error {
 		return errors.Trace(err)
 	}
 
-	err = checkDNSAddonEnabled(broker)
+	err = checkDNSAddonEnabled(ctx, broker)
 	if errors.Is(err, errors.NotFound) {
 		return errors.New("required dns addon is not enabled")
 	}

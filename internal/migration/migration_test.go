@@ -10,8 +10,8 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/description/v4"
+	"github.com/juju/charm/v13"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
@@ -33,7 +34,10 @@ import (
 type ImportSuite struct {
 	testing.IsolationSuite
 
+	modelManagerService     *MockModelManagerService
 	controllerConfigService *MockControllerConfigService
+	serviceFactory          *MockServiceFactory
+	serviceFactoryGetter    *MockServiceFactoryGetter
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -43,19 +47,17 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
 	bytes := []byte("not a model")
-	scope := modelmigration.NewScope(nil, nil)
+	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
 	controller := &fakeImporter{}
-	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService)
+	importer := migration.NewModelImporter(controller, scope, s.modelManagerService, s.controllerConfigService, s.serviceFactoryGetter)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
-const model = `
+const modelYaml = `
 cloud: dev
 config:
   name: foo
@@ -113,12 +115,12 @@ version: 1
 `
 
 func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
-	bytes := []byte(model)
+	bytes := []byte(modelYaml)
 	st := &state.State{}
 	m := &state.Model{}
 	controller := &fakeImporter{st: st, m: m}
-	scope := modelmigration.NewScope(nil, nil)
-	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService)
+	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
+	importer := migration.NewModelImporter(controller, scope, s.modelManagerService, s.controllerConfigService, s.serviceFactoryGetter)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.model.Tag().Id(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
@@ -199,17 +201,24 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
 	}
-	err := migration.UploadBinaries(config)
+	err := migration.UploadBinaries(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedCharms := []string{
+	expectedCurls := []string{
 		// Note ordering.
 		"ch:trusty/postgresql-42",
 		"local:trusty/magic-2",
 		"local:trusty/magic-10",
 	}
-	c.Assert(downloader.charms, jc.DeepEquals, expectedCharms)
-	c.Assert(uploader.charms, jc.DeepEquals, expectedCharms)
+	c.Assert(downloader.curls, jc.DeepEquals, expectedCurls)
+	c.Assert(uploader.curls, jc.DeepEquals, expectedCurls)
+
+	expectedRefs := []string{
+		"postgresql-a77196f",
+		"magic-d348864",
+		"magic-5f44d22",
+	}
+	c.Assert(uploader.charmRefs, jc.DeepEquals, expectedRefs)
 
 	c.Assert(downloader.uris, jc.SameContents, []string{
 		"/tools/0",
@@ -243,16 +252,24 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
 	}
-	err := migration.UploadBinaries(config)
+	err := migration.UploadBinaries(context.Background(), config)
 	c.Assert(err, gc.ErrorMatches,
-		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-1")
+		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-100")
 }
 
 func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.modelManagerService = NewMockModelManagerService(ctrl)
+	s.modelManagerService.EXPECT().Create(gomock.Any(), coremodel.UUID("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6"))
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
+
+	s.serviceFactory = NewMockServiceFactory(ctrl)
+	s.serviceFactory.EXPECT().Machine().Return(nil)
+	s.serviceFactory.EXPECT().Application().Return(nil)
+	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
+	s.serviceFactoryGetter.EXPECT().FactoryForModel("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6").Return(s.serviceFactory)
 
 	return ctrl
 }
@@ -264,25 +281,25 @@ type fakeImporter struct {
 	controllerConfig controller.Config
 }
 
-func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config) (*state.Model, *state.State, error) {
+func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config, _ state.MachineSaver, _ state.ApplicationSaver) (*state.Model, *state.State, error) {
 	i.model = model
 	i.controllerConfig = controllerConfig
 	return i.m, i.st, nil
 }
 
 type fakeDownloader struct {
-	charms    []string
+	curls     []string
 	uris      []string
 	resources []string
 }
 
-func (d *fakeDownloader) OpenCharm(curl string) (io.ReadCloser, error) {
-	d.charms = append(d.charms, curl)
+func (d *fakeDownloader) OpenCharm(_ context.Context, curl string) (io.ReadCloser, error) {
+	d.curls = append(d.curls, curl)
 	// Return the charm URL string as the fake charm content
 	return io.NopCloser(bytes.NewReader([]byte(curl + " content"))), nil
 }
 
-func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
+func (d *fakeDownloader) OpenURI(_ context.Context, uri string, query url.Values) (io.ReadCloser, error) {
 	if query != nil {
 		panic("query should be empty")
 	}
@@ -291,7 +308,7 @@ func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, e
 	return io.NopCloser(bytes.NewReader([]byte(uri))), nil
 }
 
-func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
+func (d *fakeDownloader) OpenResource(_ context.Context, app, name string) (io.ReadCloser, error) {
 	d.resources = append(d.resources, app+"/"+name)
 	// Use the resource name as the content.
 	return io.NopCloser(bytes.NewReader([]byte(name))), nil
@@ -299,13 +316,14 @@ func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
 
 type fakeUploader struct {
 	tools            map[version.Binary]string
-	charms           []string
+	curls            []string
+	charmRefs        []string
 	resources        map[string]string
 	unitResources    []string
 	reassignCharmURL bool
 }
 
-func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.List, error) {
+func (f *fakeUploader) UploadTools(_ context.Context, r io.ReadSeeker, v version.Binary) (tools.List, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -314,24 +332,25 @@ func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.Lis
 	return tools.List{&tools.Tools{Version: v}}, nil
 }
 
-func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, error) {
+func (f *fakeUploader) UploadCharm(_ context.Context, curl string, charmRef string, r io.ReadSeeker) (string, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	if string(data) != u.String()+" content" {
-		panic(fmt.Sprintf("unexpected charm body for %s: %s", u.String(), data))
+	if string(data) != curl+" content" {
+		panic(fmt.Sprintf("unexpected charm body for %s: %s", curl, data))
 	}
-	f.charms = append(f.charms, u.String())
+	f.curls = append(f.curls, curl)
+	f.charmRefs = append(f.charmRefs, charmRef)
 
-	outU := *u
+	outU := curl
 	if f.reassignCharmURL {
-		outU.Revision--
+		outU = charm.MustParseURL(outU).WithRevision(100).String()
 	}
-	return &outU, nil
+	return outU, nil
 }
 
-func (f *fakeUploader) UploadResource(res resources.Resource, r io.ReadSeeker) error {
+func (f *fakeUploader) UploadResource(_ context.Context, res resources.Resource, r io.ReadSeeker) error {
 	body, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Trace(err)
@@ -340,12 +359,12 @@ func (f *fakeUploader) UploadResource(res resources.Resource, r io.ReadSeeker) e
 	return nil
 }
 
-func (f *fakeUploader) SetPlaceholderResource(res resources.Resource) error {
+func (f *fakeUploader) SetPlaceholderResource(_ context.Context, res resources.Resource) error {
 	f.resources[res.ApplicationID+"/"+res.Name] = "<placeholder>"
 	return nil
 }
 
-func (f *fakeUploader) SetUnitResource(unit string, res resources.Resource) error {
+func (f *fakeUploader) SetUnitResource(_ context.Context, unit string, res resources.Resource) error {
 	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
 }

@@ -6,7 +6,7 @@ package upgradesteps
 import (
 	"context"
 	"errors"
-	time "time"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/internal/upgrades"
 )
 
 type baseWorkerSuite struct {
@@ -130,6 +130,6 @@ type breakableAPICaller struct {
 	broken bool
 }
 
-func (b *breakableAPICaller) IsBroken() bool {
+func (b *breakableAPICaller) IsBroken(_ context.Context) bool {
 	return b.broken
 }

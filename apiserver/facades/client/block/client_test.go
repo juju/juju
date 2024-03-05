@@ -34,7 +34,7 @@ func (s *blockSuite) SetUpTest(c *gc.C) {
 		Tag:        jujutesting.AdminUser,
 		Controller: true,
 	}
-	s.api, err = block.NewAPI(facadetest.Context{
+	s.api, err = block.NewAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: common.NewResources(),
 		Auth_:      auth,

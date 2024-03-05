@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -33,7 +33,7 @@ func (s *State) ConfigDefaults(_ context.Context) map[string]any {
 // no defaults are found then an empty map will be returned with a nil error.
 func (s *State) ModelCloudDefaults(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 ) (map[string]string, error) {
 	rval := make(map[string]string)
 
@@ -83,7 +83,7 @@ WHERE model_metadata.model_uuid = ?
 // with nil error.
 func (s *State) ModelCloudRegionDefaults(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 ) (map[string]string, error) {
 	rval := make(map[string]string)
 
@@ -134,7 +134,7 @@ WHERE model_metadata.model_uuid = ?
 // the provided uuid then a error satisfying modelerrors.NotFound is returned.
 func (s *State) ModelProviderConfigSchema(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 ) (config.ConfigSchemaSource, error) {
 	db, err := s.DB()
 	if err != nil {

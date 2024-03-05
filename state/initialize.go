@@ -10,8 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 )
@@ -173,7 +173,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	salt, err := utils.RandomSalt()
+	salt, err := password.RandomSalt()
 	if err != nil {
 		return nil, err
 	}
@@ -244,10 +244,6 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Initialize the logs for the newly created models
-	if err := InitDbLogs(st.session); err != nil {
-		return nil, errors.Trace(err)
-	}
 	_, _ = probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
 	return ctlr, nil
 }
@@ -256,9 +252,6 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.Config) error {
 	schema := allCollections()
 	if err := schema.Create(session.DB(jujuDB), settings); err != nil {
-		return errors.Trace(err)
-	}
-	if err := InitDbLogs(session); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

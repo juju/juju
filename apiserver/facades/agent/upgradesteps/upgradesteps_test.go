@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -279,7 +279,7 @@ func (s *unitUpgradeStepsSuite) expectSetAndApplyStateOperation(err1, err2 error
 		controller.MaxAgentStateSize: 456,
 	}
 
-	s.ctrlConfigGetter.EXPECT().ControllerConfig(context.Background()).Return(ctrlCfg, nil)
+	s.ctrlConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(ctrlCfg, nil)
 
 	expLimits := state.UnitStateSizeLimits{
 		MaxCharmStateSize: 123,

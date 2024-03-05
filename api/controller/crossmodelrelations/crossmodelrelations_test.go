@@ -100,7 +100,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	err = client.PublishRelationChange(params.RemoteRelationChangeEvent{
+	err = client.PublishRelationChange(context.Background(), params.RemoteRelationChangeEvent{
 		RelationToken: "token",
 		DepartedUnits: []int{1},
 		Macaroons:     macaroon.Slice{mac},
@@ -112,7 +112,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
-	err = client.PublishRelationChange(params.RemoteRelationChangeEvent{
+	err = client.PublishRelationChange(context.Background(), params.RemoteRelationChangeEvent{
 		RelationToken: "token",
 		DepartedUnits: []int{1},
 		Macaroons:     macaroon.Slice{different},
@@ -150,7 +150,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c 
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	err := client.PublishRelationChange(params.RemoteRelationChangeEvent{
+	err := client.PublishRelationChange(context.Background(), params.RemoteRelationChangeEvent{
 		RelationToken: "token",
 		DepartedUnits: []int{1},
 	})
@@ -190,7 +190,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	result, err := client.RegisterRemoteRelations(params.RegisterRemoteRelationArg{
+	result, err := client.RegisterRemoteRelations(context.Background(), params.RegisterRemoteRelationArg{
 		RelationToken: "token",
 		OfferUUID:     "offer-uuid",
 		Macaroons:     macaroon.Slice{mac},
@@ -204,7 +204,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
-	result, err = client.RegisterRemoteRelations(params.RegisterRemoteRelationArg{
+	result, err = client.RegisterRemoteRelations(context.Background(), params.RegisterRemoteRelationArg{
 		RelationToken: "token",
 		OfferUUID:     "offer-uuid",
 		Macaroons:     macaroon.Slice{different},
@@ -227,7 +227,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationCount(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err := client.RegisterRemoteRelations(params.RegisterRemoteRelationArg{})
+	_, err := client.RegisterRemoteRelations(context.Background(), params.RegisterRemoteRelationArg{})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
@@ -259,7 +259,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	result, err := client.RegisterRemoteRelations(params.RegisterRemoteRelationArg{
+	result, err := client.RegisterRemoteRelations(context.Background(), params.RegisterRemoteRelationArg{
 		RelationToken: "token",
 		OfferUUID:     "offer-uuid"})
 	c.Check(err, jc.ErrorIsNil)
@@ -302,6 +302,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	}
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
 	_, err = client.WatchRelationChanges(
+		context.Background(),
 		remoteRelationToken,
 		"app-token",
 		macaroon.Slice{mac},
@@ -313,6 +314,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	_, err = client.WatchRelationChanges(
+		context.Background(),
 		remoteRelationToken,
 		"app-token",
 		macaroon.Slice{different},
@@ -357,7 +359,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchRelationChanges("token", "app-token", nil)
+	_, err := client.WatchRelationChanges(context.Background(), "token", "app-token", nil)
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 1)
@@ -392,7 +394,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
+	_, err = client.WatchRelationSuspendedStatus(context.Background(), params.RemoteEntityArg{
 		Token:         remoteRelationToken,
 		Macaroons:     macaroon.Slice{mac},
 		BakeryVersion: bakery.LatestVersion,
@@ -403,7 +405,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
-	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
+	_, err = client.WatchRelationSuspendedStatus(context.Background(), params.RemoteEntityArg{
 		Token:         remoteRelationToken,
 		Macaroons:     macaroon.Slice{different},
 		BakeryVersion: bakery.LatestVersion,
@@ -444,7 +446,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchRelationSuspendedStatus(params.RemoteEntityArg{Token: "token"})
+	_, err := client.WatchRelationSuspendedStatus(context.Background(), params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 1)
@@ -481,7 +483,7 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	err = client.PublishIngressNetworkChange(params.IngressNetworksChangeEvent{
+	err = client.PublishIngressNetworkChange(context.Background(), params.IngressNetworksChangeEvent{
 		RelationToken: "token",
 		Networks:      []string{"1.2.3.4/32"}, Macaroons: macaroon.Slice{mac},
 		BakeryVersion: bakery.LatestVersion,
@@ -492,7 +494,7 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
 	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
-	err = client.PublishIngressNetworkChange(params.IngressNetworksChangeEvent{
+	err = client.PublishIngressNetworkChange(context.Background(), params.IngressNetworksChangeEvent{
 		RelationToken: "token",
 		Networks:      []string{"1.2.3.4/32"}, Macaroons: macaroon.Slice{different},
 		BakeryVersion: bakery.LatestVersion,
@@ -529,7 +531,7 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequi
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	err := client.PublishIngressNetworkChange(params.IngressNetworksChangeEvent{
+	err := client.PublishIngressNetworkChange(context.Background(), params.IngressNetworksChangeEvent{
 		RelationToken: "token",
 		Networks:      []string{"1.2.3.4/32"}})
 	c.Check(callCount, gc.Equals, 2)
@@ -568,7 +570,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) 
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err = client.WatchEgressAddressesForRelation(relation)
+	_, err = client.WatchEgressAddressesForRelation(context.Background(), relation)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
@@ -578,7 +580,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) 
 	rel2 := relation
 	rel2.Macaroons = macaroon.Slice{different}
 	rel2.BakeryVersion = bakery.LatestVersion
-	_, err = client.WatchEgressAddressesForRelation(rel2)
+	_, err = client.WatchEgressAddressesForRelation(context.Background(), rel2)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 2)
 }
@@ -616,7 +618,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchEgressAddressesForRelation(params.RemoteEntityArg{Token: "token"})
+	_, err := client.WatchEgressAddressesForRelation(context.Background(), params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 1)
@@ -651,7 +653,7 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err = client.WatchOfferStatus(params.OfferArg{
+	_, err = client.WatchOfferStatus(context.Background(), params.OfferArg{
 		OfferUUID:     offerUUID,
 		Macaroons:     macaroon.Slice{mac},
 		BakeryVersion: bakery.LatestVersion,
@@ -662,7 +664,7 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("offer-uuid", macaroon.Slice{mac})
-	_, err = client.WatchOfferStatus(params.OfferArg{
+	_, err = client.WatchOfferStatus(context.Background(), params.OfferArg{
 		OfferUUID:     offerUUID,
 		Macaroons:     macaroon.Slice{different},
 		BakeryVersion: bakery.LatestVersion,
@@ -703,7 +705,7 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchOfferStatus(params.OfferArg{OfferUUID: "offer-uuid"})
+	_, err := client.WatchOfferStatus(context.Background(), params.OfferArg{OfferUUID: "offer-uuid"})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 1)
@@ -739,14 +741,14 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err = client.WatchConsumedSecretsChanges(appToken, relToken, mac)
+	_, err = client.WatchConsumedSecretsChanges(context.Background(), appToken, relToken, mac)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
 	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert(relToken, macaroon.Slice{mac})
-	_, err = client.WatchConsumedSecretsChanges(appToken, relToken, different)
+	_, err = client.WatchConsumedSecretsChanges(context.Background(), appToken, relToken, different)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 2)
 }
@@ -783,7 +785,7 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchConsumedSecretsChanges("app-token", "rel-token", nil)
+	_, err := client.WatchConsumedSecretsChanges(context.Background(), "app-token", "rel-token", nil)
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 1)

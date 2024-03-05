@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/controller"
@@ -79,7 +79,7 @@ type Backing interface {
 	MovingSubnet(id string) (MovingSubnet, error)
 
 	// AddSpace creates a space.
-	AddSpace(name string, providerID network.Id, subnets []string, public bool) (networkingcommon.BackingSpace, error)
+	AddSpace(name string, providerID network.Id, subnets []string) (networkingcommon.BackingSpace, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	// TODO (manadart 2020-04-14): This should be removed in favour of

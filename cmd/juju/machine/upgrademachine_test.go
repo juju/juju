@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -177,8 +177,8 @@ func (s *UpgradeMachineSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArg
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldOnlyAcceptSupportedSeries(c *gc.C) {
-	BadSeries := "Combative Caribou"
-	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, BadSeries)
+	badSeries := "Combative Caribou"
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, badSeries)
 	c.Assert(err, gc.ErrorMatches, ".* is an unsupported series")
 }
 

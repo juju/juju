@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,12 +15,14 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apiauthentication "github.com/juju/juju/api/authentication"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing/factory"
@@ -122,10 +125,24 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithDischargedMacaroon(c
 func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	// Create a new local user that we can log in as
 	// using macaroon authentication.
-	const password = "hunter2"
+	password := "hunter2"
+	userService := s.ControllerServiceFactory(c).User()
+	userTag := names.NewUserTag("bobbrown")
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	user := f.MakeUser(c, &factory.UserParams{Password: password})
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
+	})
 
 	// Install a "web-page" visitor that deals with the interaction
 	// method that Juju controllers support for authenticating local
@@ -141,9 +158,9 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *gc.C) 
 	)
 	bakeryClient.Client = client.Client()
 	bakeryClient.AddInteractor(apiauthentication.NewInteractor(
-		user.UserTag().Id(),
+		userTag.Id(),
 		func(username string) (string, error) {
-			c.Assert(username, gc.Equals, user.UserTag().Id())
+			c.Assert(username, gc.Equals, userTag.Id())
 			prompted = true
 			return password, nil
 		},
@@ -156,7 +173,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *gc.C) 
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:   "POST",
 		URL:      s.toolsURI(""),
-		Tag:      user.UserTag().String(),
+		Tag:      userTag.String(),
 		Password: "", // no password forces macaroon usage
 		Do:       bakeryDo,
 	})

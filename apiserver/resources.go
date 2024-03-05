@@ -12,9 +12,9 @@ import (
 	"path"
 	"strconv"
 
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	api "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/core/resources"

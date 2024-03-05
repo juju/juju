@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
@@ -133,7 +133,7 @@ func (w *commonWatcher) commonLoop() {
 }
 
 var (
-	// ErrRestartArgent matches juju/juju/worker/error.go ErrRestartAgent
+	// ErrRestartArgent matches juju/juju/internal/worker/error.go ErrRestartAgent
 	// and is used to indicate that the watcher should be restarted.
 	ErrRestartAgent = errors.New("agent should be restarted")
 )
@@ -417,7 +417,7 @@ func (w *remoteRelationWatcher) Changes() <-chan params.RemoteRelationChangeEven
 // events.
 type SettingsGetter func([]string) ([]params.SettingsResult, error)
 
-// remoteRelationCompatWatcher is a compatibility adapter that calls
+// remoteRelationCompatWatcher is a compatibility adaptor that calls
 // back to the v1 crossmodelrelations API methods to wrap a
 // server-side RelationUnitsWatcher into a RemoteRelationWatcher. It
 // needs the relation and application token to include in the outgoing

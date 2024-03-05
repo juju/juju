@@ -8,7 +8,7 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -52,7 +52,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 
 	resources := common.NewResources()
 
-	rebootAPI, err := reboot.NewRebootAPI(facadetest.Context{
+	rebootAPI, err := reboot.NewRebootAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: resources,
 		Auth_:      authorizer,
@@ -96,7 +96,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	}
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	container, err := st.AddMachineInsideMachine(template, machine.Id(), instance.LXD)

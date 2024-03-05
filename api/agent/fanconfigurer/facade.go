@@ -34,9 +34,9 @@ func NewFacade(caller base.APICaller, options ...Option) *Facade {
 
 // WatchForFanConfigChanges return a NotifyWatcher waiting for the
 // fan configuration to change.
-func (f *Facade) WatchForFanConfigChanges() (watcher.NotifyWatcher, error) {
+func (f *Facade) WatchForFanConfigChanges(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := f.caller.FacadeCall(context.TODO(), "WatchForFanConfigChanges", nil, &result)
+	err := f.caller.FacadeCall(ctx, "WatchForFanConfigChanges", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -44,9 +44,9 @@ func (f *Facade) WatchForFanConfigChanges() (watcher.NotifyWatcher, error) {
 }
 
 // FanConfig returns the current fan configuration.
-func (f *Facade) FanConfig() (network.FanConfig, error) {
+func (f *Facade) FanConfig(ctx context.Context) (network.FanConfig, error) {
 	var result params.FanConfigResult
-	err := f.caller.FacadeCall(context.TODO(), "FanConfig", nil, &result)
+	err := f.caller.FacadeCall(ctx, "FanConfig", nil, &result)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/schema"
 	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

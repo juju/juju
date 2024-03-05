@@ -6,7 +6,7 @@ package pinger
 import (
 	"context"
 
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 )
 
 // Pinger describes a resource that can be pinged and stopped.

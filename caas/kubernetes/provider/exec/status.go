@@ -4,6 +4,7 @@
 package exec
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -53,11 +54,11 @@ type ContainerStatus struct {
 
 // Status returns information about a Pod including the status
 // of each container.
-func (c client) Status(params StatusParams) (*Status, error) {
+func (c client) Status(ctx context.Context, params StatusParams) (*Status, error) {
 	if err := params.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	pod, err := getValidatedPod(c.podGetter, params.PodName)
+	pod, err := getValidatedPod(ctx, c.podGetter, params.PodName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -315,10 +315,6 @@ func (statePolicy) ConfigValidator() (config.Validator, error) {
 
 func (statePolicy) ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")
-}
-
-func (statePolicy) InstanceDistributor() (envcontext.Distributor, error) {
-	return nil, errors.NotImplementedf("InstanceDistributor")
 }
 
 func (statePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {

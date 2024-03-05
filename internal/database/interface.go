@@ -3,7 +3,7 @@
 
 package database
 
-import "github.com/juju/loggo"
+import "github.com/juju/loggo/v2"
 
 // Logger describes methods for emitting log output.
 type Logger interface {

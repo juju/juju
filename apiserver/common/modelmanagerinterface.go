@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
@@ -72,12 +72,10 @@ type ModelManagerBackend interface {
 	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
-	SetModelMeterStatus(string, string) error
 	AllSpaces() ([]*state.Space, error)
-	AddSpace(string, network.Id, []string, bool) (*state.Space, error)
+	AddSpace(string, network.Id, []string) (*state.Space, error)
 	AllEndpointBindingsSpaceNames() (set.Strings, error)
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
-	DefaultEndpointBindingSpace() (string, error)
 	// TODO(nvinuesa): This method is necessary only until the spaces
 	// migration to dqlite is finished:
 	Space(id string) (*state.Space, error)
@@ -92,14 +90,6 @@ type ModelManagerBackend interface {
 	ListModelSecrets(bool) (map[string]set.Strings, error)
 	ListSecretBackends() ([]*secrets.SecretBackend, error)
 	GetSecretBackendByID(string) (*secrets.SecretBackend, error)
-
-	// Methods required by the metricsender package.
-	MetricsManager() (*state.MetricsManager, error)
-	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
-	SetMetricBatchesSent(batchUUIDs []string) error
-	CountOfUnsentMetrics() (int, error)
-	CountOfSentMetrics() (int, error)
-	CleanupOldMetrics() error
 }
 
 // Model defines methods provided by a state.Model instance.
@@ -117,8 +107,6 @@ type Model interface {
 	CloudRegion() string
 	Users() ([]permission.UserAccess, error)
 	Destroy(state.DestroyModelParams) error
-	SLALevel() string
-	SLAOwner() string
 	MigrationMode() state.MigrationMode
 	Name() string
 	UUID() string

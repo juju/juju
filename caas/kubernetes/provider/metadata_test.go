@@ -275,7 +275,7 @@ func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
 		clientSet := fake.NewSimpleClientset(v.node)
 
 		metadata, err := provider.GetClusterMetadata(
-			context.TODO(),
+			context.Background(),
 			"",
 			clientSet.CoreV1().Nodes(),
 			clientSet.StorageV1().StorageClasses(),
@@ -711,7 +711,7 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 		clientSet := fake.NewSimpleClientset(test.InitialObjects...)
 
 		metadata, err := provider.GetClusterMetadata(
-			context.TODO(),
+			context.Background(),
 			test.NominatedStorage,
 			clientSet.CoreV1().Nodes(),
 			clientSet.StorageV1().StorageClasses(),
@@ -730,7 +730,7 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *gc.C) {
 	)
 
 	_, err := provider.GetClusterMetadata(
-		context.TODO(),
+		context.Background(),
 		"my-nominated-storage",
 		clientSet.CoreV1().Nodes(),
 		clientSet.StorageV1().StorageClasses(),
@@ -751,7 +751,7 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFoundWithNilStorageClasses(c *
 	)
 
 	_, err := provider.GetClusterMetadata(
-		context.TODO(),
+		context.Background(),
 		"my-nominated-storage",
 		clientSet.CoreV1().Nodes(),
 		clientSet.StorageV1().StorageClasses(),

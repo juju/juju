@@ -4,10 +4,11 @@
 package upgrader
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -16,7 +17,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Upgrader", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Upgrader", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUpgraderFacade(ctx)
 	}, reflect.TypeOf((*Upgrader)(nil)).Elem())
 }
@@ -28,7 +29,7 @@ func Register(registry facade.FacadeRegistry) {
 // do not depend on who is currently connected.
 
 // newUpgraderFacade provides the signature required for facade registration.
-func newUpgraderFacade(ctx facade.Context) (Upgrader, error) {
+func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	// The type of upgrader we return depends on who is asking.

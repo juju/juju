@@ -129,5 +129,14 @@ func (s *applicationSuite) TestRemoveTrust(c *gc.C) {
 	})
 	clusterRole, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), s.namespace+"-"+s.appName, metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clusterRole.Rules, gc.HasLen, 0)
+	c.Assert(clusterRole.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"namespaces"},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+		},
+	})
 }

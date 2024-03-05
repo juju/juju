@@ -4,12 +4,9 @@
 package testing
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
-	"database/sql"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -20,19 +17,19 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -44,32 +41,41 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/trace"
+	coreuser "github.com/juju/juju/core/user"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/credential"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	credentialstate "github.com/juju/juju/domain/credential/state"
-	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
+	internallease "github.com/juju/juju/internal/lease"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
+	"github.com/juju/juju/internal/password"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/pubsub/centralhub"
+	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/worker/lease"
+	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/lease"
-	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
 )
 
 const AdminSecret = "dummy-secret"
@@ -130,9 +136,10 @@ type ApiServerSuite struct {
 	ControllerModelConfigAttrs map[string]interface{}
 
 	// These are exposed for the tests to use.
-	Server       *apiserver.Server
-	LeaseManager *lease.Manager
-	Clock        testclock.AdvanceableClock
+	Server            *apiserver.Server
+	LeaseManager      *lease.Manager
+	ObjectStoreGetter objectstore.ObjectStoreGetter
+	Clock             testclock.AdvanceableClock
 
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
@@ -147,6 +154,13 @@ type ApiServerSuite struct {
 	WithUpgrading      bool
 	WithAuditLogConfig *auditlog.Config
 	WithIntrospection  func(func(string, http.Handler))
+
+	// AdminUserUUID is the root user for the controller.
+	AdminUserUUID coreuser.UUID
+
+	// InstancePrechecker is used to validate instance creation.
+	// DEPRECATED: This will be removed in the future.
+	InstancePrechecker func(*gc.C, *state.State) environs.InstancePrechecker
 }
 
 type noopRegisterer struct {
@@ -164,7 +178,7 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 func leaseManager(controllerUUID string, db database.DBGetter, clock clock.Clock) (*lease.Manager, error) {
 	logger := loggo.GetLogger("juju.worker.lease.test")
 	return lease.NewManager(lease.ManagerConfig{
-		Secretary:            lease.SecretaryFinder(controllerUUID),
+		SecretaryFinder:      internallease.NewSecretaryFinder(controllerUUID),
 		Store:                lease.NewStore(db, logger),
 		Logger:               logger,
 		Clock:                clock,
@@ -251,7 +265,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		modelAttrs[k] = v
 	}
 	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
-	s.ServiceFactorySuite.ControllerModelUUID = model.UUID(controllerModelCfg.UUID())
+	s.ServiceFactorySuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
 	s.ServiceFactorySuite.SetUpTest(c)
 
 	modelType := state.ModelTypeIAAS
@@ -295,7 +309,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	}}
 	st, err := ctrl.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetAPIHostPorts(controllerCfg, sHsPs)
+	err = st.SetAPIHostPorts(controllerCfg, sHsPs, sHsPs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Allow "dummy" cloud.
@@ -303,7 +317,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
-	SeedDatabase(c, s.TxnRunner(), controllerCfg)
+	s.AdminUserUUID = SeedDatabase(c, s.TxnRunner(), controllerCfg)
 }
 
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
@@ -313,9 +327,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
-	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
-		statePool: s.controller.StatePool(),
-	}
 
 	cfg.UpgradeComplete = func() bool {
 		return !s.WithUpgrading
@@ -326,12 +337,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		}
 		return auditlog.Config{Enabled: false}
 	}
-	if s.WithLeaseManager {
-		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
-		c.Assert(err, jc.ErrorIsNil)
-		cfg.LeaseManager = leaseManager
-		s.LeaseManager = leaseManager
-	}
 	if s.WithMultiWatcher {
 		cfg.MultiwatcherFactory = multiWatcher(c, cfg.StatePool, s.Clock)
 	}
@@ -341,9 +346,28 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	if s.WithEmbeddedCLICommand != nil {
 		cfg.ExecEmbeddedCommand = s.WithEmbeddedCLICommand
 	}
+	if s.WithLeaseManager {
+		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
+		c.Assert(err, jc.ErrorIsNil)
+		cfg.LeaseManager = leaseManager
+		s.LeaseManager = leaseManager
+	}
+
+	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
+		rootDir:              c.MkDir(),
+		claimer:              objectstoretesting.MemoryClaimer(),
+		serviceFactoryGetter: cfg.ServiceFactoryGetter,
+	}
+	s.ObjectStoreGetter = cfg.ObjectStoreGetter
 
 	// Set up auth handler.
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ControllerServiceFactory(c).ControllerConfig(), cfg.Clock)
+	factory := s.ControllerServiceFactory(c)
+
+	systemState, err := cfg.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
+
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, systemState, factory.ControllerConfig(), factory.User(), agentAuthFactory, cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
@@ -359,6 +383,10 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
+
+	s.InstancePrechecker = func(c *gc.C, s *state.State) environs.InstancePrechecker {
+		return state.NoopInstancePrechecker{}
+	}
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())
@@ -415,6 +443,13 @@ func (s *ApiServerSuite) URL(path string, queryParams url.Values) *url.URL {
 	url.Path = path
 	url.RawQuery = queryParams.Encode()
 	return &url
+}
+
+// ObjectStore returns the object store for the given model uuid.
+func (s *ApiServerSuite) ObjectStore(c *gc.C, uuid string) objectstore.ObjectStore {
+	store, err := s.ObjectStoreGetter.GetObjectStore(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	return store
 }
 
 // openAPIAs opens the API and ensures that the api.Connection returned will be
@@ -484,9 +519,9 @@ func (s *ApiServerSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) 
 	}
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), jobs...)
+	machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -535,12 +570,12 @@ func (s *ApiServerSuite) Model(c *gc.C, uuid string) (*state.Model, func() bool)
 
 func (s *ApiServerSuite) tearDownConn(c *gc.C) {
 	testServer := mgotesting.MgoServer.Addr()
-	serverAlive := testServer != ""
+	serverDead := testServer == "" || s.Server == nil
 
 	// Close any api connections we know about first.
 	for _, st := range s.apiConns {
 		err := st.Close()
-		if serverAlive {
+		if !serverDead {
 			c.Check(err, jc.ErrorIsNil)
 		}
 	}
@@ -560,12 +595,12 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 		},
 	}
 
-	cloudUUID, err := utils.NewUUID()
+	cloudUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	credUUID, err := utils.NewUUID()
+	credUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return cloudstate.CreateCloud(ctx, tx, cloudUUID.String(), cloud.Cloud{
 			Name:      "caascloud",
 			Type:      "kubernetes",
@@ -585,15 +620,30 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
-func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) {
+func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) coreuser.UUID {
+	adminUserUUID := SeedAdminUser(c, runner)
+
 	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	SeedCloudCredentials(c, runner)
+
+	return adminUserUUID
+}
+
+func SeedAdminUser(c *gc.C, runner database.TxnRunner) coreuser.UUID {
+	adminUserUUID, userAdd := userbootstrap.AddUserWithPassword(coreuser.AdminUserName, auth.NewPassword(AdminSecret))
+	err := userAdd(context.Background(), runner)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return adminUserUUID
 }
 
 func SeedCloudCredentials(c *gc.C, runner database.TxnRunner) {
-	err := cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
+	err := InsertDummyCloudType(context.Background(), runner)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	id := credential.ID{
@@ -624,7 +674,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		NewObserver:                func() observer.Observer { return &fakeobserver.Instance{} },
 		MetricsCollector:           apiserver.NewMetricsCollector(),
 		UpgradeComplete:            func() bool { return true },
-		SysLogger:                  noopSysLogger{},
+		LogSink:                    noopLogSink{},
 		CharmhubHTTPClient:         &http.Client{},
 		DBGetter:                   stubDBGetter{},
 		ServiceFactoryGetter:       nil,
@@ -655,41 +705,30 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 }
 
 type stubObjectStoreGetter struct {
-	statePool *state.StatePool
+	rootDir              string
+	claimer              internalobjectstore.Claimer
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 }
 
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
-	// If no statePool is provided, then fallback to a stub implementation.
-	if s.statePool == nil {
-		return &stubObjectStore{}, nil
-	}
+	serviceFactory := s.serviceFactoryGetter.FactoryForModel(namespace)
 
-	// If a statePool is provided, use the actual object store logic to
-	// serve the files.
-	state, err := s.statePool.Get(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	return internalobjectstore.ObjectStoreFactory(ctx, internalobjectstore.DefaultBackendType(), namespace, internalobjectstore.WithMongoSession(state))
+	return internalobjectstore.ObjectStoreFactory(ctx,
+		internalobjectstore.DefaultBackendType(),
+		namespace,
+		internalobjectstore.WithRootDir(s.rootDir),
+		internalobjectstore.WithMetadataService(&stubMetadataService{serviceFactory: serviceFactory}),
+		internalobjectstore.WithClaimer(s.claimer),
+		internalobjectstore.WithLogger(loggo.GetLogger("juju.objectstore")),
+	)
 }
 
-type stubObjectStore struct{}
-
-func (s *stubObjectStore) Get(context.Context, string) (io.ReadCloser, int64, error) {
-	return io.NopCloser(bytes.NewBufferString("")), 0, nil
+type stubMetadataService struct {
+	serviceFactory servicefactory.ServiceFactory
 }
 
-func (s *stubObjectStore) Put(ctx context.Context, path string, r io.Reader, length int64) error {
-	return nil
-}
-
-func (s *stubObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
-	return nil
-}
-
-func (s *stubObjectStore) Remove(ctx context.Context, path string) error {
-	return nil
+func (s *stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+	return s.serviceFactory.ObjectStore()
 }
 
 type stubWatchableDB struct {
@@ -702,9 +741,27 @@ func (stubWatchableDB) Subscribe(...changestream.SubscriptionOption) (changestre
 
 // These mocks are used in place of real components when creating server config.
 
-type noopSysLogger struct{}
+type noopLogger struct{}
 
-func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
+func (noopLogger) Log([]corelogger.LogRecord) error { return nil }
+
+func (noopLogger) Close() error { return nil }
+
+type noopLogSink struct{}
+
+func (s noopLogSink) GetLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
+	return &noopLogger{}, nil
+}
+
+func (s noopLogSink) RemoveLogger(modelUUID string) error {
+	return nil
+}
+
+func (s noopLogSink) Close() error {
+	return nil
+}
+
+func (noopLogSink) Log([]corelogger.LogRecord) error { return nil }
 
 type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory

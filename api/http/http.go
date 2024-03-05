@@ -28,17 +28,16 @@ type HTTPDoer interface {
 
 // URIOpener provides the OpenURI method.
 type URIOpener interface {
-	OpenURI(uri string, query url.Values) (io.ReadCloser, error)
+	OpenURI(ctx context.Context, uri string, query url.Values) (io.ReadCloser, error)
 }
 
 type uriOpener struct {
-	ctx        context.Context
 	httpClient HTTPDoer
 }
 
 // OpenURI performs a GET on a Juju HTTP endpoint returning the specified blob.
-func (o *uriOpener) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
-	return OpenURI(o.ctx, o.httpClient, uri, query)
+func (o *uriOpener) OpenURI(ctx context.Context, uri string, query url.Values) (io.ReadCloser, error) {
+	return OpenURI(ctx, o.httpClient, uri, query)
 }
 
 // NewURIOpener returns a URI opener for the api caller.
@@ -48,7 +47,6 @@ func NewURIOpener(apiConn base.APICaller) (URIOpener, error) {
 		return nil, errors.Trace(err)
 	}
 	return &uriOpener{
-		ctx:        apiConn.Context(),
 		httpClient: httpClient,
 	}, nil
 }

@@ -4,6 +4,7 @@
 package logsender
 
 import (
+	"context"
 	"io"
 	"net/url"
 
@@ -34,11 +35,11 @@ func NewAPI(connector base.StreamConnector) *API {
 
 // LogWriter returns a new log writer interface value
 // which must be closed when finished with.
-func (api *API) LogWriter() (LogWriter, error) {
+func (api *API) LogWriter(ctx context.Context) (LogWriter, error) {
 	attrs := make(url.Values)
 	// Version 1 does ping/pong handling.
 	attrs.Set("version", "1")
-	conn, err := api.connector.ConnectStream("/logsink", attrs)
+	conn, err := api.connector.ConnectStream(ctx, "/logsink", attrs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /logsink")
 	}

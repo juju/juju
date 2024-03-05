@@ -7,7 +7,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema/testing"
 )
 
@@ -24,7 +23,7 @@ type ModelSuite struct {
 func (s *ModelSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.watchableDB = NewTestWatchableDB(c, coredatabase.ControllerNS, s.TxnRunner())
+	s.watchableDB = NewTestWatchableDB(c, s.ModelUUID(), s.TxnRunner())
 }
 
 func (s *ModelSuite) TearDownTest(c *gc.C) {

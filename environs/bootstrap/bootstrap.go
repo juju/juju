@@ -9,13 +9,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/ssh"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
@@ -328,7 +328,7 @@ func bootstrapIAAS(
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 
 	var ss *simplestreams.Simplestreams
-	if value := ctx.Context().Value(SimplestreamsFetcherContextKey); value == nil {
+	if value := ctx.Value(SimplestreamsFetcherContextKey); value == nil {
 		ss = simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	} else if s, ok := value.(*simplestreams.Simplestreams); ok {
 		ss = s
@@ -342,7 +342,7 @@ func bootstrapIAAS(
 	var customImageMetadata []*imagemetadata.ImageMetadata
 	if args.MetadataDir != "" {
 		var err error
-		customImageMetadata, err = setPrivateMetadataSources(ss, args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(ctx, ss, args.MetadataDir)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -407,7 +407,7 @@ func bootstrapIAAS(
 	}
 
 	ctx.Verbosef("Loading image metadata")
-	imageMetadata, err := bootstrapImageMetadata(environ,
+	imageMetadata, err := bootstrapImageMetadata(ctx, environ,
 		ss,
 		&bootstrapBase,
 		bootstrapArchForImageSearch,
@@ -474,7 +474,7 @@ func bootstrapIAAS(
 		}
 		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
 
-		availableTools, err = findPackagedTools(environ, ss, args.AgentVersion, &bootstrapArch, &bootstrapBase)
+		availableTools, err = findPackagedTools(ctx, environ, ss, args.AgentVersion, &bootstrapArch, &bootstrapBase)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return err
 		}
@@ -737,7 +737,7 @@ func Bootstrap(
 	if err := doBootstrap(ctx, environ, callCtx, args, bootstrapParams); err != nil {
 		return errors.Trace(err)
 	}
-	if IsContextDone(ctx.Context()) {
+	if IsContextDone(ctx) {
 		ctx.Infof("Bootstrap cancelled, you may need to manually remove the bootstrap instance")
 		return Cancelled()
 	}
@@ -787,6 +787,11 @@ func finalizeInstanceBootstrapConfig(
 		return errors.Annotate(err, "encoding default controller cert to pem")
 	}
 
+	agentVersion, has := cfg.AgentVersion()
+	if !has {
+		return errors.New("finalising instance bootstrap config, agent version not set on model config")
+	}
+
 	icfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
@@ -794,6 +799,7 @@ func finalizeInstanceBootstrapConfig(
 		PrivateKey:   string(key),
 		CAPrivateKey: args.CAPrivateKey,
 	}
+	icfg.Bootstrap.StateInitializationParams.AgentVersion = agentVersion
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
@@ -917,6 +923,7 @@ func userPublicSigningKey() (string, error) {
 // initiator. In addition, the custom image metadata that is saved into the
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
+	ctx stdcontext.Context,
 	environ environs.BootstrapEnviron,
 	fetcher imagemetadata.SimplestreamsFetcher,
 	bootstrapBase *corebase.Base,
@@ -987,7 +994,7 @@ func bootstrapImageMetadata(
 	// Since order of data source matters, order of image metadata matters too. Append is important here.
 	var publicImageMetadata []*imagemetadata.ImageMetadata
 	for _, source := range sources {
-		sourceMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{source}, imageConstraint)
+		sourceMetadata, _, err := imagemetadata.Fetch(ctx, fetcher, []simplestreams.DataSource{source}, imageConstraint)
 		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			logger.Debugf("ignoring image metadata in %s: %v", source.Description(), err)
 			// Just keep looking...
@@ -1073,7 +1080,7 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 // and adds an image metadata source after verifying the contents. If the
 // directory ends in tools, only the default tools metadata source will be
 // set. Same for images.
-func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
+func setPrivateMetadataSources(ctx stdcontext.Context, fetcher imagemetadata.SimplestreamsFetcher, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
 	if _, err := os.Stat(metadataDir); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Annotate(err, "cannot access simplestreams metadata directory")
@@ -1143,7 +1150,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	existingMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{dataSource}, imageConstraint)
+	existingMetadata, _, err := imagemetadata.Fetch(ctx, fetcher, []simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Annotatef(err, "cannot read image metadata in %s", dataSource.Description())
 	}

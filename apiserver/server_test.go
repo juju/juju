@@ -13,10 +13,10 @@ import (
 	"github.com/gorilla/websocket"
 	jujuerrors "github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -69,16 +69,16 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 
-	_, err := apimachiner.NewClient(conn).Machine(machine.MachineTag())
+	_, err := apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = apimachiner.NewClient(conn).Machine(machine.MachineTag())
+	_, err = apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Server.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = apimachiner.NewClient(conn).Machine(machine.MachineTag())
+	_, err = apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
 	// The client has not necessarily seen the server shutdown yet, so there
 	// are multiple possible errors. All we should care about is that there is
 	// an error, not what the error actually is.
@@ -87,6 +87,10 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	// Check it can be stopped twice.
 	err = s.Server.Stop()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// nil Server to prevent connection cleanup during teardown complaining due
+	// to connection close errors.
+	s.Server = nil
 }
 
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
@@ -96,7 +100,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 
-	err = st.SetAPIHostPorts(controllerConfig, nil)
+	err = st.SetAPIHostPorts(controllerConfig, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -121,7 +125,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		network.NewMachineHostPorts(port, "localhost"),
 	})
 
-	_, err = apimachiner.NewClient(ipv4Conn).Machine(machine.MachineTag())
+	_, err = apimachiner.NewClient(ipv4Conn).Machine(context.Background(), machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	info.Addrs = []string{net.JoinHostPort("::1", portString)}
@@ -133,7 +137,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		network.NewMachineHostPorts(port, "::1"),
 	})
 
-	_, err = apimachiner.NewClient(ipv6Conn).Machine(machine.MachineTag())
+	_, err = apimachiner.NewClient(ipv6Conn).Machine(context.Background(), machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -173,7 +177,8 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	st.Close()
 
 	// Now add another machine, intentionally unprovisioned.
-	stm1, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	st1 := s.ControllerModel(c).State()
+	stm1, err := st1.AddMachine(s.InstancePrechecker(c, st1), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = stm1.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,7 +273,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User(), u)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
@@ -282,7 +287,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User(), u)
 	defer handler.Kill()
 
 	ua, err := st.SetUserAccess(user, ctag, permission.SuperuserAccess)
@@ -309,7 +314,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 
 	delegator := &jwt.PermissionDelegator{Token: token}
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory.ControllerConfig(), token, delegator)
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User(), token, delegator)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, coretesting.ControllerTag, true)
@@ -333,7 +338,7 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
 
 	delegator := &jwt.PermissionDelegator{token}
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory.ControllerConfig(), token, delegator)
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User(), token, delegator)
 	defer handler.Kill()
 	err = handler.HasPermission(permission.AdminAccess, coretesting.ModelTag)
 	var reqError *errors.AccessRequiredError
@@ -365,7 +370,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 
 	serviceFactory := s.ControllerServiceFactory(c)
 
-	handler, _ := apiserver.TestingAPIHandler(c, s.StatePool(), otherState, serviceFactory.ControllerConfig())
+	handler, _ := apiserver.TestingAPIHandler(c, s.StatePool(), otherState, serviceFactory.ControllerConfig(), serviceFactory.User())
 	defer handler.Kill()
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
@@ -424,7 +429,7 @@ func assertStateBecomesClosed(c *gc.C, st *state.State) {
 func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, st *state.State) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
-	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool(), st, serviceFactory.ControllerConfig())
+	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User())
 	resource := new(fakeResource)
 	resources.Register(resource)
 

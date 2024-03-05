@@ -132,7 +132,7 @@ func (*reflectSuite) TestFindMethod(c *gc.C) {
 	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 
-	ret, err := m.Call(context.TODO(), "a99", reflect.ValueOf(stringVal{"foo"}))
+	ret, err := m.Call(context.Background(), "a99", reflect.ValueOf(stringVal{"foo"}))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ret.Interface(), gc.Equals, stringVal{"Call1r1e ret"})
 }

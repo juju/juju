@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 
@@ -41,7 +41,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// application / unit
 		applicationsC,
 		unitsC,
-		meterStatusC, // red / green status for metrics of units
 		payloadsC,
 		resourcesC,
 
@@ -55,9 +54,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		spacesC,
 		linkLayerDevicesC,
 		subnetsC,
-
-		// storage
-		blockDevicesC,
 
 		// cloudimagemetadata
 		cloudimagemetadataC,
@@ -115,8 +111,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		controllerUsersC,
 		// userenvnameC is just to provide a unique key constraint.
 		usermodelnameC,
-		// Metrics aren't migrated.
-		metricsC,
 		// reference counts are implementation details that should be
 		// reconstructed on the other side.
 		refcountsC,
@@ -181,10 +175,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Charms are added into the migrated model during the binary transfer
 		// phase after the initial model migration.
 		charmsC,
-
-		// Metrics manager maintains controller specific state relating to
-		// the store and forward of charm metrics. Nothing to migrate here.
-		metricsManagerC,
 
 		// The global clock is not migrated; each controller has its own
 		// independent global clock.
@@ -255,8 +245,6 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",
-		"SLA",
-		"MeterStatus",
 		"EnvironVersion",
 		"PasswordHash",
 		"InvalidCredential",
@@ -401,7 +389,6 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"Exposed",
 		"ExposedEndpoints",
 		"MinUnits",
-		"MetricCredentials",
 		"PasswordHash",
 		"Tools",
 		"DesiredScale",
@@ -451,19 +438,6 @@ func (s *MigrationSuite) TestMachinePortRangesDocFields(c *gc.C) {
 		"TxnRevno",
 	)
 	s.AssertExportedFields(c, machinePortRangesDoc{}, fields)
-}
-
-func (s *MigrationSuite) TestMeterStatusDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		// DocID itself isn't migrated
-		"DocID",
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ModelUUID",
-		"Code",
-		"Info",
-	)
-	s.AssertExportedFields(c, meterStatusDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestRelationDocFields(c *gc.C) {
@@ -605,39 +579,9 @@ func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
 	migrated := set.NewStrings(
 		"Id",
 		"Name",
-		"IsPublic",
 		"ProviderId",
 	)
 	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
-}
-
-func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
-	ignored := set.NewStrings(
-		"DocID",
-		"ModelUUID",
-		// We manage machine through containment.
-		"Machine",
-	)
-	migrated := set.NewStrings(
-		"BlockDevices",
-	)
-	s.AssertExportedFields(c, blockDevicesDoc{}, migrated.Union(ignored))
-	// The meat is in the type stored in "BlockDevices".
-	migrated = set.NewStrings(
-		"DeviceName",
-		"DeviceLinks",
-		"Label",
-		"UUID",
-		"HardwareId",
-		"WWN",
-		"BusAddress",
-		"Size",
-		"FilesystemType",
-		"InUse",
-		"MountPoint",
-		"SerialId",
-	)
-	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
 }
 
 func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
@@ -662,7 +606,6 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"ProviderNetworkId",
 		"FanLocalUnderlay",
 		"FanOverlay",
-		"IsPublic",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }

@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -13,34 +14,37 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Uniter", 19, func(ctx facade.Context) (facade.Facade, error) {
-		return newUniterAPI(ctx)
+	registry.MustRegister("Uniter", 19, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newUniterAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
 }
 
 // newUniterAPI creates a new instance of the core Uniter API.
-func newUniterAPI(context facade.Context) (*UniterAPI, error) {
+func newUniterAPI(stdCtx context.Context, context facade.ModelContext) (*UniterAPI, error) {
 	serviceFactory := context.ServiceFactory()
 	return newUniterAPIWithServices(
+		stdCtx,
 		context,
 		serviceFactory.ControllerConfig(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Unit(),
 	)
 }
 
 // newUniterAPIWithServices creates a new instance using the services.
 func newUniterAPIWithServices(
-	context facade.Context,
+	stdCtx context.Context,
+	context facade.ModelContext,
 	controllerConfigService ControllerConfigService,
 	cloudService CloudService,
 	credentialService CredentialService,
+	unitRemover UnitRemover,
 ) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
@@ -53,7 +57,7 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leadershipRevoker, err := context.LeadershipRevoker(st.ModelUUID())
+	leadershipRevoker, err := context.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,15 +77,11 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 	storageAPI, err := newStorageAPI(
-		stateShim{st}, storageAccessor, resources, accessUnit)
+		stateShim{st}, storageAccessor, context.ServiceFactory().BlockDevice(), resources, accessUnit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	msAPI, err := meterstatus.NewMeterStatusAPI(controllerConfigService, st, resources, authorizer, context.Logger().Child("meterstatus"))
-	if err != nil {
-		return nil, errors.Annotate(err, "could not create meter status API handler")
-	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
 	cloudSpec := cloudspec.NewCloudSpecV2(resources,
@@ -96,7 +96,7 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretsAPI, err := secretsmanager.NewSecretManagerAPI(context)
+	secretsAPI, err := secretsmanager.NewSecretManagerAPI(stdCtx, context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,7 +112,6 @@ func newUniterAPIWithServices(
 		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),
 		SecretsManagerAPI:          secretsAPI,
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
-		MeterStatus:                msAPI,
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
@@ -123,8 +122,8 @@ func newUniterAPIWithServices(
 		controllerConfigService: controllerConfigService,
 		cloudService:            cloudService,
 		credentialService:       credentialService,
+		unitRemover:             unitRemover,
 		clock:                   aClock,
-		cancel:                  context.Cancel(),
 		auth:                    authorizer,
 		resources:               resources,
 		leadershipChecker:       leadershipChecker,

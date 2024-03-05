@@ -11,10 +11,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
@@ -85,9 +85,11 @@ type APIBase struct {
 	updateBase UpdateBase
 	repoDeploy DeployFromRepository
 
-	model             Model
-	cloudService      common.CloudService
-	credentialService common.CredentialService
+	model              Model
+	cloudService       common.CloudService
+	credentialService  common.CredentialService
+	machineService     MachineSaver
+	applicationService ApplicationSaver
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -105,11 +107,11 @@ type APIBase struct {
 }
 
 type CaasBrokerInterface interface {
-	ValidateStorageClass(config map[string]interface{}) error
+	ValidateStorageClass(ctx context.Context, config map[string]interface{}) error
 	Version() (*version.Number, error)
 }
 
-func newFacadeBase(ctx facade.Context) (*APIBase, error) {
+func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
 	m, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model")
@@ -141,12 +143,17 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 
 	resources := ctx.Resources()
 
-	leadershipReader, err := ctx.LeadershipReader(ctx.State().ModelUUID())
+	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	state := &stateShim{ctx.State()}
+	prechecker, err := stateenvirons.NewInstancePrechecker(ctx.State(), serviceFactory.Cloud(), serviceFactory.Credential())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	state := &stateShim{State: ctx.State(), prechecker: prechecker}
 
 	modelCfg, err := model.Config()
 	if err != nil {
@@ -156,9 +163,9 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	charmhubHTTPClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
 	chURL, _ := modelCfg.CharmHubURL()
 	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:        chURL,
-		HTTPClient: charmhubHTTPClient,
-		Logger:     logger,
+		URL:           chURL,
+		HTTPClient:    charmhubHTTPClient,
+		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -175,7 +182,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		state:              state,
 		storagePoolManager: storagePoolManager,
 	}
-	repoDeploy := NewDeployFromRepositoryAPI(state, ctx.ObjectStore(), makeDeployFromRepositoryValidator(context.TODO(), validatorCfg))
+	repoDeploy := NewDeployFromRepositoryAPI(state, serviceFactory.Application(), ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
 
 	return NewAPIBase(
 		state,
@@ -188,6 +195,8 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		model,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Machine(),
+		serviceFactory.Application(),
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
@@ -200,7 +209,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 }
 
 // DeployApplicationFunc is a function that deploys an application.
-type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
+type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationSaver, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
@@ -214,6 +223,8 @@ func NewAPIBase(
 	model Model,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	machineService MachineSaver,
+	applicationService ApplicationSaver,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication DeployApplicationFunc,
@@ -238,6 +249,8 @@ func NewAPIBase(
 		model:                 model,
 		cloudService:          cloudService,
 		credentialService:     credentialService,
+		machineService:        machineService,
+		applicationService:    applicationService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
@@ -255,33 +268,6 @@ func (api *APIBase) checkCanRead() error {
 
 func (api *APIBase) checkCanWrite() error {
 	return api.authorizer.HasPermission(permission.WriteAccess, api.model.ModelTag())
-}
-
-// SetMetricCredentials sets credentials on the application.
-// TODO (cderici) only used for metered charms in cmd MeteredDeployAPI,
-// kept for client compatibility, remove in juju 4.0
-func (api *APIBase) SetMetricCredentials(ctx context.Context, args params.ApplicationMetricCredentials) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Creds)),
-	}
-	if len(args.Creds) == 0 {
-		return result, nil
-	}
-	for i, a := range args.Creds {
-		oneApplication, err := api.backend.Application(a.ApplicationName)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		err = oneApplication.SetMetricCredentials(a.MetricCredentials)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return result, nil
 }
 
 // Deploy fetches the charms from the charm store and deploys them
@@ -321,6 +307,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			api.stateCharm,
 			arg,
 			api.deployApplicationFunc,
+			api.applicationService,
 			api.storagePoolManager,
 			api.registry,
 			api.caasBroker,
@@ -482,7 +469,7 @@ func (c caasDeployParams) precheck(
 			return errors.Errorf(
 				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
 		}
-		if err := caasBroker.ValidateStorageClass(sp.Attributes); err != nil {
+		if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -520,6 +507,7 @@ func deployApplication(
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
 	deployApplicationFunc DeployApplicationFunc,
+	applicationService ApplicationSaver,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
@@ -590,7 +578,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = deployApplicationFunc(ctx, backend, model, cloudService, credentialService, store, DeployApplicationParams{
+	_, err = deployApplicationFunc(ctx, backend, model, cloudService, credentialService, applicationService, store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
@@ -1413,7 +1401,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(api.backend, api.model.Type(), args)
+	units, err := addApplicationUnits(ctx, api.machineService, api.applicationService, api.backend, api.model.Type(), args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1425,7 +1413,10 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 }
 
 // addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(backend Backend, modelType state.ModelType, args params.AddApplicationUnits) ([]Unit, error) {
+func addApplicationUnits(
+	ctx context.Context, machineService MachineSaver, applicationService ApplicationSaver,
+	backend Backend, modelType state.ModelType, args params.AddApplicationUnits,
+) ([]Unit, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
@@ -1467,7 +1458,10 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 		return nil, errors.Trace(err)
 	}
 	return addUnits(
+		ctx,
 		oneApplication,
+		machineService,
+		applicationService,
 		args.ApplicationName,
 		args.NumUnits,
 		args.Placement,

@@ -29,7 +29,7 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
-	svc := service.NewService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
 			testing.NewCheckLogger(c),
 		),
@@ -65,7 +65,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
-	svc := service.NewService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
 			testing.NewCheckLogger(c),
 		),

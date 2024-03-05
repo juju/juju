@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLoggerWithLabels("juju.apiserver.common.secrets", corelogger.SECRETS)
+var logger = loggo.GetLoggerWithTags("juju.apiserver.common.secrets", corelogger.SECRETS)
 
 // For testing.
 var (
@@ -45,13 +45,13 @@ func getSecretBackendsState(m Model) state.SecretBackendsStorage {
 }
 
 // BackendConfigGetter is a func used to get secret backend config.
-type BackendConfigGetter func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error)
+type BackendConfigGetter func(ctx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error)
 
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
-type BackendAdminConfigGetter func() (*provider.ModelBackendConfigInfo, error)
+type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 
 // BackendDrainConfigGetter is a func used to get secret backend config for draining.
-type BackendDrainConfigGetter func(string) (*provider.ModelBackendConfigInfo, error)
+type BackendDrainConfigGetter func(context.Context, string) (*provider.ModelBackendConfigInfo, error)
 
 // AdminBackendConfigInfo returns the admin config for the secret backends is use by
 // the specified model.
@@ -150,7 +150,7 @@ func DrainBackendConfigInfo(
 	if !ok {
 		return nil, errors.Errorf("missing secret backend %q", backendID)
 	}
-	backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, true)
+	backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, true, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -167,7 +167,8 @@ func DrainBackendConfigInfo(
 // The result includes config for all relevant backends, including the id
 // of the current active backend.
 func BackendConfigInfo(
-	ctx context.Context, model Model, cloudService common.CloudService, credentialService common.CredentialService,
+	ctx context.Context, model Model, sameController bool,
+	cloudService common.CloudService, credentialService common.CredentialService,
 	backendIDs []string, wantAll bool,
 	authTag names.Tag, leadershipChecker leadership.Checker,
 ) (*provider.ModelBackendConfigInfo, error) {
@@ -193,7 +194,7 @@ func BackendConfigInfo(
 		if !ok {
 			return nil, errors.Errorf("missing secret backend %q", backendID)
 		}
-		backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, false)
+		backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, sameController, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -203,8 +204,9 @@ func BackendConfigInfo(
 }
 
 func backendConfigInfo(
+	ctx context.Context,
 	model Model, backendID string, adminCfg *provider.ModelBackendConfig,
-	authTag names.Tag, leadershipChecker leadership.Checker, forDrain bool,
+	authTag names.Tag, leadershipChecker leadership.Checker, sameController, forDrain bool,
 ) (*provider.ModelBackendConfig, error) {
 	p, err := GetProvider(adminCfg.BackendType)
 	if err != nil {
@@ -271,7 +273,7 @@ func backendConfigInfo(
 	}
 
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.RestrictedConfig(adminCfg, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
+	cfg, err := p.RestrictedConfig(ctx, adminCfg, sameController, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -522,9 +524,19 @@ func GetSecretMetadata(
 			CreateTime:       md.CreateTime,
 			UpdateTime:       md.UpdateTime,
 		}
+		grants, err := secretsState.SecretGrants(md.URI, coresecrets.RoleView)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, g := range grants {
+			secretResult.Access = append(secretResult.Access, params.AccessInfo{
+				TargetTag: g.Target, ScopeTag: g.Scope, Role: g.Role,
+			})
+		}
+
 		revs, err := secretsState.ListSecretRevisions(md.URI)
 		if err != nil {
-			return params.ListSecretResults{}, errors.Trace(err)
+			return result, errors.Trace(err)
 		}
 		for _, r := range revs {
 			if filter != nil && !filter(md, r) {
@@ -554,16 +566,18 @@ func GetSecretMetadata(
 // The secrets are only removed from the state and
 // the caller must have permission to manage the secret(secret owners remove secrets from the backend on uniter side).
 func RemoveSecretsForAgent(
+	ctx context.Context,
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	args params.DeleteSecretArgs,
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
 	return removeSecrets(
+		ctx,
 		removeState, adminConfigGetter, args,
 		modelUUID,
 		canDelete,
-		func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
+		func(context.Context, provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
 			return nil
 		},
 	)
@@ -572,24 +586,26 @@ func RemoveSecretsForAgent(
 // RemoveUserSecrets removes the specified user supplied secrets.
 // The secrets are removed from the state and backend, and the caller must have model admin access.
 func RemoveUserSecrets(
+	ctx context.Context,
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	authTag names.Tag, args params.DeleteSecretArgs,
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
 	return removeSecrets(
+		ctx,
 		removeState, adminConfigGetter, args, modelUUID, canDelete,
-		func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
+		func(ctx context.Context, p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
 			backend, err := p.NewBackend(&cfg)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			for _, revId := range revs.RevisionIDs() {
-				if err = backend.DeleteContent(context.TODO(), revId); err != nil {
+				if err = backend.DeleteContent(ctx, revId); err != nil {
 					return errors.Trace(err)
 				}
 			}
-			if err := p.CleanupSecrets(&cfg, authTag, revs); err != nil {
+			if err := p.CleanupSecrets(ctx, &cfg, authTag, revs); err != nil {
 				return errors.Trace(err)
 			}
 			return nil
@@ -615,11 +631,12 @@ func getSecretURIForLabel(secretsState ListSecretsState, modelUUID string, label
 }
 
 func removeSecrets(
+	ctx context.Context,
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	args params.DeleteSecretArgs,
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
-	removeFromBackend func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
+	removeFromBackend func(context.Context, provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
 ) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
@@ -628,7 +645,7 @@ func removeSecrets(
 	if len(args.Args) == 0 {
 		return result, nil
 	}
-	cfgInfo, err := adminConfigGetter()
+	cfgInfo, err := adminConfigGetter(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -673,7 +690,7 @@ func removeSecrets(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := removeFromBackend(provider, backendCfg, r); err != nil {
+			if err := removeFromBackend(ctx, provider, backendCfg, r); err != nil {
 				return errors.Trace(err)
 			}
 		}

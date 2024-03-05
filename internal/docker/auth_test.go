@@ -113,7 +113,7 @@ func (s *authSuite) TestValidateImageRepoDetails(c *gc.C) {
 
 func (s *authSuite) TestSecretData(c *gc.C) {
 	imageRepoDetails := docker.ImageRepoDetails{
-		Repository:    "test-account",
+		Repository:    "quay.io/test-account",
 		ServerAddress: "quay.io",
 		BasicAuthConfig: docker.BasicAuthConfig{
 			Auth: docker.NewToken("xxxxx=="),

@@ -6,10 +6,10 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/modelmigration"
@@ -44,7 +44,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
 	e.service = service.NewService(
-		state.NewState(scope.ControllerDB()), nil, logger)
+		state.NewState(scope.ControllerDB()), logger)
 	return nil
 }
 

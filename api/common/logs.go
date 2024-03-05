@@ -7,10 +7,11 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
@@ -31,7 +32,7 @@ type DebugLogParams struct {
 	IncludeModule []string
 	// IncludeLabel lists logging labels to include in the response. If none
 	// are set all labels are considered included.
-	IncludeLabel []string
+	IncludeLabels map[string]string
 	// ExcludeEntity lists entity tags to exclude from the response. As with
 	// IncludeEntity the values may include '*' wildcards.
 	ExcludeEntity []string
@@ -39,7 +40,7 @@ type DebugLogParams struct {
 	// module is specified, all the submodules are also excluded.
 	ExcludeModule []string
 	// ExcludeLabel lists logging labels to exclude from the response.
-	ExcludeLabel []string
+	ExcludeLabels map[string]string
 
 	// Limit defines the maximum number of lines to return. Once this many
 	// have been sent, the socket is closed.  If zero, all filtered lines are
@@ -66,11 +67,33 @@ func (args DebugLogParams) URLQuery() url.Values {
 	attrs := url.Values{
 		"includeEntity": args.IncludeEntity,
 		"includeModule": args.IncludeModule,
-		"includeLabel":  args.IncludeLabel,
 		"excludeEntity": args.ExcludeEntity,
 		"excludeModule": args.ExcludeModule,
-		"excludeLabel":  args.ExcludeLabel,
 	}
+	attrs.Set("version", "2")
+	var includeLabels []string
+	for k, v := range args.IncludeLabels {
+		includeLabels = append(includeLabels, fmt.Sprintf("%s=%s", k, v))
+	}
+	if len(includeLabels) > 0 {
+		attrs["includeLabels"] = includeLabels
+		// For compatibility with older controllers.
+		if loggerTags, ok := args.IncludeLabels[loggo.LoggerTags]; ok {
+			attrs["includeLabel"] = strings.Split(loggerTags, ",")
+		}
+	}
+	var excludeLabels []string
+	for k, v := range args.ExcludeLabels {
+		excludeLabels = append(excludeLabels, fmt.Sprintf("%s=%s", k, v))
+	}
+	if len(excludeLabels) > 0 {
+		attrs["excludeLabels"] = excludeLabels
+		// For compatibility with older controllers.
+		if loggerTags, ok := args.ExcludeLabels[loggo.LoggerTags]; ok {
+			attrs["excludeLabel"] = strings.Split(loggerTags, ",")
+		}
+	}
+
 	if args.Replay {
 		attrs.Set("replay", fmt.Sprint(args.Replay))
 	}
@@ -100,7 +123,7 @@ type LogMessage struct {
 	Module    string
 	Location  string
 	Message   string
-	Labels    []string
+	Labels    map[string]string
 }
 
 // StreamDebugLog requests the specified debug log records from the
@@ -109,7 +132,7 @@ func StreamDebugLog(ctx context.Context, source base.StreamConnector, args Debug
 	// Prepare URL query attributes.
 	attrs := args.URLQuery()
 
-	connection, err := source.ConnectStream("/log", attrs)
+	connection, err := source.ConnectStream(ctx, "/log", attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

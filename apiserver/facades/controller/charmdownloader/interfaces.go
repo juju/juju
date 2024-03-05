@@ -6,14 +6,14 @@ package charmdownloader
 import (
 	"context"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/worker/v3"
+	"github.com/juju/charm/v13"
+	"github.com/juju/worker/v4"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
 

@@ -41,11 +41,11 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.otherState = s.NewStateForModelNamed(c, "other-model")
-	s.otherStateMachine, err = s.otherState.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.otherStateMachine, err = s.otherState.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add the few subnets used by the tests into both models.
@@ -141,7 +141,7 @@ type ensureDeaderRemover interface {
 func (s *ipAddressesStateSuite) ensureEntityDeadAndRemoved(c *gc.C, entity ensureDeaderRemover) {
 	err := entity.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = entity.Remove(state.NewObjectStore(c, s.State))
+	err = entity.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -360,7 +360,7 @@ func resetSubnet(c *gc.C, st *state.State, subnetInfo network.SubnetInfo) {
 
 func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
-	space, err := s.State.AddSpace("default", "default", nil, true)
+	space, err := s.State.AddSpace("default", "default", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "10.20.0.0/16",
@@ -379,14 +379,14 @@ func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 
 func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
-	space1, err := s.State.AddSpace("default", "default", nil, true)
+	space1, err := s.State.AddSpace("default", "default", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "10.20.0.0/16",
 		SpaceID: space1.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	space2, err := s.State.AddSpace("dmz-ipv6", "not-default", nil, true)
+	space2, err := s.State.AddSpace("dmz-ipv6", "not-default", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "fc00::/64",

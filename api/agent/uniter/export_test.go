@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"

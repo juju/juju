@@ -127,7 +127,7 @@ func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	err := s.machine.Destroy(state.NewObjectStore(c, s.State))
+	err := s.machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -146,7 +146,7 @@ func (s *MachineStatusSuite) TestGetSetStatusDead(c *gc.C) {
 func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove(state.NewObjectStore(c, s.State))
+	err = s.machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()
@@ -175,7 +175,7 @@ func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{

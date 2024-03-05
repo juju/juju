@@ -11,7 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -60,6 +60,7 @@ type deployerSuite struct {
 	revoker   *mockLeadershipRevoker
 
 	controllerConfigGetter *mocks.MockControllerConfigGetter
+	unitRemover            *mocks.MockUnitRemover
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -70,6 +71,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+	s.unitRemover = mocks.NewMockUnitRemover(ctrl)
 
 	// The two known machines now contain the following units:
 	// machine 0 (not authorized): mysql/1 (principal1)
@@ -77,10 +79,10 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -129,9 +131,10 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	deployer, err := deployer.NewDeployerAPI(
 		s.controllerConfigGetter,
+		s.unitRemover,
 		s.authorizer,
 		st,
-		testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		s.resources,
 		s.revoker,
 		st,
@@ -144,7 +147,7 @@ func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = testing.AdminUser
 	aDeployer, err := deployer.NewDeployerFacade(
-		facadetest.Context{
+		facadetest.ModelContext{
 			Auth_:              anAuthorizer,
 			LeadershipRevoker_: s.revoker,
 			Resources_:         s.resources,
@@ -218,7 +221,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	// Remove the subordinate and make sure it's detected.
 	err = s.subordinate0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.subordinate0.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.subordinate0.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -266,7 +269,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 	// Remove the subordinate and make sure it's detected.
 	err = s.subordinate0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.subordinate0.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.subordinate0.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -359,7 +362,7 @@ func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 	hostPorts := network.NewSpaceHostPorts(1234, "0.1.2.3", "1.2.3.4")
 	hostPorts[1].Scope = network.ScopeCloudLocal
 
-	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts})
+	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts}, []network.SpaceHostPorts{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.DeployerConnectionValues{

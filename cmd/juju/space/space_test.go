@@ -97,7 +97,7 @@ func (s *SpaceCommandSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// modelcmd.Wrap().
-		name, CIDRs, err := space.ParseNameAndCIDRs(test.args, test.cidrsOptional)
+		name, cidrs, err := space.ParseNameAndCIDRs(test.args, test.cidrsOptional)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, gc.ErrorMatches, prefixedErr)
@@ -105,6 +105,6 @@ func (s *SpaceCommandSuite) TestInit(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 		}
 		c.Check(name, gc.Equals, test.expectName)
-		c.Check(CIDRs.SortedValues(), jc.DeepEquals, test.expectCIDRs)
+		c.Check(cidrs.SortedValues(), jc.DeepEquals, test.expectCIDRs)
 	}
 }

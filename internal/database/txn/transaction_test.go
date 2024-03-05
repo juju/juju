@@ -29,7 +29,7 @@ var _ = gc.Suite(&transactionRunnerSuite{})
 func (s *transactionRunnerSuite) TestTxn(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
-	err := runner.StdTxn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT 1")
 		if err != nil {
 			return errors.Trace(err)
@@ -123,7 +123,7 @@ func (s *transactionRunnerSuite) TestTxnInserts(c *gc.C) {
 
 	s.createTable(c)
 
-	err := runner.StdTxn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO foo (id, name) VALUES (1, 'test')")
 		if err != nil {
 			return errors.Trace(err)
@@ -151,7 +151,7 @@ func (s *transactionRunnerSuite) TestTxnRollback(c *gc.C) {
 
 	s.createTable(c)
 
-	err := runner.StdTxn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO foo (id, name) VALUES (1, 'test')")
 		if err != nil {
 			return errors.Trace(err)
@@ -178,7 +178,7 @@ func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(context.TODO(), func() error {
+	err := runner.Retry(context.Background(), func() error {
 		count++
 		return errors.Errorf("fail")
 	})
@@ -206,7 +206,7 @@ func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(context.TODO(), func() error {
+	err := runner.Retry(context.Background(), func() error {
 		count++
 		return sqlite3.ErrBusy
 	})

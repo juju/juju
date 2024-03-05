@@ -4,12 +4,13 @@
 package kvm_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -117,7 +118,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "12.04"), net, nil, callback)
+	inst, hardware, err := manager.CreateContainer(context.Background(), instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "12.04"), net, nil, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	expected := fmt.Sprintf("arch=%s cores=1 mem=512M root-disk=8192M", arch.HostArch())

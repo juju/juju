@@ -5,23 +5,23 @@ package upgradesteps
 
 import (
 	stdtesting "testing"
-	time "time"
+	"time"
 
-	names "github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
-	version "github.com/juju/version/v2"
-	gomock "go.uber.org/mock/gomock"
+	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	status "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/upgrades"
 	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination api_mock_test.go github.com/juju/juju/api/base APICaller
-//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination lock_mock_test.go github.com/juju/juju/worker/gate Lock
+//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
 

@@ -21,14 +21,14 @@ var _ = gc.Suite(&UnitAssignmentSuite{})
 
 func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.Application, []state.UnitAssignment) {
 	charm := s.AddTestingCharm(c, "dummy")
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "dummy", Charm: charm, NumUnits: 2,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -54,7 +54,7 @@ func (s *UnitAssignmentSuite) TestAddApplicationUnitAssignment(c *gc.C) {
 func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
 	app, _ := s.testAddApplicationUnitAssignment(c)
 
-	results, err := s.State.AssignStagedUnits([]string{
+	results, err := s.State.AssignStagedUnits(defaultInstancePrechecker, []string{
 		"dummy/0", "dummy/1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,7 +83,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 	// https://bugs.launchpad.net/juju-core/+bug/1590960
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "dummy",
 		Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -92,14 +92,14 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()
@@ -113,12 +113,12 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraints(c *gc.C) {
-	specialSpace, err := s.State.AddSpace("special-space", "", nil, false)
+	specialSpace, err := s.State.AddSpace("special-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "dummy",
 		Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -130,7 +130,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		EndpointBindings: map[string]string{
 			"": specialSpace.Id(),
 		},
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := app.AllUnits()
@@ -138,7 +138,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	guestID, err := unit.AssignedMachineId()
@@ -159,15 +159,15 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraintsMerged(c *gc.C) {
-	boundSpace, err := s.State.AddSpace("bound-space", "", nil, false)
+	boundSpace, err := s.State.AddSpace("bound-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	constrainedSpace, err := s.State.AddSpace("constrained-space", "", nil, false)
+	constrainedSpace, err := s.State.AddSpace("constrained-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "dummy",
 		Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -181,7 +181,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		EndpointBindings: map[string]string{
 			"": boundSpace.Id(),
 		},
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := app.AllUnits()
@@ -189,7 +189,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	guestID, err := unit.AssignedMachineId()
@@ -215,7 +215,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 	// https://bugs.launchpad.net/juju-core/+bug/1590960
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: s.State.ModelUUID(), Directive: "zone=test"}
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "dummy",
 		Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -224,14 +224,14 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()
@@ -239,29 +239,6 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Placement(), gc.Equals, "zone=test")
-}
-
-func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *gc.C) {
-	s.addLockedMachine(c, true)
-
-	charm := s.AddTestingCharm(c, "dummy")
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "dummy",
-		Charm: charm,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "22.04/stable",
-		}},
-		NumUnits: 1,
-	}, state.NewObjectStore(c, s.State))
-	c.Assert(err, jc.ErrorIsNil)
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
-
-	unit := units[0]
-	_, err = unit.AssignToCleanEmptyMachine()
-	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitMachinePlacementUpgradeSeriesLockError(c *gc.C) {
@@ -285,7 +262,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitExtantContainerOnMachinePlacementUpg
 
 func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, placement *instance.Placement) {
 	charm := s.AddTestingCharm(c, "dummy")
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "dummy",
 		Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -294,19 +271,19 @@ func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, place
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{placement},
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 
 	unit := units[0]
-	err = s.State.AssignUnitWithPlacement(unit, placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement)
 	c.Assert(err, gc.ErrorMatches, ".* is locked for series upgrade")
 }
 
 func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C, addContainer bool) (*state.Machine, *state.Machine) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var child *state.Machine

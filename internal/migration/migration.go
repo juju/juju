@@ -5,32 +5,39 @@ package migration
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/description/v4"
+	"github.com/juju/charm/v13"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	migrations "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.migration")
+var logger = loggo.GetLoggerWithTags("juju.migration", corelogger.MIGRATION)
 
 // LegacyStateExporter describes interface on state required to export a
 // model.
-// Note: This is being deprecated.
+// Deprecated: This is being replaced with the ModelExporter.
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
 	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
@@ -48,8 +55,11 @@ type ModelExporter struct {
 	scope modelmigration.Scope
 }
 
+// NewModelExporter returns a new ModelExporter that encapsulates the
+// legacyStateExporter. The legacyStateExporter is being deprecated, only
+// needed until the migration to dqlite is complete.
 func NewModelExporter(legacyStateExporter LegacyStateExporter, scope modelmigration.Scope) *ModelExporter {
-	return &ModelExporter{legacyStateExporter, scope}
+	return &ModelExporter{legacyStateExporter: legacyStateExporter, scope: scope}
 }
 
 // ExportModelPartial partially serializes a model description from the
@@ -75,7 +85,7 @@ func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]stri
 	return e.Export(ctx, model)
 }
 
-// Export serializes a model description from the dataase contents.
+// Export serializes a model description from the database contents.
 func (e *ModelExporter) Export(ctx context.Context, model description.Model) (description.Model, error) {
 	coordinator := modelmigration.NewCoordinator()
 	migrations.ExportOperations(coordinator)
@@ -90,7 +100,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config, state.MachineSaver, state.ApplicationSaver) (*state.Model, *state.State, error)
 }
 
 // ModelImporter represents a model migration that implements Import.
@@ -98,21 +108,29 @@ type ModelImporter struct {
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
 	legacyStateImporter     legacyStateImporter
+	modelManagerService     ModelManagerService
 	controllerConfigService ControllerConfigService
+	serviceFactoryGetter    servicefactory.ServiceFactoryGetter
 
-	scope modelmigration.Scope
+	scope modelmigration.ScopeForModel
 }
 
-// NewModelImporter returns a new ModelImporter.
+// NewModelImporter returns a new ModelImporter that encapsulates the
+// legacyStateImporter. The legacyStateImporter is being deprecated, only
+// needed until the migration to dqlite is complete.
 func NewModelImporter(
 	stateImporter legacyStateImporter,
-	scope modelmigration.Scope,
+	scope modelmigration.ScopeForModel,
+	modelManagerService ModelManagerService,
 	controllerConfigService ControllerConfigService,
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:     stateImporter,
 		scope:                   scope,
+		modelManagerService:     modelManagerService,
 		controllerConfigService: controllerConfigService,
+		serviceFactoryGetter:    serviceFactoryGetter,
 	}
 }
 
@@ -130,14 +148,23 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
 
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
+	// Ensure that we place the model in the known model list table on the controller.
+	if err := i.modelManagerService.Create(ctx, coremodel.UUID(model.Tag().Id())); err != nil {
+		// TODO - on failed migration, this could still exist in target controller
+		if !errors.Is(err, modelerrors.AlreadyExists) {
+			return nil, nil, errors.Annotate(err, "updating model metadata")
+		}
+	}
+
+	serviceFactory := i.serviceFactoryGetter.FactoryForModel(model.Tag().Id())
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, serviceFactory.Machine(), serviceFactory.Application())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	coordinator := modelmigration.NewCoordinator()
 	migrations.ImportOperations(coordinator, logger)
-	if err := coordinator.Perform(ctx, i.scope, model); err != nil {
+	if err := coordinator.Perform(ctx, i.scope(model.Tag().Id()), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -147,39 +174,39 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 // CharmDownloader defines a single method that is used to download a
 // charm from the source controller in a migration.
 type CharmDownloader interface {
-	OpenCharm(string) (io.ReadCloser, error)
+	OpenCharm(context.Context, string) (io.ReadCloser, error)
 }
 
 // CharmUploader defines a single method that is used to upload a
 // charm to the target controller in a migration.
 type CharmUploader interface {
-	UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error)
+	UploadCharm(ctx context.Context, charmURL string, charmRef string, content io.ReadSeeker) (string, error)
 }
 
 // ToolsDownloader defines a single method that is used to download
 // tools from the source controller in a migration.
 type ToolsDownloader interface {
-	OpenURI(string, url.Values) (io.ReadCloser, error)
+	OpenURI(context.Context, string, url.Values) (io.ReadCloser, error)
 }
 
 // ToolsUploader defines a single method that is used to upload tools
 // to the target controller in a migration.
 type ToolsUploader interface {
-	UploadTools(io.ReadSeeker, version.Binary) (tools.List, error)
+	UploadTools(context.Context, io.ReadSeeker, version.Binary) (tools.List, error)
 }
 
 // ResourceDownloader defines the interface for downloading resources
 // from the source controller during a migration.
 type ResourceDownloader interface {
-	OpenResource(string, string) (io.ReadCloser, error)
+	OpenResource(context.Context, string, string) (io.ReadCloser, error)
 }
 
 // ResourceUploader defines the interface for uploading resources into
 // the target controller during a migration.
 type ResourceUploader interface {
-	UploadResource(resources.Resource, io.ReadSeeker) error
-	SetPlaceholderResource(resources.Resource) error
-	SetUnitResource(string, resources.Resource) error
+	UploadResource(context.Context, resources.Resource, io.ReadSeeker) error
+	SetPlaceholderResource(context.Context, resources.Resource) error
+	SetUnitResource(context.Context, string, resources.Resource) error
 }
 
 // UploadBinariesConfig provides all the configuration that the
@@ -224,17 +251,17 @@ func (c *UploadBinariesConfig) Validate() error {
 
 // UploadBinaries will send binaries stored in the source blobstore to
 // the target controller.
-func UploadBinaries(config UploadBinariesConfig) error {
+func UploadBinaries(ctx context.Context, config UploadBinariesConfig) error {
 	if err := config.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := uploadCharms(config); err != nil {
+	if err := uploadCharms(ctx, config); err != nil {
 		return errors.Annotatef(err, "cannot upload charms")
 	}
-	if err := uploadTools(config); err != nil {
+	if err := uploadTools(ctx, config); err != nil {
 		return errors.Annotatef(err, "cannot upload agent binaries")
 	}
-	if err := uploadResources(config); err != nil {
+	if err := uploadResources(ctx, config); err != nil {
 		return errors.Annotatef(err, "cannot upload resources")
 	}
 	return nil
@@ -268,7 +295,20 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	return tempFile, rmTempFile, nil
 }
 
-func uploadCharms(config UploadBinariesConfig) error {
+func hashArchive(archive io.ReadSeeker) (string, error) {
+	hash := sha256.New()
+	_, err := io.Copy(hash, archive)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	_, err = archive.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return hex.EncodeToString(hash.Sum(nil))[0:7], nil
+}
+
+func uploadCharms(ctx context.Context, config UploadBinariesConfig) error {
 	// It is critical that charms are uploaded in ascending charm URL
 	// order so that charm revisions end up the same in the target as
 	// they were in the source.
@@ -276,7 +316,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 
 	for _, charmURL := range config.Charms {
 		logger.Debugf("sending charm %s to target", charmURL)
-		reader, err := config.CharmDownloader.OpenCharm(charmURL)
+		reader, err := config.CharmDownloader.OpenCharm(ctx, charmURL)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
@@ -292,21 +332,27 @@ func uploadCharms(config UploadBinariesConfig) error {
 		if err != nil {
 			return errors.Annotate(err, "bad charm URL")
 		}
-		if usedCurl, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
+		hash, err := hashArchive(content)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash)
+
+		if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, content); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
-		} else if usedCurl.String() != curl.String() {
+		} else if usedCurl != charmURL {
 			// The target controller shouldn't assign a different charm URL.
-			return errors.Errorf("charm %s unexpectedly assigned %s", curl, usedCurl)
+			return errors.Errorf("charm %s unexpectedly assigned %s", charmURL, usedCurl)
 		}
 	}
 	return nil
 }
 
-func uploadTools(config UploadBinariesConfig) error {
+func uploadTools(ctx context.Context, config UploadBinariesConfig) error {
 	for v, uri := range config.Tools {
 		logger.Debugf("sending agent binaries to target: %s", v)
 
-		reader, err := config.ToolsDownloader.OpenURI(uri, nil)
+		reader, err := config.ToolsDownloader.OpenURI(ctx, uri, nil)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
@@ -318,26 +364,26 @@ func uploadTools(config UploadBinariesConfig) error {
 		}
 		defer cleanup()
 
-		if _, err := config.ToolsUploader.UploadTools(content, v); err != nil {
+		if _, err := config.ToolsUploader.UploadTools(context.TODO(), content, v); err != nil {
 			return errors.Annotate(err, "cannot upload agent binaries")
 		}
 	}
 	return nil
 }
 
-func uploadResources(config UploadBinariesConfig) error {
+func uploadResources(ctx context.Context, config UploadBinariesConfig) error {
 	for _, res := range config.Resources {
 		if res.ApplicationRevision.IsPlaceholder() {
 			// Resource placeholders created in the migration import rather
 			// than attempting to post empty resources.
 		} else {
-			err := uploadAppResource(config, res.ApplicationRevision)
+			err := uploadAppResource(ctx, config, res.ApplicationRevision)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		}
 		for unitName, unitRev := range res.UnitRevisions {
-			if err := config.ResourceUploader.SetUnitResource(unitName, unitRev); err != nil {
+			if err := config.ResourceUploader.SetUnitResource(ctx, unitName, unitRev); err != nil {
 				return errors.Annotate(err, "cannot set unit resource")
 			}
 		}
@@ -348,9 +394,9 @@ func uploadResources(config UploadBinariesConfig) error {
 	return nil
 }
 
-func uploadAppResource(config UploadBinariesConfig, rev resources.Resource) error {
+func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev resources.Resource) error {
 	logger.Debugf("opening application resource for %s: %s", rev.ApplicationID, rev.Name)
-	reader, err := config.ResourceDownloader.OpenResource(rev.ApplicationID, rev.Name)
+	reader, err := config.ResourceDownloader.OpenResource(ctx, rev.ApplicationID, rev.Name)
 	if err != nil {
 		return errors.Annotate(err, "cannot open resource")
 	}
@@ -365,7 +411,7 @@ func uploadAppResource(config UploadBinariesConfig, rev resources.Resource) erro
 	}
 	defer cleanup()
 
-	if err := config.ResourceUploader.UploadResource(rev, content); err != nil {
+	if err := config.ResourceUploader.UploadResource(ctx, rev, content); err != nil {
 		return errors.Annotate(err, "cannot upload resource")
 	}
 	return nil

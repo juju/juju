@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/containeragent/unit"
-	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/internal/worker/lifeflag"
 )
 
 type ErrorsSuite struct {

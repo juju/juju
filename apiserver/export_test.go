@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -20,14 +20,14 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
-	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/objectstore"
-	"github.com/juju/juju/worker/trace"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 var (
@@ -57,15 +57,23 @@ func (testingAPIRootHandler) ServiceFactory() servicefactory.ServiceFactory {
 	return nil
 }
 
+func (testingAPIRootHandler) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
+	return nil
+}
+
 func (testingAPIRootHandler) Tracer() coretrace.Tracer {
 	return nil
 }
 
-func (testingAPIRootHandler) ObjectStore() coreobjectstore.ObjectStore {
+func (testingAPIRootHandler) ObjectStore() objectstore.ObjectStore {
 	return nil
 }
 
-func (testingAPIRootHandler) ControllerObjectStore() coreobjectstore.ObjectStore {
+func (testingAPIRootHandler) ObjectStoreGetter() objectstore.ObjectStoreGetter {
+	return nil
+}
+
+func (testingAPIRootHandler) ControllerObjectStore() objectstore.ObjectStore {
 	return nil
 }
 
@@ -104,8 +112,9 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
-func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGetter stateauthenticator.ControllerConfigGetter) (*apiHandler, *common.Resources) {
-	authenticator, err := stateauthenticator.NewAuthenticator(pool, configGetter, clock.WallClock)
+func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, controllerConfigService stateauthenticator.ControllerConfigService, userService stateauthenticator.UserService) (*apiHandler, *common.Resources) {
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(st, jujutesting.NewCheckLogger(c))
+	authenticator, err := stateauthenticator.NewAuthenticator(pool, st, controllerConfigService, userService, agentAuthFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	offerAuthCtxt, err := newOfferAuthcontext(pool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,7 +128,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGe
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, nil, coretrace.NoopTracer{}, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(srv, st, nil, nil, nil, coretrace.NoopTracer{}, nil, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
 }
@@ -145,10 +154,11 @@ func TestingAPIHandlerWithEntity(
 	c *gc.C,
 	pool *state.StatePool,
 	st *state.State,
-	configGetter stateauthenticator.ControllerConfigGetter,
+	controllerConfigService stateauthenticator.ControllerConfigService,
+	userService stateauthenticator.UserService,
 	entity state.Entity,
 ) (*apiHandler, *common.Resources) {
-	h, hr := TestingAPIHandler(c, pool, st, configGetter)
+	h, hr := TestingAPIHandler(c, pool, st, controllerConfigService, userService)
 	h.authInfo.Entity = entity
 	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{State: st}
 	return h, hr
@@ -161,11 +171,12 @@ func TestingAPIHandlerWithToken(
 	c *gc.C,
 	pool *state.StatePool,
 	st *state.State,
-	configGetter stateauthenticator.ControllerConfigGetter,
+	controllerConfigService stateauthenticator.ControllerConfigService,
+	userService stateauthenticator.UserService,
 	jwt jwt.Token,
 	delegator authentication.PermissionDelegator,
 ) (*apiHandler, *common.Resources) {
-	h, hr := TestingAPIHandler(c, pool, st, configGetter)
+	h, hr := TestingAPIHandler(c, pool, st, controllerConfigService, userService)
 	user, err := names.ParseUserTag(jwt.Subject())
 	c.Assert(err, jc.ErrorIsNil)
 	h.authInfo.Entity = authjwt.TokenEntity{User: user}

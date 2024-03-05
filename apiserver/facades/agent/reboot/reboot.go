@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -32,7 +32,7 @@ type RebootAPI struct {
 }
 
 // NewRebootAPI creates a new server-side RebootAPI facade.
-func NewRebootAPI(ctx facade.Context) (*RebootAPI, error) {
+func NewRebootAPI(ctx facade.ModelContext) (*RebootAPI, error) {
 	auth := ctx.Auth()
 	if !auth.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm

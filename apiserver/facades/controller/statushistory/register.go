@@ -4,6 +4,7 @@
 package statushistory
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -14,13 +15,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("StatusHistory", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("StatusHistory", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newAPI(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newAPI returns an API Instance.
-func newAPI(ctx facade.Context) (*API, error) {
+func newAPI(ctx facade.ModelContext) (*API, error) {
 	m, err := Model(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -29,6 +30,5 @@ func newAPI(ctx facade.Context) (*API, error) {
 		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), ctx.Auth()),
 		st:           ctx.State(),
 		authorizer:   ctx.Auth(),
-		cancel:       ctx.Cancel(),
 	}, nil
 }

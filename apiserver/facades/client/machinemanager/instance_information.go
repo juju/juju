@@ -13,15 +13,17 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
+// TODO(wallyworld) - this method is unused by juju; do we still need it?
+
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
-func (mm *MachineManagerAPI) InstanceTypes(cons params.ModelInstanceTypesConstraints) (params.InstanceTypesResults, error) {
-	return instanceTypes(context.TODO(), mm, environs.GetEnviron, cons)
+func (mm *MachineManagerAPI) InstanceTypes(ctx context.Context, cons params.ModelInstanceTypesConstraints) (params.InstanceTypesResults, error) {
+	return instanceTypes(ctx, mm, environs.GetEnviron, cons)
 }
 
 type environGetFunc func(context.Context, environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)

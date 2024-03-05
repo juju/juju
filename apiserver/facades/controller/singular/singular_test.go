@@ -8,20 +8,20 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
-var otherUUID = utils.MustNewUUID().String()
+var otherUUID = uuid.MustNewUUID().String()
 
 type SingularSuite struct {
 	testing.IsolationSuite
@@ -162,7 +162,7 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 	backend.stub.SetErrors(errors.New("zap!"), nil)
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
-	result := facade.Wait(context.TODO(), waits)
+	result := facade.Wait(context.Background(), waits)
 	c.Assert(result.Results, gc.HasLen, count)
 
 	checkDenied(c, result.Results[0])

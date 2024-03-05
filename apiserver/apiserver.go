@@ -20,8 +20,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/ratelimit"
 	"github.com/prometheus/client_golang/prometheus"
@@ -46,24 +46,43 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
 	coretrace "github.com/juju/juju/core/trace"
+	coreuser "github.com/juju/juju/core/user"
+	userservice "github.com/juju/juju/domain/user/service"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/objectstore"
-	"github.com/juju/juju/worker/syslogger"
-	"github.com/juju/juju/worker/trace"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
+
+// ControllerConfigService defines the methods required to get the controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// UserService defines the methods required to get user details.
+type UserService interface {
+	// GetUserByName returns the user with the given name.
+	GetUserByName(context.Context, string) (coreuser.User, error)
+	// SetPasswordWithActivationKey will use the activation key from the user. To
+	// then apply the payload password. If the user does not exist an error that
+	// satisfies usererrors.NotFound will be return. If the nonce is not the
+	// correct length an error that satisfies errors.NotValid will be returned.
+	SetPasswordWithActivationKey(ctx context.Context, name string, nonce, box []byte) (userservice.Sealer, error)
+}
 
 // Server holds the server side of the API.
 type Server struct {
@@ -86,13 +105,14 @@ type Server struct {
 	httpAuthenticators  []authentication.HTTPAuthenticator
 	loginAuthenticators []authentication.LoginAuthenticator
 
-	offerAuthCtxt          *crossmodel.AuthContext
-	lastConnectionID       uint64
-	newObserver            observer.ObserverFactory
-	allowModelAccess       bool
+	offerAuthCtxt    *crossmodel.AuthContext
+	lastConnectionID uint64
+	newObserver      observer.ObserverFactory
+	allowModelAccess bool
+	// TODO(debug-log) - move into logSink
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
-	apiServerLoggers       apiServerLoggers
+	logSink                corelogger.ModelLogger
 	getAuditConfig         func() auditlog.Config
 	upgradeComplete        func() bool
 	mux                    *apiserverhttp.Mux
@@ -192,9 +212,8 @@ type ServerConfig struct {
 	// DefaultLogSinkConfig() will be used.
 	LogSinkConfig *LogSinkConfig
 
-	// SysLogger is a logger that will tee the output from logging
-	// to the local syslog.
-	SysLogger syslogger.SysLogger
+	// LogSink is used to store log records received from connected agents.
+	LogSink corelogger.ModelLogger
 
 	// GetAuditConfig holds a function that returns the current audit
 	// logging config. The function may return updated values, so
@@ -267,8 +286,8 @@ func (c ServerConfig) Validate() error {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
 	}
-	if c.SysLogger == nil {
-		return errors.NotValidf("nil SysLogger")
+	if c.LogSink == nil {
+		return errors.NotValidf("nil LogSink")
 	}
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing MetricsCollector")
@@ -317,20 +336,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
-
-	systemState, err := cfg.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := systemState.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelConfig, err := model.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	loggingOutputs, _ := modelConfig.LoggingOutput()
 
 	httpAuthenticators := []authentication.HTTPAuthenticator{cfg.LocalMacaroonAuthenticator}
 	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator}
@@ -384,14 +389,8 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 			Burst:  cfg.LogSinkConfig.RateLimitBurst,
 			Clock:  cfg.Clock,
 		},
-		getAuditConfig: cfg.GetAuditConfig,
-		apiServerLoggers: apiServerLoggers{
-			syslogger:           cfg.SysLogger,
-			loggingOutputs:      loggingOutputs,
-			clock:               cfg.Clock,
-			loggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
-			loggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
-		},
+		getAuditConfig:      cfg.GetAuditConfig,
+		logSink:             cfg.LogSink,
 		metricsCollector:    cfg.MetricsCollector,
 		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
 
@@ -418,8 +417,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	srv.shared.cancel = srv.tomb.Dying()
-
 	// The auth context for authenticating access to application offers.
 	srv.offerAuthCtxt, err = newOfferAuthcontext(cfg.StatePool)
 	if err != nil {
@@ -427,6 +424,14 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
+	systemState, err := cfg.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := systemState.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if model.Type() == state.ModelTypeCAAS {
 		// CAAS controller writes log to stdout. We should ensure that we don't
 		// close the logSinkWriter when we stopping the tomb, otherwise we get
@@ -447,7 +452,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 
 	ready := make(chan struct{})
 	srv.tomb.Go(func() error {
-		defer srv.apiServerLoggers.dispose()
+		defer srv.logSink.Close()
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
 		defer unsubscribeControllerConfig()
@@ -648,10 +653,12 @@ func (srv *Server) loop(ready chan struct{}) error {
 	return tomb.ErrDying
 }
 
-func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
-	const modelRoutePrefix = "/model/:modeluuid"
-	const charmsObjectsRoutePrefix = "/:bucket/charms/:object"
+const (
+	modelRoutePrefix         = "/model/:modeluuid"
+	charmsObjectsRoutePrefix = "/model-:modeluuid/charms/:object"
+)
 
+func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	type handler struct {
 		pattern         string
 		methods         []string
@@ -661,6 +668,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		tracked         bool
 		noModelUUID     bool
 	}
+
 	var endpoints []apihttp.Endpoint
 	systemState, err := srv.shared.statePool.SystemState()
 	if err != nil {
@@ -695,7 +703,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) {
 				h = &httpcontext.BucketModelHandler{
 					Handler: h,
-					Query:   ":bucket",
+					Query:   ":modeluuid",
 				}
 			} else {
 				h = &httpcontext.ImpliedModelHandler{
@@ -716,9 +724,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	httpCtxt := httpContext{srv: srv}
 	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
 	healthHandler := http.HandlerFunc(srv.healthHandler)
-	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
-	debugLogHandler := newDebugLogDBHandler(
+	debugLogHandler := newDebugLogTailerHandler(
 		httpCtxt,
 		httpAuthenticator,
 		tagKindAuthorizer{
@@ -727,10 +734,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			names.UserTagKind,
 			names.ApplicationTagKind,
 		},
+		srv.logDir,
 	)
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
-		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.apiServerLoggers),
+		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, srv.logSink),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
@@ -740,7 +748,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
 		// to a logfile as well as to the DB.
-		newMigrationLogWriteCloserFunc(httpCtxt, &srv.apiServerLoggers),
+		newMigrationLogWriteCloserFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
@@ -750,10 +758,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt:              httpCtxt,
 		dataDir:           srv.dataDir,
 		objectStoreGetter: srv.shared.objectStoreGetter,
-		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
 	}
-	modelRestServer := &RestHTTPHandler{
-		GetHandler: modelRestHandler.ServeGet,
+	modelRestServer := &restHTTPHandler{
+		getHandler: modelRestHandler.ServeGet,
 	}
 	modelCharmsHandler := &charmsHandler{
 		ctxt:              httpCtxt,
@@ -762,18 +769,16 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		objectStoreGetter: srv.shared.objectStoreGetter,
 		logger:            logger.Child("charms-handler"),
 	}
-	modelCharmsHTTPHandler := &CharmsHTTPHandler{
-		PostHandler: modelCharmsHandler.ServePost,
-		GetHandler:  modelCharmsHandler.ServeGet,
+	modelCharmsHTTPHandler := &charmsHTTPHandler{
+		postHandler: modelCharmsHandler.ServePost,
+		getHandler:  modelCharmsHandler.ServeGet,
 	}
 	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
-	modelObjectsCharmsHandler := &objectsCharmHandler{
-		ctxt: httpCtxt,
-	}
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
-		GetHandler:          modelObjectsCharmsHandler.ServeGet,
-		LegacyCharmsHandler: modelCharmsHTTPHandler,
+		ctxt:              httpCtxt,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		LegacyPostHandler: modelCharmsHandler.ServePost,
 	}
 
 	modelToolsUploadHandler := &toolsUploadHandler{
@@ -789,6 +794,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
+
 			store, err := httpCtxt.objectStoreForRequest(req)
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
@@ -801,6 +807,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			defer st.Release()
+
 			blockChecker := common.NewBlockChecker(st)
 			if err := blockChecker.ChangeAllowed(req.Context()); err != nil {
 				return errors.Trace(err)
@@ -818,6 +826,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
+
 			tagStr := req.URL.Query().Get(":unit")
 			tag, err := names.ParseUnitTag(tagStr)
 			if err != nil {
@@ -841,9 +850,14 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		objectStoreGetter: srv.shared.objectStoreGetter,
 		logger:            logger.Child("charms-handler"),
 	}
-	migrateCharmsHTTPHandler := &CharmsHTTPHandler{
-		PostHandler: migrateCharmsHandler.ServePost,
-		GetHandler:  migrateCharmsHandler.ServeUnsupported,
+	migrateCharmsHTTPHandler := &charmsHTTPHandler{
+		postHandler: migrateCharmsHandler.ServePost,
+		getHandler:  migrateCharmsHandler.ServeUnsupported,
+	}
+	migrateObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
+		ctxt:              httpCtxt,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		LegacyPostHandler: migrateCharmsHandler.ServePost,
 	}
 	migrateToolsUploadHandler := &toolsUploadHandler{
 		ctxt:          httpCtxt,
@@ -870,10 +884,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    pubsubHandler,
 		tracked:    true,
 		authorizer: controllerAuthorizer{},
-	}, {
-		pattern: modelRoutePrefix + "/logstream",
-		handler: logStreamHandler,
-		tracked: true,
 	}, {
 		pattern: modelRoutePrefix + "/log",
 		handler: debugLogHandler,
@@ -928,8 +938,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    backupHandler,
 		authorizer: controllerAdminAuthorizer,
 	}, {
+		// Legacy migration endpoint. Used by Juju 3.3 and prior
 		pattern:    "/migrate/charms",
 		handler:    migrateCharmsHTTPHandler,
+		authorizer: controllerAdminAuthorizer,
+	}, {
+		pattern:    "/migrate/charms/:object",
+		handler:    migrateObjectsCharmsHTTPHandler,
 		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:    "/migrate/tools",
@@ -993,6 +1008,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern: charmsObjectsRoutePrefix,
 		methods: []string{"GET"},
 		handler: modelObjectsCharmsHTTPHandler,
+	}, {
+		pattern:    charmsObjectsRoutePrefix,
+		methods:    []string{"PUT"},
+		handler:    modelObjectsCharmsHTTPHandler,
+		authorizer: modelCharmsUploadAuthorizer,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
@@ -1075,7 +1095,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		modelUUID := httpcontext.RequestModelUUID(req)
 		logger.Tracef("got a request for model %q", modelUUID)
 		if err := srv.serveConn(
-			req.Context(),
+			srv.tomb.Context(req.Context()),
 			conn,
 			modelUUID,
 			connectionID,
@@ -1115,7 +1135,7 @@ func (srv *Server) serveConn(
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
-		coretrace.Namespace("apiserver", modelUUID),
+		coretrace.Namespace("apiserver", resolvedModelUUID),
 	)
 	if err != nil {
 		logger.Infof("failed to get tracer for model %q: %v", modelUUID, err)
@@ -1141,7 +1161,20 @@ func (srv *Server) serveConn(
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
-		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, tracer, objectStore, controllerObjectStore, modelUUID, connectionID, host)
+		handler, err = newAPIHandler(
+			srv,
+			st.State,
+			conn,
+			serviceFactory,
+			srv.shared.serviceFactoryGetter,
+			tracer,
+			objectStore,
+			srv.shared.objectStoreGetter,
+			controllerObjectStore,
+			modelUUID,
+			connectionID,
+			host,
+		)
 	}
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)

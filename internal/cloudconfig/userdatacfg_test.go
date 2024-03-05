@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -347,9 +347,8 @@ chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
+/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
 /sbin/remove-juju-services
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -383,8 +382,7 @@ chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
+/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
 `,
 	},
 
@@ -414,7 +412,6 @@ echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"https://state-addr\.testing\.i
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -735,13 +732,12 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 		`set -xe`, // first line of juju specified cmds
 	}
 	ending := []string{
-		`rm $bin/tools.tar.gz && rm $bin/juju2.3.4-ubuntu-amd64.sha256`, // last line of juju specified cmds
 		`mkdir /tmp/postruncmd`,
 		`mkdir "/tmp/postruncmd 2"`,
 	}
 	c.Assert(len(cmds), jc.GreaterThan, 6)
 	c.Assert(cmds[:3], gc.DeepEquals, beginning)
-	c.Assert(cmds[len(cmds)-3:], gc.DeepEquals, ending)
+	c.Assert(cmds[len(cmds)-2:], gc.DeepEquals, ending)
 
 	c.Assert(cloudcfg.SystemUpgrade(), gc.Equals, false)
 
@@ -837,7 +833,7 @@ postruncmd:
 
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	scripts := s.bootstrapConfigScripts(c)
-	expected := "jujud bootstrap-state .* --show-log .*"
+	expected := "jujud bootstrap-state .* --show-log"
 	assertScriptMatch(c, scripts, expected, false)
 }
 

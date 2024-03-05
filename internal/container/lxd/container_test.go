@@ -45,9 +45,17 @@ func (s *containerSuite) TestContainerArch(c *gc.C) {
 }
 
 func (s *containerSuite) TestContainerVirtType(c *gc.C) {
+	// This test locks in the fact the names of the instance types are the
+	// same as the api instance types.
 	container := lxd.Container{}
 	container.Type = string(instance.DefaultInstanceType)
-	c.Check(container.VirtType(), gc.Equals, api.InstanceTypeContainer)
+	c.Check(container.VirtType().String(), gc.Equals, string(api.InstanceTypeContainer))
+	container.Type = string(instance.InstanceTypeContainer)
+	c.Check(container.VirtType().String(), gc.Equals, string(api.InstanceTypeContainer))
+	container.Type = string(instance.InstanceTypeVM)
+	c.Check(container.VirtType().String(), gc.Equals, string(api.InstanceTypeVM))
+	container.Type = string(instance.AnyInstanceType)
+	c.Check(container.VirtType().String(), gc.Equals, string(api.InstanceTypeAny))
 }
 
 func (s *containerSuite) TestContainerCPUs(c *gc.C) {

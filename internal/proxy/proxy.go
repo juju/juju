@@ -3,6 +3,8 @@
 
 package proxy
 
+import "context"
+
 // Proxier describes an implemntation of an object that is capable of performing
 // connection proxying. Typically an implementation will support this interface
 // and one of the more specific types of proxy's below. Proxy's should be
@@ -11,7 +13,7 @@ package proxy
 type Proxier interface {
 	// Start starts the lifecycle of the proxy. Proxy's should have their start
 	// method called before operating with the proxy.
-	Start() error
+	Start(ctx context.Context) error
 
 	// Stop stops the proxy after a call to Start(). Proxy's should be
 	// considered single use. This call should only ever be made once.

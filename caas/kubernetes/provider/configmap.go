@@ -16,27 +16,27 @@ import (
 )
 
 // ensureConfigMap ensures a ConfigMap resource.
-func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
+func (k *kubernetesClient) ensureConfigMap(ctx context.Context, cm *core.ConfigMap) (func(), error) {
 	cleanUp := func() {}
-	out, err := k.createConfigMap(cm)
+	out, err := k.createConfigMap(ctx, cm)
 	if err == nil {
 		logger.Debugf("configmap %q created", out.GetName())
-		cleanUp = func() { _ = k.deleteConfigMap(out.GetName(), out.GetUID()) }
+		cleanUp = func() { _ = k.deleteConfigMap(ctx, out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
 	if !errors.Is(err, errors.AlreadyExists) {
 		return cleanUp, errors.Trace(err)
 	}
-	err = k.updateConfigMap(cm)
+	err = k.updateConfigMap(ctx, cm)
 	logger.Debugf("updating configmap %q", cm.GetName())
 	return cleanUp, errors.Trace(err)
 }
 
-func (k *kubernetesClient) updateConfigMap(cm *core.ConfigMap) error {
+func (k *kubernetesClient) updateConfigMap(ctx context.Context, cm *core.ConfigMap) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	_, err := k.client().CoreV1().ConfigMaps(k.namespace).Update(context.TODO(), cm, v1.UpdateOptions{})
+	_, err := k.client().CoreV1().ConfigMaps(k.namespace).Update(ctx, cm, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("configmap %q", cm.GetName())
 	}
@@ -44,11 +44,11 @@ func (k *kubernetesClient) updateConfigMap(cm *core.ConfigMap) error {
 }
 
 // getConfigMap returns a ConfigMap resource.
-func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
+func (k *kubernetesClient) getConfigMap(ctx context.Context, name string) (*core.ConfigMap, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
+	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(ctx, name, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("configmap %q", name)
@@ -59,12 +59,12 @@ func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
 }
 
 // createConfigMap creates a ConfigMap resource.
-func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
+func (k *kubernetesClient) createConfigMap(ctx context.Context, cm *core.ConfigMap) (*core.ConfigMap, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
 	utils.PurifyResource(cm)
-	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(context.TODO(), cm, v1.CreateOptions{})
+	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(ctx, cm, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("configmap %q", cm.GetName())
 	}
@@ -72,11 +72,11 @@ func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap,
 }
 
 // deleteConfigMap deletes a ConfigMap resource.
-func (k *kubernetesClient) deleteConfigMap(name string, uid types.UID) error {
+func (k *kubernetesClient) deleteConfigMap(ctx context.Context, name string, uid types.UID) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
+	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(ctx, name, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}

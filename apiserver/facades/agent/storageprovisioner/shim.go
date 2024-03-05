@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
@@ -29,9 +29,6 @@ type Backend interface {
 }
 
 type StorageBackend interface {
-	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
-
-	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
 	WatchModelFilesystems() state.StringsWatcher
 	WatchModelFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher

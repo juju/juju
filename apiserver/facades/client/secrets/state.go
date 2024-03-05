@@ -4,7 +4,7 @@
 package secrets
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/state"
@@ -21,6 +21,7 @@ type SecretsState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error)
+	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 }
 
 // SecretsConsumer instances provide secret consumer apis.

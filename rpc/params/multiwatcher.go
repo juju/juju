@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
@@ -403,7 +403,6 @@ type ModelUpdate struct {
 	Config         map[string]interface{} `json:"config,omitempty"`
 	Status         StatusInfo             `json:"status"`
 	Constraints    constraints.Value      `json:"constraints"`
-	SLA            ModelSLAInfo           `json:"sla"`
 	Type           string                 `json:"type"`
 	Cloud          string                 `json:"cloud"`
 	CloudRegion    string                 `json:"cloud-region"`

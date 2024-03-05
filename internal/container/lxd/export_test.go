@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"errors"
 
 	lxdclient "github.com/canonical/lxd/client"
@@ -26,7 +27,7 @@ type patcher interface {
 // PatchConnectRemote ensures that the ConnectImageRemote function always returns
 // the supplied (mock) image server.
 func PatchConnectRemote(patcher patcher, remotes map[string]lxdclient.ImageServer) {
-	patcher.PatchValue(&ConnectImageRemote, func(spec ServerSpec) (lxdclient.ImageServer, error) {
+	patcher.PatchValue(&ConnectImageRemote, func(_ context.Context, spec ServerSpec) (lxdclient.ImageServer, error) {
 		if svr, ok := remotes[spec.Name]; ok {
 			return svr, nil
 		}

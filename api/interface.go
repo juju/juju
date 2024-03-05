@@ -15,7 +15,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
@@ -259,7 +259,7 @@ type Connection interface {
 	// IsBroken returns whether the connection is broken. It checks
 	// the Broken channel and if that is open, attempts a connection
 	// ping.
-	IsBroken() bool
+	IsBroken(ctx context.Context) bool
 
 	// IsProxied returns weather the connection is proxied.
 	IsProxied() bool
@@ -277,7 +277,7 @@ type Connection interface {
 
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
-	Login(name names.Tag, password, nonce string, ms []macaroon.Slice) error
+	Login(ctx context.Context, name names.Tag, password, nonce string, ms []macaroon.Slice) error
 	ServerVersion() (version.Number, bool)
 
 	// APICaller provides the facility to make API calls directly.

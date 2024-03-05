@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -405,7 +405,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
 		model.EXPECT().Config().Return(nil, nil),
-		broker.EXPECT().GetSecretToken(k8sprovider.ExecRBACResourceName).Return("token", nil),
+		broker.EXPECT().GetSecretToken(gomock.Any(), k8sprovider.ExecRBACResourceName).Return("token", nil),
 	)
 	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
 		func(_ context.Context, arg environs.OpenParams) (sshclient.Broker, error) {

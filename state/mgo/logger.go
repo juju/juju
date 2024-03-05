@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 )

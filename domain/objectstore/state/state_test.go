@@ -9,12 +9,12 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/objectstore"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -34,7 +34,7 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo",
 		Size: 666,
@@ -48,11 +48,29 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 	c.Assert(received, gc.DeepEquals, metadata)
 }
 
+func (s *stateSuite) TestListMetadataFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadata := objectstore.Metadata{
+		UUID: uuid.MustNewUUID().String(),
+		Hash: "hash",
+		Path: "blah-foo",
+		Size: 666,
+	}
+
+	err := st.PutMetadata(context.Background(), metadata)
+	c.Assert(err, jc.ErrorIsNil)
+
+	received, err := st.ListMetadata(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(received, gc.DeepEquals, []objectstore.Metadata{metadata})
+}
+
 func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo",
 		Size: 666,
@@ -70,13 +88,13 @@ func (s *stateSuite) TestPutMetadataWithSameHashAndSize(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
 	}
 	metadata2 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-2",
 		Size: 666,
@@ -97,13 +115,13 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *gc.C) {
 	// There is a broken hash function somewhere.
 
 	metadata1 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
 	}
 	metadata2 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-2",
 		Size: 42,
@@ -124,7 +142,7 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *gc.C) {
 
 	for i := 0; i < 10; i++ {
 		metadatas[i] = objectstore.Metadata{
-			UUID: utils.MustNewUUID().String(),
+			UUID: uuid.MustNewUUID().String(),
 			Hash: fmt.Sprintf("hash-%d", i),
 			Path: fmt.Sprintf("blah-foo-%d", i),
 			Size: 666,
@@ -152,13 +170,13 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
 	}
 	metadata2 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-2",
 		Size: 666,
@@ -182,13 +200,13 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
 	}
 	metadata2 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-2",
 		Size: 666,
@@ -214,7 +232,7 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 
 	// Add a new metadata with the same hash and size.
 	metadata3 := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-3",
 		Size: 666,
@@ -234,7 +252,7 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,

@@ -259,7 +259,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	req := api.InstancesPost{
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,
-		Type:         instance.NormaliseVirtType(spec.VirtType),
+		Type:         NormaliseVirtType(spec.VirtType),
 		InstancePut: api.InstancePut{
 			Architecture: spec.Architecture,
 			Profiles:     spec.Profiles,

@@ -4,6 +4,8 @@
 package pubsub
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -30,8 +32,8 @@ func NewAPI(connector base.StreamConnector) *API {
 
 // OpenMessageWriter returns a new message writer interface value which must
 // be closed when finished with.
-func (api *API) OpenMessageWriter() (MessageWriter, error) {
-	conn, err := api.connector.ConnectStream("/pubsub", nil)
+func (api *API) OpenMessageWriter(ctx context.Context) (MessageWriter, error) {
+	conn, err := api.connector.ConnectStream(ctx, "/pubsub", nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /pubsub")
 	}

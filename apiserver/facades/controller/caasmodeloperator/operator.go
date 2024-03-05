@@ -8,8 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -111,7 +111,7 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 				modelConfig.Name()))
 	}
 
-	apiAddresses, err := a.APIAddresses(context.Background())
+	apiAddresses, err := a.APIAddresses(ctx)
 	if err != nil && apiAddresses.Error != nil {
 		err = apiAddresses.Error
 	}

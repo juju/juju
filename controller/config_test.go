@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo"
-	"github.com/juju/romulus"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -156,18 +155,6 @@ var newConfigTests = []struct {
 		controller.AuditLogExcludeMethods: "Dap.Kings,ReadOnlyMethods,Sharon Jones",
 	},
 	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
-}, {
-	about: "invalid model log max size",
-	config: controller.Config{
-		controller.ModelLogsSize: "abcd",
-	},
-	expectError: `invalid model logs size in configuration: expected a non-negative number, got "abcd"`,
-}, {
-	about: "zero model log max size",
-	config: controller.Config{
-		controller.ModelLogsSize: "0",
-	},
-	expectError: "model logs size less than 1 MB not valid",
 }, {
 	about: "negative controller-api-port",
 	config: controller.Config{
@@ -399,6 +386,36 @@ var newConfigTests = []struct {
 		controller.ObjectStoreType: 1,
 	},
 	expectError: `object-store-type: expected string, got int\(1\)`,
+}, {
+	about: "invalid object store s3 endpoint value",
+	config: controller.Config{
+		controller.ObjectStoreS3Endpoint: 1,
+	},
+	expectError: `object-store-s3-endpoint: expected string, got int\(1\)`,
+}, {
+	about: "invalid object store s3 static key value",
+	config: controller.Config{
+		controller.ObjectStoreS3StaticKey: 1,
+	},
+	expectError: `object-store-s3-static-key: expected string, got int\(1\)`,
+}, {
+	about: "invalid object store s3 static secret value",
+	config: controller.Config{
+		controller.ObjectStoreS3StaticSecret: 1,
+	},
+	expectError: `object-store-s3-static-secret: expected string, got int\(1\)`,
+}, {
+	about: "invalid object store s3 static session value",
+	config: controller.Config{
+		controller.ObjectStoreS3StaticSession: 1,
+	},
+	expectError: `object-store-s3-static-session: expected string, got int\(1\)`,
+}, {
+	about: "invalid jujud-controller-snap-source value",
+	config: controller.Config{
+		controller.JujudControllerSnapSource: "latest/stable",
+	},
+	expectError: `jujud-controller-snap-source value "latest/stable" must be one of legacy, snapstore, local or local-dangerous.`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -419,12 +436,6 @@ func (s *ConfigSuite) TestAPIPortDefaults(c *gc.C) {
 	c.Assert(cfg.APIPortOpenDelay(), gc.Equals, 2*time.Second)
 }
 
-func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {
-	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, 20)
-}
-
 func (s *ConfigSuite) TestResourceDownloadLimits(c *gc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
@@ -437,22 +448,6 @@ func (s *ConfigSuite) TestResourceDownloadLimits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ApplicationResourceDownloadLimit(), gc.Equals, 42)
 	c.Assert(cfg.ControllerResourceDownloadLimit(), gc.Equals, 666)
-}
-
-func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
-	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.ModelLogsSize), jc.IsTrue)
-
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			"max-logs-size":   "8G",
-			"max-logs-age":    "96h",
-			"model-logs-size": "35M",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, 35)
 }
 
 func (s *ConfigSuite) TestTxnLogConfigDefault(c *gc.C) {
@@ -714,29 +709,6 @@ func (s *ConfigSuite) TestControllerNameSetGet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.ControllerName(), gc.Equals, "test")
-}
-
-func (s *ConfigSuite) TestMeteringURLDefault(c *gc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.MeteringURL(), gc.Equals, romulus.DefaultAPIRoot)
-}
-
-func (s *ConfigSuite) TestMeteringURLSettingValue(c *gc.C) {
-	mURL := "http://homestarrunner.com/metering"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			controller.MeteringURL: mURL,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.MeteringURL(), gc.Equals, mURL)
 }
 
 func (s *ConfigSuite) TestMaxDebugLogDuration(c *gc.C) {
@@ -1010,4 +982,32 @@ func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ObjectStoreType(), gc.Equals, objectstore.StateBackend)
+}
+
+func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.ObjectStoreS3Endpoint: "http://localhost:9000",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreS3Endpoint(), gc.Equals, "http://localhost:9000")
+}
+
+func (s *ConfigSuite) TestObjectStoreS3Credentials(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.ObjectStoreS3StaticKey:     "key",
+			controller.ObjectStoreS3StaticSecret:  "secret",
+			controller.ObjectStoreS3StaticSession: "session",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreS3StaticKey(), gc.Equals, "key")
+	c.Assert(cfg.ObjectStoreS3StaticSecret(), gc.Equals, "secret")
+	c.Assert(cfg.ObjectStoreS3StaticSession(), gc.Equals, "session")
 }

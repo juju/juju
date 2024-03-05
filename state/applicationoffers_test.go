@@ -4,12 +4,12 @@
 package state_test
 
 import (
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -362,10 +362,10 @@ func (s *applicationOffersSuite) TestListOffersAllowedConsumers(c *gc.C) {
 
 	mary := names.NewUserTag("mary")
 	err := s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(offer.OfferName), mary, permission.ConsumeAccess)
+		names.NewApplicationOfferTag(offer.OfferUUID), mary, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(offer2.OfferName), mary, permission.ReadAccess)
+		names.NewApplicationOfferTag(offer2.OfferUUID), mary, permission.ReadAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		AllowedConsumers: []string{"mary"},
@@ -689,7 +689,7 @@ func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *
 func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnections(c *gc.C) {
 	s.createDefaultOffer(c)
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -701,7 +701,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnection
 		s.createDefaultOffer(c)
 	}
 	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -712,7 +712,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnecti
 	offer := s.createDefaultOffer(c)
 	s.addOfferConnection(c, offer.OfferUUID)
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -725,7 +725,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnecti
 		s.addOfferConnection(c, offer.OfferUUID)
 	}
 	defer state.SetBeforeHooks(c, s.State, addConnectedOffer).Check()
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -898,7 +898,7 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 	bumpTxnRevno := jujutxn.TestHook{Before: addRelation, After: rmRelations}
 	defer state.SetTestHooks(c, s.State, bumpTxnRevno, bumpTxnRevno, bumpTxnRevno).Check()
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(err, gc.ErrorMatches, "cannot destroy application.*")
 	s.mysql.Refresh()
@@ -967,7 +967,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -975,7 +975,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	err = app.Destroy(state.NewObjectStore(c, s.State))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }

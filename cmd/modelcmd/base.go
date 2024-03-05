@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/juju/juju/api"
@@ -211,7 +211,7 @@ func (c *CommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
 	controllerName, modelName string,
 ) (api.Connection, error) {
-	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil)
+	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil, nil)
 }
 
 // NewAPIRootWithDialOpts returns a new connection to the API server for the
@@ -220,6 +220,7 @@ func (c *CommandBase) NewAPIRoot(
 func (c *CommandBase) NewAPIRootWithDialOpts(
 	store jujuclient.ClientStore,
 	controllerName, modelName string,
+	addressOverride []string,
 	dialOpts *api.DialOpts,
 ) (api.Connection, error) {
 	c.assertRunStarted()
@@ -255,6 +256,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	param.APIEndpoints = addressOverride
 	if dialOpts != nil {
 		param.DialOpts = *dialOpts
 	}

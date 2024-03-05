@@ -4,9 +4,10 @@
 package provider_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -28,7 +30,7 @@ func fakeConfig(c *gc.C, attrs ...coretesting.Attrs) *config.Config {
 func fakeConfigAttrs(attrs ...coretesting.Attrs) coretesting.Attrs {
 	merged := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type":             "kubernetes",
-		"uuid":             utils.MustNewUUID().String(),
+		"uuid":             uuid.MustNewUUID().String(),
 		"operator-storage": "",
 		"workload-storage": "",
 	})
@@ -78,7 +80,7 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 func (s *providerSuite) TestOpen(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	config := fakeConfig(c)
-	broker, err := s.provider.Open(environs.OpenParams{
+	broker, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	})
@@ -106,7 +108,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := s.provider.Open(environs.OpenParams{
+	_, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),
 	})

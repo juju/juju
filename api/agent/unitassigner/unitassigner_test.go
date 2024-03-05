@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -101,10 +101,6 @@ func (f *fakeAssignCaller) APICall(ctx context.Context, objType string, version 
 
 func (*fakeAssignCaller) BestFacadeVersion(facade string) int {
 	return 1
-}
-
-func (*fakeAssignCaller) Context() context.Context {
-	return context.Background()
 }
 
 type fakeWatchCaller struct {

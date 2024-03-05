@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -173,9 +173,6 @@ func (s *UnitSuite) TestUnitStateNotSet(c *gc.C) {
 	sst, found := uState.StorageState()
 	c.Assert(sst, gc.Equals, "")
 	c.Assert(found, jc.IsFalse)
-	mst, found := uState.MeterStatusState()
-	c.Assert(mst, gc.Equals, "")
-	c.Assert(found, jc.IsFalse)
 }
 
 func (s *UnitSuite) TestUnitStateExistingDocAddNewRelationData(c *gc.C) {
@@ -212,7 +209,6 @@ func (s *UnitSuite) TestUnitStateMutateState(c *gc.C) {
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateRelationState(c, uState, initState.relationState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateMutateUniterState(c *gc.C) {
@@ -235,7 +231,6 @@ func (s *UnitSuite) TestUnitStateMutateUniterState(c *gc.C) {
 	assertUnitStateCharmState(c, uState, initState.charmState)
 	assertUnitStateRelationState(c, uState, initState.relationState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateMutateChangeRelationState(c *gc.C) {
@@ -284,7 +279,6 @@ func (s *UnitSuite) TestUnitStateMutateDeleteRelationState(c *gc.C) {
 	assertUnitStateCharmState(c, uState, initState.charmState)
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateMutateStorageState(c *gc.C) {
@@ -307,30 +301,6 @@ func (s *UnitSuite) TestUnitStateMutateStorageState(c *gc.C) {
 	assertUnitStateCharmState(c, uState, initState.charmState)
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateRelationState(c, uState, initState.relationState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
-}
-
-func (s *UnitSuite) TestUnitStateMutateMeterStatusState(c *gc.C) {
-	// Set initial state; this should create a new unitstate doc
-	initState := s.testUnitSuite(c)
-
-	// Mutate meter status state again with an existing state doc
-	newMeterStatusState := "GREEN"
-	newUS := state.NewUnitState()
-	newUS.SetMeterStatusState(newMeterStatusState)
-	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
-	c.Assert(err, gc.IsNil)
-
-	// Ensure meter status state changed
-	uState, err := s.unit.State()
-	c.Assert(err, gc.IsNil)
-	assertUnitStateMeterStatusState(c, uState, newMeterStatusState)
-
-	// Ensure the other state did not.
-	assertUnitStateCharmState(c, uState, initState.charmState)
-	assertUnitStateUniterState(c, uState, initState.uniterState)
-	assertUnitStateRelationState(c, uState, initState.relationState)
-	assertUnitStateStorageState(c, uState, initState.storageState)
 }
 
 func (s *UnitSuite) TestUnitStateDeleteState(c *gc.C) {
@@ -353,7 +323,6 @@ func (s *UnitSuite) TestUnitStateDeleteState(c *gc.C) {
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateRelationState(c, uState, initState.relationState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
@@ -376,15 +345,13 @@ func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
 	assertUnitStateCharmState(c, uState, initState.charmState)
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 type initialUnitState struct {
-	charmState       map[string]string
-	uniterState      string
-	relationState    map[int]string
-	storageState     string
-	meterStatusState string
+	charmState    map[string]string
+	uniterState   string
+	relationState map[int]string
+	storageState  string
 }
 
 func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
@@ -400,14 +367,12 @@ func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
 		2: "two",
 	}
 	initialStorageState := "gnitset"
-	initialMeterStatusState := "RED"
 
 	us := state.NewUnitState()
 	us.SetCharmState(initialCharmState)
 	us.SetUniterState(initialUniterState)
 	us.SetRelationState(initialRelationState)
 	us.SetStorageState(initialStorageState)
-	us.SetMeterStatusState(initialMeterStatusState)
 	err := s.unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
@@ -426,16 +391,12 @@ func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
 	obtainedStorageState, found := uState.StorageState()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(obtainedStorageState, gc.Equals, initialStorageState)
-	obtainedMeterStatusState, found := uState.MeterStatusState()
-	c.Assert(found, jc.IsTrue)
-	c.Assert(obtainedMeterStatusState, gc.Equals, initialMeterStatusState)
 
 	return initialUnitState{
-		charmState:       initialCharmState,
-		uniterState:      initialUniterState,
-		relationState:    initialRelationState,
-		storageState:     initialStorageState,
-		meterStatusState: initialMeterStatusState,
+		charmState:    initialCharmState,
+		uniterState:   initialUniterState,
+		relationState: initialRelationState,
+		storageState:  initialStorageState,
 	}
 }
 
@@ -459,12 +420,6 @@ func assertUnitStateRelationState(c *gc.C, uState *state.UnitState, expected map
 
 func assertUnitStateStorageState(c *gc.C, uState *state.UnitState, expected string) {
 	obtained, found := uState.StorageState()
-	c.Assert(found, jc.IsTrue)
-	c.Assert(obtained, gc.Equals, expected)
-}
-
-func assertUnitStateMeterStatusState(c *gc.C, uState *state.UnitState, expected string) {
-	obtained, found := uState.MeterStatusState()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(obtained, gc.Equals, expected)
 }
@@ -552,8 +507,8 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
-	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Settings still reflect charm set on unit.
@@ -603,8 +558,8 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 
 	// Change application's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
-	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -623,8 +578,8 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 
 func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	newCharm := s.AddConfigCharm(c, "wordpress", sortableConfig, 123)
-	cfg := state.SetCharmConfig{Charm: newCharm}
-	err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
+	err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetCharmURL(newCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -677,8 +632,8 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 
 	// Change application's charm; nothing detected.
 	newCharm = s.AddConfigCharm(c, "wordpress", floatConfig, 125)
-	cfg = state.SetCharmConfig{Charm: newCharm}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	cfg = state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -692,7 +647,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// unreferenced and be removed. But I'm not testing that behaviour
 	// because it's not very helpful and subject to change.
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("")
 }
@@ -716,8 +671,8 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 	wc1.AssertChange("2e1f49c3e8b53892b822558401af33589522094681276a98458595114e04c0c1")
 
 	newCharm := s.AddConfigCharm(c, "wordpress", wordpressConfig, 125)
-	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("new charm url %s", newCharm.URL())
@@ -792,7 +747,7 @@ func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	mid, err := u.AssignedMachineId()
 	if errors.Is(err, errors.NotAssigned) {
-		err = u.AssignToNewMachine()
+		err = u.AssignToNewMachine(defaultInstancePrechecker)
 		c.Assert(err, jc.ErrorIsNil)
 		mid, err = u.AssignedMachineId()
 	}
@@ -828,7 +783,7 @@ func (s *UnitSuite) TestAllAddresses(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -850,7 +805,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -872,7 +827,7 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -894,7 +849,7 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -931,7 +886,7 @@ func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -965,7 +920,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 
 	{
 		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
-		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -974,7 +929,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
-		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -987,7 +942,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has container", destroyed: false}
-		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 			Base: state.UbuntuBase("12.10"),
@@ -1002,9 +957,9 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
-		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		_, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()})
+		_, _, err = s.State.EnableHA(defaultInstancePrechecker, 1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()})
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := s.State.ControllerNode(tc.host.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -1017,7 +972,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
-		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -1033,13 +988,13 @@ func (s *UnitSuite) TestRemoveUnitMachineFastForwardDestroy(c *gc.C) {
 		c.Log(tc.desc)
 		err := tc.host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(tc.target.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+		c.Assert(tc.target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 		if tc.destroyed {
 			assertLife(c, tc.host, state.Dying)
 			c.Assert(tc.host.EnsureDead(), gc.IsNil)
 		} else {
 			assertLife(c, tc.host, state.Alive)
-			c.Assert(tc.host.Destroy(state.NewObjectStore(c, s.State)), gc.NotNil)
+			c.Assert(tc.host.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.NotNil)
 		}
 	}
 }
@@ -1050,15 +1005,15 @@ func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
 		err := tc.host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		preventUnitDestroyRemove(c, tc.target)
-		c.Assert(tc.target.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+		c.Assert(tc.target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 		c.Assert(tc.target.EnsureDead(), gc.IsNil)
 		assertLife(c, tc.host, state.Alive)
-		c.Assert(tc.target.Remove(state.NewObjectStore(c, s.State)), gc.IsNil)
+		c.Assert(tc.target.Remove(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 		if tc.destroyed {
 			assertLife(c, tc.host, state.Dying)
 		} else {
 			assertLife(c, tc.host, state.Alive)
-			c.Assert(tc.host.Destroy(state.NewObjectStore(c, s.State)), gc.NotNil)
+			c.Assert(tc.host.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.NotNil)
 		}
 	}
 }
@@ -1067,7 +1022,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	charmWithOut := s.AddTestingCharm(c, "mysql")
 	applicationWithOutProfile := s.AddTestingApplication(c, "mysql", charmWithOut)
 
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1079,10 +1034,10 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	colocated, err := applicationWithOutProfile.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
-	c.Assert(colocated.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+	c.Assert(colocated.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 	assertLife(c, host, state.Alive)
 
-	c.Assert(host.Destroy(state.NewObjectStore(c, s.State)), gc.NotNil)
+	c.Assert(host.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.NotNil)
 }
 
 func (s *UnitSuite) setControllerVote(c *gc.C, id string, hasVote bool) {
@@ -1101,9 +1056,9 @@ func (s *UnitSuite) demoteController(c *gc.C, m *state.Machine) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1124,13 +1079,13 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State)), gc.ErrorMatches, `cannot destroy unit "wordpress/1": state changing too quickly; try again soon`)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.ErrorMatches, `cannot destroy unit "wordpress/1": state changing too quickly; try again soon`)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1142,14 +1097,14 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 		s.setControllerVote(c, host.Id(), true)
 	}).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 	assertLife(c, host, state.Alive)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1162,12 +1117,12 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 		s.demoteController(c, host)
 	}, nil).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 	assertLife(c, host, state.Dying)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1190,14 +1145,14 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 		},
 	}).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 	assertLife(c, host, state.Alive)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1223,7 +1178,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 		},
 	}).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 	assertLife(c, host, state.Alive)
 }
 
@@ -1234,7 +1189,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	mysqlApp := s.AddTestingApplication(c, "mysql", mysqlCharm)
 	mysqlUnit, err := mysqlApp.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysqlUnit.AssignToNewMachine(), jc.ErrorIsNil)
+	c.Assert(mysqlUnit.AssignToNewMachine(defaultInstancePrechecker), jc.ErrorIsNil)
 	endpoints, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(endpoints...)
@@ -1242,15 +1197,15 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	relationUnit, err := rel.Unit(s.unit)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relationUnit.EnterScope(nil), jc.ErrorIsNil)
-	c.Assert(s.application.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertLife(c, s.application, state.Dying)
-	c.Assert(s.unit.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertLife(c, s.unit, state.Dying)
 	assertLife(c, s.application, state.Dying)
 	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
 	assertLife(c, s.application, state.Dying)
-	c.Assert(s.unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	// Now the application should be gone
 	c.Assert(s.application.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -1270,7 +1225,7 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 
 	err = unit1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit1.Remove(state.NewObjectStore(c, s.State))
+	err = unit1.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit1.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -1307,7 +1262,7 @@ func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 }
 
 func (s *UnitSuite) TestSetCharmURLWithRemovedUnit(c *gc.C) {
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.unit)
 
@@ -1317,7 +1272,7 @@ func (s *UnitSuite) TestSetCharmURLWithRemovedUnit(c *gc.C) {
 
 func (s *UnitSuite) TestSetCharmURLWithDyingUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.unit, state.Dying)
 
@@ -1333,7 +1288,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDeadUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+		err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.unit.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1353,8 +1308,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// Set a different charm to force a retry: first on
 				// the application, so the settings are created, then on
 				// the unit.
-				cfg := state.SetCharmConfig{Charm: sch}
-				err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				cfg := state.SetCharmConfig{Charm: sch, CharmOrigin: defaultCharmOrigin(sch.URL())}
+				err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 				err = s.unit.SetCharmURL(sch.URL())
 				c.Assert(err, jc.ErrorIsNil)
@@ -1362,8 +1317,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 			After: func() {
 				// Set back the same charm on the application, so the
 				// settings refcount is correct..
-				cfg := state.SetCharmConfig{Charm: s.charm}
-				err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				cfg := state.SetCharmConfig{Charm: s.charm, CharmOrigin: defaultCharmOrigin(s.charm.URL())}
+				err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1386,7 +1341,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.AssignToNewMachine()
+		err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1400,7 +1355,7 @@ func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 		assertLife(c, s.unit, state.Dying)
 	}).Check()
 
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1412,7 +1367,7 @@ func (s *UnitSuite) TestDestroySetCharmRetry(c *gc.C) {
 		assertRemoved(c, s.State, s.unit)
 	}).Check()
 
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1420,8 +1375,8 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
-	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -1431,12 +1386,12 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 		assertRemoved(c, s.State, s.unit)
 	}).Check()
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1452,12 +1407,12 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1469,7 +1424,7 @@ func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
 		assertRemoved(c, s.State, s.unit)
 	}).Check()
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1486,7 +1441,7 @@ func (s *UnitSuite) TestDestroyAssignErrorRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.AssignToNewMachine()
+		err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1499,13 +1454,13 @@ func (s *UnitSuite) TestDestroyAssignErrorRetry(c *gc.C) {
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
 	}).Check()
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	// A unit that has not set any status is removed directly.
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.State, s.unit)
@@ -1520,7 +1475,7 @@ func (s *UnitSuite) TestShortCircuitDestroyUnitNotAssigned(c *gc.C) {
 		Since:   &now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.State, s.unit)
@@ -1529,7 +1484,7 @@ func (s *UnitSuite) TestShortCircuitDestroyUnitNotAssigned(c *gc.C) {
 func (s *UnitSuite) TestCannotShortCircuitDestroyAssignedUnit(c *gc.C) {
 	// This test is similar to TestShortCircuitDestroyUnitNotAssigned but
 	// the unit is assigned to a machine.
-	err := s.unit.AssignToNewMachine()
+	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	err = s.unit.SetAgentStatus(status.StatusInfo{
@@ -1538,7 +1493,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyAssignedUnit(c *gc.C) {
 		Since:   &now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertLife(c, s.unit, state.Dying)
@@ -1549,7 +1504,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.AssignToNewMachine()
+	err = s.unit.AssignToNewMachine(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1557,7 +1512,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertLife(c, s.unit, state.Dying)
@@ -1579,7 +1534,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.AssignToNewMachine()
+		err = unit.AssignToNewMachine(defaultInstancePrechecker)
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1589,7 +1544,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		}
 		err = unit.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.Destroy(state.NewObjectStore(c, s.State))
+		err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(unit.Life(), gc.Equals, state.Dying)
 		assertLife(c, unit, state.Dying)
@@ -1599,7 +1554,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	// A unit assigned to a provisioned machine is still removed directly so
 	// long as it has not set status.
-	err := s.unit.AssignToNewMachine()
+	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	mid, err := s.unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1607,14 +1562,14 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-malive", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.State, s.unit)
 }
 
 func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
-	err := s.unit.AssignToNewMachine()
+	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	for i := 0; i < 10; i++ {
@@ -1646,7 +1601,7 @@ func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(versionInfo), jc.GreaterThan, 9)
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentInfo, err = s.unit.AgentHistory().StatusHistory(filter)
@@ -1668,7 +1623,7 @@ func assertLife(c *gc.C, entity state.LifeRefresher, life state.Life) {
 }
 
 func assertRemoved(c *gc.C, st *state.State, entity state.Living) {
-	store := state.NewObjectStore(c, st)
+	store := state.NewObjectStore(c, st.ModelUUID())
 
 	c.Assert(entity.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(entity.Destroy(store), jc.ErrorIsNil)
@@ -1692,7 +1647,7 @@ func (s *UnitSuite) TestUnitsInError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set a non unit error to ensure it's ignored.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetStatus(status.StatusInfo{
 		Status:  status.Error,
@@ -1794,7 +1749,7 @@ func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 	_, err := s.unit.OpenedPortRanges()
 	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotAssigned)
 
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1888,14 +1843,14 @@ func (s *UnitSuite) assertPortRangesAfterOpenClose(c *gc.C, u *state.Unit, openR
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	preventUnitDestroyRemove(c, s.unit)
 
-	store := state.NewObjectStore(c, s.State)
+	store := state.NewObjectStore(c, s.State.ModelUUID())
 
 	// Ensure that we use a monotonically increasing port counter to
 	// avoid no-op open port operations since the same unit is used for
@@ -1936,7 +1891,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1954,7 +1909,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 	// Now remove the unit and check again.
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Remove(state.NewObjectStore(c, s.State))
+	err = s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -1967,7 +1922,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1996,7 +1951,7 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	// Now remove the first unit and check again.
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Remove(state.NewObjectStore(c, s.State))
+	err = s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2024,7 +1979,7 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	c.Assert(numDocs, gc.Equals, 1, gc.Commentf("expected a new document for the unit state to be created"))
 
 	// Destroy unit; this should also purge the state doc for the unit
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2083,7 +2038,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, secrets.RoleView)
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	access, err = s.State.SecretAccess(uri, unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2105,7 +2060,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2140,7 +2095,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
 	err = s.State.SaveSecretConsumer(uri, s.unit.UnitTag(), &secrets.SecretConsumerMetadata{CurrentRevision: 666})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.GetSecretConsumer(uri, s.unit.Tag())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2148,7 +2103,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2193,7 +2148,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = su1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = su1.Remove(state.NewObjectStore(c, s.State))
+	err = su1.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2225,7 +2180,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	// Check the unit cannot become Dead, but can become Dying...
 	err = u.EnsureDead()
 	c.Assert(err, gc.Equals, stateerrors.ErrUnitHasSubordinates)
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ...and that it still can't become Dead now it's Dying.
@@ -2241,7 +2196,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	c.Assert(err, gc.Equals, stateerrors.ErrUnitHasSubordinates)
 
 	// remove the subordinate and check the principal can finally become Dead.
-	err = sub.Remove(state.NewObjectStore(c, s.State))
+	err = sub.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2382,18 +2337,18 @@ func (s *UnitSuite) TestRelations(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemove(c *gc.C) {
-	err := s.unit.Remove(state.NewObjectStore(c, s.State))
+	err := s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot remove unit "wordpress/0": unit is not dead`)
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Remove(state.NewObjectStore(c, s.State))
+	err = s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	units, err := s.application.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 0)
-	err = s.unit.Remove(state.NewObjectStore(c, s.State))
+	err = s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2410,7 +2365,7 @@ func (s *UnitSuite) TestRemoveUnassignsFromBranch(c *gc.C) {
 
 	// remove the unit
 	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(s.unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
 	// verify branch no longer tracks unit
 	c.Assert(branch.Refresh(), jc.ErrorIsNil)
@@ -2442,9 +2397,9 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	c.Assert(mysql0ru.EnterScope(nil), jc.ErrorIsNil)
 
 	// Destroy wordpress, and remove its last unit.
-	c.Assert(wordpress.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	c.Assert(wordpress0.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(wordpress0.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(wordpress0.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
 	// Check this didn't kill the application or relation yet...
 	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
@@ -2453,7 +2408,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// ...but when the unit on the other side departs the relation, the
 	// relation and the other application are cleaned up.
 	c.Assert(mysql0ru.LeaveScope(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	c.Assert(wordpress.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(rel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -2482,9 +2437,9 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy wordpress, and remove its last unit.
-	c.Assert(wordpress.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	c.Assert(wordpress0.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(wordpress0.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(wordpress0.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
 	// Check this didn't kill the application or relation yet...
 	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
@@ -2494,8 +2449,8 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// sets itself to dead *without* departing the relation, the unit's
 	// removal causes the relation and the other application to be cleaned up.
 	c.Assert(mysql0.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(mysql0.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(mysql0.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	c.Assert(wordpress.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(rel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -2539,7 +2494,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set one to Dying, check change.
-	err := subUnits[0].Destroy(state.NewObjectStore(c, s.State))
+	err := subUnits[0].Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(subUnits[0].Name())
 	wc.AssertNoChange()
@@ -2549,7 +2504,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = subUnits[1].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = subUnits[1].Remove(state.NewObjectStore(c, s.State))
+	err = subUnits[1].Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	// In order to ensure that both the dead and remove operations
 	// have been processed, we need to wait until the model is idle.
@@ -2569,7 +2524,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the leftover, check no change.
-	err = subUnits[0].Remove(state.NewObjectStore(c, s.State))
+	err = subUnits[0].Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -2589,7 +2544,7 @@ func (s *UnitSuite) TestWatchUnits(c *gc.C) {
 	u, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(u.Name())
-	err = u.AssignToNewMachine()
+	err = u.AssignToNewMachine(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(u.Name())
 
@@ -2626,7 +2581,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	// TODO(quiescence): these two changes should be one event.
 	wc.AssertOneChange()
 	preventUnitDestroyRemove(c, unit)
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -2637,7 +2592,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	// Remove unit, start new watch, check single event.
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.unit.Watch()
@@ -2647,7 +2602,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 
 func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	testAgentTools(c, state.NewObjectStore(c, s.State), s.unit, `unit "wordpress/0"`)
+	testAgentTools(c, state.NewObjectStore(c, s.State.ModelUUID()), s.unit, `unit "wordpress/0"`)
 }
 
 func (s *UnitSuite) TestValidActionsAndSpecs(c *gc.C) {
@@ -2668,9 +2623,10 @@ snapshot:
 		"snapshot": charm.ActionSpec{
 			Description: "No description",
 			Params: map[string]interface{}{
-				"type":        "object",
-				"title":       "snapshot",
-				"description": "No description",
+				"type":                 "object",
+				"title":                "snapshot",
+				"description":          "No description",
+				"additionalProperties": false,
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
 						"type":    "string",
@@ -2798,7 +2754,7 @@ action-b-b:
 
 func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingApplication(c, s.State, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2823,19 +2779,19 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	// Ensure that a cleanup is scheduled if we force destroy a unit
 	// that's already dying.
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingApplication(c, s.State, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to a machine and set the agent status so
 	// removal can't be short-circuited.
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetAgentStatus(status.StatusInfo{
 		Status: status.Idle,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(unit.Life(), gc.Equals, state.Dying)
@@ -2844,7 +2800,7 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, gc.Equals, true)
 
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	needsCleanup, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2852,14 +2808,28 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 
 	// Force-destroying the unit should schedule a cleanup so we get a
 	// chance for the fallback force-cleanup to run.
-	opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
+	removed, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State.ModelUUID()), true, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
+	c.Assert(removed, jc.IsFalse)
 
 	// We scheduled the dying unit cleanup again even though the unit was dying already.
 	needsCleanup, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, gc.Equals, true)
+}
+
+func (s *UnitSuite) TestDestroyWithForceReportsRemoved(c *gc.C) {
+	// Ensure that a cleanup is scheduled if we force destroy a unit
+	// that's already dying.
+	ch := state.AddTestingCharm(c, s.State, "dummy")
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	removed, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State.ModelUUID()), true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	c.Assert(removed, jc.IsTrue)
 }
 
 func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
@@ -2869,13 +2839,13 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	sn2, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.254.0/24"})
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddSpace("public", "", []string{sn1.ID()}, false)
+	_, err = s.State.AddSpace("public", "", []string{sn1.ID()})
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddSpace("private", "", []string{sn2.ID()}, false)
+	_, err = s.State.AddSpace("private", "", []string{sn2.ID()})
 	c.Assert(err, gc.IsNil)
 
 	// Create machine with 2 interfaces on the above spaces
-	m1, err := s.State.AddOneMachine(state.MachineTemplate{
+	m1, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("spaces=public,private"),
@@ -2894,7 +2864,7 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 
 	// Deploy unit to machine
 	ch := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 1)
-	app := state.AddTestingApplicationWithBindings(c, s.State, "mysql", ch, map[string]string{
+	app := state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, "mysql", ch, map[string]string{
 		"server": "public",
 		"foo":    "private",
 	})
@@ -2929,13 +2899,14 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	// Changing the application bindings after an upgrade should trigger a change
 	sch := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 2)
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 		EndpointBindings: map[string]string{
 			"server": "private",
 		},
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("c895e8b57123efd2194d48b74db431e4db4c3ae4fa75f55aa6f32c7f39f29abd")
 }
@@ -2991,7 +2962,7 @@ func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	c.Assert(unit.ShouldBeAssigned(), jc.IsFalse)
 
 	// A unit that has not set any status is removed directly.
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.State, unit)
@@ -3006,7 +2977,7 @@ func (s *CAASUnitSuite) TestCannotShortCircuitDestroyAllocatedUnit(c *gc.C) {
 	unitState.SetUniterState("error")
 	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Life(), gc.Equals, state.Dying)
 	assertLife(c, unit, state.Dying)
@@ -3111,7 +3082,7 @@ func (s *CAASUnitSuite) TestRemoveUnitDeletesContainerInfo(c *gc.C) {
 		Ports:      &[]string{"80"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = existingUnit.Destroy(state.NewObjectStore(c, s.State))
+	err = existingUnit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -3218,7 +3189,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	// Double check the unit is dying and not removed.
@@ -3233,7 +3204,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 
 	// Remove it: watcher eventually closed and Err
 	// returns an IsNotFound error.
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case _, ok := <-w.Changes():
@@ -3280,7 +3251,7 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	// Double check the unit is dying and not removed.
@@ -3295,9 +3266,9 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 
 	// Remove it: watcher eventually closed and Err
 	// returns an IsNotFound error.
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.Destroy(state.NewObjectStore(c, s.State))
+	err = s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// App removal requires cluster resources to be cleared.

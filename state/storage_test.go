@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
@@ -104,11 +104,11 @@ func (s *StorageStateSuiteBase) AddTestingCharm(c *gc.C, name string) *state.Cha
 }
 
 func (s *StorageStateSuiteBase) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplicationForBase(c, s.st, s.base, name, ch)
+	return state.AddTestingApplicationForBase(c, s.st, s.objectStore, s.base, name, ch)
 }
 
 func (s *StorageStateSuiteBase) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.st, name, ch, storage)
+	return state.AddTestingApplicationWithStorage(c, s.st, s.objectStore, name, ch, storage)
 }
 
 func (s *StorageStateSuiteBase) AddMetaCharm(c *gc.C, name, metaYaml string, revision int) *state.Charm {
@@ -130,7 +130,7 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 }
 
 func (s *StorageStateSuiteBase) provisionStorageVolume(c *gc.C, u *state.Unit, storageTag names.StorageTag) {
-	err := s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err := s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machine := unitMachine(c, s.st, u)
 	volume := s.storageInstanceVolume(c, storageTag)
@@ -354,12 +354,12 @@ func (s *StorageStateSuiteBase) storageInstanceFilesystem(c *gc.C, tag names.Sto
 func (s *StorageStateSuiteBase) obliterateUnit(c *gc.C, tag names.UnitTag) {
 	u, err := s.st.Unit(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.obliterateUnitStorage(c, tag)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove(state.NewObjectStore(c, s.State))
+	err = u.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -470,25 +470,25 @@ func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	ch := state.AddTestingCharmForSeries(c, st, "focal", "storage-block")
-	_, err := st.AddApplication(state.AddApplicationArgs{
+	_, err := st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "storage-block", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
-	}, state.NewObjectStore(c, st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "storage-block": block storage on a container model not supported`)
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storageBlock, err := s.st.AddApplication(state.AddApplicationArgs{
+	storageBlock, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "storage-block", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -506,13 +506,13 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 	})
 
 	ch = s.AddTestingCharm(c, "storage-filesystem")
-	storageFilesystem, err := s.st.AddApplication(state.AddApplicationArgs{
+	storageFilesystem, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "storage-filesystem", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -532,14 +532,14 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.st.AddApplication(state.AddApplicationArgs{
+		return s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 			Name: "storage-block2", Charm: ch,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 				OS:      "ubuntu",
 				Channel: "22.04/stable",
 			}},
 			Storage: storage,
-		}, state.NewObjectStore(c, s.st))
+		}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addApplication(storage)
@@ -571,14 +571,14 @@ func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch := s.AddTestingCharm(c, "storage-block")
-	app, err := s.st.AddApplication(state.AddApplicationArgs{
+	app, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "storage-block2", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
 		Storage: cons,
-	}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -650,14 +650,14 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-block2")
-	app, err := s.st.AddApplication(state.AddApplicationArgs{
+	app, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "storage-block2", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
 		Storage: storageCons,
-	}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -667,14 +667,14 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.st.AddApplication(state.AddApplicationArgs{
+		return s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 			Name: "storage-block", Charm: ch,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 				OS:      "ubuntu",
 				Channel: "22.04/stable",
 			}},
 			Storage: storage,
-		}, state.NewObjectStore(c, s.st))
+		}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -808,7 +808,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 
 	// destroying a unit with storage attachments is fine; this is what
 	// will trigger the death and removal of storage attachments.
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	// until all storage attachments are removed, the unit cannot be
 	// marked as being dead.
@@ -836,7 +836,7 @@ func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
 
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	// until all storage attachments are removed, the unit cannot be
 	// marked as being dead.
@@ -862,7 +862,7 @@ func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 			return nil, errors.New("boom")
 		},
 	}
-	err = u.Remove(state.NewObjectStore(c, s.State))
+	err = u.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -874,7 +874,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 
 	// Mark the storage instance as Dying, so that it will be removed
 	// when the last attachment is removed.
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -903,7 +903,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 	// volume attachment. When the storage is detached from
 	// the unit, the volume should be detached from the
 	// machine.
-	err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -911,7 +911,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 
 	// Detaching the storage from the unit will leave the storage
 	// behind, but will clear the ownership.
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -978,7 +978,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	// attach the storage to the unit, it will create a volume
 	// and volume attachment.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err = s.st.AssignUnit(u2, state.AssignCleanEmpty)
+		err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -1006,7 +1006,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// the storage from the first unit, the volume and
 	// filesystem should be detached from their assigned
 	// machine.
-	err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	oldMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1026,7 +1026,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// attach the storage to the unit, it will attach the
 	// existing volume/filesystem to the machine.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err = s.st.AssignUnit(u2, state.AssignCleanEmpty)
+		err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -1051,13 +1051,13 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttach
 	// volume and volume attachment initially. When we detach
 	// the storage from the first unit, the volume should be
 	// detached from its assigned machine.
-	err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
 	// attach the storage to the unit, it will attach the
 	// existing volume to the machine.
-	err = s.st.AssignUnit(u2, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage. Leave the volume attachment
@@ -1081,7 +1081,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	app2, err := s.st.AddApplication(state.AddApplicationArgs{
+	app2, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "secondwind",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1096,7 +1096,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 		},
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      1,
-	}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	app2Units, err := app2.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1116,7 +1116,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C) {
 	app, _, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 	ch, _, _ := app.Charm()
-	_, err := s.st.AddApplication(state.AddApplicationArgs{
+	_, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "secondwind",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1125,7 +1125,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C
 		Charm:         ch,
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      2,
-	}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "secondwind": AttachStorage is non-empty but NumUnits is 2, must be 1`)
 }
 
@@ -1150,7 +1150,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.st.AddApplication(state.AddApplicationArgs{
+	_, err = s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "secondwind",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1165,7 +1165,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 		},
 		AttachStorage: storageTags,
 		NumUnits:      1,
-	}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches,
 		`cannot add application "secondwind": `+
 			`attaching 3 storage instances brings the total to 3, exceeding the maximum of 2`)
@@ -1197,7 +1197,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1222,7 +1222,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
 
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1263,7 +1263,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1288,7 +1288,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1362,7 +1362,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1377,7 +1377,7 @@ func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1469,7 +1469,7 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 
 	u1, err := app1.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.st.AssignUnit(u1, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u1, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := u1.AssignedMachineId()
@@ -1592,7 +1592,7 @@ func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
 			"data": {Pool: "loop"},
 		},
 	}
-	_, err := s.st.AddApplication(args, state.NewObjectStore(c, s.st))
+	_, err := s.st.AddApplication(defaultInstancePrechecker, args, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": invalid storage config: storage provider type "loop" not valid`)
 }
 
@@ -1665,13 +1665,13 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned
 
 	// Assigning the principal unit to a machine should cause the subordinate
 	// unit's machine storage to be created.
-	err = s.st.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.storageInstanceFilesystem(c, storageTag)
 }
 
 func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssigned(c *gc.C) {
-	err := s.st.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	err := s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysqlRelunit.EnterScope(nil)
@@ -1698,7 +1698,7 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssignRace
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err := s.st.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	err := s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.storageInstanceFilesystem(c, names.NewStorageTag("data/0"))
 }

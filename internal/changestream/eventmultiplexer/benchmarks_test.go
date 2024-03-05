@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
@@ -101,16 +101,22 @@ func benchmarkSubscriptions(c *gc.C, numSubs, numEvents int, ns string) {
 	c.Assert(err, gc.IsNil)
 	defer workertest.CleanKill(c, em)
 
+	completed := make([]chan<- struct{}, numSubs)
 	for i := 0; i < numSubs; i++ {
 		sub, err := em.Subscribe(changestream.Namespace(ns, changestream.Update))
 		c.Assert(err, gc.IsNil)
 
 		done := consume(c, sub)
-
-		// This will close with the benchmark is done, not when the for loop
-		// exits.
-		defer close(done)
+		completed = append(completed, done)
 	}
+
+	// This will close with the benchmark is done, not when the for loop
+	// exits.
+	defer func() {
+		for _, ch := range completed {
+			close(ch)
+		}
+	}()
 
 	changes := create(numEvents)
 

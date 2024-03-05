@@ -4,7 +4,7 @@
 package caasagent_test
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -38,6 +38,6 @@ func (s *caasagentSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("someapp"),
 	}
-	_, err := caasagent.NewStateFacadeV2(facadetest.Context{Auth_: s.authorizer})
+	_, err := caasagent.NewStateFacadeV2(facadetest.ModelContext{Auth_: s.authorizer})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

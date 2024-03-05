@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -268,10 +268,10 @@ func mapNetworkConfigsToProviderAddresses(
 }
 
 func spaceInfoForAddress(
-	spaceInfos network.SpaceInfos, CIDR, providerSubnetID, addr string,
+	spaceInfos network.SpaceInfos, cidr, providerSubnetID, addr string,
 ) (*network.SpaceInfo, error) {
-	if CIDR != "" {
-		return spaceInfos.InferSpaceFromCIDRAndSubnetID(CIDR, providerSubnetID)
+	if cidr != "" {
+		return spaceInfos.InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID)
 	}
 	return spaceInfos.InferSpaceFromAddress(addr)
 }

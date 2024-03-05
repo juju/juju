@@ -19,14 +19,20 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
+	flagservice "github.com/juju/juju/domain/flag/service"
+	flagstate "github.com/juju/juju/domain/flag/state"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
+	userservice "github.com/juju/juju/domain/user/service"
+	userstate "github.com/juju/juju/domain/user/state"
 )
 
 // Logger defines the logging interface used by the services.
@@ -59,8 +65,8 @@ func NewControllerFactory(
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *ControllerFactory) ControllerConfig() *controllerconfigservice.Service {
-	return controllerconfigservice.NewService(
+func (s *ControllerFactory) ControllerConfig() *controllerconfigservice.WatchableService {
+	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -80,6 +86,7 @@ func (s *ControllerFactory) ControllerNode() *controllernodeservice.Service {
 func (s *ControllerFactory) Model() *modelservice.Service {
 	return modelservice.NewService(
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		modelservice.DefaultAgentBinaryFinder(),
 	)
 }
 
@@ -99,8 +106,8 @@ func (s *ControllerFactory) ModelManager() *modelmanagerservice.Service {
 }
 
 // ExternalController returns the external controller service.
-func (s *ControllerFactory) ExternalController() *externalcontrollerservice.Service {
-	return externalcontrollerservice.NewService(
+func (s *ControllerFactory) ExternalController() *externalcontrollerservice.WatchableService {
+	return externalcontrollerservice.NewWatchableService(
 		externalcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -110,8 +117,8 @@ func (s *ControllerFactory) ExternalController() *externalcontrollerservice.Serv
 }
 
 // Credential returns the credential service.
-func (s *ControllerFactory) Credential() *credentialservice.Service {
-	return credentialservice.NewService(
+func (s *ControllerFactory) Credential() *credentialservice.WatchableService {
+	return credentialservice.NewWatchableService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -122,8 +129,8 @@ func (s *ControllerFactory) Credential() *credentialservice.Service {
 }
 
 // Cloud returns the cloud service.
-func (s *ControllerFactory) Cloud() *cloudservice.Service {
-	return cloudservice.NewService(
+func (s *ControllerFactory) Cloud() *cloudservice.WatchableService {
+	return cloudservice.NewWatchableService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -140,12 +147,38 @@ func (s *ControllerFactory) AutocertCache() *autocertcacheservice.Service {
 	)
 }
 
-func (s *ControllerFactory) Upgrade() *upgradeservice.Service {
-	return upgradeservice.NewService(
+// Upgrade returns the upgrade service.
+func (s *ControllerFactory) Upgrade() *upgradeservice.WatchableService {
+	return upgradeservice.NewWatchableService(
 		upgradestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
 			s.logger.Child("upgrade"),
 		),
+	)
+}
+
+// AgentObjectStore returns the object store service.
+func (s *ControllerFactory) AgentObjectStore() *objectstoreservice.WatchableService {
+	return objectstoreservice.NewWatchableService(
+		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		domain.NewWatcherFactory(
+			s.controllerDB,
+			s.logger.Child("objectstore"),
+		),
+	)
+}
+
+// Flag returns the flag service.
+func (s *ControllerFactory) Flag() *flagservice.Service {
+	return flagservice.NewService(
+		flagstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger.Child("flag")),
+	)
+}
+
+// User returns the user service.
+func (s *ControllerFactory) User() *userservice.Service {
+	return userservice.NewService(
+		userstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }

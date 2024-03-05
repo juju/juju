@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/juju/osenv"

@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
@@ -36,8 +36,8 @@ func (u *Unit) Life() life.Value {
 }
 
 // Refresh updates the cached local copy of the unit's data.
-func (u *Unit) Refresh() error {
-	life, err := u.client.life(u.tag)
+func (u *Unit) Refresh(ctx context.Context) error {
+	life, err := u.client.life(ctx, u.tag)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/apiserver/common"
@@ -31,7 +31,7 @@ var _ ProxyUpdaterV2 = (*API)(nil)
 
 // newFacadeBase provides the signature required for facade registration
 // and creates a v2 facade.
-func newFacadeBase(ctx facade.Context) (*API, error) {
+func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {

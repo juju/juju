@@ -74,9 +74,9 @@ func NewStateShim(st *state.State, cloudService common.CloudService, credentialS
 }
 
 func (s *stateShim) AddSpace(
-	name string, providerId network.Id, subnetIds []string, public bool,
+	name string, providerId network.Id, subnetIds []string,
 ) (networkingcommon.BackingSpace, error) {
-	result, err := s.State.AddSpace(name, providerId, subnetIds, public)
+	result, err := s.State.AddSpace(name, providerId, subnetIds)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

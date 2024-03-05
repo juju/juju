@@ -12,8 +12,8 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreschema "github.com/juju/juju/core/database/schema"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/pragma"
@@ -23,6 +23,10 @@ type BootstrapNodeManager interface {
 	// EnsureDataDir ensures that a directory for Dqlite data exists at
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
+
+	// IsLoopbackPreferred returns true if the Dqlite application should
+	// be bound to the loopback address.
+	IsLoopbackPreferred() bool
 
 	// WithLoopbackAddressOption returns a Dqlite application
 	// Option that will bind Dqlite to the loopback IP.
@@ -79,7 +83,7 @@ func BootstrapControllerConcern(ops ...BootstrapOpt) BootstrapConcern {
 
 // BootstrapModelConcern is a BootstrapConcern type that will run the
 // provided BootstrapOpts on the specified model database.
-func BootstrapModelConcern(uuid model.UUID, ops ...BootstrapOpt) BootstrapConcern {
+func BootstrapModelConcern(uuid coremodel.UUID, ops ...BootstrapOpt) BootstrapConcern {
 	return bootstrapDBConcern(uuid.String(), schema.ModelDDL(), EmptyInit, ops...)
 }
 
@@ -167,17 +171,10 @@ type BootstrapOpt func(context.Context, coredatabase.TxnRunner) error
 //
 // It accepts an optional list of functions to perform operations on the
 // controller database.
-//
-// If preferLoopback is true, we bind Dqlite to 127.0.0.1 and eschew TLS
-// termination. This is useful primarily in unit testing.
-// If it is false, we attempt to identify a unique local-cloud address.
-// If we find one, we use it as the bind address. Otherwise, we fall back
-// to the loopback binding.
 func BootstrapDqlite(
 	ctx context.Context,
 	mgr BootstrapNodeManager,
 	logger Logger,
-	preferLoopback bool,
 	concerns ...BootstrapConcern,
 ) error {
 	dir, err := mgr.EnsureDataDir()
@@ -186,7 +183,7 @@ func BootstrapDqlite(
 	}
 
 	options := []app.Option{mgr.WithLogFuncOption()}
-	if preferLoopback {
+	if mgr.IsLoopbackPreferred() {
 		options = append(options, mgr.WithLoopbackAddressOption())
 	} else {
 		addrOpt, err := mgr.WithPreferredCloudLocalAddressOption(network.DefaultConfigSource())

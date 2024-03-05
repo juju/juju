@@ -7,13 +7,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/utils/v3"
-
 	"github.com/juju/juju/core/changestream"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/objectstore"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for the coreobjectstore.
@@ -22,6 +21,8 @@ type State interface {
 	GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error)
 	// PutMetadata adds a new specified path for the persistence metadata.
 	PutMetadata(ctx context.Context, metadata objectstore.Metadata) error
+	// ListMetadata returns the persistence metadata for all paths.
+	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
 	// InitialWatchStatement returns the table and the initial watch statement
@@ -38,15 +39,13 @@ type WatcherFactory interface {
 
 // Service provides the API for working with the coreobjectstore.
 type Service struct {
-	st             State
-	watcherFactory WatcherFactory
+	st State
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, watcherFactory WatcherFactory) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		st:             st,
-		watcherFactory: watcherFactory,
+		st: st,
 	}
 }
 
@@ -63,9 +62,26 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (coreobjectstore
 	}, nil
 }
 
+// ListMetadata returns the persistence metadata for all paths.
+func (s *Service) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error) {
+	metadata, err := s.st.ListMetadata(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving metadata: %w", domain.CoerceError(err))
+	}
+	m := make([]coreobjectstore.Metadata, len(metadata))
+	for i, v := range metadata {
+		m[i] = coreobjectstore.Metadata{
+			Path: v.Path,
+			Hash: v.Hash,
+			Size: v.Size,
+		}
+	}
+	return m, nil
+}
+
 // PutMetadata adds a new specified path for the persistence metadata.
 func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return err
 	}
@@ -91,9 +107,26 @@ func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	return nil
 }
 
+// WatchableService provides the API for working with the objectstore
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
-func (s *Service) Watch() (watcher.StringsWatcher, error) {
+func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
 		table,

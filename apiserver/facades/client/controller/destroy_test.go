@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -61,7 +61,8 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 		Tag: jujutesting.AdminUser,
 	}
 	testController, err := controller.NewControllerAPIv11(
-		facadetest.Context{
+		context.Background(),
+		facadetest.ModelContext{
 			State_:          s.ControllerModel(c).State(),
 			StatePool_:      s.StatePool(),
 			Resources_:      s.resources,

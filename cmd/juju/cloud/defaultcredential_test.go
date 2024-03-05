@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
+	_ "github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/testing"
 )
 

@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -20,7 +19,7 @@ import (
 )
 
 type ResourcesSuite struct {
-	testing.IsolationSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&ResourcesSuite{})
@@ -38,7 +37,7 @@ func (s *ResourcesSuite) TestListResourceRevisions(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name, resource)
 
-	client := newResourcesClient(path, restClient, &FakeLogger{})
+	client := newResourcesClient(path, restClient, s.logger)
 	response, err := client.ListResourceRevisions(context.Background(), name, resource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.HasLen, 3)
@@ -57,7 +56,7 @@ func (s *ResourcesSuite) TestListResourceRevisionsFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(restClient)
 
-	client := newResourcesClient(path, restClient, &FakeLogger{})
+	client := newResourcesClient(path, restClient, s.logger)
 	_, err := client.ListResourceRevisions(context.Background(), name, resource)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -98,10 +97,10 @@ func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *gc.C) {
 	resourcesPath, err := basePath.Join("resources")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
+	apiRequester := newAPIRequester(DefaultHTTPClient(s.loggerFactory), s.logger)
 	restClient := newHTTPRESTClient(apiRequester)
 
-	client := newResourcesClient(resourcesPath, restClient, &FakeLogger{})
+	client := newResourcesClient(resourcesPath, restClient, s.logger)
 	response, err := client.ListResourceRevisions(context.Background(), "wordpress", "image")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, resourcesResponse.Revisions)

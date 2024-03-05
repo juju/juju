@@ -7,9 +7,9 @@ package providerinit_test
 import (
 	"path"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
+	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/testing"
 )
 

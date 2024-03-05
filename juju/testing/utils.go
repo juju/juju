@@ -10,16 +10,17 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -27,18 +28,18 @@ import (
 // PutCharm uploads the given charm to provider storage, and adds a
 // state.Charm to the state.  The charm is not uploaded if a charm with
 // the same URL already exists in the state.
-func PutCharm(st *state.State, curl *charm.URL, ch *charm.CharmDir) (*state.Charm, error) {
+func PutCharm(st *state.State, objectStore coreobjectstore.ObjectStore, curl *charm.URL, ch *charm.CharmDir) (*state.Charm, error) {
 	if curl.Revision == -1 {
 		curl.Revision = ch.Revision()
 	}
 	if sch, err := st.Charm(curl.String()); err == nil {
 		return sch, nil
 	}
-	return AddCharm(st, curl.String(), ch, false)
+	return AddCharm(st, objectStore, curl.String(), ch, false)
 }
 
 // AddCharm adds the charm to state and storage.
-func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.Charm, error) {
+func AddCharm(st *state.State, objectStore coreobjectstore.ObjectStore, curl string, ch charm.Charm, force bool) (*state.Charm, error) {
 	var f *os.File
 	name := charm.Quote(curl)
 	switch ch := ch.(type) {
@@ -81,17 +82,8 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 		return nil, err
 	}
 
-	stor, err := objectstore.ObjectStoreFactory(
-		context.Background(),
-		objectstore.DefaultBackendType(),
-		st.ModelUUID(),
-		objectstore.WithMongoSession(st),
-	)
-	if err != nil {
-		return nil, err
-	}
 	storagePath := fmt.Sprintf("/charms/%s-%s", curl, digest)
-	if err := stor.Put(context.Background(), storagePath, f, size); err != nil {
+	if err := objectStore.Put(context.Background(), storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
 	info := state.CharmInfo{
@@ -107,14 +99,22 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 	return sch, nil
 }
 
-func NewObjectStore(c *gc.C, modelUUID string, st objectstore.MongoSession) coreobjectstore.ObjectStore {
-	// This will be removed when the worker object store is enabled by default.
+func NewObjectStore(c *gc.C, modelUUID string) coreobjectstore.ObjectStore {
+	return NewObjectStoreWithMetadataService(c, modelUUID, objectstoretesting.MemoryMetadataService())
+}
+
+func NewObjectStoreWithMetadataService(c *gc.C, modelUUID string, metadataService objectstore.MetadataService) coreobjectstore.ObjectStore {
 	store, err := objectstore.ObjectStoreFactory(
 		context.Background(),
 		objectstore.DefaultBackendType(),
 		modelUUID,
-		objectstore.WithMongoSession(st),
+		objectstore.WithRootDir(c.MkDir()),
 		objectstore.WithLogger(testing.NewCheckLogger(c)),
+
+		// TODO (stickupkid): Swap this over to the real metadata service
+		// when all facades are moved across.
+		objectstore.WithMetadataService(metadataService),
+		objectstore.WithClaimer(objectstoretesting.MemoryClaimer()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return store
@@ -149,7 +149,7 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 // and State.APIAddresses methods, which will not bear any relation to
 // the be the addresses used by the controllers.
 func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +157,7 @@ func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 	c.Assert(err, jc.ErrorIsNil)
 
 	hostPorts := []network.SpaceHostPorts{network.NewSpaceHostPorts(1234, "0.1.2.3")}
-	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
+	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return machine

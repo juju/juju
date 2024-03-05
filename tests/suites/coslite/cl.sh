@@ -8,6 +8,7 @@ run_deploy_coslite() {
 	file="${TEST_DIR}/${model_name}.log"
 	ensure "${model_name}" "${file}"
 
+	juju deploy ubuntu-lite # deploy ubuntu-lite for a container that can easily access cos-lite components on all k8s
 	juju deploy cos-lite --trust --channel=stable
 	juju config traefik external_hostname=test-coslite.com
 	echo "Wait for all unit agents to be in idle condition"
@@ -22,15 +23,15 @@ run_deploy_coslite() {
 
 	echo "check if alertmanager is ready"
 	alertmanager_ip=$(juju status --format=json | jq -r '.applications.alertmanager.units."alertmanager/0".address')
-	check_ready "http://$alertmanager_ip:9093" 200
+	check_ready "http://$alertmanager_ip:9093/-/ready" 200
 
 	echo "check if grafana is ready"
 	grafana_ip=$(juju status --format=json | jq -r '.applications.grafana.units."grafana/0".address')
-	check_ready "http://$grafana_ip:3000" 200
+	check_ready "http://$grafana_ip:3000/api/health" 200
 
 	echo "check if prometheus is ready"
 	prometheus_ip=$(juju status --format=json | jq -r '.applications.prometheus.units."prometheus/0".address')
-	check_ready "http://$prometheus_ip:9090" 200
+	check_ready "http://$prometheus_ip:9090/-/ready" 200
 
 	echo "cos lite tests passed"
 }
@@ -42,12 +43,12 @@ check_ready() {
 	code=${2}
 	attempt=1
 	while true; do
-		status_code=$(curl --write-out "%{http_code}" -L --silent --output /dev/null "${url}")
+		status_code=$(juju ssh ubuntu-lite/0 curl --write-out "%{http_code}" -L --silent --output /dev/null "${url}")
 		if [[ $status_code -eq $code ]]; then
 			echo "Ready to serve traffic"
 			break
 		fi
-		if [[ ${attempt} -ge 3 ]]; then
+		if [[ ${attempt} -ge 5 ]]; then
 			echo "Failed to connect to ${url} after ${attempt} attempts with status code ${status_code}"
 			exit 1
 		fi

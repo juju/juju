@@ -230,7 +230,7 @@ import (
     "io"
 
     "github.com/juju/errors"
-    "github.com/juju/loggo"
+    "github.com/juju/loggo/v2"
     gc "gopkg.in/check.v1"
 
     "github.com/juju/juju/environs"

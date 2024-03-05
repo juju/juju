@@ -50,6 +50,42 @@ WHERE path = ?`
 	return metadata, nil
 }
 
+// ListMetadata returns the persistence metadata.
+func (s *State) ListMetadata(ctx context.Context) ([]objectstore.Metadata, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	query := `
+SELECT p.path, p.metadata_uuid, m.size, m.hash
+FROM object_store_metadata_path p
+LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`
+
+	var metadata []objectstore.Metadata
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, query)
+		if err != nil {
+			return fmt.Errorf("retrieving metadata: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var m objectstore.Metadata
+			if err := rows.Scan(&m.Path, &m.UUID, &m.Size, &m.Hash); err != nil {
+				return fmt.Errorf("retrieving metadata: %w", err)
+			}
+			metadata = append(metadata, m)
+		}
+
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, fmt.Errorf("retrieving metadata: %w", err)
+	}
+	return metadata, nil
+}
+
 // PutMetadata adds a new specified path for the persistence metadata.
 func (s *State) PutMetadata(ctx context.Context, metadata objectstore.Metadata) error {
 	db, err := s.DB()

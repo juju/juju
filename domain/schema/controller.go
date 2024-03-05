@@ -10,7 +10,7 @@ import (
 type tableNamespaceID int
 
 const (
-	tableExternalController tableNamespaceID = iota + 1
+	tableExternalController tableNamespaceID = iota
 	tableControllerNode
 	tableControllerConfig
 	tableModelMigrationStatus
@@ -21,6 +21,7 @@ const (
 	tableAutocertCache
 	tableUpgradeInfoControllerNode
 	tableObjectStoreMetadata
+	tableSecretBackendRotation
 )
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
@@ -28,37 +29,44 @@ func ControllerDDL() *schema.Schema {
 	patches := []func() schema.Patch{
 		leaseSchema,
 		changeLogSchema,
-		changeLogControllerNamespaces,
+		changeLogControllerNamespacesSchema,
 		cloudSchema,
-		changeLogTriggersForTable("cloud", "uuid", tableCloud),
-		changeLogTriggersForTable("cloud_credential", "uuid", tableCloudCredential),
 		externalControllerSchema,
-		changeLogTriggersForTable("external_controller", "uuid", tableExternalController),
 		modelListSchema,
 		modelMetadataSchema,
+		modelAgentSchema,
 		controllerConfigSchema,
-		changeLogTriggersForTable("controller_config", "key", tableControllerConfig),
-		controllerNodeTable,
-		changeLogTriggersForTable("controller_node", "controller_id", tableControllerNode),
+		controllerNodeTableSchema,
 		modelMigrationSchema,
-		changeLogTriggersForTable("model_migration_status", "uuid", tableModelMigrationStatus),
-		changeLogTriggersForTable("model_migration_minion_sync", "uuid", tableModelMigrationMinionSync),
 		upgradeInfoSchema,
-		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
-		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		autocertCacheSchema,
 		objectStoreMetadataSchema,
-		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
-		modelConfigDefaults,
+		flagSchema,
+		userPermissionSchema,
+		secretBackendSchema,
 	}
 
-	schema := schema.New()
+	patches = append(patches,
+		changeLogTriggersForTable("cloud", "uuid", tableCloud),
+		changeLogTriggersForTable("cloud_credential", "uuid", tableCloudCredential),
+		changeLogTriggersForTable("external_controller", "uuid", tableExternalController),
+		changeLogTriggersForTable("controller_config", "key", tableControllerConfig),
+		changeLogTriggersForTable("controller_node", "controller_id", tableControllerNode),
+		changeLogTriggersForTable("model_migration_status", "uuid", tableModelMigrationStatus),
+		changeLogTriggersForTable("model_migration_minion_sync", "uuid", tableModelMigrationMinionSync),
+		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
+		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
+		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
+		changeLogTriggersForTableOnColumn("secret_backend_rotation", "backend_uuid", "next_rotation_time", tableSecretBackendRotation),
+	)
+
+	ctrlSchema := schema.New()
 	for _, fn := range patches {
-		schema.Add(fn())
+		ctrlSchema.Add(fn())
 	}
 
-	return schema
+	return ctrlSchema
 }
 
 func leaseSchema() schema.Patch {
@@ -112,22 +120,23 @@ CREATE INDEX idx_lease_pin_lease
 ON lease_pin (lease_uuid);`)
 }
 
-func changeLogControllerNamespaces() schema.Patch {
+func changeLogControllerNamespacesSchema() schema.Patch {
 	// Note: These should match exactly the values of the tableNamespaceID
 	// constants above.
 	return schema.MakePatch(`
 INSERT INTO change_log_namespace VALUES
-    (1, 'external_controller', 'external controller changes based on the UUID'),
-    (2, 'controller_node', 'controller node changes based on the controller ID'),
-    (3, 'controller_config', 'controller config changes based on the key'),
-    (4, 'model_migration_status', 'model migration status changes based on the UUID'),
-    (5, 'model_migration_minion_sync', 'model migration minion sync changes based on the UUID'),
-    (6, 'upgrade_info', 'upgrade info changes based on the UUID'),
-    (7, 'cloud', 'cloud changes based on the UUID'),
-    (8, 'cloud_credential', 'cloud credential changes based on the UUID'),
-    (9, 'autocert_cache', 'autocert cache changes based on the UUID'),
-    (10, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
-    (11, 'object_store_metadata_path', 'object store metadata path changes based on the path')
+    (0, 'external_controller', 'external controller changes based on the UUID'),
+    (1, 'controller_node', 'controller node changes based on the controller ID'),
+    (2, 'controller_config', 'controller config changes based on the key'),
+    (3, 'model_migration_status', 'model migration status changes based on the UUID'),
+    (4, 'model_migration_minion_sync', 'model migration minion sync changes based on the UUID'),
+    (5, 'upgrade_info', 'upgrade info changes based on the UUID'),
+    (6, 'cloud', 'cloud changes based on the UUID'),
+    (7, 'cloud_credential', 'cloud credential changes based on the UUID'),
+    (8, 'autocert_cache', 'autocert cache changes based on the UUID'),
+    (9, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
+    (10, 'object_store_metadata_path', 'object store metadata path changes based on the path'),
+    (11, 'secret_backend_rotation', 'secret backend rotation changes based on the backend UUID and next rotation time');
 `)
 }
 
@@ -206,7 +215,6 @@ CREATE TABLE cloud_defaults (
 );
 
 CREATE TABLE cloud_auth_type (
-    uuid              TEXT PRIMARY KEY,
     cloud_uuid        TEXT NOT NULL,
     auth_type_id      INT NOT NULL,
     CONSTRAINT        fk_cloud_auth_type_cloud
@@ -215,6 +223,7 @@ CREATE TABLE cloud_auth_type (
     CONSTRAINT        fk_cloud_auth_type_auth_type
         FOREIGN KEY       (auth_type_id)
         REFERENCES        auth_type(id)
+    PRIMARY KEY (cloud_uuid, auth_type_id)
 );
 
 CREATE UNIQUE INDEX idx_cloud_auth_type_cloud_uuid_auth_type_id
@@ -250,12 +259,12 @@ CREATE TABLE cloud_region_defaults (
 );
 
 CREATE TABLE cloud_ca_cert (
-    uuid              TEXT PRIMARY KEY,
     cloud_uuid        TEXT NOT NULL,
     ca_cert           TEXT NOT NULL,
     CONSTRAINT        fk_cloud_ca_cert_cloud
         FOREIGN KEY       (cloud_uuid)
         REFERENCES        cloud(uuid)
+    PRIMARY KEY (cloud_uuid, ca_cert)
 );
 
 CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert
@@ -277,13 +286,34 @@ CREATE TABLE cloud_credential (
         CONSTRAINT          fk_cloud_credential_auth_type
             FOREIGN KEY         (auth_type_id)
             REFERENCES          auth_type(id)
---        CONSTRAINT          fk_cloud_credential_XXXX
---            FOREIGN KEY         (owner_uuid)
---            REFERENCES          XXXX(uuid)
+        CONSTRAINT          fk_cloud_credential_user
+            FOREIGN KEY         (owner_uuid)
+            REFERENCES          user(uuid)
 );
 
 CREATE UNIQUE INDEX idx_cloud_credential_cloud_uuid_owner_uuid
 ON cloud_credential (cloud_uuid, owner_uuid, name);
+
+-- view_cloud_credential provides a convenience view for accessing a
+-- credentials uuid baseD on the natural key used to display the credential to
+-- users.
+CREATE VIEW v_cloud_credential
+AS
+SELECT cc.uuid,
+       cc.cloud_uuid,
+       cc.auth_type_id,
+       cc.owner_uuid,
+       cc.name,
+       cc.revoked,
+       cc.invalid,
+       cc.invalid_reason,
+       c.name AS cloud_name,
+       u.name AS owner_name
+FROM cloud_credential AS cc
+INNER JOIN cloud c
+ON c.uuid = cc.cloud_uuid
+INNER JOIN user u
+ON u.uuid = cc.owner_uuid;
 
 CREATE TABLE cloud_credential_attributes (
     cloud_credential_uuid TEXT NOT NULL,
@@ -356,7 +386,6 @@ CREATE TABLE model_metadata (
     model_type_id         INT,
     name                  TEXT NOT NULL,
     owner_uuid            TEXT NOT NULL,
-
     CONSTRAINT            fk_model_metadata_model
         FOREIGN KEY           (model_uuid)
         REFERENCES            model_list(uuid),
@@ -372,14 +401,34 @@ CREATE TABLE model_metadata (
     CONSTRAINT            fk_model_metadata_model_type_id
         FOREIGN KEY           (model_type_id)
         REFERENCES            model_type(id)
---    CONSTRAINT            fk_model_metadata_XXXX
---        FOREIGN KEY           (owner_uuid)
---        REFERENCES            XXXX(uuid)
+    CONSTRAINT            fk_model_metadata_owner_uuid
+        FOREIGN KEY           (owner_uuid)
+        REFERENCES            user(uuid)
 );
 
 CREATE UNIQUE INDEX idx_model_metadata_name_owner
 ON model_metadata (name, owner_uuid);
 `)
+}
+
+func modelAgentSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE model_agent (
+    model_uuid TEXT PRIMARY KEY,
+
+    -- previous_version describes the agent version that was in use before the
+    -- the current target_version.
+    previous_version TEXT NOT NULL,
+
+    -- target_version describes the desired agent version that should be
+    -- being run in this model. It should not be considered "the" version that
+    -- is being run for every agent as each agent needs to upgrade to this
+    -- version.
+    target_version TEXT NOT NULL,
+    CONSTRAINT            fk_model_agent_model
+        FOREIGN KEY           (model_uuid)
+        REFERENCES            model_list(uuid)
+);`)
 }
 
 func controllerConfigSchema() schema.Patch {
@@ -390,7 +439,7 @@ CREATE TABLE controller_config (
 );`)
 }
 
-func controllerNodeTable() schema.Patch {
+func controllerNodeTableSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE controller_node (
     controller_id  TEXT PRIMARY KEY, 
@@ -545,8 +594,8 @@ CREATE TABLE user (
     uuid            TEXT PRIMARY KEY,
     name            TEXT NOT NULL,
     display_name    TEXT,
-    removed         BOOLEAN NOT NULL,
-    created_by_uuid TEXT,
+    removed         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by_uuid TEXT NOT NULL,
     created_at      TIMESTAMP NOT NULL,
     CONSTRAINT      fk_user_created_by_user
         FOREIGN KEY (created_by_uuid)
@@ -557,7 +606,7 @@ CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FA
 
 CREATE TABLE user_authentication (
     user_uuid      TEXT PRIMARY KEY,
-    last_login     TIMESTAMP NOT NULL,
+    last_login     TIMESTAMP,
     disabled       BOOLEAN NOT NULL,
     CONSTRAINT     fk_user_authentication_user
         FOREIGN KEY (user_uuid)
@@ -579,22 +628,110 @@ CREATE TABLE user_activation_key (
     CONSTRAINT      fk_user_activation_key_user
         FOREIGN KEY (user_uuid)
     REFERENCES      user_authentication(user_uuid)
-);`)
+);
+
+CREATE VIEW v_user_auth AS
+SELECT u.uuid, 
+       u.name, 
+       u.display_name, 
+       u.removed,
+       u.created_by_uuid, 
+       u.created_at,
+       a.last_login, 
+       a.disabled
+FROM   user u LEFT JOIN user_authentication a on u.uuid = a.user_uuid;
+`)
 }
 
-// modelConfigDefaults is responsible for making a model config defaults table.
-// The purpose of this table is to offer model defaults to all newly created
-// models in Juju regardless of what cloud or cloud region the model is attached
-// to.
-//
-// Previously Juju has been solving this problem by using the controller model
-// config as this source of information. We want to stop special casing the
-// controller's model and using it as a defaults source for other models.
-func modelConfigDefaults() schema.Patch {
+func flagSchema() schema.Patch {
 	return schema.MakePatch(`
-CREATE TABLE model_config_defaults (
-    key TEXT PRIMARY KEY,
-    value TEXT
-)
+CREATE TABLE flag (
+    name TEXT PRIMARY KEY,
+    value BOOLEAN DEFAULT 0,
+    description TEXT NOT NULL
+);
+`)
+}
+
+func userPermissionSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE permission_access_type (
+    id     INT PRIMARY KEY,
+    type   TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_permission_access_type
+ON permission_access_type (type);
+
+-- Maps to the Access type in core/permission package.
+INSERT INTO permission_access_type VALUES
+    (0, 'read'),
+    (1, 'write'),
+    (2, 'consume'),
+    (3, 'admin'),
+    (4, 'login'),
+    (5, 'addmodel'),
+    (6, 'superuser');
+
+CREATE TABLE permission_object_type (
+    id    INT PRIMARY KEY,
+    type  TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_permission_object_type
+ON permission_object_type (type);
+
+-- Maps to the ObjectType type in core/permission package.
+INSERT INTO permission_object_type VALUES
+    (0, 'cloud'),
+    (1, 'controller'),
+    (2, 'model'),
+    (3, 'offer');
+
+CREATE TABLE permission_object_access (
+    id              INT PRIMARY KEY,
+    access_type_id  INT NOT NULL,
+    object_type_id  INT NOT NULL,
+    CONSTRAINT      fk_permission_access_type
+        FOREIGN KEY (access_type_id)
+        REFERENCES  permission_access_type(id),
+    CONSTRAINT      fk_permission_object_type
+        FOREIGN KEY (object_type_id)
+        REFERENCES  permission_object_type(id)
+);
+
+CREATE UNIQUE INDEX idx_permission_object_access
+ON permission_object_access (access_type_id, object_type_id);
+
+INSERT INTO permission_object_access VALUES
+    (0, 3, 0), -- admin, cloud
+    (1, 5, 0), -- addmodel, cloud
+    (2, 4, 1), -- login, controller
+    (3, 6, 1), -- superuser, controller
+    (4, 0, 2), -- read, model
+    (5, 1, 2), -- write, model
+    (6, 3, 2), -- admin, model
+    (7, 0, 3), -- read, offer
+    (8, 2, 3), -- consume, offer
+    (9, 3, 3); -- admin, offer
+
+-- Column grant_to may extend to entities beyond users.
+-- The name of the column is general, but for now we retain the FK constraint.
+-- We will need to remove/replace it in the event of change
+CREATE TABLE permission (
+    uuid               TEXT PRIMARY KEY,
+    permission_type_id INT NOT NULL,
+    grant_on  		   TEXT NOT NULL, -- name or uuid of the object
+    grant_to           TEXT NOT NULL,
+    CONSTRAINT         fk_permission_user_uuid
+        FOREIGN KEY    (grant_on)
+        REFERENCES     user(uuid),
+    CONSTRAINT         fk_permission_access_type
+        FOREIGN KEY    (permission_type_id)
+        REFERENCES     permission_access_type(id)
+);
+
+CREATE UNIQUE INDEX idx_permission_type_to
+ON permission (permission_type_id, grant_on, grant_to);
 `)
 }

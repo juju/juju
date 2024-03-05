@@ -8,10 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -116,12 +116,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		"10.0.4.4", // lxd bridge address filtered.
 		"10.0.4.5", // not a lxd bridge address
 	}).AsProviderAddresses()
-	filteredAddrs := corenetwork.NewSpaceAddresses(
-		"zeroonetwothree",
-		"0.1.2.3",
-		"10.0.3.3",
-		"10.0.4.5",
-	)
 
 	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"agent-version":  jujuversion.Current.String(),
@@ -132,8 +126,8 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 
-	initialModelUUID := utils.MustNewUUID().String()
-	InitialModelConfigAttrs := map[string]interface{}{
+	initialModelUUID := uuid.MustNewUUID().String()
+	initialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
 		"uuid": initialModelUUID,
 	}
@@ -166,7 +160,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		ControllerModelEnvironVersion: 666,
 		ModelConstraints:              expectModelConstraints,
 		ControllerInheritedConfig:     controllerInheritedConfig,
-		InitialModelConfig:            InitialModelConfigAttrs,
+		InitialModelConfig:            initialModelConfigAttrs,
 		StoragePools: map[string]storage.Attrs{
 			"spool": {
 				"type": "loop",
@@ -193,6 +187,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 				return &envProvider, nil
 			},
 			Logger: testing.NewCheckLogger(c),
+			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
+				return state.NoopInstancePrechecker{}, nil
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -289,7 +286,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Base().String(), gc.Equals, base.String())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
-	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
@@ -297,13 +293,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
-
-	// Check that the API host ports are initialised correctly.
-	apiHostPorts, err := st.APIHostPortsForClients(controllerCfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiHostPorts, jc.DeepEquals, []corenetwork.SpaceHostPorts{
-		corenetwork.SpaceAddressesWithPort(filteredAddrs, 1234),
-	})
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
@@ -399,6 +388,9 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
 			Logger:                    testing.NewCheckLogger(c),
+			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
+				return state.NoopInstancePrechecker{}, nil
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -438,9 +430,9 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	InitialModelConfigAttrs := map[string]interface{}{
+	initialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 	}
 
 	args := instancecfg.StateInitializationParams{
@@ -454,7 +446,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		},
 		ControllerConfig:      testing.FakeControllerConfig(),
 		ControllerModelConfig: modelCfg,
-		InitialModelConfig:    InitialModelConfigAttrs,
+		InitialModelConfig:    initialModelConfigAttrs,
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
@@ -474,6 +466,9 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 				return &fakeProvider{}, nil
 			},
 			Logger: testing.NewCheckLogger(c),
+			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
+				return state.NoopInstancePrechecker{}, nil
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -493,6 +488,9 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           database.BootstrapDqlite,
 			Logger:                    testing.NewCheckLogger(c),
+			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
+				return state.NoopInstancePrechecker{}, nil
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -589,11 +587,11 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 	return e.provider
 }
 
-func bootstrapDqliteWithDummyCloudType(ctx context.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, concerns ...database.BootstrapConcern) error {
+func bootstrapDqliteWithDummyCloudType(ctx context.Context, mgr database.BootstrapNodeManager, logger database.Logger, concerns ...database.BootstrapConcern) error {
 	// The dummy cloud type needs to be inserted before the other operations.
 	concerns = append([]database.BootstrapConcern{
 		database.BootstrapControllerInitConcern(database.EmptyInit, jujujujutesting.InsertDummyCloudType),
 	}, concerns...)
 
-	return database.BootstrapDqlite(ctx, mgr, logger, preferLoopback, concerns...)
+	return database.BootstrapDqlite(ctx, mgr, logger, concerns...)
 }

@@ -6,9 +6,10 @@ package objectstore
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/worker/v3"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/objectstore"
 )
@@ -24,6 +25,11 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
+// MetadataService is the interface that is used to get a object store.
+type MetadataService interface {
+	ObjectStore() objectstore.ObjectStoreMetadata
+}
+
 // TrackedObjectStore is a ObjectStore that is also a worker, to ensure the
 // lifecycle of the objectStore is managed.
 type TrackedObjectStore interface {
@@ -35,10 +41,31 @@ type TrackedObjectStore interface {
 // store.
 type Option func(*options)
 
-// WithMongoSession is the option to set the mongo session to use.
-func WithMongoSession(session MongoSession) Option {
+// WithRootDir is the option to set the root directory to use.
+func WithRootDir(rootDir string) Option {
 	return func(o *options) {
-		o.mongoSession = session
+		o.rootDir = rootDir
+	}
+}
+
+// WithRootBucket is the option to set the root bucket to use.
+func WithRootBucket(rootBucket string) Option {
+	return func(o *options) {
+		o.rootBucket = rootBucket
+	}
+}
+
+// WithS3Client is the option to set the s3 client to use.
+func WithS3Client(client objectstore.Client) Option {
+	return func(o *options) {
+		o.s3Client = client
+	}
+}
+
+// WithMetadataService is the option to set the metadata service to use.
+func WithMetadataService(metadataService MetadataService) Option {
+	return func(o *options) {
+		o.metadataService = metadataService
 	}
 }
 
@@ -49,14 +76,34 @@ func WithLogger(logger Logger) Option {
 	}
 }
 
+// WithClaimer is the option to set the claimer to use.
+func WithClaimer(claimer Claimer) Option {
+	return func(o *options) {
+		o.claimer = claimer
+	}
+}
+
+// WithClock is the option to set the clock to use.
+func WithClock(clock clock.Clock) Option {
+	return func(o *options) {
+		o.clock = clock
+	}
+}
+
 type options struct {
-	mongoSession MongoSession
-	logger       Logger
+	rootDir         string
+	rootBucket      string
+	s3Client        objectstore.Client
+	metadataService MetadataService
+	claimer         Claimer
+	logger          Logger
+	clock           clock.Clock
 }
 
 func newOptions() *options {
 	return &options{
 		logger: loggo.GetLogger("juju.objectstore"),
+		clock:  clock.WallClock,
 	}
 }
 
@@ -72,8 +119,26 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 		option(opts)
 	}
 	switch backendType {
-	case objectstore.StateBackend:
-		return NewStateObjectStore(ctx, namespace, opts.mongoSession, opts.logger)
+	case objectstore.FileBackend:
+		return NewFileObjectStore(ctx, FileObjectStoreConfig{
+			Namespace:       namespace,
+			RootDir:         opts.rootDir,
+			MetadataService: opts.metadataService.ObjectStore(),
+			Claimer:         opts.claimer,
+			Logger:          opts.logger,
+			Clock:           opts.clock,
+		})
+	case objectstore.S3Backend:
+		return NewS3ObjectStore(ctx, S3ObjectStoreConfig{
+			RootBucket:      opts.rootBucket,
+			Namespace:       namespace,
+			RootDir:         opts.rootDir,
+			Client:          opts.s3Client,
+			MetadataService: opts.metadataService.ObjectStore(),
+			Claimer:         opts.claimer,
+			Logger:          opts.logger,
+			Clock:           opts.clock,
+		})
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
 	}
@@ -91,5 +156,5 @@ func BackendTypeOrDefault(objectStoreType objectstore.BackendType) objectstore.B
 // DefaultBackendType returns the default backend type for the given object
 // store type or falls back to the default backend type.
 func DefaultBackendType() objectstore.BackendType {
-	return objectstore.StateBackend
+	return objectstore.FileBackend
 }

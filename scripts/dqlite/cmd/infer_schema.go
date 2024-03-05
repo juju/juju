@@ -18,7 +18,7 @@ import (
 	"unicode"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 var (

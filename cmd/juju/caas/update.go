@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/caas"
@@ -154,7 +154,7 @@ func (c *UpdateCAASCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
+func (c *UpdateCAASCommand) newK8sClusterBroker(ctx stdcontext.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -167,7 +167,7 @@ func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credentia
 		openParams.ControllerUUID = ctrlUUID
 	}
 
-	broker, err := caas.New(stdcontext.TODO(), openParams)
+	broker, err := caas.New(ctx, openParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -265,12 +265,12 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 
 	// Check the cluster only if we have a credential to use.
 	if credential != nil {
-		broker, err := c.brokerGetter(*newCloud, *credential)
+		broker, err := c.brokerGetter(ctx, *newCloud, *credential)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		if _, err := broker.GetClusterMetadata(""); err != nil {
+		if _, err := broker.GetClusterMetadata(ctx, ""); err != nil {
 			return errors.Annotate(err, "unable to update k8s cluster because the cluster is not accessible")
 		}
 	}

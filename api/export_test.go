@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/internal/proxy"
@@ -19,11 +19,11 @@ import (
 var (
 	CertDir             = &certDir
 	SlideAddressToFront = slideAddressToFront
-	BestVersion         = bestVersion
+	FacadeVersions      = &facadeVersions
 )
 
 func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
-	result, err := dialAPI(context.TODO(), info, opts)
+	result, err := dialAPI(context.Background(), info, opts)
 	if err != nil {
 		return nil, "", err
 	}

@@ -4,6 +4,7 @@
 package caas_test
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,12 +12,12 @@ import (
 	"strings"
 
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
@@ -169,7 +169,7 @@ type fakeK8sClusterMetadataChecker struct {
 	existingSC bool
 }
 
-func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
+func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(ctx context.Context, storageClass string) (result *k8s.ClusterMetadata, err error) {
 	results := api.MethodCall(api, "GetClusterMetadata")
 	return results[0].(*k8s.ClusterMetadata), jujutesting.TypeAssertError(results[1])
 }
@@ -373,12 +373,12 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 		func() (caas.AddCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
-		func(_ jujuclock.Clock) clientconfig.K8sCredentialResolver {
+		func(_ context.Context, _ jujuclock.Clock) clientconfig.K8sCredentialResolver {
 			return func(_ string, c *clientcmdapi.Config, _ string) (*clientcmdapi.Config, error) {
 				return c, nil
 			}
 		},
-		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
+		func(_ context.Context, cloud cloud.Cloud, credential cloud.Credential) (k8s.ClusterMetadataChecker, error) {
 			return s.fakeK8sClusterMetadataChecker, nil
 		},
 		caas.FakeCluster(kubeConfigStr),
@@ -787,11 +787,11 @@ func (s *addCAASSuite) assertAddCloudResult(
 
 	if t.client {
 		s.credentialStoreAPI.EXPECT().UpdateCredential(
-			"myk8s", jujucloud.CloudCredential{
-				AuthCredentials: map[string]jujucloud.Credential{
-					"myk8s": jujucloud.NewNamedCredential(
+			"myk8s", cloud.CloudCredential{
+				AuthCredentials: map[string]cloud.Credential{
+					"myk8s": cloud.NewNamedCredential(
 						"myk8s",
-						jujucloud.AuthType("oauth2"),
+						cloud.AuthType("oauth2"),
 						map[string]string{
 							"Token":   "xfdfsdfsdsd",
 							"rbac-id": "9baa5e46",
@@ -805,7 +805,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 
 	testRun()
 
-	_, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
+	_, region, err := cloud.SplitHostCloudRegion(cloudRegion)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
 	expectedCloudToAdd := cloud.Cloud{
@@ -1124,11 +1124,11 @@ func (s *addCAASSuite) TestCorrectParseFromStdIn(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.credentialStoreAPI.EXPECT().UpdateCredential(
-		"myk8s", jujucloud.CloudCredential{
-			AuthCredentials: map[string]jujucloud.Credential{
-				"myk8s": jujucloud.NewNamedCredential(
+		"myk8s", cloud.CloudCredential{
+			AuthCredentials: map[string]cloud.Credential{
+				"myk8s": cloud.NewNamedCredential(
 					"myk8s",
-					jujucloud.AuthType("userpass"),
+					cloud.AuthType("userpass"),
 					map[string]string{
 						"password": "thepassword",
 						"rbac-id":  "9baa5e46",
@@ -1186,11 +1186,11 @@ func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.credentialStoreAPI.EXPECT().UpdateCredential(
-		"myk8s", jujucloud.CloudCredential{
-			AuthCredentials: map[string]jujucloud.Credential{
-				"myk8s": jujucloud.NewNamedCredential(
+		"myk8s", cloud.CloudCredential{
+			AuthCredentials: map[string]cloud.Credential{
+				"myk8s": cloud.NewNamedCredential(
 					"myk8s",
-					jujucloud.AuthType("userpass"),
+					cloud.AuthType("userpass"),
 					map[string]string{
 						"password": "thepassword",
 						"rbac-id":  "9baa5e46",

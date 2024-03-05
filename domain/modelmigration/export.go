@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 )
@@ -15,4 +16,6 @@ func ExportOperations(coordinator Coordinator) {
 	// Note: All the export operations are registered here.
 	credential.RegisterExport(coordinator)
 	externalcontroller.RegisterExport(coordinator)
+	// When machines are handled, they need to be done before block devices.
+	blockdevice.RegisterExport(coordinator)
 }

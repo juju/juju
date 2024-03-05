@@ -49,7 +49,7 @@ func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
@@ -70,13 +70,34 @@ func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *nodeManagerSuite) TestIsLoopbackPreferred(c *gc.C) {
+	subDir := strconv.Itoa(rand.Intn(10))
+
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+
+	// Check to see if the loopback address is preferred.
+	// This is only set during the construction, so we need to create multiple
+	// instances of the node manager.
+
+	m0 := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+
+	ok := m0.IsLoopbackPreferred()
+	c.Check(ok, jc.IsTrue)
+
+	m1 := NewNodeManager(cfg, false, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+
+	ok = m1.IsLoopbackPreferred()
+	c.Check(ok, jc.IsFalse)
+}
+
 func (s *nodeManagerSuite) TestIsExistingNode(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	// Empty directory indicates we've never started.
 	extant, err := m.IsExistingNode()
@@ -102,7 +123,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	ctx := context.Background()
 
 	// Empty directory indicates we are not the bootstrapped node.
@@ -167,7 +188,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	ctx := context.Background()
 
 	dataDir, err := m.EnsureDataDir()
@@ -212,7 +233,7 @@ func (s *nodeManagerSuite) TestSetGetNodeInfoSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	dataDir, err := m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -250,7 +271,7 @@ func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	ctx := context.Background()
 
 	_, err := m.EnsureDataDir()
@@ -283,7 +304,7 @@ func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *gc.C) {
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionIPv4Success(c *gc.C) {
-	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(nil, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
@@ -294,7 +315,7 @@ func (s *nodeManagerSuite) TestWithAddressOptionIPv4Success(c *gc.C) {
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionIPv6Success(c *gc.C) {
-	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(nil, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("::1"))
@@ -306,7 +327,7 @@ func (s *nodeManagerSuite) TestWithAddressOptionIPv6Success(c *gc.C) {
 
 func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{}
-	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	withTLS, err := m.WithTLSOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -320,7 +341,7 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 
 func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{}
-	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"10.6.6.6"}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -337,7 +358,7 @@ func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionNoAddrFallbac
 	src := NewMockConfigSource(ctrl)
 	src.EXPECT().Interfaces().Return(nil, nil)
 
-	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(nil, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	opt, err := m.WithPreferredCloudLocalAddressOption(src)
@@ -380,7 +401,7 @@ func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionSingleAddrSuc
 	src := NewMockConfigSource(ctrl)
 	src.EXPECT().Interfaces().Return([]corenetwork.ConfigSourceNIC{loopback, lxdbr0, eth0}, nil)
 
-	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m := NewNodeManager(nil, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	opt, err := m.WithPreferredCloudLocalAddressOption(src)

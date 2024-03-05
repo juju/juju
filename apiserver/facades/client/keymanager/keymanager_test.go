@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/ssh"
-	sshtesting "github.com/juju/utils/v3/ssh/testing"
+	"github.com/juju/utils/v4/ssh"
+	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -113,24 +113,6 @@ func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
 	})
 }
 
-func (s *keyManagerSuite) TestListJujuSystemKey(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	key1 := sshtesting.ValidKeyOne.Key
-	s.setAuthorizedKeys(c, key1)
-
-	args := params.ListSSHKeys{
-		Entities: params.Entities{Entities: []params.Entity{
-			{Tag: config.JujuSystemKey},
-		}},
-		Mode: ssh.FullKeys,
-	}
-	results, err := s.api.ListKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
-}
-
 func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
@@ -162,21 +144,21 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 
 func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.assertAddKeys(c)
 }
 
 func (s *keyManagerSuite) TestAddKeysSuperUser(c *gc.C) {
 	s.apiUser = names.NewUserTag("superuser-fred")
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.assertAddKeys(c)
 }
 
 func (s *keyManagerSuite) TestAddKeysModelAdmin(c *gc.C) {
 	s.apiUser = names.NewUserTag("admin" + coretesting.ModelTag.String())
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.assertAddKeys(c)
 }
 
@@ -191,7 +173,7 @@ func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *gc.C) {
 
 func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(errors.OperationBlockedError("TestAddKeys"))
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestAddKeys"))
 
 	_, err := s.api.AddKeys(context.Background(), params.ModifyUserSSHKeys{})
 
@@ -200,7 +182,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 
 func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.setAuthorizedKeys(c, sshtesting.ValidKeyOne.Key)
 
 	newAttrs := map[string]interface{}{
@@ -249,21 +231,21 @@ func (s *keyManagerSuite) assertDeleteKeys(c *gc.C) {
 
 func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().RemoveAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
 	s.assertDeleteKeys(c)
 }
 
 func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *gc.C) {
 	s.apiUser = names.NewUserTag("superuser-fred")
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().RemoveAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
 	s.assertDeleteKeys(c)
 }
 
 func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *gc.C) {
 	s.apiUser = names.NewUserTag("admin" + coretesting.ModelTag.String())
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().RemoveAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
 	s.assertDeleteKeys(c)
 }
 
@@ -278,7 +260,7 @@ func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *gc.C) {
 
 func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().RemoveAllowed(context.Background()).Return(errors.OperationBlockedError("TestDeleteKeys"))
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestDeleteKeys"))
 
 	_, err := s.api.DeleteKeys(context.Background(), params.ModifyUserSSHKeys{})
 
@@ -287,7 +269,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 
 func (s *keyManagerSuite) TestDeleteJujuSystemKey(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().RemoveAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
 
 	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
 	key2 := sshtesting.ValidKeyTwo.Key + " " + config.JujuSystemKey
@@ -317,7 +299,7 @@ func (s *keyManagerSuite) TestDeleteJujuSystemKey(c *gc.C) {
 // to remove the client and system key
 func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().RemoveAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
 
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
@@ -390,21 +372,21 @@ func (s *keyManagerSuite) assertImportKeys(c *gc.C) {
 
 func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.assertImportKeys(c)
 }
 
 func (s *keyManagerSuite) TestImportKeysSuperUser(c *gc.C) {
 	s.apiUser = names.NewUserTag("superuser-fred")
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.assertImportKeys(c)
 }
 
 func (s *keyManagerSuite) TestImportKeysModelAdmin(c *gc.C) {
 	s.apiUser = names.NewUserTag("admin" + coretesting.ModelTag.String())
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.assertImportKeys(c)
 }
 
@@ -419,7 +401,7 @@ func (s *keyManagerSuite) TestImportKeysNonAuthorised(c *gc.C) {
 
 func (s *keyManagerSuite) TestImportJujuSystemKey(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	key1 := sshtesting.ValidKeyOne.Key
 	s.setAuthorizedKeys(c, key1)
@@ -443,7 +425,7 @@ func (s *keyManagerSuite) TestImportJujuSystemKey(c *gc.C) {
 
 func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(errors.OperationBlockedError("TestImportKeys"))
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestImportKeys"))
 
 	_, err := s.api.ImportKeys(context.Background(), params.ModifyUserSSHKeys{})
 

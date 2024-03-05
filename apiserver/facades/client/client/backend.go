@@ -4,20 +4,20 @@
 package client
 
 import (
+	"context"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -30,50 +30,31 @@ import (
 type Backend interface {
 	network.SpaceLookup
 
-	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
-	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
-	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
-	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
 	AllApplications() ([]*state.Application, error)
 	AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
-	AllModelUUIDs() ([]string, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllRelations() ([]*state.Relation, error)
 	AllSubnets() ([]*state.Subnet, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
-	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 	Application(string) (Application, error)
-	Charm(string) (*state.Charm, error)
 	ControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTag() names.ControllerTag
 	ControllerTimestamp() (*time.Time, error)
-	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
-	FindEntity(names.Tag) (state.Entity, error)
-	InferEndpoints(...string) ([]state.Endpoint, error)
-	IsController() bool
 	HAPrimaryMachine() (names.MachineTag, error)
-	LatestMigration() (state.ModelMigration, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
 	Model() (Model, error)
 	ModelConfig() (*config.Config, error)
-	ModelConstraints() (constraints.Value, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
-	MongoSession() MongoSession
 	RemoteApplication(string) (*state.RemoteApplication, error)
 	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
-	RemoveUserAccess(names.UserTag, names.Tag) error
-	SetAnnotations(state.GlobalEntity, map[string]string) error
-	SetModelAgentVersion(version.Number, *string, bool, state.Upgrader) error
-	SetModelConstraints(constraints.Value) error
 	Unit(string) (Unit, error)
-	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 }
 
 // MongoSession provides a way to get the status for the mongo replicaset.
@@ -95,10 +76,7 @@ type Model interface {
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	Users() ([]permission.UserAccess, error)
 	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
-	SLAOwner() string
-	SLALevel() string
 	LatestToolsVersion() version.Number
-	MeterStatus() state.MeterStatus
 	Status() (status.StatusInfo, error)
 }
 
@@ -201,7 +179,7 @@ func (s stateShim) Model() (Model, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &modelShim{m}, nil
+	return &modelShim{Model: m}, nil
 }
 
 func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
@@ -258,4 +236,9 @@ var getStorageState = func(st *state.State) (StorageInterface, error) {
 		return nil, err
 	}
 	return sb, nil
+}
+
+// BlockDeviceGetter instances can fetch block devices for a machine.
+type BlockDeviceGetter interface {
+	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }

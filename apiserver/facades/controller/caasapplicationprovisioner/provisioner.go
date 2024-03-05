@@ -11,12 +11,12 @@ import (
 	"sort"
 	"time"
 
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -75,7 +75,7 @@ type API struct {
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
-func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
+func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 
 	st := ctx.State()
@@ -130,7 +130,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 
-	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
+	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}
@@ -139,11 +139,13 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
 
+	unitRemover := ctx.ServiceFactory().Unit()
+
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, lifeCanRead),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.Resources(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		Remover:            common.NewRemover(st, ctx.ObjectStore(), common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind)),
+		Remover:            common.NewRemover(st, ctx.ObjectStore(), common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind), unitRemover),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
 		API:                api,

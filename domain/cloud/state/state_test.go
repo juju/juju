@@ -4,29 +4,33 @@
 package state
 
 import (
-	ctx "context"
+	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
-	"golang.org/x/net/context"
+	"github.com/juju/utils/v4"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
-	modeltesting "github.com/juju/juju/domain/model/testing"
+	userstate "github.com/juju/juju/domain/user/state"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -202,7 +206,7 @@ func (s *stateSuite) assertRegions(c *gc.C, cloudUUID string, expected []cloud.R
 }
 
 func (s *stateSuite) assertInsertCloud(c *gc.C, st *State, cloud cloud.Cloud) string {
-	err := st.UpsertCloud(ctx.Background(), cloud)
+	err := st.UpsertCloud(context.Background(), cloud)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudUUID := s.assertCloud(c, cloud)
@@ -255,7 +259,7 @@ func (s *stateSuite) TestUpsertCloudUpdateExisting(c *gc.C) {
 		IsControllerCloud: true,
 	}
 
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudUUID := s.assertCloud(c, cld)
@@ -267,7 +271,7 @@ func (s *stateSuite) TestUpsertCloudInvalidType(c *gc.C) {
 	cld.Type = "mycloud"
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, gc.ErrorMatches, `.* cloud type "mycloud" not valid`)
 }
 
@@ -276,7 +280,7 @@ func (s *stateSuite) TestCloudWithEmptyNameFails(c *gc.C) {
 	cld.Name = ""
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
@@ -284,7 +288,7 @@ func (s *stateSuite) TestUpdateCloudDefaults(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
@@ -305,7 +309,7 @@ func (s *stateSuite) TestComplexUpdateCloudDefaults(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
@@ -347,7 +351,7 @@ func (s *stateSuite) TestCloudRegionDefaults(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudRegionDefaults(
@@ -390,7 +394,7 @@ func (s *stateSuite) TestCloudRegionDefaultsComplex(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudRegionDefaults(
@@ -487,7 +491,7 @@ func (s *stateSuite) TestCloudDefaultsRemoval(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
@@ -519,7 +523,7 @@ func (s *stateSuite) TestEmptyCloudDefaults(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
@@ -527,10 +531,13 @@ func (s *stateSuite) TestEmptyCloudDefaults(c *gc.C) {
 	c.Assert(len(defaults), gc.Equals, 0)
 }
 
-func (s *stateSuite) TestNonFoundCloudDefaults(c *gc.C) {
+// TestNotFoundCloudDefaults is testing what happens if we request a cloud
+// defaults for a cloud that doesn't exist. It should result in a
+// [clouderrors.NotFound] error.
+func (s *stateSuite) TestNotFoundCloudDefaults(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	defaults, err := st.CloudDefaults(context.Background(), "notfound")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
 	c.Assert(len(defaults), gc.Equals, 0)
 }
 
@@ -539,18 +546,18 @@ func (s *stateSuite) TestUpsertCloudInvalidAuthType(c *gc.C) {
 	cld.AuthTypes = []cloud.AuthType{"myauth"}
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, gc.ErrorMatches, `.* auth type "myauth" not valid`)
 }
 
 func (s *stateSuite) TestListClouds(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), testCloud)
+	err := st.UpsertCloud(context.Background(), testCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpsertCloud(ctx.Background(), testCloud2)
+	err = st.UpsertCloud(context.Background(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(ctx.Background(), "")
+	clouds, err := st.ListClouds(context.Background(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 2)
 	if clouds[0].Name == testCloud.Name {
@@ -563,13 +570,25 @@ func (s *stateSuite) TestListClouds(c *gc.C) {
 }
 
 func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), testCloud)
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpsertCloud(ctx.Background(), testCloud2)
+	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(ctx.Background(), "")
+	userState := userstate.NewState(s.TxnRunnerFactory())
+	err = userState.AddUser(
+		context.Background(), userUUID,
+		coremodel.ControllerModelOwnerUsername,
+		"test user",
+		userUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	err = st.UpsertCloud(context.Background(), testCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.UpsertCloud(context.Background(), testCloud2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	clouds, err := st.ListClouds(context.Background(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 2)
 
@@ -584,14 +603,14 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 		modelUUID,
 		model.ModelCreationArgs{
 			Cloud: testCloud.Name,
-			Name:  "controller",
-			Owner: "admin",
-			Type:  model.TypeIAAS,
+			Name:  coremodel.ControllerModelName,
+			Owner: userUUID,
+			Type:  coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err = st.ListClouds(ctx.Background(), "")
+	clouds, err = st.ListClouds(context.Background(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 2)
 
@@ -606,16 +625,16 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 
 func (s *stateSuite) TestListCloudsFilter(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), testCloud)
+	err := st.UpsertCloud(context.Background(), testCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpsertCloud(ctx.Background(), testCloud2)
+	err = st.UpsertCloud(context.Background(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(ctx.Background(), "fluffy3")
+	clouds, err := st.ListClouds(context.Background(), "fluffy3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 0)
 
-	clouds, err = st.ListClouds(ctx.Background(), "fluffy2")
+	clouds, err = st.ListClouds(context.Background(), "fluffy2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, jc.DeepEquals, []cloud.Cloud{testCloud2})
 }
@@ -624,10 +643,10 @@ func (s *stateSuite) TestDeleteCloud(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	s.assertInsertCloud(c, st, testCloud)
 
-	err := st.DeleteCloud(ctx.Background(), "fluffy")
+	err := st.DeleteCloud(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(ctx.Background(), "fluffy")
+	clouds, err := st.ListClouds(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 0)
 }
@@ -636,14 +655,26 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	s.assertInsertCloud(c, st, testCloud)
 
-	credUUID := utils.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := fmt.Sprintf(`
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	userState := userstate.NewState(s.TxnRunnerFactory())
+	err = userState.AddUser(
+		context.Background(), userUUID,
+		coremodel.ControllerModelOwnerUsername,
+		"test user",
+		userUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	credUUID := uuid.MustNewUUID().String()
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `
 INSERT INTO cloud_credential (uuid, name, cloud_uuid, auth_type_id, owner_uuid)
-SELECT '%s', 'default', uuid, 1, 'fred' FROM cloud
+SELECT ?, 'default', uuid, 1, ? FROM cloud
 WHERE cloud.name = ?
-`, credUUID)
-		result, err := tx.ExecContext(ctx, stmt, "fluffy")
+`
+		result, err := tx.ExecContext(ctx, stmt, credUUID, userUUID, "fluffy")
 		if err != nil {
 			return err
 		}
@@ -656,10 +687,10 @@ WHERE cloud.name = ?
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.DeleteCloud(ctx.Background(), "fluffy")
+	err = st.DeleteCloud(context.Background(), "fluffy")
 	c.Assert(err, gc.ErrorMatches, "cannot delete cloud as it is still in use")
 
-	clouds, err := st.ListClouds(ctx.Background(), "fluffy")
+	clouds, err := st.ListClouds(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 1)
 	c.Assert(clouds[0].Name, gc.Equals, "fluffy")
@@ -698,7 +729,7 @@ func (s *stateSuite) TestWatchCloudNotFound(c *gc.C) {
 func (s *stateSuite) TestWatchCloud(c *gc.C) {
 	cld := testCloud
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(ctx.Background(), cld)
+	err := st.UpsertCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var uuid string
@@ -736,4 +767,159 @@ func (s *stateSuite) TestNullCloudType(c *gc.C) {
 		return err
 	})
 	c.Assert(jujudb.IsErrConstraintNotNull(err), jc.IsTrue)
+}
+
+// TestSetCloudDefaults is testing the happy path for [SetCloudDefaults]
+func (s *stateSuite) TestSetCloudDefaults(c *gc.C) {
+	cld := testCloud
+	st := NewState(s.TxnRunnerFactory())
+	err := st.UpsertCloud(context.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
+			"clouddefault": "one",
+		})
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(defaults, jc.DeepEquals, map[string]string{
+		"clouddefault": "one",
+	})
+}
+
+// TestSetCloudDefaultsNotFound is asserting that if we try and set cloud
+// defaults for a cloud that doesn't exist we get back an error that satisfies
+// [clouderrors.NotFound].
+func (s *stateSuite) TestSetCloudDefaultsNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return SetCloudDefaults(ctx, tx, "noexist", map[string]string{
+			"clouddefault": "one",
+		})
+	})
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+
+	defaults, err := st.CloudDefaults(context.Background(), "noexist")
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(len(defaults), gc.Equals, 0)
+}
+
+// TestSetCloudDefaultsOverrides checks that successive calls to
+// SetCloudDefaults overrides the previously set values for cloud defaults.
+func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
+	cld := testCloud
+	st := NewState(s.TxnRunnerFactory())
+	err := st.UpsertCloud(context.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
+			"clouddefault": "one",
+		})
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(defaults, jc.DeepEquals, map[string]string{
+		"clouddefault": "one",
+	})
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
+			"clouddefaultnew": "two",
+		})
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	defaults, err = st.CloudDefaults(context.Background(), cld.Name)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(defaults, jc.DeepEquals, map[string]string{
+		"clouddefaultnew": "two",
+	})
+}
+
+// TestSetCloudDefaultsDelete is testing that if we call [SetCloudDefaults] with
+// a empty map of defaults the existing cloud defaults are removed and no
+// further actions are taken.
+func (s *stateSuite) TestSetCloudDefaultsDelete(c *gc.C) {
+	cld := testCloud
+	st := NewState(s.TxnRunnerFactory())
+	err := st.UpsertCloud(context.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
+			"clouddefault": "one",
+		})
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(defaults, jc.DeepEquals, map[string]string{
+		"clouddefault": "one",
+	})
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return SetCloudDefaults(ctx, tx, cld.Name, nil)
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	defaults, err = st.CloudDefaults(context.Background(), cld.Name)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(defaults), gc.Equals, 0)
+}
+
+// TestCloudSupportsAuthTypeTrue is asserting the happy path that for a valid
+// cloud and supported auth type we get back true with no errors.
+func (s *stateSuite) TestCloudSupportsAuthTypeTrue(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	s.assertInsertCloud(c, st, testCloud)
+
+	var supports bool
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		s, err := CloudSupportsAuthType(context.Background(), tx, testCloud.Name, testCloud.AuthTypes[0])
+		supports = s
+		return err
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(supports, jc.IsTrue)
+}
+
+// TestCloudSupportsAuthTypeFalse is asserting the happy path that for a valid
+// cloud and a non supported auth type we get back false with no errors.
+func (s *stateSuite) TestCloudSupportsAuthTypeFalse(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	s.assertInsertCloud(c, st, testCloud)
+
+	var supports bool
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		s, err := CloudSupportsAuthType(context.Background(), tx, testCloud.Name, cloud.AuthType("no-exist"))
+		supports = s
+		return err
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(supports, jc.IsFalse)
+}
+
+// TestCloudSupportsAuthTypeCloudNotFound is checking to that if we ask if a
+// cloud supports an auth type and the cloud doesn't exist we get back a
+// [clouderrors.NotFound] error.
+func (s *stateSuite) TestCloudSupportsAuthTypeCloudNotFound(c *gc.C) {
+	var supports bool
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		s, err := CloudSupportsAuthType(context.Background(), tx, "no-exist", cloud.AuthType("no-exist"))
+		supports = s
+		return err
+	})
+
+	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(supports, jc.IsFalse)
 }

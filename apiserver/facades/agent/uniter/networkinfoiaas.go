@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/network"
@@ -480,18 +480,15 @@ func (n *NetworkInfoIAAS) networkInfoForSpace(spaceID string) params.NetworkInfo
 		}
 
 		// Otherwise, add a new device.
-		var MAC string
 		mac, err := addr.HWAddr()
-		if err == nil {
-			MAC = mac
-		} else if !errors.Is(err, errors.NotFound) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			res.Error = apiservererrors.ServerError(err)
 			return res
 		}
 
 		res.Info = append(res.Info, params.NetworkInfo{
 			InterfaceName: addr.DeviceName(),
-			MACAddress:    MAC,
+			MACAddress:    mac,
 			Addresses:     []params.InterfaceAddress{deviceAddr},
 		})
 	}

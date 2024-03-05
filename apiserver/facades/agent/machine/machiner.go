@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -43,6 +43,7 @@ type MachinerAPI struct {
 
 // NewMachinerAPIForState creates a new instance of the Machiner API.
 func NewMachinerAPIForState(
+	ctx context.Context,
 	ctrlSt, st *state.State,
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
@@ -57,7 +58,7 @@ func NewMachinerAPIForState(
 		return authorizer.AuthOwner, nil
 	}
 
-	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(context.Background(), st, cloudService, getCanAccess)
+	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(ctx, st, cloudService, getCanAccess)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}

@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -67,10 +67,10 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	var err error
 	// The first machine created is the only one allowed to
 	// JobManageModel
-	s.apiMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits,
+	s.apiMachine, err = s.hosted.AddMachine(s.InstancePrechecker(c, s.hosted), state.UbuntuBase("12.10"), state.JobHostUnits,
 		state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	s.rawMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.hosted.AddMachine(s.InstancePrechecker(c, s.hosted), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent
@@ -82,7 +82,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 	serviceFactory := s.ControllerServiceFactory(c)
 
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), systemState)
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 
 	s.upgrader, err = upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, s.authorizer,

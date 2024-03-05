@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/errors"
@@ -36,7 +37,7 @@ func (s *checkConnectionSuite) TestInitChecksTag(c *gc.C) {
 
 func (s *checkConnectionSuite) TestRunComplainsAboutConnectionErrors(c *gc.C) {
 	cmd := agentcmd.NewCheckConnectionCommand(newAgentConf(),
-		func(a agent.Agent) (io.Closer, error) {
+		func(_ context.Context, a agent.Agent) (io.Closer, error) {
 			return nil, errors.Errorf("hartz-timor swarm detected")
 		})
 	c.Assert(cmd.Init([]string{"unit-artemis-5"}), jc.ErrorIsNil)
@@ -46,7 +47,7 @@ func (s *checkConnectionSuite) TestRunComplainsAboutConnectionErrors(c *gc.C) {
 
 func (s *checkConnectionSuite) TestRunClosesConnection(c *gc.C) {
 	cmd := agentcmd.NewCheckConnectionCommand(newAgentConf(),
-		func(a agent.Agent) (io.Closer, error) {
+		func(_ context.Context, a agent.Agent) (io.Closer, error) {
 			return &mockConnection{}, nil
 		})
 	c.Assert(cmd.Init([]string{"unit-artemis-5"}), jc.ErrorIsNil)

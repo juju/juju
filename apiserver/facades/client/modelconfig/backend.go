@@ -4,7 +4,7 @@
 package modelconfig
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/constraints"
@@ -22,8 +22,6 @@ type Backend interface {
 	ModelConfigValues() (config.ConfigValues, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 	Sequences() (map[string]int, error)
-	SetSLA(level, owner string, credentials []byte) error
-	SLALevel() (string, error)
 	SpaceByName(string) error
 	SetModelConstraints(value constraints.Value) error
 	ModelConstraints() (constraints.Value, error)

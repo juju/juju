@@ -5,18 +5,18 @@ package lifeflag_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common/lifeflag"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker"
 )
 
 type FacadeSuite struct {

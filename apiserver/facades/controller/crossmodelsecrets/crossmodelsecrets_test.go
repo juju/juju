@@ -9,9 +9,10 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -68,7 +69,7 @@ func (m *mockBakery) ExpireStorageAfter(_ time.Duration) (authentication.Expirab
 	return m, nil
 }
 
-func (m *mockBakery) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+func (m *mockBakery) Auth(_ context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
 	return m.Bakery.Checker.Auth(mss...)
 }
 
@@ -90,7 +91,9 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
 		OpsAuthorizer: crossmodel.CrossModelAuthorizer{},
 	})
 	s.bakery = &mockBakery{bakery}
-	s.authContext, err = crossmodel.NewAuthContext(nil, key, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(
+		nil, key, crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -105,7 +108,10 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	secretsStateGetter := func(modelUUID string) (crossmodelsecrets.SecretsState, crossmodelsecrets.SecretsConsumer, func() bool, error) {
 		return s.secretsState, s.secretsConsumer, func() bool { return false }, nil
 	}
-	backendConfigGetter := func(modelUUID string) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(_ context.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
+		c.Assert(sameController, jc.IsFalse)
+		c.Assert(backendID, gc.Equals, "backend-id")
+		c.Assert(consumer.String(), gc.Equals, "unit-remote-app-666")
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "active-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -125,12 +131,13 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.facade, err = crossmodelsecrets.NewCrossModelSecretsAPI(
 		s.resources,
 		s.authContext,
+		coretesting.ControllerTag.Id(),
 		coretesting.ModelTag.Id(),
 		secretsStateGetter,
 		backendConfigGetter,
 		s.crossModelState,
 		s.stateBackend,
-		loggo.GetLoggerWithLabels("juju.apiserver.crossmodelsecrets", corelogger.SECRETS),
+		loggo.GetLoggerWithTags("juju.apiserver.crossmodelsecrets", corelogger.SECRETS),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -187,7 +194,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 	)
 
 	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
+		context.Background(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("username", "mary"),
@@ -199,23 +206,25 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 
 	args := params.GetRemoteSecretContentArgs{
 		Args: []params.GetRemoteSecretContentArg{{
-			ApplicationToken: "token",
-			UnitId:           666,
-			BakeryVersion:    3,
-			Macaroons:        macaroon.Slice{mac.M()},
-			URI:              uri.String(),
-			Refresh:          true,
+			SourceControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666",
+			ApplicationToken:     "token",
+			UnitId:               666,
+			BakeryVersion:        3,
+			Macaroons:            macaroon.Slice{mac.M()},
+			URI:                  uri.String(),
+			Refresh:              true,
 		}, {
 			URI: coresecrets.NewURI().String(),
 		}, {
 			URI: uri.String(),
 		}, {
-			ApplicationToken: "token2",
-			UnitId:           666,
-			BakeryVersion:    3,
-			Macaroons:        macaroon.Slice{mac.M()},
-			URI:              uri.String(),
-			Refresh:          true,
+			SourceControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666",
+			ApplicationToken:     "token2",
+			UnitId:               666,
+			BakeryVersion:        3,
+			Macaroons:            macaroon.Slice{mac.M()},
+			URI:                  uri.String(),
+			Refresh:              true,
 		}},
 	}
 	results, err := s.facade.GetSecretContentInfo(context.Background(), args)

@@ -6,7 +6,7 @@ package logger_test
 import (
 	"context"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -40,7 +40,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.State.AddMachine(s.InstancePrechecker(c, s.State), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent
@@ -53,7 +53,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *loggerSuite) makeLoggerAPI(auth facade.Authorizer) (*logger.LoggerAPI, error) {
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		Auth_:      auth,
 		Resources_: s.resources,
 		State_:     s.State,

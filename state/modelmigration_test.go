@@ -8,15 +8,15 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -37,7 +37,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.State2 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 
-	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	targetControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
@@ -575,11 +575,11 @@ func (s *MigrationSuite) TestWatchForMigrationMultiModel(c *gc.C) {
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
-	State3 := s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { State3.Close() })
+	state3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { state3.Close() })
 	// Ensure that all the creation events have flowed through the system.
-	s.WaitForModelWatchersIdle(c, State3.ModelUUID())
-	_, wc3 := s.createMigrationWatcher(c, State3)
+	s.WaitForModelWatchersIdle(c, state3.ModelUUID())
+	_, wc3 := s.createMigrationWatcher(c, state3)
 	wc3.AssertOneChange()
 
 	// Create a migration for 2.
@@ -589,7 +589,7 @@ func (s *MigrationSuite) TestWatchForMigrationMultiModel(c *gc.C) {
 	wc3.AssertNoChange()
 
 	// Create a migration for 3.
-	_, err = State3.CreateMigration(s.stdSpec)
+	_, err = state3.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertNoChange()
 	wc3.AssertOneChange()
@@ -654,12 +654,12 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
-	State3 := s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { State3.Close() })
+	state3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { state3.Close() })
 	// Ensure that all the creation events have flowed through the system.
-	s.WaitForModelWatchersIdle(c, State3.ModelUUID())
+	s.WaitForModelWatchersIdle(c, state3.ModelUUID())
 
-	_, wc3 := s.createStatusWatcher(c, State3)
+	_, wc3 := s.createStatusWatcher(c, state3)
 	wc3.AssertOneChange() // initial event
 
 	// Create a migration for 2.
@@ -669,7 +669,7 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	wc3.AssertNoChange()
 
 	// Create a migration for 3.
-	_, err = State3.CreateMigration(s.stdSpec)
+	_, err = state3.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertNoChange()
 	wc3.AssertOneChange()
@@ -834,9 +834,9 @@ func (s *MigrationSuite) TestWatchMinionReportsMultiModel(c *gc.C) {
 	mig, wc := s.createMigAndWatchReports(c, s.State2)
 	wc.AssertOneChange() // initial event
 
-	State3 := s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { State3.Close() })
-	mig3, wc3 := s.createMigAndWatchReports(c, State3)
+	state3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { state3.Close() })
+	mig3, wc3 := s.createMigAndWatchReports(c, state3)
 	wc3.AssertOneChange() // initial event
 
 	// Ensure the correct watchers are triggered.

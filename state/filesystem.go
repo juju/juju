@@ -10,12 +10,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/paths"
@@ -1425,8 +1425,8 @@ func FilesystemMountPoint(
 // validateFilesystemMountPoints validates the mount points of filesystems
 // being attached to the specified machine. If there are any mount point
 // path conflicts, an error will be returned.
-func validateFilesystemMountPoints(m *Machine, newFilesystems []filesystemAttachmentTemplate) error {
-	sb, err := NewStorageBackend(m.st)
+func validateFilesystemMountPoints(st *State, m MachineRef, newFilesystems []filesystemAttachmentTemplate) error {
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return errors.Trace(err)
 	}

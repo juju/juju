@@ -4,9 +4,9 @@
 package resources
 
 import (
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 // ApplicationResources contains the list of resources for the application and all its

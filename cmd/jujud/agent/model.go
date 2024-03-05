@@ -4,18 +4,19 @@
 package agent
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/voyeur"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
+	"github.com/juju/utils/v4/voyeur"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -28,10 +29,10 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/internal/upgrade"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/logsender"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/logsender"
 )
 
 // ModelCommand is a cmd.Command responsible for running a model agent.
@@ -98,6 +99,23 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 		return errors.Trace(err)
 	}
 	return m.ReadConfig(m.Tag().String())
+}
+
+func copyFile(dest, source string) error {
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer df.Close()
+
+	f, err := os.Open(source)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(df, f)
+	return errors.Trace(err)
 }
 
 // NewModelCommand creates a new ModelCommand instance properly initialized

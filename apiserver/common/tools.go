@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -344,7 +344,7 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 		majorVersion = args.MajorVersion
 		minorVersion = args.MinorVersion
 	}
-	simplestreamsList, err := envtoolsFindTools(ss,
+	simplestreamsList, err := envtoolsFindTools(ctx, ss,
 		env, majorVersion, minorVersion, streams, filter,
 	)
 	if len(storageList) == 0 && err != nil {

@@ -245,7 +245,7 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 	}
 	var affinityTerm core.PodAffinityTerm
 	updateAffinityTerm(&affinityTerm, affinityTags)
-	if len(affinityTerm.LabelSelector.MatchExpressions) > 0 {
+	if len(affinityTerm.LabelSelector.MatchExpressions) > 0 || affinityTerm.TopologyKey != "" {
 		pod.Affinity.PodAffinity = &core.PodAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{affinityTerm},
 		}
@@ -253,7 +253,7 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 
 	var antiAffinityTerm core.PodAffinityTerm
 	updateAffinityTerm(&antiAffinityTerm, antiAffinityTags)
-	if len(antiAffinityTerm.LabelSelector.MatchExpressions) > 0 {
+	if len(antiAffinityTerm.LabelSelector.MatchExpressions) > 0 || antiAffinityTerm.TopologyKey != "" {
 		pod.Affinity.PodAntiAffinity = &core.PodAntiAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{antiAffinityTerm},
 		}

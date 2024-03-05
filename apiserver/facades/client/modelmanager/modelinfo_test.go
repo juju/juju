@@ -4,14 +4,15 @@
 package modelmanager_test
 
 import (
+	"context"
 	stdcontext "context"
 	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -28,13 +29,13 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -272,10 +273,6 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 			Status:     "active",
 			NumSecrets: 2,
 		}},
-		SLA: &params.ModelSLAInfo{
-			Level: "essential",
-			Owner: "user",
-		},
 		AgentVersion: &expectedAgentVersion,
 		SupportedFeatures: []params.SupportedFeature{
 			{Name: "example"},
@@ -289,7 +286,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
 		return mockSecretProvider{}, nil
 	})
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	_true := true
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
 	s.st.CheckCalls(c, []jujutesting.StubCall{
@@ -318,8 +315,6 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 		{"CloudName", nil},
 		{"CloudRegion", nil},
 		{"CloudCredentialTag", nil},
-		{"SLALevel", nil},
-		{"SLAOwner", nil},
 		{"Life", nil},
 		{"Config", nil},
 		{"Status", nil},
@@ -340,7 +335,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	mary := names.NewUserTag("mary@local")
 	s.authorizer.HasWriteTag = mary
 	s.setAPIUser(c, mary)
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
 	c.Assert(info.Machines, gc.HasLen, 2)
@@ -348,14 +343,18 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("charlotte@local"))
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
 	c.Assert(info.Machines, gc.HasLen, 0)
 }
 
-func (s *modelInfoSuite) getModelInfo(c *gc.C, modelUUID string) params.ModelInfo {
-	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
+type modelInfo interface {
+	ModelInfo(context.Context, params.Entities) (params.ModelInfoResults, error)
+}
+
+func (s *modelInfoSuite) getModelInfo(c *gc.C, modelInfo modelInfo, modelUUID string) params.ModelInfo {
+	results, err := modelInfo.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			names.NewModelTag(modelUUID).String(),
 		}},
@@ -595,7 +594,7 @@ func (s *modelInfoSuite) assertSuccessWithMissingData(c *gc.C, test incompleteMo
 func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife state.Life, expectedLife life.Value) {
 	s.st.model.life = desiredLife
 	// should get no errors
-	info := s.getModelInfo(c, modelUUID)
+	info := s.getModelInfo(c, s.modelmanager, modelUUID)
 	c.Assert(info.UUID, gc.Equals, modelUUID)
 	c.Assert(info.Life, gc.Equals, expectedLife)
 }
@@ -612,16 +611,6 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr strin
 
 type unitRetriever interface {
 	Unit(name string) (*state.Unit, error)
-}
-
-// metricSender defines methods required by the metricsender package.
-type metricSender interface {
-	MetricsManager() (*state.MetricsManager, error)
-	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
-	SetMetricBatchesSent(batchUUIDs []string) error
-	CountOfUnsentMetrics() (int, error)
-	CountOfSentMetrics() (int, error)
-	CleanupOldMetrics() error
 }
 
 type mockCaasBroker struct {
@@ -646,7 +635,6 @@ type mockState struct {
 	common.APIHostPortsForAgentsGetter
 	common.ToolsStorageGetter
 	common.BlockGetter
-	metricSender
 	unitRetriever
 
 	controllerCfg   *controller.Config
@@ -960,19 +948,9 @@ func (st *mockState) LatestMigration() (state.ModelMigration, error) {
 	return st.migration, st.NextErr()
 }
 
-func (st *mockState) SetModelMeterStatus(level, message string) error {
-	st.MethodCall(st, "SetModelMeterStatus", level, message)
-	return st.NextErr()
-}
-
 func (st *mockState) ModelConfig(stdcontext.Context) (*config.Config, error) {
 	st.MethodCall(st, "ModelConfig")
 	return st.modelConfig, st.NextErr()
-}
-
-func (st *mockState) MetricsManager() (*state.MetricsManager, error) {
-	st.MethodCall(st, "MetricsManager")
-	return nil, errors.New("nope")
 }
 
 func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
@@ -980,8 +958,8 @@ func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
 	return names.MachineTag{}, nil
 }
 
-func (st *mockState) AddSpace(name string, provider network.Id, subnetIds []string, public bool) (*state.Space, error) {
-	st.MethodCall(st, "AddSpace", name, provider, subnetIds, public)
+func (st *mockState) AddSpace(name string, provider network.Id, subnetIds []string) (*state.Space, error) {
+	st.MethodCall(st, "AddSpace", name, provider, subnetIds)
 	return nil, st.NextErr()
 }
 
@@ -1234,16 +1212,6 @@ func (m *mockModel) Destroy(args state.DestroyModelParams) error {
 	return m.NextErr()
 }
 
-func (m *mockModel) SLALevel() string {
-	m.MethodCall(m, "SLALevel")
-	return "essential"
-}
-
-func (m *mockModel) SLAOwner() string {
-	m.MethodCall(m, "SLAOwner")
-	return "user"
-}
-
 func (m *mockModel) ControllerUUID() string {
 	m.MethodCall(m, "ControllerUUID")
 	return m.controllerUUID
@@ -1287,8 +1255,6 @@ func (m *mockModel) getModelDetails() state.ModelSummary {
 		Life:               m.Life(),
 		Owner:              m.Owner().Id(),
 		ControllerUUID:     m.ControllerUUID(),
-		SLALevel:           m.SLALevel(),
-		SLAOwner:           m.SLAOwner(),
 		CloudTag:           m.CloudName(),
 		CloudRegion:        m.CloudRegion(),
 		CloudCredentialTag: cred.String(),
@@ -1329,17 +1295,17 @@ func (m *mockMigration) EndTime() time.Time {
 
 type mockModelManagerService struct{}
 
-func (mockModelManagerService) Create(_ stdcontext.Context, _ model.UUID) error {
+func (mockModelManagerService) Create(_ stdcontext.Context, _ coremodel.UUID) error {
 	return nil
 }
 
-func (mockModelManagerService) Delete(_ stdcontext.Context, _ model.UUID) error {
+func (mockModelManagerService) Delete(_ stdcontext.Context, _ coremodel.UUID) error {
 	return nil
 }
 
 type mockModelService struct{}
 
-func (mockModelService) DeleteModel(_ stdcontext.Context, _ model.UUID) error {
+func (mockModelService) DeleteModel(_ stdcontext.Context, _ coremodel.UUID) error {
 	return nil
 }
 

@@ -4,8 +4,72 @@
 package annotations
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 )
+
+// Kind identifies different kinds of entities that'll get associated with annotations.
+type Kind int
+
+const (
+	KindApplication Kind = 1
+	KindCharm       Kind = 2
+	KindMachine     Kind = 3
+	KindUnit        Kind = 4
+	KindModel       Kind = 5
+	KindStorage     Kind = 6
+)
+
+// ID reifies annotatable GlobalEntities into an internal representation using annotations.Kind.
+type ID struct {
+	Kind Kind
+	Name string
+}
+
+// ConvertTagToID converts the names.Tag into an ID for different names.Kinds of entities,
+// registering them as annotations.Kinds of entities.
+func ConvertTagToID(n names.Tag) (ID, error) {
+	switch n.Kind() {
+	case names.CharmTagKind:
+		return ID{
+			Kind: KindCharm,
+			Name: n.Id(),
+		}, nil
+	case names.MachineTagKind:
+		return ID{
+			Kind: KindMachine,
+			Name: n.Id(),
+		}, nil
+	case names.UnitTagKind:
+		return ID{
+			Kind: KindUnit,
+			Name: n.Id(),
+		}, nil
+	case names.ModelTagKind:
+		return ID{
+			Kind: KindModel,
+			Name: n.Id(),
+		}, nil
+	case names.StorageTagKind:
+		return ID{
+			Kind: KindStorage,
+			Name: n.Id(),
+		}, nil
+	case names.ApplicationTagKind:
+		return ID{
+			Kind: KindApplication,
+			Name: n.Id(),
+		}, nil
+	default:
+		return ID{}, fmt.Errorf("unknown kind %q", n.Kind())
+	}
+}
+
+func (i ID) String() string {
+	return fmt.Sprintf("%d/%s", i.Kind, i.Name)
+}
 
 // Annotation extends k8s annotation map.
 type Annotation map[string]string

@@ -18,13 +18,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Undertaker", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Undertaker", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUndertakerFacade(ctx)
 	}, reflect.TypeOf((*UndertakerAPI)(nil)))
 }
 
 // newUndertakerFacade creates a new instance of the undertaker API.
-func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
+func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
@@ -32,12 +32,12 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 	}
 	cloudService := ctx.ServiceFactory().Cloud()
 	credentialService := ctx.ServiceFactory().Credential()
-	secretsBackendsGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	secretsBackendsGetter := func(ctx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		model, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.AdminBackendConfigInfo(context.Background(), secrets.SecretsModel(model), cloudService, credentialService)
+		return secrets.AdminBackendConfigInfo(ctx, secrets.SecretsModel(model), cloudService, credentialService)
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		ctx.Resources(),

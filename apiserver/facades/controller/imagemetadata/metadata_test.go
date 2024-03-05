@@ -22,12 +22,12 @@ var _ = gc.Suite(&ImageMetadataUpdateSuite{})
 func (s *ImageMetadataUpdateSuite) TestControllerOnly(c *gc.C) {
 	var authorizer apiservertesting.FakeAuthorizer
 	authorizer.Controller = true
-	_, err := imagemetadata.NewAPI(facadetest.Context{
+	_, err := imagemetadata.NewAPI(facadetest.ModelContext{
 		Auth_: authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	authorizer.Controller = false
-	_, err = imagemetadata.NewAPI(facadetest.Context{
+	_, err = imagemetadata.NewAPI(facadetest.ModelContext{
 		Auth_: authorizer,
 	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")

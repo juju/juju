@@ -8,7 +8,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -29,7 +29,7 @@ func (s *StagedResourceSuite) assertActivate(c *gc.C, inc state.IncrementCharmMo
 		Charm: ch,
 	})
 
-	res := s.State.Resources(state.NewObjectStore(c, s.State))
+	res := s.State.Resources(state.NewObjectStore(c, s.State.ModelUUID()))
 	spam := newResourceFromCharm(ch, "store-resource")
 
 	data := "spamspamspam"

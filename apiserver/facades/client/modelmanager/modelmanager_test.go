@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -32,11 +31,12 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	_ "github.com/juju/juju/internal/provider/azure"
+	_ "github.com/juju/juju/internal/provider/ec2"
+	_ "github.com/juju/juju/internal/provider/maas"
+	_ "github.com/juju/juju/internal/provider/openstack"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
-	_ "github.com/juju/juju/provider/azure"
-	_ "github.com/juju/juju/provider/ec2"
-	_ "github.com/juju/juju/provider/maas"
-	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -897,7 +897,7 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 		Tag: jujutesting.AdminUser,
 	}
 
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }
@@ -1751,7 +1751,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	mig, err := modelState.CreateMigration(state.MigrationSpec{
 		InitiatedBy: user,
 		TargetInfo: migration.TargetInfo{
-			ControllerTag:   names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerTag:   names.NewControllerTag(uuid.MustNewUUID().String()),
 			ControllerAlias: "target",
 			Addrs:           []string{"1.2.3.4:5555"},
 			CACert:          coretesting.CACert,

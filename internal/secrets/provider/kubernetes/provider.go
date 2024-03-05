@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
@@ -77,7 +77,7 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (Broker, clouds
 }
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
-func (p k8sProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
+func (p k8sProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
 	if tag == nil {
 		// This should never happen.
 		// Because this method is used for uniter facade only.
@@ -90,7 +90,7 @@ func (p k8sProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = broker.EnsureSecretAccessToken(tag, nil, nil, removed.RevisionIDs())
+	_, err = broker.EnsureSecretAccessToken(ctx, tag, nil, nil, removed.RevisionIDs())
 	return errors.Trace(err)
 }
 
@@ -130,7 +130,8 @@ func IsBuiltInName(backendName string) bool {
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p k8sProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, forDrain bool, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	ctx context.Context,
+	adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
 
@@ -142,7 +143,7 @@ func (p k8sProvider) RestrictedConfig(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	token, err := broker.EnsureSecretAccessToken(consumer, owned.RevisionIDs(), read.RevisionIDs(), nil)
+	token, err := broker.EnsureSecretAccessToken(ctx, consumer, owned.RevisionIDs(), read.RevisionIDs(), nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -152,7 +153,7 @@ func (p k8sProvider) RestrictedConfig(
 	}
 	cloudSpec.Credential = &cred
 
-	if cloudSpec.IsControllerCloud {
+	if sameController && cloudSpec.IsControllerCloud {
 		// The cloudspec used for controller has a fake endpoint (address and port)
 		// because we ignore the endpoint and load the in-cluster credential instead.
 		// So we have to clean up the endpoint here for uniter to use.
@@ -163,6 +164,8 @@ func (p k8sProvider) RestrictedConfig(
 			logger.Tracef("patching endpoint to %q", cloudSpec.Endpoint)
 			cloudSpec.IsControllerCloud = false
 		}
+	} else {
+		cloudSpec.IsControllerCloud = false
 	}
 	return cloudSpecToBackendConfig(cloudSpec)
 }

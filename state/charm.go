@@ -9,13 +9,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
 	corebase "github.com/juju/juju/core/base"
@@ -178,7 +178,6 @@ type charmDoc struct {
 	Config     *charm.Config   `bson:"config"`
 	Manifest   *charm.Manifest `bson:"manifest"`
 	Actions    *charm.Actions  `bson:"actions"`
-	Metrics    *charm.Metrics  `bson:"metrics"`
 	LXDProfile *LXDProfile     `bson:"lxd-profile"`
 }
 
@@ -244,7 +243,6 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		Meta:          info.Charm.Meta(),
 		Config:        safeConfig(info.Charm),
 		Manifest:      info.Charm.Manifest(),
-		Metrics:       info.Charm.Metrics(),
 		Actions:       info.Charm.Actions(),
 		BundleSha256:  info.SHA256,
 		StoragePath:   info.StoragePath,
@@ -353,7 +351,6 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 		{"config", safeConfig(info.Charm)},
 		{"actions", info.Charm.Actions()},
 		{"manifest", info.Charm.Manifest()},
-		{"metrics", info.Charm.Metrics()},
 		{"storagepath", info.StoragePath},
 		{"bundlesha256", info.SHA256},
 		{"pendingupload", pendingUpload},
@@ -665,11 +662,6 @@ func (c *Charm) Config() *charm.Config {
 // build process such as the bases on which it can run.
 func (c *Charm) Manifest() *charm.Manifest {
 	return c.doc.Manifest
-}
-
-// Metrics returns the metrics declared for the charm.
-func (c *Charm) Metrics() *charm.Metrics {
-	return c.doc.Metrics
 }
 
 // Actions returns the actions definition of the charm.

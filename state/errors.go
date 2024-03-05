@@ -15,7 +15,6 @@ var (
 	newParentDeviceHasChildrenError = stateerrors.NewParentDeviceHasChildrenError
 	newErrCharmAlreadyUploaded      = stateerrors.NewErrCharmAlreadyUploaded
 	newDeletedUserError             = stateerrors.NewDeletedUserError
-	newNeverLoggedInError           = stateerrors.NewNeverLoggedInError
 	newNeverConnectedError          = stateerrors.NewNeverConnectedError
 	newVersionInconsistentError     = stateerrors.NewVersionInconsistentError
 

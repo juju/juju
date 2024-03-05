@@ -33,7 +33,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits, state.JobManageModel)
+	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{

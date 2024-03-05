@@ -9,41 +9,44 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	utilseries "github.com/juju/os/v2/series"
-	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
 	corebase "github.com/juju/juju/core/base"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/credential"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
+	machinebootstrap "github.com/juju/juju/domain/machine/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
+	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 )
@@ -54,7 +57,6 @@ type DqliteInitializerFunc func(
 	ctx stdcontext.Context,
 	mgr database.BootstrapNodeManager,
 	logger database.Logger,
-	preferLoopback bool,
 	concerns ...database.BootstrapConcern,
 ) error
 
@@ -85,6 +87,7 @@ type AgentBootstrap struct {
 	agentConfig      agent.ConfigSetter
 	mongoDialOpts    mongo.DialOpts
 	stateNewPolicy   state.NewPolicyFunc
+	precheckerGetter func(*state.State) (environs.InstancePrechecker, error)
 	bootstrapDqlite  DqliteInitializerFunc
 
 	stateInitializationParams instancecfg.StateInitializationParams
@@ -118,11 +121,14 @@ type AgentBootstrapArgs struct {
 	MongoDialOpts             mongo.DialOpts
 	SharedSecret              string
 	StateInitializationParams instancecfg.StateInitializationParams
-	StateNewPolicy            state.NewPolicyFunc
 	StorageProviderRegistry   storage.ProviderRegistry
 	BootstrapDqlite           DqliteInitializerFunc
 	Provider                  ProviderFunc
 	Logger                    Logger
+
+	// Deprecated: use InstancePrechecker
+	StateNewPolicy           state.NewPolicyFunc
+	InstancePrecheckerGetter func(*state.State) (environs.InstancePrechecker, error)
 }
 
 func (a *AgentBootstrapArgs) validate() error {
@@ -178,8 +184,10 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		provider:                  args.Provider,
 		sharedSecret:              args.SharedSecret,
 		stateInitializationParams: args.StateInitializationParams,
-		stateNewPolicy:            args.StateNewPolicy,
 		storageProviderRegistry:   args.StorageProviderRegistry,
+
+		stateNewPolicy:   args.StateNewPolicy,
+		precheckerGetter: args.InstancePrecheckerGetter,
 	}, nil
 }
 
@@ -212,21 +220,26 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
 
-	controllerModelType := modeldomain.TypeIAAS
+	controllerModelType := coremodel.IAAS
 	if cloud.CloudIsCAAS(stateParams.ControllerCloud) {
-		controllerModelType = modeldomain.TypeCAAS
+		controllerModelType = coremodel.CAAS
 	}
 
-	controllerUUID := modeldomain.UUID(
+	// Add initial Admin user to the database. This will return Admin user UUID
+	// and a function to insert it into the database.
+	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
+
+	controllerModelUUID := coremodel.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
 	controllerModelArgs := modeldomain.ModelCreationArgs{
-		Name:        stateParams.ControllerModelConfig.Name(),
-		Owner:       b.adminUser.Name(),
-		Cloud:       stateParams.ControllerCloud.Name,
-		CloudRegion: stateParams.ControllerCloudRegion,
-		Credential:  credential.IdFromTag(cloudCredTag),
-		Type:        controllerModelType,
+		AgentVersion: stateParams.AgentVersion,
+		Name:         stateParams.ControllerModelConfig.Name(),
+		Owner:        adminUserUUID,
+		Cloud:        stateParams.ControllerCloud.Name,
+		CloudRegion:  stateParams.ControllerCloudRegion,
+		Credential:   credential.IdFromTag(cloudCredTag),
+		Type:         controllerModelType,
 	}
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
@@ -234,20 +247,42 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 
-	if err := b.bootstrapDqlite(
-		ctx,
-		database.NewNodeManager(b.agentConfig, b.logger, coredatabase.NoopSlowQueryLogger{}),
-		b.logger,
-		false,
+	databaseBootstrapConcerns := []database.BootstrapConcern{
 		database.BootstrapControllerConcern(
+			// The admin user needs to be added before everything else that
+			// requires being owned by a Juju user.
+			addAdminUser,
 			ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
 			cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
-			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
+			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
+			modelbootstrap.CreateModel(controllerModelUUID, controllerModelArgs),
 		),
-		database.BootstrapModelConcern(controllerUUID,
+		database.BootstrapModelConcern(controllerModelUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 		),
+	}
+	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
+	if !isCAAS {
+		// TODO(wallyworld) - this is just a placeholder for now
+		databaseBootstrapConcerns = append(databaseBootstrapConcerns,
+			database.BootstrapModelConcern(controllerModelUUID,
+				machinebootstrap.InsertMachine(agent.BootstrapControllerId),
+			))
+	}
+
+	// If we're running caas, we need to bind to the loopback address
+	// and eschew TLS termination.
+	// This is to prevent dqlite to become all at sea when the controller pod
+	// is rescheduled. This is only a temporary measure until we have HA
+	// dqlite for k8s.
+	isLoopbackPreferred := isCAAS
+
+	if err := b.bootstrapDqlite(
+		ctx,
+		database.NewNodeManager(b.agentConfig, isLoopbackPreferred, b.logger, coredatabase.NoopSlowQueryLogger{}),
+		b.logger,
+		databaseBootstrapConcerns...,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -260,7 +295,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 
 	b.logger.Debugf("initializing address %v", info.Addrs)
 
-	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
 	modelType := state.ModelTypeIAAS
 	if isCAAS {
 		modelType = state.ModelTypeCAAS
@@ -325,16 +359,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Trace(err)
 	}
 
-	// Convert the provider addresses that we got from the bootstrap instance
-	// to space ID decorated addresses.
-	if err = b.initAPIHostPorts(
-		st,
-		stateParams.ControllerConfig,
-		filteredBootstrapMachineAddresses,
-		servingInfo.APIPort,
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
 		return nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
@@ -378,7 +402,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// via the API connection).
 	b.logger.Debugf("create new random password for controller %v", controllerNode.Id())
 
-	newPassword, err := utils.RandomPassword()
+	newPassword, err := password.RandomPassword()
 	if err != nil {
 		return nil, err
 	}
@@ -587,17 +611,17 @@ func (b *AgentBootstrap) initBootstrapMachine(
 		return nil, errors.Trace(err)
 	}
 
-	spaceAddrs, err := bootstrapMachineAddresses.ToSpaceAddresses(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	base, err := corebase.GetBaseFromSeries(hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m, err := st.AddOneMachine(state.MachineTemplate{
-		Addresses:               spaceAddrs,
+
+	prechecker, err := b.precheckerGetter(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting instance prechecker")
+	}
+
+	m, err := st.AddOneMachine(prechecker, state.MachineTemplate{
 		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Nonce:                   agent.BootstrapNonce,
 		Constraints:             stateParams.BootstrapMachineConstraints,
@@ -610,19 +634,6 @@ func (b *AgentBootstrap) initBootstrapMachine(
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
 	}
 	return m, nil
-}
-
-// initBootstrapNode initializes the initial caas bootstrap controller in state.
-func (b *AgentBootstrap) initBootstrapNode(
-	st *state.State,
-) (bootstrapController, error) {
-	b.logger.Debugf("initialising bootstrap node for with config: %+v", b.stateInitializationParams)
-
-	node, err := st.AddControllerNode()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create bootstrap controller in state")
-	}
-	return node, nil
 }
 
 // initControllerCloudService creates cloud service for controller service.
@@ -644,7 +655,7 @@ func (b *AgentBootstrap) initControllerCloudService(
 		// this should never happen.
 		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
 	}
-	svc, err := broker.GetService(k8sconstants.JujuControllerStackName, true)
+	svc, err := broker.GetService(ctx, k8sconstants.JujuControllerStackName, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -653,10 +664,7 @@ func (b *AgentBootstrap) initControllerCloudService(
 		// this should never happen because we have already checked in k8s controller bootstrap stacker.
 		return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
 	}
-	addrs, err := svc.Addresses.ToSpaceAddresses(st)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	addrs := b.getAlphaSpaceAddresses(svc.Addresses)
 
 	svcId := controllerUUID
 	b.logger.Infof("creating cloud service for k8s controller %q", svcId)
@@ -669,14 +677,31 @@ func (b *AgentBootstrap) initControllerCloudService(
 	return errors.Trace(err)
 }
 
-// initAPIHostPorts sets the initial API host/port addresses in state.
-func (b *AgentBootstrap) initAPIHostPorts(st *state.State, controllerConfig controller.Config, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
-	addrs, err := pAddrs.ToSpaceAddresses(st)
-	if err != nil {
-		return errors.Trace(err)
+// getAlphaSpaceAddresses returns a SpaceAddresses created from the input
+// providerAddresses and using the alpha space ID as their SpaceID.
+// We set all the spaces of the output SpaceAddresses to be the alpha space ID.
+func (b *AgentBootstrap) getAlphaSpaceAddresses(providerAddresses corenetwork.ProviderAddresses) corenetwork.SpaceAddresses {
+	sas := make(corenetwork.SpaceAddresses, len(providerAddresses))
+	for i, pa := range providerAddresses {
+		sas[i] = corenetwork.SpaceAddress{MachineAddress: pa.MachineAddress}
+		if pa.SpaceName != "" {
+			sas[i].SpaceID = corenetwork.AlphaSpaceId
+		}
 	}
-	hostPorts := corenetwork.SpaceAddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts(controllerConfig, []corenetwork.SpaceHostPorts{hostPorts})
+	return sas
+}
+
+// initBootstrapNode initializes the initial caas bootstrap controller in state.
+func (b *AgentBootstrap) initBootstrapNode(
+	st *state.State,
+) (bootstrapController, error) {
+	b.logger.Debugf("initialising bootstrap node for with config: %+v", b.stateInitializationParams)
+
+	node, err := st.AddControllerNode()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create bootstrap controller in state")
+	}
+	return node, nil
 }
 
 // machineJobFromParams returns the job corresponding to model.MachineJob.

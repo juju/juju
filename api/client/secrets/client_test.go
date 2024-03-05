@@ -78,6 +78,13 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 					BackendName: ptr("some backend"),
 				}},
 				Value: &params.SecretValueResult{Data: data},
+				Access: []params.AccessInfo{
+					{
+						TargetTag: "application-gitlab",
+						ScopeTag:  "relation-key",
+						Role:      "view",
+					},
+				},
 			}},
 		}
 		return nil
@@ -113,6 +120,13 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 			ExpireTime:  ptr(now.Add(time.Hour)),
 		}},
 		Value: secrets.NewSecretValue(data),
+		Access: []secrets.AccessInfo{
+			{
+				Target: "application-gitlab",
+				Scope:  "relation-key",
+				Role:   secrets.RoleView,
+			},
+		},
 	}})
 }
 

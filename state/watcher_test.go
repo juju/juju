@@ -29,7 +29,7 @@ func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
 }
 
 func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
-	m, err := s.State.AddMachine(state.UbuntuBase("18.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	// Send the Machine creation event before we start our watcher
 	w := m.Watch()

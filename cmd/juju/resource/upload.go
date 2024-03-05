@@ -4,12 +4,13 @@
 package resource
 
 import (
+	"context"
 	"io"
 
-	charmresource "github.com/juju/charm/v11/resource"
-	"github.com/juju/cmd/v3"
+	charmresource "github.com/juju/charm/v13/resource"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/client/resources"
 	jujucmd "github.com/juju/juju/cmd"
@@ -21,7 +22,7 @@ import (
 // UploadClient has the API client methods needed by UploadCommand.
 type UploadClient interface {
 	// Upload sends the resource to Juju.
-	Upload(application, name, filename, pendingID string, resource io.ReadSeeker) error
+	Upload(ctx context.Context, application, name, filename, pendingID string, resource io.ReadSeeker) error
 
 	// ListResources returns info about resources for applications in the model.
 	ListResources(applications []string) ([]coreresources.ApplicationResources, error)
@@ -143,7 +144,7 @@ func (c *UploadCommand) addResourceValue(arg string) error {
 }
 
 // Run implements cmd.Command.Run.
-func (c *UploadCommand) Run(*cmd.Context) error {
+func (c *UploadCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.newClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -161,7 +162,7 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 		}
 	}
 
-	if err := c.upload(c.resourceValue, apiclient); err != nil {
+	if err := c.upload(ctx, c.resourceValue, apiclient); err != nil {
 		return errors.Annotatef(err, "failed to upload resource %q", c.resourceValue.name)
 	}
 	return nil
@@ -169,13 +170,13 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 
 // upload opens the given file and calls the apiclient to upload it to the given
 // application with the given name.
-func (c *UploadCommand) upload(rf resourceValue, client UploadClient) error {
+func (c *UploadCommand) upload(ctx context.Context, rf resourceValue, client UploadClient) error {
 	f, err := OpenResource(rf.value, rf.resourceType, c.Filesystem().Open)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	err = client.Upload(rf.application, rf.name, rf.value, "", f)
+	err = client.Upload(ctx, rf.application, rf.name, rf.value, "", f)
 	if err := block.ProcessBlockedError(err, block.BlockChange); err != nil {
 		return errors.Trace(err)
 	}

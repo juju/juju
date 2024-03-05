@@ -9,8 +9,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
+	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -42,6 +43,7 @@ import (
 // ControllerConfigService is the interface that the provisioner facade
 // uses to get the controller config.
 type ControllerConfigService interface {
+	// ControllerConfig returns this controllers config.
 	ControllerConfig(stdcontext.Context) (controller.Config, error)
 }
 
@@ -84,7 +86,7 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*ProvisionerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -132,7 +134,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 
 	// Get the controller config early, so we can use it to cache the
 	// controller UUID.
-	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(stdcontext.TODO())
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -148,7 +150,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if isCaasModel {
 		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
 	} else {
-		env, err = environs.GetEnviron(stdcontext.Background(), configGetter, environs.New)
+		env, err = environs.GetEnviron(stdCtx, configGetter, environs.New)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -156,7 +158,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
-		stdcontext.Background(), st, serviceFactory.Cloud(), getCanModify)
+		stdCtx, st, serviceFactory.Cloud(), getCanModify)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
@@ -166,9 +168,11 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 
+	unitRemover := ctx.ServiceFactory().Unit()
+
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
-		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc),
+		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc, unitRemover),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc),
@@ -382,13 +386,20 @@ func (api *ProvisionerAPI) ContainerConfig(ctx stdcontext.Context) (params.Conta
 	if err != nil {
 		return result, err
 	}
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return result, err
+	}
+
+	authorizedKeys := ssh.ConcatAuthorisedKeys(
+		cfg.AuthorizedKeys(), controllerConfig.SystemSSHKeys())
 
 	result.UpdateBehavior = &params.UpdateBehavior{
 		EnableOSRefreshUpdate: cfg.EnableOSRefreshUpdate(),
 		EnableOSUpgrade:       cfg.EnableOSUpgrade(),
 	}
 	result.ProviderType = cfg.Type()
-	result.AuthorizedKeys = cfg.AuthorizedKeys()
+	result.AuthorizedKeys = authorizedKeys
 	result.SSLHostnameVerification = cfg.SSLHostnameVerification()
 	result.LegacyProxy = cfg.LegacyProxySettings()
 	result.JujuProxy = cfg.JujuProxySettings()

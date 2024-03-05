@@ -13,11 +13,11 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"golang.org/x/crypto/ssh/terminal"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -60,7 +60,7 @@ type AddCloudAPI interface {
 }
 
 // BrokerGetter returns caas broker instance.
-type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error)
+type BrokerGetter func(ctx stdcontext.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error)
 
 var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
@@ -177,7 +177,7 @@ type AddCAASCommand struct {
 	eks        bool
 	k8sCluster k8sCluster
 
-	adminServiceAccountResolver func(jujuclock.Clock) clientconfig.K8sCredentialResolver
+	adminServiceAccountResolver func(stdcontext.Context, jujuclock.Clock) clientconfig.K8sCredentialResolver
 	cloudMetadataStore          CloudMetadataStore
 	credentialStoreAPI          CredentialStoreAPI
 	newClientConfigReader       func(string) (clientconfig.ClientConfigFunc, error)
@@ -499,7 +499,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	k8sConfig, err = c.adminServiceAccountResolver(c.clock)(
+	k8sConfig, err = c.adminServiceAccountResolver(ctx, c.clock)(
 		credentialUID,
 		k8sConfig,
 		k8sCtxName,
@@ -544,7 +544,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	broker, err := c.brokerGetter(newCloud, newCredential)
+	broker, err := c.brokerGetter(ctx, newCloud, newCredential)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -695,7 +695,7 @@ func checkCloudRegion(given, detected string) error {
 	return nil
 }
 
-func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
+func (c *AddCAASCommand) newK8sClusterBroker(ctx stdcontext.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -708,7 +708,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		openParams.ControllerUUID = ctrlUUID
 	}
 
-	broker, err := caas.New(stdcontext.TODO(), openParams)
+	broker, err := caas.New(ctx, openParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -847,7 +847,7 @@ func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetCl
 		result := make(chan *k8s.ClusterMetadata, 1)
 		errChan := make(chan error, 1)
 		go func() {
-			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(storageParams.WorkloadStorage)
+			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(ctx, storageParams.WorkloadStorage)
 			if err != nil {
 				errChan <- err
 			} else {

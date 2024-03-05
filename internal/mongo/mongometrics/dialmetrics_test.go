@@ -196,20 +196,75 @@ func (s *DialCollectorSuite) TestCollect(c *gc.C) {
 			}},
 		},
 	}}
-	for _, dm := range dtoMetrics {
+	for i := range dtoMetrics {
 		var found bool
-		for i, m := range expected {
-			if !reflect.DeepEqual(dm, m) {
+		for j := range expected {
+			if !metricsEqual(&dtoMetrics[i], &expected[j]) {
 				continue
 			}
-			expected = append(expected[:i], expected[i+1:]...)
+			expected = append(expected[:j], expected[j+1:]...)
 			found = true
 			break
 		}
 		if !found {
-			c.Errorf("metric %+v not expected", dm)
+			c.Errorf("metric %+v not expected", &dtoMetrics[i])
 		}
 	}
+}
+
+func metricsEqual(m1 *dto.Metric, m2 *dto.Metric) bool {
+	if !reflect.DeepEqual(m1.Label, m2.Label) {
+		return false
+	}
+	if !reflect.DeepEqual(m1.Gauge, m2.Gauge) {
+		return false
+	}
+	if m1.Counter != nil || m2.Counter != nil {
+		if m1.Counter == nil || m2.Counter == nil {
+			return false
+		}
+		if m1.Counter.GetValue() != m2.Counter.GetValue() {
+			return false
+		}
+	}
+	if m1.Gauge != nil || m2.Gauge != nil {
+		if m1.Gauge == nil || m2.Gauge == nil {
+			return false
+		}
+		if m1.Gauge.GetValue() != m2.Gauge.GetValue() {
+			return false
+		}
+	}
+	if m1.Summary != nil || m2.Summary != nil {
+		if m1.Summary == nil || m2.Summary == nil {
+			return false
+		}
+		if m1.Summary.GetSampleSum() != m2.Summary.GetSampleSum() {
+			return false
+		}
+		if m1.Summary.GetSampleCount() != m2.Summary.GetSampleCount() {
+			return false
+		}
+		if !reflect.DeepEqual(m1.Summary.GetQuantile(), m2.Summary.GetQuantile()) {
+			return false
+		}
+	}
+	if m1.Histogram != nil || m2.Histogram != nil {
+		if m1.Histogram == nil || m2.Histogram == nil {
+			return false
+		}
+		if m1.Histogram.GetSampleSum() != m2.Histogram.GetSampleSum() {
+			return false
+		}
+		if m1.Histogram.GetSampleCount() != m2.Histogram.GetSampleCount() {
+			return false
+		}
+		if !reflect.DeepEqual(m1.Histogram.GetBucket(), m2.Histogram.GetBucket()) {
+			return false
+		}
+	}
+
+	return true
 }
 
 type netError struct {

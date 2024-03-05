@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -35,12 +35,13 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
-	stateAccessor   Backend
-	pool            Pool
-	storageAccessor StorageInterface
-	auth            facade.Authorizer
-	resources       facade.Resources
-	presence        facade.Presence
+	stateAccessor     Backend
+	pool              Pool
+	storageAccessor   StorageInterface
+	blockDeviceGetrer BlockDeviceGetter
+	auth              facade.Authorizer
+	resources         facade.Resources
+	presence          facade.Presence
 
 	multiwatcherFactory multiwatcher.Factory
 
@@ -111,7 +112,7 @@ func (c *Client) checkIsAdmin() error {
 // NewFacade creates a Client facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;
-func NewFacade(ctx facade.Context) (*Client, error) {
+func NewFacade(ctx facade.ModelContext) (*Client, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
@@ -122,9 +123,15 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	serviceFactory := ctx.ServiceFactory()
+
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: ctx.ServiceFactory().Credential()}
-	newEnviron := common.EnvironFuncForModel(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(), configGetter)
+		Model:             model,
+		CloudService:      serviceFactory.Cloud(),
+		CredentialService: serviceFactory.Credential(),
+	}
+	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
 
 	modelUUID := model.UUID()
 
@@ -133,12 +140,12 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	controllerConfigGetter := serviceFactory.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	blockChecker := common.NewBlockChecker(st)
-	leadershipReader, err := ctx.LeadershipReader(modelUUID)
+	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -149,9 +156,10 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 
 	return NewClient(
-		&stateShim{st, model, nil},
-		&poolShim{ctx.StatePool()},
+		&stateShim{State: st, model: model, session: nil},
+		&poolShim{pool: ctx.StatePool()},
 		storageAccessor,
+		ctx.ServiceFactory().BlockDevice(),
 		resources,
 		authorizer,
 		presence,
@@ -169,6 +177,7 @@ func NewClient(
 	backend Backend,
 	pool Pool,
 	storageAccessor StorageInterface,
+	blockDeviceGetter BlockDeviceGetter,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
@@ -187,6 +196,7 @@ func NewClient(
 			stateAccessor:       backend,
 			pool:                pool,
 			storageAccessor:     storageAccessor,
+			blockDeviceGetrer:   blockDeviceGetter,
 			auth:                authorizer,
 			resources:           resources,
 			presence:            presence,
@@ -258,7 +268,7 @@ func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) 
 	}
 
 	list, err := c.api.toolsFinder.FindAgents(
-		stdcontext.Background(),
+		ctx,
 		common.FindAgentsParams{
 			Number:       args.Number,
 			MajorVersion: args.MajorVersion,

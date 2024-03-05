@@ -13,17 +13,16 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	gorillaws "github.com/gorilla/websocket"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/mitchellh/go-linereader"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/feature"
@@ -232,12 +231,6 @@ func newLineReader(r io.Reader) *linereader.Reader {
 	}
 	go result.Run()
 	return result
-}
-
-// ControllerConfigService defines the methods required to get the controller
-// configuration.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // ExecEmbeddedCommandFunc defines a function which runs a named Juju command

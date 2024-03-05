@@ -9,10 +9,10 @@ import (
 	"os"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -145,9 +145,9 @@ checks:
 
 	gomock.InOrder(
 		s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, os.ErrNotExist),
-		s.applicationAPI.EXPECT().UnitIntroduction(`gitlab-0`, `gitlab-uuid`).Times(1).Return(nil, errors.NotAssignedf("yo we not needed yet")),
-		s.applicationAPI.EXPECT().UnitIntroduction(`gitlab-0`, `gitlab-uuid`).Times(1).Return(nil, errors.AlreadyExistsf("yo we dead atm")),
-		s.applicationAPI.EXPECT().UnitIntroduction(`gitlab-0`, `gitlab-uuid`).Times(1).Return(&caasapplication.UnitConfig{
+		s.applicationAPI.EXPECT().UnitIntroduction(gomock.Any(), `gitlab-0`, `gitlab-uuid`).Times(1).Return(nil, errors.NotAssignedf("yo we not needed yet")),
+		s.applicationAPI.EXPECT().UnitIntroduction(gomock.Any(), `gitlab-0`, `gitlab-uuid`).Times(1).Return(nil, errors.AlreadyExistsf("yo we dead atm")),
+		s.applicationAPI.EXPECT().UnitIntroduction(gomock.Any(), `gitlab-0`, `gitlab-uuid`).Times(1).Return(&caasapplication.UnitConfig{
 			UnitTag:   names.NewUnitTag("gitlab/0"),
 			AgentConf: data,
 		}, nil),

@@ -9,19 +9,18 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -57,6 +56,12 @@ type CredentialService interface {
 	WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error)
 }
 
+// UnitRemover deletes a unit from the dqlite database.
+// This allows us to initially weave some dqlite support into the cleanup workflow.
+type UnitRemover interface {
+	Delete(context.Context, string) error
+}
+
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
@@ -70,7 +75,6 @@ type UniterAPI struct {
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 	*secretsmanager.SecretsManagerAPI
-	meterstatus.MeterStatus
 
 	lxdProfileAPI           *LXDProfileAPIv2
 	m                       *state.Model
@@ -78,8 +82,8 @@ type UniterAPI struct {
 	cloudService            CloudService
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
+	unitRemover             UnitRemover
 	clock                   clock.Clock
-	cancel                  <-chan struct{}
 	auth                    facade.Authorizer
 	resources               facade.Resources
 	leadershipChecker       leadership.Checker
@@ -459,10 +463,16 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
+			var (
+				unit    *state.Unit
+				removed bool
+			)
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				err = unit.Destroy(u.store)
+				removed, err = unit.DestroyMaybeRemove(u.store)
+				if err == nil && removed {
+					err = u.unitRemover.Delete(ctx, unit.Name())
+				}
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -490,7 +500,7 @@ func (u *UniterAPI) DestroyAllSubordinates(ctx context.Context, args params.Enti
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				err = u.destroySubordinates(unit)
+				err = u.destroySubordinates(ctx, unit)
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -1722,15 +1732,21 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 	return rel.ApplicationSettings(appTag.Id())
 }
 
-func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
+func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
 	for _, subName := range subordinates {
 		unit, err := u.getUnit(names.NewUnitTag(subName))
 		if err != nil {
 			return err
 		}
-		if err = unit.Destroy(u.store); err != nil {
+		removed, err := unit.DestroyMaybeRemove(u.store)
+		if err != nil {
 			return err
+		}
+		if removed {
+			if err := u.unitRemover.Delete(ctx, subName); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -1852,61 +1868,10 @@ func leadershipSettingsAccessorFactory(
 	)
 }
 
-// AddMetricBatches adds the metrics for the specified unit.
-func (u *UniterAPI) AddMetricBatches(ctx context.Context, args params.MetricBatchParams) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Batches)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		u.logger.Warningf("failed to check unit access: %v", err)
-		return params.ErrorResults{}, apiservererrors.ErrPerm
-	}
-	for i, batch := range args.Batches {
-		tag, err := names.ParseUnitTag(batch.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		metrics := make([]state.Metric, len(batch.Batch.Metrics))
-		for j, metric := range batch.Batch.Metrics {
-			metrics[j] = state.Metric{
-				Key:    metric.Key,
-				Value:  metric.Value,
-				Time:   metric.Time,
-				Labels: metric.Labels,
-			}
-		}
-		_, err = u.st.AddMetrics(state.BatchParam{
-			UUID:     batch.Batch.UUID,
-			Created:  batch.Batch.Created,
-			CharmURL: batch.Batch.CharmURL,
-			Metrics:  metrics,
-			Unit:     tag,
-		})
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 // V4 specific methods.
 
-//  specific methods - the new SLALevel, NetworkInfo and
+//  specific methods - the new NetworkInfo and
 // WatchUnitRelations methods.
-
-// SLALevel returns the model's SLA level.
-func (u *UniterAPI) SLALevel(ctx context.Context) (params.StringResult, error) {
-	result := params.StringResult{}
-	sla, err := u.st.SLALevel()
-	if err == nil {
-		result.Result = sla
-	}
-	return result, err
-}
 
 // NetworkInfo returns network interfaces/addresses for specified bindings.
 func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
@@ -2562,9 +2527,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		if changes.SetUnitState.SecretState != nil {
 			newUS.SetSecretState(*changes.SetUnitState.SecretState)
 		}
-		if changes.SetUnitState.MeterStatusState != nil {
-			newUS.SetMeterStatusState(*changes.SetUnitState.MeterStatusState)
-		}
 
 		modelOp := unit.SetStateOperation(
 			newUS,
@@ -2595,17 +2557,8 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 	}
 
 	// TODO - do in txn once we have support for that
-	if len(changes.SecretDeletes) > 0 {
-		result, err := u.SecretsManagerAPI.RemoveSecrets(context.Background(), params.DeleteSecretArgs{Args: changes.SecretDeletes})
-		if err == nil {
-			err = result.Combine()
-		}
-		if err != nil {
-			return errors.Annotate(err, "removing secrets")
-		}
-	}
 	if len(changes.SecretCreates) > 0 {
-		result, err := u.SecretsManagerAPI.CreateSecrets(context.Background(), params.CreateSecretArgs{Args: changes.SecretCreates})
+		result, err := u.SecretsManagerAPI.CreateSecrets(ctx, params.CreateSecretArgs{Args: changes.SecretCreates})
 		if err == nil {
 			var errorStrings []string
 			for _, r := range result.Results {
@@ -2622,7 +2575,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretUpdates) > 0 {
-		result, err := u.SecretsManagerAPI.UpdateSecrets(context.Background(), params.UpdateSecretArgs{Args: changes.SecretUpdates})
+		result, err := u.SecretsManagerAPI.UpdateSecrets(ctx, params.UpdateSecretArgs{Args: changes.SecretUpdates})
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2630,8 +2583,17 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 			return errors.Annotate(err, "updating secrets")
 		}
 	}
+	if len(changes.TrackLatest) > 0 {
+		result, err := u.SecretsManagerAPI.UpdateTrackedRevisions(changes.TrackLatest)
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "updating secret tracked revisions")
+		}
+	}
 	if len(changes.SecretGrants) > 0 {
-		result, err := u.SecretsManagerAPI.SecretsGrant(context.Background(), params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
+		result, err := u.SecretsManagerAPI.SecretsGrant(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2640,12 +2602,21 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretRevokes) > 0 {
-		result, err := u.SecretsManagerAPI.SecretsRevoke(context.Background(), params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
+		result, err := u.SecretsManagerAPI.SecretsRevoke(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
 		if err == nil {
 			err = result.Combine()
 		}
 		if err != nil {
 			return errors.Annotate(err, "revoking secrets access")
+		}
+	}
+	if len(changes.SecretDeletes) > 0 {
+		result, err := u.SecretsManagerAPI.RemoveSecrets(ctx, params.DeleteSecretArgs{Args: changes.SecretDeletes})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "removing secrets")
 		}
 	}
 

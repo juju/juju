@@ -7,22 +7,22 @@ instances; and for making sure that Dead machines, and stray instances, are
 removed and cleaned up.
 
 However, the choice of exactly what we deploy involves some subtleties. At the
-Provisioner level, it's simple: the series and the constraints we pass to the
+Provisioner level, it's simple: the base and the constraints we pass to the
 Environ.StartInstance come from the machine entity. But how did they get there?
 
-Series
-------
+Bases
+-----
 
-Individual charms are released for different possible target series; juju
-should guarantee that charms for series X are only ever run on series X.
-Every service, unit, and machine has a series that's set at creation time and
-subsequently immutable. Units take their series from their service, and can
-only be assigned to machines with matching series.
+Individual charms are released for different possible target base; juju
+should guarantee that charms for base X are only ever run on base X.
+Every service, unit, and machine has a base that's set at creation time and
+subsequently immutable. Units take their base from their service, and can
+only be assigned to machines with matching bases.
 
 Subordinate units cannot be assigned directly to machines; they are created
 by their principals, on the same machine, in response to the creation of
 subordinate relations. We therefore restrict subordinate relations such that
-they can only be created between services with matching series.
+they can only be created between services with matching bases.
 
 Constraints
 -----------
@@ -87,64 +87,25 @@ At the time of writing, the currently implemented provider-specific placement di
 Availability Zone Spread
 ------------------------
 
-For Juju providers that know about Availability Zones, instances will be automatically spread across the healthy availability zones to maximise service availability. This is achieved by having Juju:
+For Juju providers that know about Availability Zones, instances will be 
+automatically spread across the healthy availability zones to maximise service 
+availability. This is achieved by having Juju:
 
   - be able to enumerate each of the availability zones and their current status,
   - calculate the "distribution group" for each instance at provisioning time.
 
-The distribution group of a nascent instance is the set of instances for which the availability zone spread will be computed. The new instance will be allocated to the zone with the fewest members of its group.
+The distribution group of a nascent instance is the set of instances for which 
+the availability zone spread will be computed. The new instance will be 
+allocated to the zone with the fewest members of its group.
 
-Distribution groups are intentionally opaque to the providers. There are currently two types of groups: controllers and everything else. controllers are always allocated to the same distribution group; other instances are grouped according to the units assigned at provisioning time. A non-controller instance's group consists of all instances with units of the same services.
+Distribution groups are intentionally opaque to the providers. There are 
+currently two types of groups: controllers and everything else. controllers are
+always allocated to the same distribution group; other instances are grouped
+according to the units assigned at provisioning time. A non-controller 
+instance's group consists of all instances with units of the same services.
 
-At the time of writing, there are currently three providers providers supporting automatic availability zone spread: Microsoft Azure, AWS, and OpenStack. Azure's implementation is significantly different to the others as it contains various restrictions relating to the imposed conflation of high availability and load balancing.
-
-The AWS and OpenStack implementations are both based on the `provider/common.ZonedEnviron` interface; additional implementations should make use this if possible. There are two components:
-
-  - unless a placement directive is specified, the provider's `StartInstance` must allocate an instance to one of the healthy availability zones. Some providers may restrict availability zones in ways that cannot be detected ahead of time, so it may be necessary to attempt each zone in turn (in order of least-to-most populous);
-  - the provider must implement `state.InstanceDistributor` so that units are assigned to machines based on their availability zone allocations.
-
-Machine Status and Provisioning Errors (current)
-------------------------------------------------
-
-In the light of time pressure, a unit assigned to a machine that has not been
-provisioned can be removed directly by calling `juju destroy-unit`. Any
-provisioning error can thus be "resolved" in an unsophisticated but moderately
-effective way:
-
-```
-    $ juju destroy-unit borken/0
-```
-
-...in that at least broken units don't clutter up the service and prevent its
-removal. However:
-
-```
-    $ juju destroy-machine 1
-```
-
-...does not yet cause an unprovisioned machine to be removed from state (whether
-directly, or indirectly via the provisioner; the best place to implement this
-functionality is not clear).
-
-Machine Status and Provisioning Errors (WIP)
---------------------------------------------
-
-[TODO: figure this out; not yet implemented, somewhat speculative... in
-particular, use of "resolved" may be inappropriate. Consider adding a
-"retry" CLI tool...]
-
-When the provisioner fails to start a machine, it should ensure that (1) the
-machine has no instance id set and (2) the machine has an error status set
-that communicates the nature of the problem. This must be visible in the
-output of `juju status`; and we must supply suitable tools to the user so
-as to allow her to respond appropriately.
-
-If the user believes a machine's provisioning error to be transient, she can
-do a simple `juju resolved 14` which will set some state to make machine 14
-eligible for the provisioner's attention again.
-
-It may otherwise be that the unit ended up snapshotting a service/environ
-config pair that really isn't satsifiable. In that case, the user can try
-(say) `juju resolved 14 --constraints "mem=2G cpu-power=400"`, which allows
-her to completely replace the machine's constraints as well as marking the
-machine for reprovisioning attention.
+Unless a placement directive is specified, the provider's `StartInstance` must
+allocate an instance to one of the healthy availability zones. Some providers 
+may restrict availability zones in ways that cannot be detected ahead of time, 
+so it may be necessary to attempt each zone in turn (in order of least-to-most 
+populous);

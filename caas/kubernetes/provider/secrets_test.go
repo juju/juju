@@ -52,7 +52,7 @@ func (s *secretsSuite) TestGetSecretToken(c *gc.C) {
 	_, err := s.mockSecrets.Create(context.Background(), secret, v1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.broker.GetSecretToken("secret-1")
+	out, err := s.broker.GetSecretToken(context.Background(), "secret-1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "token")
 

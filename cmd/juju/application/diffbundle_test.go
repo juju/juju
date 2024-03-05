@@ -11,9 +11,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/charm/v13"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -53,14 +53,14 @@ func (s *diffSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error) {
-	return s.runDiffBundleWithCharmAdapter(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
+	return s.runDiffBundleWithCharmAdaptor(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
 		return s.charmHub, nil
 	}, func() (application.ModelConstraintsClient, error) {
 		return s.modelClient, nil
 	}, args...)
 }
 
-func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C,
+func (s *diffSuite) runDiffBundleWithCharmAdaptor(c *gc.C,
 	charmAdataperFn func(base.APICallCloser, *charm.URL) (application.BundleResolver, error),
 	modelConsFn func() (application.ModelConstraintsClient, error),
 	args ...string,
@@ -605,7 +605,7 @@ func (s *mockCharmHub) ResolveBundleURL(url *charm.URL, preferredOrigin commonch
 	return s.url, s.origin, s.stub.NextErr()
 }
 
-func (s *mockCharmHub) GetBundle(url *charm.URL, _ commoncharm.Origin, path string) (charm.Bundle, error) {
+func (s *mockCharmHub) GetBundle(_ context.Context, url *charm.URL, _ commoncharm.Origin, path string) (charm.Bundle, error) {
 	s.stub.AddCall("GetBundle", url, path)
 	return s.bundle, s.stub.NextErr()
 }
@@ -628,10 +628,6 @@ type mockAPIRoot struct {
 func (r *mockAPIRoot) BestFacadeVersion(name string) int {
 	r.stub.AddCall("BestFacadeVersion", name)
 	return 42
-}
-
-func (r *mockAPIRoot) Context() context.Context {
-	return context.Background()
 }
 
 func (r *mockAPIRoot) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {

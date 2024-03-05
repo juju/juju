@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"testing"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +20,18 @@ import (
 
 func Test(t *testing.T) {
 	gc.TestingT(t)
+}
+
+type baseSuite struct {
+	jujutesting.IsolationSuite
+
+	loggerFactory *CheckLoggerFactory
+	logger        CheckLogger
+}
+
+func (s *baseSuite) SetUpTest(c *gc.C) {
+	s.loggerFactory = NewCheckLoggerFactory(c)
+	s.logger = s.loggerFactory.Logger()
 }
 
 func MustParseURL(c *gc.C, path string) *url.URL {

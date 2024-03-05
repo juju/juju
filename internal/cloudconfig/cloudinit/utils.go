@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/config"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	jujupackaging "github.com/juju/juju/internal/packaging"
 )

@@ -52,7 +52,6 @@ Currently available charm hook tools are:
     action-get               get action parameters
     action-log               record a progress message for the current action
     action-set               set action results
-    add-metric               add metrics
     application-version-set  specify which version of the application is deployed
     close-port               register a request to close a port or port range
     config-get               print application configuration
@@ -105,7 +104,6 @@ var expectedCommands = []string{
 	"action-get",
 	"action-log",
 	"action-set",
-	"add-metric",
 	"application-version-set",
 	"close-port",
 	"config-get",

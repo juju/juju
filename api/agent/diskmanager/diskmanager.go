@@ -6,10 +6,10 @@ package diskmanager
 import (
 	"context"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -38,17 +38,41 @@ func NewState(caller base.APICaller, authTag names.MachineTag, options ...Option
 
 // SetMachineBlockDevices sets the block devices attached to the machine
 // identified by the authenticated machine tag.
-func (st *State) SetMachineBlockDevices(devices []storage.BlockDevice) error {
+func (st *State) SetMachineBlockDevices(ctx context.Context, devices []blockdevice.BlockDevice) error {
 	args := params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine:      st.tag.String(),
-			BlockDevices: devices,
+			BlockDevices: blockDevicesToParams(devices),
 		}},
 	}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall(context.TODO(), "SetMachineBlockDevices", args, &results)
+	err := st.facade.FacadeCall(ctx, "SetMachineBlockDevices", args, &results)
 	if err != nil {
 		return err
 	}
 	return results.OneError()
+}
+
+func blockDevicesToParams(in []blockdevice.BlockDevice) []params.BlockDevice {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]params.BlockDevice, len(in))
+	for i, d := range in {
+		out[i] = params.BlockDevice{
+			DeviceName:     d.DeviceName,
+			DeviceLinks:    d.DeviceLinks,
+			Label:          d.Label,
+			UUID:           d.UUID,
+			HardwareId:     d.HardwareId,
+			WWN:            d.WWN,
+			BusAddress:     d.BusAddress,
+			Size:           d.SizeMiB,
+			FilesystemType: d.FilesystemType,
+			InUse:          d.InUse,
+			MountPoint:     d.MountPoint,
+			SerialId:       d.SerialId,
+		}
+	}
+	return out
 }

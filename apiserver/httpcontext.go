@@ -7,9 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -77,12 +78,6 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	defer func() {
-		// Here err is the named return arg.
-		if err != nil {
-			st.Release()
-		}
-	}()
 	return st, authInfo.Entity, nil
 }
 
@@ -184,6 +179,18 @@ func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds 
 // exit.
 func (ctxt *httpContext) stop() <-chan struct{} {
 	return ctxt.srv.tomb.Dying()
+}
+
+// sendStatusAndHeadersAndJSON send an HTTP status code, custom headers
+// and a JSON-encoded response to a client
+func sendStatusAndHeadersAndJSON(w http.ResponseWriter, statusCode int, headers map[string]string, response interface{}) error {
+	for k, v := range headers {
+		if !strings.HasPrefix(k, "Juju-") {
+			return errors.Errorf(`Custom header %q must be prefixed with "Juju-"`, k)
+		}
+		w.Header().Set(k, v)
+	}
+	return sendStatusAndJSON(w, statusCode, response)
 }
 
 // sendStatusAndJSON sends an HTTP status code and

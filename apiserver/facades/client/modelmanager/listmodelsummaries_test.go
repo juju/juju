@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,11 +19,11 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
+	_ "github.com/juju/juju/internal/provider/azure"
+	_ "github.com/juju/juju/internal/provider/ec2"
+	_ "github.com/juju/juju/internal/provider/maas"
+	_ "github.com/juju/juju/internal/provider/openstack"
 	jtesting "github.com/juju/juju/juju/testing"
-	_ "github.com/juju/juju/provider/azure"
-	_ "github.com/juju/juju/provider/ec2"
-	_ "github.com/juju/juju/provider/maas"
-	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -108,8 +108,6 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.api = modelmanager
 }
 
-// TODO (anastasiamac 2017-11-24) add test with migration and SLA
-
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,7 +125,6 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 					Life:               "alive",
 					Status:             params.EntityStatus{},
 					Counts:             []params.ModelEntityCount{},
-					SLA:                &params.ModelSLAInfo{"essential", "admin"},
 				},
 			},
 		},
@@ -204,7 +201,6 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 					CloudCredentialTag: "cloudcred-dummy_bob_some-credential",
 					Life:               "alive",
 					Status:             params.EntityStatus{},
-					SLA:                &params.ModelSLAInfo{"essential", "admin"},
 					UserAccess:         params.ModelAdminAccess,
 					UserLastConnection: &now,
 					Counts: []params.ModelEntityCount{

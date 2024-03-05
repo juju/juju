@@ -8,8 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -17,6 +16,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/objectstore"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -31,11 +31,11 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := utils.MustNewUUID().String()
+	path := uuid.MustNewUUID().String()
 
 	metadata := coreobjectstore.Metadata{
 		Path: path,
-		Hash: utils.MustNewUUID().String(),
+		Hash: uuid.MustNewUUID().String(),
 		Size: 666,
 	}
 
@@ -45,18 +45,44 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 		Hash: metadata.Hash,
 	}, nil)
 
-	p, err := NewService(s.state, nil).GetMetadata(context.Background(), path)
+	p, err := NewService(s.state).GetMetadata(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, gc.DeepEquals, metadata)
+}
+
+func (s *serviceSuite) TestListMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := uuid.MustNewUUID().String()
+
+	metadata := coreobjectstore.Metadata{
+		Path: path,
+		Hash: uuid.MustNewUUID().String(),
+		Size: 666,
+	}
+
+	s.state.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
+		Path: metadata.Path,
+		Hash: metadata.Hash,
+		Size: metadata.Size,
+	}}, nil)
+
+	p, err := NewService(s.state).ListMetadata(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(p, gc.DeepEquals, []coreobjectstore.Metadata{{
+		Path: metadata.Path,
+		Size: metadata.Size,
+		Hash: metadata.Hash,
+	}})
 }
 
 func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := utils.MustNewUUID().String()
+	path := uuid.MustNewUUID().String()
 	metadata := coreobjectstore.Metadata{
 		Path: path,
-		Hash: utils.MustNewUUID().String(),
+		Hash: uuid.MustNewUUID().String(),
 		Size: 666,
 	}
 
@@ -67,18 +93,18 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 		return nil
 	})
 
-	err := NewService(s.state, nil).PutMetadata(context.Background(), metadata)
+	err := NewService(s.state).PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestRemoveMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := utils.MustNewUUID().String()
+	key := uuid.MustNewUUID().String()
 
 	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
 
-	err := NewService(s.state, nil).RemoveMetadata(context.Background(), key)
+	err := NewService(s.state).RemoveMetadata(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -94,7 +120,7 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	s.state.EXPECT().InitialWatchStatement().Return(table, stmt)
 	s.watcherFactory.EXPECT().NewNamespaceWatcher(table, changestream.All, stmt).Return(watcher, nil)
 
-	w, err := NewService(s.state, s.watcherFactory).Watch()
+	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 }

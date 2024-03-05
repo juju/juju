@@ -6,7 +6,7 @@ package secrets
 import (
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"

@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -20,23 +21,28 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CrossModelSecrets", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newStateCrossModelSecretsAPI(ctx)
+	registry.MustRegister("CrossModelSecrets", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newStateCrossModelSecretsAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*CrossModelSecretsAPI)(nil)))
 }
 
 // newStateCrossModelSecretsAPI creates a new server-side CrossModelSecrets API facade
 // backed by global state.
-func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, error) {
+func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.ModelContext) (*CrossModelSecretsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
-	secretBackendConfigGetter := func(modelUUID string) (*provider.ModelBackendConfigInfo, error) {
+
+	leadershipChecker, err := ctx.LeadershipChecker()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	secretBackendConfigGetter := func(stdCtx context.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
 		model, closer, err := ctx.StatePool().GetModel(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		defer closer.Release()
-		return secrets.AdminBackendConfigInfo(
-			context.Background(), secrets.SecretsModel(model), ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), sameController, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(), []string{backendID}, false, consumer, leadershipChecker)
 	}
 	secretInfoGetter := func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error) {
 		st, err := ctx.StatePool().Get(modelUUID)
@@ -50,11 +56,12 @@ func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, er
 	return NewCrossModelSecretsAPI(
 		ctx.Resources(),
 		authCtxt.(*crossmodel.AuthContext),
+		st.ControllerUUID(),
 		st.ModelUUID(),
 		secretInfoGetter,
 		secretBackendConfigGetter,
 		&crossModelShim{st.RemoteEntities()},
 		&stateBackendShim{st},
-		ctx.Logger().ChildWithLabels("crossmodelsecrets", corelogger.SECRETS),
+		ctx.Logger().ChildWithTags("crossmodelsecrets", corelogger.SECRETS),
 	)
 }

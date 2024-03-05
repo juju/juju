@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -522,15 +522,15 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	var filesystemDetails []params.FilesystemDetails
 	var volumeDetails []params.VolumeDetails
 	if args.IncludeStorage {
-		storageDetails, err = context.processStorage(c.api.storageAccessor)
+		storageDetails, err = context.processStorage(ctx, c.api.storageAccessor, c.api.blockDeviceGetrer)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process storage instances")
 		}
-		filesystemDetails, err = context.processFilesystems(c.api.storageAccessor)
+		filesystemDetails, err = context.processFilesystems(ctx, c.api.storageAccessor, c.api.blockDeviceGetrer)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process filesystems")
 		}
-		volumeDetails, err = context.processVolumes(c.api.storageAccessor)
+		volumeDetails, err = context.processVolumes(ctx, c.api.storageAccessor, c.api.blockDeviceGetrer)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process volumes")
 		}
@@ -637,20 +637,11 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain model status info")
 	}
 
-	info.SLA = m.SLALevel()
-
 	info.ModelStatus = params.DetailedStatus{
 		Status: aStatus.Status.String(),
 		Info:   aStatus.Message,
 		Since:  aStatus.Since,
 		Data:   aStatus.Data,
-	}
-
-	if info.SLA != "unsupported" {
-		ms := m.MeterStatus()
-		if isColorStatus(ms.Code) {
-			info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
-		}
 	}
 
 	return info, nil
@@ -1429,12 +1420,6 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 	processedStatus.Status.Data = applicationStatus.Data
 	processedStatus.Status.Since = applicationStatus.Since
 
-	metrics := applicationCharm.Metrics()
-	planRequired := metrics != nil && metrics.Plan != nil && metrics.Plan.Required
-	if planRequired || len(application.MetricCredentials()) > 0 {
-		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
-	}
-
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
 		workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
@@ -1563,28 +1548,6 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 		offers[name] = offerStatus
 	}
 	return offers
-}
-
-func isColorStatus(code state.MeterStatusCode) bool {
-	return code == state.MeterGreen || code == state.MeterAmber || code == state.MeterRed
-}
-
-func (context *statusContext) processUnitMeterStatuses(units map[string]*state.Unit) map[string]params.MeterStatus {
-	unitsMap := make(map[string]params.MeterStatus)
-	for _, unit := range units {
-		meterStatus, err := unit.GetMeterStatus()
-		if err != nil {
-			continue
-		}
-		if isColorStatus(meterStatus.Code) {
-			unitsMap[unit.Name()] = params.MeterStatus{Color: strings.ToLower(meterStatus.Code.String()),
-				Message: meterStatus.Info}
-		}
-	}
-	if len(unitsMap) > 0 {
-		return unitsMap
-	}
-	return nil
 }
 
 func (context *statusContext) processUnits(ctx context.Context, units map[string]*state.Unit, applicationCharm string) map[string]params.UnitStatus {
@@ -1775,10 +1738,10 @@ func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, 
 	return names.NewMachineTag(machine), nil
 }
 
-func (c *statusContext) processStorage(storageAccessor StorageInterface) ([]params.StorageDetails, error) {
+func (c *statusContext) processStorage(ctx context.Context, storageAccessor StorageInterface, blockdeviceGetter BlockDeviceGetter) ([]params.StorageDetails, error) {
 	storageDetails := make([]params.StorageDetails, 0, len(c.storageInstances))
 	for _, storageInstance := range c.storageInstances {
-		storageDetail, err := storagecommon.StorageDetails(storageAccessor, c.unitToMachine, storageInstance)
+		storageDetail, err := storagecommon.StorageDetails(ctx, storageAccessor, blockdeviceGetter, c.unitToMachine, storageInstance)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert storage details for %v", storageInstance.Tag())
 		}
@@ -1787,14 +1750,14 @@ func (c *statusContext) processStorage(storageAccessor StorageInterface) ([]para
 	return storageDetails, nil
 }
 
-func (c *statusContext) processFilesystems(storageAccessor StorageInterface) ([]params.FilesystemDetails, error) {
+func (c *statusContext) processFilesystems(ctx context.Context, storageAccessor StorageInterface, blockDeviceGetter BlockDeviceGetter) ([]params.FilesystemDetails, error) {
 	filesystemDetails := make([]params.FilesystemDetails, 0, len(c.filesystems))
 	for _, filesystem := range c.filesystems {
 		attachments, err := storageAccessor.FilesystemAttachments(filesystem.FilesystemTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		filesystemDetail, err := storagecommon.FilesystemDetails(storageAccessor, c.unitToMachine, filesystem, attachments)
+		filesystemDetail, err := storagecommon.FilesystemDetails(ctx, storageAccessor, blockDeviceGetter, c.unitToMachine, filesystem, attachments)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert filesystem details for %v", filesystem.Tag())
 		}
@@ -1803,14 +1766,14 @@ func (c *statusContext) processFilesystems(storageAccessor StorageInterface) ([]
 	return filesystemDetails, nil
 }
 
-func (c *statusContext) processVolumes(storageAccessor StorageInterface) ([]params.VolumeDetails, error) {
+func (c *statusContext) processVolumes(ctx context.Context, storageAccessor StorageInterface, blockDeviceGetter BlockDeviceGetter) ([]params.VolumeDetails, error) {
 	volumeDetails := make([]params.VolumeDetails, 0, len(c.volumes))
 	for _, volume := range c.volumes {
 		attachments, err := storageAccessor.VolumeAttachments(volume.VolumeTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		volumeDetail, err := storagecommon.VolumeDetails(storageAccessor, c.unitToMachine, volume, attachments)
+		volumeDetail, err := storagecommon.VolumeDetails(ctx, storageAccessor, blockDeviceGetter, c.unitToMachine, volume, attachments)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert volume details for %v", volume.Tag())
 		}

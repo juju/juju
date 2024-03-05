@@ -5,7 +5,7 @@ package environs
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -77,10 +77,6 @@ type Networking interface {
 	// other information needed to determine routability and include
 	// the passed-in space info in the ProviderSpaceInfo returned.
 	ProviderSpaceInfo(ctx envcontext.ProviderCallContext, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
-
-	// AreSpacesRoutable returns whether the communication between the
-	// two spaces can use cloud-local addresses.
-	AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *ProviderSpaceInfo) (bool, error)
 
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also

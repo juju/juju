@@ -4,7 +4,7 @@
 package firewaller_test
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -264,7 +264,6 @@ func (s *firewallerSuite) TestAllSpaceInfos(c *gc.C) {
 						FanLocalUnderlay: "192.168.0.0/16",
 						FanOverlay:       "1.0.0.0/8",
 					},
-					IsPublic: true,
 				},
 			},
 		},

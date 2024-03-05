@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/packaging/v2"
 	jc "github.com/juju/testing/checkers"
-	sshtesting "github.com/juju/utils/v3/ssh/testing"
+	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 

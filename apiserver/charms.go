@@ -19,22 +19,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	ziputil "github.com/juju/utils/v3/zip"
+	ziputil "github.com/juju/utils/v4/zip"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/core/charm/downloader"
-	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/charm/downloader"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error
-
-// CharmsHTTPHandler creates is a http.Handler which serves POST
+// charmsHTTPHandler creates is a http.Handler which serves POST
 // requests to a PostHandler and GET requests to a GetHandler.
 //
 // TODO(katco): This is the beginning of inverting the dependencies in
@@ -57,18 +54,18 @@ type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error
 // pipeline.
 //
 // As usual big methods lead to untestable code and it causes testing pain.
-type CharmsHTTPHandler struct {
-	PostHandler FailableHandlerFunc
-	GetHandler  FailableHandlerFunc
+type charmsHTTPHandler struct {
+	postHandler endpointMethodHandlerFunc
+	getHandler  endpointMethodHandlerFunc
 }
 
-func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *charmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch r.Method {
 	case "POST":
-		err = errors.Annotate(h.PostHandler(w, r), "cannot upload charm")
+		err = errors.Annotate(h.postHandler(w, r), "cannot upload charm")
 	case "GET":
-		err = errors.Annotate(h.GetHandler(w, r), "cannot retrieve charm")
+		err = errors.Annotate(h.getHandler(w, r), "cannot retrieve charm")
 	default:
 		err = emitUnsupportedMethodErr(r.Method)
 	}
@@ -84,12 +81,6 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type Logger interface {
 	Tracef(string, ...interface{})
 	IsTraceEnabled() bool
-}
-
-// ObjectStoreGetter is an interface for getting an object store.
-type ObjectStoreGetter interface {
-	// GetObjectStore returns the object store for the given namespace.
-	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
 }
 
 // charmsHandler handles charm upload through HTTPS in the API server.
@@ -135,7 +126,7 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return errors.NewBadRequest(err, "")
 	}
-	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()}))
+	return errors.Trace(sendStatusAndHeadersAndJSON(w, http.StatusOK, map[string]string{"Juju-Curl": charmURL.String()}, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
@@ -331,7 +322,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	err = RepackageAndUploadCharm(r.Context(), objectStore, st, archive, curl)
+	err = RepackageAndUploadCharm(r.Context(), objectStore, storageStateShim{State: st}, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -425,10 +416,18 @@ func (d byDepth) Len() int           { return len(d) }
 func (d byDepth) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 
+// CharmUploader is an interface that is used to update the charm in
+// state and upload it to the object store.
+type CharmUploader interface {
+	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
+	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
+	ModelUUID() string
+}
+
 // RepackageAndUploadCharm expands the given charm archive to a
 // temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
+func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
@@ -475,7 +474,7 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 	// provider storage and update the state.
 	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
 		Logger:       logger,
-		StateBackend: storageStateShim{st},
+		StateBackend: uploader,
 		ObjectStore:  objectStore,
 	})
 

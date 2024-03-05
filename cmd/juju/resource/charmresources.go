@@ -4,9 +4,9 @@
 package resource
 
 import (
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -24,7 +24,7 @@ type ResourceLister interface {
 
 // CharmResourceLister lists the resource of a charm.
 type CharmResourceLister interface {
-	ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]charmresource.Resource, error)
+	ListCharmResources(curl string, origin apicharm.Origin) ([]charmresource.Resource, error)
 }
 
 // CharmID represents the charm identifier.
@@ -262,7 +262,7 @@ func (c *CharmhubResourceLister) ListResources(ids []CharmID) ([][]charmresource
 		return nil, errors.Trace(err)
 	}
 	client := charms.NewClient(apiRoot)
-	results, err := client.ListCharmResources(id.URL, apicharm.Origin{
+	results, err := client.ListCharmResources(id.URL.String(), apicharm.Origin{
 		Source: apicharm.OriginCharmHub,
 		Track:  track,
 		Risk:   string(id.Channel.Risk),

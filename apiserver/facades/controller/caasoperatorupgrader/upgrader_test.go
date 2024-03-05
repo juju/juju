@@ -6,8 +6,8 @@ package caasoperatorupgrader_test
 import (
 	"context"
 
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -92,7 +92,7 @@ type mockBroker struct {
 	testing.Stub
 }
 
-func (m *mockBroker) Upgrade(app string, vers version.Number) error {
+func (m *mockBroker) Upgrade(_ context.Context, app string, vers version.Number) error {
 	m.AddCall("Upgrade", app, vers)
 	return nil
 }

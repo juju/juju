@@ -4,6 +4,7 @@
 package storageprovisioner
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -18,13 +19,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("StorageProvisioner", 4, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV4(ctx)
+	registry.MustRegister("StorageProvisioner", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newFacadeV4(stdCtx, ctx)
 	}, reflect.TypeOf((*StorageProvisionerAPIv4)(nil)))
 }
 
 // newFacadeV4 provides the signature required for facade registration.
-func newFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
+func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv4, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -46,8 +47,11 @@ func newFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
 		return nil, errors.Trace(err)
 	}
 	return NewStorageProvisionerAPIv4(
+		stdCtx,
+		ctx.WatcherRegistry(),
 		backend,
 		storageBackend,
+		serviceFactory.BlockDevice(),
 		serviceFactory.ControllerConfig(),
 		ctx.Resources(),
 		ctx.Auth(),

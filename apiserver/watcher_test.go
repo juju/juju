@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -61,23 +61,25 @@ func (s *watcherSuite) getFacade(
 	dispose func(),
 ) interface{} {
 	factory := getFacadeFactory(c, name, version)
-	facade, err := factory(s.facadeContext(c, id, dispose))
+	facade, err := factory(context.Background(), s.facadeContext(c, id, dispose))
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
 
-func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadetest.Context {
-	return facadetest.Context{
-		Resources_:       s.resources,
-		WatcherRegistry_: s.watcherRegistry,
-		Auth_:            s.authorizer,
-		ServiceFactory_:  s.ControllerServiceFactory(c),
-		ID_:              id,
-		Dispose_:         dispose,
+func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadetest.MultiModelContext {
+	return facadetest.MultiModelContext{
+		ModelContext: facadetest.ModelContext{
+			Resources_:       s.resources,
+			WatcherRegistry_: s.watcherRegistry,
+			Auth_:            s.authorizer,
+			ServiceFactory_:  s.ControllerServiceFactory(c),
+			ID_:              id,
+			Dispose_:         dispose,
+		},
 	}
 }
 
-func getFacadeFactory(c *gc.C, name string, version int) facade.Factory {
+func getFacadeFactory(c *gc.C, name string, version int) facade.MultiModelFactory {
 	factory, err := apiserver.AllFacades().GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
 	return factory
@@ -163,10 +165,12 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 
 	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = factory(facadetest.Context{
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-		ID_:        id,
+	_, err = factory(context.Background(), facadetest.MultiModelContext{
+		ModelContext: facadetest.ModelContext{
+			Resources_: s.resources,
+			Auth_:      s.authorizer,
+			ID_:        id,
+		},
 	})
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }

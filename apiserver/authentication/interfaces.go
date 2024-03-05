@@ -10,23 +10,12 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
-
-// AuthInfoPermissions defined a type for a helper func that can answer
-// questions an entity and what access they have on to a specific subject tag.
-//
-// It is up to the creator of the AuthInfo struct to provide a suitable
-// implementation of this func. It's is for legacy reasons we allow querying of
-// other entities besides the one focused on in the AuthInfo struct.
-//
-// TODO: tlm look at ways to gradually remove the Entity portion of this function
-// so the question can only be asked of the one focuses on in the AuthInfo struct.
-type AuthInfoPermissions func(Entity, names.Tag) (permission.Access, error)
 
 // AuthInfo is returned by Authenticator and RequestAuthInfo.
 type AuthInfo struct {
@@ -84,7 +73,7 @@ type PermissionDelegator interface {
 // implement to authenticate juju entities.
 type EntityAuthenticator interface {
 	// Authenticate authenticates the given entity.
-	Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error)
+	Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error)
 }
 
 // Authorizer is a function type for authorizing a request.
@@ -98,11 +87,6 @@ type Authorizer interface {
 // authenticated.
 type Entity interface {
 	Tag() names.Tag
-}
-
-// EntityFinder finds the entity described by the tag.
-type EntityFinder interface {
-	FindEntity(tag names.Tag) (state.Entity, error)
 }
 
 // HTTPAuthenticator provides an interface for authenticating a raw http request

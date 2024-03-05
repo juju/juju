@@ -16,13 +16,13 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/addons"
@@ -36,18 +36,17 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
+	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
+	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
-	_ "github.com/juju/juju/provider/all" // Import the providers.
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/dbaccessor"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
@@ -255,7 +254,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(agentcmd.NewBootstrapCommand())
 	jujud.Register(agentcmd.NewCAASUnitInitCommand())
 	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
 
@@ -266,7 +264,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		bufferedLogger,
-		dbaccessor.NewTrackedDBWorker,
 		addons.DefaultIntrospectionSocketName,
 		func(mt state.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == state.ModelTypeCAAS {
@@ -279,15 +276,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	)
 	jujud.Register(agentcmd.NewMachineAgentCommand(ctx, machineAgentFactory, agentConf, agentConf))
 
-	safeModeMachineAgentFactory := agentcmd.SafeModeMachineAgentFactoryFn(
-		agentConf,
-		bufferedLogger,
-		dbaccessor.NewTrackedDBWorker,
-		addons.DefaultIntrospectionSocketName,
-		"",
-	)
-
-	jujud.Register(agentcmd.NewSafeModeAgentCommand(ctx, safeModeMachineAgentFactory, agentConf, agentConf))
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])
@@ -331,7 +319,7 @@ func Main(args []string) int {
 			AgentName:   "juju-exec",
 			Clock:       clock.WallClock,
 			Logger:      loggo.GetLogger("juju.machinelock"),
-			LogFilename: filepath.Join(config.LogDir, machinelock.Filename),
+			LogFilename: filepath.Join(config.LogDir, "juju", machinelock.Filename),
 		})
 		if err != nil {
 			code = exit_err

@@ -4,7 +4,7 @@
 package secrets
 
 import (
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -135,7 +135,7 @@ func (c *showSecretsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	details := gatherSecretInfo(result, c.revealSecrets, c.revisions)
+	details := gatherSecretInfo(result, c.revealSecrets, c.revisions, true)
 	if len(details) == 0 {
 		if c.uri != nil {
 			return errors.NotFoundf("secret %q", c.uri.ID)

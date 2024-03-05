@@ -40,10 +40,6 @@ type unitStateDoc struct {
 	// SecretState is a serialized yaml string containing secret internal
 	// state for this unit from the uniter.
 	SecretState string `bson:"secret-state,omitempty"`
-
-	// MeterStatusState is a serialized yaml string containing the internal
-	// state for this unit's meter status worker.
-	MeterStatusState string `bson:"meter-status-state,omitempty"`
 }
 
 // charmStateMatches returns true if the State map within the unitStateDoc matches
@@ -133,11 +129,6 @@ type UnitState struct {
 	// state for this unit from the uniter.
 	secretState    string
 	secretStateSet bool
-
-	// meterStatusState is a serialized yaml string containing the internal
-	// state for the meter status worker for this unit.
-	meterStatusState    string
-	meterStatusStateSet bool
 }
 
 // NewUnitState returns a new UnitState struct.
@@ -151,8 +142,7 @@ func (u *UnitState) Modified() bool {
 		u.storageStateSet ||
 		u.secretStateSet ||
 		u.charmStateSet ||
-		u.uniterStateSet ||
-		u.meterStatusStateSet
+		u.uniterStateSet
 }
 
 // SetCharmState sets the charm state value.
@@ -225,18 +215,6 @@ func (u *UnitState) SecretState() (string, bool) {
 	return u.secretState, u.secretStateSet
 }
 
-// SetMeterStatusState sets the state value for meter state.
-func (u *UnitState) SetMeterStatusState(state string) {
-	u.meterStatusStateSet = true
-	u.meterStatusState = state
-}
-
-// MeterStatusState returns the meter status state and a bool to indicate
-// whether the data was set.
-func (u *UnitState) MeterStatusState() (string, bool) {
-	return u.meterStatusState, u.meterStatusStateSet
-}
-
 // SetState replaces the currently stored state for a unit with the contents
 // of the provided UnitState.
 //
@@ -295,7 +273,6 @@ func (u *Unit) State() (*UnitState, error) {
 	us.SetUniterState(stDoc.UniterState)
 	us.SetStorageState(stDoc.StorageState)
 	us.SetSecretState(stDoc.SecretState)
-	us.SetMeterStatusState(stDoc.MeterStatusState)
 
 	return us, nil
 }

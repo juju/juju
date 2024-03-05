@@ -3,7 +3,7 @@
 
 package agent
 
-import "github.com/juju/names/v4"
+import "github.com/juju/names/v5"
 
 // IsAllowedControllerTag returns true if the tag kind can be for a controller.
 // TODO(controlleragent) - this method is needed while IAAS controllers are still machines.

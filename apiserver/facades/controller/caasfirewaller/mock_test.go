@@ -4,8 +4,8 @@
 package caasfirewaller_test
 
 import (
-	"github.com/juju/charm/v11"
-	"github.com/juju/names/v4"
+	"github.com/juju/charm/v13"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 
 	charmscommon "github.com/juju/juju/apiserver/common/charms"

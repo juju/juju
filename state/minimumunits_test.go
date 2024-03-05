@@ -161,7 +161,7 @@ func (s *MinUnitsSuite) testDestroyOrRemoveApplicationBefore(c *gc.C, initial, i
 		s.addUnits(c, 1)
 	}
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.application.Destroy(state.NewObjectStore(c, s.State))
+		err := s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	err = s.application.SetMinUnits(input)
@@ -206,17 +206,17 @@ func (s *MinUnitsSuite) TestMinUnitsSetDestroyEntities(c *gc.C) {
 
 	// Destroy a unit and ensure the revno has been increased.
 	preventUnitDestroyRemove(c, unit1)
-	err = unit1.Destroy(state.NewObjectStore(c, s.State))
+	err = unit1.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 1, nil)
 
 	// Remove a unit and ensure the revno has been increased..
-	err = unit2.Destroy(state.NewObjectStore(c, s.State))
+	err = unit2.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 2, nil)
 
 	// Destroy the application and ensure the minUnits document has been removed.
-	err = s.application.Destroy(state.NewObjectStore(c, s.State))
+	err = s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
@@ -230,17 +230,17 @@ func (s *MinUnitsSuite) TestMinUnitsNotSetDestroyEntities(c *gc.C) {
 
 	// Destroy a unit and ensure the minUnits document has not been created.
 	preventUnitDestroyRemove(c, unit1)
-	err = unit1.Destroy(state.NewObjectStore(c, s.State))
+	err = unit1.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 
 	// Remove a unit and ensure the minUnits document has not been created.
-	err = unit2.Destroy(state.NewObjectStore(c, s.State))
+	err = unit2.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 
 	// Destroy the application and ensure the minUnits document is still missing.
-	err = s.application.Destroy(state.NewObjectStore(c, s.State))
+	err = s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
@@ -303,13 +303,13 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		for i := 0; i < t.destroy; i++ {
 			preventUnitDestroyRemove(c, allUnits[i])
-			err = allUnits[i].Destroy(state.NewObjectStore(c, s.State))
+			err = allUnits[i].Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 			c.Assert(err, jc.ErrorIsNil)
 		}
 
 		// Ensure the minimum number of units is correctly restored.
 		c.Assert(application.Refresh(), gc.IsNil)
-		err = application.EnsureMinUnits()
+		err = application.EnsureMinUnits(defaultInstancePrechecker)
 		c.Assert(err, jc.ErrorIsNil)
 		assertAllUnits(c, application, t.expected)
 
@@ -324,17 +324,17 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsApplicationNotAlive(c *gc.C) {
 	err := s.application.SetMinUnits(2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnits(c, 1)
-	err = s.application.Destroy(state.NewObjectStore(c, s.State))
+	err = s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `cannot ensure minimum units for application "dummy-application": application is not alive`
 
 	// An error is returned if the application is not alive.
-	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
+	c.Assert(s.application.EnsureMinUnits(defaultInstancePrechecker), gc.ErrorMatches, expectedErr)
 
 	// An error is returned if the application was removed.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
+	c.Assert(s.application.EnsureMinUnits(defaultInstancePrechecker), gc.ErrorMatches, expectedErr)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsUpdateMinUnitsRetry(c *gc.C) {
@@ -347,7 +347,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsUpdateMinUnitsRetry(c *gc.C) {
 	}, func() {
 		assertAllUnits(c, s.application, 2)
 	}).Check()
-	err = s.application.EnsureMinUnits()
+	err = s.application.EnsureMinUnits(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 
 }
@@ -360,7 +360,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsAddUnitsRetry(c *gc.C) {
 	}, func() {
 		assertAllUnits(c, s.application, 3)
 	}).Check()
-	err = s.application.EnsureMinUnits()
+	err = s.application.EnsureMinUnits(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -369,7 +369,7 @@ func (s *MinUnitsSuite) testEnsureMinUnitsBefore(c *gc.C, f func(), minUnits, ex
 	err := application.SetMinUnits(minUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, f).Check()
-	err = application.EnsureMinUnits()
+	err = application.EnsureMinUnits(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllUnits(c, application, expectedUnits)
 }
@@ -402,10 +402,10 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDestroyApplicationBefore(c *gc.C) {
 	err := s.application.SetMinUnits(42)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.application.Destroy(state.NewObjectStore(c, s.State))
+		err := s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches,
+	c.Assert(s.application.EnsureMinUnits(defaultInstancePrechecker), gc.ErrorMatches,
 		`cannot ensure minimum units for application "dummy-application": application is not alive`)
 }
 
@@ -419,7 +419,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsAfter(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	c.Assert(application.Refresh(), gc.IsNil)
-	err = application.EnsureMinUnits()
+	err = application.EnsureMinUnits(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllUnits(c, application, 3)
 }

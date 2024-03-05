@@ -29,6 +29,7 @@ type (
 
 var (
 	NewErrorTransport                  = newErrorTransport
+	NewChallengeTransport              = newChallengeTransport
 	NewBasicTransport                  = newBasicTransport
 	NewTokenTransport                  = newTokenTransport
 	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest

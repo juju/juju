@@ -62,9 +62,9 @@ type HTTPClient interface {
 }
 
 // DefaultHTTPClient creates a new HTTPClient with the default configuration.
-func DefaultHTTPClient(logger Logger) HTTPClient {
+func DefaultHTTPClient(logger LoggerFactory) HTTPClient {
 	recorder := loggingRequestRecorder{
-		logger: logger.ChildWithLabels("transport.request-recorder", corelogger.METRICS),
+		logger: logger.ChildWithTags("transport.request-recorder", corelogger.METRICS),
 	}
 	return requestHTTPClient(recorder, defaultRetryPolicy())(logger)
 }
@@ -99,12 +99,12 @@ func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err err
 
 // requestHTTPClient returns a function that creates a new HTTPClient that
 // records the requests.
-func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(logger Logger) HTTPClient {
-	return func(logger Logger) HTTPClient {
+func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(logger LoggerFactory) HTTPClient {
+	return func(logger LoggerFactory) HTTPClient {
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
-			jujuhttp.WithLogger(logger.ChildWithLabels("transport", corelogger.CHARMHUB, corelogger.HTTP)),
+			jujuhttp.WithLogger(logger.ChildWithTags("transport", corelogger.CHARMHUB, corelogger.HTTP)),
 		)
 	}
 }

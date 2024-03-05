@@ -6,10 +6,10 @@ package model_test
 import (
 	"time"
 
-	"github.com/juju/cmd/v3"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -29,7 +29,6 @@ import (
 )
 
 var _ = gc.Suite(&ShowCommandSuite{})
-var _ = gc.Suite(&showSLACommandSuite{})
 
 type ShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -579,60 +578,6 @@ func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *gc.C
 	s.assertShowOutput(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithSLAIncompleteModelsYaml(c *gc.C) {
-	basicAndSLAInfo := createBasicModelInfo()
-	basicAndSLAInfo.SLA = &params.ModelSLAInfo{
-		Owner: "owner",
-		Level: "level",
-	}
-	s.fake.infos = []params.ModelInfoResult{
-		{Result: basicAndSLAInfo},
-	}
-	s.expectedDisplay = `
-basic-model:
-  name: owner/basic-model
-  short-name: basic-model
-  model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
-  model-type: iaas
-  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
-  controller-name: testing
-  is-controller: false
-  owner: owner
-  cloud: altostratus
-  region: mid-level
-  life: dead
-  sla: level
-  sla-owner: owner
-`[1:]
-	s.assertShowOutput(c, "yaml")
-}
-
-func (s *ShowCommandSuite) TestShowBasicWithSLAIncompleteModelsJson(c *gc.C) {
-	basicAndSLAInfo := createBasicModelInfo()
-	basicAndSLAInfo.SLA = &params.ModelSLAInfo{
-		Owner: "owner",
-		Level: "level",
-	}
-	s.fake.infos = []params.ModelInfoResult{
-		{Result: basicAndSLAInfo},
-	}
-	s.expectedDisplay = "{\"basic-model\":" +
-		"{\"name\":\"owner/basic-model\"," +
-		"\"short-name\":\"basic-model\"," +
-		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
-		"\"model-type\":\"iaas\"," +
-		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
-		"\"controller-name\":\"testing\"," +
-		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
-		"\"cloud\":\"altostratus\"," +
-		"\"region\":\"mid-level\"," +
-		"\"life\":\"dead\"," +
-		"\"sla\":\"level\"," +
-		"\"sla-owner\":\"owner\"}}\n"
-	s.assertShowOutput(c, "json")
-}
-
 func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *gc.C) {
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
@@ -739,22 +684,6 @@ func addMigrationStatusStatus(existingInfo *params.ModelInfo) {
 		Status: "importing",
 		Start:  &now,
 	}
-}
-
-type showSLACommandSuite struct {
-	ShowCommandSuite
-}
-
-func (s *showSLACommandSuite) SetUpTest(c *gc.C) {
-	s.ShowCommandSuite.SetUpTest(c)
-
-	s.fake.info.SLA = &params.ModelSLAInfo{
-		Level: "next",
-		Owner: "user",
-	}
-	slaOutput := s.expectedOutput["mymodel"].(attrs)
-	slaOutput["sla"] = "next"
-	slaOutput["sla-owner"] = "user"
 }
 
 func noOpRefresh(_ jujuclient.ClientStore, _ string) error {

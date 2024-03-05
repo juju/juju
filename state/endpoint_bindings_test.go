@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -94,13 +94,13 @@ peers:
 	// it should be always allowed.
 
 	var err error
-	s.clientSpace, err = s.State.AddSpace("client", "", nil, true)
+	s.clientSpace, err = s.State.AddSpace("client", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.appsSpace, err = s.State.AddSpace("apps", "", nil, true)
+	s.appsSpace, err = s.State.AddSpace("apps", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.dbSpace, err = s.State.AddSpace("db", "", nil, true)
+	s.dbSpace, err = s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.barbSpace, err = s.State.AddSpace("barb3", "", nil, true)
+	s.barbSpace, err = s.State.AddSpace("barb3", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -287,6 +287,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 }
 
 func (s *bindingsSuite) TestMergeWithModelConfigNonDefaultSpace(c *gc.C) {
+	c.Skip("The default space is always alpha due to scaffolding in service of Dqlite migration.")
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"default-space": s.appsSpace.Name()}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -308,20 +309,6 @@ func (s *bindingsSuite) TestMergeWithModelConfigNonDefaultSpace(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(b.Map(), jc.DeepEquals, updated)
 	c.Check(isModified, gc.Equals, true)
-}
-
-func (s *bindingsSuite) TestDefaultEndpointBindingSpaceNotDefault(c *gc.C) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"default-space": s.clientSpace.Name()}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := s.State.DefaultEndpointBindingSpace()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, s.clientSpace.Id())
-}
-
-func (s *bindingsSuite) TestDefaultEndpointBindingSpaceDefault(c *gc.C) {
-	id, err := s.State.DefaultEndpointBindingSpace()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, network.AlphaSpaceId)
 }
 
 func (s *bindingsSuite) copyMap(input map[string]string) map[string]string {

@@ -7,10 +7,10 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -72,7 +72,7 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 	c.Assert(errs, gc.HasLen, 0, gc.Commentf("%s", pretty.Sprint(errs)))
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
-		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
+		charm:           corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata),
 		charmURL:        resultURL,
 		numUnits:        1,
 		origin:          resolvedOrigin,
@@ -126,7 +126,7 @@ func (s *validatorSuite) testValidateIAASAttachStorage(c *gc.C, argStorage []str
 		c.Assert(errs, gc.HasLen, 0)
 		c.Assert(dt, gc.DeepEquals, deployTemplate{
 			applicationName: "test-charm",
-			charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
+			charm:           corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata),
 			charmURL:        resultURL,
 			numUnits:        1,
 			origin:          resolvedOrigin,
@@ -183,7 +183,7 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
-		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
+		charm:           corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata),
 		charmURL:        resultURL,
 		numUnits:        1,
 		origin:          resolvedOrigin,
@@ -229,7 +229,7 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
-		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
+		charm:           corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata),
 		charmURL:        resultURL,
 		endpoints:       endpointMap,
 		numUnits:        1,
@@ -480,7 +480,7 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator().getCharm(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
-	c.Assert(obtainedCharm, gc.DeepEquals, corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata))
+	c.Assert(obtainedCharm, gc.DeepEquals, corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata))
 	c.Assert(obtainedURL, gc.DeepEquals, resultURL)
 }
 
@@ -721,7 +721,7 @@ func (s *validatorSuite) TestResolvedCharmValidationSubordinate(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		NumUnits: intptr(1),
 	}
-	dt, err := s.getValidator().resolvedCharmValidation(ch, arg)
+	dt, err := s.getValidator().resolvedCharmValidation(context.Background(), ch, arg)
 	c.Assert(err, gc.HasLen, 0)
 	c.Assert(dt.numUnits, gc.Equals, 0)
 }
@@ -957,7 +957,7 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(obtainedDT, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
-		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
+		charm:           corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata),
 		charmURL:        resultURL,
 		numUnits:        1,
 		origin:          resolvedOrigin,
@@ -1049,7 +1049,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	}
 	template := deployTemplate{
 		applicationName: "metadata-name",
-		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
+		charm:           corecharm.NewCharmInfoAdaptor(corecharm.EssentialMetadata{}),
 		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
 		endpoints:       map[string]string{"to": "from"},
 		numUnits:        1,
@@ -1094,7 +1094,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		Resources:        map[string]string{},
 		Storage:          map[string]state.StorageConstraints{},
 	}
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application, nil)
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
@@ -1169,7 +1169,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 
 	template := deployTemplate{
 		applicationName: "metadata-name",
-		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
+		charm:           corecharm.NewCharmInfoAdaptor(corecharm.EssentialMetadata{}),
 		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
 		endpoints:       map[string]string{"to": "from"},
 		numUnits:        1,
@@ -1219,7 +1219,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Resources:        map[string]string{"foo-resource": "3"},
 		Storage:          map[string]state.StorageConstraints{},
 	}
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application, nil)
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
@@ -1260,7 +1260,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	}
 	template := deployTemplate{
 		applicationName: "metadata-name",
-		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
+		charm:           corecharm.NewCharmInfoAdaptor(corecharm.EssentialMetadata{}),
 		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
 		endpoints:       map[string]string{"to": "from"},
 		numUnits:        1,
@@ -1313,7 +1313,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 
 	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"}, gomock.Any())
 
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application,
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application,
 		errors.New("fail"))
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()

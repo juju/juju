@@ -9,10 +9,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 
@@ -26,10 +26,10 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -54,14 +54,15 @@ type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.B
 // ModelManagerService defines a interface for interacting with the underlying
 // state.
 type ModelManagerService interface {
-	Create(context.Context, model.UUID) error
+	Create(context.Context, coremodel.UUID) error
 }
 
 // ModelService defines a interface for interacting with the underlying state.
 type ModelService interface {
-	DeleteModel(context.Context, model.UUID) error
+	DeleteModel(context.Context, coremodel.UUID) error
 }
 
+// ModelExporter defines a interface for exporting models.
 type ModelExporter interface {
 	ExportModelPartial(ctx context.Context, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 }
@@ -400,7 +401,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 	// Ensure that we place the model in the known model list table on the
 	// controller.
-	if err := m.modelManagerService.Create(ctx, model.UUID(createdModel.UUID())); err != nil {
+	if err := m.modelManagerService.Create(ctx, coremodel.UUID(createdModel.UUID())); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -439,7 +440,7 @@ Please choose a different model name.
 		}
 	}()
 
-	broker, err := m.getBroker(context.Background(), environs.OpenParams{
+	broker, err := m.getBroker(ctx, environs.OpenParams{
 		ControllerUUID: controllerConfig.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
@@ -496,7 +497,7 @@ func (m *ModelManagerAPI) newModel(
 	}
 
 	// Create the Environ.
-	env, err := environs.New(context.Background(), environs.OpenParams{
+	env, err := environs.New(ctx, environs.OpenParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
@@ -706,69 +707,68 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 	}
 
 	for _, mi := range modelInfos {
-		summary := &params.ModelSummary{
-			Name:           mi.Name,
-			UUID:           mi.UUID,
-			Type:           string(mi.Type),
-			OwnerTag:       names.NewUserTag(mi.Owner).String(),
-			ControllerUUID: mi.ControllerUUID,
-			IsController:   mi.IsController,
-			Life:           life.Value(mi.Life.String()),
-
-			CloudTag:    mi.CloudTag,
-			CloudRegion: mi.CloudRegion,
-
-			CloudCredentialTag: mi.CloudCredentialTag,
-
-			SLA: &params.ModelSLAInfo{
-				Level: mi.SLALevel,
-				Owner: mi.Owner,
-			},
-
-			ProviderType: mi.ProviderType,
-			AgentVersion: mi.AgentVersion,
-
-			Status:             common.EntityStatusFromState(mi.Status),
-			Counts:             []params.ModelEntityCount{},
-			UserLastConnection: mi.UserLastConnection,
-		}
-
-		if mi.MachineCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
-		}
-
-		if mi.CoreCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
-		}
-
-		if mi.UnitCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
-		}
-
-		access, err := common.StateToParamsUserAccessPermission(mi.Access)
-		if err == nil {
-			summary.UserAccess = access
-		}
-		if mi.Migration != nil {
-			migration := mi.Migration
-			startTime := migration.StartTime()
-			endTime := new(time.Time)
-			*endTime = migration.EndTime()
-			var zero time.Time
-			if *endTime == zero {
-				endTime = nil
-			}
-
-			summary.Migration = &params.ModelMigrationStatus{
-				Status: migration.StatusMessage(),
-				Start:  &startTime,
-				End:    endTime,
-			}
-		}
-
+		summary := m.makeModelSummary(mi)
 		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
 	}
 	return result, nil
+
+}
+
+func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelSummary {
+	summary := &params.ModelSummary{
+		Name:           mi.Name,
+		UUID:           mi.UUID,
+		Type:           string(mi.Type),
+		OwnerTag:       names.NewUserTag(mi.Owner).String(),
+		ControllerUUID: mi.ControllerUUID,
+		IsController:   mi.IsController,
+		Life:           life.Value(mi.Life.String()),
+
+		CloudTag:    mi.CloudTag,
+		CloudRegion: mi.CloudRegion,
+
+		CloudCredentialTag: mi.CloudCredentialTag,
+
+		ProviderType: mi.ProviderType,
+		AgentVersion: mi.AgentVersion,
+
+		Status:             common.EntityStatusFromState(mi.Status),
+		Counts:             []params.ModelEntityCount{},
+		UserLastConnection: mi.UserLastConnection,
+	}
+	if mi.MachineCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
+	}
+
+	if mi.CoreCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
+	}
+
+	if mi.UnitCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
+	}
+
+	access, err := common.StateToParamsUserAccessPermission(mi.Access)
+	if err == nil {
+		summary.UserAccess = access
+	}
+	if mi.Migration != nil {
+		migration := mi.Migration
+		startTime := migration.StartTime()
+		endTime := new(time.Time)
+		*endTime = migration.EndTime()
+		var zero time.Time
+		if *endTime == zero {
+			endTime = nil
+		}
+
+		summary.Migration = &params.ModelMigrationStatus{
+			Status: migration.StatusMessage(),
+			Start:  &startTime,
+			End:    endTime,
+		}
+	}
+	return summary
 }
 
 // fillInStatusBasedOnCloudCredentialValidity fills in the Status on every model (if credential is invalid).
@@ -896,7 +896,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// cause too much fallout. If we're unable to delete the model from the
 		// database, then we won't be able to create a new model with the same
 		// model uuid as there is a UNIQUE constraint on the model uuid column.
-		err = m.modelService.DeleteModel(ctx, model.UUID(stModel.UUID()))
+		err = m.modelService.DeleteModel(ctx, coremodel.UUID(stModel.UUID()))
 		if err != nil && errors.Is(err, modelerrors.NotFound) {
 			return nil
 		}
@@ -988,12 +988,6 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 
 	if cloudCredentialTag, ok := model.CloudCredentialTag(); ok {
 		info.CloudCredentialTag = cloudCredentialTag.String()
-	}
-
-	// All users with access to the model can see the SLA information.
-	info.SLA = &params.ModelSLAInfo{
-		Level: model.SLALevel(),
-		Owner: model.SLAOwner(),
 	}
 
 	// If model is not alive - dying or dead - or if it is being imported,

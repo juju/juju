@@ -6,7 +6,7 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
@@ -63,6 +63,9 @@ type Scope struct {
 	controllerDB database.TxnRunnerFactory
 	modelDB      database.TxnRunnerFactory
 }
+
+// ScopeForModel returns a Scope for the given model UUID.
+type ScopeForModel func(modelUUID string) Scope
 
 // NewScope creates a new scope with the given database txn runners.
 func NewScope(controllerDB, modelDB database.TxnRunnerFactory) Scope {

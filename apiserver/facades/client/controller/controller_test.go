@@ -12,13 +12,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
@@ -36,19 +35,19 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
-	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
+	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/worker/multiwatcher"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type controllerSuite struct {
@@ -62,7 +61,7 @@ type controllerSuite struct {
 	watcherRegistry facade.WatcherRegistry
 	authorizer      apiservertesting.FakeAuthorizer
 	hub             *pubsub.StructuredHub
-	context         facadetest.Context
+	context         facadetest.ModelContext
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -85,11 +84,10 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		controllerCfg[key] = value
 	}
 
-	s.ServiceFactorySuite.SetUpTest(c)
-	domaintesting.SeedControllerConfig(c, controllerCfg, s)
-
 	s.StateSuite.ControllerConfig = controllerCfg
 	s.StateSuite.SetUpTest(c)
+	s.ServiceFactorySuite.SetUpTest(c)
+	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), controllerCfg)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,11 +115,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	err = jujujujutesting.InsertDummyCloudType(context.Background(), s.ControllerSuite.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	jujujujutesting.SeedCloudCredentials(c, s.ControllerSuite.TxnRunner())
-
-	s.context = facadetest.Context{
+	s.context = facadetest.ModelContext{
 		State_:               s.State,
 		StatePool_:           s.StatePool,
 		Resources_:           s.resources,
@@ -131,7 +125,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		MultiwatcherFactory_: multiWatcherWorker,
 		ServiceFactory_:      s.ControllerServiceFactory(c),
 	}
-	controller, err := controller.LatestAPI(s.context)
+	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
@@ -147,7 +141,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.LatestAPI(facadetest.Context{
+	endPoint, err := controller.LatestAPI(context.Background(), facadetest.ModelContext{
 		State_:          s.State,
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
@@ -329,7 +323,8 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 	controller, err := controller.NewControllerAPIv11(
-		facadetest.Context{
+		context.Background(),
+		facadetest.ModelContext{
 			State_:          st,
 			StatePool_:      s.StatePool,
 			Resources_:      common.NewResources(),
@@ -360,7 +355,8 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
 	controller, err := controller.NewControllerAPIv11(
-		facadetest.Context{
+		context.Background(),
+		facadetest.ModelContext{
 			State_:          st,
 			Resources_:      common.NewResources(),
 			Auth_:           authorizer,
@@ -404,7 +400,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var disposed bool
-	watcherAPI_, err := apiserver.NewAllWatcher(facadetest.Context{
+	watcherAPI_, err := apiserver.NewAllWatcher(context.Background(), facadetest.ModelContext{
 		State_:           s.State,
 		Resources_:       s.resources,
 		WatcherRegistry_: s.watcherRegistry,
@@ -693,12 +689,12 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 }
 
 func randomControllerTag() string {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	return names.NewControllerTag(uuid).String()
 }
 
 func randomModelTag() string {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	return names.NewModelTag(uuid).String()
 }
 
@@ -911,12 +907,14 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv11(facadetest.Context{
-		State_:          s.State,
-		Resources_:      s.resources,
-		Auth_:           anAuthoriser,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-	})
+	endpoint, err := controller.NewControllerAPIv11(
+		context.Background(),
+		facadetest.ModelContext{
+			State_:          s.State,
+			Resources_:      s.resources,
+			Auth_:           anAuthoriser,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ModifyControllerAccessRequest{
 		Changes: []params.ModifyControllerAccess{{
@@ -997,12 +995,14 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv11(facadetest.Context{
-		State_:          s.State,
-		Resources_:      s.resources,
-		Auth_:           anAuthoriser,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-	})
+	endpoint, err := controller.NewControllerAPIv11(
+		context.Background(),
+		facadetest.ModelContext{
+			State_:          s.State,
+			Resources_:      s.resources,
+			Auth_:           anAuthoriser,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = endpoint.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
@@ -1171,12 +1171,14 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewLocalUserTag("bob"),
 	}
-	endPoint, err := controller.LatestAPI(facadetest.Context{
-		State_:          s.State,
-		Resources_:      s.resources,
-		Auth_:           anAuthoriser,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-	})
+	endPoint, err := controller.LatestAPI(
+		context.Background(),
+		facadetest.ModelContext{
+			State_:          s.State,
+			Resources_:      s.resources,
+			Auth_:           anAuthoriser,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = endPoint.WatchAllModelSummaries(stdcontext.Background())

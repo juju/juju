@@ -4,12 +4,13 @@
 package provider_test
 
 import (
+	"context"
 	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
@@ -53,8 +54,8 @@ func cloudGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (jujuclo
 	}
 }
 
-func credentialGetterFunc(args builtinCloudRet) func(provider.CommandRunner) (jujucloud.Credential, error) {
-	return func(provider.CommandRunner) (jujucloud.Credential, error) {
+func credentialGetterFunc(args builtinCloudRet) func(context.Context, provider.CommandRunner) (jujucloud.Credential, error) {
+	return func(context.Context, provider.CommandRunner) (jujucloud.Credential, error) {
 		return args.credential, args.err
 	}
 }
@@ -64,7 +65,7 @@ func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEn
 		dummyRunner{},
 		credentialGetterFunc(builtin),
 		cloudGetterFunc(builtin),
-		func(environs.OpenParams) (provider.ClusterMetadataStorageChecker, error) {
+		func(context.Context, environs.OpenParams) (provider.ClusterMetadataStorageChecker, error) {
 			return &fakeK8sClusterMetadataChecker{}, nil
 		},
 	)

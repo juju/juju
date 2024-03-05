@@ -44,11 +44,11 @@ func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.Statefu
 	return o, nil
 }
 
-func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) (*apps.StatefulSet, error) {
+func (k *kubernetesClient) createStatefulSet(ctx context.Context, spec *apps.StatefulSet) (*apps.StatefulSet, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	out, err := k.client().AppsV1().StatefulSets(k.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
+	out, err := k.client().AppsV1().StatefulSets(k.namespace).Create(ctx, spec, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("stateful set %q", spec.GetName())
 	}
@@ -58,11 +58,11 @@ func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) (*apps.Stat
 	return out, errors.Trace(err)
 }
 
-func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error) {
+func (k *kubernetesClient) getStatefulSet(ctx context.Context, name string) (*apps.StatefulSet, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	out, err := k.client().AppsV1().StatefulSets(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
+	out, err := k.client().AppsV1().StatefulSets(k.namespace).Get(ctx, name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("stateful set %q", name)
 	}
@@ -70,11 +70,11 @@ func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error
 }
 
 // deleteStatefulSet deletes a statefulset resource.
-func (k *kubernetesClient) deleteStatefulSet(name string) error {
+func (k *kubernetesClient) deleteStatefulSet(ctx context.Context, name string) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	err := k.client().AppsV1().StatefulSets(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
+	err := k.client().AppsV1().StatefulSets(k.namespace).Delete(ctx, name, v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {

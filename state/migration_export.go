@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -238,9 +238,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		}
 	}
 
-	export.model.SetSLA(dbModel.SLALevel(), dbModel.SLAOwner(), string(dbModel.SLACredential()))
-	export.model.SetMeterStatus(dbModel.MeterStatus().Code.String(), dbModel.MeterStatus().Info)
-
 	if featureflag.Enabled(feature.StrictMigration) {
 		if err := export.checkUnexportedValues(); err != nil {
 			return nil, errors.Trace(err)
@@ -374,10 +371,6 @@ func (e *exporter) machines() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	blockDevices, err := e.loadMachineBlockDevices()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	openedPorts, err := e.loadOpenedPortRangesForMachine()
 	if err != nil {
 		return errors.Trace(err)
@@ -401,7 +394,7 @@ func (e *exporter) machines() error {
 			}
 		}
 
-		exMachine, err := e.newMachine(exParent, machine, instances, openedPorts, blockDevices)
+		exMachine, err := e.newMachine(exParent, machine, instances, openedPorts, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -455,22 +448,6 @@ func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
 		instances[data.MachineId] = data
 	}
 	return instances, nil
-}
-
-func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, error) {
-	coll, closer := e.st.db().GetCollection(blockDevicesC)
-	defer closer()
-
-	var deviceData []blockDevicesDoc
-	result := make(map[string][]BlockDeviceInfo)
-	if err := coll.Find(nil).All(&deviceData); err != nil {
-		return nil, errors.Annotate(err, "block devices")
-	}
-	e.logger.Debugf("found %d block device records", len(deviceData))
-	for _, data := range deviceData {
-		result[data.Machine] = data.BlockDevices
-	}
-	return result, nil
 }
 
 func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData map[string]*machinePortRanges, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
@@ -685,11 +662,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 		return errors.Trace(err)
 	}
 
-	meterStatus, err := e.readAllMeterStatus()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	bindings, err := e.readAllEndpointBindings()
 	if err != nil {
 		return errors.Trace(err)
@@ -730,7 +702,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 		appCtx := addApplicationContext{
 			application:      application,
 			units:            applicationUnits,
-			meterStatus:      meterStatus,
 			cloudServices:    cloudServices,
 			cloudContainers:  cloudContainers,
 			payloads:         payloads,
@@ -798,7 +769,6 @@ func (e *exporter) readAllPayloads() (map[string][]payloads.FullPayloadInfo, err
 type addApplicationContext struct {
 	application      *Application
 	units            []*Unit
-	meterStatus      map[string]*meterStatusDoc
 	leader           string
 	payloads         map[string][]payloads.FullPayloadInfo
 	resources        resources.ApplicationResources
@@ -870,7 +840,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		CharmConfig:          charmConfig,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettings,
-		MetricsCredentials:   application.doc.MetricCredentials,
 	}
 
 	if cloudService, found := ctx.cloudServices[application.globalKey()]; found {
@@ -982,10 +951,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 	for _, unit := range ctx.units {
 		agentKey := unit.globalAgentKey()
-		unitMeterStatus, found := ctx.meterStatus[agentKey]
-		if !found {
-			return errors.Errorf("missing meter status for unit %s", unit.Name())
-		}
 
 		workloadVersion, err := e.unitWorkloadVersion(unit)
 		if err != nil {
@@ -997,8 +962,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			Machine:         names.NewMachineTag(unit.doc.MachineId),
 			WorkloadVersion: workloadVersion,
 			PasswordHash:    unit.doc.PasswordHash,
-			MeterStatusCode: unitMeterStatus.Code,
-			MeterStatusInfo: unitMeterStatus.Info,
 		}
 		if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
 			args.Principal = names.NewUnitTag(principalName)
@@ -1028,9 +991,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		}
 		if storageState, found := unitState.StorageState(); found {
 			args.StorageState = storageState
-		}
-		if meterStatusState, found := unitState.MeterStatusState(); found {
-			args.MeterStatusState = meterStatusState
 		}
 		exUnit := exApplication.AddUnit(args)
 
@@ -1481,7 +1441,6 @@ func (e *exporter) spaces() error {
 		e.model.AddSpace(description.SpaceArgs{
 			Id:         space.Id(),
 			Name:       space.Name(),
-			Public:     space.IsPublic(),
 			ProviderID: string(space.ProviderId()),
 		})
 	}
@@ -1532,7 +1491,6 @@ func (e *exporter) subnets() error {
 			AvailabilityZones: subnet.AvailabilityZones(),
 			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
 			FanOverlay:        subnet.FanOverlay(),
-			IsPublic:          subnet.IsPublic(),
 		}
 		e.model.AddSubnet(args)
 	}
@@ -1919,24 +1877,6 @@ func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
 	result := make(map[string]bindingsMap)
 	for _, doc := range docs {
 		result[e.st.localID(doc.DocID)] = doc.Bindings
-	}
-	return result, nil
-}
-
-func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
-	meterStatuses, closer := e.st.db().GetCollection(meterStatusC)
-	defer closer()
-
-	var docs []meterStatusDoc
-	err := meterStatuses.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all meter status docs")
-	}
-	e.logger.Debugf("found %d meter status docs", len(docs))
-	result := make(map[string]*meterStatusDoc)
-	for _, v := range docs {
-		doc := v
-		result[e.st.localID(doc.DocID)] = &doc
 	}
 	return result, nil
 }

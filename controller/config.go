@@ -14,9 +14,8 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
-	"github.com/juju/romulus"
-	"github.com/juju/utils/v3"
+	"github.com/juju/names/v5"
+	"github.com/juju/utils/v4"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
@@ -183,10 +182,6 @@ const (
 	// log files to keep (compressed).
 	ModelLogfileMaxBackups = "model-logfile-max-backups"
 
-	// ModelLogsSize is the size of the capped collections used to hold the
-	// logs for the models, eg "20M". Size is per model.
-	ModelLogsSize = "model-logs-size"
-
 	// MaxTxnLogSize is the maximum size the of capped txn log collection, eg "10M"
 	MaxTxnLogSize = "max-txn-log-size"
 
@@ -253,9 +248,6 @@ const (
 	// Features allows a list of runtime changeable features to be updated.
 	Features = "features"
 
-	// MeteringURL is the URL to use for metrics.
-	MeteringURL = "metering-url"
-
 	// PublicDNSAddress is the public DNS address (and port) of the controller.
 	PublicDNSAddress = "public-dns-address"
 
@@ -291,6 +283,29 @@ const (
 	// This isn't currently allowed to be changed dynamically, that will come
 	// when we support multiple object store types (not including state).
 	ObjectStoreType = "object-store-type"
+
+	// ObjectStoreS3Endpoint is the endpoint to use for S3 object stores.
+	ObjectStoreS3Endpoint = "object-store-s3-endpoint"
+
+	// ObjectStoreS3StaticKey is the static key to use for S3 object stores.
+	ObjectStoreS3StaticKey = "object-store-s3-static-key"
+
+	// ObjectStoreS3StaticSecret is the static secret to use for S3 object
+	// stores.
+	ObjectStoreS3StaticSecret = "object-store-s3-static-secret"
+
+	// ObjectStoreS3StaticSession is the static session token to use for S3
+	// object stores.
+	ObjectStoreS3StaticSession = "object-store-s3-static-session"
+
+	// SystemSSHKeys returns the set of ssh keys that should be trusted by
+	// agents of this controller regardless of the model.
+	SystemSSHKeys = "system-ssh-keys"
+
+	// JujudControllerSnapSource returns the source for the controller snap.
+	// Can be set to "legacy", "snapstore", "local" or "local-dangerous".
+	// Cannot be changed.
+	JujudControllerSnapSource = "jujud-controller-snap-source"
 )
 
 // Attribute Defaults
@@ -379,10 +394,6 @@ const (
 	// log files to keep (compressed).
 	DefaultModelLogfileMaxBackups = 2
 
-	// DefaultModelLogsSizeMB is the size in MB of the capped logs collection
-	// for each model.
-	DefaultModelLogsSizeMB = 20
-
 	// DefaultPruneTxnQueryCount is the number of transactions
 	// to read in a single query.
 	DefaultPruneTxnQueryCount = 1000
@@ -438,6 +449,11 @@ const (
 	// ratio for open telemetry.
 	// By default we only want to trace 10% of the requests.
 	DefaultOpenTelemetrySampleRatio = 0.1
+
+	// JujudControllerSnapSource is the default value for the jujud controller
+	// snap source, which is the snapstore.
+	// TODO(jujud-controller-snap): change this to "snapstore" once it is implemented.
+	DefaultJujudControllerSnapSource = "legacy"
 )
 
 var (
@@ -470,7 +486,6 @@ var (
 		AgentLogfileMaxSize,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
-		ModelLogsSize,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		PublicDNSAddress,
@@ -484,7 +499,6 @@ var (
 		CAASOperatorImagePath,
 		CAASImageRepo,
 		Features,
-		MeteringURL,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
 		MigrationMinionWaitMax,
@@ -498,6 +512,12 @@ var (
 		OpenTelemetryStackTraces,
 		OpenTelemetrySampleRatio,
 		ObjectStoreType,
+		ObjectStoreS3Endpoint,
+		ObjectStoreS3StaticKey,
+		ObjectStoreS3StaticSecret,
+		ObjectStoreS3StaticSession,
+		SystemSSHKeys,
+		JujudControllerSnapSource,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -541,7 +561,6 @@ var (
 		MigrationMinionWaitMax,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
-		ModelLogsSize,
 		MongoMemoryProfile,
 		OpenTelemetryEnabled,
 		OpenTelemetryEndpoint,
@@ -553,6 +572,11 @@ var (
 		PublicDNSAddress,
 		QueryTracingEnabled,
 		QueryTracingThreshold,
+		ObjectStoreType,
+		ObjectStoreS3Endpoint,
+		ObjectStoreS3StaticKey,
+		ObjectStoreS3StaticSecret,
+		ObjectStoreS3StaticSession,
 	)
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
@@ -889,6 +913,14 @@ func (c Config) JujuDBSnapChannel() string {
 	return c.asString(JujuDBSnapChannel)
 }
 
+// JujudControllerSnapSource returns the source of the jujud-controller snap.
+func (c Config) JujudControllerSnapSource() string {
+	if src, ok := c[JujudControllerSnapSource]; ok {
+		return src.(string)
+	}
+	return DefaultJujudControllerSnapSource
+}
+
 // NUMACtlPreference returns if numactl is preferred.
 func (c Config) NUMACtlPreference() bool {
 	if numa, ok := c[SetNUMAControlPolicyKey]; ok {
@@ -926,12 +958,6 @@ func (c Config) ModelLogfileMaxBackups() int {
 // controller on behalf of workers running for a model.
 func (c Config) ModelLogfileMaxSizeMB() int {
 	return c.sizeMBOrDefault(ModelLogfileMaxSize, DefaultModelLogfileMaxSize)
-}
-
-// ModelLogsSizeMB is the size of the capped collection used to store the model
-// logs. Total size on disk will be ModelLogsSizeMB * number of models.
-func (c Config) ModelLogsSizeMB() int {
-	return c.sizeMBOrDefault(ModelLogsSize, DefaultModelLogsSizeMB)
 }
 
 // MaxDebugLogDuration is the maximum time a debug-log session is allowed
@@ -976,6 +1002,12 @@ func (c Config) JujuHASpace() string {
 	return c.asString(JujuHASpace)
 }
 
+// SystemSSHKeys returns the trusted ssh keys that agents of this controller
+// should trust.
+func (c Config) SystemSSHKeys() string {
+	return c.asString(SystemSSHKeys)
+}
+
 // JujuManagementSpace is the network space that agents should use to
 // communicate with controllers.
 func (c Config) JujuManagementSpace() string {
@@ -993,15 +1025,6 @@ func (c Config) CAASOperatorImagePath() string {
 // used for the jujud operator and mongo images.
 func (c Config) CAASImageRepo() string {
 	return c.asString(CAASImageRepo)
-}
-
-// MeteringURL returns the URL to use for metering api calls.
-func (c Config) MeteringURL() string {
-	url := c.asString(MeteringURL)
-	if url == "" {
-		return romulus.DefaultAPIRoot
-	}
-	return url
 }
 
 // MaxCharmStateSize returns the max size (in bytes) of charm-specific state
@@ -1071,6 +1094,28 @@ func (c Config) OpenTelemetrySampleRatio() float64 {
 // ObjectStoreType returns the type of object store to use for storing blobs.
 func (c Config) ObjectStoreType() objectstore.BackendType {
 	return objectstore.BackendType(c.asString(ObjectStoreType))
+}
+
+// ObjectStoreS3Endpoint returns the endpoint to use for S3 object stores.
+func (c Config) ObjectStoreS3Endpoint() string {
+	return c.asString(ObjectStoreS3Endpoint)
+}
+
+// ObjectStoreS3StaticKey returns the static key to use for S3 object stores.
+func (c Config) ObjectStoreS3StaticKey() string {
+	return c.asString(ObjectStoreS3StaticKey)
+}
+
+// ObjectStoreS3StaticSecret returns the static secret to use for S3 object
+// stores.
+func (c Config) ObjectStoreS3StaticSecret() string {
+	return c.asString(ObjectStoreS3StaticSecret)
+}
+
+// ObjectStoreS3StaticSession returns the static session token to use for S3
+// object stores.
+func (c Config) ObjectStoreS3StaticSession() string {
+	return c.asString(ObjectStoreS3StaticSession)
 }
 
 // Validate ensures that config is a valid configuration.
@@ -1161,16 +1206,6 @@ func Validate(c Config) error {
 	} else if err == nil {
 		if v == 0 {
 			return errors.Errorf("%s cannot be zero", MaxDebugLogDuration)
-		}
-	}
-
-	if v, ok := c[ModelLogsSize].(string); ok {
-		mb, err := utils.ParseSize(v)
-		if err != nil {
-			return errors.Annotate(err, "invalid model logs size in configuration")
-		}
-		if mb < 1 {
-			return errors.NotValidf("model logs size less than 1 MB")
 		}
 	}
 
@@ -1334,6 +1369,15 @@ func Validate(c Config) error {
 		}
 		if _, err := objectstore.ParseObjectStoreType(v); err != nil {
 			return errors.NotValidf("invalid object store type %q", v)
+		}
+	}
+
+	if v, ok := c[JujudControllerSnapSource].(string); ok {
+		switch v {
+		case "legacy": // TODO(jujud-controller-snap): remove once jujud-controller snap is fully implemented.
+		case "snapstore", "local", "local-dangerous":
+		default:
+			return errors.Errorf("%s value %q must be one of legacy, snapstore, local or local-dangerous.", JujudControllerSnapSource, v)
 		}
 	}
 

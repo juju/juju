@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	jujudb "github.com/juju/juju/internal/database"
 )
@@ -32,7 +32,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // Create takes a model UUID and creates a new model.
 // Note: no validation is performed on the UUID, as that is performed at the
 // service layer.
-func (s *State) Create(ctx context.Context, uuid model.UUID) error {
+func (s *State) Create(ctx context.Context, uuid coremodel.UUID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -46,13 +46,13 @@ func (s *State) Create(ctx context.Context, uuid model.UUID) error {
 // List returns a list of all model UUIDs.
 // The list of models returned are the ones that are just present in the model
 // manager list. This means that the model is not deleted.
-func (s *State) List(ctx context.Context) ([]model.UUID, error) {
+func (s *State) List(ctx context.Context) ([]coremodel.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var models []model.UUID
+	var models []coremodel.UUID
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		stmt := `SELECT uuid FROM model_list;`
 		rows, err := tx.QueryContext(ctx, stmt)
@@ -62,7 +62,7 @@ func (s *State) List(ctx context.Context) ([]model.UUID, error) {
 		defer rows.Close()
 
 		for rows.Next() {
-			var model model.UUID
+			var model coremodel.UUID
 			if err := rows.Scan(&model); err != nil {
 				return errors.Trace(err)
 			}
@@ -79,7 +79,7 @@ func (s *State) List(ctx context.Context) ([]model.UUID, error) {
 // Delete takes a model UUID and deletes a new model.
 // Note: no validation is performed on the UUID, as that is performed at the
 // service layer.
-func (s *State) Delete(ctx context.Context, uuid model.UUID) error {
+func (s *State) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -102,7 +102,7 @@ func (s *State) Delete(ctx context.Context, uuid model.UUID) error {
 
 // Create takes a model UUID and an established transaction onto the database
 // and creates the model.
-func Create(ctx context.Context, uuid model.UUID, tx *sql.Tx) error {
+func Create(ctx context.Context, uuid coremodel.UUID, tx *sql.Tx) error {
 	stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 	result, err := tx.ExecContext(ctx, stmt, uuid)
 	if jujudb.IsErrConstraintPrimaryKey(err) {

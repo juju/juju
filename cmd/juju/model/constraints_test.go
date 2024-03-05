@@ -4,7 +4,7 @@
 package model_test
 
 import (
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

@@ -7,9 +7,9 @@ import (
 	stderrors "errors"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -64,7 +64,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("ch:a-charm-1"),
+			URL: "ch:a-charm-1",
 		},
 		CharmOrigin: apicharm.Origin{
 			Source: apicharm.OriginCharmHub,
@@ -117,7 +117,7 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("ch:a-charm-1"),
+			URL: "ch:a-charm-1",
 		},
 		CharmOrigin: apicharm.Origin{
 			Source: apicharm.OriginCharmHub,
@@ -266,7 +266,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("ch:application-1"),
+			URL: "ch:application-1",
 			Origin: apicharm.Origin{
 				Source: "charm-hub",
 				Risk:   "edge",

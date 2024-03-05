@@ -4,14 +4,15 @@
 package facade
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/description/v5"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -28,54 +29,62 @@ import (
 type Facade interface{}
 
 // Factory is a callback used to create a Facade.
-type Factory func(Context) (Facade, error)
+type Factory func(stdCtx context.Context, modelCtx ModelContext) (Facade, error)
 
-// LeadershipContext describes factory methods for objects that deliver
-// specific lease-related capabilities
-type LeadershipContext interface {
+// MultiModelFactory is a callback used to create a Facade.
+type MultiModelFactory func(stdCtx context.Context, modelCtx MultiModelContext) (Facade, error)
 
-	// LeadershipClaimer returns a leadership.Claimer tied to a
-	// specific model.
-	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
+// LeadershipModelContext
+type LeadershipModelContext interface {
+	// LeadershipClaimer returns a leadership.Claimer for this
+	// context's model.
+	LeadershipClaimer() (leadership.Claimer, error)
 
-	// LeadershipRevoker returns a leadership.Revoker tied to a
-	// specific model.
-	LeadershipRevoker(modelUUID string) (leadership.Revoker, error)
+	// LeadershipRevoker returns a leadership.Revoker for this
+	// context's model.
+	LeadershipRevoker() (leadership.Revoker, error)
+
+	// LeadershipPinner returns a leadership.Pinner for this
+	// context's model.
+	LeadershipPinner() (leadership.Pinner, error)
+
+	// LeadershipReader returns a leadership.Reader for this
+	// context's model.
+	LeadershipReader() (leadership.Reader, error)
 
 	// LeadershipChecker returns a leadership.Checker for this
 	// context's model.
 	LeadershipChecker() (leadership.Checker, error)
-
-	// LeadershipPinner returns a leadership.Pinner for this
-	// context's model.
-	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
-
-	// LeadershipReader returns a leadership.Reader for this
-	// context's model.
-	LeadershipReader(modelUUID string) (leadership.Reader, error)
 
 	// SingularClaimer returns a lease.Claimer for singular leases for
 	// this context's model.
 	SingularClaimer() (lease.Claimer, error)
 }
 
-// Context exposes useful capabilities to a Facade.
-type Context interface {
+// MultiModelContext is a context that can operate on multiple models at once.
+type MultiModelContext interface {
+	ModelContext
+
+	// ServiceFactoryForModel returns the services factory for a given
+	// model uuid.
+	ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory
+
+	// ObjectStoreForModel returns the object store for a given model uuid.
+	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
+}
+
+// ModelContext exposes useful capabilities to a Facade for a given model.
+type ModelContext interface {
 	// TODO (stickupkid): This shouldn't be embedded, instead this should be
 	// in the form of `context.Leadership() Leadership`, which returns the
 	// contents of the LeadershipContext.
 	// Context should have a single responsibility, and that's access to other
 	// types/objects.
-	LeadershipContext
-	ControllerDBGetter
+	LeadershipModelContext
+	ModelMigrationFactory
 	ServiceFactory
 	ObjectStoreFactory
 	Logger
-
-	// Cancel channel represents an indication from the API server that
-	// all interruptable calls should stop. The channel is only ever
-	// closed, and never sents values.
-	Cancel() <-chan struct{}
 
 	// Auth represents information about the connected client. You
 	// should always be checking individual requests against Auth:
@@ -157,11 +166,41 @@ type Context interface {
 	LogDir() string
 }
 
-// ControllerDBGetter defines an interface for getting the controller DB.
-type ControllerDBGetter interface {
-	// ControllerDB returns a transaction runner for the controller database.
-	// Deprecated: Use this for only model import/export otherwise use the service factory.
-	ControllerDB() (changestream.WatchableDB, error)
+// ModelExporter defines a interface for exporting models.
+type ModelExporter interface {
+	// ExportModel exports the current model into a description model. This
+	// can be serialized into yaml and then imported.
+	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
+	// ExportModelPartial exports the current model into a partial description
+	// model. This can be serialized into yaml and then imported.
+	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
+}
+
+// LegacyStateExporter describes interface on state required to export a
+// model.
+// Deprecated: This is being replaced with the ModelExporter.
+type LegacyStateExporter interface {
+	// Export generates an abstract representation of a model.
+	Export(map[string]string, objectstore.ObjectStore) (description.Model, error)
+	// ExportPartial produces a partial export based based on the input
+	// config.
+	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
+}
+
+// ModelImporter defines an interface for importing models.
+type ModelImporter interface {
+	// ImportModel takes a serialized description model (yaml bytes) and returns
+	// a state model and state state.
+	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
+}
+
+// ModelMigrationFactory defines an interface for getting a model migrator.
+type ModelMigrationFactory interface {
+	// ModelExporter returns a model exporter for the current model.
+	ModelExporter(LegacyStateExporter) ModelExporter
+
+	// ModelImporter returns a model importer.
+	ModelImporter() ModelImporter
 }
 
 // ServiceFactory defines an interface for accessing all the services.

@@ -6,7 +6,7 @@ package testing
 import (
 	"strings"
 
-	"github.com/juju/utils/v3/ssh/testing"
+	"github.com/juju/utils/v4/ssh/testing"
 )
 
 var (

@@ -8,19 +8,19 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	jujutesting "github.com/juju/juju/testing"
@@ -134,7 +134,7 @@ func (s *SecretsSuite) TestCreateUserSecret(c *gc.C) {
 
 	uri2 := secrets.NewURI()
 	_, err = s.store.CreateSecret(uri2, p)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret label "label-1" for %q already exists`, s.Model.Tag().String()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`user secret label "label-1" already exists`))
 }
 
 func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
@@ -301,7 +301,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
-	err := s.owner.Destroy(state.NewObjectStore(c, s.State))
+	err := s.owner.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := secrets.NewURI()
@@ -648,7 +648,7 @@ func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
 func (s *SecretsSuite) newCAASState(c *gc.C) *state.State {
 	cfg := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
 		"name": "caasmodel",
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 	})
 	registry := &storage.StaticProviderRegistry{
 		Providers: map[storage.ProviderType]storage.Provider{
@@ -881,6 +881,33 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 		Label:           "foobar",
 		CurrentRevision: 1,
 		LatestRevision:  2,
+	})
+}
+
+func (s *SecretsSuite) TestUpdateOwnerLabel(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Label:       ptr("foobar2"),
+	})
+	// Ensure it can be reset back to an older value.
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Label:       ptr("foobar"),
 	})
 }
 
@@ -1286,6 +1313,46 @@ func (s *SecretsSuite) TestChangeSecretBackendExternalToInternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val, jc.DeepEquals, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
 	c.Assert(valRef, gc.IsNil)
+}
+
+func (s *SecretsSuite) TestSecretGrants(c *gc.C) {
+	uri := secrets.NewURI()
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			Label:          strPtr("label-1"),
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md.URI, jc.DeepEquals, uri)
+
+	subject := names.NewApplicationTag("wordpress")
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.relation.Tag(),
+		Subject:     subject,
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	access, err := s.store.SecretGrants(uri, secrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, jc.DeepEquals, []secrets.AccessInfo{
+		{
+			Target: subject.String(),
+			Scope:  "relation-wordpress.db#mysql.server",
+			Role:   secrets.RoleView,
+		},
+	})
 }
 
 func (s *SecretsSuite) TestGetSecret(c *gc.C) {
@@ -1798,7 +1865,7 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingSubject(c *gc.C) {
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{

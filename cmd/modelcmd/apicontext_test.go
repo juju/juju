@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -105,7 +105,7 @@ func (s *APIContextSuite) TestNewAPIContextEmbedded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	interactor := modelcmd.Interactor(ctx)
 	c.Assert(interactor, gc.Not(gc.IsNil))
-	_, err = interactor.Interact(context.TODO(), nil, "", nil)
+	_, err = interactor.Interact(context.Background(), nil, "", nil)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 

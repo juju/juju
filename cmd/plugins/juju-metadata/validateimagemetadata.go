@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -172,7 +172,7 @@ func (c *validateImageMetadataCommand) Run(ctx *cmd.Context) error {
 	}
 
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	images, resolveInfo, err := imagemetadata.ValidateImageMetadata(fetcher, params)
+	images, resolveInfo, err := imagemetadata.ValidateImageMetadata(ctx, fetcher, params)
 	if err != nil {
 		if resolveInfo != nil {
 			metadata := map[string]interface{}{

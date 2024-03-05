@@ -12,20 +12,20 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
+	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Resources describes the state functionality for resources.
@@ -142,7 +142,7 @@ func stagedResourceID(id string) string {
 
 // newPendingID generates a new unique identifier for a resource.
 func newPendingID() (string, error) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return "", errors.Annotate(err, "could not create new resource ID")
 	}

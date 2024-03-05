@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -33,7 +32,9 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -53,9 +54,9 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	context := s.facadeContext(c)
-	context.Auth_ = anAuthorizer
-	_, err := uniter.NewUniterAPI(context)
+	ctx := s.facadeContext(c)
+	ctx.Auth_ = anAuthorizer
+	_, err := uniter.NewUniterAPI(context.Background(), ctx)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -1512,7 +1513,7 @@ func (s *uniterSuite) TestActions(c *gc.C) {
 }
 
 func (s *uniterSuite) TestActionsNotPresent(c *gc.C) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
@@ -2506,7 +2507,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.mysqlUnit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	result, err = s.uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2800,7 +2801,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	controllerConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
+	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.APIAddresses(context.Background())
@@ -2891,39 +2892,6 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
-	result, err := s.uniter.GetMeterStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
-	c.Assert(result.Results[0].Code, gc.Equals, "")
-	c.Assert(result.Results[0].Info, gc.Equals, "")
-}
-
-func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
-	tags := []string{
-		"user-admin",
-		"unit-nosuchunit",
-		"thisisnotatag",
-		"machine-0",
-		"model-blah",
-	}
-	args := params.Entities{Entities: make([]params.Entity, len(tags))}
-	for i, tag := range tags {
-		args.Entities[i] = params.Entity{Tag: tag}
-	}
-	result, err := s.uniter.GetMeterStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, len(tags))
-	for i, result := range result.Results {
-		c.Logf("checking result %d", i)
-		c.Assert(result.Code, gc.Equals, "")
-		c.Assert(result.Info, gc.Equals, "")
-		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
-	}
-}
-
 func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedApp string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -3002,7 +2970,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
-	err = st.AssignUnit(unit, state.AssignCleanEmpty)
+	err = st.AssignUnit(s.InstancePrechecker(c, st), unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3031,7 +2999,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3188,15 +3156,6 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
-}
-
-func (s *uniterSuite) TestSLALevel(c *gc.C) {
-	err := s.ControllerModel(c).State().SetSLA("essential", "bob", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.uniter.SLALevel(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResult{Result: "essential"})
 }
 
 func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.RelationUnit) {
@@ -3496,7 +3455,11 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 		Description:  ptr("a secret"),
 		Label:        ptr("foobar"),
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
+	}, {
+		URI:   uri3,
+		Value: secrets.NewSecretValue(map[string]string{"foo3": "bar3"}),
 	}})
+	b.AddTrackLatest([]string{uri3.ID})
 	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revision: ptr(1)}})
 	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
 		URI:             uri,
@@ -3522,7 +3485,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	})
 
 	// Verify state
-	_, err = store.GetSecret(uri3)
+	_, _, err = store.GetSecretValue(uri3, 1)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	md, err := store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3538,6 +3501,11 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	access, err = st.SecretAccess(uri2, s.mysql.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, secrets.RoleNone)
+
+	info, err := st.GetSecretConsumer(uri3, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.CurrentRevision, gc.Equals, 2)
+	c.Assert(info.LatestRevision, gc.Equals, 2)
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
@@ -3552,7 +3520,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
-	err = st.AssignUnit(unit, state.AssignCleanEmpty)
+	err = st.AssignUnit(s.InstancePrechecker(c, st), unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3578,7 +3546,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),
 	}
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
+	api, err := uniter.NewUniterAPI(context.Background(), s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.CommitHookChanges(context.Background(), req)
@@ -3617,7 +3585,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 	req, _ := b.Build()
 
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+	uniterAPI, err := uniter.NewUniterAPI(context.Background(), facadetest.ModelContext{
 		State_:             cm.State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,

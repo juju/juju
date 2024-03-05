@@ -12,10 +12,10 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -106,12 +106,12 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
+	s.broker, err = provider.NewK8sBroker(context.Background(), testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test namespace is actually empty string and a namespaced method fails.
-	_, err = s.broker.GetPod("test")
+	_, err = s.broker.GetPod(context.Background(), "test")
 	c.Assert(err, gc.ErrorMatches, `bootstrap broker or no namespace not provisioned`)
 
 	nsInput := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
@@ -126,7 +126,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	)
 
 	// Check a cluster wide resource is still accessible.
-	ns, err := s.broker.GetNamespace("test")
+	ns, err := s.broker.GetNamespace(context.Background(), "test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ns, gc.DeepEquals, nsInput)
 }
@@ -248,8 +248,8 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
+	ctx := envtesting.BootstrapContext(context.Background(), c)
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
@@ -269,8 +269,8 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	// Ensure the broker is configured with operator storage.
 	s.setupOperatorStorageConfig(c)
 
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
+	ctx := envtesting.BootstrapContext(context.Background(), c)
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
@@ -331,7 +331,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "some-storage", v1.GetOptions{}).
 			Return(sc, nil),
 	)
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIsNil,
 	)
@@ -348,7 +348,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), "controller-ctrl-1", v1.GetOptions{}).
 			Return(ns, nil),
 	)
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIs, errors.AlreadyExists,
 	)
@@ -366,7 +366,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotation
 		s.mockNamespaces.EXPECT().List(gomock.Any(), v1.ListOptions{}).
 			Return(&core.NamespaceList{Items: []core.Namespace{*ns}}, nil),
 	)
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIs, errors.AlreadyExists,
 	)
@@ -383,7 +383,7 @@ func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
 			Return(ns, nil),
 	)
 
-	out, err := s.broker.GetNamespace("test")
+	out, err := s.broker.GetNamespace(context.Background(), "test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, ns)
 }
@@ -397,7 +397,7 @@ func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 	)
 
-	out, err := s.broker.GetNamespace("unknown-namespace")
+	out, err := s.broker.GetNamespace(context.Background(), "unknown-namespace")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(out, gc.IsNil)
 }
@@ -413,7 +413,7 @@ func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
 			Return(&core.NamespaceList{Items: []core.Namespace{*ns1, *ns2}}, nil),
 	)
 
-	result, err := s.broker.Namespaces()
+	result, err := s.broker.Namespaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []string{"test", "test2"})
 }
@@ -744,7 +744,7 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secret, v1.CreateOptions{}).
 			Return(secret, nil),
 	)
-	err = s.broker.EnsureImageRepoSecret(imageRepo)
+	err = s.broker.EnsureImageRepoSecret(context.Background(), imageRepo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -844,12 +844,12 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 	)
 
-	caasSvc, err := s.broker.GetService("app-name", false)
+	caasSvc, err := s.broker.GetService(context.Background(), "app-name", false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(caasSvc, gc.DeepEquals, &caas.Service{})
 }
 
-func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Service, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Service, assertCalls ...any) {
 	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
 	labels := k8sutils.LabelsMerge(selectorLabels, k8sutils.LabelsJuju)
 
@@ -901,7 +901,7 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Servi
 		},
 	}
 	gomock.InOrder(
-		append([]*gomock.Call{
+		append([]any{
 			s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: selector}).
 				Return(&core.ServiceList{Items: []core.Service{svcHeadless, svc}}, nil),
 
@@ -910,7 +910,7 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Servi
 		}, assertCalls...)...,
 	)
 
-	caasSvc, err := s.broker.GetService("app-name", false)
+	caasSvc, err := s.broker.GetService(context.Background(), "app-name", false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(caasSvc, gc.DeepEquals, expectedSvcResult)
 }
@@ -979,7 +979,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
 	}
 	workload.SetGeneration(1)
 
-	var expectedCalls []*gomock.Call
+	var expectedCalls []any
 	expectedCalls = append(expectedCalls,
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), appName, v1.GetOptions{}).
 			Return(workload, nil),
@@ -1089,7 +1089,7 @@ func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
 			Return(pv, nil),
 	)
 
-	units, err := s.broker.Units("app-name")
+	units, err := s.broker.Units(context.Background(), "app-name")
 	c.Assert(err, jc.ErrorIsNil)
 	now := s.clock.Now()
 	c.Assert(units, jc.DeepEquals, []caas.Unit{{
@@ -1163,7 +1163,7 @@ func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
 		s.mockPods.EXPECT().Patch(gomock.Any(), "pod-name", types.MergePatchType, patch, v1.PatchOptions{}).Return(updatePod, nil),
 	)
 
-	err := s.broker.AnnotateUnit("appname", "pod-name", names.NewUnitTag("appname/0"))
+	err := s.broker.AnnotateUnit(context.Background(), "appname", "pod-name", names.NewUnitTag("appname/0"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1195,7 +1195,7 @@ func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *gc.C) {
 		s.mockPods.EXPECT().Patch(gomock.Any(), "pod-name", types.MergePatchType, patch, v1.PatchOptions{}).Return(updatePod, nil),
 	)
 
-	err := s.broker.AnnotateUnit("appname", "uuid", names.NewUnitTag("appname/0"))
+	err := s.broker.AnnotateUnit(context.Background(), "appname", "uuid", names.NewUnitTag("appname/0"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

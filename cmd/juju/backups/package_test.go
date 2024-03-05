@@ -5,20 +5,21 @@ package backups_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"testing"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -77,7 +78,7 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 	models := s.store.Models["arthur"]
 	models.Models["admin/controller"] = jujuclient.ModelDetails{
-		ModelUUID: utils.MustNewUUID().String(),
+		ModelUUID: uuid.MustNewUUID().String(),
 		ModelType: model.IAAS,
 	}
 	s.store.Models["arthur"] = models
@@ -197,7 +198,7 @@ func (c *fakeAPIClient) Create(notes string, noDownload bool) (*params.BackupsMe
 	return createResult, nil
 }
 
-func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
+func (c *fakeAPIClient) Download(_ context.Context, id string) (io.ReadCloser, error) {
 	c.calls = append(c.calls, "Download")
 	c.args = append(c.args, id)
 	if c.err != nil {

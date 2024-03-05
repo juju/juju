@@ -34,6 +34,7 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 			MustParseBaseFromString("genericlinux@genericlinux/stable"),
 			MustParseBaseFromString("ubuntu@20.04/stable"),
 			MustParseBaseFromString("ubuntu@22.04/stable"),
+			MustParseBaseFromString("ubuntu@24.04/stable"),
 		},
 	}, {
 		name:          "requested base",
@@ -45,12 +46,13 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 			MustParseBaseFromString("genericlinux@genericlinux/stable"),
 			MustParseBaseFromString("ubuntu@20.04/stable"),
 			MustParseBaseFromString("ubuntu@22.04/stable"),
+			MustParseBaseFromString("ubuntu@24.04/stable"),
 		},
 	}, {
 		name:          "invalid base",
 		requestedBase: MustParseBaseFromString("foo@bar"),
 		imageStream:   Daily,
-		err:           `os "foo" version "bar" not found`,
+		err:           `"foo@bar" is not a valid base: os "foo" version "bar" not found`,
 	}}
 	for _, test := range tests {
 		c.Logf("test %q", test.name)

@@ -5,7 +5,7 @@ package model
 
 import (
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

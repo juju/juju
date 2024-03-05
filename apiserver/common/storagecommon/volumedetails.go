@@ -4,8 +4,10 @@
 package storagecommon
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/life"
@@ -15,7 +17,9 @@ import (
 
 // VolumeDetails returns the volume and its attachments as a params VolumeDetails.
 func VolumeDetails(
+	ctx context.Context,
 	sb DetailsBackend,
+	blockDeviceGetter BlockDeviceGetter,
 	unitToMachine UnitAssignedMachineFunc,
 	v state.Volume,
 	attachments []state.VolumeAttachment,
@@ -60,7 +64,7 @@ func VolumeDetails(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		storageDetails, err := StorageDetails(sb, unitToMachine, storageInstance)
+		storageDetails, err := StorageDetails(ctx, sb, blockDeviceGetter, unitToMachine, storageInstance)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
