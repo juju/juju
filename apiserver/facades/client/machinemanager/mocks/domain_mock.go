@@ -78,6 +78,20 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
+// CreateMachine mocks base method.
+func (m *MockMachineService) CreateMachine(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateMachine indicates an expected call of CreateMachine.
+func (mr *MockMachineServiceMockRecorder) CreateMachine(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockMachineService)(nil).CreateMachine), arg0, arg1)
+}
+
 // Delete mocks base method.
 func (m *MockMachineService) Delete(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -90,18 +104,4 @@ func (m *MockMachineService) Delete(arg0 context.Context, arg1 string) error {
 func (mr *MockMachineServiceMockRecorder) Delete(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockMachineService)(nil).Delete), arg0, arg1)
-}
-
-// Save mocks base method.
-func (m *MockMachineService) Save(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Save", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Save indicates an expected call of Save.
-func (mr *MockMachineServiceMockRecorder) Save(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockMachineService)(nil).Save), arg0, arg1)
 }

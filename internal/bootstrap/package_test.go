@@ -19,7 +19,7 @@ import (
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,LoggerFactory,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Charm,Unit,Model,CharmUploader,ApplicationSaver
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,LoggerFactory,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Charm,Unit,Model,CharmUploader,ApplicationService
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination downloader_mock_test.go github.com/juju/juju/apiserver/facades/client/charms/interfaces Downloader
@@ -31,20 +31,20 @@ func Test(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	storage          *MockAgentBinaryStorage
-	deployer         *MockControllerCharmDeployer
-	httpClient       *MockHTTPClient
-	loggerFactory    *MockLoggerFactory
-	objectStore      *MockObjectStore
-	unit             *MockUnit
-	model            *MockModel
-	application      *MockApplication
-	stateBackend     *MockStateBackend
-	applicationSaver *MockApplicationSaver
-	charmUploader    *MockCharmUploader
-	charmDownloader  *MockDownloader
-	charmRepo        *MockRepository
-	charm            *MockCharm
+	storage            *MockAgentBinaryStorage
+	deployer           *MockControllerCharmDeployer
+	httpClient         *MockHTTPClient
+	loggerFactory      *MockLoggerFactory
+	objectStore        *MockObjectStore
+	unit               *MockUnit
+	model              *MockModel
+	application        *MockApplication
+	stateBackend       *MockStateBackend
+	applicationService *MockApplicationService
+	charmUploader      *MockCharmUploader
+	charmDownloader    *MockDownloader
+	charmRepo          *MockRepository
+	charm              *MockCharm
 
 	logger Logger
 }
@@ -62,7 +62,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.model = NewMockModel(ctrl)
 	s.application = NewMockApplication(ctrl)
 	s.stateBackend = NewMockStateBackend(ctrl)
-	s.applicationSaver = NewMockApplicationSaver(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 	s.charmUploader = NewMockCharmUploader(ctrl)
 	s.charmDownloader = NewMockDownloader(ctrl)
 	s.charmRepo = NewMockRepository(ctrl)
@@ -80,12 +80,12 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 	controllerUUID := uuid.MustNewUUID()
 
 	return BaseDeployerConfig{
-		DataDir:          c.MkDir(),
-		StateBackend:     s.stateBackend,
-		CharmUploader:    s.charmUploader,
-		ApplicationSaver: s.applicationSaver,
-		ObjectStore:      s.objectStore,
-		Constraints:      constraints.Value{},
+		DataDir:            c.MkDir(),
+		StateBackend:       s.stateBackend,
+		CharmUploader:      s.charmUploader,
+		ApplicationService: s.applicationService,
+		ObjectStore:        s.objectStore,
+		Constraints:        constraints.Value{},
 		ControllerConfig: controller.Config{
 			controller.ControllerUUIDKey: controllerUUID.String(),
 			controller.IdentityURL:       "https://inferi.com",

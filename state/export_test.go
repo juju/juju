@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -387,15 +386,9 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 		Storage:          params.storage,
 		Devices:          params.devices,
 		NumUnits:         params.numUnits,
-	}, mockApplicationSaver{}, objectStore)
+	}, objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	return app
-}
-
-type mockApplicationSaver struct{}
-
-func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
-	return nil
 }
 
 func addCustomCharmWithManifest(c *gc.C, st *State, repo *repo.CharmRepo, name, filename, content, series string, revision int, manifest bool) *Charm {

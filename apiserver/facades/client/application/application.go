@@ -88,8 +88,8 @@ type APIBase struct {
 	model              Model
 	cloudService       common.CloudService
 	credentialService  common.CredentialService
-	machineService     MachineSaver
-	applicationService ApplicationSaver
+	machineService     MachineService
+	applicationService ApplicationService
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -209,7 +209,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 }
 
 // DeployApplicationFunc is a function that deploys an application.
-type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationSaver, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
+type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationService, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
@@ -223,8 +223,8 @@ func NewAPIBase(
 	model Model,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
-	machineService MachineSaver,
-	applicationService ApplicationSaver,
+	machineService MachineService,
+	applicationService ApplicationService,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication DeployApplicationFunc,
@@ -298,21 +298,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			rev := curl.Revision
 			arg.CharmOrigin.Revision = &rev
 		}
-		err := deployApplication(
-			ctx,
-			api.backend,
-			api.model,
-			api.cloudService,
-			api.credentialService,
-			api.stateCharm,
-			arg,
-			api.deployApplicationFunc,
-			api.applicationService,
-			api.storagePoolManager,
-			api.registry,
-			api.caasBroker,
-			api.store,
-		)
+		err := api.deployApplication(ctx, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
@@ -498,20 +484,9 @@ func (c caasDeployParams) precheck(
 // deployApplication fetches the charm from the charm store and deploys it.
 // The logic has been factored out into a common function which is called by
 // both the legacy API on the client facade, as well as the new application facade.
-func deployApplication(
+func (api *APIBase) deployApplication(
 	ctx context.Context,
-	backend Backend,
-	model Model,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
-	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
-	deployApplicationFunc DeployApplicationFunc,
-	applicationService ApplicationSaver,
-	storagePoolManager poolmanager.PoolManager,
-	registry storage.ProviderRegistry,
-	caasBroker CaasBrokerInterface,
-	store objectstore.ObjectStore,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -523,12 +498,12 @@ func deployApplication(
 
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
-	if err := checkMachinePlacement(backend, args.ApplicationName, args.Placement); err != nil {
+	if err := checkMachinePlacement(api.backend, args.ApplicationName, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Try to find the charm URL in state first.
-	ch, err := backend.Charm(args.CharmURL)
+	ch, err := api.backend.Charm(args.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -537,7 +512,7 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	modelType := model.Type()
+	modelType := api.model.Type()
 	if modelType != state.ModelTypeIAAS {
 		caas := caasDeployParams{
 			applicationName: args.ApplicationName,
@@ -547,7 +522,7 @@ func deployApplication(
 			placement:       args.Placement,
 			storage:         args.Storage,
 		}
-		if err := caas.precheck(ctx, model, storagePoolManager, registry, caasBroker); err != nil {
+		if err := caas.precheck(ctx, api.model, api.storagePoolManager, api.registry, api.caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -570,7 +545,7 @@ func deployApplication(
 		attachStorage[i] = tag
 	}
 
-	bindings, err := state.NewBindings(backend, args.EndpointBindings)
+	bindings, err := state.NewBindings(api.backend, args.EndpointBindings)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -578,9 +553,9 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = deployApplicationFunc(ctx, backend, model, cloudService, credentialService, applicationService, store, DeployApplicationParams{
+	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.cloudService, api.credentialService, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
-		Charm:             stateCharm(ch),
+		Charm:             api.stateCharm(ch),
 		CharmOrigin:       origin,
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: appConfig,
@@ -1401,7 +1376,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(ctx, api.machineService, api.applicationService, api.backend, api.model.Type(), args)
+	units, err := api.addApplicationUnits(ctx, args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1413,14 +1388,14 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 }
 
 // addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(
-	ctx context.Context, machineService MachineSaver, applicationService ApplicationSaver,
-	backend Backend, modelType state.ModelType, args params.AddApplicationUnits,
+func (api *APIBase) addApplicationUnits(
+	ctx context.Context, args params.AddApplicationUnits,
 ) ([]Unit, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
 
+	modelType := api.model.Type()
 	assignUnits := true
 	if modelType != state.ModelTypeIAAS {
 		// In a CAAS model, there are no machines for
@@ -1453,15 +1428,13 @@ func addApplicationUnits(
 		}
 		attachStorage[i] = tag
 	}
-	oneApplication, err := backend.Application(args.ApplicationName)
+	oneApplication, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return addUnits(
+	return api.addUnits(
 		ctx,
 		oneApplication,
-		machineService,
-		applicationService,
 		args.ApplicationName,
 		args.NumUnits,
 		args.Placement,

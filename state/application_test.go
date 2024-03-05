@@ -648,7 +648,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 			"":       dbSpace.Id(),
 			"server": dbSpace.Id(),
 			"client": clientSpace.Id(),
-		}}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+		}}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
@@ -5479,7 +5479,7 @@ func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
 				Channel: "22.04/stable",
 			},
 		},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `.*charm does not define any bases`)
 }
 
@@ -5600,7 +5600,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 		Name:        "mysql-testing",
 		Charm:       ch3,
 		CharmOrigin: origin,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(appSameCharm.Name())
 	origin.ID = "charm-hub-id"

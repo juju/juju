@@ -39,7 +39,7 @@ type Backend interface {
 	Application(string) (Application, error)
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
-	AddApplication(state.AddApplicationArgs, ApplicationSaver, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -63,6 +63,10 @@ type Backend interface {
 	state.EndpointBinding
 	ModelConstraints() (constraints.Value, error)
 	services.StateBackend
+
+	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
+	// so that correctly matching units can be written to dqlite.
+	ReadSequence(name string) (int, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -315,8 +319,12 @@ func (s stateShim) Application(name string) (Application, error) {
 	}, nil
 }
 
-func (s stateShim) AddApplication(args state.AddApplicationArgs, applicationSaver ApplicationSaver, store objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(s.prechecker, args, applicationSaver, store)
+func (s stateShim) ReadSequence(name string) (int, error) {
+	return state.ReadSequence(s.State, name)
+}
+
+func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
+	a, err := s.State.AddApplication(s.prechecker, args, store)
 	if err != nil {
 		return nil, err
 	}

@@ -67,7 +67,7 @@ type CloudService interface {
 
 // ApplicationSaver instances save an application to dqlite state.
 type ApplicationSaver interface {
-	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
 }
 
 // SpaceService is the interface that is used to interact with the
@@ -323,9 +323,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				FlagService:             flagService,
 				SpaceService:            modelServiceFactory.Space(),
 				SystemState: &stateShim{
-					State:            systemState,
-					applicationSaver: modelServiceFactory.Application(),
-					prechecker:       prechecker,
+					State:      systemState,
+					prechecker: prechecker,
 				},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,

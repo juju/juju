@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/mongo"
@@ -1152,15 +1151,10 @@ type AddApplicationArgs struct {
 	Resources         map[string]string
 }
 
-// ApplicationSaver instances save an application to dqlite state.
-type ApplicationSaver interface {
-	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
-}
-
 // AddApplication creates a new application, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddApplication(prechecker environs.InstancePrechecker, args AddApplicationArgs, applicationSaver ApplicationSaver, store objectstore.ObjectStore) (_ *Application, err error) {
+func (st *State) AddApplication(prechecker environs.InstancePrechecker, args AddApplicationArgs, store objectstore.ObjectStore) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 
 	// Sanity checks.
@@ -1460,14 +1454,6 @@ func (st *State) AddApplication(prechecker environs.InstancePrechecker, args Add
 	_, _ = probablyUpdateStatusHistory(st.db(), app.globalKey(), statusDoc)
 
 	if err = st.db().Run(buildTxn); err == nil {
-		unitArgs := make([]applicationservice.AddUnitParams, len(unitNames))
-		for i := range unitNames {
-			n := unitNames[i]
-			unitArgs[i].UnitName = &n
-		}
-		if err := applicationSaver.Save(context.TODO(), args.Name, unitArgs...); err != nil {
-			return nil, errors.Trace(err)
-		}
 		// Refresh to pick the txn-revno.
 		if err = app.Refresh(); err != nil {
 			return nil, errors.Trace(err)

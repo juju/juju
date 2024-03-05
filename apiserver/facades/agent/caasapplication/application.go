@@ -33,9 +33,9 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// ApplicationSaver instances save an application to dqlite state.
-type ApplicationSaver interface {
-	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+// ApplicationService instances implement an application service.
+type ApplicationService interface {
+	UpsertCAASUnit(ctx context.Context, name string, unit applicationservice.UpsertCAASUnitParams) error
 }
 
 // Facade defines the API methods on the CAASApplication facade.
@@ -44,7 +44,7 @@ type Facade struct {
 	resources               facade.Resources
 	ctrlSt                  ControllerState
 	controllerConfigService ControllerConfigService
-	applicationSaver        ApplicationSaver
+	applicationService      ApplicationService
 	state                   State
 	model                   Model
 	clock                   clock.Clock
@@ -59,7 +59,7 @@ func NewFacade(
 	ctrlSt ControllerState,
 	st State,
 	controllerConfigService ControllerConfigService,
-	applicationSaver ApplicationSaver,
+	applicationSaver ApplicationService,
 	broker Broker,
 	clock clock.Clock,
 	logger loggo.Logger,
@@ -77,7 +77,7 @@ func NewFacade(
 		ctrlSt:                  ctrlSt,
 		state:                   st,
 		controllerConfigService: controllerConfigService,
-		applicationSaver:        applicationSaver,
+		applicationService:      applicationSaver,
 		model:                   model,
 		clock:                   clock,
 		broker:                  broker,
@@ -178,7 +178,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err != nil {
 		return errResp(err)
 	}
-	if err := f.applicationSaver.Save(ctx, application.Name(), applicationservice.AddUnitParams{UnitName: upsert.UnitName}); err != nil {
+	if err := f.applicationService.UpsertCAASUnit(ctx, application.Name(), applicationservice.UpsertCAASUnitParams{UnitName: upsert.UnitName}); err != nil {
 		return errResp(err)
 	}
 

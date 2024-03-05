@@ -35,8 +35,8 @@ func NewService(st State) *Service {
 	}
 }
 
-// Save inserts or updates the specified application and units if required.
-func (s *Service) Save(ctx context.Context, name string, units ...AddUnitParams) error {
+// CreateApplication creates the specified application and units if required.
+func (s *Service) CreateApplication(ctx context.Context, name string, params AddApplicationParams, units ...AddUnitParams) error {
 	args := make([]application.AddUnitParams, len(units))
 	for i, u := range units {
 		args[i] = application.AddUnitParams{
@@ -57,6 +57,15 @@ func (s *Service) AddUnits(ctx context.Context, name string, units ...AddUnitPar
 	}
 	err := s.st.AddUnits(ctx, name, args...)
 	return errors.Annotatef(err, "adding units to application %q", name)
+}
+
+// UpsertCAASUnit records the existence of a unit in a caas model.
+func (s *Service) UpsertCAASUnit(ctx context.Context, name string, unit UpsertCAASUnitParams) error {
+	args := application.AddUnitParams{
+		UnitName: unit.UnitName,
+	}
+	err := s.st.UpsertApplication(ctx, name, args)
+	return errors.Annotatef(err, "saving application %q", name)
 }
 
 // Delete deletes the specified application.

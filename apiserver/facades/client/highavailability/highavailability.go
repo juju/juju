@@ -37,14 +37,14 @@ type NodeService interface {
 	CurateNodes(context.Context, []string, []string) error
 }
 
-// MachineSaver instances save a machine to dqlite state.
-type MachineSaver interface {
-	Save(context.Context, string) error
+// MachineService instances save a machine to dqlite state.
+type MachineService interface {
+	CreateMachine(context.Context, string) error
 }
 
-// ApplicationSaver instances save an application to dqlite state.
-type ApplicationSaver interface {
-	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+// ApplicationService instances save an application to dqlite state.
+type ApplicationService interface {
+	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
 }
 
 // ControllerConfigGetter instances read the controller config.
@@ -55,14 +55,14 @@ type ControllerConfigGetter interface {
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	st                   *state.State
-	prechecker           environs.InstancePrechecker
-	nodeService          NodeService
-	machineSaver         MachineSaver
-	applicationSaveSaver ApplicationSaver
-	controllerConfig     ControllerConfigGetter
-	authorizer           facade.Authorizer
-	logger               loggo.Logger
+	st                 *state.State
+	prechecker         environs.InstancePrechecker
+	nodeService        NodeService
+	machineService     MachineService
+	applicationService ApplicationService
+	controllerConfig   ControllerConfigGetter
+	authorizer         facade.Authorizer
+	logger             loggo.Logger
 }
 
 // HighAvailabilityAPIV2 implements v2 of the high availability facade.
@@ -167,7 +167,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 
 	// Add the dqlite records for new machines.
 	for _, m := range changes.Added {
-		if err := api.machineSaver.Save(ctx, m); err != nil {
+		if err := api.machineService.CreateMachine(ctx, m); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}
@@ -177,7 +177,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 			n := addedUnits[i]
 			addUnitArgs[i].UnitName = &n
 		}
-		if err := api.applicationSaveSaver.Save(ctx, application.ControllerApplicationName, addUnitArgs...); err != nil {
+		if err := api.applicationService.CreateApplication(ctx, application.ControllerApplicationName, applicationservice.AddApplicationParams{}, addUnitArgs...); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}

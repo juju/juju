@@ -31,7 +31,7 @@ func (s *serviceSuite) TestUpdateSuccess(c *gc.C) {
 
 	s.state.EXPECT().UpsertMachine(gomock.Any(), "666").Return(nil)
 
-	err := NewService(s.state).Save(context.Background(), "666")
+	err := NewService(s.state).CreateMachine(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -41,7 +41,7 @@ func (s *serviceSuite) TestUpdateError(c *gc.C) {
 	rErr := errors.New("boom")
 	s.state.EXPECT().UpsertMachine(gomock.Any(), "666").Return(rErr)
 
-	err := NewService(s.state).Save(context.Background(), "666")
+	err := NewService(s.state).CreateMachine(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `saving machine "666": boom`)
 }

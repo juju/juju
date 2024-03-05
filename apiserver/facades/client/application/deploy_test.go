@@ -779,8 +779,12 @@ type stateDeployer struct {
 	*state.State
 }
 
-func (d stateDeployer) AddApplication(args state.AddApplicationArgs, as application.ApplicationSaver, store objectstore.ObjectStore) (application.Application, error) {
-	app, err := d.State.AddApplication(state.NoopInstancePrechecker{}, args, as, store)
+func (d stateDeployer) ReadSequence(name string) (int, error) {
+	return state.ReadSequence(d.State, name)
+}
+
+func (d stateDeployer) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (application.Application, error) {
+	app, err := d.State.AddApplication(state.NoopInstancePrechecker{}, args, store)
 	if err != nil {
 		return nil, err
 	}
@@ -792,6 +796,10 @@ type fakeDeployer struct {
 	controllerCfg *controller.Config
 }
 
+func (f *fakeDeployer) ReadSequence(name string) (int, error) {
+	return 0, nil
+}
+
 func (f *fakeDeployer) ControllerConfig() (controller.Config, error) {
 	if f.controllerCfg != nil {
 		return *f.controllerCfg, nil
@@ -799,7 +807,7 @@ func (f *fakeDeployer) ControllerConfig() (controller.Config, error) {
 	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 
-func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ application.ApplicationSaver, _ objectstore.ObjectStore) (application.Application, error) {
+func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ objectstore.ObjectStore) (application.Application, error) {
 	f.args = args
 	return nil, nil
 }
