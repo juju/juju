@@ -83,10 +83,12 @@ func checkIAASModelCredential(openParams environs.OpenParams, backend Persistent
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	// Check that we can see all machines' instances regardless of their state as perceived by the cloud, i.e.
-	// this call will return all non-terminated instances.
+	// Check that we can see all machines' instances regardless of their state as perceived by the
+	// cloud, i.e. this call will return all non-terminated instances.
 	instances, err := env.AllInstances(callCtx)
-	// If we're not performing this check for model migrations, then being able to get the instances is proof enough that the credential is valid, no need to check mapping between instances and machines.
+	// If we're not performing this check for model migrations; then being able to get the instances
+	// is proof enough that the credential is valid (authenticated, authorization is a different
+	// concern), no need to check the mapping between instances and machines.
 	if !modelMigrationCheck || err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -142,14 +144,9 @@ func checkMachineInstances(backend PersistentBackend, provider CloudProvider, ca
 		machinesByInstance[string(instanceId)] = machine.Id()
 	}
 
-	// From here, there 2 ways of checking whether the credential is valid:
-	// 1. Can we reach all cloud instances that machines know about?
-	// 2. Can we cross examine all machines we know about with all the instances we can reach
-	// and ensure that they correspond 1:1.
-	// Second check (2) is more useful for model migration, for example, since we want to know if
-	// we have moved the known universe correctly. However, it is a but redundant if we just care about
-	// credential validity since the first check (1) addresses all our concerns.
-
+	// From here, we cross examine all machines we know about with all the instances we can reach
+	// and ensure that they correspond 1:1. This is useful for model migration, for example, since
+	// we want to know if we have moved the known universe correctly.
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {
 		id := string(instance.Id())
