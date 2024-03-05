@@ -810,7 +810,7 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(
 			_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool, _ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{}, nil
 		})
@@ -964,7 +964,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) {
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool, _ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
@@ -1027,7 +1027,7 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool, _ bool,
 		) (params.ErrorResults, error) {
 			if backend.(*mockModelBackend).uuid == "deadbeef-0bad-400d-8000-4b1d0d06f00d" {
 				return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
@@ -1092,7 +1092,7 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *gc.
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(
 			backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool, _ bool,
 		) (params.ErrorResults, error) {
 			if backend.(*mockModelBackend).uuid == "deadbeef-0bad-400d-8000-4b1d0d06f00d" {
 				return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
@@ -1147,7 +1147,7 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidation(c *gc.C) {
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool, _ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
@@ -1204,7 +1204,7 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidationForce(c *gc.C
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, migrating bool) (params.ErrorResults,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, migrating bool, _ bool) (params.ErrorResults,
 			error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
