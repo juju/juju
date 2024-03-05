@@ -67,6 +67,12 @@ To get started, it's best to quickly look at the help command from the runner.
 cd tests && ./main.sh -h
 ```
 
+Tests can be run in verbose mode with `-v`:
+
+```sh
+cd tests && ./main.sh -v
+```
+
 Running a full sweep of the integration tests (which will take a long time), can
 be done by running:
 
