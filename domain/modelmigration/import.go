@@ -5,10 +5,13 @@ package modelmigration
 
 import (
 	"github.com/juju/juju/core/modelmigration"
+	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	lease "github.com/juju/juju/domain/lease/modelmigration"
+	machine "github.com/juju/juju/domain/machine/modelmigration"
+	model "github.com/juju/juju/domain/model/modelmigration"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -28,9 +31,12 @@ type Logger interface {
 // to register all the import operations.
 func ImportOperations(coordinator Coordinator, logger Logger) {
 	// Note: All the import operations are registered here.
+	// Order is important!
 	lease.RegisterImport(coordinator, logger)
 	externalcontroller.RegisterImport(coordinator)
 	credential.RegisterImport(coordinator)
-	// When machines are handled, they need to be done before block devices.
+	model.RegisterImport(coordinator)
+	machine.RegisterImport(coordinator)
+	application.RegisterImport(coordinator)
 	blockdevice.RegisterImport(coordinator)
 }

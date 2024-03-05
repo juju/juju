@@ -95,6 +95,17 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Name:        "my-awesome-model",
 				Owner:       userUUID,
 				Type:        coremodel.IAAS,
+				UUID:        coremodel.UUID("not-valid"),
+			},
+			ErrTest: errors.NotValid,
+		},
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Name:        "my-awesome-model",
+				Owner:       userUUID,
+				Type:        coremodel.IAAS,
 			},
 			ErrTest: nil,
 		},

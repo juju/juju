@@ -117,9 +117,13 @@ func (s *Service) CreateModel(
 	}
 
 	args.AgentVersion = agentVersion
-	uuid, err := coremodel.NewUUID()
-	if err != nil {
-		return coremodel.UUID(""), fmt.Errorf("generating new model uuid: %w", err)
+	uuid := args.UUID
+	if uuid == "" {
+		var err error
+		uuid, err = coremodel.NewUUID()
+		if err != nil {
+			return coremodel.UUID(""), fmt.Errorf("generating new model uuid: %w", err)
+		}
 	}
 
 	return uuid, s.st.Create(ctx, uuid, args)
