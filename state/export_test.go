@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"

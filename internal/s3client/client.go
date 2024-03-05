@@ -128,10 +128,10 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 	}, nil
 }
 
-// HeadObject checks if an object exists in the object store based on the bucket
+// ObjectExists checks if an object exists in the object store based on the bucket
 // name and object name.
 // Returns nil if the object exists, or an error if it does not.
-func (c *S3Client) HeadObject(ctx context.Context, bucketName, objectName string) error {
+func (c *S3Client) ObjectExists(ctx context.Context, bucketName, objectName string) error {
 	c.logger.Tracef("checking if bucket %s object %s exists in s3 storage", bucketName, objectName)
 
 	_, err := c.client.HeadObject(ctx,

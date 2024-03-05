@@ -30,8 +30,8 @@ func newHashFileSystemAccessor(namespace, rootDir string, logger Logger) *hashFi
 	}
 }
 
-// HeadHash checks if the file at hash exists in the file storage.
-func (t *hashFileSystemAccessor) HeadHash(ctx context.Context, hash string) error {
+// HashExists checks if the file at hash exists in the file storage.
+func (t *hashFileSystemAccessor) HashExists(ctx context.Context, hash string) error {
 	t.logger.Debugf("checking object %q in file storage", hash)
 
 	_, err := os.Stat(t.filePath(hash))

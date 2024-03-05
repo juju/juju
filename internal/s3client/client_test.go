@@ -25,7 +25,7 @@ type s3ClientSuite struct {
 
 var _ = gc.Suite(&s3ClientSuite{})
 
-func (s *s3ClientSuite) TestHeadObject(c *gc.C) {
+func (s *s3ClientSuite) TestObjectExists(c *gc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodHead)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
@@ -37,11 +37,11 @@ func (s *s3ClientSuite) TestHeadObject(c *gc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = client.HeadObject(context.Background(), "bucket", "object")
+	err = client.ObjectExists(context.Background(), "bucket", "object")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *s3ClientSuite) TestHeadObjectNotFound(c *gc.C) {
+func (s *s3ClientSuite) TestObjectExistsNotFound(c *gc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodHead)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
@@ -53,11 +53,11 @@ func (s *s3ClientSuite) TestHeadObjectNotFound(c *gc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = client.HeadObject(context.Background(), "bucket", "object")
+	err = client.ObjectExists(context.Background(), "bucket", "object")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *s3ClientSuite) TestHeadObjectForbidden(c *gc.C) {
+func (s *s3ClientSuite) TestObjectExistsForbidden(c *gc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodHead)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
@@ -69,7 +69,7 @@ func (s *s3ClientSuite) TestHeadObjectForbidden(c *gc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = client.HeadObject(context.Background(), "bucket", "object")
+	err = client.ObjectExists(context.Background(), "bucket", "object")
 	c.Assert(err, jc.ErrorIs, errors.Forbidden)
 }
 

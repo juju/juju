@@ -38,8 +38,9 @@ type Session interface {
 
 // ReadSession provides read access to the object store.
 type ReadSession interface {
-	// HeadObject returns nil if the object exists, or an error if it does not.
-	HeadObject(ctx context.Context, bucketName, objectName string) error
+	// ObjectExists returns nil if the object exists, or an error if it does
+	// not.
+	ObjectExists(ctx context.Context, bucketName, objectName string) error
 
 	// GetObject returns a reader for the specified object.
 	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error)

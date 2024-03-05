@@ -1052,7 +1052,7 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 		Name: "bobbrown",
 	})
 
-	now := s.Clock.Now().UTC()
+	now := s.Clock.Now().UTC().Truncate(time.Second)
 
 	s.OpenControllerAPIAs(c, names.NewUserTag("bobbrown"), "password")
 

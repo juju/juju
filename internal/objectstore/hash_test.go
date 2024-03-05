@@ -23,7 +23,7 @@ type hashFileSystemAccessorSuite struct {
 
 var _ = gc.Suite(&hashFileSystemAccessorSuite{})
 
-func (s *hashFileSystemAccessorSuite) TestHeadHashNotFound(c *gc.C) {
+func (s *hashFileSystemAccessorSuite) TestHashExistsNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
@@ -31,11 +31,11 @@ func (s *hashFileSystemAccessorSuite) TestHeadHashNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	accessor := newHashFileSystemAccessor("namespace", dir, jujutesting.NewCheckLogger(c))
-	err = accessor.HeadHash(context.Background(), "hash")
+	err = accessor.HashExists(context.Background(), "hash")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *hashFileSystemAccessorSuite) TestHeadHash(c *gc.C) {
+func (s *hashFileSystemAccessorSuite) TestHashExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
@@ -46,7 +46,7 @@ func (s *hashFileSystemAccessorSuite) TestHeadHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	accessor := newHashFileSystemAccessor("namespace", dir, jujutesting.NewCheckLogger(c))
-	err = accessor.HeadHash(context.Background(), "foo")
+	err = accessor.HashExists(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

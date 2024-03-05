@@ -33,8 +33,9 @@ const (
 // object store to the s3 object store. It should at no point be used for
 // writing files to the file system.
 type HashFileSystemAccessor interface {
-	// HeadHash checks if the file exists in the file backed object store.
-	HeadHash(ctx context.Context, hash string) error
+	// HashExists checks if the file exists in the file backed object store.
+	// Returns a NotFound error if the file doesn't exist.
+	HashExists(ctx context.Context, hash string) error
 
 	// GetByHash returns an io.ReadCloser for the file at the given hash.
 	GetByHash(ctx context.Context, hash string) (io.ReadCloser, int64, error)
@@ -665,7 +666,7 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metadataSize int64) error {
 	// If the file isn't on the file backed object store, then we can skip it.
 	// It's expected that this has already been drained to the s3 object store.
-	if err := t.fileSystemAccessor.HeadHash(ctx, hash); err != nil {
+	if err := t.fileSystemAccessor.HashExists(ctx, hash); err != nil {
 		if errors.Is(err, errors.NotFound) {
 			return nil
 		}
@@ -774,7 +775,7 @@ func (t *s3ObjectStore) computeS3Hash(reader io.Reader) (io.Reader, string, erro
 
 func (t *s3ObjectStore) objectAlreadyExists(ctx context.Context, hash string) error {
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-		err := s.HeadObject(ctx, t.rootBucket, t.filePath(hash))
+		err := s.ObjectExists(ctx, t.rootBucket, t.filePath(hash))
 		return errors.Trace(err)
 	}); err != nil {
 		return errors.Annotatef(err, "checking if file %q exists in s3 object store", hash)

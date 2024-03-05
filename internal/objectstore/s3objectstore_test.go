@@ -500,7 +500,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectError(c *gc.C) {
 	}
 
 	s.expectHashToExist("foo")
-	s.expectHeadObjectError("foo", errors.Errorf("boom"))
+	s.expectObjectExistsError("foo", errors.Errorf("boom"))
 
 	err := store.drainFile(context.Background(), "/path", "foo", 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
@@ -521,7 +521,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectAlreadyExists(c *gc.C) {
 	}
 
 	s.expectHashToExist("foo")
-	s.expectHeadObject("foo")
+	s.expectObjectExists("foo")
 
 	err := store.drainFile(context.Background(), "/path", "foo", 12)
 	c.Assert(err, jc.ErrorIsNil)
@@ -546,7 +546,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectGetHashReturnsError(c *gc.C) {
 	}
 
 	s.expectHashToExist("foo")
-	s.expectHeadObjectError("foo", errors.NotFoundf("not found"))
+	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
 	s.expectGetByHashError("foo", errors.NotFoundf("not found"))
 
 	err := store.drainFile(context.Background(), "/path", "foo", 12)
@@ -576,7 +576,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileSizeDoNotMatch(c *gc.C) {
 	size := int64(666)
 
 	s.expectHashToExist("foo")
-	s.expectHeadObjectError("foo", errors.NotFoundf("not found"))
+	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
 	s.expectGetByHash("foo", reader, size)
 
 	err := store.drainFile(context.Background(), "/path", "foo", 12)
@@ -602,7 +602,7 @@ func (s *s3ObjectStoreSuite) TestDrainFilePut(c *gc.C) {
 	size := int64(12)
 
 	s.expectHashToExist("foo")
-	s.expectHeadObjectError("foo", errors.NotFoundf("not found"))
+	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
 	s.expectGetByHash("foo", reader, size)
 	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
 	s.expectDeleteHash("foo")
@@ -635,7 +635,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileDeleteError(c *gc.C) {
 	size := int64(12)
 
 	s.expectHashToExist("foo")
-	s.expectHeadObjectError("foo", errors.NotFoundf("not found"))
+	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
 	s.expectGetByHash("foo", reader, size)
 	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
 	s.expectDeleteHashError("foo", errors.Errorf("boom"))
@@ -734,12 +734,12 @@ func (s *s3ObjectStoreSuite) expectListMetadata(metadata []objectstore.Metadata)
 }
 
 func (s *s3ObjectStoreSuite) expectHashToExist(hash string) {
-	s.hashFileSystemAccessor.EXPECT().HeadHash(gomock.Any(), hash).Return(nil)
+	s.hashFileSystemAccessor.EXPECT().HashExists(gomock.Any(), hash).Return(nil)
 }
 
 func (s *s3ObjectStoreSuite) expectHashToExistError(hash string, err error) <-chan struct{} {
 	ch := make(chan struct{})
-	s.hashFileSystemAccessor.EXPECT().HeadHash(gomock.Any(), hash).DoAndReturn(func(ctx context.Context, hash string) error {
+	s.hashFileSystemAccessor.EXPECT().HashExists(gomock.Any(), hash).DoAndReturn(func(ctx context.Context, hash string) error {
 		defer close(ch)
 		return err
 	})
@@ -754,12 +754,12 @@ func (s *s3ObjectStoreSuite) expectDeleteHashError(hash string, err error) {
 	s.hashFileSystemAccessor.EXPECT().DeleteByHash(gomock.Any(), hash).Return(err)
 }
 
-func (s *s3ObjectStoreSuite) expectHeadObject(hash string) {
-	s.session.EXPECT().HeadObject(gomock.Any(), defaultBucketName, filePath(hash)).Return(nil)
+func (s *s3ObjectStoreSuite) expectObjectExists(hash string) {
+	s.session.EXPECT().ObjectExists(gomock.Any(), defaultBucketName, filePath(hash)).Return(nil)
 }
 
-func (s *s3ObjectStoreSuite) expectHeadObjectError(hash string, err error) {
-	s.session.EXPECT().HeadObject(gomock.Any(), defaultBucketName, filePath(hash)).Return(err)
+func (s *s3ObjectStoreSuite) expectObjectExistsError(hash string, err error) {
+	s.session.EXPECT().ObjectExists(gomock.Any(), defaultBucketName, filePath(hash)).Return(err)
 }
 
 func (s *s3ObjectStoreSuite) expectGetByHash(hash string, reader io.ReadCloser, size int64) {
