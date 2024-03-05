@@ -5,6 +5,7 @@ package machine
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -420,6 +421,14 @@ func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, con
 	authKeys, err := common.ReadAuthorizedKeys(ctx, c.PublicKey)
 	if err != nil {
 		return errors.Annotatef(err, "cannot reading authorized-keys")
+	}
+
+	if c.KnownHostsFile != "" {
+		err := os.WriteFile(c.KnownHostsFile, []byte(""), 0644)
+
+		if err != nil {
+			return errors.Annotatef(err, "Could not access specified KnownHosts file")
+		}
 	}
 
 	user, host := splitUserHost(c.Placement.Directive)
