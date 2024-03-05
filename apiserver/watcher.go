@@ -489,19 +489,6 @@ func (aw allWatcherDeltaTranslater) translateEndpoints(eps []multiwatcher.Endpoi
 	return result
 }
 
-func (aw allWatcherDeltaTranslater) TranslateAnnotation(info multiwatcher.EntityInfo) params.EntityInfo {
-	orig, ok := info.(*multiwatcher.AnnotationInfo)
-	if !ok {
-		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
-		return nil
-	}
-	return &params.AnnotationInfo{
-		ModelUUID:   orig.ModelUUID,
-		Tag:         orig.Tag,
-		Annotations: orig.Annotations,
-	}
-}
-
 func (aw allWatcherDeltaTranslater) TranslateBlock(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.BlockInfo)
 	if !ok {

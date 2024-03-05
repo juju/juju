@@ -159,19 +159,6 @@ var marshalTestCases = []struct {
 	},
 	json: `["relation","change",{"model-uuid": "uuid", "key":"Benji", "id": 4711, "endpoints": [{"application-name":"logging", "relation":{"name":"logging-directory", "role":"requirer", "interface":"logging", "optional":false, "limit":1, "scope":"container"}}, {"application-name":"wordpress", "relation":{"name":"logging-dir", "role":"provider", "interface":"logging", "optional":false, "limit":0, "scope":"container"}}]}]`,
 }, {
-	about: "AnnotationInfo Delta",
-	value: params.Delta{
-		Entity: &params.AnnotationInfo{
-			ModelUUID: "uuid",
-			Tag:       "machine-0",
-			Annotations: map[string]string{
-				"foo":   "bar",
-				"arble": "2 4",
-			},
-		},
-	},
-	json: `["annotation","change",{"model-uuid": "uuid", "tag":"machine-0","annotations":{"foo":"bar","arble":"2 4"}}]`,
-}, {
 	about: "Delta Removed True",
 	value: params.Delta{
 		Removed: true,

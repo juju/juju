@@ -11,7 +11,6 @@ var (
 	_ EntityInfo = (*ApplicationOfferInfo)(nil)
 	_ EntityInfo = (*UnitInfo)(nil)
 	_ EntityInfo = (*RelationInfo)(nil)
-	_ EntityInfo = (*AnnotationInfo)(nil)
 	_ EntityInfo = (*BlockInfo)(nil)
 	_ EntityInfo = (*ActionInfo)(nil)
 	_ EntityInfo = (*ModelUpdate)(nil)
