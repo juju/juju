@@ -134,14 +134,14 @@ FROM   v_user_auth u
 WHERE  u.removed = false 
 `
 
-		selectGetAllUsersStmt, err := sqlair.Prepare(getAllUsersQuery, User{}, sqlair.M{})
+		selectGetAllUsersStmt, err := st.Prepare(getAllUsersQuery, User{}, sqlair.M{})
 		if err != nil {
 			return errors.Annotate(err, "preparing select getAllUsers query")
 		}
 
 		var results []User
 		err = tx.Query(ctx, selectGetAllUsersStmt).GetAll(&results)
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotate(err, "getting query results")
 		}
 
@@ -174,7 +174,7 @@ SELECT (uuid, name, display_name, created_by_uuid, created_at, last_login, disab
 FROM   v_user_auth
 WHERE  uuid = $M.uuid`
 
-		selectGetUserStmt, err := sqlair.Prepare(getUserQuery, User{}, sqlair.M{})
+		selectGetUserStmt, err := st.Prepare(getUserQuery, User{}, sqlair.M{})
 		if err != nil {
 			return errors.Annotate(err, "preparing select getUser query")
 		}
@@ -201,6 +201,7 @@ WHERE  uuid = $M.uuid`
 // GetUserUUIDByName will retrieve the user uuid for the user identifier by name.
 // If the user does not exist an error that satisfies [usererrors.NotFound] will
 // be returned.
+// Exported for use in credential.
 func GetUserUUIDByName(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -261,7 +262,7 @@ FROM   v_user_auth
 WHERE  name = $M.name
 AND    removed = false`
 
-		selectGetUserByNameStmt, err := sqlair.Prepare(getUserByNameQuery, User{}, sqlair.M{})
+		selectGetUserByNameStmt, err := st.Prepare(getUserByNameQuery, User{}, sqlair.M{})
 		if err != nil {
 			return errors.Annotate(err, "preparing select getUserByName query")
 		}
@@ -308,7 +309,7 @@ WHERE  user.name = $M.name
 AND    removed = false
 	`
 
-	selectGetUserByAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
+	selectGetUserByAuthStmt, err := st.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
 	if err != nil {
 		return user.User{}, errors.Annotate(err, "preparing select getUserWithAuth query")
 	}
@@ -360,17 +361,17 @@ func (st *State) RemoveUser(ctx context.Context, name string) error {
 
 	m := make(sqlair.M, 1)
 
-	deletePassStmt, err := sqlair.Prepare("DELETE FROM user_password WHERE user_uuid = $M.uuid", m)
+	deletePassStmt, err := st.Prepare("DELETE FROM user_password WHERE user_uuid = $M.uuid", m)
 	if err != nil {
 		return errors.Annotate(err, "preparing password deletion query")
 	}
 
-	deleteKeyStmt, err := sqlair.Prepare("DELETE FROM user_activation_key WHERE user_uuid = $M.uuid", m)
+	deleteKeyStmt, err := st.Prepare("DELETE FROM user_activation_key WHERE user_uuid = $M.uuid", m)
 	if err != nil {
 		return errors.Annotate(err, "preparing password deletion query")
 	}
 
-	setRemovedStmt, err := sqlair.Prepare("UPDATE user SET removed = true WHERE uuid = $M.uuid", m)
+	setRemovedStmt, err := st.Prepare("UPDATE user SET removed = true WHERE uuid = $M.uuid", m)
 	if err != nil {
 		return errors.Annotate(err, "preparing password deletion query")
 	}
@@ -416,7 +417,7 @@ func (st *State) SetActivationKey(ctx context.Context, name string, activationKe
 
 	m := make(sqlair.M, 1)
 
-	deletePassStmt, err := sqlair.Prepare("DELETE FROM user_password WHERE user_uuid = $M.uuid", m)
+	deletePassStmt, err := st.Prepare("DELETE FROM user_password WHERE user_uuid = $M.uuid", m)
 	if err != nil {
 		return errors.Annotate(err, "preparing password deletion query")
 	}
@@ -451,7 +452,7 @@ func (st *State) GetActivationKey(ctx context.Context, name string) ([]byte, err
 
 	m := make(sqlair.M, 1)
 
-	selectKeyStmt, err := sqlair.Prepare(`
+	selectKeyStmt, err := st.Prepare(`
 SELECT (*) AS (&ActivationKey.*) FROM user_activation_key WHERE user_uuid = $M.uuid
 `, m, ActivationKey{})
 	if err != nil {
@@ -498,7 +499,7 @@ func (st *State) SetPasswordHash(ctx context.Context, name string, passwordHash 
 
 	m := make(sqlair.M, 1)
 
-	deleteKeyStmt, err := sqlair.Prepare("DELETE FROM user_activation_key WHERE user_uuid = $M.uuid", m)
+	deleteKeyStmt, err := st.Prepare("DELETE FROM user_activation_key WHERE user_uuid = $M.uuid", m)
 	if err != nil {
 		return errors.Annotate(err, "preparing password deletion query")
 	}
@@ -540,7 +541,7 @@ VALUES ($M.uuid, false)
 ON CONFLICT(user_uuid) DO 
 UPDATE SET disabled = false`
 
-	enableUserStmt, err := sqlair.Prepare(q, m)
+	enableUserStmt, err := st.Prepare(q, m)
 	if err != nil {
 		return errors.Annotate(err, "preparing enable user query")
 	}
@@ -581,7 +582,7 @@ VALUES ($M.uuid, true)
 ON CONFLICT(user_uuid) DO 
 UPDATE SET disabled = true`
 
-	disableUserStmt, err := sqlair.Prepare(q, m)
+	disableUserStmt, err := st.Prepare(q, m)
 	if err != nil {
 		return errors.Annotate(err, "preparing disable user query")
 	}
@@ -645,7 +646,7 @@ UPDATE user_authentication
 SET    last_login = datetime('now')
 WHERE  user_uuid = $M.uuid`
 
-	updateLastLoginStmt, err := sqlair.Prepare(q, m)
+	updateLastLoginStmt, err := st.Prepare(q, m)
 	if err != nil {
 		return errors.Annotate(err, "preparing update updateLastLogin query")
 	}
@@ -861,7 +862,7 @@ func (st *State) uuidForName(
 func (st *State) getActiveUUIDStmt() (*sqlair.Statement, error) {
 	var err error
 	if st.activeUUIDStmt == nil {
-		st.activeUUIDStmt, err = sqlair.Prepare(
+		st.activeUUIDStmt, err = st.Prepare(
 			"SELECT &M.uuid FROM user WHERE name = $M.name AND IFNULL(removed, false) = false", sqlair.M{})
 	}
 	return st.activeUUIDStmt, errors.Annotate(err, "preparing user UUID statement")

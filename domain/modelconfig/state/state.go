@@ -59,7 +59,7 @@ func (st *State) ModelConfigHasAttributes(
 	}
 
 	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
-	stmt, err := sqlair.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT &key.key FROM model_config WHERE key IN ($S[:])
 `, sqlair.S{}, key{})
 	if err != nil {
@@ -176,7 +176,7 @@ func (st *State) UpdateModelConfig(
 	}
 
 	removeAttrsSlice := sqlair.S(transform.Slice(removeAttrs, func(s string) any { return any(s) }))
-	deleteStmt, err := sqlair.Prepare(`
+	deleteStmt, err := st.Prepare(`
 DELETE FROM model_config
 WHERE key IN ($S[:])
 `[1:], sqlair.S{})
@@ -184,7 +184,7 @@ WHERE key IN ($S[:])
 		return errors.Trace(err)
 	}
 
-	upsertStmt, err := sqlair.Prepare(`
+	upsertStmt, err := st.Prepare(`
 INSERT INTO model_config (key, value) VALUES ($M.key, $M.value)
 ON CONFLICT(key) DO UPDATE
 SET value = excluded.value

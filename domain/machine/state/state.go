@@ -37,15 +37,15 @@ func NewState(factory coredb.TxnRunnerFactory, logger Logger) *State {
 
 // UpsertMachine creates or updates the specified machine.
 // TODO - this just creates a minimal row for now.
-func (s *State) UpsertMachine(ctx context.Context, machineId string) error {
-	db, err := s.DB()
+func (st *State) UpsertMachine(ctx context.Context, machineId string) error {
+	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	machineIDParam := sqlair.M{"machine_id": machineId}
 	query := `SELECT &M.uuid FROM machine WHERE machine_id = $M.machine_id`
-	queryStmt, err := sqlair.Prepare(query, sqlair.M{})
+	queryStmt, err := st.Prepare(query, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -54,13 +54,13 @@ func (s *State) UpsertMachine(ctx context.Context, machineId string) error {
 INSERT INTO machine (uuid, net_node_uuid, machine_id, life_id)
 VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 `
-	createMachineStmt, err := sqlair.Prepare(createMachine, sqlair.M{})
+	createMachineStmt, err := st.Prepare(createMachine, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	createNode := `INSERT INTO net_node (uuid) VALUES ($M.net_node_uuid)`
-	createNodeStmt, err := sqlair.Prepare(createNode, sqlair.M{})
+	createNodeStmt, err := st.Prepare(createNode, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -104,8 +104,8 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 
 // DeleteMachine deletes the specified machine and any dependent child records.
 // TODO - this just deals with child block devices for now.
-func (s *State) DeleteMachine(ctx context.Context, machineId string) error {
-	db, err := s.DB()
+func (st *State) DeleteMachine(ctx context.Context, machineId string) error {
+	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -113,13 +113,13 @@ func (s *State) DeleteMachine(ctx context.Context, machineId string) error {
 	machineIDParam := sqlair.M{"machine_id": machineId}
 
 	queryMachine := `SELECT &M.uuid FROM machine WHERE machine_id = $M.machine_id`
-	queryMachineStmt, err := sqlair.Prepare(queryMachine, sqlair.M{})
+	queryMachineStmt, err := st.Prepare(queryMachine, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	deleteMachine := `DELETE FROM machine WHERE machine_id = $M.machine_id`
-	deleteMachineStmt, err := sqlair.Prepare(deleteMachine, sqlair.M{})
+	deleteMachineStmt, err := st.Prepare(deleteMachine, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -128,7 +128,7 @@ func (s *State) DeleteMachine(ctx context.Context, machineId string) error {
 DELETE FROM net_node WHERE uuid IN
 (SELECT net_node_uuid FROM machine WHERE machine_id = $M.machine_id) 
 `
-	deleteNodeStmt, err := sqlair.Prepare(deleteNode, sqlair.M{})
+	deleteNodeStmt, err := st.Prepare(deleteNode, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}

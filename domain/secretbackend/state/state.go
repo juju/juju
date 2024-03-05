@@ -153,7 +153,7 @@ ORDER BY b.name`, SecretBackendRow{})
 	var rows SecretBackendRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&rows)
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying secret backends: %w", err)
 		}
 		return nil
@@ -193,11 +193,11 @@ WHERE b.%s = $M.identifier`, columName)
 		}
 		return nil
 	})
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, fmt.Errorf("%w: %q", backenderrors.NotFound, v)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
-	}
-	if len(rows) == 0 {
-		return nil, fmt.Errorf("%w: %q", backenderrors.NotFound, v)
 	}
 	return rows.toSecretBackends()[0], errors.Trace(err)
 }
@@ -290,7 +290,7 @@ WHERE b.uuid IN ($S[:])`,
 	args := sqlair.S(transform.Slice(backendIDs, func(s string) any { return any(s) }))
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, args).GetAll(&rows)
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying secret backend rotation changes: %w", err)
 		}
 		return nil

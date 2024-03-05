@@ -221,12 +221,12 @@ func (st *State) UpdateCloudDefaults(
 		return errors.Trace(err)
 	}
 
-	selectStmt, err := sqlair.Prepare("SELECT &Cloud.uuid FROM cloud WHERE name = $Cloud.name", Cloud{})
+	selectStmt, err := st.Prepare("SELECT &Cloud.uuid FROM cloud WHERE name = $Cloud.name", Cloud{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteStmt, err := sqlair.Prepare(`
+	deleteStmt, err := st.Prepare(`
 DELETE FROM  cloud_defaults
 WHERE        key IN ($Attrs[:])
 AND          cloud_uuid = $Cloud.uuid;
@@ -290,7 +290,7 @@ func (st *State) CloudAllRegionDefaults(
 		return defaults, fmt.Errorf("getting database instance for cloud region defaults: %w", err)
 	}
 
-	stmt, err := sqlair.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT  (cloud_region.name,
         cloud_region_defaults.key,
         cloud_region_defaults.value)
@@ -311,6 +311,9 @@ WHERE   cloud.name = $Cloud.name
 		var regionDefaultValues []CloudRegionDefaultValue
 
 		if err := tx.Query(ctx, stmt, Cloud{Name: cloudName}).GetAll(&regionDefaultValues); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
 			return fmt.Errorf("fetching cloud %q region defaults: %w", cloudName, domain.CoerceError(err))
 		}
 
@@ -343,7 +346,7 @@ func (st *State) UpdateCloudRegionDefaults(
 		return errors.Trace(err)
 	}
 
-	selectStmt, err := sqlair.Prepare(`
+	selectStmt, err := st.Prepare(`
 SELECT  cloud_region.uuid AS &CloudRegion.uuid
 FROM    cloud_region
         INNER JOIN cloud
@@ -355,7 +358,7 @@ AND     cloud_region.name = $CloudRegion.name;
 		return errors.Trace(err)
 	}
 
-	deleteStmt, err := sqlair.Prepare(`
+	deleteStmt, err := st.Prepare(`
 DELETE FROM  cloud_region_defaults
 WHERE        key IN ($Attrs[:])
 AND          region_uuid = $CloudRegion.uuid;
@@ -364,7 +367,7 @@ AND          region_uuid = $CloudRegion.uuid;
 		return errors.Trace(err)
 	}
 
-	upsertStmt, err := sqlair.Prepare(`
+	upsertStmt, err := st.Prepare(`
 INSERT INTO cloud_region_defaults (region_uuid, key, value)
 VALUES ($CloudRegionDefaults.region_uuid, $CloudRegionDefaults.key, $CloudRegionDefaults.value) 
 ON CONFLICT(region_uuid, key) DO UPDATE
@@ -606,7 +609,7 @@ func (st *State) UpsertCloud(ctx context.Context, cloud cloud.Cloud) error {
 		return errors.Trace(err)
 	}
 
-	selectUUIDStmt, err := sqlair.Prepare("SELECT &Cloud.uuid FROM cloud WHERE name = $Cloud.name", Cloud{})
+	selectUUIDStmt, err := st.Prepare("SELECT &Cloud.uuid FROM cloud WHERE name = $Cloud.name", Cloud{})
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}

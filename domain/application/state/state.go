@@ -51,7 +51,7 @@ func (st *State) UpsertApplication(ctx context.Context, name string, units ...ap
 
 	appNameParam := sqlair.M{"name": name}
 	query := `SELECT &M.uuid FROM application WHERE name = $M.name`
-	queryStmt, err := sqlair.Prepare(query, sqlair.M{})
+	queryStmt, err := st.Prepare(query, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -60,12 +60,12 @@ func (st *State) UpsertApplication(ctx context.Context, name string, units ...ap
 INSERT INTO application (uuid, name, life_id)
 VALUES ($M.application_uuid, $M.name, $M.life_id)
 `
-	createApplicationStmt, err := sqlair.Prepare(createApplication, sqlair.M{})
+	createApplicationStmt, err := st.Prepare(createApplication, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	upsertUnitFunc, err := upsertUnitFuncGetter()
+	upsertUnitFunc, err := st.upsertUnitFuncGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -117,19 +117,19 @@ func (st *State) DeleteApplication(ctx context.Context, name string) error {
 	appNameParam := sqlair.M{"name": name}
 
 	queryApplication := `SELECT &M.uuid FROM application WHERE name = $M.name`
-	queryApplicationStmt, err := sqlair.Prepare(queryApplication, sqlair.M{})
+	queryApplicationStmt, err := st.Prepare(queryApplication, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	queryUnits := `SELECT count(*) AS &M.count FROM unit WHERE application_uuid = $M.application_uuid`
-	queryUnitsStmt, err := sqlair.Prepare(queryUnits, sqlair.M{})
+	queryUnitsStmt, err := st.Prepare(queryUnits, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	deleteApplication := `DELETE FROM application WHERE name = $M.name`
-	deleteApplicationStmt, err := sqlair.Prepare(deleteApplication, sqlair.M{})
+	deleteApplicationStmt, err := st.Prepare(deleteApplication, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -175,7 +175,7 @@ func (st *State) AddUnits(ctx context.Context, applicationName string, args ...a
 		return errors.Trace(err)
 	}
 
-	upsertUnitFunc, err := upsertUnitFuncGetter()
+	upsertUnitFunc, err := st.upsertUnitFuncGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -196,15 +196,15 @@ type upsertUnitFunc func(ctx context.Context, tx *sqlair.TX, appName string, par
 // upsertUnitFuncGetter returns a function which can be called as many times
 // as needed to add units, ensuring that statement preparation is only done once.
 // TODO - this just creates a minimal row for now.
-func upsertUnitFuncGetter() (upsertUnitFunc, error) {
+func (st *State) upsertUnitFuncGetter() (upsertUnitFunc, error) {
 	query := `SELECT &M.uuid FROM unit WHERE unit_id = $M.name`
-	queryStmt, err := sqlair.Prepare(query, sqlair.M{})
+	queryStmt, err := st.Prepare(query, sqlair.M{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	queryApplication := `SELECT &M.uuid FROM application WHERE name = $M.name`
-	queryApplicationStmt, err := sqlair.Prepare(queryApplication, sqlair.M{})
+	queryApplicationStmt, err := st.Prepare(queryApplication, sqlair.M{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -213,13 +213,13 @@ func upsertUnitFuncGetter() (upsertUnitFunc, error) {
 INSERT INTO unit (uuid, net_node_uuid, unit_id, life_id, application_uuid)
 VALUES ($M.unit_uuid, $M.net_node_uuid, $M.unit_id, $M.life_id, $M.application_uuid)
 `
-	createUnitStmt, err := sqlair.Prepare(createUnit, sqlair.M{})
+	createUnitStmt, err := st.Prepare(createUnit, sqlair.M{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	createNode := `INSERT INTO net_node (uuid) VALUES ($M.net_node_uuid)`
-	createNodeStmt, err := sqlair.Prepare(createNode, sqlair.M{})
+	createNodeStmt, err := st.Prepare(createNode, sqlair.M{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -292,7 +292,7 @@ func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefa
 
 	attrs := []string{application.StorageDefaultBlockSourceKey, application.StorageDefaultFilesystemSourceKey}
 	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
-	stmt, err := sqlair.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 `, sqlair.S{}, KeyValue{})
 	if err != nil {
@@ -303,6 +303,9 @@ SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 		var values []KeyValue
 		err := tx.Query(ctx, stmt, attrsSlice).GetAll(&values)
 		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
 			return fmt.Errorf("getting model config attrs for storage defaults: %w", err)
 		}
 

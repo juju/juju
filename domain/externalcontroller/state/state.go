@@ -50,7 +50,7 @@ FROM   external_controller AS ctrl
        LEFT JOIN external_controller_address AS addrs
        ON        ctrl.uuid = addrs.controller_uuid
 WHERE  ctrl.uuid = $M.id`
-	s, err := sqlair.Prepare(q, Controller{}, sqlair.M{})
+	s, err := st.Prepare(q, Controller{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
@@ -58,12 +58,10 @@ WHERE  ctrl.uuid = $M.id`
 	var rows Controllers
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s, sqlair.M{"id": controllerUUID}).GetAll(&rows))
-	}); err != nil {
-		return nil, errors.Annotate(domain.CoerceError(err), "querying external controller")
-	}
-
-	if len(rows) == 0 {
+	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
 		return nil, errors.NotFoundf("external controller %q", controllerUUID)
+	} else if err != nil {
+		return nil, errors.Annotate(domain.CoerceError(err), "querying external controller")
 	}
 
 	return &rows.ToControllerInfo()[0], nil
@@ -98,7 +96,7 @@ WHERE  ctrl.uuid = (
     WHERE  model.uuid = $M.model
 )`
 
-	s, err := sqlair.Prepare(q, Controller{}, sqlair.M{})
+	s, err := st.Prepare(q, Controller{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
@@ -108,7 +106,7 @@ WHERE  ctrl.uuid = (
 		for _, modelUUID := range modelUUIDs {
 			var rows Controllers
 			err := tx.Query(ctx, s, sqlair.M{"model": modelUUID}).GetAll(&rows)
-			if err != nil {
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Trace(domain.CoerceError(err))
 			}
 			resultControllerInfos = append(resultControllerInfos, rows...)

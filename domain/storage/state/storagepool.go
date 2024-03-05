@@ -194,11 +194,11 @@ DELETE FROM storage_pool
 WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
 `
 
-	poolAttributeDeleteStmt, err := sqlair.Prepare(poolAttributeDeleteQ, sqlair.M{})
+	poolAttributeDeleteStmt, err := st.Prepare(poolAttributeDeleteQ, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	poolDeleteStmt, err := sqlair.Prepare(poolDeleteQ, sqlair.M{})
+	poolDeleteStmt, err := st.Prepare(poolDeleteQ, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -233,7 +233,7 @@ func (st StoragePoolState) ReplaceStoragePool(ctx context.Context, pool domainst
 		return errors.Trace(err)
 	}
 
-	selectUUIDStmt, err := sqlair.Prepare("SELECT &StoragePool.uuid FROM storage_pool WHERE name = $StoragePool.name", StoragePool{})
+	selectUUIDStmt, err := st.Prepare("SELECT &StoragePool.uuid FROM storage_pool WHERE name = $StoragePool.name", StoragePool{})
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
@@ -304,7 +304,7 @@ FROM   storage_pool sp
 			keyValues []poolAttribute
 		)
 		err = tx.Query(ctx, queryStmt, queryArgs...).GetAll(&dbRows, &keyValues)
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return nil, errors.Annotate(err, "loading storage pool")
 		}
 		return dbRows.toStoragePools(keyValues)

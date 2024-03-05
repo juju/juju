@@ -162,7 +162,7 @@ func (w *Pruner) prune() (map[string]int64, error) {
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, query).GetAll(&models))
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(err)
 	}
 
@@ -240,13 +240,11 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 	// change_log_witness table, the change stream will put the witness
 	// back in place after the next change log is written.
 	var watermarks []Watermark
-	if err := tx.Query(ctx, selectWitnessQuery).GetAll(&watermarks); err != nil {
-		return Watermark{}, errors.Trace(err)
-	}
-
-	// Nothing to do if there are no watermarks.
-	if len(watermarks) == 0 {
+	if err := tx.Query(ctx, selectWitnessQuery).GetAll(&watermarks); errors.Is(err, sqlair.ErrNoRows) {
+		// Nothing to do if there are no watermarks.
 		return Watermark{}, nil
+	} else if err != nil {
+		return Watermark{}, errors.Trace(err)
 	}
 
 	// Gather all the watermarks that are within the windowed time period.
@@ -261,7 +259,7 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 		if err := tx.Query(ctx, selectChangeLogQuery, sqlair.M{
 			"created_at": w.cfg.Clock.Now().Add(-defaultWindowDuration),
 			"limit":      changestream.DefaultNumTermWatermarks + 1,
-		}).GetAll(&changes); err != nil {
+		}).GetAll(&changes); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return Watermark{}, errors.Trace(err)
 		}
 		// If there are less than the default number of term watermarks, then

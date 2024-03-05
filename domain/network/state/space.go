@@ -85,7 +85,7 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		// that are of a type on which the space can be set.
 
 		var nonSettableSubnets []Subnet
-		if err := tx.Query(ctx, checkInputSubnetsStmt, subnetIDsInS).GetAll(&nonSettableSubnets); err != nil {
+		if err := tx.Query(ctx, checkInputSubnetsStmt, subnetIDsInS).GetAll(&nonSettableSubnets); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid)
 		}
 
@@ -109,7 +109,7 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		// Retrieve the fan overlays (if any) of the passed subnet ids.
 		var fanSubnets []Subnet
 		err = tx.Query(ctx, findFanSubnetsStmt, subnetIDsInS).GetAll(&fanSubnets)
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "retrieving the fan subnets for space %q", uuid)
 		}
 		// Append the fan subnet (unique) ids (if any) to the provided
@@ -120,7 +120,7 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		// Update all subnets (including their fan overlays) to include
 		// the space uuid.
 		for _, subnetID := range subnetIDs {
-			if err := updateSubnetSpaceID(ctx, tx, subnetID, uuid); err != nil {
+			if err := st.updateSubnetSpaceID(ctx, tx, subnetID, uuid); err != nil {
 				return errors.Annotatef(err, "updating subnet %q using space uuid %q", subnetID, uuid)
 			}
 		}
@@ -177,16 +177,15 @@ func (st *State) GetSpace(
 	var spaceRows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, spacesStmt, sqlair.M{"id": uuid}).GetAll(&spaceRows)
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "retrieving space %q", uuid)
 		}
 
 		return nil
-	}); err != nil {
-		return nil, errors.Annotate(err, "querying spaces")
-	}
-	if len(spaceRows) == 0 {
+	}); errors.Is(err, sqlair.ErrNoRows) || len(spaceRows) == 0 {
 		return nil, errors.NotFoundf("space %q", uuid)
+	} else if err != nil {
+		return nil, errors.Annotate(err, "querying spaces")
 	}
 
 	return &spaceRows.ToSpaceInfos()[0], nil
@@ -213,11 +212,10 @@ func (st *State) GetSpaceByName(
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s, sqlair.M{"name": name}).GetAll(&rows))
-	}); err != nil {
-		return nil, errors.Annotate(err, "querying spaces by name")
-	}
-	if len(rows) == 0 {
+	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
 		return nil, errors.NotFoundf("space with name %q", name)
+	} else if err != nil {
+		return nil, errors.Annotate(err, "querying spaces by name")
 	}
 
 	return &rows.ToSpaceInfos()[0], nil
@@ -241,7 +239,9 @@ func (st *State) GetAllSpaces(
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s).GetAll(&rows))
-	}); err != nil {
+	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
+		return nil, nil
+	} else if err != nil {
 		return nil, errors.Annotate(err, "querying all spaces")
 	}
 
