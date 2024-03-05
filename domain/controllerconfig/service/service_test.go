@@ -82,7 +82,7 @@ func (s *serviceSuite) TestUpdateControllerValidationWithMissingConfig(c *gc.C) 
 	})
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
-	c.Assert(err, gc.ErrorMatches, `.*without complete s3 config`)
+	c.Assert(err, gc.ErrorMatches, `.*without complete s3 config: missing S3 endpoint`)
 }
 
 func (s *serviceSuite) TestUpdateControllerValidationError(c *gc.C) {

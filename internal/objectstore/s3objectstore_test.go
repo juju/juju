@@ -435,7 +435,6 @@ func (s *s3ObjectStoreSuite) TestDrainFiles(c *gc.C) {
 
 	s.expectStartup(c)
 	s.expectFileDrained(c, "foo")
-	s.expectDrain(c)
 
 	workertest.CleanKill(c, store)
 }
