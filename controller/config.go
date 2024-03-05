@@ -1475,8 +1475,8 @@ func parseRatio(c Config, name string) (float64, error) {
 	}
 }
 
-// HasCompleteS3Config returns true if the controller has a complete S3
-// configuration. This includes an endpoint, static key, and static secret.
+// HasCompleteS3ControllerConfig returns true if the controller has a complete
+// S3 configuration. This includes an endpoint, static key, and static secret.
 func HasCompleteS3ControllerConfig(cfg Config) bool {
 	endpoint := cfg.ObjectStoreS3Endpoint()
 	staticKey := cfg.ObjectStoreS3StaticKey()

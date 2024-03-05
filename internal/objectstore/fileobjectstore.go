@@ -206,7 +206,7 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 func (t *fileObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
-		return errors.Annotatef(err, "ensure directory")
+		return errors.Annotatef(err, "ensuring file store directories exist")
 	}
 
 	// Remove any temporary files that may have been left behind. We don't

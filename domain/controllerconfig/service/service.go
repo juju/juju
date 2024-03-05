@@ -194,7 +194,7 @@ func validObjectStoreProgression(current map[string]string, updateAttrs controll
 		// we're going to check if the current config has a complete s3 config.
 		// This is rather expensive, but it's the only way to be sure that we
 		// can change from filestorage to s3storage.
-		if controller.HasCompleteS3ControllerConfig(updateAttrs) || hashCompleteS3Config(current) {
+		if controller.HasCompleteS3ControllerConfig(updateAttrs) || hasCompleteS3Config(current) {
 			return nil
 		}
 		return errors.Errorf("can not change %q from %q to %q without complete s3 config", controller.ObjectStoreType, cur, upd)
@@ -211,7 +211,7 @@ func contains(s []string, e string) bool {
 	return false
 }
 
-func hashCompleteS3Config(config map[string]string) bool {
+func hasCompleteS3Config(config map[string]string) bool {
 	endpoint := config[controller.ObjectStoreS3Endpoint]
 	staticKey := config[controller.ObjectStoreS3StaticKey]
 	secretKey := config[controller.ObjectStoreS3StaticSecret]

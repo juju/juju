@@ -27,8 +27,8 @@ const (
 	defaultPruneInterval = time.Hour * 6
 )
 
-// FileSystemAccessor is the interface for reading and deleting files from the
-// file system.
+// HashFileSystemAccessor is the interface for reading and deleting files from
+// the file system.
 // The file system accessor is used for draining files from the file backed
 // object store to the s3 object store. It should at no point be used for
 // writing files to the file system.
@@ -278,7 +278,7 @@ func (t *s3ObjectStore) loop() error {
 
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
-		return errors.Annotatef(err, "ensure directory")
+		return errors.Annotatef(err, "ensuring file store directories exist")
 	}
 
 	// Remove any temporary files that may have been left behind. We don't
@@ -428,8 +428,6 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 			return nil, -1, errors.Trace(err)
 		}
 
-		// If we're allowed to use the file accessor, then we can attempt to
-		// get the file from the file backed object store.
 		var newErr error
 		reader, size, newErr = t.fileSystemAccessor.GetByHash(ctx, metadata.Hash)
 		if newErr != nil {
