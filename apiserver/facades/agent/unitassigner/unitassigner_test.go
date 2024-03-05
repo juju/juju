@@ -23,8 +23,8 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 		unitMachines: map[string]string{"foo/0": "1/lxd/2"},
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
-	a := &fakeMachineSaver{}
-	api := API{st: f, res: common.NewResources(), machineSaver: a}
+	a := &fakeMachineService{}
+	api := API{st: f, res: common.NewResources(), machineService: a}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
@@ -61,11 +61,11 @@ func (testsuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.Equals, f.err)
 }
 
-type fakeMachineSaver struct {
+type fakeMachineService struct {
 	machineIds []string
 }
 
-func (f *fakeMachineSaver) Save(_ context.Context, machineId string) error {
+func (f *fakeMachineService) CreateMachine(_ context.Context, machineId string) error {
 	f.machineIds = append(f.machineIds, machineId)
 	return nil
 }

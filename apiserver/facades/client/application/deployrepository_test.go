@@ -20,6 +20,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -1036,10 +1037,11 @@ func intptr(i int) *int {
 }
 
 type deployRepositorySuite struct {
-	application *MockApplication
-	charm       *MockCharm
-	state       *MockDeployFromRepositoryState
-	validator   *MockDeployFromRepositoryValidator
+	application        *MockApplication
+	applicationService *MockApplicationService
+	charm              *MockCharm
+	state              *MockDeployFromRepositoryState
+	validator          *MockDeployFromRepositoryValidator
 }
 
 func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
@@ -1094,7 +1096,9 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		Resources:        map[string]string{},
 		Storage:          map[string]state.StorageConstraints{},
 	}
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application, nil)
+	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
+	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", applicationservice.AddApplicationParams{}, applicationservice.AddUnitParams{UnitName: ptr("metadata-name/0")})
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
@@ -1144,6 +1148,10 @@ func (m addApplicationArgsMatcher) Matches(x interface{}) bool {
 	m.c.Assert(oA.Placement, gc.DeepEquals, eA.Placement)
 	m.c.Assert(oA.Resources, gc.DeepEquals, eA.Resources)
 	return true
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAPI(c *gc.C) {
@@ -1219,7 +1227,9 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Resources:        map[string]string{"foo-resource": "3"},
 		Storage:          map[string]state.StorageConstraints{},
 	}
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application, nil)
+	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
+	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", applicationservice.AddApplicationParams{}, applicationservice.AddUnitParams{UnitName: ptr("metadata-name/0")})
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
@@ -1313,7 +1323,8 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 
 	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"}, gomock.Any())
 
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application,
+	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application,
 		errors.New("fail"))
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
@@ -1326,9 +1337,10 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 
 func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromRepositoryAPI {
 	return &DeployFromRepositoryAPI{
-		state:      s.state,
-		validator:  s.validator,
-		stateCharm: func(Charm) *state.Charm { return nil },
+		state:              s.state,
+		validator:          s.validator,
+		stateCharm:         func(Charm) *state.Charm { return nil },
+		applicationService: s.applicationService,
 	}
 }
 
@@ -1337,5 +1349,6 @@ func (s *deployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.charm = NewMockCharm(ctrl)
 	s.state = NewMockDeployFromRepositoryState(ctrl)
 	s.validator = NewMockDeployFromRepositoryValidator(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 	return ctrl
 }

@@ -70,8 +70,8 @@ type Authorizer interface {
 
 // MachineService manages machines.
 type MachineService interface {
-	Save(context.Context, string) error
-	Delete(context.Context, string) error
+	CreateMachine(context.Context, string) error
+	DeleteMachine(context.Context, string) error
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information
@@ -378,7 +378,7 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineId stri
 	// This is temporary - just insert the machine id all al the parent ones.
 	var errs []error
 	for machineId != "" {
-		if err := mm.machineService.Save(ctx, machineId); err != nil {
+		if err := mm.machineService.CreateMachine(ctx, machineId); err != nil {
 			errs = append(errs, errors.Annotatef(err, "saving info for machine %q", machineId))
 		}
 		parent := names.NewMachineTag(machineId).Parent()

@@ -169,7 +169,7 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		DataDir:             cfg.DataDir,
 		ObjectStore:         cfg.ObjectStore,
 		StateBackend:        cfg.StateBackend,
-		ApplicationSaver:    cfg.ApplicationSaver,
+		ApplicationService:  cfg.ApplicationSaver,
 		CharmUploader:       cfg.StateBackend,
 		Constraints:         cfg.BootstrapMachineConstraints,
 		ControllerConfig:    cfg.ControllerConfig,
@@ -231,8 +231,7 @@ func (f loggoLoggerFactory) Namespace(name string) LoggerFactory {
 
 type stateShim struct {
 	*state.State
-	applicationSaver ApplicationSaver
-	prechecker       environs.InstancePrechecker
+	prechecker environs.InstancePrechecker
 }
 
 func (s *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
@@ -244,7 +243,7 @@ func (s *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Uploaded
 }
 
 func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
-	a, err := s.State.AddApplication(s.prechecker, args, s.applicationSaver, objectStore)
+	a, err := s.State.AddApplication(s.prechecker, args, objectStore)
 	if err != nil {
 		return nil, err
 	}

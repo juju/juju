@@ -68,8 +68,8 @@ type ApplicationSuite struct {
 	ecService          *mocks.MockECService
 	cloudService       *commonmocks.MockCloudService
 	credService        *commonmocks.MockCredentialService
-	machineSaver       *mocks.MockMachineSaver
-	applicationSaver   *mocks.MockApplicationSaver
+	machineService     *application.MockMachineService
+	applicationService *application.MockApplicationService
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
@@ -166,8 +166,8 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
-	s.machineSaver = mocks.NewMockMachineSaver(ctrl)
-	s.applicationSaver = mocks.NewMockApplicationSaver(ctrl)
+	s.machineService = application.NewMockMachineService(ctrl)
+	s.applicationService = application.NewMockApplicationService(ctrl)
 
 	s.ecService = mocks.NewMockECService(ctrl)
 
@@ -213,13 +213,13 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.model,
 		s.cloudService,
 		s.credService,
-		s.machineSaver,
-		s.applicationSaver,
+		s.machineService,
+		s.applicationService,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationSaver, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -2000,8 +2000,8 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
-	s.machineSaver.EXPECT().Save(gomock.Any(), "99")
-	s.applicationSaver.EXPECT().Save(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
+	s.applicationService.EXPECT().AddUnits(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	results, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -2039,8 +2039,8 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
-	s.machineSaver.EXPECT().Save(gomock.Any(), "99")
-	s.applicationSaver.EXPECT().Save(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
+	s.applicationService.EXPECT().AddUnits(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",

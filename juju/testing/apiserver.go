@@ -540,11 +540,14 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 	if modelUUID == s.ServiceFactorySuite.ControllerModelUUID.String() {
 		st, err := s.controller.SystemState()
 		c.Assert(err, jc.ErrorIsNil)
-		return factory.NewFactory(st, s.controller.StatePool()), func() bool { return true }
+		return factory.NewFactory(st, s.controller.StatePool()).
+				WithApplicationService(s.ServiceFactoryGetter(c).FactoryForModel(modelUUID).Application()),
+			func() bool { return true }
 	}
 	st, err := s.controller.GetState(names.NewModelTag(modelUUID))
 	c.Assert(err, jc.ErrorIsNil)
-	return factory.NewFactory(st.State, s.controller.StatePool()), st.Release
+	return factory.NewFactory(st.State, s.controller.StatePool()).
+		WithApplicationService(s.ServiceFactoryGetter(c).FactoryForModel(modelUUID).Application()), st.Release
 }
 
 // ControllerModelUUID returns the controller model uuid.

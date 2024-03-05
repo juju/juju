@@ -100,7 +100,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config, state.MachineSaver, state.ApplicationSaver) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config, state.MachineService, state.ApplicationService) (*state.Model, *state.State, error)
 }
 
 // ModelImporter represents a model migration that implements Import.

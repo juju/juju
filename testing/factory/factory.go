@@ -47,9 +47,10 @@ const (
 )
 
 type Factory struct {
-	pool       *state.StatePool
-	st         *state.State
-	prechecker environs.InstancePrechecker
+	pool               *state.StatePool
+	st                 *state.State
+	prechecker         environs.InstancePrechecker
+	applicationService *applicationservice.Service
 }
 
 var index uint32
@@ -60,6 +61,12 @@ func NewFactory(st *state.State, pool *state.StatePool) *Factory {
 		pool:       pool,
 		prechecker: state.NoopInstancePrechecker{},
 	}
+}
+
+// WithApplicationService configures the factory to use the specified application service.
+func (f *Factory) WithApplicationService(s *applicationservice.Service) *Factory {
+	f.applicationService = s
+	return f
 }
 
 // NewFactoryWithPrechecker returns a new factory with the given prechecker.
@@ -563,10 +570,14 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
 		Placement:         params.Placement,
-	}, mockApplicationSaver{}, objectStore)
+	}, objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
+	if factory.applicationService != nil {
+		err = factory.applicationService.CreateApplication(context.Background(), params.Name, applicationservice.AddApplicationParams{})
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	model, err := factory.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -599,12 +610,6 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	}
 
 	return application, params.Password
-}
-
-type mockApplicationSaver struct{}
-
-func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
-	return nil
 }
 
 // MakeUnit creates an application unit with specified params, filling in

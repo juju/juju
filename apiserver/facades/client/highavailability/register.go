@@ -59,13 +59,13 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 	}
 
 	return &HighAvailabilityAPI{
-		st:                   st,
-		prechecker:           prechecker,
-		nodeService:          serviceFactory.ControllerNode(),
-		machineSaver:         serviceFactory.Machine(),
-		applicationSaveSaver: serviceFactory.Application(),
-		controllerConfig:     serviceFactory.ControllerConfig(),
-		authorizer:           authorizer,
-		logger:               ctx.Logger().Child("highavailability"),
+		st:                 st,
+		prechecker:         prechecker,
+		nodeService:        serviceFactory.ControllerNode(),
+		machineService:     serviceFactory.Machine(),
+		applicationService: serviceFactory.Application(),
+		controllerConfig:   serviceFactory.ControllerConfig(),
+		authorizer:         authorizer,
+		logger:             ctx.Logger().Child("highavailability"),
 	}, nil
 }

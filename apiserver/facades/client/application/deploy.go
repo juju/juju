@@ -58,29 +58,34 @@ type DeployApplicationParams struct {
 }
 
 type ApplicationDeployer interface {
-	AddApplication(state.AddApplicationArgs, ApplicationSaver, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	ControllerConfig() (controller.Config, error)
+
+	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
+	// so that correctly matching units can be written to dqlite.
+	ReadSequence(name string) (int, error)
 }
 
 type UnitAdder interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
 }
 
-// MachineSaver instances save a machine to dqlite state.
-type MachineSaver interface {
-	Save(context.Context, string) error
+// MachineService instances save a machine to dqlite state.
+type MachineService interface {
+	CreateMachine(context.Context, string) error
 }
 
-// ApplicationSaver instances save an application to dqlite state.
-type ApplicationSaver interface {
-	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+// ApplicationService instances save an application to dqlite state.
+type ApplicationService interface {
+	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
+	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
 	ctx context.Context, st ApplicationDeployer, model Model, cloudService common.CloudService,
 	credentialService common.CredentialService,
-	applicationSaver ApplicationSaver,
+	applicationService ApplicationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
 ) (Application, error) {
@@ -140,16 +145,30 @@ func DeployApplication(
 	if !args.Charm.Meta().Subordinate {
 		asa.Constraints = args.Constraints
 	}
-	return st.AddApplication(asa, applicationSaver, store)
+
+	// To ensure dqlite unit names match those created in mongo, grab the next unit
+	// sequence number before writing the mongo units.
+	nextUnitNum, err := st.ReadSequence(args.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitArgs := make([]applicationservice.AddUnitParams, args.NumUnits)
+	for i := 0; i < args.NumUnits; i++ {
+		n := fmt.Sprintf("%s/%d", args.ApplicationName, nextUnitNum+i)
+		unitArgs[i].UnitName = &n
+	}
+	app, err := st.AddApplication(asa, store)
+	if err == nil {
+		err = applicationService.CreateApplication(ctx, args.ApplicationName, applicationservice.AddApplicationParams{}, unitArgs...)
+	}
+	return app, errors.Trace(err)
 }
 
 // addUnits starts n units of the given application using the specified placement
 // directives to allocate the machines.
-func addUnits(
+func (api *APIBase) addUnits(
 	ctx context.Context,
 	unitAdder UnitAdder,
-	machineService MachineSaver,
-	applicationSaver ApplicationSaver,
 	appName string,
 	n int,
 	placement []*instance.Placement,
@@ -167,7 +186,7 @@ func addUnits(
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}
 		unitName := unit.Name()
-		if err := applicationSaver.Save(ctx, appName, applicationservice.AddUnitParams{UnitName: &unitName}); err != nil {
+		if err := api.applicationService.AddUnits(ctx, appName, applicationservice.AddUnitParams{UnitName: &unitName}); err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %q to application %q", unitName, appName)
 		}
 		units[i] = unit
@@ -191,17 +210,17 @@ func addUnits(
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting assigned machine for unit: %q", unit.Name())
 		}
-		if err := saveMachineInfo(ctx, machineService, id); err != nil {
+		if err := saveMachineInfo(ctx, api.machineService, id); err != nil {
 			return nil, errors.Annotatef(err, "saving assigned machine %q for unit: %q", id, unit.Name())
 		}
 	}
 	return units, nil
 }
 
-func saveMachineInfo(ctx context.Context, machineService MachineSaver, machineId string) error {
+func saveMachineInfo(ctx context.Context, machineService MachineService, machineId string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
 	for machineId != "" {
-		if err := machineService.Save(ctx, machineId); err != nil {
+		if err := machineService.CreateMachine(ctx, machineId); err != nil {
 			return errors.Annotatef(err, "saving info for machine %q", machineId)
 		}
 		parent := names.NewMachineTag(machineId).Parent()

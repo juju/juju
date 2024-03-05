@@ -537,23 +537,23 @@ func (m *MockApplicationSaver) EXPECT() *MockApplicationSaverMockRecorder {
 	return m.recorder
 }
 
-// Save mocks base method.
-func (m *MockApplicationSaver) Save(arg0 context.Context, arg1 string, arg2 ...service.AddUnitParams) error {
+// CreateApplication mocks base method.
+func (m *MockApplicationSaver) CreateApplication(arg0 context.Context, arg1 string, arg2 service.AddApplicationParams, arg3 ...service.AddUnitParams) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "Save", varargs...)
+	ret := m.ctrl.Call(m, "CreateApplication", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Save indicates an expected call of Save.
-func (mr *MockApplicationSaverMockRecorder) Save(arg0, arg1 any, arg2 ...any) *gomock.Call {
+// CreateApplication indicates an expected call of CreateApplication.
+func (mr *MockApplicationSaverMockRecorder) CreateApplication(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockApplicationSaver)(nil).Save), varargs...)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockApplicationSaver)(nil).CreateApplication), varargs...)
 }
 
 // MockSpaceService is a mock of SpaceService interface.

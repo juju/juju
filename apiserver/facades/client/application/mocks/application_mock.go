@@ -61,18 +61,18 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddApplication mocks base method.
-func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 application.ApplicationSaver, arg2 objectstore.ObjectStore) (application.Application, error) {
+func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore) (application.Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1)
 	ret0, _ := ret[0].(application.Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddApplication indicates an expected call of AddApplication.
-func (mr *MockBackendMockRecorder) AddApplication(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddApplication(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockBackend)(nil).AddApplication), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockBackend)(nil).AddApplication), arg0, arg1)
 }
 
 // AddCharmMetadata mocks base method.
@@ -397,6 +397,21 @@ func (m *MockBackend) PrepareCharmUpload(arg0 string) (services.UploadedCharm, e
 func (mr *MockBackendMockRecorder) PrepareCharmUpload(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockBackend)(nil).PrepareCharmUpload), arg0)
+}
+
+// ReadSequence mocks base method.
+func (m *MockBackend) ReadSequence(arg0 string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadSequence", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadSequence indicates an expected call of ReadSequence.
+func (mr *MockBackendMockRecorder) ReadSequence(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSequence", reflect.TypeOf((*MockBackend)(nil).ReadSequence), arg0)
 }
 
 // Relation mocks base method.

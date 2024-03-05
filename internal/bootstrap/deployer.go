@@ -159,16 +159,16 @@ type StateBackend interface {
 	Unit(string) (Unit, error)
 }
 
-// ApplicationSaver instances save an application to dqlite state.
-type ApplicationSaver interface {
-	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+// ApplicationService instances create an application.
+type ApplicationService interface {
+	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
 }
 
 // BaseDeployerConfig holds the configuration for a baseDeployer.
 type BaseDeployerConfig struct {
 	DataDir             string
 	StateBackend        StateBackend
-	ApplicationSaver    ApplicationSaver
+	ApplicationService  ApplicationService
 	CharmUploader       CharmUploader
 	ObjectStore         objectstore.ObjectStore
 	Constraints         constraints.Value
@@ -189,8 +189,8 @@ func (c BaseDeployerConfig) Validate() error {
 	if c.StateBackend == nil {
 		return errors.NotValidf("StateBackend")
 	}
-	if c.ApplicationSaver == nil {
-		return errors.NotValidf("ApplicationSaver")
+	if c.ApplicationService == nil {
+		return errors.NotValidf("ApplicationService")
 	}
 	if c.CharmUploader == nil {
 		return errors.NotValidf("CharmUploader")
@@ -219,7 +219,7 @@ func (c BaseDeployerConfig) Validate() error {
 type baseDeployer struct {
 	dataDir             string
 	stateBackend        StateBackend
-	applicationSaver    ApplicationSaver
+	applicationService  ApplicationService
 	charmUploader       CharmUploader
 	objectStore         objectstore.ObjectStore
 	constraints         constraints.Value
@@ -237,7 +237,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 	return baseDeployer{
 		dataDir:             config.DataDir,
 		stateBackend:        config.StateBackend,
-		applicationSaver:    config.ApplicationSaver,
+		applicationService:  config.ApplicationService,
 		charmUploader:       config.CharmUploader,
 		objectStore:         config.ObjectStore,
 		constraints:         config.Constraints,
@@ -408,7 +408,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		return nil, errors.Trace(err)
 	}
 	unitName := bootstrap.ControllerApplicationName + "/0"
-	err = b.applicationSaver.Save(ctx, bootstrap.ControllerApplicationName, applicationservice.AddUnitParams{UnitName: &unitName})
+	err = b.applicationService.CreateApplication(ctx, bootstrap.ControllerApplicationName, applicationservice.AddApplicationParams{}, applicationservice.AddUnitParams{UnitName: &unitName})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

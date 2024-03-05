@@ -78,16 +78,16 @@ func (m *MockUnitRemover) EXPECT() *MockUnitRemoverMockRecorder {
 	return m.recorder
 }
 
-// Delete mocks base method.
-func (m *MockUnitRemover) Delete(arg0 context.Context, arg1 string) error {
+// DeleteUnit mocks base method.
+func (m *MockUnitRemover) DeleteUnit(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteUnit", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Delete indicates an expected call of Delete.
-func (mr *MockUnitRemoverMockRecorder) Delete(arg0, arg1 any) *gomock.Call {
+// DeleteUnit indicates an expected call of DeleteUnit.
+func (mr *MockUnitRemoverMockRecorder) DeleteUnit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockUnitRemover)(nil).Delete), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnit", reflect.TypeOf((*MockUnitRemover)(nil).DeleteUnit), arg0, arg1)
 }

@@ -28,7 +28,7 @@ func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.
 			Channel: "22.04/stable",
 		}},
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +92,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,7 +130,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		EndpointBindings: map[string]string{
 			"": specialSpace.Id(),
 		},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := app.AllUnits()
@@ -181,7 +181,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		EndpointBindings: map[string]string{
 			"": boundSpace.Id(),
 		},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := app.AllUnits()
@@ -224,7 +224,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,7 +271,7 @@ func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, place
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{placement},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)

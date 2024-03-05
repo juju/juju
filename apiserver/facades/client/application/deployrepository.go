@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm/services"
@@ -54,7 +55,7 @@ type DeployFromRepository interface {
 // DeployFromRepositoryState defines a common set of functions for retrieving state
 // objects.
 type DeployFromRepositoryState interface {
-	AddApplication(state.AddApplicationArgs, ApplicationSaver, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -67,27 +68,32 @@ type DeployFromRepositoryState interface {
 
 	network.SpaceLookup
 	Space(id string) (*state.Space, error)
+
+	ReadSequence(name string) (int, error)
 }
 
 // DeployFromRepositoryAPI provides the deploy from repository
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
-	state            DeployFromRepositoryState
-	store            objectstore.ObjectStore
-	validator        DeployFromRepositoryValidator
-	stateCharm       func(Charm) *state.Charm
-	applicationSaver ApplicationSaver
+	state              DeployFromRepositoryState
+	store              objectstore.ObjectStore
+	validator          DeployFromRepositoryValidator
+	stateCharm         func(Charm) *state.Charm
+	applicationService ApplicationService
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
-func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, applicationSaver ApplicationSaver, store objectstore.ObjectStore, validator DeployFromRepositoryValidator) DeployFromRepository {
+func NewDeployFromRepositoryAPI(
+	state DeployFromRepositoryState, applicationService ApplicationService,
+	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
+) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
-		state:            state,
-		store:            store,
-		validator:        validator,
-		stateCharm:       CharmToStateCharm,
-		applicationSaver: applicationSaver,
+		state:              state,
+		store:              store,
+		validator:          validator,
+		stateCharm:         CharmToStateCharm,
+		applicationService: applicationService,
 	}
 }
 
@@ -133,6 +139,13 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	// Last step, add pending resources.
 	pendingIDs, addPendingResourceErrs := api.addPendingResources(dt.applicationName, dt.resolvedResources)
 
+	// To ensure dqlite unit names match those created in mongo, grab the next unit
+	// sequence number before writing the mongo units.
+	nextUnitNum, err := api.state.ReadSequence(dt.applicationName)
+	if err != nil {
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+	}
+
 	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
@@ -147,7 +160,16 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
 		Storage:           stateStorageConstraints(dt.storage),
-	}, api.applicationSaver, api.store)
+	}, api.store)
+
+	if addApplicationErr == nil {
+		unitArgs := make([]applicationservice.AddUnitParams, dt.numUnits)
+		for i := 0; i < dt.numUnits; i++ {
+			n := fmt.Sprintf("%s/%d", dt.applicationName, nextUnitNum+i)
+			unitArgs[i].UnitName = &n
+		}
+		addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, applicationservice.AddApplicationParams{}, unitArgs...)
+	}
 
 	if addApplicationErr != nil {
 		// Check the pending resources that are added before the AddApplication is called

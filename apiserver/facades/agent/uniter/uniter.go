@@ -59,7 +59,7 @@ type CredentialService interface {
 // UnitRemover deletes a unit from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type UnitRemover interface {
-	Delete(context.Context, string) error
+	DeleteUnit(context.Context, string) error
 }
 
 // UniterAPI implements the latest version (v18) of the Uniter API.
@@ -471,7 +471,7 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			if err == nil {
 				removed, err = unit.DestroyMaybeRemove(u.store)
 				if err == nil && removed {
-					err = u.unitRemover.Delete(ctx, unit.Name())
+					err = u.unitRemover.DeleteUnit(ctx, unit.Name())
 				}
 			}
 		}
@@ -1744,7 +1744,7 @@ func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Un
 			return err
 		}
 		if removed {
-			if err := u.unitRemover.Delete(ctx, subName); err != nil {
+			if err := u.unitRemover.DeleteUnit(ctx, subName); err != nil {
 				return err
 			}
 		}

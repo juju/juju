@@ -27,8 +27,8 @@ func NewService(st State) *Service {
 	}
 }
 
-// Delete deletes the specified unit.
-func (s *Service) Delete(ctx context.Context, unitName string) error {
+// DeleteUnit deletes the specified unit.
+func (s *Service) DeleteUnit(ctx context.Context, unitName string) error {
 	err := s.st.DeleteUnit(ctx, unitName)
 	return errors.Annotatef(err, "deleting unit %q", unitName)
 }

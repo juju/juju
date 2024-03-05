@@ -74,7 +74,7 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, _, err = s.Controller.Import(out, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	_, _, err = s.Controller.Import(out, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
@@ -118,7 +118,7 @@ func (s *MigrationImportSuite) importModelDescription(
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	newModel, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	newModel, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddCleanup(func(c *gc.C) {
@@ -163,7 +163,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	newModel, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	newModel, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -948,7 +948,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -1020,7 +1020,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	// add the cleanup here to close the model.
 	s.AddCleanup(func(c *gc.C) {
@@ -2536,7 +2536,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -2608,7 +2608,7 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -2820,7 +2820,7 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		Cloud:              testModel.Cloud(),
 		CloudRegion:        testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(noTypeModel, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	imported, newSt, err := s.Controller.Import(noTypeModel, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -2858,7 +2858,7 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 		Cloud:          testModel.Cloud(),
 		CloudRegion:    testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -3234,7 +3234,7 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 
 	uuid := uuid.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
-	_, _, err = s.Controller.Import(in, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	_, _, err = s.Controller.Import(in, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")
 }
 
@@ -3257,7 +3257,7 @@ func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
 		Cloud:          testModel.Cloud(),
 		CloudRegion:    testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
+	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, &mockMachineService{}, &mockApplicationSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -3356,17 +3356,17 @@ func (m swapModel) Applications() []description.Application {
 	return values
 }
 
-type mockMachineSaver struct {
+type mockMachineService struct {
 	machineIds []string
 }
 
-func (m *mockMachineSaver) Save(_ context.Context, machineId string) error {
+func (m *mockMachineService) CreateMachine(_ context.Context, machineId string) error {
 	m.machineIds = append(m.machineIds, machineId)
 	return nil
 }
 
 type mockApplicationSaver struct{}
 
-func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+func (mockApplicationSaver) CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error {
 	return nil
 }

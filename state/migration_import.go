@@ -42,14 +42,19 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
-// MachineSaver instances save a machine to dqlite state.
-type MachineSaver interface {
-	Save(context.Context, string) error
+// MachineService instances save a machine to dqlite state.
+type MachineService interface {
+	CreateMachine(context.Context, string) error
+}
+
+// ApplicationService instances save an application to dqlite state.
+type ApplicationService interface {
+	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
 }
 
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(
-	model description.Model, controllerConfig controller.Config, machineSaver MachineSaver, applicationSaver ApplicationSaver,
+	model description.Model, controllerConfig controller.Config, machineService MachineService, applicationService ApplicationService,
 ) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
@@ -130,12 +135,12 @@ func (ctrl *Controller) Import(
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
-		st:               newSt,
-		dbModel:          dbModel,
-		model:            model,
-		logger:           logger,
-		machineSaver:     machineSaver,
-		applicationSaver: applicationSaver,
+		st:                 newSt,
+		dbModel:            dbModel,
+		model:              model,
+		logger:             logger,
+		machineService:     machineService,
+		applicationService: applicationService,
 	}
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
@@ -304,12 +309,12 @@ func (m *ImportStateMigration) Run() error {
 }
 
 type importer struct {
-	st               *State
-	dbModel          *Model
-	model            description.Model
-	logger           loggo.Logger
-	machineSaver     MachineSaver
-	applicationSaver ApplicationSaver
+	st                 *State
+	dbModel            *Model
+	model              description.Model
+	logger             loggo.Logger
+	machineService     MachineService
+	applicationService ApplicationService
 	// applicationUnits is populated at the end of loading the applications, and is a
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
@@ -434,7 +439,7 @@ func (i *importer) machines() error {
 			return errors.Annotate(err, m.Id())
 		}
 		// We need skeleton machines in dqlite.
-		if err := i.machineSaver.Save(context.TODO(), m.Id()); err != nil {
+		if err := i.machineService.CreateMachine(context.TODO(), m.Id()); err != nil {
 			i.logger.Errorf("error importing machine: %s", err)
 			return errors.Annotate(err, m.Id())
 		}
@@ -972,7 +977,8 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		n := unit.Name()
 		unitArgs = append(unitArgs, applicationservice.AddUnitParams{UnitName: &n})
 	}
-	if err := i.applicationSaver.Save(context.TODO(), a.Name(), unitArgs...); err != nil {
+	var appArgs applicationservice.AddApplicationParams
+	if err := i.applicationService.CreateApplication(context.TODO(), a.Name(), appArgs, unitArgs...); err != nil {
 		return errors.Trace(err)
 	}
 

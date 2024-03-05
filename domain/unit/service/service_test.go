@@ -26,22 +26,22 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) TestDeleteSuccess(c *gc.C) {
+func (s *serviceSuite) TestDeleteUnitSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().DeleteUnit(gomock.Any(), "foo/666").Return(nil)
 
-	err := NewService(s.state).Delete(context.Background(), "foo/666")
+	err := NewService(s.state).DeleteUnit(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDeleteError(c *gc.C) {
+func (s *serviceSuite) TestDeleteUnitError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
 	s.state.EXPECT().DeleteUnit(gomock.Any(), "foo/666").Return(rErr)
 
-	err := NewService(s.state).Delete(context.Background(), "foo/666")
+	err := NewService(s.state).DeleteUnit(context.Background(), "foo/666")
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `deleting unit "foo/666": boom`)
 }

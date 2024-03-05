@@ -28,16 +28,16 @@ type statusSetter interface {
 	SetStatus(context.Context, params.SetStatus) (params.ErrorResults, error)
 }
 
-type machineSaver interface {
-	Save(context.Context, string) error
+type machineService interface {
+	CreateMachine(context.Context, string) error
 }
 
 // API implements the functionality for assigning units to machines.
 type API struct {
-	st           assignerState
-	res          facade.Resources
-	statusSetter statusSetter
-	machineSaver machineSaver
+	st             assignerState
+	res            facade.Resources
+	statusSetter   statusSetter
+	machineService machineService
 }
 
 // AssignUnits assigns the units with the given ids to the correct machine. The
@@ -99,7 +99,7 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 func (a *API) saveMachineInfo(ctx context.Context, machineId string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
 	for machineId != "" {
-		if err := a.machineSaver.Save(ctx, machineId); err != nil {
+		if err := a.machineService.CreateMachine(ctx, machineId); err != nil {
 			return errors.Annotatef(err, "saving info for machine %q", machineId)
 		}
 		parent := names.NewMachineTag(machineId).Parent()

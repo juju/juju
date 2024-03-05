@@ -164,19 +164,19 @@ func (st *State) NeedsCleanup() (bool, error) {
 // MachineRemover deletes a machine from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type MachineRemover interface {
-	Delete(context.Context, string) error
+	DeleteMachine(context.Context, string) error
 }
 
 // UnitRemover deletes a unit from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type UnitRemover interface {
-	Delete(context.Context, string) error
+	DeleteUnit(context.Context, string) error
 }
 
 // ApplicationRemover deletes an application from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type ApplicationRemover interface {
-	Delete(context.Context, string) error
+	DeleteApplication(context.Context, string) error
 }
 
 // Cleanup removes all documents that were previously marked for removal, if
@@ -629,7 +629,7 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors cleaning up application %v: %v", applicationname, op.Errors)
 	} else if err == nil && op.Removed {
-		err = appRemover.Delete(ctx, applicationname)
+		err = appRemover.DeleteApplication(ctx, applicationname)
 	}
 	return err
 }
@@ -663,7 +663,7 @@ func (st *State) cleanupForceApplication(ctx context.Context, store objectstore.
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors cleaning up application %v: %v", applicationName, op.Errors)
 	} else if err == nil && op.Removed {
-		err = appRemover.Delete(ctx, applicationName)
+		err = appRemover.DeleteApplication(ctx, applicationName)
 	}
 	return err
 }
@@ -720,7 +720,7 @@ func (st *State) removeApplicationsForDyingModel(ctx context.Context, store obje
 		if len(op.Errors) != 0 {
 			logger.Warningf("operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)
 		} else if err == nil && op.Removed {
-			err = appRemover.Delete(ctx, application.Name())
+			err = appRemover.DeleteApplication(ctx, application.Name())
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -1005,7 +1005,7 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 		}
 		removed, opErrs, err := subUnit.DestroyWithForce(store, true, maxWait)
 		if removed && err == nil {
-			err = unitRemover.Delete(ctx, unitId)
+			err = unitRemover.DeleteUnit(ctx, unitId)
 		}
 		if len(opErrs) != 0 || err != nil {
 			logger.Warningf("errors while destroying subordinate %q: %v, %v", subName, err, opErrs)
@@ -1098,7 +1098,7 @@ func (st *State) cleanupForceRemoveUnit(ctx context.Context, store objectstore.O
 	if len(opErrs) != 0 {
 		logger.Warningf("errors encountered force-removing unit %q: %v", unitId, opErrs)
 	} else {
-		err = unitRemover.Delete(ctx, unitId)
+		err = unitRemover.DeleteUnit(ctx, unitId)
 	}
 	return errors.Trace(err)
 }
@@ -1473,7 +1473,7 @@ func (st *State) cleanupForceRemoveMachine(ctx context.Context, store objectstor
 	if err := machine.Remove(store); err != nil {
 		return errors.Trace(err)
 	}
-	return machineRemover.Delete(ctx, machineId)
+	return machineRemover.DeleteMachine(ctx, machineId)
 }
 
 // cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
@@ -1554,7 +1554,7 @@ func (st *State) cleanupContainers(ctx context.Context, store objectstore.Object
 		if err := container.Remove(store); err != nil {
 			return err
 		}
-		if err = machineRemover.Delete(ctx, containerId); err != nil {
+		if err = machineRemover.DeleteMachine(ctx, containerId); err != nil {
 			return err
 		}
 	}
@@ -1621,7 +1621,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 		}
 		opErrs = append(opErrs, err)
 	} else if removed {
-		err = unitRemover.Delete(ctx, unitName)
+		err = unitRemover.DeleteUnit(ctx, unitName)
 		if err != nil {
 			if !force {
 				return opErrs, errors.Annotatef(err, "cannot destroy unit %q", unitName)
@@ -1649,7 +1649,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 		errs, err := st.obliterateUnit(ctx, store, unitRemover, subName, force, maxWait)
 		opErrs = append(opErrs, errs...)
 		if len(errs) == 0 && err == nil {
-			err = unitRemover.Delete(ctx, unitName)
+			err = unitRemover.DeleteUnit(ctx, unitName)
 		}
 		if err != nil {
 			if !force {
@@ -1666,7 +1666,7 @@ func (st *State) obliterateUnit(ctx context.Context, store objectstore.ObjectSto
 	}
 	errs, err = unit.RemoveWithForce(store, force, maxWait)
 	if len(errs) == 0 && err == nil {
-		err = unitRemover.Delete(ctx, unitName)
+		err = unitRemover.DeleteUnit(ctx, unitName)
 	}
 	opErrs = append(opErrs, errs...)
 	return opErrs, err

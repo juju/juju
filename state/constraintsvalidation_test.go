@@ -292,7 +292,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [kvm]"))
 }
 
@@ -306,7 +306,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 }
@@ -321,7 +321,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
@@ -334,7 +334,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		}},
 		Charm:       s.testCharm,
 		Constraints: negCons,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(negApplication, gc.NotNil)
 
@@ -371,7 +371,7 @@ func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C)
 		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
