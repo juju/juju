@@ -4,6 +4,8 @@
 package servicefactory
 
 import (
+	"github.com/juju/clock"
+
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
@@ -21,6 +23,7 @@ import (
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -59,6 +62,10 @@ type ControllerServiceFactory interface {
 	Flag() *flagservice.Service
 	// User returns the user service.
 	User() *userservice.Service
+	// SecretBackend returns the secret backend service.
+	SecretBackend(
+		clock.Clock, string, secretbackendservice.SecretProviderRegistry,
+	) *secretbackendservice.WatchableService
 }
 
 // ModelServiceFactory provides access to the services required by the

@@ -4,6 +4,8 @@
 package servicefactory
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -29,6 +31,8 @@ import (
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
 	userservice "github.com/juju/juju/domain/user/service"
@@ -180,5 +184,26 @@ func (s *ControllerFactory) Flag() *flagservice.Service {
 func (s *ControllerFactory) User() *userservice.Service {
 	return userservice.NewService(
 		userstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+	)
+}
+
+func (s *ControllerFactory) SecretBackend(
+	clk clock.Clock,
+	controllerUUID string,
+	registry secretbackendservice.SecretProviderRegistry,
+) *secretbackendservice.WatchableService {
+	logger := s.logger.Child("secretbackend")
+	state := secretbackendstate.NewState(
+		changestream.NewTxnRunnerFactory(s.controllerDB),
+		logger.Child("state"),
+	)
+	return secretbackendservice.NewWatchableService(
+		state,
+		logger.Child("service"),
+		domain.NewWatcherFactory(
+			s.controllerDB,
+			s.logger.Child("watcherfactory"),
+		),
+		controllerUUID, clk, registry,
 	)
 }
