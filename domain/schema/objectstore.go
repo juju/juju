@@ -19,7 +19,7 @@ ON object_store_metadata_hash_type (hash_type);
 
 INSERT INTO object_store_metadata_hash_type VALUES
     (0, 'none'),
-    (1, 'sha-256');
+    (1, 'sha512-384');
 
 CREATE TABLE object_store_metadata (
     uuid            TEXT PRIMARY KEY,
