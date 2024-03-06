@@ -8,6 +8,7 @@ import (
 
 	dqlite "github.com/canonical/go-dqlite/driver"
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v2"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -68,6 +69,11 @@ func IsErrNotFound(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }
 
+// TODO (stickupkid): This is a temporary measure to help us debug an issue
+// where the dqlite error code is not being set correctly. This can be removed
+// once the issue is resolved.
+var logger = loggo.GetLogger("juju.database")
+
 func isErrCode(err error, code sqlite3.ErrNoExtended) bool {
 	if err == nil {
 		return false
@@ -75,11 +81,48 @@ func isErrCode(err error, code sqlite3.ErrNoExtended) bool {
 
 	var dqliteErr dqlite.Error
 	if errors.As(err, &dqliteErr) {
-		return dqliteErr.Code == int(code)
+		if dqliteErr.Code == int(code) {
+			return true
+		}
+		// We're currently experiencing an issue where the dqlite error code
+		// is not being set correctly, so we need to log the error and the error
+		// code to help us debug the issue.
+		// This can be removed once the issue is resolved.
+		logger.Criticalf("dqlite error, checking for: %v, got: %v", code, dqliteErr.Code)
+		// We know this happens in cases of constraint violations, so we can
+		// log even more information to help us debug the issue.
+		if code == sqlite3.ErrConstraintPrimaryKey || code == sqlite3.ErrConstraintUnique {
+			logger.Criticalf("dqlite error, message: %T %T %v", err, dqliteErr, dqliteErr.Error())
+		}
+		return false
 	}
 
 	var sqliteErr sqlite3.Error
-	return errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == code
+	if errors.As(err, &sqliteErr) {
+		logger.Criticalf("unexpected sqlite error")
+		if sqliteErr.ExtendedCode == code {
+			return true
+		}
+
+		// This really, really shouldn't happen in non-test code. If it does,
+		// we need to log the error and the error code to help us debug the
+		// issue.
+		logger.Criticalf("sqlite error, checking for: %v, got: %v", code, sqliteErr.Code)
+		// We know this happens in cases of constraint violations, so we can
+		// log even more information to help us debug the issue.
+		if code == sqlite3.ErrConstraintPrimaryKey || code == sqlite3.ErrConstraintUnique {
+			logger.Criticalf("sqlite error, message: %T %T %v", err, sqliteErr, sqliteErr.Error())
+		}
+		return false
+	}
+
+	// If this happens, then we need to know what the error is and what the
+	// error code is.
+	if code == sqlite3.ErrConstraintPrimaryKey || code == sqlite3.ErrConstraintUnique {
+		logger.Criticalf("unknown error, message: %T %v", err, err.Error())
+	}
+
+	return false
 }
 
 // IsError reports if the any type passed to it is a database driver error in
@@ -87,16 +130,19 @@ func isErrCode(err error, code sqlite3.ErrNoExtended) bool {
 // assert if a specific error needs to be hidden from layers above that of the
 // domain/state.
 func IsError(target any) bool {
+	// Check for the dqlite error type, before checking sqlite3 error type. In
+	// production we should only be using dqlite, but in tests we may use
+	// sqlite3 directly.
 	if _, is := target.(*dqlite.Error); is {
-		return true
-	}
-	if _, is := target.(*sqlite3.Error); is {
 		return true
 	}
 	if _, is := target.(dqlite.Error); is {
 		return true
 	}
 	if _, is := target.(sqlite3.Error); is {
+		return true
+	}
+	if _, is := target.(*sqlite3.Error); is {
 		return true
 	}
 	return false

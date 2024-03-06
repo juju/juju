@@ -45,7 +45,7 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 
 	received, err := st.GetMetadata(context.Background(), metadata.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, gc.DeepEquals, metadata)
+	c.Check(received, gc.DeepEquals, metadata)
 }
 
 func (s *stateSuite) TestListMetadataFound(c *gc.C) {
@@ -63,7 +63,7 @@ func (s *stateSuite) TestListMetadataFound(c *gc.C) {
 
 	received, err := st.ListMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, gc.DeepEquals, []objectstore.Metadata{metadata})
+	c.Check(received, gc.DeepEquals, []objectstore.Metadata{metadata})
 }
 
 func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
@@ -81,7 +81,7 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 
 	err = st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrHashAlreadyExists)
+	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrHashAlreadyExists)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashAndSize(c *gc.C) {
@@ -155,7 +155,7 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *gc.C) {
 	for i := 0; i < 10; i++ {
 		metadata, err := st.GetMetadata(context.Background(), fmt.Sprintf("blah-foo-%d", i))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(metadata, jc.DeepEquals, metadatas[i])
+		c.Check(metadata, jc.DeepEquals, metadatas[i])
 	}
 }
 
@@ -193,7 +193,7 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C
 
 	received, err := st.GetMetadata(context.Background(), metadata1.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, gc.DeepEquals, metadata1)
+	c.Check(received, gc.DeepEquals, metadata1)
 }
 
 func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
@@ -245,7 +245,7 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 	// removed.
 	received, err := st.GetMetadata(context.Background(), metadata3.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, gc.DeepEquals, metadata3)
+	c.Check(received, gc.DeepEquals, metadata3)
 }
 
 func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
@@ -269,7 +269,7 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
 
 	received, err := st.GetMetadata(context.Background(), metadata.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(received, gc.DeepEquals, metadata)
+	c.Check(received, gc.DeepEquals, metadata)
 }
 
 func (s *stateSuite) TestListMetadata(c *gc.C) {
@@ -289,5 +289,5 @@ func (s *stateSuite) TestListMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadatas, gc.HasLen, 1)
 
-	c.Assert(metadatas[0], gc.DeepEquals, metadata)
+	c.Check(metadatas[0], gc.DeepEquals, metadata)
 }
