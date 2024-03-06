@@ -52,8 +52,12 @@ func CreateStoragePools(ctx context.Context, db coredatabase.TxnRunner, pools []
 		return errors.Trace(domain.CoerceError(err))
 	}
 
+	poolsUUIDs := make([]string, len(pools))
+	for i := range pools {
+		poolsUUIDs[i] = uuid.MustNewUUID().String()
+	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, pool := range pools {
+		for i, pool := range pools {
 			dbPool := StoragePool{Name: pool.Name}
 			err := tx.Query(ctx, selectUUIDStmt, dbPool).Get(&dbPool)
 			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -62,7 +66,7 @@ func CreateStoragePools(ctx context.Context, db coredatabase.TxnRunner, pools []
 			if err == nil {
 				return fmt.Errorf("storage pool %q %w", pool.Name, storageerrors.PoolAlreadyExists)
 			}
-			poolUUID := uuid.MustNewUUID().String()
+			poolUUID := poolsUUIDs[i]
 
 			if err := storagePoolUpserter(ctx, tx, poolUUID, pool.Name, pool.Provider); err != nil {
 				return errors.Annotatef(err, "creating storage pool %q", pool.Name)
