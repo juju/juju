@@ -185,8 +185,12 @@ func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force
 	}
 	// TODO: How to track if the secret backend is `in-use` for `Force`!!!
 	// secret_backend.secret_count++ whenever a secret is created?
+	q := `
+DELETE FROM secret_backend_config WHERE backend_uuid = ?;
+DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;
+DELETE FROM secret_backend WHERE uuid = ?;`[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "DELETE FROM secret_backend WHERE uuid = ?", backendID)
+		_, err := tx.ExecContext(ctx, q, backendID, backendID, backendID)
 		return err
 	})
 	return errors.Trace(err)
@@ -347,7 +351,7 @@ WHERE backend_uuid = ? AND next_rotation_time > ?`[1:]
 }
 
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
-func (s *State) WatchSecretBackendRotationChanges(ctx context.Context, wf secretbackend.WatcherFactory) (watcher.SecretBackendRotateWatcher, error) {
+func (s *State) WatchSecretBackendRotationChanges(ctx context.Context, wf secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -310,6 +310,53 @@ WHERE backend_uuid = ?`[1:], backendID)
 	c.Assert(count, gc.Equals, 0)
 }
 
+func (s *stateSuite) TestDeleteSecretBackendWithNoConfigNoNextRotationTime(c *gc.C) {
+	backendID := uuid.MustNewUUID().String()
+	rotateInternal := time.Duration(24 * time.Hour)
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		ID:                  backendID,
+		Name:                "my-backend",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal,
+	})
+	c.Assert(err, gc.IsNil)
+	s.assertSecretBackend(c, coresecrets.SecretBackend{
+		ID:                  backendID,
+		Name:                "my-backend",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal,
+	}, nil)
+
+	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	c.Assert(err, gc.IsNil)
+
+	db := s.DB()
+	row := db.QueryRow(`
+SELECT COUNT(*)
+FROM secret_backend
+WHERE uuid = ?`[1:], backendID)
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, gc.IsNil)
+	c.Assert(count, gc.Equals, 0)
+
+	row = db.QueryRow(`
+SELECT COUNT(*)
+FROM secret_backend_config
+WHERE backend_uuid = ?`[1:], backendID)
+	err = row.Scan(&count)
+	c.Assert(err, gc.IsNil)
+	c.Assert(count, gc.Equals, 0)
+
+	row = db.QueryRow(`
+SELECT COUNT(*)
+FROM secret_backend_rotation
+WHERE backend_uuid = ?`[1:], backendID)
+	err = row.Scan(&count)
+	c.Assert(err, gc.IsNil)
+	c.Assert(count, gc.Equals, 0)
+}
+
 func (s *stateSuite) TestDeleteSecretBackendInUseFail(c *gc.C) {
 	c.Skip("TODO: wait for secret DqLite support")
 }

@@ -6,6 +6,8 @@ package secretbackend
 import (
 	"time"
 
+	"github.com/juju/worker/v4"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
 )
@@ -41,4 +43,10 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+}
+
+// SecretBackendRotateWatcher represents a watcher that returns a slice of SecretBackendRotateChange.
+type SecretBackendRotateWatcher interface {
+	worker.Worker
+	Changes() <-chan []watcher.SecretBackendRotateChange
 }
