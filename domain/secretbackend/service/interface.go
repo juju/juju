@@ -8,7 +8,6 @@ import (
 	"time"
 
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/secretbackend"
 )
 
@@ -22,7 +21,7 @@ type State interface {
 	GetSecretBackend(ctx context.Context, backendID string) (*coresecrets.SecretBackend, error)
 	SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error
 
-	WatchSecretBackendRotationChanges(context.Context, secretbackend.WatcherFactory) (watcher.SecretBackendRotateWatcher, error)
+	WatchSecretBackendRotationChanges(context.Context, secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error)
 }
 
 // Logger facilitates emitting log messages.
