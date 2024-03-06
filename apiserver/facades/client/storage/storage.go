@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// StorageService defines apis on the storage service.
 type StorageService interface {
 	CreateStoragePool(ctx stdcontext.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
 	DeleteStoragePool(ctx stdcontext.Context, name string) error

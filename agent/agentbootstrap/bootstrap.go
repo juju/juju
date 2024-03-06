@@ -197,6 +197,29 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 	}, nil
 }
 
+// initialStoragePools extract any storage pools included with the bootstrap params.
+func initialStoragePools(registry storage.ProviderRegistry, stateParams instancecfg.StateInitializationParams) ([]domainstorage.StoragePoolDetails, error) {
+	storagePools, err := domainstorage.DefaultStoragePools(registry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for name, attrs := range stateParams.StoragePools {
+		poolAttrs := transform.Map(attrs, func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
+		pType, _ := poolAttrs[domainstorage.StorageProviderType]
+		if pType == "" {
+			return nil, errors.Errorf("missing provider type for storage pool %q", name)
+		}
+		delete(poolAttrs, domainstorage.StoragePoolName)
+		delete(poolAttrs, domainstorage.StorageProviderType)
+		storagePools = append(storagePools, domainstorage.StoragePoolDetails{
+			Name:     name,
+			Provider: pType,
+			Attrs:    poolAttrs,
+		})
+	}
+	return storagePools, nil
+}
+
 // Initialize returns the newly initialized state and bootstrap machine.
 // If it fails, the state may well be irredeemably compromised.
 // TODO (stickupkid): Split this function into testable smaller functions.
@@ -255,24 +278,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 
-	// Extract any storage pools included with the bootstrap params and save them.
-	storagePools, err := domainstorage.DefaultStoragePools(b.storageProviderRegistry)
+	storagePools, err := initialStoragePools(b.storageProviderRegistry, stateParams)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	for name, attrs := range stateParams.StoragePools {
-		poolAttrs := transform.Map(attrs, func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
-		pType, _ := poolAttrs[domainstorage.StorageProviderType]
-		if pType == "" {
-			return nil, errors.Errorf("missing provider type for storage pool %q", name)
-		}
-		delete(poolAttrs, domainstorage.StoragePoolName)
-		delete(poolAttrs, domainstorage.StorageProviderType)
-		storagePools = append(storagePools, domainstorage.StoragePoolDetails{
-			Name:     name,
-			Provider: pType,
-			Attrs:    poolAttrs,
-		})
 	}
 
 	databaseBootstrapConcerns := []database.BootstrapConcern{
