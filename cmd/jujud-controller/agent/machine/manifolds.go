@@ -931,17 +931,18 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// DBAccessor is a manifold that provides a DBAccessor worker
 		// that can be used to access the database.
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			AgentName:            agentName,
-			QueryLoggerName:      queryLoggerName,
-			Clock:                config.Clock,
-			Hub:                  config.CentralHub,
-			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
-			LogDir:               agentConfig.LogDir(),
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewApp:               dbaccessor.NewApp,
-			NewDBWorker:          config.NewDBWorkerFunc,
-			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
-			NewNodeManager:       dbaccessor.IAASNodeManager,
+			AgentName:                 agentName,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			Clock:                     config.Clock,
+			Hub:                       config.CentralHub,
+			Logger:                    loggo.GetLogger("juju.worker.dbaccessor"),
+			LogDir:                    agentConfig.LogDir(),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.IAASNodeManager,
 		})),
 
 		// The diskmanager worker periodically lists block devices on the
@@ -1164,17 +1165,18 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// DBAccessor is a manifold that provides a DBAccessor worker
 		// that can be used to access the database.
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			AgentName:            agentName,
-			QueryLoggerName:      queryLoggerName,
-			Clock:                config.Clock,
-			Hub:                  config.CentralHub,
-			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
-			LogDir:               agentConfig.LogDir(),
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewApp:               dbaccessor.NewApp,
-			NewDBWorker:          config.NewDBWorkerFunc,
-			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
-			NewNodeManager:       dbaccessor.CAASNodeManager,
+			AgentName:                 agentName,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			Clock:                     config.Clock,
+			Hub:                       config.CentralHub,
+			Logger:                    loggo.GetLogger("juju.worker.dbaccessor"),
+			LogDir:                    agentConfig.LogDir(),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.CAASNodeManager,
 		})),
 	})
 }

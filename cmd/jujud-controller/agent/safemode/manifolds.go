@@ -118,16 +118,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			AgentName:            agentName,
-			QueryLoggerName:      queryLoggerName,
-			Clock:                config.Clock,
-			Hub:                  noopHub{},
-			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
-			LogDir:               agentConfig.LogDir(),
-			PrometheusRegisterer: noopPrometheusRegisterer{},
-			NewApp:               dbaccessor.NewApp,
-			NewDBWorker:          config.NewDBWorkerFunc,
-			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
+			AgentName:                 agentName,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			Clock:                     config.Clock,
+			Hub:                       noopHub{},
+			Logger:                    loggo.GetLogger("juju.worker.dbaccessor"),
+			LogDir:                    agentConfig.LogDir(),
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
 		})),
 
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{

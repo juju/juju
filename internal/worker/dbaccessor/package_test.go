@@ -24,6 +24,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
+//go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -36,13 +37,14 @@ type baseSuite struct {
 
 	logger Logger
 
-	clock                *MockClock
-	hub                  *MockHub
-	timer                *MockTimer
-	dbApp                *MockDBApp
-	client               *MockClient
-	prometheusRegisterer *MockRegisterer
-	nodeManager          *MockNodeManager
+	clock                   *MockClock
+	hub                     *MockHub
+	timer                   *MockTimer
+	dbApp                   *MockDBApp
+	client                  *MockClient
+	prometheusRegisterer    *MockRegisterer
+	nodeManager             *MockNodeManager
+	controllerConfigWatcher *MockConfigWatcher
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -55,6 +57,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.client = NewMockClient(ctrl)
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
 	s.nodeManager = NewMockNodeManager(ctrl)
+	s.controllerConfigWatcher = NewMockConfigWatcher(ctrl)
 
 	s.logger = jujujujutesting.CheckLogger{
 		Log: c,
@@ -131,7 +134,8 @@ func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 		NewDBWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
 			return db, nil
 		},
-		MetricsCollector: &Collector{},
+		MetricsCollector:        &Collector{},
+		ControllerConfigWatcher: s.controllerConfigWatcher,
 	}
 
 	w, err := NewWorker(cfg)

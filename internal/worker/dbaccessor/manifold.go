@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/worker/common"
+	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
 // Logger represents the logging methods called.
@@ -51,17 +52,18 @@ type NewNodeManagerFunc func(agent.Config, Logger, coredatabase.SlowQueryLogger)
 // - The names of other manifolds on which the DB accessor depends.
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
-	AgentName            string
-	QueryLoggerName      string
-	Clock                clock.Clock
-	Hub                  Hub
-	Logger               Logger
-	LogDir               string
-	PrometheusRegisterer prometheus.Registerer
-	NewApp               func(string, ...app.Option) (DBApp, error)
-	NewDBWorker          NewDBWorkerFunc
-	NewNodeManager       NewNodeManagerFunc
-	NewMetricsCollector  func() *Collector
+	AgentName                 string
+	QueryLoggerName           string
+	ControllerAgentConfigName string
+	Clock                     clock.Clock
+	Hub                       Hub
+	Logger                    Logger
+	LogDir                    string
+	PrometheusRegisterer      prometheus.Registerer
+	NewApp                    func(string, ...app.Option) (DBApp, error)
+	NewDBWorker               NewDBWorkerFunc
+	NewNodeManager            NewNodeManagerFunc
+	NewMetricsCollector       func() *Collector
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -70,6 +72,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.QueryLoggerName == "" {
 		return errors.NotValidf("empty QueryLoggerName")
+	}
+	if cfg.ControllerAgentConfigName == "" {
+		return errors.NotValidf("empty ControllerAgentConfigName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -108,6 +113,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.QueryLoggerName,
+			config.ControllerAgentConfigName,
 		},
 		Output: dbAccessorOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -115,11 +121,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var agent agent.Agent
-			if err := getter.Get(config.AgentName, &agent); err != nil {
+			var thisAgent agent.Agent
+			if err := getter.Get(config.AgentName, &thisAgent); err != nil {
 				return nil, err
 			}
-			agentConfig := agent.CurrentConfig()
+			agentConfig := thisAgent.CurrentConfig()
+
+			var controllerConfigWatcher controlleragentconfig.ConfigWatcher
+			if err := getter.Get(config.ControllerAgentConfigName, &controllerConfigWatcher); err != nil {
+				return nil, err
+			}
 
 			// Register the metrics collector against the prometheus register.
 			metricsCollector := config.NewMetricsCollector()
@@ -134,14 +145,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
-				NodeManager:      config.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
-				Clock:            config.Clock,
-				Hub:              config.Hub,
-				ControllerID:     agentConfig.Tag().Id(),
-				MetricsCollector: metricsCollector,
-				Logger:           config.Logger,
-				NewApp:           config.NewApp,
-				NewDBWorker:      config.NewDBWorker,
+				NodeManager:             config.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
+				Clock:                   config.Clock,
+				Hub:                     config.Hub,
+				ControllerID:            agentConfig.Tag().Id(),
+				MetricsCollector:        metricsCollector,
+				Logger:                  config.Logger,
+				NewApp:                  config.NewApp,
+				NewDBWorker:             config.NewDBWorker,
+				ControllerConfigWatcher: controllerConfigWatcher,
 			}
 
 			w, err := NewWorker(cfg)
