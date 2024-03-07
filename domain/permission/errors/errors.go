@@ -6,6 +6,10 @@ package errors
 import "github.com/juju/errors"
 
 const (
+	// NotFound describes an error that occurs when the permission being
+	// requested does not exist.
+	NotFound = errors.ConstError("permission not found")
+
 	// AlreadyExists describes an error that occurs when the user being
 	// created already exists.
 	AlreadyExists = errors.ConstError("permission already exists")
