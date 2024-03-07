@@ -15,6 +15,7 @@ import (
 
 	permission "github.com/juju/juju/core/permission"
 	permission0 "github.com/juju/juju/domain/permission"
+	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,18 +43,18 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // CreatePermission mocks base method.
-func (m *MockState) CreatePermission(arg0 context.Context, arg1 permission0.UserAccessSpec) (permission.UserAccess, error) {
+func (m *MockState) CreatePermission(arg0 context.Context, arg1 uuid.UUID, arg2 permission0.UserAccessSpec) (permission.UserAccess, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreatePermission", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreatePermission", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.UserAccess)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreatePermission indicates an expected call of CreatePermission.
-func (mr *MockStateMockRecorder) CreatePermission(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateMockRecorder) CreatePermission(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePermission", reflect.TypeOf((*MockState)(nil).CreatePermission), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePermission", reflect.TypeOf((*MockState)(nil).CreatePermission), arg0, arg1, arg2)
 }
 
 // DeletePermission mocks base method.
