@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -501,6 +502,15 @@ func (s *storageSuite) TestAttach(c *gc.C) {
 }
 
 func (s *storageSuite) TestImportFilesystem(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.storageService = facadestorage.NewMockStorageService(ctrl)
+
+	p, err := storage.NewConfig("radiance", "radiance", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
+
 	s.state.modelTag = coretesting.ModelTag
 	filesystemSource := filesystemImporter{&dummy.FilesystemSource{}}
 	dummyStorageProvider := &dummy.StorageProvider{

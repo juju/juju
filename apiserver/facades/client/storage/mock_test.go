@@ -14,40 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/status"
-	domainstorage "github.com/juju/juju/domain/storage"
-	storageservice "github.com/juju/juju/domain/storage/service"
-	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
-
-type mockPoolService struct {
-	getPool     func(name string) (*jujustorage.Config, error)
-	createPool  func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) error
-	removePool  func(name string) error
-	listPools   func() ([]*jujustorage.Config, error)
-	replacePool func(name string, provider jujustorage.ProviderType, attrs map[string]interface{}) error
-}
-
-func (m *mockPoolService) GetStoragePoolByName(_ context.Context, name string) (*jujustorage.Config, error) {
-	return m.getPool(name)
-}
-
-func (m *mockPoolService) CreateStoragePool(_ context.Context, name string, providerType jujustorage.ProviderType, attrs storageservice.PoolAttrs) error {
-	return m.createPool(name, providerType, attrs)
-}
-
-func (m *mockPoolService) DeleteStoragePool(_ context.Context, name string) error {
-	return m.removePool(name)
-}
-
-func (m *mockPoolService) ListStoragePools(_ context.Context, _ domainstorage.StoragePoolFilter) ([]*jujustorage.Config, error) {
-	return m.listPools()
-}
-
-func (m *mockPoolService) ReplaceStoragePool(_ context.Context, name string, provider jujustorage.ProviderType, attrs storageservice.PoolAttrs) error {
-	return m.replacePool(name, provider, attrs)
-}
 
 type mockBlockDeviceGetter struct {
 	blockDevices func(string) ([]blockdevice.BlockDevice, error)
