@@ -125,16 +125,17 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 
 type updatePoolAttributesFunc func(ctx context.Context, tx *sqlair.TX, storagePoolUUID string, attr domainstorage.Attrs) error
 
+type keysToKeep []string
+
 func poolAttributesUpdater() (updatePoolAttributesFunc, error) {
 	// Delete any keys no longer in the attributes map.
-	// TODO(wallyworld) - use sqlair NOT IN operation
 	deleteQuery := fmt.Sprintf(`
 DELETE FROM  storage_pool_attribute
 WHERE        storage_pool_uuid = $M.uuid
--- AND          key NOT IN (?)
+AND          key NOT IN ($keysToKeep[:])
 `)
 
-	deleteStmt, err := sqlair.Prepare(deleteQuery, sqlair.M{})
+	deleteStmt, err := sqlair.Prepare(deleteQuery, sqlair.M{}, keysToKeep{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -155,7 +156,11 @@ ON CONFLICT(storage_pool_uuid, key) DO UPDATE SET key=excluded.key,
 	}
 
 	return func(ctx context.Context, tx *sqlair.TX, storagePoolUUID string, attr domainstorage.Attrs) error {
-		if err := tx.Query(ctx, deleteStmt, sqlair.M{"uuid": storagePoolUUID}).Run(); err != nil {
+		var keys keysToKeep
+		for k := range attr {
+			keys = append(keys, k)
+		}
+		if err := tx.Query(ctx, deleteStmt, sqlair.M{"uuid": storagePoolUUID}, keys).Run(); err != nil {
 			return errors.Trace(err)
 		}
 		for key, value := range attr {
