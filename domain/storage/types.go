@@ -4,9 +4,6 @@
 package storage
 
 import (
-	"fmt"
-
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/storage"
@@ -56,12 +53,8 @@ func BuiltInStoragePools() ([]StoragePoolDetails, error) {
 
 // DefaultStoragePools returns the default storage pools to add to a new model
 // for a given provider registry.
-func DefaultStoragePools(registry storage.ProviderRegistry) ([]StoragePoolDetails, error) {
-	result, err := BuiltInStoragePools()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func DefaultStoragePools(registry storage.ProviderRegistry) ([]*storage.Config, error) {
+	var result []*storage.Config
 	providerTypes, err := registry.StorageProviderTypes()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage provider types")
@@ -72,15 +65,7 @@ func DefaultStoragePools(registry storage.ProviderRegistry) ([]StoragePoolDetail
 			return nil, errors.Trace(err)
 		}
 		for _, pool := range p.DefaultPools() {
-			var attr map[string]string
-			if len(pool.Attrs()) > 0 {
-				attr = transform.Map(pool.Attrs(), func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
-			}
-			result = append(result, StoragePoolDetails{
-				Name:     pool.Name(),
-				Provider: string(pool.Provider()),
-				Attrs:    attr,
-			})
+			result = append(result, pool)
 		}
 	}
 	return result, nil

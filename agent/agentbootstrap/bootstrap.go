@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
@@ -36,8 +35,6 @@ import (
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
-	domainstorage "github.com/juju/juju/domain/storage"
-	storagebootstrap "github.com/juju/juju/domain/storage/bootstrap"
 	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -197,29 +194,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 	}, nil
 }
 
-// initialStoragePools extract any storage pools included with the bootstrap params.
-func initialStoragePools(registry storage.ProviderRegistry, stateParams instancecfg.StateInitializationParams) ([]domainstorage.StoragePoolDetails, error) {
-	storagePools, err := domainstorage.DefaultStoragePools(registry)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for name, attrs := range stateParams.StoragePools {
-		poolAttrs := transform.Map(attrs, func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
-		pType, _ := poolAttrs[domainstorage.StorageProviderType]
-		if pType == "" {
-			return nil, errors.Errorf("missing provider type for storage pool %q", name)
-		}
-		delete(poolAttrs, domainstorage.StoragePoolName)
-		delete(poolAttrs, domainstorage.StorageProviderType)
-		storagePools = append(storagePools, domainstorage.StoragePoolDetails{
-			Name:     name,
-			Provider: pType,
-			Attrs:    poolAttrs,
-		})
-	}
-	return storagePools, nil
-}
-
 // Initialize returns the newly initialized state and bootstrap machine.
 // If it fails, the state may well be irredeemably compromised.
 // TODO (stickupkid): Split this function into testable smaller functions.
@@ -278,11 +252,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 
-	storagePools, err := initialStoragePools(b.storageProviderRegistry, stateParams)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	databaseBootstrapConcerns := []database.BootstrapConcern{
 		database.BootstrapControllerConcern(
 			// The admin user needs to be added before everything else that
@@ -296,7 +265,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		),
 		database.BootstrapModelConcern(controllerModelUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
-			storagebootstrap.CreateStoragePools(storagePools),
 		),
 	}
 	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)

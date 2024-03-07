@@ -308,10 +308,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		SystemIdentity: "def456",
 	})
 
-	// Check the initial storage pool.
-	// TODO(storage) - we can't check the initial storage pools
-	// because we don't have access to the storage service yet.
-
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to mongo.
 	machine0 := names.NewMachineTag("0")

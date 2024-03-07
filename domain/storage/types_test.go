@@ -36,25 +36,5 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 
 	pools, err := storage.DefaultStoragePools(registry)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(pools, jc.SameContents, []storage.StoragePoolDetails{
-		{
-			Name:     "loop",
-			Provider: "loop",
-		}, {
-			Name:     "rootfs",
-			Provider: "rootfs",
-		}, {
-			Name:     "tmpfs",
-			Provider: "tmpfs",
-		}, {
-			Name:     "pool1",
-			Provider: "whatever",
-			Attrs:    map[string]string{"1": "2"},
-		}, {
-			Name:     "pool2",
-			Provider: "whatever",
-			Attrs:    map[string]string{"3": "4"},
-		},
-	})
+	c.Assert(pools, jc.SameContents, []*internalstorage.Config{p1, p2})
 }
