@@ -21,6 +21,9 @@ type State interface {
 	GetSecretBackend(ctx context.Context, backendID string) (*coresecrets.SecretBackend, error)
 	SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error
 
+	IncreCountForSecretBackend(ctx context.Context, backendID string) error
+	DecreCountForSecretBackend(ctx context.Context, backendID string) error
+
 	WatchSecretBackendRotationChanges(context.Context, secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error)
 }
 

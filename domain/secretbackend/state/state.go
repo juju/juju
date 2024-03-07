@@ -185,6 +185,22 @@ func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force
 	}
 	// TODO: How to track if the secret backend is `in-use` for `Force`!!!
 	// secret_backend.secret_count++ whenever a secret is created?
+	if !force {
+		// Check if the backend is in use
+		q := `
+SELECT secret_count FROM secret_backend WHERE uuid = ?`[1:]
+		var count sql.NullInt64
+		err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, q, backendID).Scan(&count)
+			return err
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if count.Valid && count.Int64 > 0 {
+			return errors.Errorf("cannot delete secret backend %q, it is in use", backendID)
+		}
+	}
 	q := `
 DELETE FROM secret_backend_config WHERE backend_uuid = ?;
 DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;
@@ -325,6 +341,40 @@ WHERE b.uuid = ?`[1:]
 		rows, err := tx.QueryContext(ctx, q, backendID)
 		return rows, backendID, err
 	})
+}
+
+// IncreCountForSecretBackend increments the secret count for the given secret backend.
+func (s *State) IncreCountForSecretBackend(ctx context.Context, backendID string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	q := `
+UPDATE secret_backend
+SET secret_count = secret_count + 1
+WHERE uuid = ?`[1:]
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, q, backendID)
+		return err
+	})
+	return errors.Trace(err)
+}
+
+// DecreCountForSecretBackend decrements the secret count for the given secret backend.
+func (s *State) DecreCountForSecretBackend(ctx context.Context, backendID string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	q := `
+UPDATE secret_backend
+SET secret_count = secret_count - 1
+WHERE uuid = ?`[1:]
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, q, backendID)
+		return err
+	})
+	return errors.Trace(err)
 }
 
 // SecretBackendRotated updates the next rotation time for the secret backend.

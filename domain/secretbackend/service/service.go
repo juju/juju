@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -74,11 +75,11 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 		// TODO: "caas" const?
 		spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, domain.CoerceError(err)
 		}
 		k8sConfig, err := kubernetes.BuiltInConfig(spec)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, domain.CoerceError(err)
 		}
 		k8sBackendID := modelConfig.UUID()
 		info.Configs[k8sBackendID] = provider.ModelBackendConfig{
@@ -94,7 +95,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 
 	backends, err := s.st.ListSecretBackends(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, domain.CoerceError(err)
 	}
 	for _, b := range backends {
 		if b.Name == backendName {
@@ -148,11 +149,11 @@ func (s *Service) GetSecretBackendConfigForDrain(
 func (s *Service) CheckSecretBackend(ctx context.Context, backendID string) error {
 	backend, err := s.st.GetSecretBackend(ctx, backendID)
 	if err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 	p, err := s.registry(backend.BackendType)
 	if err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 	return pingBackend(p, backend.Config)
 }
@@ -184,11 +185,13 @@ func validateSecretBackendForUpsert(backend secrets.SecretBackend) error {
 // CreateSecretBackend creates a new secret backend.
 func (s *Service) CreateSecretBackend(ctx context.Context, backend secrets.SecretBackend) error {
 	if err := validateSecretBackendForUpsert(backend); err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 	p, err := s.registry(backend.BackendType)
 	if err != nil {
-		return errors.Annotatef(err, "creating backend provider type %q", backend.BackendType)
+		return errors.Annotatef(
+			domain.CoerceError(err), "creating backend provider type %q", backend.BackendType,
+		)
 	}
 	configValidator, ok := p.(provider.ProviderConfig)
 	if ok {
@@ -203,11 +206,13 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend secrets.Secre
 		}
 		err = configValidator.ValidateConfig(nil, backend.Config)
 		if err != nil {
-			return errors.Annotatef(err, "invalid config for provider %q", backend.BackendType)
+			return errors.Annotatef(
+				domain.CoerceError(err), "invalid config for provider %q", backend.BackendType,
+			)
 		}
 	}
 	if err := pingBackend(p, backend.Config); err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 
 	var nextRotateTime *time.Time
@@ -217,7 +222,7 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend secrets.Secre
 		}
 		nextRotateTime, err = secrets.NextBackendRotateTime(s.clock.Now(), *backend.TokenRotateInterval)
 		if err != nil {
-			return errors.Trace(err)
+			return domain.CoerceError(err)
 		}
 	}
 	_, err = s.st.CreateSecretBackend(
@@ -230,21 +235,21 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend secrets.Secre
 			NextRotateTime:      nextRotateTime,
 		},
 	)
-	return errors.Trace(err)
+	return domain.CoerceError(err)
 }
 
 // UpdateSecretBackend updates an existing secret backend.
 func (s *Service) UpdateSecretBackend(ctx context.Context, backend secrets.SecretBackend, force bool, reset ...string) error {
 	if err := validateSecretBackendForUpsert(backend); err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 	existing, err := s.st.GetSecretBackendByName(ctx, backend.Name)
 	if err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 	p, err := s.registry(existing.BackendType)
 	if err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 
 	cfgToApply := make(map[string]interface{})
@@ -267,12 +272,14 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, backend secrets.Secre
 		}
 		err = configValidator.ValidateConfig(existing.Config, cfgToApply)
 		if err != nil {
-			return errors.Annotatef(err, "invalid config for provider %q", existing.BackendType)
+			return errors.Annotatef(
+				domain.CoerceError(err), "invalid config for provider %q", existing.BackendType,
+			)
 		}
 	}
 	if !force {
 		if err := pingBackend(p, cfgToApply); err != nil {
-			return errors.Trace(err)
+			return domain.CoerceError(err)
 		}
 	}
 	var nextRotateTime *time.Time
@@ -282,7 +289,7 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, backend secrets.Secre
 		}
 		nextRotateTime, err = secrets.NextBackendRotateTime(s.clock.Now(), *backend.TokenRotateInterval)
 		if err != nil {
-			return errors.Trace(err)
+			return domain.CoerceError(err)
 		}
 	}
 	err = s.st.UpdateSecretBackend(
@@ -294,18 +301,22 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, backend secrets.Secre
 			NextRotateTime:      nextRotateTime,
 		},
 	)
-	return errors.Trace(err)
+	return domain.CoerceError(err)
 }
 
 // DeleteSecretBackend deletes a secret backend.
 func (s *Service) DeleteSecretBackend(ctx context.Context, backendID string, force bool) error {
 	err := s.st.DeleteSecretBackend(ctx, backendID, force)
-	return errors.Trace(err)
+	return domain.CoerceError(err)
 }
 
 // GetSecretBackendByName returns the secret backend for the given backend name.
 func (s *Service) GetSecretBackendByName(ctx context.Context, name string) (*secrets.SecretBackend, error) {
-	return s.st.GetSecretBackendByName(ctx, name)
+	b, err := s.st.GetSecretBackendByName(ctx, name)
+	if err != nil {
+		return nil, domain.CoerceError(err)
+	}
+	return b, nil
 }
 
 // ListSecretBackends returns a list of all secret backends.
@@ -315,15 +326,27 @@ func (s *Service) ListSecretBackends(context.Context) ([]secrets.SecretBackend, 
 	return nil, nil
 }
 
+// IncreCountForSecretBackend increments the secret count for the given secret backend.
+func (s *Service) IncreCountForSecretBackend(ctx context.Context, backendID string) error {
+	err := s.st.IncreCountForSecretBackend(ctx, backendID)
+	return domain.CoerceError(err)
+}
+
+// DecreCountForSecretBackend decrements the secret count for the given secret backend.
+func (s *Service) DecreCountForSecretBackend(ctx context.Context, backendID string) error {
+	err := s.st.DecreCountForSecretBackend(ctx, backendID)
+	return domain.CoerceError(err)
+}
+
 // RotateBackendToken rotates the token for the given secret backend.
 func (s *Service) RotateBackendToken(ctx context.Context, backendID string) error {
 	backendInfo, err := s.st.GetSecretBackend(ctx, backendID)
 	if err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 	p, err := s.registry(backendInfo.BackendType)
 	if err != nil {
-		return errors.Trace(err)
+		return domain.CoerceError(err)
 	}
 	if !provider.HasAuthRefresh(p) {
 		return nil
@@ -345,7 +368,7 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 		s.logger.Debugf("refreshing auth token for %q: %v", backendInfo.Name, err)
 		// If there's a permission error, we can't recover from that.
 		if errors.Is(err, internalsecrets.PermissionDenied) {
-			return errors.Trace(err)
+			return domain.CoerceError(err)
 		}
 	} else {
 		err = s.st.UpdateSecretBackend(ctx, secretbackend.UpdateSecretBackendParams{
@@ -363,7 +386,7 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	}
 	s.logger.Debugf("updating token rotation for %q, next: %s", backendInfo.Name, nextRotateTime)
 	err = s.st.SecretBackendRotated(ctx, backendID, nextRotateTime)
-	return errors.Trace(err)
+	return domain.CoerceError(err)
 }
 
 // WatchableService defines a service that can be watched for changes.
@@ -394,5 +417,9 @@ func NewWatchableService(
 
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
 func (s *WatchableService) WatchSecretBackendRotationChanges(ctx context.Context) (watcher.SecretBackendRotateWatcher, error) {
-	return s.st.WatchSecretBackendRotationChanges(ctx, s.watcherFactory)
+	w, err := s.st.WatchSecretBackendRotationChanges(ctx, s.watcherFactory)
+	if err != nil {
+		return nil, domain.CoerceError(err)
+	}
+	return w, nil
 }
