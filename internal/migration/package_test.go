@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService,ModelManagerService
+//go:generate go run go.uber.org/mock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService
 //go:generate go run go.uber.org/mock/mockgen -package migration_test -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ServiceFactoryGetter,ServiceFactory
 
 func TestPackage(t *stdtesting.T) {

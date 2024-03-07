@@ -54,7 +54,7 @@ type ApplicationService interface {
 
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(
-	model description.Model, controllerConfig controller.Config, machineService MachineService, applicationService ApplicationService,
+	model description.Model, controllerConfig controller.Config,
 ) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
@@ -135,12 +135,10 @@ func (ctrl *Controller) Import(
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
-		st:                 newSt,
-		dbModel:            dbModel,
-		model:              model,
-		logger:             logger,
-		machineService:     machineService,
-		applicationService: applicationService,
+		st:      newSt,
+		dbModel: dbModel,
+		model:   model,
+		logger:  logger,
 	}
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
@@ -309,12 +307,10 @@ func (m *ImportStateMigration) Run() error {
 }
 
 type importer struct {
-	st                 *State
-	dbModel            *Model
-	model              description.Model
-	logger             loggo.Logger
-	machineService     MachineService
-	applicationService ApplicationService
+	st      *State
+	dbModel *Model
+	model   description.Model
+	logger  loggo.Logger
 	// applicationUnits is populated at the end of loading the applications, and is a
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
@@ -429,11 +425,6 @@ func (i *importer) machines() error {
 	i.logger.Debugf("importing machines")
 	for _, m := range i.model.Machines() {
 		if err := i.machine(m); err != nil {
-			i.logger.Errorf("error importing machine: %s", err)
-			return errors.Annotate(err, m.Id())
-		}
-		// We need skeleton machines in dqlite.
-		if err := i.machineService.CreateMachine(context.TODO(), m.Id()); err != nil {
 			i.logger.Errorf("error importing machine: %s", err)
 			return errors.Annotate(err, m.Id())
 		}
@@ -953,17 +944,10 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		return errors.Trace(err)
 	}
 
-	var unitArgs []applicationservice.AddUnitParams
 	for _, unit := range a.Units() {
 		if err := i.unit(a, unit, ctrlCfg); err != nil {
 			return errors.Trace(err)
 		}
-		n := unit.Name()
-		unitArgs = append(unitArgs, applicationservice.AddUnitParams{UnitName: &n})
-	}
-	var appArgs applicationservice.AddApplicationParams
-	if err := i.applicationService.CreateApplication(context.TODO(), a.Name(), appArgs, unitArgs...); err != nil {
-		return errors.Trace(err)
 	}
 
 	if err := i.applicationOffers(a); err != nil {

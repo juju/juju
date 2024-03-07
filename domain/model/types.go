@@ -43,6 +43,11 @@ type ModelCreationArgs struct {
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.
 	Type coremodel.ModelType
+
+	// UUID represents the unique id for the model when being created. This
+	// value is optional and if omitted will be generated for the caller. Use
+	// this value when you are trying to import a model during model migration.
+	UUID coremodel.UUID
 }
 
 // Validate is responsible for checking all of the fields of ModelCreationArgs
@@ -63,6 +68,12 @@ func (m ModelCreationArgs) Validate() error {
 	if !m.Credential.IsZero() {
 		if err := m.Credential.Validate(); err != nil {
 			return fmt.Errorf("credential: %w", err)
+		}
+	}
+
+	if m.UUID != "" {
+		if err := m.UUID.Validate(); err != nil {
+			return fmt.Errorf("uuid: %w", err)
 		}
 	}
 	return nil

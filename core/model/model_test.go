@@ -50,15 +50,15 @@ func (*ModelSuite) TestValidModelTypes(c *gc.C) {
 func (*ModelSuite) TestUUIDValidate(c *gc.C) {
 	tests := []struct {
 		uuid string
-		err  *string
+		err  error
 	}{
 		{
 			uuid: "",
-			err:  ptr("empty uuid"),
+			err:  errors.NotValid,
 		},
 		{
 			uuid: "invalid",
-			err:  ptr("invalid uuid.*"),
+			err:  errors.NotValid,
 		},
 		{
 			uuid: uuid.MustNewUUID().String(),
@@ -74,10 +74,6 @@ func (*ModelSuite) TestUUIDValidate(c *gc.C) {
 			continue
 		}
 
-		c.Check(err, gc.ErrorMatches, *test.err)
+		c.Check(err, jc.ErrorIs, test.err)
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

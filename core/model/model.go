@@ -4,6 +4,8 @@
 package model
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/uuid"
@@ -66,13 +68,14 @@ func (u UUID) String() string {
 	return string(u)
 }
 
-// Validate ensures the consistency of the UUID.
+// Validate ensures the consistency of the UUID. If the uuid is invalid an error
+// satisfying [errors.NotValid] will be returned.
 func (u UUID) Validate() error {
 	if u == "" {
-		return errors.New("empty uuid")
+		return fmt.Errorf("%wuuid cannot be empty", errors.Hide(errors.NotValid))
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return errors.Errorf("invalid uuid %q", u)
+		return fmt.Errorf("uuid %q %w", u, errors.NotValid)
 	}
 	return nil
 }
