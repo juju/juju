@@ -101,11 +101,6 @@ func (p environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-// UpgradeModelConfig is specified in the ModelConfigUpgrader interface.
-func (environProvider) UpgradeConfig(cfg *config.Config) (*config.Config, error) {
-	return configWithDefaults(cfg)
-}
-
 func configWithDefaults(cfg *config.Config) (*config.Config, error) {
 	defaults := make(map[string]interface{})
 	if _, ok := cfg.StorageDefaultBlockSource(); !ok {

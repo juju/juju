@@ -89,17 +89,3 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
 }
-
-func (s *providerSuite) TestUpgradeConfig(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.ModelConfigUpgrader))
-	upgrader := s.provider.(environs.ModelConfigUpgrader)
-
-	_, ok := s.Config.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsFalse)
-
-	outConfig, err := upgrader.UpgradeConfig(s.Config)
-	c.Assert(err, jc.ErrorIsNil)
-	source, ok := outConfig.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(source, gc.Equals, "gce")
-}
