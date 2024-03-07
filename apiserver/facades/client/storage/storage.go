@@ -32,7 +32,7 @@ type StorageService interface {
 	CreateStoragePool(ctx stdcontext.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
 	DeleteStoragePool(ctx stdcontext.Context, name string) error
 	ReplaceStoragePool(ctx stdcontext.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
-	ListStoragePools(ctx stdcontext.Context, filter domainstorage.StoragePoolFilter) ([]*storage.Config, error)
+	ListStoragePools(ctx stdcontext.Context, filter domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error)
 	GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error)
 }
 
@@ -201,10 +201,7 @@ func (a *StorageAPI) listPools(ctx stdcontext.Context, filter params.StoragePool
 		return nil, errors.Trace(err)
 	}
 
-	pools, err := service.ListStoragePools(ctx, domainstorage.StoragePoolFilter{
-		Names:     filter.Names,
-		Providers: filter.Providers,
-	})
+	pools, err := service.ListStoragePools(ctx, filter.Names, filter.Providers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

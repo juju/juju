@@ -39,7 +39,7 @@ type deployChecker interface {
 	environs.ConstraintsChecker
 }
 
-type storageServiceGetter func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolService
+type storageServiceGetter func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of either environs.Environ
@@ -124,7 +124,7 @@ func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallCon
 }
 
 // StorageServices implements state.Policy.
-func (p *environStatePolicy) StorageServices() (state.StoragePoolService, storage.ProviderRegistry, error) {
+func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage.ProviderRegistry, error) {
 	if p.credentialService == nil {
 		return nil, nil, errors.NotSupportedf("StorageServices check without credential service")
 	}

@@ -20,7 +20,7 @@ type StoragePoolState interface {
 	CreateStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error
 	DeleteStoragePool(ctx context.Context, name string) error
 	ReplaceStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error
-	ListStoragePools(ctx context.Context, filter domainstorage.StoragePoolFilter) ([]domainstorage.StoragePoolDetails, error)
+	ListStoragePools(ctx context.Context, filter domainstorage.Names, providers domainstorage.Providers) ([]domainstorage.StoragePoolDetails, error)
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
 }
 
@@ -141,9 +141,14 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 	return errors.Annotatef(err, "replacing storage pool %q", name)
 }
 
+// AllStoragePools returns the all storage pools.
+func (s *StoragePoolService) AllStoragePools(ctx context.Context) ([]*storage.Config, error) {
+	return s.ListStoragePools(ctx, domainstorage.NilNames, domainstorage.NilProviders)
+}
+
 // ListStoragePools returns the storage pools matching the specified filter.
-func (s *StoragePoolService) ListStoragePools(ctx context.Context, filter domainstorage.StoragePoolFilter) ([]*storage.Config, error) {
-	if err := s.validatePoolListFilter(filter); err != nil {
+func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error) {
+	if err := s.validatePoolListFilterTerms(names, providers); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -152,7 +157,7 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context, filter domain
 		return nil, errors.Trace(err)
 	}
 
-	sp, err := s.st.ListStoragePools(ctx, filter)
+	sp, err := s.st.ListStoragePools(ctx, names, providers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -168,11 +173,11 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context, filter domain
 	return results, nil
 }
 
-func (s *StoragePoolService) validatePoolListFilter(filter domainstorage.StoragePoolFilter) error {
-	if err := s.validateProviderCriteria(filter.Providers); err != nil {
+func (s *StoragePoolService) validatePoolListFilterTerms(names domainstorage.Names, providers domainstorage.Providers) error {
+	if err := s.validateProviderCriteria(providers); err != nil {
 		return errors.Trace(err)
 	}
-	if err := s.validateNameCriteria(filter.Names); err != nil {
+	if err := s.validateNameCriteria(names); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

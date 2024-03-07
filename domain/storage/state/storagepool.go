@@ -272,7 +272,7 @@ func (st StoragePoolState) ReplaceStoragePool(ctx context.Context, pool domainst
 
 type loadStoragePoolsFunc func(ctx context.Context, tx *sqlair.TX) ([]domainstorage.StoragePoolDetails, error)
 
-func (st StoragePoolState) storagePoolsLoader(filter domainstorage.StoragePoolFilter) (loadStoragePoolsFunc, error) {
+func (st StoragePoolState) storagePoolsLoader(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (loadStoragePoolsFunc, error) {
 	query := `
 SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
        (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
@@ -286,7 +286,7 @@ FROM   storage_pool sp
 	}
 
 	var queryArgs []any
-	condition, args := st.buildFilter(filter)
+	condition, args := st.buildFilter(wantNames, wantProviders)
 	if len(args) > 0 {
 		query = query + "WHERE " + condition
 		types = append(types, args...)
@@ -312,13 +312,13 @@ FROM   storage_pool sp
 }
 
 // ListStoragePools returns the storage pools matching the specified filter.
-func (st StoragePoolState) ListStoragePools(ctx context.Context, filter domainstorage.StoragePoolFilter) ([]domainstorage.StoragePoolDetails, error) {
+func (st StoragePoolState) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]domainstorage.StoragePoolDetails, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	storagePoolsLoader, err := st.storagePoolsLoader(filter)
+	storagePoolsLoader, err := st.storagePoolsLoader(names, providers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -332,23 +332,23 @@ func (st StoragePoolState) ListStoragePools(ctx context.Context, filter domainst
 	return result, errors.Trace(domain.CoerceError(err))
 }
 
-func (st StoragePoolState) buildFilter(filter domainstorage.StoragePoolFilter) (string, []any) {
-	if len(filter.Names) == 0 && len(filter.Providers) == 0 {
+func (st StoragePoolState) buildFilter(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (string, []any) {
+	if len(wantNames) == 0 && len(wantProviders) == 0 {
 		return "", nil
 	}
 
-	if len(filter.Names) > 0 && len(filter.Providers) > 0 {
+	if len(wantNames) > 0 && len(wantProviders) > 0 {
 		condition := "sp.name IN ($StoragePoolNames[:]) AND sp.type IN ($StorageProviderTypes[:])"
-		return condition, []any{StoragePoolNames(filter.Names), StorageProviderTypes(filter.Providers)}
+		return condition, []any{StoragePoolNames(wantNames), StorageProviderTypes(wantProviders)}
 	}
 
-	if len(filter.Names) > 0 {
+	if len(wantNames) > 0 {
 		condition := "sp.name IN ($StoragePoolNames[:])"
-		return condition, []any{StoragePoolNames(filter.Names)}
+		return condition, []any{StoragePoolNames(wantNames)}
 	}
 
 	condition := "sp.type IN ($StorageProviderTypes[:])"
-	return condition, []any{StorageProviderTypes(filter.Providers)}
+	return condition, []any{StorageProviderTypes(wantProviders)}
 }
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
@@ -359,9 +359,7 @@ func (st StoragePoolState) GetStoragePoolByName(ctx context.Context, name string
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
 	}
 
-	storagePoolsLoader, err := st.storagePoolsLoader(domainstorage.StoragePoolFilter{
-		Names: []string{name},
-	})
+	storagePoolsLoader, err := st.storagePoolsLoader(domainstorage.Names{name}, nil)
 	if err != nil {
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
 	}

@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -51,7 +50,7 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	builtIn, err := storage.NewConfig("loop", "loop", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.service.EXPECT().ListStoragePools(gomock.Any(), domainstorage.StoragePoolFilter{}).
+	s.service.EXPECT().AllStoragePools(gomock.Any()).
 		Times(1).
 		Return([]*storage.Config{sc, builtIn}, nil)
 

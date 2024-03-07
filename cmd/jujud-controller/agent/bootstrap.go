@@ -196,9 +196,7 @@ func (c cloudGetter) Get(_ stdcontext.Context, name string) (*jujucloud.Cloud, e
 	return c.cloud, nil
 }
 
-type noopStoragePoolGetter struct {
-	state.StoragePoolService
-}
+type noopStoragePoolGetter struct{}
 
 func (noopStoragePoolGetter) GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error) {
 	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
@@ -399,7 +397,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 				cloudGetter{cloud: &args.ControllerCloud},
 				credentialGetter{cred: args.ControllerCloudCredential},
 				// We don't need the storage service at bootstrap.
-				func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolService {
+				func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter {
 					return noopStoragePoolGetter{}
 				},
 			),

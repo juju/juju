@@ -27,13 +27,17 @@ type StoragePoolDetails struct {
 	Attrs    Attrs
 }
 
-// StoragePoolFilter defines attributes used to filter storage pools.
-type StoragePoolFilter struct {
-	// Names are pool's names to filter on.
-	Names []string
-	// Providers are pool's storage provider types to filter on.
+// These type aliases are used to specify filter terms.
+type (
+	Names     []string
 	Providers []string
-}
+)
+
+// These consts are used to specify nil filter terms.
+var (
+	NilNames     = Names(nil)
+	NilProviders = Providers(nil)
+)
 
 // BuiltInStoragePools returns the built in providers common to all.
 func BuiltInStoragePools() ([]StoragePoolDetails, error) {

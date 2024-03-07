@@ -232,7 +232,7 @@ func (s *storagePoolSuite) TestListStoragePools(c *gc.C) {
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{})
+	out, err := st.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.SameContents, []domainstorage.StoragePoolDetails{sp, sp2})
 }
@@ -240,7 +240,7 @@ func (s *storagePoolSuite) TestListStoragePools(c *gc.C) {
 func (s *storagePoolSuite) TestStoragePoolsEmpty(c *gc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	creds, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{})
+	creds, err := st.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds, gc.HasLen, 0)
 }
@@ -292,10 +292,7 @@ func (s *storagePoolSuite) TestListStoragePoolsFilterOnNameAndProvider(c *gc.C) 
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{
-		Names:     []string{"ebs-fast"},
-		Providers: []string{"ebs"},
-	})
+	out, err := st.ListStoragePools(context.Background(), domainstorage.Names{"ebs-fast"}, domainstorage.Providers{"ebs"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.SameContents, []domainstorage.StoragePoolDetails{sp})
 }
@@ -321,9 +318,7 @@ func (s *storagePoolSuite) TestListStoragePoolsFilterOnName(c *gc.C) {
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{
-		Names: []string{"loop"},
-	})
+	out, err := st.ListStoragePools(context.Background(), domainstorage.Names{"loop"}, domainstorage.NilProviders)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.SameContents, []domainstorage.StoragePoolDetails{sp2})
 }
@@ -349,9 +344,7 @@ func (s *storagePoolSuite) TestListStoragePoolsFilterOnProvider(c *gc.C) {
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{
-		Providers: []string{"ebs"},
-	})
+	out, err := st.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.Providers{"ebs"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.SameContents, []domainstorage.StoragePoolDetails{sp})
 }

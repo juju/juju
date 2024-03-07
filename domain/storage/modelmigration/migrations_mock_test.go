@@ -14,9 +14,8 @@ import (
 	reflect "reflect"
 
 	modelmigration "github.com/juju/juju/core/modelmigration"
-	storage "github.com/juju/juju/domain/storage"
 	service "github.com/juju/juju/domain/storage/service"
-	storage0 "github.com/juju/juju/internal/storage"
+	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -79,7 +78,7 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CreateStoragePool mocks base method.
-func (m *MockImportService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage0.ProviderType, arg3 service.PoolAttrs) error {
+func (m *MockImportService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage.ProviderType, arg3 service.PoolAttrs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateStoragePool", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -115,17 +114,17 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 	return m.recorder
 }
 
-// ListStoragePools mocks base method.
-func (m *MockExportService) ListStoragePools(arg0 context.Context, arg1 storage.StoragePoolFilter) ([]*storage0.Config, error) {
+// AllStoragePools mocks base method.
+func (m *MockExportService) AllStoragePools(arg0 context.Context) ([]*storage.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListStoragePools", arg0, arg1)
-	ret0, _ := ret[0].([]*storage0.Config)
+	ret := m.ctrl.Call(m, "AllStoragePools", arg0)
+	ret0, _ := ret[0].([]*storage.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListStoragePools indicates an expected call of ListStoragePools.
-func (mr *MockExportServiceMockRecorder) ListStoragePools(arg0, arg1 any) *gomock.Call {
+// AllStoragePools indicates an expected call of AllStoragePools.
+func (mr *MockExportServiceMockRecorder) AllStoragePools(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStoragePools", reflect.TypeOf((*MockExportService)(nil).ListStoragePools), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllStoragePools", reflect.TypeOf((*MockExportService)(nil).AllStoragePools), arg0)
 }

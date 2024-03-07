@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
 )
 
@@ -47,7 +46,7 @@ func (p *MockPolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (c
 }
 
 type mockStoragePoolService struct {
-	state.StoragePoolService
+	state.StoragePoolGetter
 	Providers map[string]domainstorage.StoragePoolDetails
 }
 
@@ -60,20 +59,13 @@ func (m *mockStoragePoolService) GetStoragePoolByName(_ stdcontext.Context, name
 	return storage.NewConfig(name, storage.ProviderType(p.Provider), attrs)
 }
 
-func (m *mockStoragePoolService) ListStoragePools(_ stdcontext.Context, _ domainstorage.StoragePoolFilter) ([]*storage.Config, error) {
-	sp, err := storage.NewConfig(string(provider.LoopProviderType), provider.LoopProviderType, nil)
-	return []*storage.Config{sp}, err
-}
-
-type noopStoragePoolGetter struct {
-	state.StoragePoolService
-}
+type noopStoragePoolGetter struct{}
 
 func (noopStoragePoolGetter) GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error) {
 	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 
-func (p *MockPolicy) StorageServices() (state.StoragePoolService, storage.ProviderRegistry, error) {
+func (p *MockPolicy) StorageServices() (state.StoragePoolGetter, storage.ProviderRegistry, error) {
 	if p.GetStorageProviderRegistry != nil {
 		registry, err := p.GetStorageProviderRegistry()
 		return &mockStoragePoolService{Providers: p.Providers}, registry, err

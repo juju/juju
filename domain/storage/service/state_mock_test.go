@@ -84,18 +84,18 @@ func (mr *MockStoragePoolStateMockRecorder) GetStoragePoolByName(arg0, arg1 any)
 }
 
 // ListStoragePools mocks base method.
-func (m *MockStoragePoolState) ListStoragePools(arg0 context.Context, arg1 storage.StoragePoolFilter) ([]storage.StoragePoolDetails, error) {
+func (m *MockStoragePoolState) ListStoragePools(arg0 context.Context, arg1 storage.Names, arg2 storage.Providers) ([]storage.StoragePoolDetails, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListStoragePools", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListStoragePools", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]storage.StoragePoolDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListStoragePools indicates an expected call of ListStoragePools.
-func (mr *MockStoragePoolStateMockRecorder) ListStoragePools(arg0, arg1 any) *gomock.Call {
+func (mr *MockStoragePoolStateMockRecorder) ListStoragePools(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStoragePools", reflect.TypeOf((*MockStoragePoolState)(nil).ListStoragePools), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStoragePools", reflect.TypeOf((*MockStoragePoolState)(nil).ListStoragePools), arg0, arg1, arg2)
 }
 
 // ReplaceStoragePool mocks base method.

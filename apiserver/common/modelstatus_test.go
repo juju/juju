@@ -304,9 +304,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-type noopStoragePoolGetter struct {
-	state.StoragePoolService
-}
+type noopStoragePoolGetter struct{}
 
 func (noopStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (*storage.Config, error) {
 	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
@@ -322,7 +320,7 @@ func (statePolicy) ConstraintsValidator(envcontext.ProviderCallContext) (constra
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
-func (statePolicy) StorageServices() (state.StoragePoolService, storage.ProviderRegistry, error) {
+func (statePolicy) StorageServices() (state.StoragePoolGetter, storage.ProviderRegistry, error) {
 	return noopStoragePoolGetter{}, storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),

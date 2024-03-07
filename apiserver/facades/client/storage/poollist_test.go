@@ -44,7 +44,7 @@ func (s *poolSuite) TestList(c *gc.C) {
 
 	p, err := internalstorage.NewConfig(fmt.Sprintf("%v%v", tstName, 0), provider.LoopProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.StoragePoolFilter{}).
+	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{p}, nil)
 
 	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
@@ -67,7 +67,7 @@ func (s *poolSuite) TestListManyResults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	p2, err := internalstorage.NewConfig(fmt.Sprintf("%v%v", tstName, 1), provider.LoopProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.StoragePoolFilter{}).
+	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{p, p2}, nil)
 
 	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
@@ -88,7 +88,7 @@ func (s *poolSuite) TestListNoPools(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.storageService = storage.NewMockStorageService(ctrl)
-	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.StoragePoolFilter{}).
+	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{}, nil)
 
 	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
