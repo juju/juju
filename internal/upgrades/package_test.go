@@ -14,3 +14,5 @@ import (
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
+
+var UpgradeOperations = &upgradeOperations

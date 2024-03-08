@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination testing/package_mock.go -write_package_comment=false github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ModelConfigUpgrader,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron
+//go:generate go run go.uber.org/mock/mockgen -package testing -destination testing/package_mock.go -write_package_comment=false github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron
 
 type ConnectorInfo interface {
 	ConnectionProxyInfo(ctx stdcontext.Context) (proxy.Proxier, error)
@@ -264,21 +264,6 @@ type CloudRegionDetector interface {
 	// If no regions can be detected, DetectRegions should return
 	// an error satisfying errors.IsNotFound.
 	DetectRegions() ([]cloud.Region, error)
-}
-
-// ModelConfigUpgrader is an interface that an EnvironProvider may
-// implement in order to modify environment configuration on agent upgrade.
-type ModelConfigUpgrader interface {
-	// UpgradeConfig upgrades an old environment configuration by adding,
-	// updating or removing attributes. UpgradeConfig must be idempotent,
-	// as it may be called multiple times in the event of a partial upgrade.
-	//
-	// NOTE(axw) this is currently only called when upgrading to 1.25.
-	// We should update the upgrade machinery to call this for every
-	// version upgrade, so the upgrades package is not tightly coupled
-	// to provider upgrades.
-	// TODO (anastasiamac 2018-04-27) Since it is only for 1.25, do we still need it?
-	UpgradeConfig(cfg *config.Config) (*config.Config, error)
 }
 
 // ConfigGetter implements access to an environment's configuration.
