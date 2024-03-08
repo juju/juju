@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/migration"
@@ -120,7 +121,7 @@ func NewControllerAPI(
 			externalControllerService,
 		),
 		ModelStatusAPI: common.NewModelStatusAPI(
-			common.NewModelManagerBackend(stateenvirons.ProviderConfigSchemaSource(cloudService), model, pool),
+			common.NewModelManagerBackend(environs.ProviderConfigSchemaSource(cloudService), model, pool),
 			authorizer,
 			apiUser,
 		),

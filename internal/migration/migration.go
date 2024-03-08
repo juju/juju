@@ -26,11 +26,11 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	migrations "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLoggerWithTags("juju.migration", corelogger.MIGRATION)
@@ -105,7 +105,7 @@ type legacyStateImporter interface {
 
 // ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based
 // on the given cloud service.
-type ConfigSchemaSourceProvider = func(stateenvirons.CloudService) config.ConfigSchemaSourceGetter
+type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchemaSourceGetter
 
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {

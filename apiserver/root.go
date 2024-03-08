@@ -30,13 +30,13 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/registry"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type objectKey struct {
@@ -886,7 +886,7 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		ctx.migrationScope,
 		ctx.ServiceFactory().ControllerConfig(),
 		ctx.r.serviceFactoryGetter,
-		stateenvirons.ProviderConfigSchemaSource,
+		environs.ProviderConfigSchemaSource,
 	)
 }
 

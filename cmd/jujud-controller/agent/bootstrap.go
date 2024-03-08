@@ -356,7 +356,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 	args.ControllerModelConfig = controllerModelCfg
 
-	configSchemaSource := stateenvirons.ProviderConfigSchemaSource(cloudGetter{cloud: &args.ControllerCloud})
+	configSchemaSource := environs.ProviderConfigSchemaSource(cloudGetter{cloud: &args.ControllerCloud})
 
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller

@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -65,7 +65,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
 	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
 	controller := &fakeImporter{}
-	configSchemaSource := func(stateenvirons.CloudService) config.ConfigSchemaSourceGetter {
+	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
 	}
 	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource)
@@ -138,7 +138,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	m := &state.Model{}
 	controller := &fakeImporter{st: st, m: m}
 	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
-	configSchemaSource := func(stateenvirons.CloudService) config.ConfigSchemaSourceGetter {
+	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
 	}
 	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource)

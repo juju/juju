@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -66,7 +67,7 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService)
 
-	configSchemaSource := stateenvirons.ProviderConfigSchemaSource(cloudService)
+	configSchemaSource := environs.ProviderConfigSchemaSource(cloudService)
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)

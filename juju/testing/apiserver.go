@@ -290,7 +290,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
 		NewPolicy:     stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential()),
-	}, stateenvirons.ProviderConfigSchemaSource(serviceFactory.Cloud()))
+	}, environs.ProviderConfigSchemaSource(serviceFactory.Cloud()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl
 

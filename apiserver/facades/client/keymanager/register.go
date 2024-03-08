@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -42,7 +42,7 @@ func newFacadeV1(ctx facade.ModelContext) (*KeyManagerAPI, error) {
 		authorizer,
 		common.NewBlockChecker(st),
 		st.ControllerTag(),
-		stateenvirons.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud()),
+		environs.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud()),
 		ctx.Logger().Child("keymanager"),
 	), nil
 }

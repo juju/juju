@@ -4,7 +4,6 @@
 package stateenvirons
 
 import (
-	"context"
 	stdcontext "context"
 	"sync"
 
@@ -51,25 +50,6 @@ func NewInstancePrechecker(st *state.State, cloudService CloudService, credentia
 		getBroker:         GetNewCAASBrokerFunc(caas.New),
 	}
 	return policy.Prechecker()
-}
-
-// ProviderConfigSchemaSource returns a function that can be used to
-// get a config.ConfigSchemaSource for the specified cloud.
-func ProviderConfigSchemaSource(cloudService CloudService) config.ConfigSchemaSourceGetter {
-	return func(ctx context.Context, cloudName string) (config.ConfigSchemaSource, error) {
-		cloud, err := cloudService.Get(ctx, cloudName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		provider, err := environs.Provider(cloud.Type)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if cs, ok := provider.(config.ConfigSchemaSource); ok {
-			return cs, nil
-		}
-		return nil, errors.NotImplementedf("config.ConfigSource")
-	}
 }
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return

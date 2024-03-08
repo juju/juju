@@ -14,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -65,7 +66,7 @@ func newFacadeV10(ctx facade.ModelContext) (*ModelManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	configSchemaSource := stateenvirons.ProviderConfigSchemaSource(serviceFactory.Cloud())
+	configSchemaSource := environs.ProviderConfigSchemaSource(serviceFactory.Cloud())
 
 	controllerConfigGetter := serviceFactory.ControllerConfig()
 

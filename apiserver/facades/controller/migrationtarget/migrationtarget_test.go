@@ -737,7 +737,7 @@ func (s *Suite) expectImportModel(c *gc.C) {
 	})
 }
 
-func cloudSchemaSource(stateenvirons.CloudService) config.ConfigSchemaSourceGetter {
+func cloudSchemaSource(environs.CloudService) config.ConfigSchemaSourceGetter {
 	return state.NoopConfigSchemaSource
 }
 
