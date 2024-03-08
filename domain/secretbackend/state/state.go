@@ -213,16 +213,15 @@ DELETE FROM secret_backend WHERE uuid = ?;`[1:]
 }
 
 // ListSecretBackends returns a list of all secret backends.
-func (s *State) ListSecretBackends(ctx context.Context) ([]*coresecrets.SecretBackend, error) {
+func (s *State) ListSecretBackends(ctx context.Context) ([]secretbackend.SecretBackendInfo, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var backends []*coresecrets.SecretBackend
-	// TODO: use Prepare() query for better performance.
+	var backends []secretbackend.SecretBackendInfo
 	q := `
-SELECT uuid, name, backend_type, token_rotate_interval
-FROM secret_backend`[1:]
+	SELECT uuid, name, backend_type, token_rotate_interval, secret_count
+	FROM secret_backend`[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
 		if err != nil {
@@ -230,12 +229,13 @@ FROM secret_backend`[1:]
 		}
 		defer rows.Close()
 		for rows.Next() {
-			backend := coresecrets.SecretBackend{
-				Config: make(map[string]interface{}),
-			}
-			var tokenRotateInterval NullableDuration
+			var (
+				backend             secretbackend.SecretBackendInfo
+				tokenRotateInterval NullableDuration
+				secretCount         sql.NullInt64
+			)
 			err = rows.Scan(
-				&backend.ID, &backend.Name, &backend.BackendType, &tokenRotateInterval,
+				&backend.ID, &backend.Name, &backend.BackendType, &tokenRotateInterval, &secretCount,
 			)
 			if err != nil {
 				return err
@@ -243,6 +243,10 @@ FROM secret_backend`[1:]
 			if tokenRotateInterval.Valid {
 				backend.TokenRotateInterval = &tokenRotateInterval.Duration
 			}
+			if secretCount.Valid {
+				backend.NumSecrets = int(secretCount.Int64)
+			}
+			// TODO: use Prepare() query for better performance.
 			configQ := `
 SELECT name, content
 FROM secret_backend_config
@@ -258,9 +262,12 @@ WHERE backend_uuid = ?`[1:]
 				if err != nil {
 					return err
 				}
+				if backend.Config == nil {
+					backend.Config = make(map[string]interface{})
+				}
 				backend.Config[name] = content
 			}
-			backends = append(backends, &backend)
+			backends = append(backends, backend)
 		}
 		return rows.Err()
 	})
@@ -401,13 +408,13 @@ WHERE backend_uuid = ? AND next_rotation_time > ?`[1:]
 }
 
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
-func (s *State) WatchSecretBackendRotationChanges(ctx context.Context, wf secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error) {
+func (s *State) WatchSecretBackendRotationChanges(wf secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	initialQ := `SELECT backend_uuid FROM secret_backend_rotate`
-	w, err := wf.NewNamespaceWatcher("secret_backend_rotate", changestream.All, initialQ)
+	initialQ := `SELECT backend_uuid FROM secret_backend_rotation`
+	w, err := wf.NewNamespaceWatcher("secret_backend_rotation", changestream.All, initialQ)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

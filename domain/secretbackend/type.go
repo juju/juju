@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -31,11 +32,19 @@ type UpdateSecretBackendParams struct {
 	Config              map[string]interface{}
 }
 
-// ModelMetadata represents the metadata for a model.
-type ModelMetadata struct {
-	UUID string
-	Name string
-	Type string
+// SecretBackendFilter is used when listing secret backends.
+type SecretBackendFilter struct {
+	Names []string
+	All   bool
+}
+
+// SecretBackendInfo contains information about a secret backend.
+type SecretBackendInfo struct {
+	secrets.SecretBackend
+
+	NumSecrets int
+	Status     string
+	Message    string
 }
 
 // WatcherFactory describes methods for creating watchers.

@@ -670,7 +670,7 @@ func (s *stateSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		"secret_backend_rotate", changestream.All, `SELECT backend_uuid FROM secret_backend_rotate`,
 	).Return(mockWatcher, nil)
 
-	w, err := s.state.WatchSecretBackendRotationChanges(context.Background(), watcherFactory)
+	w, err := s.state.WatchSecretBackendRotationChanges(watcherFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
