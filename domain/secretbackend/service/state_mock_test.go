@@ -57,6 +57,20 @@ func (mr *MockStateMockRecorder) CreateSecretBackend(arg0, arg1 any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecretBackend", reflect.TypeOf((*MockState)(nil).CreateSecretBackend), arg0, arg1)
 }
 
+// DecreCountForSecretBackend mocks base method.
+func (m *MockState) DecreCountForSecretBackend(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DecreCountForSecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DecreCountForSecretBackend indicates an expected call of DecreCountForSecretBackend.
+func (mr *MockStateMockRecorder) DecreCountForSecretBackend(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecreCountForSecretBackend", reflect.TypeOf((*MockState)(nil).DecreCountForSecretBackend), arg0, arg1)
+}
+
 // DeleteSecretBackend mocks base method.
 func (m *MockState) DeleteSecretBackend(arg0 context.Context, arg1 string, arg2 bool) error {
 	m.ctrl.T.Helper()
@@ -101,11 +115,25 @@ func (mr *MockStateMockRecorder) GetSecretBackendByName(arg0, arg1 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendByName", reflect.TypeOf((*MockState)(nil).GetSecretBackendByName), arg0, arg1)
 }
 
+// IncreCountForSecretBackend mocks base method.
+func (m *MockState) IncreCountForSecretBackend(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IncreCountForSecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// IncreCountForSecretBackend indicates an expected call of IncreCountForSecretBackend.
+func (mr *MockStateMockRecorder) IncreCountForSecretBackend(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncreCountForSecretBackend", reflect.TypeOf((*MockState)(nil).IncreCountForSecretBackend), arg0, arg1)
+}
+
 // ListSecretBackends mocks base method.
-func (m *MockState) ListSecretBackends(arg0 context.Context) ([]*secrets.SecretBackend, error) {
+func (m *MockState) ListSecretBackends(arg0 context.Context) ([]secretbackend.SecretBackendInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSecretBackends", arg0)
-	ret0, _ := ret[0].([]*secrets.SecretBackend)
+	ret0, _ := ret[0].([]secretbackend.SecretBackendInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -145,16 +173,16 @@ func (mr *MockStateMockRecorder) UpdateSecretBackend(arg0, arg1 any) *gomock.Cal
 }
 
 // WatchSecretBackendRotationChanges mocks base method.
-func (m *MockState) WatchSecretBackendRotationChanges(arg0 context.Context, arg1 secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error) {
+func (m *MockState) WatchSecretBackendRotationChanges(arg0 secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchSecretBackendRotationChanges", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchSecretBackendRotationChanges", arg0)
 	ret0, _ := ret[0].(secretbackend.SecretBackendRotateWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchSecretBackendRotationChanges indicates an expected call of WatchSecretBackendRotationChanges.
-func (mr *MockStateMockRecorder) WatchSecretBackendRotationChanges(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateMockRecorder) WatchSecretBackendRotationChanges(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretBackendRotationChanges", reflect.TypeOf((*MockState)(nil).WatchSecretBackendRotationChanges), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretBackendRotationChanges", reflect.TypeOf((*MockState)(nil).WatchSecretBackendRotationChanges), arg0)
 }

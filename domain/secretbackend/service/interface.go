@@ -16,7 +16,7 @@ type State interface {
 	CreateSecretBackend(ctx context.Context, params secretbackend.CreateSecretBackendParams) (string, error)
 	UpdateSecretBackend(ctx context.Context, params secretbackend.UpdateSecretBackendParams) error
 	DeleteSecretBackend(ctx context.Context, backendID string, force bool) error
-	ListSecretBackends(ctx context.Context) ([]*coresecrets.SecretBackend, error)
+	ListSecretBackends(ctx context.Context) ([]secretbackend.SecretBackendInfo, error)
 	GetSecretBackendByName(ctx context.Context, name string) (*coresecrets.SecretBackend, error)
 	GetSecretBackend(ctx context.Context, backendID string) (*coresecrets.SecretBackend, error)
 	SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error
@@ -24,7 +24,7 @@ type State interface {
 	IncreCountForSecretBackend(ctx context.Context, backendID string) error
 	DecreCountForSecretBackend(ctx context.Context, backendID string) error
 
-	WatchSecretBackendRotationChanges(context.Context, secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error)
+	WatchSecretBackendRotationChanges(secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error)
 }
 
 // Logger facilitates emitting log messages.

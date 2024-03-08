@@ -122,12 +122,13 @@ func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
 		cred = cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
 	}
 
-	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return([]*coresecrets.SecretBackend{{
-		ID:          vaultBackendID,
-		Name:        "myvault",
-		BackendType: vault.BackendType,
-		Config: map[string]interface{}{
-			"endpoint": "http://vault",
+	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return([]secretbackend.SecretBackendInfo{{
+		SecretBackend: coresecrets.SecretBackend{ID: vaultBackendID,
+			Name:        "myvault",
+			BackendType: vault.BackendType,
+			Config: map[string]interface{}{
+				"endpoint": "http://vault",
+			},
 		},
 	}}, nil)
 
@@ -579,8 +580,39 @@ func (s *serviceSuite) TestGetSecretBackendByName(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestListSecretBackends(c *gc.C) {
-	c.Skip("TODO: wait for secret DqLite support")
+func (s *serviceSuite) TestBackendSummaryInfo(c *gc.C) {
+	c.Skip("TODO")
+}
+
+func (s *serviceSuite) TestIncreCountForSecretBackend(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+
+	s.mockState.EXPECT().IncreCountForSecretBackend(gomock.Any(), "backend-uuid").Return(nil)
+	err := svc.IncreCountForSecretBackend(context.Background(), "backend-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestDecreCountForSecretBackend(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+	s.mockState.EXPECT().DecreCountForSecretBackend(gomock.Any(), "backend-uuid").Return(nil)
+	err := svc.DecreCountForSecretBackend(context.Background(), "backend-uuid")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
@@ -669,9 +701,9 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 			}, nil
 		},
 	)
-	s.mockState.EXPECT().WatchSecretBackendRotationChanges(gomock.Any(), s.mockWatcherFactory).
+	s.mockState.EXPECT().WatchSecretBackendRotationChanges(s.mockWatcherFactory).
 		Return(s.mockSecretBackendRotateWatcher, nil)
-	w, err := svc.WatchSecretBackendRotationChanges(context.Background())
+	w, err := svc.WatchSecretBackendRotationChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.Equals, s.mockSecretBackendRotateWatcher)
 }

@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secretbackend"
@@ -50,6 +52,18 @@ func NewService(
 	}
 }
 
+func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {
+	spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	k8sConfig, err := kubernetes.BuiltInConfig(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return k8sConfig, nil
+}
+
 // GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user.
 func (s *Service) GetSecretBackendConfigForAdmin(
 	ctx context.Context, modelConfig *config.Config, cloud cloud.Cloud, cred cloud.Credential,
@@ -73,11 +87,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 
 	if modelConfig.Type() == "caas" {
 		// TODO: "caas" const?
-		spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
-		if err != nil {
-			return nil, domain.CoerceError(err)
-		}
-		k8sConfig, err := kubernetes.BuiltInConfig(spec)
+		k8sConfig, err := getK8sBackendConfig(cloud, cred)
 		if err != nil {
 			return nil, domain.CoerceError(err)
 		}
@@ -319,10 +329,80 @@ func (s *Service) GetSecretBackendByName(ctx context.Context, name string) (*sec
 	return b, nil
 }
 
-// ListSecretBackends returns a list of all secret backends.
-// TODO: for `commonsecrets.BackendSummaryInfo`!!!!
-func (s *Service) ListSecretBackends(context.Context) ([]secrets.SecretBackend, error) {
-	// TODO: implement once we have secret service in place.
+// BackendSummaryInfo returns a summary of the secret backends.
+// If we just want a model's in-use backends, it's the caller's
+// resposibility to provide the backendIDs in the filter.
+func (s *Service) BackendSummaryInfo(
+	ctx context.Context,
+	modelConfig *config.Config, cloud cloud.Cloud, cred cloud.Credential,
+	reveal bool, filter secretbackend.SecretBackendFilter,
+) ([]secretbackend.SecretBackendInfo, error) {
+	backends, err := s.st.ListSecretBackends(ctx)
+	if err != nil {
+		return nil, domain.CoerceError(err)
+	}
+	// If we want all backends, include those which are not in use.
+	if filter.All {
+		// The internal (controller) backend.
+		backends = append(backends, secretbackend.SecretBackendInfo{
+			SecretBackend: secrets.SecretBackend{
+				ID:          s.controllerUUID,
+				Name:        juju.BackendName,
+				BackendType: juju.BackendType,
+			},
+		})
+		if modelConfig.Type() == "caas" {
+			// The kubernetes backend.
+			k8sConfig, err := getK8sBackendConfig(cloud, cred)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			k8sBackend := secretbackend.SecretBackendInfo{
+				SecretBackend: secrets.SecretBackend{
+					ID:          modelConfig.UUID(),
+					Name:        kubernetes.BuiltInName(modelConfig.Name()),
+					BackendType: kubernetes.BackendType,
+					Config:      k8sConfig.Config,
+				},
+				NumSecrets: 0, // TODO: ????? Inject SecretService???
+			}
+			// For local k8s secrets, corresponding to every hosted model,
+			// do not include the result if there are no secrets.
+			if k8sBackend.NumSecrets > 0 || !filter.All {
+				backends = append(backends, k8sBackend)
+			}
+		}
+	}
+	wanted := set.NewStrings(filter.Names...)
+	for i, b := range backends {
+		if !wanted.IsEmpty() && !wanted.Contains(b.Name) {
+			backends = append(backends[:i], backends[i+1:]...)
+			continue
+		}
+		p, err := s.registry(b.BackendType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		b.Status = status.Active.String()
+		if b.BackendType != juju.BackendType && b.BackendType != kubernetes.BackendType {
+			if err := pingBackend(p, b.Config); err != nil {
+				b.Status = status.Error.String()
+				b.Message = err.Error()
+			}
+		}
+		if len(b.Config) == 0 {
+			continue
+		}
+		configValidator, ok := p.(provider.ProviderConfig)
+		if !ok {
+			continue
+		}
+		for n, f := range configValidator.ConfigSchema() {
+			if f.Secret && !reveal {
+				delete(b.Config, n)
+			}
+		}
+	}
 	return nil, nil
 }
 
@@ -416,8 +496,8 @@ func NewWatchableService(
 }
 
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
-func (s *WatchableService) WatchSecretBackendRotationChanges(ctx context.Context) (watcher.SecretBackendRotateWatcher, error) {
-	w, err := s.st.WatchSecretBackendRotationChanges(ctx, s.watcherFactory)
+func (s *WatchableService) WatchSecretBackendRotationChanges() (watcher.SecretBackendRotateWatcher, error) {
+	w, err := s.st.WatchSecretBackendRotationChanges(s.watcherFactory)
 	if err != nil {
 		return nil, domain.CoerceError(err)
 	}
