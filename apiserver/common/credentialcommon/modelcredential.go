@@ -21,8 +21,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
-func ValidateExistingModelCredential(backend PersistentBackend, callCtx context.ProviderCallContext, checkCloudInstances bool, modelMigrationCheck bool) (params.ErrorResults, error) {
+// ValidateExistingModelCredential checks if the cloud credential that a given
+// model uses is valid for it.
+func ValidateExistingModelCredential(
+	backend PersistentBackend,
+	callCtx context.ProviderCallContext,
+	checkCloudInstances bool,
+	modelMigrationCheck bool) (params.ErrorResults, error) {
 	model, err := backend.Model()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -42,11 +47,19 @@ func ValidateExistingModelCredential(backend PersistentBackend, callCtx context.
 		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Name)
 	}
 	credential := cloud.NewCredential(cloud.AuthType(storedCredential.AuthType), storedCredential.Attributes)
-	return ValidateNewModelCredential(backend, callCtx, credentialTag, &credential, checkCloudInstances, modelMigrationCheck)
+	return ValidateNewModelCredential(backend, callCtx, credentialTag,
+		&credential, checkCloudInstances, modelMigrationCheck)
 }
 
-// ValidateNewModelCredential checks if a new cloud credential could be valid for a given model.
-func ValidateNewModelCredential(backend PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential, checkCloudInstances bool, modelMigrationCheck bool) (params.ErrorResults, error) {
+// ValidateNewModelCredential checks if a new cloud credential could be valid
+// for a given model.
+func ValidateNewModelCredential(
+	backend PersistentBackend,
+	callCtx context.ProviderCallContext,
+	credentialTag names.CloudCredentialTag,
+	credential *cloud.Credential,
+	checkCloudInstances bool,
+	modelMigrationCheck bool) (params.ErrorResults, error) {
 	openParams, err := buildOpenParams(backend, credentialTag, credential)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -59,7 +72,8 @@ func ValidateNewModelCredential(backend PersistentBackend, callCtx context.Provi
 	case state.ModelTypeCAAS:
 		return checkCAASModelCredential(openParams)
 	case state.ModelTypeIAAS:
-		return checkIAASModelCredential(openParams, backend, callCtx, checkCloudInstances, modelMigrationCheck)
+		return checkIAASModelCredential(openParams, backend, callCtx,
+			checkCloudInstances, modelMigrationCheck)
 	default:
 		return params.ErrorResults{}, errors.NotSupportedf("model type %q", model.Type())
 	}
@@ -77,33 +91,46 @@ func checkCAASModelCredential(brokerParams environs.OpenParams) (params.ErrorRes
 	return params.ErrorResults{}, nil
 }
 
-func checkIAASModelCredential(openParams environs.OpenParams, backend PersistentBackend, callCtx context.ProviderCallContext, checkCloudInstances bool, modelMigrationCheck bool) (params.ErrorResults, error) {
+func checkIAASModelCredential(
+	openParams environs.OpenParams,
+	backend PersistentBackend,
+	callCtx context.ProviderCallContext,
+	checkCloudInstances bool,
+	modelMigrationCheck bool) (params.ErrorResults, error) {
 	env, err := newEnv(callCtx, openParams)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	// Check that we can see all machines' instances regardless of their state as perceived by the
-	// cloud, i.e. this call will return all non-terminated instances.
+	// Check that we can see all machines' instances regardless of their state
+	// as perceived by the cloud, i.e. this call will return all non-terminated
+	// instances.
 	instances, err := env.AllInstances(callCtx)
-	// If we're not performing this check for model migrations; then being able to get the instances
-	// is proof enough that the credential is valid (authenticated, authorization is a different
-	// concern), no need to check the mapping between instances and machines.
+	// If we're not performing this check for model migrations; then being able
+	// to get the instances is proof enough that the credential is valid
+	// (authenticated, authorization is a different concern), no need to check
+	// the mapping between instances and machines.
 	if !modelMigrationCheck || err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	// We only check persisted machines vs known cloud instances.
-	// In the future, this check may be extended to other cloud resources,
-	// entities and operation-level authorisations such as interfaces,
-	// ability to CRUD storage, etc.
-	return checkMachineInstances(backend, env, callCtx, checkCloudInstances, instances)
+	// We only check persisted machines vs known cloud instances. In the future,
+	// this check may be extended to other cloud resources, entities and
+	// operation-level authorisations such as interfaces, ability to CRUD
+	// storage, etc.
+	return checkMachineInstances(backend, env, callCtx, checkCloudInstances,
+		instances)
 }
 
-// checkMachineInstances compares model machines from state with
-// the ones reported by the provider using supplied credential.
-// This only makes sense for non-k8s providers.
-func checkMachineInstances(backend PersistentBackend, provider CloudProvider, callCtx context.ProviderCallContext, checkCloudInstances bool, instances []instances.Instance) (params.ErrorResults, error) {
+// checkMachineInstances compares model machines from state with the ones
+// reported by the provider using supplied credential. This only makes sense for
+// non-k8s providers.
+func checkMachineInstances(
+	backend PersistentBackend,
+	provider CloudProvider,
+	callCtx context.ProviderCallContext,
+	checkCloudInstances bool,
+	instances []instances.Instance) (params.ErrorResults, error) {
 	fail := func(original error) (params.ErrorResults, error) {
 		return params.ErrorResults{}, original
 	}
@@ -138,15 +165,17 @@ func checkMachineInstances(backend PersistentBackend, provider CloudProvider, ca
 			// to know about it.
 			continue
 		} else if err != nil {
-			results = append(results, serverError(errors.Annotatef(err, "getting instance id for machine %s", machine.Id())))
+			results = append(results, serverError(errors.Annotatef(err,
+				"getting instance id for machine %s", machine.Id())))
 			continue
 		}
 		machinesByInstance[string(instanceId)] = machine.Id()
 	}
 
-	// From here, we cross examine all machines we know about with all the instances we can reach
-	// and ensure that they correspond 1:1. This is useful for model migration, for example, since
-	// we want to know if we have moved the known universe correctly.
+	// From here, we cross examine all machines we know about with all the
+	// instances we can reach and ensure that they correspond 1:1. This is
+	// useful for model migration, for example, since we want to know if we have
+	// moved the known universe correctly.
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {
 		id := string(instance.Id())
@@ -172,7 +201,10 @@ var (
 	newCAASBroker = caas.New
 )
 
-func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (environs.OpenParams, error) {
+func buildOpenParams(
+	backend PersistentBackend,
+	credentialTag names.CloudCredentialTag,
+	credential *cloud.Credential) (environs.OpenParams, error) {
 	fail := func(original error) (environs.OpenParams, error) {
 		return environs.OpenParams{}, original
 	}
@@ -192,7 +224,8 @@ func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredent
 		return fail(errors.Trace(err))
 	}
 
-	tempCloudSpec, err := environscloudspec.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
+	tempCloudSpec, err := environscloudspec.MakeCloudSpec(modelCloud,
+		model.CloudRegion(), credential)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
