@@ -22,7 +22,13 @@ import (
 )
 
 // ValidateExistingModelCredential checks if the cloud credential that a given
-// model uses is valid for it.
+// model uses is valid for it. For IAAS models, if the modelMigrationCheck is
+// disabled, then it will not perform the mapping of the instances on the clouud
+// to the machines on the model, and deem the credential valid if it can be used
+// to just access the instances on the cloud. Otherwise the instances will be
+// mapped against the machines on the model. Furthermore, normally it's valid to
+// have more instances than machines, but if the checkCloudInstances is enabled,
+// then a 1:1 mapping is expected to deem the credential valid.
 func ValidateExistingModelCredential(
 	backend PersistentBackend,
 	callCtx context.ProviderCallContext,
@@ -52,7 +58,13 @@ func ValidateExistingModelCredential(
 }
 
 // ValidateNewModelCredential checks if a new cloud credential could be valid
-// for a given model.
+// for a given model. For IAAS models, if the modelMigrationCheck is disabled,
+// then it will not perform the mapping of the instances on the clouud to the
+// machines on the model, and deem the credential valid if it can be used to
+// just access the instances on the cloud. Otherwise the instances will be
+// mapped against the machines on the model. Furthermore, normally it's valid to
+// have more instances than machines, but if the checkCloudInstances is enabled,
+// then a 1:1 mapping is expected to deem the credential valid.
 func ValidateNewModelCredential(
 	backend PersistentBackend,
 	callCtx context.ProviderCallContext,
@@ -91,6 +103,14 @@ func checkCAASModelCredential(brokerParams environs.OpenParams) (params.ErrorRes
 	return params.ErrorResults{}, nil
 }
 
+// checkIAASModelCredential checks if the cloud credential that a given model
+// uses is valid for it. if the modelMigrationCheck is disabled, then it will
+// not perform the mapping of the instances on the clouud to the machines on the
+// model, and deem the credential valid if it can be used to just access the
+// instances on the cloud. Otherwise the instances will be mapped against the
+// machines on the model. Furthermore, normally it's valid to have more
+// instances than machines, but if the checkCloudInstances is enabled, then a
+// 1:1 mapping is expected to deem the credential valid.
 func checkIAASModelCredential(
 	openParams environs.OpenParams,
 	backend PersistentBackend,
@@ -118,8 +138,7 @@ func checkIAASModelCredential(
 	// this check may be extended to other cloud resources, entities and
 	// operation-level authorisations such as interfaces, ability to CRUD
 	// storage, etc.
-	return checkMachineInstances(backend, env, callCtx, checkCloudInstances,
-		instances)
+	return checkMachineInstances(backend, checkCloudInstances, instances)
 }
 
 // checkMachineInstances compares model machines from state with the ones
@@ -127,8 +146,6 @@ func checkIAASModelCredential(
 // non-k8s providers.
 func checkMachineInstances(
 	backend PersistentBackend,
-	provider CloudProvider,
-	callCtx context.ProviderCallContext,
 	checkCloudInstances bool,
 	instances []instances.Instance) (params.ErrorResults, error) {
 	fail := func(original error) (params.ErrorResults, error) {
