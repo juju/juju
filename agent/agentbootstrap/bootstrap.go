@@ -240,7 +240,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		CloudRegion:  stateParams.ControllerCloudRegion,
 		Credential:   credential.IdFromTag(cloudCredTag),
 		Type:         controllerModelType,
+		UUID:         controllerModelUUID,
 	}
+	_, controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelArgs)
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
 		nil,
@@ -256,7 +258,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
-			modelbootstrap.CreateModel(controllerModelUUID, controllerModelArgs),
+			controllerModelCreateFunc,
 		),
 		database.BootstrapModelConcern(controllerModelUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
