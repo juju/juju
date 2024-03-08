@@ -268,7 +268,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(manual, jc.IsFalse)
 	attrs := map[string]interface{}{"type": "null"}
-	err = s.Model.UpdateModelConfig(attrs, nil)
+	err = s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, jc.ErrorIsNil)

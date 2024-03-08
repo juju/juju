@@ -71,6 +71,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		&mockObjectStore{},
+		state.NoopConfigSchemaSource,
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
 	)
@@ -101,6 +102,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		&mockObjectStore{},
+		state.NoopConfigSchemaSource,
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
 	)

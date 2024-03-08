@@ -8,12 +8,12 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -36,11 +36,13 @@ func newFacadeV1(ctx facade.ModelContext) (*KeyManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return newKeyManagerAPI(
 		m,
 		authorizer,
 		common.NewBlockChecker(st),
 		st.ControllerTag(),
+		environs.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud()),
 		ctx.Logger().Child("keymanager"),
 	), nil
 }
@@ -50,21 +52,23 @@ func newKeyManagerAPI(
 	authorizer facade.Authorizer,
 	check BlockChecker,
 	controllerTag names.ControllerTag,
-	logger loggo.Logger,
+	configSchemaSourceGetter config.ConfigSchemaSourceGetter,
+	logger Logger,
 ) *KeyManagerAPI {
 	return &KeyManagerAPI{
-		model:         model,
-		authorizer:    authorizer,
-		check:         check,
-		controllerTag: controllerTag,
-		logger:        logger,
+		model:                    model,
+		authorizer:               authorizer,
+		check:                    check,
+		controllerTag:            controllerTag,
+		configSchemaSourceGetter: configSchemaSourceGetter,
+		logger:                   logger,
 	}
 }
 
 type Model interface {
 	ModelTag() names.ModelTag
 	ModelConfig(context.Context) (*config.Config, error)
-	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
+	UpdateModelConfig(config.ConfigSchemaSourceGetter, map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 }
 
 type BlockChecker interface {

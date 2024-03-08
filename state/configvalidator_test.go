@@ -65,7 +65,7 @@ func (s *ConfigValidatorSuite) updateModelConfig(c *gc.C) error {
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
 	}
-	return s.Model.UpdateModelConfig(updateAttrs, nil)
+	return s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, updateAttrs, nil)
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {

@@ -103,12 +103,13 @@ type Unit interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	model   *state.Model
-	session MongoSession
+	configSchemaSourceGetter config.ConfigSchemaSourceGetter
+	model                    *state.Model
+	session                  MongoSession
 }
 
 func (s stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
-	return s.model.UpdateModelConfig(u, r, a...)
+	return s.model.UpdateModelConfig(s.configSchemaSourceGetter, u, r, a...)
 }
 
 func (s *stateShim) Application(name string) (Application, error) {

@@ -110,22 +110,6 @@ func (p *environStatePolicy) ConfigValidator() (config.Validator, error) {
 	return environProvider(cloud.Type)
 }
 
-// ProviderConfigSchemaSource implements state.Policy.
-func (p *environStatePolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
-	cloud, err := p.cloudService.Get(stdcontext.Background(), cloudName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	provider, err := environProvider(cloud.Type)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if cs, ok := provider.(config.ConfigSchemaSource); ok {
-		return cs, nil
-	}
-	return nil, errors.NotImplementedf("config.ConfigSource")
-}
-
 // ConstraintsValidator implements state.Policy.
 func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	checker, err := p.getDeployChecker()

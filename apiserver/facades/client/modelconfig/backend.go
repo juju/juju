@@ -30,15 +30,16 @@ type Backend interface {
 
 type stateShim struct {
 	*state.State
-	model *state.Model
+	model                    *state.Model
+	configSchemaSourceGetter config.ConfigSchemaSourceGetter
 }
 
 func (st stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
-	return st.model.UpdateModelConfig(u, r, a...)
+	return st.model.UpdateModelConfig(st.configSchemaSourceGetter, u, r, a...)
 }
 
 func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {
-	return st.model.ModelConfigValues()
+	return st.model.ModelConfigValues(st.configSchemaSourceGetter)
 }
 
 func (st stateShim) ModelTag() names.ModelTag {
@@ -61,6 +62,10 @@ func (st stateShim) GetSecretBackend(name string) (*coresecrets.SecretBackend, e
 }
 
 // NewStateBackend creates a backend for the facade to use.
-func NewStateBackend(m *state.Model) Backend {
-	return stateShim{m.State(), m}
+func NewStateBackend(m *state.Model, configSchemaSourceGetter config.ConfigSchemaSourceGetter) Backend {
+	return stateShim{
+		State:                    m.State(),
+		model:                    m,
+		configSchemaSourceGetter: configSchemaSourceGetter,
+	}
 }

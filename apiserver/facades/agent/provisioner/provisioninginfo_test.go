@@ -650,7 +650,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 
 func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 	attrs := map[string]interface{}{"cloudinit-userdata": validCloudInitUserData}
-	err := s.ControllerModel(c).UpdateModelConfig(attrs, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),

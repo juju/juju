@@ -4,10 +4,14 @@
 package environs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.environs")
@@ -120,4 +124,28 @@ func RegisteredProviders() []string {
 // Provider returns the previously registered provider with the given type.
 func Provider(providerType string) (EnvironProvider, error) {
 	return GlobalProviderRegistry().Provider(providerType)
+}
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	Get(ctx context.Context, name string) (*cloud.Cloud, error)
+}
+
+// ProviderConfigSchemaSource returns a function that can be used to
+// get a config.ConfigSchemaSource for the specified cloud.
+func ProviderConfigSchemaSource(cloudService CloudService) config.ConfigSchemaSourceGetter {
+	return func(ctx context.Context, cloudName string) (config.ConfigSchemaSource, error) {
+		cloud, err := cloudService.Get(ctx, cloudName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		provider, err := Provider(cloud.Type)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if cs, ok := provider.(config.ConfigSchemaSource); ok {
+			return cs, nil
+		}
+		return nil, errors.NotImplementedf("config.ConfigSource")
+	}
 }

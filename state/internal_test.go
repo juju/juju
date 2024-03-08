@@ -78,7 +78,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		NewPolicy: func(*State) Policy {
 			return internalStatePolicy{}
 		},
-	})
+	}, NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctlr
 	s.pool = ctlr.StatePool()
@@ -101,7 +101,7 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 		"name": fmt.Sprintf("testmodel%d", s.modelCount),
 		"uuid": uuid.MustNewUUID().String(),
 	})
-	_, st, err := s.controller.NewModel(ModelArgs{
+	_, st, err := s.controller.NewModel(NoopConfigSchemaSource, ModelArgs{
 		Type:        ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -123,7 +123,7 @@ func (s *internalStateSuite) newCAASState(c *gc.C) *State {
 		"name": fmt.Sprintf("testmodel%d", s.modelCount),
 		"uuid": uuid.MustNewUUID().String(),
 	})
-	_, st, err := s.controller.NewModel(ModelArgs{
+	_, st, err := s.controller.NewModel(NoopConfigSchemaSource, ModelArgs{
 		Type:        ModelTypeCAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",

@@ -97,7 +97,7 @@ func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 	attr := map[string]interface{}{
 		"logging-config": loggingConfig,
 	}
-	err := s.Model.UpdateModelConfig(attr, nil)
+	err := s.Model.UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attr, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

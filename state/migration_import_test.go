@@ -73,7 +73,7 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, _, err = s.Controller.Import(out, ctrlCfg)
+	_, _, err = s.Controller.Import(out, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
@@ -117,7 +117,7 @@ func (s *MigrationImportSuite) importModelDescription(
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	newModel, newSt, err := s.Controller.Import(in, ctrlCfg)
+	newModel, newSt, err := s.Controller.Import(in, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddCleanup(func(c *gc.C) {
@@ -153,7 +153,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	newModel, newSt, err := s.Controller.Import(in, ctrlCfg)
+	newModel, newSt, err := s.Controller.Import(in, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -931,7 +931,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg)
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -1003,7 +1003,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg)
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	// add the cleanup here to close the model.
 	s.AddCleanup(func(c *gc.C) {
@@ -2516,7 +2516,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg)
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, state.NoopConfigSchemaSource)
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -2588,7 +2588,7 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg)
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, state.NoopConfigSchemaSource)
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -2800,7 +2800,7 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		Cloud:              testModel.Cloud(),
 		CloudRegion:        testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(noTypeModel, ctrlCfg)
+	imported, newSt, err := s.Controller.Import(noTypeModel, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -2838,7 +2838,7 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 		Cloud:          testModel.Cloud(),
 		CloudRegion:    testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg)
+	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -3064,7 +3064,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 1)
 
-	err = s.Model.UpdateModelConfig(map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
+	err = s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	mCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3214,7 +3214,7 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 
 	uuid := uuid.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
-	_, _, err = s.Controller.Import(in, ctrlCfg)
+	_, _, err = s.Controller.Import(in, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")
 }
 
@@ -3237,7 +3237,7 @@ func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
 		Cloud:          testModel.Cloud(),
 		CloudRegion:    testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg)
+	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 

@@ -18,5 +18,5 @@ func SetAgentVersion(st *state.State, vers version.Number) error {
 	if err != nil {
 		return err
 	}
-	return model.UpdateModelConfig(map[string]interface{}{"agent-version": vers.String()}, nil)
+	return model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{"agent-version": vers.String()}, nil)
 }

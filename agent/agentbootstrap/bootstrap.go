@@ -82,13 +82,14 @@ type bootstrapController interface {
 
 // AgentBootstrap is used to initialize the state for a new controller.
 type AgentBootstrap struct {
-	bootstrapEnviron environs.BootstrapEnviron
-	adminUser        names.UserTag
-	agentConfig      agent.ConfigSetter
-	mongoDialOpts    mongo.DialOpts
-	stateNewPolicy   state.NewPolicyFunc
-	precheckerGetter func(*state.State) (environs.InstancePrechecker, error)
-	bootstrapDqlite  DqliteInitializerFunc
+	bootstrapEnviron         environs.BootstrapEnviron
+	adminUser                names.UserTag
+	agentConfig              agent.ConfigSetter
+	mongoDialOpts            mongo.DialOpts
+	stateNewPolicy           state.NewPolicyFunc
+	precheckerGetter         func(*state.State) (environs.InstancePrechecker, error)
+	configSchemaSourceGetter config.ConfigSchemaSourceGetter
+	bootstrapDqlite          DqliteInitializerFunc
 
 	stateInitializationParams instancecfg.StateInitializationParams
 	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
@@ -129,6 +130,7 @@ type AgentBootstrapArgs struct {
 	// Deprecated: use InstancePrechecker
 	StateNewPolicy           state.NewPolicyFunc
 	InstancePrecheckerGetter func(*state.State) (environs.InstancePrechecker, error)
+	ConfigSchemaSourceGetter config.ConfigSchemaSourceGetter
 }
 
 func (a *AgentBootstrapArgs) validate() error {
@@ -186,8 +188,9 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		stateInitializationParams: args.StateInitializationParams,
 		storageProviderRegistry:   args.StorageProviderRegistry,
 
-		stateNewPolicy:   args.StateNewPolicy,
-		precheckerGetter: args.InstancePrecheckerGetter,
+		stateNewPolicy:           args.StateNewPolicy,
+		precheckerGetter:         args.InstancePrecheckerGetter,
+		configSchemaSourceGetter: args.ConfigSchemaSourceGetter,
 	}, nil
 }
 
@@ -322,7 +325,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		MongoSession:              session,
 		AdminPassword:             info.Password,
 		NewPolicy:                 b.stateNewPolicy,
-	})
+	}, b.configSchemaSourceGetter)
 	if err != nil {
 		return nil, errors.Errorf("failed to initialize state: %v", err)
 	}
@@ -520,7 +523,7 @@ func (b *AgentBootstrap) ensureInitialModel(
 		return errors.Trace(err)
 	}
 
-	model, initialModelState, err := ctrl.NewModel(state.ModelArgs{
+	model, initialModelState, err := ctrl.NewModel(b.configSchemaSourceGetter, state.ModelArgs{
 		Type:                    ctrlModel.Type(),
 		Owner:                   b.adminUser,
 		Config:                  initialModelConfig,
@@ -536,7 +539,7 @@ func (b *AgentBootstrap) ensureInitialModel(
 	}
 	defer func() { _ = initialModelState.Close() }()
 
-	if err := model.AutoConfigureContainerNetworking(initialModelEnv); err != nil {
+	if err := model.AutoConfigureContainerNetworking(initialModelEnv, b.configSchemaSourceGetter); err != nil {
 		return errors.Annotate(err, "autoconfiguring container networking")
 	}
 

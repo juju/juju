@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
@@ -26,6 +27,8 @@ import (
 
 type ModelConfigSuite struct {
 	ConnSuite
+
+	configSchemaSourceGetter environsconfig.ConfigSchemaSourceGetter
 }
 
 var _ = gc.Suite(&ModelConfigSuite{})
@@ -52,7 +55,8 @@ func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
-	s.policy.GetProviderConfigSchemaSource = func(cloudName string) (config.ConfigSchemaSource, error) {
+
+	s.configSchemaSourceGetter = func(ctx context.Context, cloudName string) (environsconfig.ConfigSchemaSource, error) {
 		return &statetesting.MockConfigSchemaSource{CloudName: cloudName}, nil
 	}
 }
@@ -80,14 +84,14 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 		return nil
 	}
 
-	err := s.Model.UpdateModelConfig(updateAttrs, nil, configValidator1)
+	err := s.Model.UpdateModelConfig(s.configSchemaSourceGetter, updateAttrs, nil, configValidator1)
 	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
-	err = s.Model.UpdateModelConfig(nil, removeAttrs, configValidator2)
+	err = s.Model.UpdateModelConfig(s.configSchemaSourceGetter, nil, removeAttrs, configValidator2)
 	c.Assert(err, gc.ErrorMatches, "cannot remove some-attr")
-	err = s.Model.UpdateModelConfig(updateAttrs, nil, configValidator3)
+	err = s.Model.UpdateModelConfig(s.configSchemaSourceGetter, updateAttrs, nil, configValidator3)
 	c.Assert(err, jc.ErrorIsNil)
 	// First error is returned.
-	err = s.Model.UpdateModelConfig(updateAttrs, nil, configValidator1, configValidator2)
+	err = s.Model.UpdateModelConfig(s.configSchemaSourceGetter, updateAttrs, nil, configValidator1, configValidator2)
 	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
 }
 
@@ -98,7 +102,7 @@ func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 	}
 	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.UpdateModelConfig(attrs, nil)
+	err = s.Model.UpdateModelConfig(s.configSchemaSourceGetter, attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err = cfg.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,7 +121,7 @@ func (s *ModelConfigSuite) TestAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ver, gc.DeepEquals, version.Number{Major: 2, Minor: 0, Patch: 0})
 
-	err = s.Model.UpdateModelConfig(attrs, nil)
+	err = s.Model.UpdateModelConfig(s.configSchemaSourceGetter, attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ver, err = s.Model.AgentVersion()
@@ -127,7 +131,7 @@ func (s *ModelConfigSuite) TestAgentVersion(c *gc.C) {
 
 func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C) {
 	updateAttrs := map[string]interface{}{"api-port": 1234}
-	err := s.Model.UpdateModelConfig(updateAttrs, nil)
+	err := s.Model.UpdateModelConfig(s.configSchemaSourceGetter, updateAttrs, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
 }
 
@@ -135,7 +139,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 	attrs := map[string]interface{}{
 		"resource-tags": map[string]string{"a": "b", "c": "d"},
 	}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(s.configSchemaSourceGetter, attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelSettings, err := s.State.ReadSettings(state.SettingsC, state.ModelGlobalKey)
@@ -161,10 +165,10 @@ func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
 		"arbitrary-key":     "shazam!",
 		"providerAttrdummy": "beef", // provider
 	}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(s.configSchemaSourceGetter, attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.Model.UpdateModelConfig(map[string]interface{}{
+	err = s.Model.UpdateModelConfig(s.configSchemaSourceGetter, map[string]interface{}{
 		"apt-mirror":        "http://another-mirror",
 		"providerAttrdummy": "pork",
 	}, []string{"apt-mirror", "arbitrary-key"})
@@ -209,7 +213,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigWhenSetOverridesControllerValue(
 		"authorized-keys": "different-keys",
 		"apt-mirror":      "http://anothermirror",
 	}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.Model.ModelConfig(context.Background())
@@ -242,7 +246,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	_, st, err := s.Controller.NewModel(state.ModelArgs{
+	_, st, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		Config:                  cfg,
 		Owner:                   owner,
@@ -294,7 +298,7 @@ func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *conf
 			Source: source,
 		}
 	}
-	sources, err := s.Model.ModelConfigValues()
+	sources, err := s.Model.ModelConfigValues(state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
@@ -311,7 +315,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 		"http-proxy": "http://anotherproxy",
 		"apt-mirror": "http://mirror",
 	}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	modelCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

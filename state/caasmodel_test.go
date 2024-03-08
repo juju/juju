@@ -62,7 +62,7 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 	modelTag := names.NewModelTag(uuid)
 	credTag := names.NewCloudCredentialTag(
 		fmt.Sprintf("caas-cloud/%s/dummy-credential", owner.Name()))
-	model, st, err := s.Controller.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "caas-cloud",
 		Config:                  cfg,

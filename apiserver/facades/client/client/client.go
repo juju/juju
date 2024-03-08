@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
@@ -156,7 +157,12 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 	}
 
 	return NewClient(
-		&stateShim{State: st, model: model, session: nil},
+		&stateShim{
+			State:                    st,
+			model:                    model,
+			session:                  nil,
+			configSchemaSourceGetter: environs.ProviderConfigSchemaSource(serviceFactory.Cloud()),
+		},
 		&poolShim{pool: ctx.StatePool()},
 		storageAccessor,
 		ctx.ServiceFactory().BlockDevice(),

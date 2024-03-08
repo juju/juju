@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/domain/credential/service"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/migration"
@@ -732,8 +733,12 @@ func (s *Suite) expectImportModel(c *gc.C) {
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
 		scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
 		controller := state.NewController(s.StatePool)
-		return migration.NewModelImporter(controller, scope, s.controllerConfigService, s.serviceFactoryGetter).ImportModel(ctx, bytes)
+		return migration.NewModelImporter(controller, scope, s.controllerConfigService, s.serviceFactoryGetter, cloudSchemaSource).ImportModel(ctx, bytes)
 	})
+}
+
+func cloudSchemaSource(environs.CloudService) config.ConfigSchemaSourceGetter {
+	return state.NoopConfigSchemaSource
 }
 
 type mockEnv struct {

@@ -55,6 +55,7 @@ type ApplicationService interface {
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(
 	model description.Model, controllerConfig controller.Config,
+	configSchemaSourceGetter config.ConfigSchemaSourceGetter,
 ) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
@@ -113,7 +114,7 @@ func (ctrl *Controller) Import(
 		// that is now done using the new domain/credential importer.
 		args.CloudCredential = credTag
 	}
-	dbModel, newSt, err := ctrl.NewModel(args)
+	dbModel, newSt, err := ctrl.NewModel(configSchemaSourceGetter, args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -135,10 +136,11 @@ func (ctrl *Controller) Import(
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
-		st:      newSt,
-		dbModel: dbModel,
-		model:   model,
-		logger:  logger,
+		st:                       newSt,
+		dbModel:                  dbModel,
+		model:                    model,
+		logger:                   logger,
+		configSchemaSourceGetter: configSchemaSourceGetter,
 	}
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
@@ -315,6 +317,8 @@ type importer struct {
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
 	charmOrigins     map[string]*CharmOrigin
+
+	configSchemaSourceGetter config.ConfigSchemaSourceGetter
 }
 
 func (i *importer) modelExtras() error {
@@ -1509,11 +1513,11 @@ func (i *importer) remoteApplications() error {
 	migration.Add(func() error {
 		m := ImportRemoteApplications{}
 		return m.Execute(stateDocumentFactoryShim{
-			stateModelNamspaceShim{
+			stateModelNamspaceShim: stateModelNamspaceShim{
 				Model: migration.src,
 				st:    i.st,
 			},
-			i,
+			importer: i,
 		}, migration.dst)
 	})
 	if err := migration.Run(); err != nil {
@@ -1532,8 +1536,9 @@ func (i *importer) firewallRules() error {
 	migration.Add(func() error {
 		m := ImportFirewallRules{}
 		return m.Execute(stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
+			Model:                    migration.src,
+			st:                       i.st,
+			configSchemaSourceGetter: i.configSchemaSourceGetter,
 		}, i.dbModel)
 	})
 	if err := migration.Run(); err != nil {
@@ -2648,7 +2653,7 @@ func (i *importer) secretBackend() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot load secret backend %q", backendID)
 	}
-	err = i.dbModel.UpdateModelConfig(map[string]interface{}{config.SecretBackendKey: mBackend.Name}, nil)
+	err = i.dbModel.UpdateModelConfig(i.configSchemaSourceGetter, map[string]interface{}{config.SecretBackendKey: mBackend.Name}, nil)
 	return errors.Trace(err)
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -28,10 +29,16 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV1 is used for API registration.
 func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
-	st := ctx.State()
-	pool := ctx.StatePool()
 	auth := ctx.Auth()
 
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	if !auth.AuthClient() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	st := ctx.State()
+	pool := ctx.StatePool()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -44,10 +51,14 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	}
 
 	serviceFactory := ctx.ServiceFactory()
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: serviceFactory.Credential()}
 	cloudService := serviceFactory.Cloud()
 	credentialService := serviceFactory.Credential()
+
+	configGetter := stateenvirons.EnvironConfigGetter{
+		Model:             model,
+		CloudService:      cloudService,
+		CredentialService: credentialService,
+	}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 
 	controllerConfigGetter := serviceFactory.ControllerConfig()
@@ -56,13 +67,10 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService)
 
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	if !auth.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
+	configSchemaSource := environs.ProviderConfigSchemaSource(cloudService)
+
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
-	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
+	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
 	return NewModelUpgraderAPI(
 		systemState.ControllerTag(),
 		statePoolShim{StatePool: pool},

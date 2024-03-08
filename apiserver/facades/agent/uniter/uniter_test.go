@@ -457,7 +457,7 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
@@ -3248,7 +3248,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	// Check model attributes are overridden by setting up a value.
-	err := s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	egress := state.NewRelationEgressNetworks(s.ControllerModel(c).State())
@@ -3280,7 +3280,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
-	err := s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	thisUniter := s.makeMysqlUniter(c)

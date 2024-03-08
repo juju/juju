@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	migrations "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -98,16 +100,21 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config, config.ConfigSchemaSourceGetter) (*state.Model, *state.State, error)
 }
+
+// ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based
+// on the given cloud service.
+type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchemaSourceGetter
 
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
-	legacyStateImporter     legacyStateImporter
-	controllerConfigService ControllerConfigService
-	serviceFactoryGetter    servicefactory.ServiceFactoryGetter
+	legacyStateImporter        legacyStateImporter
+	controllerConfigService    ControllerConfigService
+	serviceFactoryGetter       servicefactory.ServiceFactoryGetter
+	configSchemaSourceProvider ConfigSchemaSourceProvider
 
 	scope modelmigration.ScopeForModel
 }
@@ -120,12 +127,14 @@ func NewModelImporter(
 	scope modelmigration.ScopeForModel,
 	controllerConfigService ControllerConfigService,
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
+	configSchemaSourceProvider ConfigSchemaSourceProvider,
 ) *ModelImporter {
 	return &ModelImporter{
-		legacyStateImporter:     stateImporter,
-		scope:                   scope,
-		controllerConfigService: controllerConfigService,
-		serviceFactoryGetter:    serviceFactoryGetter,
+		legacyStateImporter:        stateImporter,
+		scope:                      scope,
+		controllerConfigService:    controllerConfigService,
+		serviceFactoryGetter:       serviceFactoryGetter,
+		configSchemaSourceProvider: configSchemaSourceProvider,
 	}
 }
 
@@ -143,7 +152,11 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
 
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
+	// TODO (stickupkid): We don't need to get a whole service factory here, we
+	// only need the cloud type to get the config schema source.
+	serviceFactory := i.serviceFactoryGetter.FactoryForModel(model.Tag().Id())
+	configSchemaSource := i.configSchemaSourceProvider(serviceFactory.Cloud())
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, configSchemaSource)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

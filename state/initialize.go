@@ -107,7 +107,7 @@ type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
 // It also creates the initial model for the controller.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(args InitializeParams) (_ *Controller, err error) {
+func Initialize(args InitializeParams, providerConfigSchemaGetter config.ConfigSchemaSourceGetter) (_ *Controller, err error) {
 	if err := args.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating initialization args")
 	}
@@ -161,6 +161,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 
 	modelOps, modelStatusDoc, err := st.modelSetupOps(
 		args.ControllerConfig.ControllerUUID(),
+		providerConfigSchemaGetter,
 		args.ControllerModelArgs,
 		&lineage{
 			ControllerConfig: args.ControllerInheritedConfig,
@@ -265,7 +266,7 @@ type lineage struct {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, statusDoc, error) {
+func (st *State) modelSetupOps(controllerUUID string, providerConfigSchemaGetter config.ConfigSchemaSourceGetter, args ModelArgs, inherited *lineage) ([]txn.Op, statusDoc, error) {
 	var modelStatusDoc statusDoc
 	if inherited != nil {
 		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
@@ -331,7 +332,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 		}
 	} else {
 		rspec := &environscloudspec.CloudRegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
-		configSources = modelConfigSources(st, rspec)
+		configSources = modelConfigSources(providerConfigSchemaGetter, st, rspec)
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {

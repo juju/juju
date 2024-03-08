@@ -95,7 +95,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 		WatcherPollInterval:       10 * time.Millisecond,
 		NewPolicy:                 args.NewPolicy,
 		AdminPassword:             args.AdminPassword,
-	})
+	}, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctlr
 }

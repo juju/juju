@@ -790,7 +790,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"type": cfgType,
 	}.Merge(params.ConfigAttrs))
 	controller := state.NewController(factory.pool)
-	_, st, err := controller.NewModel(state.ModelArgs{
+	_, st, err := controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    params.Type,
 		CloudName:               params.CloudName,
 		CloudRegion:             params.CloudRegion,

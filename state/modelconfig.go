@@ -71,12 +71,12 @@ func checkModelConfig(cfg *config.Config) error {
 
 // inheritedConfigAttributes returns the merged collection of inherited config
 // values used as model defaults when adding models or unsetting values.
-func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
+func (st *State) inheritedConfigAttributes(configSchemaGetter config.ConfigSchemaSourceGetter) (map[string]interface{}, error) {
 	rspec, err := st.regionSpec()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configSources := modelConfigSources(st, rspec)
+	configSources := modelConfigSources(configSchemaGetter, st, rspec)
 	values := make(attrValues)
 	for _, src := range configSources {
 		cfg, err := src.sourceFunc()
@@ -95,7 +95,7 @@ func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
 
 // modelConfigValues returns the values and source for the supplied model config
 // when combined with controller and Juju defaults.
-func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
+func (model *Model) modelConfigValues(configSchemaGetter config.ConfigSchemaSourceGetter, modelCfg attrValues) (config.ConfigValues, error) {
 	resultValues := make(attrValues)
 	for k, v := range modelCfg {
 		resultValues[k] = v
@@ -107,7 +107,7 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configSources := modelConfigSources(model.st, rspec)
+	configSources := modelConfigSources(configSchemaGetter, model.st, rspec)
 	sourceNames := make([]string, 0, len(configSources))
 	sourceAttrs := make([]attrValues, 0, len(configSources))
 	for _, src := range configSources {
@@ -235,20 +235,20 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 
 // ModelConfigValues returns the config values for the model represented
 // by this state.
-func (model *Model) ModelConfigValues() (config.ConfigValues, error) {
+func (model *Model) ModelConfigValues(configSchemaGetter config.ConfigSchemaSourceGetter) (config.ConfigValues, error) {
 	cfg, err := model.ModelConfig(context.Background())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return model.modelConfigValues(cfg.AllAttrs())
+	return model.modelConfigValues(configSchemaGetter, cfg.AllAttrs())
 }
 
 // ModelConfigDefaultValues returns the default config values to be used
 // when creating a new model, and the origin of those values.
-func (st *State) ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error) {
+func (st *State) ModelConfigDefaultValues(configSchemaGetter config.ConfigSchemaSourceGetter, cloudName string) (config.ModelDefaultAttributes, error) {
 	result := make(config.ModelDefaultAttributes)
 	// Juju defaults
-	defaultAttrs, err := st.defaultInheritedConfig(cloudName)()
+	defaultAttrs, err := st.defaultInheritedConfig(configSchemaGetter, cloudName)()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -310,7 +310,7 @@ type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []s
 // UpdateModelConfig adds, updates or removes attributes in the current
 // configuration of the model with the provided updateAttrs and
 // removeAttrs.
-func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
+func (m *Model) UpdateModelConfig(configSchemaGetter config.ConfigSchemaSourceGetter, updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
@@ -323,7 +323,7 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 		}
 		// For each removed attribute, pick up any inherited value
 		// and if there's one, use that.
-		inherited, err := st.inheritedConfigAttributes()
+		inherited, err := st.inheritedConfigAttributes(configSchemaGetter)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -395,22 +395,22 @@ type modelConfigSource struct {
 // sources, in hierarchical order. Starting from the first source,
 // config is retrieved and each subsequent source adds to the
 // overall config values, later values override earlier ones.
-func modelConfigSources(st *State, regionSpec *environscloudspec.CloudRegionSpec) []modelConfigSource {
+func modelConfigSources(configSchemaGetter config.ConfigSchemaSourceGetter, st *State, regionSpec *environscloudspec.CloudRegionSpec) []modelConfigSource {
 	return []modelConfigSource{
-		{config.JujuDefaultSource, st.defaultInheritedConfig(regionSpec.Cloud)},
+		{config.JujuDefaultSource, st.defaultInheritedConfig(configSchemaGetter, regionSpec.Cloud)},
 		{config.JujuControllerSource, st.controllerInheritedConfig(regionSpec.Cloud)},
 	}
 }
 
 // defaultInheritedConfig returns config values which are defined
 // as defaults in either Juju or the cloud's environ provider.
-func (st *State) defaultInheritedConfig(cloudName string) func() (attrValues, error) {
+func (st *State) defaultInheritedConfig(configSchemaGetter config.ConfigSchemaSourceGetter, cloudName string) func() (attrValues, error) {
 	return func() (attrValues, error) {
 		var defaults = make(map[string]interface{})
 		for k, v := range config.ConfigDefaults() {
 			defaults[k] = v
 		}
-		providerDefaults, err := st.environsProviderConfigSchemaSource(cloudName)
+		providerDefaults, err := configSchemaGetter(context.TODO(), cloudName)
 		if errors.Is(err, errors.NotImplemented) {
 			return defaults, nil
 		} else if err != nil {
@@ -485,7 +485,7 @@ func composeModelConfigAttributes(
 
 // ComposeNewModelConfig returns a complete map of config attributes suitable for
 // creating a new model, by combining user specified values with system defaults.
-func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environscloudspec.CloudRegionSpec) (map[string]interface{}, error) {
-	configSources := modelConfigSources(st, regionSpec)
+func (st *State) ComposeNewModelConfig(configSchemaGetter config.ConfigSchemaSourceGetter, modelAttr map[string]interface{}, regionSpec *environscloudspec.CloudRegionSpec) (map[string]interface{}, error) {
+	configSources := modelConfigSources(configSchemaGetter, st, regionSpec)
 	return composeModelConfigAttributes(modelAttr, configSources...)
 }

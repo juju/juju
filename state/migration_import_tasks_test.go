@@ -526,8 +526,8 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRules(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.firewallRule(ctrl, "ssh", "ssh", []string{"192.168.0.1/24", "192.168.3.0/24"})
-	entity1 := s.firewallRule(ctrl, "juju-application-offer", "juju-application-offer", []string{"10.0.0.1/16"})
+	entity0 := s.firewallRule(ctrl, "ssh", []string{"192.168.0.1/24", "192.168.3.0/24"})
+	entity1 := s.firewallRule(ctrl, "juju-application-offer", []string{"10.0.0.1/16"})
 
 	entities := []description.FirewallRule{
 		entity0,
@@ -536,12 +536,13 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRules(c *gc.C) {
 
 	modelIn := NewMockFirewallRulesInput(ctrl)
 	modelIn.EXPECT().FirewallRules().Return(entities)
+	modelIn.EXPECT().ConfigSchemaSourceGetter().Return(NoopConfigSchemaSource)
 
 	modelOut := NewMockFirewallRulesOutput(ctrl)
-	modelOut.EXPECT().UpdateModelConfig(map[string]interface{}{
+	modelOut.EXPECT().UpdateModelConfig(gomock.Any(), map[string]interface{}{
 		config.SSHAllowKey: "192.168.0.1/24,192.168.3.0/24",
 	}, nil)
-	modelOut.EXPECT().UpdateModelConfig(map[string]interface{}{
+	modelOut.EXPECT().UpdateModelConfig(gomock.Any(), map[string]interface{}{
 		config.SAASIngressAllowKey: "10.0.0.1/16",
 	}, nil)
 
@@ -554,7 +555,7 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRulesEmptyJujuApplicationO
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.firewallRule(ctrl, "juju-application-offer", "juju-application-offer", []string{})
+	entity0 := s.firewallRule(ctrl, "juju-application-offer", []string{})
 
 	entities := []description.FirewallRule{
 		entity0,
@@ -562,6 +563,7 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRulesEmptyJujuApplicationO
 
 	model := NewMockFirewallRulesInput(ctrl)
 	model.EXPECT().FirewallRules().Return(entities)
+	model.EXPECT().ConfigSchemaSourceGetter().Return(NoopConfigSchemaSource)
 
 	// No call to UpdateModeConfig since juju-application-offer is empty
 
@@ -590,7 +592,7 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithTransactionRunner
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.firewallRule(ctrl, "ssh", "ssh", []string{"192.168.0.1/24"})
+	entity0 := s.firewallRule(ctrl, "ssh", []string{"192.168.0.1/24"})
 
 	entities := []description.FirewallRule{
 		entity0,
@@ -598,9 +600,10 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithTransactionRunner
 
 	modelIn := NewMockFirewallRulesInput(ctrl)
 	modelIn.EXPECT().FirewallRules().Return(entities)
+	modelIn.EXPECT().ConfigSchemaSourceGetter().Return(NoopConfigSchemaSource)
 
 	modelOut := NewMockFirewallRulesOutput(ctrl)
-	modelOut.EXPECT().UpdateModelConfig(map[string]interface{}{
+	modelOut.EXPECT().UpdateModelConfig(gomock.Any(), map[string]interface{}{
 		config.SSHAllowKey: "192.168.0.1/24",
 	}, nil).Return(errors.New("fail"))
 
@@ -609,7 +612,7 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithTransactionRunner
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
-func (s *MigrationImportTasksSuite) firewallRule(ctrl *gomock.Controller, id, service string, whitelist []string) *MockFirewallRule {
+func (s *MigrationImportTasksSuite) firewallRule(ctrl *gomock.Controller, service string, whitelist []string) *MockFirewallRule {
 	entity := NewMockFirewallRule(ctrl)
 	entity.EXPECT().WellKnownService().Return(service)
 	entity.EXPECT().WhitelistCIDRs().Return(whitelist)

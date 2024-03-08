@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
@@ -24,18 +23,25 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Logger is the minimal logging interface required by the KeyManagerAPI.
+type Logger interface {
+	Debugf(string, ...any)
+	Warningf(string, ...any)
+}
+
 // jujuKeyCommentIdentifiers is the set of identifiers in use by Juju system
 // keys that may be stored within model config.
 var jujuKeyCommentIdentifiers = set.NewStrings("juju-client-key", config.JujuSystemKey)
 
 // KeyManagerAPI provides api endpoints for manipulating ssh keys
 type KeyManagerAPI struct {
-	model      Model
-	authorizer facade.Authorizer
-	check      BlockChecker
+	model                    Model
+	authorizer               facade.Authorizer
+	check                    BlockChecker
+	configSchemaSourceGetter config.ConfigSchemaSourceGetter
 
 	controllerTag names.ControllerTag
-	logger        loggo.Logger
+	logger        Logger
 }
 
 func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
@@ -119,7 +125,7 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 	// TODO(waigani) 2014-03-17 bug #1293324
 	// Pass in validation to ensure SSH keys
 	// have not changed underfoot
-	err := api.model.UpdateModelConfig(attrs, nil)
+	err := api.model.UpdateModelConfig(api.configSchemaSourceGetter, attrs, nil)
 	if err != nil {
 		return fmt.Errorf("writing environ config: %v", err)
 	}
