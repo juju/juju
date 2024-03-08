@@ -10,6 +10,7 @@ import (
 
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/permission"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for user permission on
@@ -18,7 +19,7 @@ type State interface {
 	// CreatePermission gives the user access per the provided spec.
 	// It requires the user/target combination has not already been
 	// created.
-	CreatePermission(ctx context.Context, spec permission.UserAccessSpec) (corepermission.UserAccess, error)
+	CreatePermission(ctx context.Context, uuid uuid.UUID, spec permission.UserAccessSpec) (corepermission.UserAccess, error)
 
 	// DeletePermission removes the given subject's (user) access to the
 	// given target.
@@ -71,7 +72,11 @@ func (s *Service) CreatePermission(ctx context.Context, spec permission.UserAcce
 	if err := spec.Validate(); err != nil {
 		return corepermission.UserAccess{}, errors.Trace(err)
 	}
-	userAccess, err := s.st.CreatePermission(ctx, spec)
+	newUUID, err := uuid.NewUUID()
+	if err != nil {
+		return corepermission.UserAccess{}, errors.Trace(err)
+	}
+	userAccess, err := s.st.CreatePermission(ctx, newUUID, spec)
 	return userAccess, errors.Trace(err)
 }
 

@@ -670,7 +670,7 @@ INSERT INTO permission_access_type VALUES
     (2, 'consume'),
     (3, 'admin'),
     (4, 'login'),
-    (5, 'addmodel'),
+    (5, 'add-model'),
     (6, 'superuser');
 
 CREATE TABLE permission_object_type (
@@ -705,7 +705,7 @@ ON permission_object_access (access_type_id, object_type_id);
 
 INSERT INTO permission_object_access VALUES
     (0, 3, 0), -- admin, cloud
-    (1, 5, 0), -- addmodel, cloud
+    (1, 5, 0), -- add-model, cloud
     (2, 4, 1), -- login, controller
     (3, 6, 1), -- superuser, controller
     (4, 0, 2), -- read, model
@@ -724,14 +724,16 @@ CREATE TABLE permission (
     grant_on  		   TEXT NOT NULL, -- name or uuid of the object
     grant_to           TEXT NOT NULL,
     CONSTRAINT         fk_permission_user_uuid
-        FOREIGN KEY    (grant_on)
+        FOREIGN KEY    (grant_to)
         REFERENCES     user(uuid),
     CONSTRAINT         fk_permission_access_type
         FOREIGN KEY    (permission_type_id)
         REFERENCES     permission_access_type(id)
 );
 
+-- Allow only 1 combination of grant_on and grant_to
+-- Otherwise we will get conflicting permissions.
 CREATE UNIQUE INDEX idx_permission_type_to
-ON permission (permission_type_id, grant_on, grant_to);
+ON permission (grant_on, grant_to);
 `)
 }

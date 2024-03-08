@@ -14,6 +14,7 @@ import (
 
 	corepermission "github.com/juju/juju/core/permission"
 	permission "github.com/juju/juju/domain/permission"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -32,7 +33,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *serviceSuite) TestCreatePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().CreatePermission(gomock.Any(), gomock.AssignableToTypeOf(permission.UserAccessSpec{})).Return(corepermission.UserAccess{}, nil)
+	s.state.EXPECT().CreatePermission(gomock.Any(), gomock.AssignableToTypeOf(uuid.UUID{}), gomock.AssignableToTypeOf(permission.UserAccessSpec{})).Return(corepermission.UserAccess{}, nil)
 
 	spec := permission.UserAccessSpec{
 		User: "testme",

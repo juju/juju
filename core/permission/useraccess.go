@@ -23,6 +23,8 @@ import (
 type UserAccess struct {
 	// UserID is the stored ID of the user.
 	UserID string
+	// PermissionID is the stored ID of the permission.
+	PermissionID string
 	// UserTag is the tag for the user.
 	UserTag names.UserTag
 	// Object is the tag for the object of this access grant.
