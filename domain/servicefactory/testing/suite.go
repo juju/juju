@@ -10,13 +10,23 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/domain/modelmanager/bootstrap"
+	coreuser "github.com/juju/juju/core/user"
+	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
+	cloudstate "github.com/juju/juju/domain/cloud/state"
+	"github.com/juju/juju/domain/credential"
+	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
+	modeldomain "github.com/juju/juju/domain/model"
+	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
+	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
+	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/servicefactory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // ServiceFactorySuite is a test suite that can be composed into tests that
@@ -25,6 +35,15 @@ import (
 // will be instantiated into the database upon test setup.
 type ServiceFactorySuite struct {
 	schematesting.ControllerModelSuite
+
+	// AdminUserUUID is the uuid of the admin user made during the setup of this
+	// test suite.
+	AdminUserUUID coreuser.UUID
+
+	// CloudName is the name of the cloud made during the setup of this suite.
+	CloudName string
+
+	CredentialID credential.ID
 
 	// ControllerModelUUID is the unique id for the controller model. If not set
 	// will be set during test set up.
@@ -55,13 +74,78 @@ func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory
 	return s.ServiceFactoryGetter(c)(string(s.ControllerModelUUID))
 }
 
+func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
+	password := auth.NewPassword("dummy-secret")
+	uuid, fn := userbootstrap.AddUserWithPassword(coreuser.AdminUserName, password)
+	s.AdminUserUUID = uuid
+	err := fn(context.Background(), s.ControllerTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
+	err := cloudstate.AllowCloudType(context.Background(), s.ControllerTxnRunner(), 99, "dummy")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.CloudName = "dummy"
+	err = cloudbootstrap.InsertCloud(cloud.Cloud{
+		Name:      s.CloudName,
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Regions: []cloud.Region{
+			{
+				Name: "dummy-region",
+			},
+		},
+	})(context.Background(), s.ControllerTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.CredentialID = credential.ID{
+		Cloud: s.CloudName,
+		Name:  "default",
+		Owner: coreuser.AdminUserName,
+	}
+	err = credentialbootstrap.InsertCredential(
+		s.CredentialID,
+		cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+			"username": "dummy",
+			"password": "secret",
+		}),
+	)(context.Background(), s.ControllerTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // SeedModelDatabases makes sure that model's for both the controller and default
 // model have been created in the database.
 func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
-	err := bootstrap.RegisterModel(s.ControllerModelUUID)(context.Background(), s.TxnRunner())
+	controllerArgs := modeldomain.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        s.CloudName,
+		Credential:   s.CredentialID,
+		Name:         coremodel.ControllerModelName,
+		Owner:        s.AdminUserUUID,
+		Type:         coremodel.IAAS,
+		UUID:         s.ControllerModelUUID,
+	}
+
+	uuid, fn := modelbootstrap.CreateModel(controllerArgs)
+	err := fn(context.Background(), s.ControllerTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.RegisterModel(s.DefaultModelUUID)(context.Background(), s.TxnRunner())
+	s.ControllerModelUUID = uuid
+
+	modelArgs := modeldomain.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        s.CloudName,
+		Credential:   s.CredentialID,
+		Name:         "test",
+		Owner:        s.AdminUserUUID,
+		Type:         coremodel.IAAS,
+		UUID:         s.DefaultModelUUID,
+	}
+
+	uuid, fn = modelbootstrap.CreateModel(modelArgs)
+	err = fn(context.Background(), s.ControllerTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
+	s.DefaultModelUUID = uuid
 }
 
 // ServiceFactoryGetter provides an implementation of the ServiceFactoryGetter
@@ -87,6 +171,8 @@ func (s *ServiceFactorySuite) SetUpTest(c *gc.C) {
 	if s.DefaultModelUUID == "" {
 		s.DefaultModelUUID = modeltesting.GenModelUUID(c)
 	}
+	s.SeedAdminUser(c)
+	s.SeedCloudAndCredential(c)
 	s.SeedModelDatabases(c)
 }
 

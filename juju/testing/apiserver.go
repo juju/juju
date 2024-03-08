@@ -48,16 +48,12 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
-	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/credential"
-	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
-	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
 	"github.com/juju/juju/internal/mongo"
@@ -100,11 +96,6 @@ var (
 
 	// DefaultCredentialId is the default credential id for all models.
 	DefaultCredentialId = credential.IdFromTag(DefaultCredentialTag)
-
-	defaultCredential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-		"username": "dummy",
-		"password": "secret",
-	})
 )
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
@@ -317,7 +308,8 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
-	s.AdminUserUUID = SeedDatabase(c, s.TxnRunner(), controllerCfg)
+	s.AdminUserUUID = s.ServiceFactorySuite.AdminUserUUID
+	SeedDatabase(c, s.TxnRunner(), controllerCfg)
 }
 
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
@@ -420,15 +412,6 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 	}
 	s.ServiceFactorySuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-}
-
-// SeedControllerCloud is responsible for applying the controller cloud to
-// the given database.
-func (s *ApiServerSuite) SeedControllerCloud(c *gc.C, runner database.TxnRunner) {
-	err := InsertDummyCloudType(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	err = cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 // InsertDummyCloudType is a db bootstrap option which inserts the dummy cloud type.
@@ -623,38 +606,8 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
-func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) coreuser.UUID {
-	adminUserUUID := SeedAdminUser(c, runner)
-
+func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) {
 	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
-	c.Assert(err, jc.ErrorIsNil)
-
-	SeedCloudCredentials(c, runner)
-
-	return adminUserUUID
-}
-
-func SeedAdminUser(c *gc.C, runner database.TxnRunner) coreuser.UUID {
-	adminUserUUID, userAdd := userbootstrap.AddUserWithPassword(coreuser.AdminUserName, auth.NewPassword(AdminSecret))
-	err := userAdd(context.Background(), runner)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return adminUserUUID
-}
-
-func SeedCloudCredentials(c *gc.C, runner database.TxnRunner) {
-	err := InsertDummyCloudType(context.Background(), runner)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
-	c.Assert(err, jc.ErrorIsNil)
-
-	id := credential.ID{
-		Cloud: DefaultCloud.Name,
-		Owner: AdminUser.Name(),
-		Name:  DefaultCredentialId.Name,
-	}
-	err = credentialbootstrap.InsertCredential(id, defaultCredential)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
