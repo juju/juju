@@ -33,10 +33,21 @@ import (
 // - errors.NotValid: When the model uuid is not valid.
 // - [modelerrors.AgentVersionNotSupported]
 func CreateModel(
-	uuid coremodel.UUID,
 	args model.ModelCreationArgs,
-) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
+) (coremodel.UUID, func(context.Context, database.TxnRunner) error) {
+	var uuidError error
+	uuid := args.UUID
+	if uuid == "" {
+		uuid, uuidError = coremodel.NewUUID()
+	}
+
+	if uuidError != nil {
+		return coremodel.UUID(""), func(_ context.Context, _ database.TxnRunner) error {
+			return fmt.Errorf("generating bootstrap model %q uuid: %w", args.Name, uuidError)
+		}
+	}
+
+	return uuid, func(ctx context.Context, db database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
 			return fmt.Errorf("model creation args: %w", err)
 		}
