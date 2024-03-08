@@ -130,8 +130,14 @@ func checkIAASModelCredential(
 	// to get the instances is proof enough that the credential is valid
 	// (authenticated, authorization is a different concern), no need to check
 	// the mapping between instances and machines.
-	if !modelMigrationCheck || err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+	if err != nil {
+		return params.ErrorResults{Results: []params.ErrorResult{{
+			Error: apiservererrors.ServerError(errors.Annotate(err, "receiving instances from provider"))}},
+		}, errors.Trace(err)
+	}
+
+	if !modelMigrationCheck {
+		return params.ErrorResults{}, nil
 	}
 
 	// We only check persisted machines vs known cloud instances. In the future,
