@@ -343,7 +343,7 @@ type deployFromRepositoryValidator struct {
 func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
-	if err := checkMachinePlacement(v.state, arg.ApplicationName, arg.Placement); err != nil {
+	if err := checkMachinePlacement(v.state, v.model.UUID(), arg.ApplicationName, arg.Placement); err != nil {
 		errs = append(errs, err)
 	}
 
