@@ -12,6 +12,8 @@ import (
 	lease "github.com/juju/juju/domain/lease/modelmigration"
 	machine "github.com/juju/juju/domain/machine/modelmigration"
 	model "github.com/juju/juju/domain/model/modelmigration"
+	storage "github.com/juju/juju/domain/storage/modelmigration"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -29,7 +31,7 @@ type Logger interface {
 // ImportOperations registers the import operations with the given coordinator.
 // This is a convenience function that can be used by the main migration package
 // to register all the import operations.
-func ImportOperations(coordinator Coordinator, logger Logger) {
+func ImportOperations(coordinator Coordinator, logger Logger, registry internalstorage.ProviderRegistry) {
 	// Note: All the import operations are registered here.
 	// Order is important!
 	lease.RegisterImport(coordinator, logger)
@@ -39,4 +41,5 @@ func ImportOperations(coordinator Coordinator, logger Logger) {
 	machine.RegisterImport(coordinator)
 	application.RegisterImport(coordinator)
 	blockdevice.RegisterImport(coordinator)
+	storage.RegisterImport(coordinator, registry)
 }

@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/network/containerizer"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -45,6 +44,11 @@ import (
 type ControllerConfigService interface {
 	// ControllerConfig returns this controllers config.
 	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
+
+// StoragePoolGetter instances get a storage pool by name.
+type StoragePoolGetter interface {
+	GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error)
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -69,7 +73,7 @@ type ProvisionerAPI struct {
 	resources                   facade.Resources
 	authorizer                  facade.Authorizer
 	storageProviderRegistry     storage.ProviderRegistry
-	storagePoolManager          poolmanager.PoolManager
+	storagePoolGetter           StoragePoolGetter
 	configGetter                environs.EnvironConfigGetter
 	getAuthFunc                 common.GetAuthFunc
 	getCanModify                common.GetAuthFunc
@@ -194,7 +198,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		authorizer:                  authorizer,
 		configGetter:                configGetter,
 		storageProviderRegistry:     storageProviderRegistry,
-		storagePoolManager:          poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
+		storagePoolGetter:           serviceFactory.Storage(storageProviderRegistry),
 		getAuthFunc:                 getAuthFunc,
 		getCanModify:                getCanModify,
 		credentialInvalidatorGetter: credentialcommon.CredentialInvalidatorGetter(ctx),

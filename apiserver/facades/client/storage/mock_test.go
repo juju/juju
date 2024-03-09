@@ -14,38 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/status"
-	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
-
-type mockPoolManager struct {
-	getPool     func(name string) (*jujustorage.Config, error)
-	createPool  func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) (*jujustorage.Config, error)
-	removePool  func(name string) error
-	listPools   func() ([]*jujustorage.Config, error)
-	replacePool func(name, provider string, attrs map[string]interface{}) error
-}
-
-func (m *mockPoolManager) Get(name string) (*jujustorage.Config, error) {
-	return m.getPool(name)
-}
-
-func (m *mockPoolManager) Create(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) (*jujustorage.Config, error) {
-	return m.createPool(name, providerType, attrs)
-}
-
-func (m *mockPoolManager) Delete(name string) error {
-	return m.removePool(name)
-}
-
-func (m *mockPoolManager) List() ([]*jujustorage.Config, error) {
-	return m.listPools()
-}
-
-func (m *mockPoolManager) Replace(name, provider string, attrs map[string]interface{}) error {
-	return m.replacePool(name, provider, attrs)
-}
 
 type mockBlockDeviceGetter struct {
 	blockDevices func(string) ([]blockdevice.BlockDevice, error)
@@ -60,7 +31,6 @@ func (b *mockBlockDeviceGetter) BlockDevices(_ context.Context, machineId string
 
 type mockStorageAccessor struct {
 	storageInstance                     func(names.StorageTag) (state.StorageInstance, error)
-	removeStoragePool                   func(string) error
 	allStorageInstances                 func() ([]state.StorageInstance, error)
 	storageInstanceAttachments          func(names.StorageTag) ([]state.StorageAttachment, error)
 	storageInstanceVolume               func(names.StorageTag) (state.Volume, error)
@@ -95,10 +65,6 @@ func (st *mockStorageAccessor) FilesystemAccess() storage.StorageFile {
 
 func (st *mockStorageAccessor) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
 	return st.storageInstance(s)
-}
-
-func (st *mockStorageAccessor) RemoveStoragePool(pool string) error {
-	return st.removeStoragePool(pool)
 }
 
 func (st *mockStorageAccessor) AllStorageInstances() ([]state.StorageInstance, error) {

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
@@ -20,10 +21,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/credential"
+	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
@@ -65,8 +68,13 @@ type CloudService interface {
 	Get(context.Context, string) (*cloud.Cloud, error)
 }
 
-// ApplicationSaver instances save an application to dqlite state.
-type ApplicationSaver interface {
+// StorageService instances save a storage pool to dqlite state.
+type StorageService interface {
+	CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
+}
+
+// ApplicationService instances save an application to dqlite state.
+type ApplicationService interface {
 	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
 }
 
@@ -313,12 +321,27 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			m, err := systemState.Model()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			registry, err := stateenvirons.NewStorageProviderRegistryForModel(
+				m, controllerServiceFactory.Cloud(), controllerServiceFactory.Credential(),
+				stateenvirons.GetNewEnvironFunc(environs.New),
+				stateenvirons.GetNewCAASBrokerFunc(caas.New),
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
 				ObjectStoreGetter:       objectStoreGetter,
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
 				CredentialService:       controllerServiceFactory.Credential(),
 				CloudService:            controllerServiceFactory.Cloud(),
+				StorageService:          modelServiceFactory.Storage(registry),
+				ProviderRegistry:        registry,
 				ApplicationService:      modelServiceFactory.Application(),
 				FlagService:             flagService,
 				SpaceService:            modelServiceFactory.Space(),

@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -73,7 +74,7 @@ type ApplicationSuite struct {
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
-	storagePoolManager *mocks.MockPoolManager
+	storagePoolGetter  *application.MockStoragePoolGetter
 	registry           *mocks.MockProviderRegistry
 	caasBroker         *mocks.MockCaasBrokerInterface
 	store              *mocks.MockObjectStore
@@ -190,7 +191,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		"postgresql": "postgresql/0",
 	}, nil).AnyTimes()
 
-	s.storagePoolManager = mocks.NewMockPoolManager(ctrl)
+	s.storagePoolGetter = application.NewMockStoragePoolGetter(ctrl)
 
 	s.registry = mocks.NewMockProviderRegistry(ctrl)
 	s.caasBroker = mocks.NewMockCaasBrokerInterface(ctrl)
@@ -223,7 +224,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
-		s.storagePoolManager,
+		s.storagePoolGetter,
 		s.registry,
 		common.NewResources(),
 		s.caasBroker,
@@ -1669,7 +1670,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 
 	s.expectDefaultK8sModelConfig()
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
-	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
+	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),
@@ -1874,7 +1875,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
-	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(nil, errors.NotFoundf("pool"))
+	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(nil, fmt.Errorf("storage pool not found%w", errors.Hide(storageerrors.PoolNotFoundError)))
 	s.registry.EXPECT().StorageProvider(storage.ProviderType("k8s-operator-storage")).Return(nil, errors.NotFoundf(`provider type "k8s-operator-storage"`))
 
 	args := params.ApplicationsDeploy{
@@ -1899,7 +1900,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
-	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
+	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		provider.RootfsProviderType,
 		map[string]interface{}{"foo": "bar"}),
@@ -1928,7 +1929,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
-	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
+	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),
@@ -1960,12 +1961,12 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
-	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
+	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),
 	)
-	s.storagePoolManager.EXPECT().Get("k8s-storage").Return(storage.NewConfig(
+	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-storage").Return(storage.NewConfig(
 		"k8s-storage",
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),

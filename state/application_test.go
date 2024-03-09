@@ -37,9 +37,9 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -5703,12 +5703,15 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	})
 	s.AddCleanup(func(_ *gc.C) { _ = st.Close() })
 
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	_, err := pm.Create("kubernetes", "kubernetes", map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
 	s.policy = testing.MockPolicy{
 		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
 			return registry, nil
+		},
+		Providers: map[string]domainstorage.StoragePoolDetails{
+			"kubernetes": {
+				Name:     "kubernetes",
+				Provider: "kubernetes",
+			},
 		},
 	}
 

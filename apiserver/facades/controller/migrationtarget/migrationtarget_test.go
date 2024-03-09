@@ -42,6 +42,8 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/migration"
 	_ "github.com/juju/juju/internal/provider/manual"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -733,7 +735,10 @@ func (s *Suite) expectImportModel(c *gc.C) {
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
 		scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
 		controller := state.NewController(s.StatePool)
-		return migration.NewModelImporter(controller, scope, s.controllerConfigService, s.serviceFactoryGetter, cloudSchemaSource).ImportModel(ctx, bytes)
+		return migration.NewModelImporter(
+			controller, scope, s.controllerConfigService, s.serviceFactoryGetter, cloudSchemaSource,
+			func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		).ImportModel(ctx, bytes)
 	})
 }
 

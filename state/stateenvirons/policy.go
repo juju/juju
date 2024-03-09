@@ -22,13 +22,14 @@ import (
 // environStatePolicy implements state.Policy in
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
-	st                *state.State
-	cloudService      CloudService
-	credentialService CredentialService
-	getEnviron        NewEnvironFunc
-	getBroker         NewCAASBrokerFunc
-	checkerMu         sync.Mutex
-	checker           deployChecker
+	st                   *state.State
+	cloudService         CloudService
+	credentialService    CredentialService
+	getEnviron           NewEnvironFunc
+	getBroker            NewCAASBrokerFunc
+	checkerMu            sync.Mutex
+	checker              deployChecker
+	storageServiceGetter storageServiceGetter
 }
 
 // deployChecker is the subset of the Environ interface (common to Environ and
@@ -36,6 +37,24 @@ type environStatePolicy struct {
 type deployChecker interface {
 	environs.InstancePrechecker
 	environs.ConstraintsChecker
+}
+
+type storageServiceGetter func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter
+
+// GetNewPolicyFunc returns a state.NewPolicyFunc that will return
+// a state.Policy implemented in terms of either environs.Environ
+// or caas.Broker and related types.
+func GetNewPolicyFunc(cloudService CloudService, credentialService CredentialService, storageServiceGetter storageServiceGetter) state.NewPolicyFunc {
+	return func(st *state.State) state.Policy {
+		return &environStatePolicy{
+			st:                   st,
+			cloudService:         cloudService,
+			credentialService:    credentialService,
+			getEnviron:           GetNewEnvironFunc(environs.New),
+			getBroker:            GetNewCAASBrokerFunc(caas.New),
+			storageServiceGetter: storageServiceGetter,
+		}
+	}
 }
 
 // NewInstancePrechecker returns a new instance prechecker that uses the
@@ -50,21 +69,6 @@ func NewInstancePrechecker(st *state.State, cloudService CloudService, credentia
 		getBroker:         GetNewCAASBrokerFunc(caas.New),
 	}
 	return policy.Prechecker()
-}
-
-// GetNewPolicyFunc returns a state.NewPolicyFunc that will return
-// a state.Policy implemented in terms of either environs.Environ
-// or caas.Broker and related types.
-func GetNewPolicyFunc(cloudService CloudService, credentialService CredentialService) state.NewPolicyFunc {
-	return func(st *state.State) state.Policy {
-		return &environStatePolicy{
-			st:                st,
-			cloudService:      cloudService,
-			credentialService: credentialService,
-			getEnviron:        GetNewEnvironFunc(environs.New),
-			getBroker:         GetNewCAASBrokerFunc(caas.New),
-		}
-	}
 }
 
 // getDeployChecker returns the cached deployChecker instance, or creates a
@@ -119,19 +123,27 @@ func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallCon
 	return checker.ConstraintsValidator(ctx)
 }
 
-// StorageProviderRegistry implements state.Policy.
-func (p *environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+// StorageServices implements state.Policy.
+func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage.ProviderRegistry, error) {
 	if p.credentialService == nil {
-		return nil, errors.NotSupportedf("StorageProviderRegistry check without credential service")
+		return nil, nil, errors.NotSupportedf("StorageServices check without credential service")
+	}
+	if p.storageServiceGetter == nil {
+		return nil, nil, errors.NotSupportedf("StorageServices check without storage pool getter")
 	}
 
 	model, err := p.st.Model()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	// ProviderRegistry doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
-	return NewStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, p.getEnviron, p.getBroker)
+	registry, err := NewStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, p.getEnviron, p.getBroker)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	storageService := p.storageServiceGetter(model.UUID(), registry)
+	return storageService, registry, nil
 }
 
 // NewStorageProviderRegistryForModel returns a storage provider registry

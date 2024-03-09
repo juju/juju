@@ -376,6 +376,23 @@ func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGet
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
+	// TODO(storage) - we need to add the default storage pools using the new dqlite model service
+	//storageService, registry, err := newSt.storageServices()
+	//if err != nil {
+	//	return nil, nil, errors.Trace(err)
+	//}
+	//pools, err := domainstorage.DefaultStoragePools(registry)
+	//if err != nil {
+	//	return nil, nil, errors.Trace(err)
+	//}
+	//for _, pool := range pools {
+	//	attr := transform.Map(pool.Attrs, func(k, v string) (string, any) { return k, v })
+	//	err = storageService.CreateStoragePool(context.Background(), pool.Name, storage.ProviderType(pool.Provider), attr)
+	//	if err != nil {
+	//		logger.Criticalf("saving storage pool %q: %v", pool.Name, err)
+	//		//			return nil, nil, errors.Annotatef(err, "saving storage pool %q", pool.Name)
+	//	}
+	//}
 	return newModel, newSt, nil
 }
 

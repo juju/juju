@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -125,8 +126,8 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 
 	// The root disk source constraint might refer to a storage pool.
 	if result.Constraints.HasRootDiskSource() {
-		sp, err := api.storagePoolManager.Get(*result.Constraints.RootDiskSource)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		sp, err := api.storagePoolGetter.GetStoragePoolByName(ctx, *result.Constraints.RootDiskSource)
+		if err != nil && !errors.Is(err, storageerrors.PoolNotFoundError) {
 			return result, errors.Annotate(err, "cannot load storage pool")
 		}
 		if err == nil {
@@ -206,9 +207,9 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
-		volumeParams, err := storagecommon.VolumeParams(
+		volumeParams, err := storagecommon.VolumeParams(ctx,
 			volume, storageInstance, modelConfig.UUID(), api.controllerUUID,
-			modelConfig, api.storagePoolManager, api.storageProviderRegistry,
+			modelConfig, api.storagePoolGetter, api.storageProviderRegistry,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())

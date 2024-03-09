@@ -27,6 +27,8 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 )
@@ -211,6 +213,31 @@ func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *gc.C) {
 	c.Check(filteredHostPorts, jc.SameContents, expected)
 }
 
+func (s *workerSuite) TestSeedStoragePools(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.storageService.EXPECT().CreateStoragePool(gomock.Any(), "loop-pool", provider.LoopProviderType, map[string]any{"foo": "bar"})
+
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			ObjectStoreGetter: s.objectStoreGetter,
+			ProviderRegistry:  provider.CommonStorageProviders(),
+			StorageService:    s.storageService,
+			SystemState:       s.state,
+			LoggerFactory:     s.loggerFactory,
+		},
+	}
+	err := w.seedStoragePools(context.Background(), map[string]storage.Attrs{
+		"loop-pool": {
+			"name": "loop-pool",
+			"type": "loop",
+			"foo":  "bar",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		LoggerFactory:           s.loggerFactory,
@@ -219,9 +246,11 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		BootstrapUnlocker:       s.bootstrapUnlocker,
 		CharmhubHTTPClient:      s.httpClient,
 		SystemState:             s.state,
-		ApplicationService:      s.applicationSaver,
+		ApplicationService:      s.applicationService,
 		ControllerConfigService: s.controllerConfigService,
 		CredentialService:       s.credentialService,
+		StorageService:          s.storageService,
+		ProviderRegistry:        provider.CommonStorageProviders(),
 		CloudService:            s.cloudService,
 		SpaceService:            s.spaceService,
 		FlagService:             s.flagService,

@@ -344,7 +344,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
 		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil, nil),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil, nil, nil),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_ = pool.Close()

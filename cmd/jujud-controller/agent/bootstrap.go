@@ -38,6 +38,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -49,6 +50,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/state"
@@ -192,6 +194,12 @@ func (c cloudGetter) Get(_ stdcontext.Context, name string) (*jujucloud.Cloud, e
 		return nil, errors.NotFoundf("cloud %q", name)
 	}
 	return c.cloud, nil
+}
+
+type noopStoragePoolGetter struct{}
+
+func (noopStoragePoolGetter) GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error) {
+	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 
 // Run initializes state for an environment.
@@ -388,6 +396,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			StateNewPolicy: stateenvirons.GetNewPolicyFunc(
 				cloudGetter{cloud: &args.ControllerCloud},
 				credentialGetter{cred: args.ControllerCloudCredential},
+				// We don't need the storage service at bootstrap.
+				func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter {
+					return noopStoragePoolGetter{}
+				},
 			),
 			BootstrapDqlite: c.DqliteInitializer,
 			Provider:        environs.Provider,

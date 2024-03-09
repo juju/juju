@@ -73,6 +73,7 @@ import (
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/looputil"
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
@@ -930,7 +931,9 @@ func mongoDialOptions(
 }
 
 func (a *MachineAgent) initState(
-	ctx stdcontext.Context, agentConfig agent.Config, serviceFactory servicefactory.ControllerServiceFactory,
+	ctx stdcontext.Context, agentConfig agent.Config,
+	serviceFactory servicefactory.ControllerServiceFactory,
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 ) (*state.StatePool, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(ctx, agentConfig); err != nil {
@@ -949,6 +952,7 @@ func (a *MachineAgent) initState(
 		agentConfig,
 		dialOpts,
 		serviceFactory,
+		serviceFactoryGetter,
 		a.mongoTxnCollector.AfterRunTransaction,
 	)
 	if err != nil {
@@ -1115,6 +1119,7 @@ func openStatePool(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
 	serviceFactory servicefactory.ControllerServiceFactory,
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 	runTransactionObserver state.RunTransactionObserverFunc,
 ) (_ *state.StatePool, err error) {
 	info, ok := agentConfig.MongoInfo()
@@ -1136,11 +1141,13 @@ func openStatePool(
 		cloudService = serviceFactory.Cloud()
 	}
 	pool, err := state.OpenStatePool(state.OpenParams{
-		Clock:                  clock.WallClock,
-		ControllerTag:          agentConfig.Controller(),
-		ControllerModelTag:     agentConfig.Model(),
-		MongoSession:           session,
-		NewPolicy:              stateenvirons.GetNewPolicyFunc(cloudService, credService),
+		Clock:              clock.WallClock,
+		ControllerTag:      agentConfig.Controller(),
+		ControllerModelTag: agentConfig.Model(),
+		MongoSession:       session,
+		NewPolicy: stateenvirons.GetNewPolicyFunc(cloudService, credService, func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter {
+			return serviceFactoryGetter.FactoryForModel(modelUUID).Storage(registry)
+		}),
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {

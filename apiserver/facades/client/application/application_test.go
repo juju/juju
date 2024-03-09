@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -90,7 +89,8 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	}
 
 	registry := stateenvirons.NewStorageProviderRegistry(env)
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	serviceFactoryGetter := s.ServiceFactoryGetter(c)
+	storageService := serviceFactoryGetter.FactoryForModel(st.ModelUUID()).Storage(registry)
 	api, err := application.NewAPIBase(
 		application.GetState(st, env),
 		nil,
@@ -107,7 +107,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		nil, // leadership not used in these tests.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		pm,
+		storageService,
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.

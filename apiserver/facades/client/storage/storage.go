@@ -7,7 +7,6 @@ import (
 	stdcontext "context"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -18,15 +17,26 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/permission"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
+	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-type storageMetadataFunc func() (poolmanager.PoolManager, storage.ProviderRegistry, error)
+// StorageService defines apis on the storage service.
+type StorageService interface {
+	CreateStoragePool(ctx stdcontext.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
+	DeleteStoragePool(ctx stdcontext.Context, name string) error
+	ReplaceStoragePool(ctx stdcontext.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
+	ListStoragePools(ctx stdcontext.Context, filter domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error)
+	GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error)
+}
+
+type storageMetadataFunc func() (StorageService, storage.ProviderRegistry, error)
 
 // StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
@@ -168,7 +178,7 @@ func (a *StorageAPI) ListPools(
 		Results: make([]params.StoragePoolsResult, len(filters.Filters)),
 	}
 	for i, filter := range filters.Filters {
-		pools, err := a.listPools(a.ensureStoragePoolFilter(filter))
+		pools, err := a.listPools(ctx, a.ensureStoragePoolFilter(filter))
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -185,114 +195,25 @@ func (a *StorageAPI) ensureStoragePoolFilter(filter params.StoragePoolFilter) pa
 	return filter
 }
 
-func (a *StorageAPI) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, error) {
-	pm, registry, err := a.storageMetadata()
+func (a *StorageAPI) listPools(ctx stdcontext.Context, filter params.StoragePoolFilter) ([]params.StoragePool, error) {
+	service, _, err := a.storageMetadata()
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := a.validatePoolListFilter(registry, filter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	pools, err := pm.List()
+	pools, err := service.ListStoragePools(ctx, filter.Names, filter.Providers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	providers, err := registry.StorageProviderTypes()
-	if err != nil {
-		return nil, errors.Trace(err)
+	results := make([]params.StoragePool, len(pools))
+	for i, p := range pools {
+		results[i] = params.StoragePool{
+			Name:     p.Name(),
+			Provider: string(p.Provider()),
+			Attrs:    p.Attrs(),
+		}
 	}
-	matches := buildFilter(filter)
-	results := append(
-		filterPools(pools, matches),
-		filterProviders(providers, matches)...,
-	)
 	return results, nil
-}
-
-func buildFilter(filter params.StoragePoolFilter) func(n, p string) bool {
-	providerSet := set.NewStrings(filter.Providers...)
-	nameSet := set.NewStrings(filter.Names...)
-
-	matches := func(n, p string) bool {
-		// no filters supplied = pool matches criteria
-		if providerSet.IsEmpty() && nameSet.IsEmpty() {
-			return true
-		}
-		// if at least 1 name and type are supplied, use AND to match
-		if !providerSet.IsEmpty() && !nameSet.IsEmpty() {
-			return nameSet.Contains(n) && providerSet.Contains(p)
-		}
-		// Otherwise, if only names or types are supplied, use OR to match
-		return nameSet.Contains(n) || providerSet.Contains(p)
-	}
-	return matches
-}
-
-func filterProviders(
-	providers []storage.ProviderType,
-	matches func(n, p string) bool,
-) []params.StoragePool {
-	if len(providers) == 0 {
-		return nil
-	}
-	all := make([]params.StoragePool, 0, len(providers))
-	for _, p := range providers {
-		ps := string(p)
-		if matches(ps, ps) {
-			all = append(all, params.StoragePool{Name: ps, Provider: ps})
-		}
-	}
-	return all
-}
-
-func filterPools(
-	pools []*storage.Config,
-	matches func(n, p string) bool,
-) []params.StoragePool {
-	if len(pools) == 0 {
-		return nil
-	}
-	all := make([]params.StoragePool, 0, len(pools))
-	for _, p := range pools {
-		if matches(p.Name(), string(p.Provider())) {
-			all = append(all, params.StoragePool{
-				Name:     p.Name(),
-				Provider: string(p.Provider()),
-				Attrs:    p.Attrs(),
-			})
-		}
-	}
-	return all
-}
-
-func (a *StorageAPI) validatePoolListFilter(registry storage.ProviderRegistry, filter params.StoragePoolFilter) error {
-	if err := a.validateProviderCriteria(registry, filter.Providers); err != nil {
-		return errors.Trace(err)
-	}
-	if err := a.validateNameCriteria(filter.Names); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (a *StorageAPI) validateNameCriteria(names []string) error {
-	for _, n := range names {
-		if !storage.IsValidPoolName(n) {
-			return errors.NotValidf("pool name %q", n)
-		}
-	}
-	return nil
-}
-
-func (a *StorageAPI) validateProviderCriteria(registry storage.ProviderRegistry, providers []string) error {
-	for _, p := range providers {
-		_, err := registry.StorageProvider(storage.ProviderType(p))
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 // CreatePool creates a new pool with specified parameters.
@@ -300,12 +221,13 @@ func (a *StorageAPI) CreatePool(ctx stdcontext.Context, p params.StoragePoolArgs
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
-	pm, _, err := a.storageMetadata()
+	service, _, err := a.storageMetadata()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, pool := range p.Pools {
-		_, err := pm.Create(
+		err := service.CreateStoragePool(
+			ctx,
 			pool.Name,
 			storage.ProviderType(pool.Provider),
 			pool.Attrs)
@@ -741,13 +663,13 @@ func (a *StorageAPI) importStorage(ctx stdcontext.Context, arg params.ImportStor
 		return nil, errors.NotValidf("pool name %q", arg.Pool)
 	}
 
-	pm, registry, err := a.storageMetadata()
+	service, registry, err := a.storageMetadata()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cfg, err := pm.Get(arg.Pool)
-	if errors.Is(err, errors.NotFound) {
+	cfg, err := service.GetStoragePoolByName(ctx, arg.Pool)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		cfg, err = storage.NewConfig(
 			arg.Pool,
 			storage.ProviderType(arg.Pool),
@@ -848,8 +770,13 @@ func (a *StorageAPI) RemovePool(ctx stdcontext.Context, p params.StoragePoolDele
 	if err := a.checkCanWrite(); err != nil {
 		return results, errors.Trace(err)
 	}
+
+	service, _, err := a.storageMetadata()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
 	for i, pool := range p.Pools {
-		err := a.storageAccess.RemoveStoragePool(pool.Name)
+		err := service.DeleteStoragePool(ctx, pool.Name)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
@@ -865,13 +792,13 @@ func (a *StorageAPI) UpdatePool(ctx stdcontext.Context, p params.StoragePoolArgs
 	if err := a.checkCanWrite(); err != nil {
 		return results, errors.Trace(err)
 	}
-	pm, _, err := a.storageMetadata()
+	service, _, err := a.storageMetadata()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
 
 	for i, pool := range p.Pools {
-		err := pm.Replace(pool.Name, pool.Provider, pool.Attrs)
+		err := service.ReplaceStoragePool(ctx, pool.Name, storage.ProviderType(pool.Provider), pool.Attrs)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
@@ -34,9 +35,11 @@ import (
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 type objectKey struct {
@@ -870,11 +873,26 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 	}
 }
 
+var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderRegistry, error) {
+	return func() (storage.ProviderRegistry, error) {
+		dbModel, err := ctx.State().Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return stateenvirons.NewStorageProviderRegistryForModel(
+			dbModel, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(),
+			stateenvirons.GetNewEnvironFunc(environs.New),
+			stateenvirons.GetNewCAASBrokerFunc(caas.New),
+		)
+	}
+}
+
 // ModelExporter returns a model exporter for the current model.
 func (ctx *facadeContext) ModelExporter(backend facade.LegacyStateExporter) facade.ModelExporter {
 	return migration.NewModelExporter(
 		backend,
 		ctx.migrationScope(ctx.State().ModelUUID()),
+		storageRegistryGetter(ctx),
 	)
 }
 
@@ -887,6 +905,7 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		ctx.ServiceFactory().ControllerConfig(),
 		ctx.r.serviceFactoryGetter,
 		environs.ProviderConfigSchemaSource,
+		storageRegistryGetter(ctx),
 	)
 }
 

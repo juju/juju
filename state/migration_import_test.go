@@ -37,8 +37,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -2402,28 +2400,6 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 	instance2, err := newSb.StorageInstance(storageTag2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance2.Pool(), gc.Equals, "modelscoped")
-}
-
-func (s *MigrationImportSuite) TestStoragePools(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
-	_, err := pm.Create("test-pool", provider.LoopProviderType, map[string]interface{}{
-		"value": 42,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, newSt := s.importModel(c, s.State)
-
-	pm = poolmanager.New(state.NewStateSettings(newSt), provider.CommonStorageProviders())
-	pools, err := pm.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 1)
-
-	pool := pools[0]
-	c.Assert(pool.Name(), gc.Equals, "test-pool")
-	c.Assert(pool.Provider(), gc.Equals, provider.LoopProviderType)
-	c.Assert(pool.Attrs(), jc.DeepEquals, storage.Attrs{
-		"value": 42,
-	})
 }
 
 func (s *MigrationImportSuite) TestPayloads(c *gc.C) {

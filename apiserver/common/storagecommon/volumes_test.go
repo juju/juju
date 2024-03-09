@@ -4,6 +4,8 @@
 package storagecommon_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -37,6 +39,7 @@ func (s *volumesSuite) TestVolumeParamsAlreadyProvisioned(c *gc.C) {
 func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams, info *state.VolumeInfo) {
 	tag := names.NewVolumeTag("100")
 	p, err := storagecommon.VolumeParams(
+		context.Background(),
 		&fakeVolume{tag: tag, params: volumeParams, info: info},
 		nil, // StorageInstance
 		testing.ModelTag.Id(),
@@ -44,7 +47,7 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 		testing.CustomModelConfig(c, testing.Attrs{
 			"resource-tags": "a=b c=",
 		}),
-		&fakePoolManager{},
+		&fakeStoragePoolGetter{},
 		provider.CommonStorageProviders(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,6 +69,7 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 	storageTag := names.NewStorageTag("mystore/0")
 	unitTag := names.NewUnitTag("mysql/123")
 	p, err := storagecommon.VolumeParams(
+		context.Background(),
 		&fakeVolume{tag: volumeTag, params: &state.VolumeParams{
 			Pool: "loop", Size: 1024,
 		}},
@@ -73,7 +77,7 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 		testing.ModelTag.Id(),
 		testing.ControllerTag.Id(),
 		testing.CustomModelConfig(c, nil),
-		&fakePoolManager{},
+		&fakeStoragePoolGetter{},
 		provider.CommonStorageProviders(),
 	)
 	c.Assert(err, jc.ErrorIsNil)

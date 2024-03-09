@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -153,13 +152,12 @@ func (m *mockStorageRegistry) StorageProvider(p storage.ProviderType) (storage.P
 	return nil, errors.NotFoundf("provider %q", p)
 }
 
-type mockStoragePoolManager struct {
+type mockStoragePoolGetter struct {
 	testing.Stub
-	poolmanager.PoolManager
 }
 
-func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
-	m.MethodCall(m, "Get", name)
+func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (*storage.Config, error) {
+	m.MethodCall(m, "GetStoragePoolByName", name)
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}

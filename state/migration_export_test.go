@@ -33,14 +33,12 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/feature"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing/factory"
@@ -102,12 +100,9 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	pool := "modelscoped"
 	kind := "block"
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummystorage.StorageProviders(),
-		provider.CommonStorageProviders(),
-	})
-	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	s.policy.Providers = map[string]domainstorage.StoragePoolDetails{
+		pool: {Name: pool, Provider: "loop"},
+	}
 
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
@@ -2021,26 +2016,6 @@ func (s *MigrationExportSuite) TestStorage(c *gc.C) {
 	c.Check(storage.Name(), gc.Equals, "data")
 	c.Check(storage.Attachments(), jc.DeepEquals, []names.UnitTag{
 		u.UnitTag(),
-	})
-}
-
-func (s *MigrationExportSuite) TestStoragePools(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
-	_, err := pm.Create("test-pool", provider.LoopProviderType, map[string]interface{}{
-		"value": 42,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	pools := model.StoragePools()
-	c.Assert(pools, gc.HasLen, 1)
-	pool := pools[0]
-	c.Assert(pool.Name(), gc.Equals, "test-pool")
-	c.Assert(pool.Provider(), gc.Equals, "loop")
-	c.Assert(pool.Attributes(), jc.DeepEquals, map[string]interface{}{
-		"value": 42,
 	})
 }
 

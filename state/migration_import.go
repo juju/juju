@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -2219,9 +2218,6 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 }
 
 func (i *importer) storage() error {
-	if err := i.storagePools(); err != nil {
-		return errors.Annotate(err, "storage pools")
-	}
 	if err := i.storageInstances(); err != nil {
 		return errors.Annotate(err, "storage instances")
 	}
@@ -2613,22 +2609,6 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 			Info:   info,
 		},
 	}
-}
-
-func (i *importer) storagePools() error {
-	registry, err := i.st.storageProviderRegistry()
-	if err != nil {
-		return errors.Annotate(err, "getting provider registry")
-	}
-	pm := poolmanager.New(NewStateSettings(i.st), registry)
-
-	for _, pool := range i.model.StoragePools() {
-		_, err := pm.Create(pool.Name(), storage.ProviderType(pool.Provider()), pool.Attributes())
-		if err != nil {
-			return errors.Annotatef(err, "creating pool %q", pool.Name())
-		}
-	}
-	return nil
 }
 
 func (i *importer) secretBackend() error {

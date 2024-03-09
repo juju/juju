@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -63,15 +63,15 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
-	store              objectstore.ObjectStore
-	ctrlSt             CAASApplicationControllerState
-	state              CAASApplicationProvisionerState
-	newResourceOpener  NewResourceOpenerFunc
-	storage            StorageBackend
-	storagePoolManager poolmanager.PoolManager
-	registry           storage.ProviderRegistry
-	clock              clock.Clock
-	logger             loggo.Logger
+	store             objectstore.ObjectStore
+	ctrlSt            CAASApplicationControllerState
+	state             CAASApplicationProvisionerState
+	newResourceOpener NewResourceOpenerFunc
+	storage           StorageBackend
+	storagePoolGetter StoragePoolGetter
+	registry          storage.ProviderRegistry
+	clock             clock.Clock
+	logger            loggo.Logger
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
@@ -79,10 +79,6 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	authorizer := ctx.Auth()
 
 	st := ctx.State()
-	sb, err := state.NewStorageBackend(ctx.State())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	model, err := st.Model()
 	if err != nil {
@@ -93,7 +89,11 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		return nil, errors.Annotate(err, "getting caas client")
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	storageService := ctx.ServiceFactory().Storage(registry)
+	sb, err := state.NewStorageBackend(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	commonState := &charmscommon.StateShim{st}
 	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
@@ -120,7 +120,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		newResourceOpener,
 		authorizer,
 		sb,
-		pm,
+		storageService,
 		registry,
 		ctx.ObjectStore(),
 		clock.WallClock,
@@ -172,7 +172,7 @@ func NewCAASApplicationProvisionerAPI(
 	newResourceOpener NewResourceOpenerFunc,
 	authorizer facade.Authorizer,
 	sb StorageBackend,
-	storagePoolManager poolmanager.PoolManager,
+	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
@@ -183,17 +183,17 @@ func NewCAASApplicationProvisionerAPI(
 	}
 
 	return &API{
-		auth:               authorizer,
-		resources:          resources,
-		newResourceOpener:  newResourceOpener,
-		ctrlSt:             ctrlSt,
-		state:              st,
-		storage:            sb,
-		store:              store,
-		storagePoolManager: storagePoolManager,
-		registry:           registry,
-		clock:              clock,
-		logger:             logger,
+		auth:              authorizer,
+		resources:         resources,
+		newResourceOpener: newResourceOpener,
+		ctrlSt:            ctrlSt,
+		state:             st,
+		storage:           sb,
+		store:             store,
+		storagePoolGetter: storagePoolGetter,
+		registry:          registry,
+		clock:             clock,
+		logger:            logger,
 	}, nil
 }
 
@@ -312,7 +312,7 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		return nil, errors.Trace(err)
 	}
 
-	filesystemParams, err := a.applicationFilesystemParams(app, cfg, modelConfig)
+	filesystemParams, err := a.applicationFilesystemParams(ctx, app, cfg, modelConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -469,11 +469,12 @@ func statusInfoToDetailedStatus(in status.StatusInfo) params.DetailedStatus {
 // CharmStorageParams returns filesystem parameters needed
 // to provision storage used for a charm operator or workload.
 func CharmStorageParams(
+	ctx context.Context,
 	controllerUUID string,
 	storageClassName string,
 	modelCfg *config.Config,
 	poolName string,
-	poolManager poolmanager.PoolManager,
+	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 ) (*params.KubernetesFilesystemParams, error) {
 	// The defaults here are for operator storage.
@@ -506,7 +507,7 @@ func CharmStorageParams(
 		maybePoolName = storageClassName
 	}
 
-	providerType, attrs, err := poolStorageProvider(poolManager, registry, maybePoolName)
+	providerType, attrs, err := poolStorageProvider(ctx, storagePoolGetter, registry, maybePoolName)
 	if err != nil && (!errors.Is(err, errors.NotFound) || poolName != "") {
 		return nil, errors.Trace(err)
 	}
@@ -522,9 +523,14 @@ func CharmStorageParams(
 	return result, nil
 }
 
-func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
-	pool, err := poolManager.Get(poolName)
-	if errors.Is(err, errors.NotFound) {
+// StoragePoolGetter instances get a storage pool by name.
+type StoragePoolGetter interface {
+	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+}
+
+func poolStorageProvider(ctx context.Context, storagePoolGetter StoragePoolGetter, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
+	pool, err := storagePoolGetter.GetStoragePoolByName(ctx, poolName)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
 		providerType := storage.ProviderType(poolName)
@@ -546,6 +552,7 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 }
 
 func (a *API) applicationFilesystemParams(
+	ctx context.Context,
 	app Application,
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
@@ -570,10 +577,11 @@ func (a *API) applicationFilesystemParams(
 	for _, name := range sNames {
 		cons := storageConstraints[name]
 		fsParams, err := filesystemParams(
+			ctx,
 			app, cons, name,
 			controllerConfig.ControllerUUID(),
 			modelConfig,
-			a.storagePoolManager, a.registry,
+			a.storagePoolGetter, a.registry,
 		)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting filesystem %q parameters", name)
@@ -599,12 +607,13 @@ func (a *API) applicationFilesystemParams(
 }
 
 func filesystemParams(
+	ctx context.Context,
 	app Application,
 	cons state.StorageConstraints,
 	storageName string,
 	controllerUUID string,
 	modelConfig *config.Config,
-	poolManager poolmanager.PoolManager,
+	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 ) (*params.KubernetesFilesystemParams, error) {
 
@@ -618,7 +627,7 @@ func filesystemParams(
 	if cons.Pool == "" && storageClassName == "" {
 		return nil, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 	}
-	fsParams, err := CharmStorageParams(controllerUUID, storageClassName, modelConfig, cons.Pool, poolManager, registry)
+	fsParams, err := CharmStorageParams(ctx, controllerUUID, storageClassName, modelConfig, cons.Pool, storagePoolGetter, registry)
 	if err != nil {
 		return nil, errors.Maskf(err, "getting filesystem storage parameters")
 	}

@@ -16,8 +16,11 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -50,7 +53,9 @@ type WorkerConfig struct {
 	ControllerConfigService ControllerConfigService
 	CredentialService       CredentialService
 	CloudService            CloudService
-	ApplicationService      ApplicationSaver
+	StorageService          StorageService
+	ProviderRegistry        storage.ProviderRegistry
+	ApplicationService      ApplicationService
 	FlagService             FlagService
 	SpaceService            SpaceService
 	BootstrapUnlocker       gate.Unlocker
@@ -186,6 +191,12 @@ func (w *bootstrapWorker) loop() error {
 	if err != nil {
 		return errors.Annotatef(err, "getting bootstrap params")
 	}
+
+	// Create the user specified storage pools.
+	if err := w.seedStoragePools(ctx, args.StoragePools); err != nil {
+		return errors.Annotate(err, "seeding storage pools")
+	}
+
 	controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -228,6 +239,45 @@ func (w *bootstrapWorker) loop() error {
 	w.reportInternalState(stateCompleted)
 
 	w.cfg.BootstrapUnlocker.Unlock()
+	return nil
+}
+
+// initialStoragePools extract any storage pools included with the bootstrap params.
+func initialStoragePools(registry storage.ProviderRegistry, poolParams map[string]storage.Attrs) ([]*storage.Config, error) {
+	var result []*storage.Config
+	defaultStoragePools, err := domainstorage.DefaultStoragePools(registry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, p := range defaultStoragePools {
+		result = append(result, p)
+	}
+	for name, attrs := range poolParams {
+		pType, _ := attrs[domainstorage.StorageProviderType].(string)
+		if pType == "" {
+			return nil, errors.Errorf("missing provider type for storage pool %q", name)
+		}
+		delete(attrs, domainstorage.StoragePoolName)
+		delete(attrs, domainstorage.StorageProviderType)
+		pool, err := storage.NewConfig(name, storage.ProviderType(pType), attrs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, pool)
+	}
+	return result, nil
+}
+
+func (w *bootstrapWorker) seedStoragePools(ctx context.Context, poolParams map[string]storage.Attrs) error {
+	storagePools, err := initialStoragePools(w.cfg.ProviderRegistry, poolParams)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, p := range storagePools {
+		if err := w.cfg.StorageService.CreateStoragePool(ctx, p.Name(), p.Provider(), storageservice.PoolAttrs(p.Attrs())); err != nil {
+			return errors.Annotatef(err, "saving storage pool %q", p.Name())
+		}
+	}
 	return nil
 }
 
@@ -330,7 +380,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 	// Controller charm seeder will populate the charm for the controller.
 	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
-		ApplicationSaver:            w.cfg.ApplicationService,
+		ApplicationService:          w.cfg.ApplicationService,
 		ObjectStore:                 objectStore,
 		ControllerConfig:            controllerConfig,
 		DataDir:                     dataDir,

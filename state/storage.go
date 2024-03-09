@@ -21,9 +21,9 @@ import (
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	corebase "github.com/juju/juju/core/base"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -105,9 +105,14 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 		machine:         st.Machine,
 	}
 	sb.registryInit = func() {
-		sb.spRegistry, sb.spRegistryErr = st.storageProviderRegistry()
+		sb.storagePoolGetter, sb.spRegistry, sb.spRegistryErr = st.storageServices()
 	}
 	return sb, nil
+}
+
+// StoragePoolGetter instances get a storage pool by name.
+type StoragePoolGetter interface {
+	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
 }
 
 type storageBackend struct {
@@ -121,10 +126,11 @@ type storageBackend struct {
 	modelType ModelType
 	settings  *StateSettings
 
-	spRegistry    storage.ProviderRegistry
-	spRegistryErr error
-	registryOnce  sync.Once
-	registryInit  func()
+	storagePoolGetter StoragePoolGetter
+	spRegistry        storage.ProviderRegistry
+	spRegistryErr     error
+	registryOnce      sync.Once
+	registryInit      func()
 }
 
 type storageInstance struct {
@@ -270,9 +276,9 @@ func storageAttachmentId(unit string, storageInstanceId string) string {
 	return fmt.Sprintf("%s#%s", unitGlobalKey(unit), storageInstanceId)
 }
 
-func (sb *storageBackend) registry() (storage.ProviderRegistry, error) {
+func (sb *storageBackend) storageServices() (StoragePoolGetter, storage.ProviderRegistry, error) {
 	sb.registryOnce.Do(sb.registryInit)
-	return sb.spRegistry, sb.spRegistryErr
+	return sb.storagePoolGetter, sb.spRegistry, sb.spRegistryErr
 }
 
 // StorageInstance returns the StorageInstance with the specified tag.
@@ -307,45 +313,6 @@ func (sb *storageBackend) AllStorageInstances() ([]StorageInstance, error) {
 		out[i] = s
 	}
 	return out, nil
-}
-
-// RemoveStoragePool removes a pool only if its not currently in use
-func (sb *storageBackend) RemoveStoragePool(poolName string) error {
-	storageCollection, closer := sb.mb.db().GetCollection(storageInstancesC)
-	defer closer()
-
-	// TODO: Improve the data model to have a count of in use pools so we can
-	// make these checks as an assert and not queries.
-	var inUse bool
-	cfg, err := sb.config(context.Background())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	operatorStorage, ok := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]
-	if sb.modelType == ModelTypeCAAS && ok && operatorStorage == poolName {
-		apps, err := sb.allApplications()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		inUse = len(apps) > 0
-	} else {
-		query := bson.D{{"constraints.pool", bson.D{{"$eq", poolName}}}}
-		pools, err := storageCollection.Find(query).Count()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		inUse = pools > 0
-	}
-	if inUse {
-		return errors.Errorf("storage pool %q in use", poolName)
-	}
-
-	registry, err := sb.registry()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	pm := poolmanager.New(sb.settings, registry)
-	return pm.Delete(poolName)
 }
 
 func (sb *storageBackend) storageInstances(query bson.D) (storageInstances []*storageInstance, err error) {
@@ -1913,13 +1880,12 @@ func validateStoragePool(
 }
 
 func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]interface{}, error) {
-	registry, err := sb.registry()
+	storageService, registry, err := sb.storageServices()
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
-	poolManager := poolmanager.New(sb.settings, registry)
-	pool, err := poolManager.Get(poolName)
-	if errors.Is(err, errors.NotFound) {
+	pool, err := storageService.GetStoragePoolByName(context.TODO(), poolName)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
 		providerType := storage.ProviderType(poolName)

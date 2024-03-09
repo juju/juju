@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/life"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -38,6 +37,11 @@ type ControllerConfigService interface {
 type BlockDeviceService interface {
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 	WatchBlockDevices(ctx context.Context, machineId string) (corewatcher.NotifyWatcher, error)
+}
+
+// StoragePoolGetter instances get a storage pool by name.
+type StoragePoolGetter interface {
+	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
 }
 
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
@@ -55,7 +59,7 @@ type StorageProvisionerAPIv4 struct {
 	resources                facade.Resources
 	authorizer               facade.Authorizer
 	registry                 storage.ProviderRegistry
-	poolManager              poolmanager.PoolManager
+	storagePoolGetter        StoragePoolGetter
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
@@ -77,7 +81,7 @@ func NewStorageProvisionerAPIv4(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
-	poolManager poolmanager.PoolManager,
+	storagePoolGetter StoragePoolGetter,
 	logger loggo.Logger,
 ) (*StorageProvisionerAPIv4, error) {
 	if !authorizer.AuthMachineAgent() {
@@ -249,7 +253,7 @@ func NewStorageProvisionerAPIv4(
 		resources:                resources,
 		authorizer:               authorizer,
 		registry:                 registry,
-		poolManager:              poolManager,
+		storagePoolGetter:        storagePoolGetter,
 		getScopeAuthFunc:         getScopeAuthFunc,
 		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
@@ -790,8 +794,8 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			return params.VolumeParams{}, err
 		}
 		volumeParams, err := storagecommon.VolumeParams(
-			volume, storageInstance, modelCfg.UUID(), s.controllerUUID,
-			modelCfg, s.poolManager, s.registry,
+			ctx, volume, storageInstance, modelCfg.UUID(), s.controllerUUID,
+			modelCfg, s.storagePoolGetter, s.registry,
 		)
 		if err != nil {
 			return params.VolumeParams{}, err
@@ -877,7 +881,7 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeParams(ctx context.Context, args p
 			return params.RemoveVolumeParams{}, err
 		}
 		provider, _, err := storagecommon.StoragePoolConfig(
-			volumeInfo.Pool, s.poolManager, s.registry,
+			ctx, volumeInfo.Pool, s.storagePoolGetter, s.registry,
 		)
 		if err != nil {
 			return params.RemoveVolumeParams{}, err
@@ -934,8 +938,8 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 			return params.FilesystemParams{}, err
 		}
 		filesystemParams, err := storagecommon.FilesystemParams(
-			filesystem, storageInstance, modelConfig.UUID(), s.controllerUUID,
-			modelConfig, s.poolManager, s.registry,
+			ctx, filesystem, storageInstance, modelConfig.UUID(), s.controllerUUID,
+			modelConfig, s.storagePoolGetter, s.registry,
 		)
 		if err != nil {
 			return params.FilesystemParams{}, err
@@ -987,7 +991,7 @@ func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(ctx context.Context, ar
 			return params.RemoveFilesystemParams{}, err
 		}
 		provider, _, err := storagecommon.StoragePoolConfig(
-			filesystemInfo.Pool, s.poolManager, s.registry,
+			ctx, filesystemInfo.Pool, s.storagePoolGetter, s.registry,
 		)
 		if err != nil {
 			return params.RemoveFilesystemParams{}, err
@@ -1057,7 +1061,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 			volumeId = volumeInfo.VolumeId
 			pool = volumeInfo.Pool
 		}
-		providerType, _, err := storagecommon.StoragePoolConfig(pool, s.poolManager, s.registry)
+		providerType, _, err := storagecommon.StoragePoolConfig(ctx, pool, s.storagePoolGetter, s.registry)
 		if err != nil {
 			return params.VolumeAttachmentParams{}, errors.Trace(err)
 		}
@@ -1142,7 +1146,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 			filesystemId = filesystemInfo.FilesystemId
 			pool = filesystemInfo.Pool
 		}
-		providerType, _, err := storagecommon.StoragePoolConfig(pool, s.poolManager, s.registry)
+		providerType, _, err := storagecommon.StoragePoolConfig(ctx, pool, s.storagePoolGetter, s.registry)
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, errors.Trace(err)
 		}

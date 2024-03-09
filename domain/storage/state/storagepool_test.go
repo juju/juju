@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -21,8 +23,14 @@ type storagePoolSuite struct {
 
 var _ = gc.Suite(&storagePoolSuite{})
 
+func newStoragePoolState(factory coredatabase.TxnRunnerFactory) *StoragePoolState {
+	return &StoragePoolState{
+		StateBase: domain.NewStateBase(factory),
+	}
+}
+
 func (s *storagePoolSuite) TestCreateStoragePool(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -42,7 +50,7 @@ func (s *storagePoolSuite) TestCreateStoragePool(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestCreateStoragePoolNoAttributes(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -58,7 +66,7 @@ func (s *storagePoolSuite) TestCreateStoragePoolNoAttributes(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestCreateStoragePoolAlreadyExists(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -77,7 +85,7 @@ func (s *storagePoolSuite) TestCreateStoragePoolAlreadyExists(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Provider: "ebs",
@@ -88,7 +96,7 @@ func (s *storagePoolSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestUpdateCloudCredentialMissingProvider(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name: "ebs-fast",
@@ -99,7 +107,7 @@ func (s *storagePoolSuite) TestUpdateCloudCredentialMissingProvider(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestReplaceStoragePool(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -129,7 +137,7 @@ func (s *storagePoolSuite) TestReplaceStoragePool(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestReplaceStoragePoolNoAttributes(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -156,7 +164,7 @@ func (s *storagePoolSuite) TestReplaceStoragePoolNoAttributes(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestReplaceStoragePoolNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -171,7 +179,7 @@ func (s *storagePoolSuite) TestReplaceStoragePoolNotFound(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestDeleteStoragePool(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -193,7 +201,7 @@ func (s *storagePoolSuite) TestDeleteStoragePool(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestDeleteStoragePoolNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	ctx := context.Background()
 	err := st.DeleteStoragePool(ctx, "ebs-fast")
@@ -201,7 +209,7 @@ func (s *storagePoolSuite) TestDeleteStoragePoolNotFound(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestListStoragePools(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -224,21 +232,21 @@ func (s *storagePoolSuite) TestListStoragePools(c *gc.C) {
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{})
+	out, err := st.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.SameContents, []domainstorage.StoragePoolDetails{sp, sp2})
 }
 
 func (s *storagePoolSuite) TestStoragePoolsEmpty(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	creds, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{})
+	creds, err := st.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds, gc.HasLen, 0)
 }
 
 func (s *storagePoolSuite) TestGetStoragePoolByName(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -264,7 +272,7 @@ func (s *storagePoolSuite) TestGetStoragePoolByName(c *gc.C) {
 }
 
 func (s *storagePoolSuite) TestListStoragePoolsFilterOnNameAndProvider(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -284,16 +292,13 @@ func (s *storagePoolSuite) TestListStoragePoolsFilterOnNameAndProvider(c *gc.C) 
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{
-		Names:     []string{"ebs-fast"},
-		Providers: []string{"ebs"},
-	})
+	out, err := st.ListStoragePools(context.Background(), domainstorage.Names{"ebs-fast"}, domainstorage.Providers{"ebs"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.SameContents, []domainstorage.StoragePoolDetails{sp})
 }
 
 func (s *storagePoolSuite) TestListStoragePoolsFilterOnName(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -313,15 +318,13 @@ func (s *storagePoolSuite) TestListStoragePoolsFilterOnName(c *gc.C) {
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{
-		Names: []string{"loop"},
-	})
+	out, err := st.ListStoragePools(context.Background(), domainstorage.Names{"loop"}, domainstorage.NilProviders)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.SameContents, []domainstorage.StoragePoolDetails{sp2})
 }
 
 func (s *storagePoolSuite) TestListStoragePoolsFilterOnProvider(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := newStoragePoolState(s.TxnRunnerFactory())
 
 	sp := domainstorage.StoragePoolDetails{
 		Name:     "ebs-fast",
@@ -341,9 +344,7 @@ func (s *storagePoolSuite) TestListStoragePoolsFilterOnProvider(c *gc.C) {
 	err = st.CreateStoragePool(ctx, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := st.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{
-		Providers: []string{"ebs"},
-	})
+	out, err := st.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.Providers{"ebs"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.SameContents, []domainstorage.StoragePoolDetails{sp})
 }

@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
@@ -308,14 +307,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		SharedSecret:   "abc123",
 		SystemIdentity: "def456",
 	})
-
-	// Check the initial storage pool.
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	storageCfg, err := pm.Get("spool")
-	c.Assert(err, jc.ErrorIsNil)
-	expectedStorageCfg, err := storage.NewConfig("spool", "loop", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCfg, jc.DeepEquals, expectedStorageCfg)
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to mongo.

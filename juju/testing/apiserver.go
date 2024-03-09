@@ -65,6 +65,7 @@ import (
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
 	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
@@ -289,7 +290,9 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		CloudName:     DefaultCloud.Name,
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
-		NewPolicy:     stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential()),
+		NewPolicy: stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential(), func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter {
+			return s.ServiceFactoryGetter(c).FactoryForModel(modelUUID).Storage(registry)
+		}),
 	}, environs.ProviderConfigSchemaSource(serviceFactory.Cloud()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl

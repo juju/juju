@@ -5,11 +5,13 @@ package state
 
 import (
 	stdcontext "context"
+	"fmt"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -36,8 +38,8 @@ type Policy interface {
 	// ConstraintsValidator returns a constraints.Validator or an error.
 	ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error)
 
-	// StorageProviderRegistry returns a storage.ProviderRegistry or an error.
-	StorageProviderRegistry() (storage.ProviderRegistry, error)
+	// StorageServices returns a StoragePoolGetter, storage.ProviderRegistry or an error.
+	StorageServices() (StoragePoolGetter, storage.ProviderRegistry, error)
 }
 
 func (st *State) constraintsValidator() (constraints.Validator, error) {
@@ -137,9 +139,16 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 	return configValidator.Validate(cfg, old)
 }
 
-func (st *State) storageProviderRegistry() (storage.ProviderRegistry, error) {
+// Used for tests.
+type noopStoragePoolGetter struct{}
+
+func (noopStoragePoolGetter) GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error) {
+	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
+}
+
+func (st *State) storageServices() (StoragePoolGetter, storage.ProviderRegistry, error) {
 	if st.policy == nil {
-		return storage.StaticProviderRegistry{}, nil
+		return noopStoragePoolGetter{}, storage.StaticProviderRegistry{}, nil
 	}
-	return st.policy.StorageProviderRegistry()
+	return st.policy.StorageServices()
 }
