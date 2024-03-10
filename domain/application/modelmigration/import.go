@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/internal/storage"
 )
 
 var logger = loggo.GetLogger("juju.migration.applications")
@@ -24,14 +25,15 @@ type Coordinator interface {
 
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
-func RegisterImport(coordinator Coordinator) {
-	coordinator.Add(&importOperation{})
+func RegisterImport(coordinator Coordinator, registry storage.ProviderRegistry) {
+	coordinator.Add(&importOperation{registry: registry})
 }
 
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	service ImportService
+	service  ImportService
+	registry storage.ProviderRegistry
 }
 
 // ImportService defines the application service used to import applications
@@ -44,6 +46,8 @@ type ImportService interface {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewState(scope.ModelDB(), logger),
+		logger,
+		i.registry,
 	)
 	return nil
 }

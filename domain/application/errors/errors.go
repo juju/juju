@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	// NotFound describes an error that occurs when the application being operated on
+	// ApplicationNotFound describes an error that occurs when the application being operated on
 	// does not exist.
-	NotFound = errors.ConstError("application not found")
-
-	// HasUnits describes an error that occurs when the application being deleted still
+	ApplicationNotFound = errors.ConstError("application not found")
+	// ApplicationHasUnits describes an error that occurs when the application being deleted still
 	// has associated units.
-	HasUnits = errors.ConstError("application has units")
+	ApplicationHasUnits = errors.ConstError("application has units")
+	// MissingStorageConstraints describes an error that occurs when expected storage constraints are missing.
+	MissingStorageConstraints = errors.ConstError("no storage constraints specified")
 )

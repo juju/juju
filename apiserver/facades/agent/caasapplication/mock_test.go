@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/controller"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
 )
@@ -96,6 +97,11 @@ type mockModel struct {
 	agentVersion  version.Number
 	controllerTag names.ControllerTag
 	tag           names.Tag
+}
+
+func (st *mockModel) Config() (*config.Config, error) {
+	attr := jtesting.FakeConfig()
+	return config.New(config.UseDefaults, attr)
 }
 
 func (st *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, error) {

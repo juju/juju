@@ -9,6 +9,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/internal/storage/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -24,12 +25,18 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+
+	serviceFactory := ctx.ServiceFactory()
+	// For removing applications, we don't need a storage registry.
+	// TODO(storage) - implement a "no op registry"
+	registry := provider.CommonStorageProviders()
+
 	return &CleanerAPI{
 		st:             getState(ctx.State()),
 		resources:      ctx.Resources(),
 		objectStore:    ctx.ObjectStore(),
-		machineRemover: ctx.ServiceFactory().Machine(),
-		appRemover:     ctx.ServiceFactory().Application(),
-		unitRemover:    ctx.ServiceFactory().Unit(),
+		machineRemover: serviceFactory.Machine(),
+		appRemover:     serviceFactory.Application(registry),
+		unitRemover:    serviceFactory.Unit(),
 	}, nil
 }

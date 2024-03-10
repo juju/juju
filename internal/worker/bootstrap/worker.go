@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -275,6 +276,10 @@ func (w *bootstrapWorker) seedStoragePools(ctx context.Context, poolParams map[s
 	}
 	for _, p := range storagePools {
 		if err := w.cfg.StorageService.CreateStoragePool(ctx, p.Name(), p.Provider(), storageservice.PoolAttrs(p.Attrs())); err != nil {
+			// Allow for bootstrap worker to have been restarted.
+			if errors.Is(err, storageerrors.PoolAlreadyExists) {
+				continue
+			}
 			return errors.Annotatef(err, "saving storage pool %q", p.Name())
 		}
 	}

@@ -39,7 +39,8 @@ func ImportOperations(coordinator Coordinator, logger Logger, registry internals
 	credential.RegisterImport(coordinator)
 	model.RegisterImport(coordinator)
 	machine.RegisterImport(coordinator)
-	application.RegisterImport(coordinator)
+	application.RegisterImport(coordinator, registry)
 	blockdevice.RegisterImport(coordinator)
+	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
 	storage.RegisterImport(coordinator, registry)
 }

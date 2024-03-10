@@ -86,11 +86,13 @@ func (s *ModelFactory) BlockDevice() *blockdeviceservice.WatchableService {
 }
 
 // Application returns the model's application service.
-func (s *ModelFactory) Application() *applicationservice.Service {
+func (s *ModelFactory) Application(registry storage.ProviderRegistry) *applicationservice.Service {
 	return applicationservice.NewService(
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("application"),
 		),
+		s.logger.Child("application"),
+		registry,
 	)
 }
 

@@ -159,7 +159,7 @@ func (s *TestingServiceFactory) BlockDevice() *blockdeviceservice.WatchableServi
 }
 
 // Application returns the block device service.
-func (s *TestingServiceFactory) Application() *applicationservice.Service {
+func (s *TestingServiceFactory) Application(storage.ProviderRegistry) *applicationservice.Service {
 	if s.applicationServiceGetter == nil {
 		return nil
 	}

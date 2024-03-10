@@ -127,17 +127,17 @@ func (mr *MockServiceFactoryMockRecorder) Annotation() *gomock.Call {
 }
 
 // Application mocks base method.
-func (m *MockServiceFactory) Application() *service0.Service {
+func (m *MockServiceFactory) Application(arg0 storage.ProviderRegistry) *service0.Service {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Application")
+	ret := m.ctrl.Call(m, "Application", arg0)
 	ret0, _ := ret[0].(*service0.Service)
 	return ret0
 }
 
 // Application indicates an expected call of Application.
-func (mr *MockServiceFactoryMockRecorder) Application() *gomock.Call {
+func (mr *MockServiceFactoryMockRecorder) Application(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockServiceFactory)(nil).Application))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockServiceFactory)(nil).Application), arg0)
 }
 
 // AutocertCache mocks base method.

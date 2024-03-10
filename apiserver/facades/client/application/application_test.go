@@ -103,7 +103,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
-		serviceFactory.Application(),
+		serviceFactory.Application(registry),
 		nil, // leadership not used in these tests.
 		application.CharmToStateCharm,
 		application.DeployApplication,

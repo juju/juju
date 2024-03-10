@@ -272,7 +272,7 @@ func (st StoragePoolState) ReplaceStoragePool(ctx context.Context, pool domainst
 
 type loadStoragePoolsFunc func(ctx context.Context, tx *sqlair.TX) ([]domainstorage.StoragePoolDetails, error)
 
-func (st StoragePoolState) storagePoolsLoader(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (loadStoragePoolsFunc, error) {
+func storagePoolsLoader(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (loadStoragePoolsFunc, error) {
 	query := `
 SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
        (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
@@ -286,7 +286,7 @@ FROM   storage_pool sp
 	}
 
 	var queryArgs []any
-	condition, args := st.buildFilter(wantNames, wantProviders)
+	condition, args := buildStoragePoolsFilter(wantNames, wantProviders)
 	if len(args) > 0 {
 		query = query + "WHERE " + condition
 		types = append(types, args...)
@@ -318,7 +318,7 @@ func (st StoragePoolState) ListStoragePools(ctx context.Context, names domainsto
 		return nil, errors.Trace(err)
 	}
 
-	storagePoolsLoader, err := st.storagePoolsLoader(names, providers)
+	storagePoolsLoader, err := storagePoolsLoader(names, providers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -332,7 +332,7 @@ func (st StoragePoolState) ListStoragePools(ctx context.Context, names domainsto
 	return result, errors.Trace(domain.CoerceError(err))
 }
 
-func (st StoragePoolState) buildFilter(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (string, []any) {
+func buildStoragePoolsFilter(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (string, []any) {
 	if len(wantNames) == 0 && len(wantProviders) == 0 {
 		return "", nil
 	}
@@ -358,8 +358,14 @@ func (st StoragePoolState) GetStoragePoolByName(ctx context.Context, name string
 	if err != nil {
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
 	}
+	return GetStoragePoolByName(ctx, db, name)
+}
 
-	storagePoolsLoader, err := st.storagePoolsLoader(domainstorage.Names{name}, nil)
+// GetStoragePoolByName returns the storage pool with the specified name, returning an error
+// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
+// Exported for use by other domains that need to load storage pools.
+func GetStoragePoolByName(ctx context.Context, db coredatabase.TxnRunner, name string) (domainstorage.StoragePoolDetails, error) {
+	storagePoolsLoader, err := storagePoolsLoader(domainstorage.Names{name}, nil)
 	if err != nil {
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
 	}

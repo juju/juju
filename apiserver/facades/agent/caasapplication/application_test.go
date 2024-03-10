@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/servicefactory/testing"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -63,7 +64,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		s.st, s.st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
-		s.DefaultModelServiceFactory(c).Application(),
+		s.DefaultModelServiceFactory(c).Application(provider.CommonStorageProviders()),
 		s.broker,
 		s.clock,
 		loggo.GetLogger("juju.apiserver.caasaplication"),

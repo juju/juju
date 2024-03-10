@@ -3,10 +3,23 @@
 
 package service
 
+import (
+	"github.com/juju/charm/v13"
+
+	"github.com/juju/juju/internal/storage"
+)
+
+// Charm represents an application's charm.
+type Charm interface {
+	Meta() *charm.Meta
+}
+
 // AddApplicationParams contain parameters for adding an application to the model.
 type AddApplicationParams struct {
-	// Application constraints go here.
-	// Storage constraints go here.
+	// Charm is the application's charm.
+	Charm Charm
+	// Storage contains the application's storage constraints.
+	Storage map[string]storage.Constraints
 }
 
 // AddUnitParams contains parameters for adding a unit to the model.
@@ -22,4 +35,21 @@ type AddUnitParams struct {
 type UpsertCAASUnitParams struct {
 	// UnitName is for CAAS models when creating stateful units.
 	UnitName *string
+}
+
+// UpdateCharmParams contains the parameters for updating
+// an application's charm and storage.
+type UpdateCharmParams struct {
+	// Charm is the new charm to use for the application. New units
+	// will be started with this charm, and existing units will be
+	// upgraded to use it.
+	Charm Charm
+
+	// Storage contains the storage constraints to add or update when
+	// upgrading the charm.
+	//
+	// Any existing storage instances for the named stores will be
+	// unaffected; the storage constraints will only be used for
+	// provisioning new storage instances.
+	Storage map[string]storage.Constraints
 }

@@ -321,16 +321,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			m, err := systemState.Model()
+			model, err := systemState.Model()
 			if err != nil {
+				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 			registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-				m, controllerServiceFactory.Cloud(), controllerServiceFactory.Credential(),
+				model, controllerServiceFactory.Cloud(), controllerServiceFactory.Credential(),
 				stateenvirons.GetNewEnvironFunc(environs.New),
 				stateenvirons.GetNewCAASBrokerFunc(caas.New),
 			)
 			if err != nil {
+				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 
@@ -342,7 +344,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CloudService:            controllerServiceFactory.Cloud(),
 				StorageService:          modelServiceFactory.Storage(registry),
 				ProviderRegistry:        registry,
-				ApplicationService:      modelServiceFactory.Application(),
+				ApplicationService:      modelServiceFactory.Application(registry),
 				FlagService:             flagService,
 				SpaceService:            modelServiceFactory.Space(),
 				SystemState: &stateShim{
