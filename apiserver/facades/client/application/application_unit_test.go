@@ -1365,6 +1365,7 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1401,6 +1402,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(2)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	track := "latest"
 	args := params.ApplicationsDeploy{
@@ -1475,6 +1477,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	}}, nil, &charm.Config{})
 	curl := "ch:utopic/storage-block-10"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	storageConstraints := map[string]storage.Constraints{
 		"data": {
@@ -1510,6 +1513,7 @@ func (s *ApplicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 	}}, nil, &charm.Config{})
 	curl := "ch:utopic/storage-filesystem-1"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationDeploy{
 		ApplicationName: "my-app",
@@ -1538,6 +1542,7 @@ func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
 	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().IsParentLockedForSeriesUpgrade().Return(false, nil)
 	s.backend.EXPECT().Machine("valid").Return(machine, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	placement := []*instance.Placement{
 		{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
@@ -1559,6 +1564,37 @@ func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
 	c.Assert(s.deployParams["my-app"].Placement, gc.DeepEquals, placement)
 }
 
+func (s *ApplicationSuite) TestApplicationDeployPlacementModelUUIDSubstitute(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := "ch:precise/dummy-42"
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("deadbeef-0bad-400d-8000-4b1d0d06f00d")
+
+	placement := []*instance.Placement{
+		{Scope: "model-uuid", Directive: "0"},
+	}
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl,
+		CharmOrigin:     createCharmOriginFromURL(curl),
+		NumUnits:        1,
+		Placement:       placement,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["my-app"].Placement, gc.DeepEquals, []*instance.Placement{
+		{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "0"},
+	})
+}
+
 func validCharmOriginForTest() *params.CharmOrigin {
 	return &params.CharmOrigin{Source: "charm-hub"}
 }
@@ -1574,6 +1610,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C
 	containerMachine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil).MinTimes(1)
 	containerMachine.EXPECT().IsParentLockedForSeriesUpgrade().Return(true, nil).MinTimes(1)
 	s.backend.EXPECT().Machine("0/lxd/0").Return(containerMachine, nil).MinTimes(1)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	curl := "ch:precise/dummy-42"
 	args := []params.ApplicationDeploy{{
@@ -1660,6 +1697,7 @@ func (s *ApplicationSuite) TestApplicationDeploymentTrust(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	curl := "ch:precise/dummy-42"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
+	s.model.EXPECT().UUID().Return("")
 
 	withTrust := map[string]string{"trust": "true"}
 	args := params.ApplicationDeploy{
@@ -1688,6 +1726,7 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	curl := "ch:focal/riak-42"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	args := []params.ApplicationDeploy{{
 		ApplicationName: "old",
@@ -1754,6 +1793,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),
 	)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1792,6 +1832,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 		},
 	)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(4)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 	s.expectDefaultK8sModelConfig()
 
 	args := params.ApplicationsDeploy{
@@ -1846,6 +1887,7 @@ func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	curl := "local:foo-0"
 	args := params.ApplicationsDeploy{
@@ -1872,6 +1914,7 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 		Storage: map[string]charm.Storage{"block": {Name: "block", Type: charm.StorageBlock}},
 	}, &charm.Manifest{}, &charm.Config{})
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1905,6 +1948,7 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 		"workload-storage": "k8s-storage",
 	})
 	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1944,6 +1988,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 		"workload-storage": "k8s-storage",
 	})
 	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1971,6 +2016,7 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 		"workload-storage": "k8s-storage",
 	})
 	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1997,6 +2043,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(nil, errors.NotFoundf("pool"))
 	s.registry.EXPECT().StorageProvider(storage.ProviderType("k8s-operator-storage")).Return(nil, errors.NotFoundf(`provider type "k8s-operator-storage"`))
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2025,6 +2072,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 		provider.RootfsProviderType,
 		map[string]interface{}{"foo": "bar"}),
 	)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2055,6 +2103,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 		map[string]interface{}{"foo": "bar"}),
 	)
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(errors.NotFoundf("storage class"))
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2092,6 +2141,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 		map[string]interface{}{"foo": "bar"}),
 	)
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{

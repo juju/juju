@@ -149,7 +149,7 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 	}
 
 	m, err := api.getMachine(tag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -337,6 +337,8 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 
 // processExistingDeviceNewAddresses interrogates the list of incoming
 // addresses and adds any that were not processed as already existing.
+// If there are new address to add then also the subnets are processed
+// to make sure they are updated on the state as well.
 func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 	dev LinkLayerDevice, incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
@@ -350,6 +352,16 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, addOps...)
+
+			// Since this is a new address, ensure that we have
+			// discovered all the subnets for the device.
+			if o.discoverSubnets {
+				subNetOps, err := o.processSubnets(dev.Name())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, subNetOps...)
+			}
 
 			o.MarkAddrProcessed(dev.Name(), addr.CIDRAddress)
 		}
@@ -425,7 +437,7 @@ func (o *updateMachineLinkLayerOp) processSubnets(name string) ([]txn.Op, error)
 	for _, cidr := range cidrs {
 		addOps, err := o.st.AddSubnetOps(network.SubnetInfo{CIDR: cidr})
 		if err != nil {
-			if errors.IsAlreadyExists(err) {
+			if errors.Is(err, errors.AlreadyExists) {
 				continue
 			}
 			return nil, errors.Trace(err)
