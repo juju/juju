@@ -703,9 +703,9 @@ func (a *MachineAgent) makeEngineCreator(
 			logger.Errorf("failed to start introspection worker: %v", err)
 		}
 		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, eng, controllerMetricsSink); err != nil {
-			// If the dependency engine metrics fail, continue on. This is unlikely
-			// to happen in the real world, but should't stop or bring down an
-			// agent.
+			// If the dependency engine metrics fail, continue on. This is
+			// unlikely to happen in the real world, but shouldn't stop or
+			// bring down an agent.
 			logger.Errorf("failed to start the dependency engine metrics %v", err)
 		}
 		return eng, nil
