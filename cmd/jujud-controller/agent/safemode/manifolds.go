@@ -5,6 +5,7 @@ package safemode
 
 import (
 	"context"
+	"path"
 
 	"github.com/juju/clock"
 	"github.com/juju/loggo/v2"
@@ -17,7 +18,6 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/cmd/jujud-controller/util"
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbaccessor"
@@ -104,7 +104,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:             config.Clock,
 			Logger:            loggo.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
-			SocketName:        paths.ConfigChangeSocket(paths.OSUnixLike),
+			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
 		})),
 
 		// The stateconfigwatcher manifold watches the machine agent's
@@ -118,16 +118,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			AgentName:            agentName,
-			QueryLoggerName:      queryLoggerName,
-			Clock:                config.Clock,
-			Hub:                  noopHub{},
-			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
-			LogDir:               agentConfig.LogDir(),
-			PrometheusRegisterer: noopPrometheusRegisterer{},
-			NewApp:               dbaccessor.NewApp,
-			NewDBWorker:          config.NewDBWorkerFunc,
-			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
+			AgentName:                 agentName,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			Clock:                     config.Clock,
+			Hub:                       noopHub{},
+			Logger:                    loggo.GetLogger("juju.worker.dbaccessor"),
+			LogDir:                    agentConfig.LogDir(),
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
 		})),
 
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{

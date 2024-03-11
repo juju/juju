@@ -30,9 +30,15 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.AgentName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.QueryLoggerName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
+	cfg.ControllerAgentConfigName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -71,13 +77,14 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:            "agent",
-		QueryLoggerName:      "query-logger",
-		Clock:                s.clock,
-		Hub:                  s.hub,
-		Logger:               s.logger,
-		LogDir:               "log-dir",
-		PrometheusRegisterer: s.prometheusRegisterer,
+		AgentName:                 "agent",
+		QueryLoggerName:           "query-logger",
+		ControllerAgentConfigName: "controller-agent-config",
+		Clock:                     s.clock,
+		Hub:                       s.hub,
+		Logger:                    s.logger,
+		LogDir:                    "log-dir",
+		PrometheusRegisterer:      s.prometheusRegisterer,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},

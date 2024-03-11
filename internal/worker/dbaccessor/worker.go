@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/pubsub/apiserver"
+	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
 const (
@@ -150,6 +151,11 @@ type WorkerConfig struct {
 	// ControllerID uniquely identifies the controller that this
 	// worker is running on. It is equivalent to the machine ID.
 	ControllerID string
+
+	// ControllerConfigWatcher is used to get notifications when the controller
+	// agent configuration changes on disk. When it changes, we must reload it
+	// and assess potential changes to the database cluster.
+	ControllerConfigWatcher controlleragentconfig.ConfigWatcher
 }
 
 // Validate ensures that the config values are valid.
@@ -174,6 +180,12 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.NewDBWorker == nil {
 		return errors.NotValidf("missing NewDBWorker")
+	}
+	if c.ControllerID == "" {
+		return errors.NotValidf("missing ControllerID")
+	}
+	if c.ControllerConfigWatcher == nil {
+		return errors.NotValidf("missing ControllerConfigWatcher")
 	}
 	return nil
 }

@@ -4,6 +4,8 @@
 // Package controlleragentconfig provides a worker that listens on the "/reload"
 // endpoint of the config change socket and restarts any workers that have
 // requested to watch the config.
+// It also supplies the *agent* ID to external requesters via the "/agent-id"
+// endpoint.
 package controlleragentconfig
 
 import (
@@ -198,7 +200,6 @@ func (w *configWorker) Watcher() (ConfigWatcher, error) {
 // loop listens for a reload request picked up by the socket listener and
 // restarts all subscribed workers watching the config.
 func (w *configWorker) loop() error {
-
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 

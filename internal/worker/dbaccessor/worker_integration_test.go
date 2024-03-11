@@ -110,13 +110,14 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 		NewApp: func(string, ...app.Option) (dbaccessor.DBApp, error) {
 			return dbaccessor.WrapApp(s.DBApp()), nil
 		},
-		NewDBWorker:      dbaccessor.NewTrackedDBWorker,
-		NodeManager:      nodeManager,
-		MetricsCollector: dbaccessor.NewMetricsCollector(),
-		Clock:            clock.WallClock,
-		Logger:           logger,
-		Hub:              pubsub.NewStructuredHub(nil),
-		ControllerID:     agentConfig.Tag().Id(),
+		NewDBWorker:             dbaccessor.NewTrackedDBWorker,
+		NodeManager:             nodeManager,
+		MetricsCollector:        dbaccessor.NewMetricsCollector(),
+		Clock:                   clock.WallClock,
+		Logger:                  logger,
+		Hub:                     pubsub.NewStructuredHub(nil),
+		ControllerID:            agentConfig.Tag().Id(),
+		ControllerConfigWatcher: controllerConfigWatcher{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -290,4 +291,18 @@ func (r *txnRunner) Txn(ctx context.Context, f func(context.Context, *sqlair.TX)
 
 func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx) error) error {
 	return errors.Trace(database.StdTxn(ctx, r.db, f))
+}
+
+type controllerConfigWatcher struct{}
+
+func (c controllerConfigWatcher) Changes() <-chan struct{} {
+	panic("implement me")
+}
+
+func (c controllerConfigWatcher) Done() <-chan struct{} {
+	panic("implement me")
+}
+
+func (c controllerConfigWatcher) Unsubscribe() {
+	panic("implement me")
 }
