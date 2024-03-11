@@ -10,6 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package network_test -destination discovery_mock_test.go github.com/juju/juju/core/network ConfigSource,ConfigSourceNIC,ConfigSourceAddr
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

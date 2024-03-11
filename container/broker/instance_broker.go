@@ -33,7 +33,7 @@ var (
 )
 
 // NetConfigFunc returns a slice of NetworkConfig from a source config.
-type NetConfigFunc func(corenetwork.ConfigSource) ([]params.NetworkConfig, error)
+type NetConfigFunc func(corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error)
 
 // Config describes the resources used by the instance broker.
 type Config struct {
@@ -170,7 +170,11 @@ func acquireLock(config Config) func(string, <-chan struct{}) (func(), error) {
 
 func observeNetwork(config Config) func() ([]params.NetworkConfig, error) {
 	return func() ([]params.NetworkConfig, error) {
-		return config.GetNetConfig(corenetwork.DefaultConfigSource())
+		interfaceInfos, err := config.GetNetConfig(corenetwork.DefaultConfigSource())
+		if err != nil {
+			return nil, err
+		}
+		return params.NetworkConfigFromInterfaceInfo(interfaceInfos), nil
 	}
 }
 

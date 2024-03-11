@@ -114,7 +114,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 	// Switch to reaping on All machines.
 	attrs := map[string]interface{}{}
 	if container {
-		attrs[config.NumContainerProvisionWorkersKey] = 42
+		attrs[config.NumContainerProvisionWorkersKey] = 10
 	} else {
 		attrs[config.NumProvisionWorkersKey] = 42
 	}
@@ -130,7 +130,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 		select {
 		case newCfg := <-cfgObserver:
 			if container {
-				if newCfg.NumContainerProvisionWorkers() == 42 {
+				if newCfg.NumContainerProvisionWorkers() == 10 {
 					return
 				}
 				received = append(received, newCfg.NumContainerProvisionWorkers())

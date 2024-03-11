@@ -4,6 +4,7 @@
 package kvm_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,9 +20,11 @@ import (
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	coretesting "github.com/juju/juju/testing"
@@ -109,6 +112,21 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 	name := string(inst.Id())
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	containertesting.AssertCloudInit(c, cloudInitFilename)
+}
+
+func (s *KVMSuite) TestCreateContainerNoDefaultImageMetadata(c *gc.C) {
+	var err error
+	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{
+		container.ConfigModelUUID:                        coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey:                   imagemetadata.ReleasedStream,
+		config.ContainerImageMetadataDefaultsDisabledKey: "true",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
+	c.Assert(err, jc.ErrorIsNil)
+	_, _, err = s.manager.CreateContainer(context.Background(), instanceConfig, constraints.Value{}, base.Base{}, nil, nil,
+		func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil })
+	c.Assert(err, gc.ErrorMatches, `no image metadata source configured: default sources disabled`)
 }
 
 // This test will pass regular unit tests, but is intended for the

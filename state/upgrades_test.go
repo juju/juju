@@ -4,8 +4,6 @@
 package state
 
 import (
-	"sort"
-
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
@@ -13,7 +11,6 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -83,74 +80,4 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr coretesting.Attrs) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
-}
-
-type bsonMById []bson.M
-
-func (x bsonMById) Len() int { return len(x) }
-
-func (x bsonMById) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
-
-func (x bsonMById) Less(i, j int) bool {
-	return x[i]["_id"].(string) < x[j]["_id"].(string)
-}
-
-func (s *upgradesSuite) TestConvertApplicationOfferTokenKeys(c *gc.C) {
-	st := s.state
-	remoteEntitiesColl, closer := st.db().GetRawCollection(remoteEntitiesC)
-	defer closer()
-
-	_, err := st.AddUser("bob", "", "shhhh", "admin")
-	c.Assert(err, jc.ErrorIsNil)
-	app := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
-	offer1, err := NewApplicationOffers(st).AddOffer(crossmodel.AddApplicationOfferArgs{
-		OfferName:       "myoffer1",
-		Owner:           "bob",
-		ApplicationName: app.Name(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	offer2, err := NewApplicationOffers(st).AddOffer(crossmodel.AddApplicationOfferArgs{
-		OfferName:       "myoffer2",
-		Owner:           "bob",
-		ApplicationName: app.Name(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = remoteEntitiesColl.Insert(bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "applicationoffer-myoffer1"),
-		"model-uuid": st.ModelUUID(),
-		"token":      "token1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = remoteEntitiesColl.Insert(bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "applicationoffer-myoffer2"),
-		"model-uuid": st.ModelUUID(),
-		"token":      "token2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = remoteEntitiesColl.Insert(bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "application-myapp1"),
-		"model-uuid": st.ModelUUID(),
-		"token":      "apptoken1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	var expected bsonMById
-	expected = append(expected, bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "applicationoffer-"+offer1.OfferUUID),
-		"model-uuid": st.ModelUUID(),
-		"token":      "token1",
-	}, bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "applicationoffer-"+offer2.OfferUUID),
-		"model-uuid": st.ModelUUID(),
-		"token":      "token2",
-	}, bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "application-myapp1"),
-		"model-uuid": st.ModelUUID(),
-		"token":      "apptoken1",
-	})
-
-	sort.Sort(expected)
-	expectedData := upgradedData(remoteEntitiesColl, expected)
-	s.assertUpgradedData(c, ConvertApplicationOfferTokenKeys, expectedData)
 }

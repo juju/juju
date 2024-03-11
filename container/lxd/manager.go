@@ -44,9 +44,10 @@ type containerManager struct {
 	namespace        instance.Namespace
 	availabilityZone string
 
-	imageMetadataURL string
-	imageStream      string
-	imageMutex       sync.Mutex
+	imageMetadataURL              string
+	imageStream                   string
+	imageMetadataDefaultsDisabled bool
+	imageMutex                    sync.Mutex
 
 	serverInitMutex sync.Mutex
 	profileMutex    sync.Mutex
@@ -74,6 +75,10 @@ func NewContainerManager(cfg container.ManagerConfig, newServer func() (*Server,
 
 	imageMetaDataURL := cfg.PopValue(config.ContainerImageMetadataURLKey)
 	imageStream := cfg.PopValue(config.ContainerImageStreamKey)
+	imageMetadataDefaultsDisabled := false
+	if cfg.PopValue(config.ContainerImageMetadataDefaultsDisabledKey) == "true" {
+		imageMetadataDefaultsDisabled = true
+	}
 
 	// This value is also popped by the provisioner worker; the following
 	// dummy pop operation ensures that we don't get a spurious warning
@@ -82,12 +87,13 @@ func NewContainerManager(cfg container.ManagerConfig, newServer func() (*Server,
 
 	cfg.WarnAboutUnused()
 	return &containerManager{
-		newServer:        newServer,
-		modelUUID:        modelUUID,
-		namespace:        namespace,
-		availabilityZone: availabilityZone,
-		imageMetadataURL: imageMetaDataURL,
-		imageStream:      imageStream,
+		newServer:                     newServer,
+		modelUUID:                     modelUUID,
+		namespace:                     namespace,
+		availabilityZone:              availabilityZone,
+		imageMetadataURL:              imageMetaDataURL,
+		imageStream:                   imageStream,
+		imageMetadataDefaultsDisabled: imageMetadataDefaultsDisabled,
 	}, nil
 }
 
@@ -302,15 +308,18 @@ func (m *containerManager) getContainerSpec(
 func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 	imURL := m.imageMetadataURL
 
-	// Unless the configuration explicitly requests the daily stream,
-	// an empty image metadata URL results in a search of the default sources.
-	if imURL == "" && m.imageStream != "daily" {
-		logger.Debugf("checking default image metadata sources")
-		return []ServerSpec{CloudImagesRemote, CloudImagesDailyRemote, CloudImagesLinuxContainersRemote}, nil
+	serverSpecs := []ServerSpec{}
+	if !m.imageMetadataDefaultsDisabled {
+		if m.imageStream != "daily" {
+			// Unless the configuration explicitly requests the daily stream,
+			// we always prefer the default source.
+			serverSpecs = append(serverSpecs, CloudImagesRemote)
+		}
+		serverSpecs = append(serverSpecs, CloudImagesDailyRemote, CloudImagesLinuxContainersRemote)
 	}
-	// Otherwise only check the daily stream.
+
 	if imURL == "" {
-		return []ServerSpec{CloudImagesDailyRemote, CloudImagesLinuxContainersRemote}, nil
+		return serverSpecs, nil
 	}
 
 	imURL, err := imagemetadata.ImageMetadataURL(imURL, m.imageStream)
@@ -324,12 +333,8 @@ func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 		Protocol: SimpleStreamsProtocol,
 	}
 
-	// If the daily stream was configured with custom image metadata URL,
-	// only use the Ubuntu daily as a fallback.
-	if m.imageStream == "daily" {
-		return []ServerSpec{remote, CloudImagesDailyRemote, CloudImagesLinuxContainersRemote}, nil
-	}
-	return []ServerSpec{remote, CloudImagesRemote, CloudImagesDailyRemote, CloudImagesLinuxContainersRemote}, nil
+	serverSpecs = append([]ServerSpec{remote}, serverSpecs...)
+	return serverSpecs, nil
 }
 
 // networkDevicesFromConfig uses the input container network configuration to

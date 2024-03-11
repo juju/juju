@@ -65,17 +65,23 @@ const (
 
 // upgradeToVersion encapsulates the steps which need to be run to
 // upgrade any prior version of Juju to targetVersion.
+//
+//nolint:unused
 type upgradeToVersion struct {
 	targetVersion version.Number
 	steps         []Step
 }
 
 // Steps is defined on the Operation interface.
+//
+//nolint:unused
 func (u upgradeToVersion) Steps() []Step {
 	return u.steps
 }
 
 // TargetVersion is defined on the Operation interface.
+//
+//nolint:unused
 func (u upgradeToVersion) TargetVersion() version.Number {
 	return u.targetVersion
 }

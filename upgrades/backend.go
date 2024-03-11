@@ -10,9 +10,7 @@ import (
 )
 
 // StateBackend provides an interface for upgrading the global state database.
-type StateBackend interface {
-	ConvertApplicationOfferTokenKeys() error
-}
+type StateBackend interface{}
 
 // Model is an interface providing access to the details of a model within the
 // controller.
@@ -28,8 +26,4 @@ func NewStateBackend(pool *state.StatePool) StateBackend {
 
 type stateBackend struct {
 	pool *state.StatePool
-}
-
-func (s stateBackend) ConvertApplicationOfferTokenKeys() error {
-	return state.ConvertApplicationOfferTokenKeys(s.pool)
 }

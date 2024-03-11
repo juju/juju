@@ -117,14 +117,19 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 
 	imageMetaDataURL := conf.PopValue(config.ContainerImageMetadataURLKey)
 	imageStream := conf.PopValue(config.ContainerImageStreamKey)
+	imageMetadataDefaultsDisabled := false
+	if conf.PopValue(config.ContainerImageMetadataDefaultsDisabledKey) == "true" {
+		imageMetadataDefaultsDisabled = true
+	}
 
 	conf.WarnAboutUnused()
 	return &containerManager{
-		namespace:        namespace,
-		logDir:           logDir,
-		availabilityZone: availabilityZone,
-		imageMetadataURL: imageMetaDataURL,
-		imageStream:      imageStream,
+		namespace:                     namespace,
+		logDir:                        logDir,
+		availabilityZone:              availabilityZone,
+		imageMetadataURL:              imageMetaDataURL,
+		imageStream:                   imageStream,
+		imageMetadataDefaultsDisabled: imageMetadataDefaultsDisabled,
 	}, nil
 }
 
@@ -133,12 +138,13 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 // user-data is written out in the right place, and that OS images are sourced
 // from the correct location.
 type containerManager struct {
-	namespace        instance.Namespace
-	logDir           string
-	availabilityZone string
-	imageMetadataURL string
-	imageStream      string
-	imageMutex       sync.Mutex
+	namespace                     instance.Namespace
+	logDir                        string
+	availabilityZone              string
+	imageMetadataURL              string
+	imageStream                   string
+	imageMetadataDefaultsDisabled bool
+	imageMutex                    sync.Mutex
 }
 
 var _ container.Manager = (*containerManager)(nil)
@@ -219,6 +225,9 @@ func (manager *containerManager) CreateContainer(
 	// Check whether a container image metadata URL was configured.
 	// Default to Ubuntu cloud images if configured stream is not "released".
 	imURL := manager.imageMetadataURL
+	if manager.imageMetadataURL == "" && manager.imageMetadataDefaultsDisabled {
+		return nil, nil, errors.Errorf("no image metadata source configured: default sources disabled")
+	}
 	if manager.imageMetadataURL == "" && manager.imageStream != imagemetadata.ReleasedStream {
 		imURL = imagemetadata.UbuntuCloudImagesURL
 		imURL, err = imagemetadata.ImageMetadataURL(imURL, manager.imageStream)
