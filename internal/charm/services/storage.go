@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	charmdownloader "github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
@@ -68,7 +69,9 @@ func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCha
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
 	}
-	if err := s.objectStore.Put(ctx, storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil {
+
+	// If the blob is already stored, we can skip the upload.
+	if err := s.objectStore.Put(ctx, storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
 		return errors.Annotate(err, "cannot add charm to storage")
 	}
 

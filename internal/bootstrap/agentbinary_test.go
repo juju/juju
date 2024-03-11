@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/state/binarystorage"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -54,6 +55,40 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
 		Size:    size,
 		SHA256:  "sha256",
 	}).Return(nil)
+
+	cleanup, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	cleanup()
+
+	s.expectNoTools(c, toolsPath)
+}
+
+func (s *agentBinarySuite) TestPopulateAgentBinaryTwiceShouldSucceed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	current := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
+	}
+
+	dir, toolsPath := s.ensureDirs(c, current)
+	size := int64(4)
+
+	s.writeDownloadTools(c, toolsPath, downloadTools{
+		Version: current.String(),
+		URL:     filepath.Join(dir, "tools", fmt.Sprintf("%s.tgz", current.String())),
+		SHA256:  "sha256",
+		Size:    size,
+	})
+
+	s.writeAgentBinary(c, toolsPath, current)
+
+	s.storage.EXPECT().Add(gomock.Any(), gomock.Any(), binarystorage.Metadata{
+		Version: current.String(),
+		Size:    size,
+		SHA256:  "sha256",
+	}).Return(objectstoreerrors.ErrHashAlreadyExists)
 
 	cleanup, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
