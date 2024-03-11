@@ -52,6 +52,11 @@ type Service struct {
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(st State, logger Logger, registry storage.ProviderRegistry) *Service {
+	// Some uses of application service don't need to supply a storage registry, eg cleaner facade.
+	// In such cases it'd wasteful to create one as an environ instance would be needed.
+	if registry == nil {
+		registry = storage.NotImplementedProviderRegistry{}
+	}
 	return &Service{
 		st:       st,
 		logger:   logger,
@@ -130,8 +135,11 @@ func (s *Service) addDefaultStorageConstraints(ctx context.Context, modelType co
 }
 
 func (s *Service) validateStorageConstraints(ctx context.Context, modelType coremodel.ModelType, allCons map[string]storage.Constraints, charm Charm) error {
-	validator := domainstorage.NewStorageConstraintsValidator(modelType, s.registry, s.st)
-	err := validator.ValidateStorageConstraintsAgainstCharm(ctx, allCons, charm)
+	validator, err := domainstorage.NewStorageConstraintsValidator(modelType, s.registry, s.st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = validator.ValidateStorageConstraintsAgainstCharm(ctx, allCons, charm)
 	if err != nil {
 		return errors.Trace(err)
 	}

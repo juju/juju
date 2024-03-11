@@ -71,3 +71,17 @@ func (r StaticProviderRegistry) StorageProvider(t ProviderType) (Provider, error
 	}
 	return nil, errors.NotFoundf("storage provider %q", t)
 }
+
+// NotImplementedProviderRegistry is a storage provider registry that
+// returns an error satisfying [errors.NotImplemented] for any method call.
+type NotImplementedProviderRegistry struct{}
+
+// StorageProviderTypes implements ProviderRegistry.
+func (r NotImplementedProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {
+	return nil, errors.NotImplementedf(`"StorageProviderTypes"`)
+}
+
+// StorageProvider implements ProviderRegistry.
+func (r NotImplementedProviderRegistry) StorageProvider(t ProviderType) (Provider, error) {
+	return nil, errors.NotImplementedf(`"StorageProvider"`)
+}

@@ -82,12 +82,20 @@ func (m mockCharm) Meta() *charm.Meta {
 }
 
 func (s *validationSuite) validateStorageConstraints(storage map[string]storage.Constraints) error {
-	validator := domainstorage.NewStorageConstraintsValidator(s.modelType, provider.CommonStorageProviders(), mockStoragePoolGetter{})
+	validator, err := domainstorage.NewStorageConstraintsValidator(s.modelType, provider.CommonStorageProviders(), mockStoragePoolGetter{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return validator.ValidateStorageConstraintsAgainstCharm(
 		context.Background(),
 		storage,
 		s.charm,
 	)
+}
+
+func (s *validationSuite) TestNilRegistry(c *gc.C) {
+	_, err := domainstorage.NewStorageConstraintsValidator(s.modelType, nil, mockStoragePoolGetter{})
+	c.Assert(err, gc.ErrorMatches, "cannot create storage constraints validator with nil registry")
 }
 
 func (s *validationSuite) TestValidateStorageConstraintsAgainstCharmSuccess(c *gc.C) {

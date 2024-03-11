@@ -42,9 +42,9 @@ type MachineService interface {
 	CreateMachine(context.Context, string) error
 }
 
-// ApplicationService instances save an application to dqlite state.
+// ApplicationService instances add units to an application in dqlite state.
 type ApplicationService interface {
-	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
+	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
 }
 
 // ControllerConfigGetter instances read the controller config.
@@ -177,7 +177,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 			n := addedUnits[i]
 			addUnitArgs[i].UnitName = &n
 		}
-		if err := api.applicationService.CreateApplication(ctx, application.ControllerApplicationName, applicationservice.AddApplicationParams{}, addUnitArgs...); err != nil {
+		if err := api.applicationService.AddUnits(ctx, application.ControllerApplicationName, addUnitArgs...); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}

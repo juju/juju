@@ -34,12 +34,16 @@ type StorageConstraintsValidator interface {
 
 // NewStorageConstraintsValidator creates a validator that can be used to check storage
 // constraints are compatible with a given charm.
-func NewStorageConstraintsValidator(modelType coremodel.ModelType, registry storage.ProviderRegistry, storagePoolGetter StoragePoolGetter) *storageConstraintsValidator {
+func NewStorageConstraintsValidator(modelType coremodel.ModelType, registry storage.ProviderRegistry, storagePoolGetter StoragePoolGetter) (*storageConstraintsValidator, error) {
+	// This should never happen, but we'll be defensive.
+	if registry == nil {
+		return nil, errors.New("cannot create storage constraints validator with nil registry")
+	}
 	return &storageConstraintsValidator{
 		registry:          registry,
 		storagePoolGetter: storagePoolGetter,
 		modelType:         modelType,
-	}
+	}, nil
 }
 
 type storageConstraintsValidator struct {

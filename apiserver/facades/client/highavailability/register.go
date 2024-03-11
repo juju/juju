@@ -11,8 +11,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
 	oldstate "github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -54,26 +52,18 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 	}
 
 	serviceFactory := ctx.ServiceFactory()
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		model, serviceFactory.Cloud(), serviceFactory.Credential(),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "storage registry")
-	}
-
 	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &HighAvailabilityAPI{
-		st:                 st,
-		prechecker:         prechecker,
-		nodeService:        serviceFactory.ControllerNode(),
-		machineService:     serviceFactory.Machine(),
-		applicationService: serviceFactory.Application(registry),
+		st:             st,
+		prechecker:     prechecker,
+		nodeService:    serviceFactory.ControllerNode(),
+		machineService: serviceFactory.Machine(),
+		// For adding additional controller units, we don't need a storage registry.
+		applicationService: serviceFactory.Application(nil),
 		controllerConfig:   serviceFactory.ControllerConfig(),
 		authorizer:         authorizer,
 		logger:             ctx.Logger().Child("highavailability"),
