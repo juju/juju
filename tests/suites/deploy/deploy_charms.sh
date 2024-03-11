@@ -14,6 +14,21 @@ run_deploy_charm() {
 	destroy_model "test-deploy-charm"
 }
 
+run_deploy_charm_placement_directive() {
+	echo
+
+	file="${TEST_DIR}/test-deploy-charm-placement-directive.log"
+
+	ensure "test-deploy-charm-placement-directive" "${file}"
+
+	juju add-machine --base ubuntu@20.04
+	juju deploy jameinel-ubuntu-lite --to 0
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+
+	destroy_model "test-deploy-charm-placement-directive"
+
+}
+
 run_deploy_charm_unsupported_series() {
 	# Test trying to deploy a charmhub charm to an operating system
 	# never supported in the specified channel. It should fail.
@@ -318,6 +333,7 @@ test_deploy_charms() {
 		cd .. || exit
 
 		run "run_deploy_charm"
+		run "run_deploy_charm_placement_directive"
 		run "run_deploy_specific_series"
 		run "run_resolve_charm"
 		run "run_deploy_charm_unsupported_series"

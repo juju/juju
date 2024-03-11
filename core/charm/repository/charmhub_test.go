@@ -1005,7 +1005,8 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 
 func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 	name := "wordpress"
-	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10/latest")
+	// 'mistakenly' include a risk in the platform
+	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10/stable")
 	channel := corecharm.MustParseChannel("latest/stable").Normalize()
 	origin := corecharm.Origin{
 		Platform: platform,
@@ -1028,7 +1029,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 			Channel:     &ch,
 			Base: &transport.Base{
 				Name:         "ubuntu",
-				Channel:      "20.10/latest",
+				Channel:      "20.10",
 				Architecture: "amd64",
 			},
 		}},

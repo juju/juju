@@ -22,6 +22,9 @@ func (s *ChannelSuite) TestParse(c *gc.C) {
 	ch, err = ParseChannel("22.04/edge")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
+	ch, err = ParseChannel("all")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch, jc.DeepEquals, Channel{Track: "all"})
 }
 
 func (s *ChannelSuite) TestParseError(c *gc.C) {
