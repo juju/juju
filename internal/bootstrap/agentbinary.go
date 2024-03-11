@@ -17,6 +17,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/state/binarystorage"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -67,7 +68,9 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 	}
 
 	logger.Debugf("Adding agent binary: %v", agentTools.Version)
-	if err := storage.Add(ctx, bytes.NewReader(data), metadata); err != nil {
+
+	// If the hash already exists, we don't need to add it again.
+	if err := storage.Add(ctx, bytes.NewReader(data), metadata); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
 		return nil, errors.Trace(err)
 	}
 
