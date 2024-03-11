@@ -99,7 +99,7 @@ AND auth_type.type = $M.authType
 }
 
 // ListClouds lists the clouds with the specified filter, if any.
-func (st *State) ListClouds(ctx context.Context, name string) ([]cloud.Cloud, error) {
+func (st *State) ListClouds(ctx context.Context) ([]cloud.Cloud, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -108,8 +108,30 @@ func (st *State) ListClouds(ctx context.Context, name string) ([]cloud.Cloud, er
 	var result []cloud.Cloud
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		result, err = loadClouds(ctx, tx, name)
+		result, err = loadClouds(ctx, tx, "")
 		return errors.Trace(err)
+	})
+	return result, errors.Trace(err)
+}
+
+// Cloud returns the cloud with the specified name.
+func (st *State) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result *cloud.Cloud
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		clouds, err := loadClouds(ctx, tx, name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(clouds) == 0 {
+			return fmt.Errorf("%w %q", clouderrors.NotFound, name)
+		}
+		result = &clouds[0]
+		return nil
 	})
 	return result, errors.Trace(err)
 }

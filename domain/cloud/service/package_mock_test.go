@@ -42,6 +42,21 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// Cloud mocks base method.
+func (m *MockState) Cloud(arg0 context.Context, arg1 string) (*cloud.Cloud, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Cloud", arg0, arg1)
+	ret0, _ := ret[0].(*cloud.Cloud)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Cloud indicates an expected call of Cloud.
+func (mr *MockStateMockRecorder) Cloud(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockState)(nil).Cloud), arg0, arg1)
+}
+
 // DeleteCloud mocks base method.
 func (m *MockState) DeleteCloud(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -57,18 +72,18 @@ func (mr *MockStateMockRecorder) DeleteCloud(arg0, arg1 any) *gomock.Call {
 }
 
 // ListClouds mocks base method.
-func (m *MockState) ListClouds(arg0 context.Context, arg1 string) ([]cloud.Cloud, error) {
+func (m *MockState) ListClouds(arg0 context.Context) ([]cloud.Cloud, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListClouds", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListClouds", arg0)
 	ret0, _ := ret[0].([]cloud.Cloud)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListClouds indicates an expected call of ListClouds.
-func (mr *MockStateMockRecorder) ListClouds(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateMockRecorder) ListClouds(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListClouds", reflect.TypeOf((*MockState)(nil).ListClouds), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListClouds", reflect.TypeOf((*MockState)(nil).ListClouds), arg0)
 }
 
 // UpsertCloud mocks base method.

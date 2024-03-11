@@ -168,24 +168,6 @@ func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner, cloudName
 	return result, nil
 }
 
-func cloudCredentialFromCredentialResult(credInfo credential.CloudCredentialResult) cloud.Credential {
-	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
-	cred.Invalid = credInfo.Invalid
-	cred.InvalidReason = credInfo.InvalidReason
-	return cred
-}
-
-func credentialInfoFromCloudCredential(cred cloud.Credential) credential.CloudCredentialInfo {
-	return credential.CloudCredentialInfo{
-		AuthType:      string(cred.AuthType()),
-		Attributes:    cred.Attributes(),
-		Revoked:       cred.Revoked,
-		Label:         cred.Label,
-		Invalid:       cred.Invalid,
-		InvalidReason: cred.InvalidReason,
-	}
-}
-
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
 func (s *Service) UpdateCloudCredential(ctx context.Context, id corecredential.ID, cred cloud.Credential) error {
 	if err := id.Validate(); err != nil {
@@ -233,20 +215,6 @@ func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID core
 		return []error{errors.Trace(err)}, nil
 	}
 	return modelErrors, nil
-}
-
-// UpdateCredentialModelResult holds details of a model
-// which was affected by a credential update, and any
-// errors encountered validating the credential.
-type UpdateCredentialModelResult struct {
-	// ModelUUID contains model's UUID.
-	ModelUUID coremodel.UUID
-
-	// ModelName contains model name.
-	ModelName string
-
-	// Errors contains the errors accumulated while trying to update a credential.
-	Errors []error
 }
 
 // CheckAndUpdateCredential updates the credential after first checking that any models which use the credential
@@ -373,33 +341,6 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, id corecredentia
 	return nil
 }
 
-func plural(length int) string {
-	if length == 1 {
-		return ""
-	}
-	return "s"
-}
-
-func modelsPretty(in map[coremodel.UUID]string) string {
-	// map keys are notoriously randomly ordered
-	uuids := []string{}
-	for uuid := range in {
-		uuids = append(uuids, string(uuid))
-	}
-	sort.Strings(uuids)
-
-	firstLine := ":\n- "
-	if len(uuids) == 1 {
-		firstLine = " "
-	}
-
-	return fmt.Sprintf("%v%v%v",
-		plural(len(in)),
-		firstLine,
-		strings.Join(uuids, "\n- "),
-	)
-}
-
 // WatchableService provides the API for working with credentials and the
 // ability to create watchers.
 type WatchableService struct {
@@ -450,4 +391,107 @@ func (s *WatchableService) WithLegacyUpdater(updater func(tag names.CloudCredent
 func (s *WatchableService) WithLegacyRemover(remover func(tag names.CloudCredentialTag) error) *WatchableService {
 	s.legacyRemover = remover
 	return s
+}
+
+// ProviderService provides the API for working with clouds.
+// The provider service is a subset of the cloud service, and is used by the
+// provider package to interact with the cloud service. By not exposing the
+// full cloud service, the provider package is not able to modify the cloud
+// entities, only read them.
+type ProviderService struct {
+	st State
+}
+
+// NewProviderService returns a new service reference wrapping the input state.
+func NewProviderService(st State) *ProviderService {
+	return &ProviderService{
+		st: st,
+	}
+}
+
+// CloudCredential returns the cloud credential for the given tag.
+func (s *ProviderService) CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error) {
+	if err := id.Validate(); err != nil {
+		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
+	}
+	credInfo, err := s.st.CloudCredential(ctx, id)
+	if err != nil {
+		return cloud.Credential{}, errors.Trace(err)
+	}
+	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
+	cred.Invalid = credInfo.Invalid
+	cred.InvalidReason = credInfo.InvalidReason
+	return cred, nil
+}
+
+// WatchableProviderService provides the API for working with credentials and
+// the ability to create watchers.
+type WatchableProviderService struct {
+	ProviderService
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableProviderService returns a new service reference wrapping the
+// input state.
+func NewWatchableProviderService(st State, watcherFactory WatcherFactory) *WatchableProviderService {
+	return &WatchableProviderService{
+		ProviderService: ProviderService{
+			st: st,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchCredential returns a watcher that observes changes to the specified
+// credential.
+func (s *WatchableProviderService) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
+	}
+	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, id)
+}
+
+func cloudCredentialFromCredentialResult(credInfo credential.CloudCredentialResult) cloud.Credential {
+	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
+	cred.Invalid = credInfo.Invalid
+	cred.InvalidReason = credInfo.InvalidReason
+	return cred
+}
+
+func credentialInfoFromCloudCredential(cred cloud.Credential) credential.CloudCredentialInfo {
+	return credential.CloudCredentialInfo{
+		AuthType:      string(cred.AuthType()),
+		Attributes:    cred.Attributes(),
+		Revoked:       cred.Revoked,
+		Label:         cred.Label,
+		Invalid:       cred.Invalid,
+		InvalidReason: cred.InvalidReason,
+	}
+}
+
+func plural(length int) string {
+	if length == 1 {
+		return ""
+	}
+	return "s"
+}
+
+func modelsPretty(in map[coremodel.UUID]string) string {
+	// map keys are notoriously randomly ordered
+	uuids := []string{}
+	for uuid := range in {
+		uuids = append(uuids, string(uuid))
+	}
+	sort.Strings(uuids)
+
+	firstLine := ":\n- "
+	if len(uuids) == 1 {
+		firstLine = " "
+	}
+
+	return fmt.Sprintf("%v%v%v",
+		plural(len(in)),
+		firstLine,
+		strings.Join(uuids, "\n- "),
+	)
 }

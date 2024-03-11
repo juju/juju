@@ -557,7 +557,7 @@ func (s *stateSuite) TestListClouds(c *gc.C) {
 	err = st.UpsertCloud(context.Background(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(context.Background(), "")
+	clouds, err := st.ListClouds(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 2)
 	if clouds[0].Name == testCloud.Name {
@@ -588,7 +588,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	err = st.UpsertCloud(context.Background(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(context.Background(), "")
+	clouds, err := st.ListClouds(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 2)
 
@@ -610,7 +610,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err = st.ListClouds(context.Background(), "")
+	clouds, err = st.ListClouds(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 2)
 
@@ -623,20 +623,19 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	}
 }
 
-func (s *stateSuite) TestListCloudsFilter(c *gc.C) {
+func (s *stateSuite) TestCloud(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.UpsertCloud(context.Background(), testCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.UpsertCloud(context.Background(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(context.Background(), "fluffy3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 0)
+	_, err = st.Cloud(context.Background(), "fluffy3")
+	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
 
-	clouds, err = st.ListClouds(context.Background(), "fluffy2")
+	cloud, err := st.Cloud(context.Background(), "fluffy2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, jc.DeepEquals, []cloud.Cloud{testCloud2})
+	c.Check(cloud, jc.DeepEquals, &testCloud2)
 }
 
 func (s *stateSuite) TestDeleteCloud(c *gc.C) {
@@ -646,9 +645,8 @@ func (s *stateSuite) TestDeleteCloud(c *gc.C) {
 	err := st.DeleteCloud(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 0)
+	_, err = st.Cloud(context.Background(), "fluffy")
+	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
@@ -690,10 +688,9 @@ WHERE cloud.name = ?
 	err = st.DeleteCloud(context.Background(), "fluffy")
 	c.Assert(err, gc.ErrorMatches, "cannot delete cloud as it is still in use")
 
-	clouds, err := st.ListClouds(context.Background(), "fluffy")
+	cloud, err := st.Cloud(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, gc.HasLen, 1)
-	c.Assert(clouds[0].Name, gc.Equals, "fluffy")
+	c.Assert(cloud.Name, gc.Equals, "fluffy")
 }
 
 type watcherFunc func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)

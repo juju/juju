@@ -74,34 +74,35 @@ func (s *serviceSuite) TestListAll(c *gc.C) {
 	clouds := []cloud.Cloud{{
 		Name: "fluffy",
 	}}
-	s.state.EXPECT().ListClouds(gomock.Any(), "").Return(clouds, nil)
+	s.state.EXPECT().ListClouds(gomock.Any()).Return(clouds, nil)
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).ListAll(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, clouds)
+	c.Check(result, jc.DeepEquals, clouds)
 }
 
 func (s *serviceSuite) TestCloud(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	one := cloud.Cloud{
+	one := &cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().ListClouds(gomock.Any(), "fluffy").Return([]cloud.Cloud{one}, nil)
+	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(one, nil)
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &one)
+	c.Check(result, jc.DeepEquals, one)
 }
 
 func (s *serviceSuite) TestCloudNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ListClouds(gomock.Any(), "fluffy").Return(nil, nil)
+	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(nil, errors.NotFoundf(`cloud "fluffy"`))
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
 	c.Assert(err, gc.ErrorMatches, `cloud "fluffy" not found`)
-	c.Assert(result, gc.IsNil)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(result, gc.IsNil)
 }
 
 func (s *serviceSuite) TestWatchCloud(c *gc.C) {
@@ -113,5 +114,47 @@ func (s *serviceSuite) TestWatchCloud(c *gc.C) {
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Check(w, gc.NotNil)
+}
+
+type providerServiceSuite struct {
+	baseSuite
+}
+
+var _ = gc.Suite(&providerServiceSuite{})
+
+func (s *providerServiceSuite) TestCloud(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	one := &cloud.Cloud{
+		Name: "fluffy",
+	}
+	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(one, nil)
+
+	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, one)
+}
+
+func (s *providerServiceSuite) TestCloudNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(nil, errors.NotFoundf(`cloud "fluffy"`))
+
+	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
+	c.Assert(err, gc.ErrorMatches, `cloud "fluffy" not found`)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(result, gc.IsNil)
+}
+
+func (s *providerServiceSuite) TestWatchCloud(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	nw := watchertest.NewMockNotifyWatcher(nil)
+
+	s.state.EXPECT().WatchCloud(gomock.Any(), gomock.Any(), "cirrus").Return(nw, nil)
+
+	w, err := NewWatchableProviderService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(w, gc.NotNil)
 }

@@ -22,7 +22,7 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-type serviceSuite struct {
+type baseSuite struct {
 	testing.IsolationSuite
 
 	state          *MockState
@@ -30,9 +30,7 @@ type serviceSuite struct {
 	watcherFactory *MockWatcherFactory
 }
 
-var _ = gc.Suite(&serviceSuite{})
-
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.validator = NewMockCredentialValidator(ctrl)
@@ -41,6 +39,12 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	return ctrl
 }
+
+type serviceSuite struct {
+	baseSuite
+}
+
+var _ = gc.Suite(&serviceSuite{})
 
 func (s *serviceSuite) service() *WatchableService {
 	return NewWatchableService(s.state, s.watcherFactory, loggo.GetLogger("test"))
@@ -213,8 +217,6 @@ func (s *serviceSuite) TestWatchCredentialInvalidID(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid id watching cloud credential.*")
 }
 
-var invalid = true
-
 func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -226,6 +228,8 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 	}
 
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(nil, errors.NotFound)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, cred).Return(&invalid, nil)
 
 	var legacyUpdated bool
@@ -331,6 +335,8 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[coremodel.UUID]string{
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	contextError := errors.New("failed context")
@@ -371,6 +377,8 @@ func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[coremodel.UUID]string{
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), id, &cred, false).Return(nil, nil)
 
@@ -407,6 +415,8 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[coremodel.UUID]string{
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	validationError := errors.New("cred error")
@@ -512,6 +522,8 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *g
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666":    "anothermodel",
 	}, nil)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	validationError := errors.New("cred error")
@@ -701,4 +713,63 @@ func (s *serviceSuite) TestCheckAndRevokeCredentialInvalidID(c *gc.C) {
 	id := corecredential.ID{Cloud: "cirrus", Owner: "fred"}
 	err := s.service().CheckAndRevokeCredential(context.Background(), id, false)
 	c.Assert(err, gc.ErrorMatches, "invalid id revoking cloud credential.*")
+}
+
+type providerServiceSuite struct {
+	baseSuite
+}
+
+var _ = gc.Suite(&providerServiceSuite{})
+
+func (s *providerServiceSuite) service() *WatchableProviderService {
+	return NewWatchableProviderService(s.state, s.watcherFactory)
+}
+
+func (s *providerServiceSuite) TestCloudCredential(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	cred := credential.CloudCredentialResult{
+		CloudCredentialInfo: credential.CloudCredentialInfo{
+			AuthType: string(cloud.UserPassAuthType),
+			Attributes: map[string]string{
+				"hello": "world",
+			},
+			Label: "foo",
+		},
+	}
+	s.state.EXPECT().CloudCredential(gomock.Any(), id).Return(cred, nil)
+
+	result, err := s.service().CloudCredential(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
+}
+
+func (s *providerServiceSuite) TestCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().CloudCredential(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "invalid id getting cloud credential.*")
+}
+
+func (s *providerServiceSuite) TestWatchCredential(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	nw := watchertest.NewMockNotifyWatcher(nil)
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), id).Return(nw, nil)
+
+	w, err := s.service().WatchCredential(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+}
+
+func (s *providerServiceSuite) TestWatchCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().WatchCredential(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "invalid id watching cloud credential.*")
 }
