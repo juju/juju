@@ -59,6 +59,7 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	// getCharm
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
@@ -112,6 +113,7 @@ func (s *validatorSuite) testValidateIAASAttachStorage(c *gc.C, argStorage []str
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+	s.model.EXPECT().UUID().Return("")
 	// getCharm
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 	s.state.EXPECT().Charm(gomock.Any()).Return(nil, errors.NotFoundf("charm"))
@@ -160,6 +162,7 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	// Placement
 	s.state.EXPECT().Machine("0").Return(s.machine, nil).Times(2)
@@ -213,6 +216,7 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(charmID).Return(resolvedData, nil)
 	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	// state bindings
 	endpointMap := map[string]string{"to": "from"}
@@ -948,6 +952,7 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{
 		Arch: strptr("arm64"),
 	}, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",

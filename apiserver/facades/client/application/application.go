@@ -532,7 +532,7 @@ func deployApplication(
 
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
-	if err := checkMachinePlacement(backend, args.ApplicationName, args.Placement); err != nil {
+	if err := checkMachinePlacement(backend, model.UUID(), args.ApplicationName, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -783,13 +783,20 @@ type MachinePlacementBackend interface {
 // If the placement scope is for a machine, ensure that the machine exists.
 // If the placement is for a machine or a container on an existing machine,
 // check that the machine is not locked for series upgrade.
-func checkMachinePlacement(backend MachinePlacementBackend, app string, placement []*instance.Placement) error {
+// If the placement scope is model-uuid, replace it with the actual model uuid.
+func checkMachinePlacement(backend MachinePlacementBackend, modelUUID string, app string, placement []*instance.Placement) error {
 	errTemplate := "cannot deploy %q to machine %s"
 
 	for _, p := range placement {
 		if p == nil {
 			continue
 		}
+		// Substitute the placeholder with the actual model uuid.
+		if p.Scope == "model-uuid" {
+			p.Scope = modelUUID
+			continue
+		}
+
 		dir := p.Directive
 
 		toProvisionedMachine := p.Scope == instance.MachineScope
