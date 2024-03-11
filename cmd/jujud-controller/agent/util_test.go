@@ -162,7 +162,9 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
-func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (
+	m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
+) {
 	vers := coretesting.CurrentVersion()
 	return s.primeAgentVersion(c, vers, jobs...)
 }

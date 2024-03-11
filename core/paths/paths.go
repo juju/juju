@@ -36,8 +36,6 @@ const (
 	cloudInitCfgDir
 	curtinInstallConfig
 	transientDataDir
-	controlSocket
-	configChangeSocket
 )
 
 const (
@@ -68,8 +66,6 @@ var nixVals = map[osVarType]string{
 	instanceCloudInitDir: "/var/lib/cloud/instance",
 	cloudInitCfgDir:      "/etc/cloud/cloud.cfg.d",
 	curtinInstallConfig:  "/root/curtin-install-cfg.yaml",
-	controlSocket:        "/var/lib/juju/control.socket",
-	configChangeSocket:   "/var/lib/juju/configchange.socket",
 }
 
 var winVals = map[osVarType]string{
@@ -199,14 +195,4 @@ func CurtinInstallConfig(os OS) string {
 // cloud config directory for a particular series.
 func CloudInitCfgDir(os OS) string {
 	return osVal(os, cloudInitCfgDir)
-}
-
-// ControlSocket returns the absolute path to the Juju control socket.
-func ControlSocket(os OS) string {
-	return osVal(os, controlSocket)
-}
-
-// ConfigChangeSocket returns the absolute path to the Juju config change socket.
-func ConfigChangeSocket(os OS) string {
-	return osVal(os, configChangeSocket)
 }

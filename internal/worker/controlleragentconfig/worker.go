@@ -200,7 +200,6 @@ func (w *configWorker) Watcher() (ConfigWatcher, error) {
 // loop listens for a reload request picked up by the socket listener and
 // restarts all subscribed workers watching the config.
 func (w *configWorker) loop() error {
-
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
