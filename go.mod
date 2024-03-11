@@ -85,7 +85,7 @@ require (
 	github.com/juju/worker/v3 v3.5.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1
-	github.com/lestrrat-go/jwx/v2 v2.0.19
+	github.com/lestrrat-go/jwx/v2 v2.0.21
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/microsoft/kiota-abstractions-go v1.5.3
@@ -105,11 +105,11 @@ require (
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.34.1
 	go.uber.org/mock v0.4.0
-	golang.org/x/crypto v0.19.0
+	golang.org/x/crypto v0.21.0
 	golang.org/x/net v0.21.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.17.0
+	golang.org/x/sys v0.18.0
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.16.1
 	google.golang.org/api v0.154.0
@@ -219,7 +219,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
-	github.com/lestrrat-go/httprc v1.0.4 // indirect
+	github.com/lestrrat-go/httprc v1.0.5 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/lestrrat/go-jspointer v0.0.0-20160229021354-f4881e611bdb // indirect
@@ -276,7 +276,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.17.0 // indirect
 	github.com/std-uritemplate/std-uritemplate/go v0.0.47 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
@@ -291,7 +291,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/term v0.17.0 // indirect
+	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231127180814-3a041ad873d4 // indirect
