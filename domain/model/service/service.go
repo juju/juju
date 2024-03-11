@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -23,6 +24,9 @@ type State interface {
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
+
+	// List returns a list of all model UUIDs.
+	List(context.Context) ([]coremodel.UUID, error)
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.ID) error
@@ -142,6 +146,17 @@ func (s *Service) DeleteModel(
 	}
 
 	return s.st.Delete(ctx, uuid)
+}
+
+// ModelList returns a list of all model UUIDs in the system that have not been
+// deleted. This list does not represent one or more lifecycle states for
+// models.
+func (s *Service) ModelList(ctx context.Context) ([]coremodel.UUID, error) {
+	uuids, err := s.st.List(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving model list")
+	}
+	return uuids, nil
 }
 
 // UpdateCredential is responsible for updating the cloud credential

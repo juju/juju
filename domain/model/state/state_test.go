@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -377,6 +378,9 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestDeleteModel tests that we can delete a model that is already created in
+// the system. We also confirm that list models returns no models after the
+// deletion.
 func (m *modelSuite) TestDeleteModel(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Delete(
@@ -409,6 +413,10 @@ func (m *modelSuite) TestDeleteModel(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	modelUUIDS, err := modelSt.List(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(modelUUIDS, gc.HasLen, 0)
 }
 
 func (m *modelSuite) TestDeleteModelNotFound(c *gc.C) {
@@ -416,4 +424,62 @@ func (m *modelSuite) TestDeleteModelNotFound(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Delete(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestListModels is testing that once we have created several models calling
+// list returns all of the models created.
+func (m *modelSuite) TestListModels(c *gc.C) {
+	uuid1 := modeltesting.GenModelUUID(c)
+	modelSt := NewState(m.TxnRunnerFactory())
+	err := modelSt.Create(
+		context.Background(),
+		uuid1,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
+			Credential: credential.ID{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:  "listtest1",
+			Owner: m.userUUID,
+			Type:  coremodel.IAAS,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid2 := modeltesting.GenModelUUID(c)
+	err = modelSt.Create(
+		context.Background(),
+		uuid2,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
+			Credential: credential.ID{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:  "listtest2",
+			Owner: m.userUUID,
+			Type:  coremodel.IAAS,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuids, err := modelSt.List(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuids, gc.HasLen, 3)
+
+	uuidsSet := set.NewStrings()
+	for _, uuid := range uuids {
+		uuidsSet.Add(uuid.String())
+	}
+
+	c.Check(uuidsSet.Contains(uuid1.String()), jc.IsTrue)
+	c.Check(uuidsSet.Contains(uuid2.String()), jc.IsTrue)
+	c.Check(uuidsSet.Contains(m.uuid.String()), jc.IsTrue)
 }

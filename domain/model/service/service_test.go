@@ -100,6 +100,17 @@ func (d *dummyState) Delete(
 	return nil
 }
 
+func (d *dummyState) List(
+	_ context.Context,
+) ([]coremodel.UUID, error) {
+	rval := make([]coremodel.UUID, 0, len(d.models))
+	for k := range d.models {
+		rval = append(rval, k)
+	}
+
+	return rval, nil
+}
+
 func (d *dummyState) UpdateCredential(
 	_ context.Context,
 	uuid coremodel.UUID,
@@ -175,6 +186,12 @@ func (s *serviceSuite) TestModelCreation(c *C) {
 	// Test that because we have not specified an agent version that the current
 	// controller version is chosen.
 	c.Check(args.AgentVersion, Equals, jujuversion.Current)
+
+	modelList, err := svc.ModelList(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelList, DeepEquals, []coremodel.UUID{
+		id,
+	})
 }
 
 func (s *serviceSuite) TestModelCreationInvalidCloud(c *C) {
