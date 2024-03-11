@@ -447,6 +447,38 @@ func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
 	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
+func (s *managerSuite) TestGetImageSourcesNoDefaults(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	cfg := getBaseConfig()
+	cfg[config.ContainerImageMetadataDefaultsDisabledKey] = "true"
+	s.makeManagerForConfig(c, cfg)
+
+	sources, err := lxd.GetImageSources(s.manager)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sources, gc.HasLen, 0)
+}
+
+func (s *managerSuite) TestGetImageSourcesNoDefaultsCustomURL(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	cfg := getBaseConfig()
+	cfg[config.ContainerImageMetadataDefaultsDisabledKey] = "true"
+	cfg[config.ContainerImageMetadataURLKey] = "https://special.container.sauce"
+	s.makeManagerForConfig(c, cfg)
+
+	sources, err := lxd.GetImageSources(s.manager)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedSources := []lxd.ServerSpec{
+		{
+			Name:     "special.container.sauce",
+			Host:     "https://special.container.sauce",
+			Protocol: lxd.SimpleStreamsProtocol,
+		},
+	}
+	c.Check(sources, gc.DeepEquals, expectedSources)
+}
+
 func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
 	defer s.setup(c).Finish()
 

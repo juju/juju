@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package network_test
 
 import (
 	"errors"
@@ -13,9 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
 )
 
 type networkConfigSuite struct {
@@ -45,7 +43,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C
 
 	s.source.EXPECT().Interfaces().Return(nil, errors.New("boom"))
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	observedConfig, err := network.GetObservedNetworkConfig(s.source)
 	c.Check(err, gc.ErrorMatches, "detecting network interfaces: boom")
 	c.Check(observedConfig, gc.IsNil)
 }
@@ -66,7 +64,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigInterfaceAddressesError
 
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	observedConfig, err := network.GetObservedNetworkConfig(s.source)
 	c.Check(err, gc.ErrorMatches, `detecting addresses for "eth0": bam`)
 	c.Check(observedConfig, gc.IsNil)
 }
@@ -87,7 +85,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigNilAddressError(c *gc.C
 
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	observedConfig, err := network.GetObservedNetworkConfig(s.source)
 	c.Check(err, gc.ErrorMatches, `cannot parse nil address on interface "eth1"`)
 	c.Check(observedConfig, gc.IsNil)
 }
@@ -110,17 +108,17 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c 
 
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	observedConfig, err := network.GetObservedNetworkConfig(s.source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+	c.Check(observedConfig, jc.DeepEquals, network.InterfaceInfos{{
 		DeviceIndex:   2,
 		MACAddress:    "aa:bb:cc:dd:ee:ff",
 		MTU:           1500,
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
 		ConfigType:    "manual",
-		NetworkOrigin: "machine",
+		Origin:        network.OriginMachine,
 	}})
 }
 
@@ -156,10 +154,10 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	observedConfig, err := network.GetObservedNetworkConfig(s.source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{
+	c.Check(observedConfig, jc.DeepEquals, network.InterfaceInfos{
 		{
 			DeviceIndex:      2,
 			MACAddress:       "aa:bb:cc:dd:ee:ff",
@@ -168,22 +166,21 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigDefaultGatewayWithAddre
 			InterfaceType:    "ethernet",
 			ConfigType:       "static",
 			IsDefaultGateway: true,
-			GatewayAddress:   "1.2.3.4",
-			NetworkOrigin:    "machine",
-			Addresses: []params.Address{
-				{
-					Value:      "1.2.3.4",
-					CIDR:       "1.2.3.0/24",
-					ConfigType: "static",
-					Type:       "ipv4",
-					Scope:      "public",
-				}, {
-					Value:       "559c:f8c5:812a:fa1f:21fe:5613:3f20:b081",
-					ConfigType:  "static",
-					IsSecondary: true,
-					Type:        "ipv6",
-					Scope:       "public",
-				},
+			GatewayAddress:   network.NewMachineAddress("1.2.3.4").AsProviderAddress(),
+			Origin:           network.OriginMachine,
+			Addresses: []network.ProviderAddress{
+				network.NewMachineAddress(
+					"1.2.3.4",
+					network.WithCIDR("1.2.3.0/24"),
+					network.WithConfigType("static"),
+					network.WithScope("public"),
+				).AsProviderAddress(),
+				network.NewMachineAddress(
+					"559c:f8c5:812a:fa1f:21fe:5613:3f20:b081",
+					network.WithConfigType("static"),
+					network.WithSecondary(true),
+					network.WithScope("public"),
+				).AsProviderAddress(),
 			},
 		},
 	})
@@ -208,10 +205,10 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigForOVSDevice(c *gc.C) {
 
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic}, nil)
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	observedConfig, err := network.GetObservedNetworkConfig(s.source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+	c.Check(observedConfig, jc.DeepEquals, network.InterfaceInfos{{
 		DeviceIndex:     2,
 		MACAddress:      "aa:bb:cc:dd:ee:ff",
 		MTU:             1500,
@@ -219,7 +216,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigForOVSDevice(c *gc.C) {
 		InterfaceType:   "bridge",
 		VirtualPortType: "openvswitch",
 		ConfigType:      "manual",
-		NetworkOrigin:   "machine",
+		Origin:          network.OriginMachine,
 	}})
 }
 
@@ -253,10 +250,10 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSe
 
 	s.source.EXPECT().Interfaces().Return([]network.ConfigSourceNIC{nic1, nic2}, nil)
 
-	observedConfig, err := common.GetObservedNetworkConfig(s.source)
+	observedConfig, err := network.GetObservedNetworkConfig(s.source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{
+	c.Check(observedConfig, jc.DeepEquals, network.InterfaceInfos{
 		{
 			DeviceIndex:         2,
 			MACAddress:          "aa:bb:cc:dd:ee:ff",
@@ -265,7 +262,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSe
 			InterfaceType:       "ethernet",
 			ParentInterfaceName: "br-eth1",
 			ConfigType:          "manual",
-			NetworkOrigin:       "machine",
+			Origin:              network.OriginMachine,
 		},
 		{
 			DeviceIndex:   3,
@@ -274,7 +271,7 @@ func (s *networkConfigSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSe
 			InterfaceName: "br-eth1",
 			InterfaceType: "bridge",
 			ConfigType:    "manual",
-			NetworkOrigin: "machine",
+			Origin:        network.OriginMachine,
 		},
 	})
 }
