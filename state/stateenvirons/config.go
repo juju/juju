@@ -40,7 +40,7 @@ type CredentialService interface {
 
 // CloudService provides access to clouds.
 type CloudService interface {
-	Get(ctx context.Context, name string) (*cloud.Cloud, error)
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
 // EnvironConfigGetter implements environs.EnvironConfigGetter
@@ -100,7 +100,7 @@ func CloudSpecForModel(
 	cloudService CloudService,
 	credentialService CredentialService,
 ) (environscloudspec.CloudSpec, error) {
-	cld, err := cloudService.Get(ctx, m.CloudName())
+	cld, err := cloudService.Cloud(ctx, m.CloudName())
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}

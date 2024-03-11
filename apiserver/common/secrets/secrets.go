@@ -314,7 +314,7 @@ func getExternalRevisions(backend state.SecretsStore, backendID string, filter s
 func cloudSpecForModel(
 	ctx context.Context, m Model, cloudService common.CloudService, credentialService common.CredentialService,
 ) (cloudspec.CloudSpec, error) {
-	c, err := cloudService.Get(ctx, m.CloudName())
+	c, err := cloudService.Cloud(ctx, m.CloudName())
 	if err != nil {
 		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}

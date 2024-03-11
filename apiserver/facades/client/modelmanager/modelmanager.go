@@ -303,7 +303,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
-	cloud, err := m.cloudService.Get(ctx, cloudTag.Id())
+	cloud, err := m.cloudService.Cloud(ctx, cloudTag.Id())
 	if err != nil {
 		if errors.Is(err, errors.NotFound) && args.CloudTag != "" {
 			// A cloud was specified, and it was not found.

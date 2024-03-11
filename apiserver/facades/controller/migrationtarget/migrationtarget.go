@@ -476,7 +476,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	cloud, err := api.cloudService.Get(ctx, m.CloudName())
+	cloud, err := api.cloudService.Cloud(ctx, m.CloudName())
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

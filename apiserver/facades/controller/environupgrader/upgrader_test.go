@@ -204,7 +204,7 @@ type mockCloudService struct {
 	clouds map[string]cloud.Cloud
 }
 
-func (b *mockCloudService) Get(_ context.Context, name string) (*cloud.Cloud, error) {
+func (b *mockCloudService) Cloud(_ context.Context, name string) (*cloud.Cloud, error) {
 	b.MethodCall(b, "Cloud", name)
 	cld := b.clouds[name]
 	return &cld, b.NextErr()

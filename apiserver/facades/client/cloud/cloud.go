@@ -184,7 +184,7 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 				return nil, errors.NotFoundf("cloud %q", tag.Id())
 			}
 		}
-		aCloud, err := api.cloudService.Get(ctx, tag.Id())
+		aCloud, err := api.cloudService.Cloud(ctx, tag.Id())
 		if err != nil {
 			return nil, err
 		}
@@ -242,7 +242,7 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		isAdmin = perm == permission.AdminAccess
 	}
 
-	aCloud, err := api.cloudService.Get(ctx, tag.Id())
+	aCloud, err := api.cloudService.Cloud(ctx, tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -554,7 +554,7 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 			if s, ok := schemaCache[cloudName]; ok {
 				return s, nil
 			}
-			aCloud, err := api.cloudService.Get(ctx, cloudName)
+			aCloud, err := api.cloudService.Cloud(ctx, cloudName)
 			if err != nil {
 				return nil, err
 			}
@@ -613,7 +613,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 
 	if cloudArgs.Cloud.Type != k8sconstants.CAASProviderType {
 		// All non-k8s cloud need to go through whitelist.
-		controllerCloud, err := api.cloudService.Get(ctx, api.controllerCloud)
+		controllerCloud, err := api.cloudService.Cloud(ctx, api.controllerCloud)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -632,7 +632,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 	}
 
 	// TODO(wallyworld) - refactor once permissions are on dqlite.
-	err = api.cloudService.Save(ctx, aCloud)
+	err = api.cloudService.UpsertCloud(ctx, aCloud)
 	if err != nil {
 		return errors.Annotatef(err, "creating cloud %q", cloudArgs.Name)
 	}
@@ -652,7 +652,7 @@ func (api *CloudAPI) UpdateCloud(ctx context.Context, cloudArgs params.UpdateClo
 		return results, apiservererrors.ServerError(err)
 	}
 	for i, aCloud := range cloudArgs.Clouds {
-		err := api.cloudService.Save(ctx, cloudFromParams(aCloud.Name, aCloud.Cloud))
+		err := api.cloudService.UpsertCloud(ctx, cloudFromParams(aCloud.Name, aCloud.Cloud))
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
@@ -687,7 +687,7 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 				continue
 			}
 		}
-		err = api.cloudService.Delete(ctx, tag.Id())
+		err = api.cloudService.DeleteCloud(ctx, tag.Id())
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -710,7 +710,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		if s, ok := schemaCache[cloudName]; ok {
 			return s, nil
 		}
-		aCloud, err := api.cloudService.Get(ctx, cloudName)
+		aCloud, err := api.cloudService.Cloud(ctx, cloudName)
 		if err != nil {
 			return nil, err
 		}
@@ -821,7 +821,7 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, err = api.cloudService.Get(ctx, cloudTag.Id())
+		_, err = api.cloudService.Cloud(ctx, cloudTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

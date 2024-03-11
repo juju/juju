@@ -501,19 +501,19 @@ func (m *MockCloudService) EXPECT() *MockCloudServiceMockRecorder {
 	return m.recorder
 }
 
-// Get mocks base method.
-func (m *MockCloudService) Get(arg0 context.Context, arg1 string) (*cloud.Cloud, error) {
+// Cloud mocks base method.
+func (m *MockCloudService) Cloud(arg0 context.Context, arg1 string) (*cloud.Cloud, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0, arg1)
+	ret := m.ctrl.Call(m, "Cloud", arg0, arg1)
 	ret0, _ := ret[0].(*cloud.Cloud)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get.
-func (mr *MockCloudServiceMockRecorder) Get(arg0, arg1 any) *gomock.Call {
+// Cloud indicates an expected call of Cloud.
+func (mr *MockCloudServiceMockRecorder) Cloud(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCloudService)(nil).Get), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockCloudService)(nil).Cloud), arg0, arg1)
 }
 
 // MockStorageService is a mock of StorageService interface.

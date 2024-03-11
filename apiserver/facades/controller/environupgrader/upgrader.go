@@ -115,7 +115,7 @@ func (f *Facade) modelTargetEnvironVersion(ctx context.Context, arg params.Entit
 		return -1, errors.Trace(err)
 	}
 	defer release()
-	cloud, err := f.cloudService.Get(ctx, model.CloudName())
+	cloud, err := f.cloudService.Cloud(ctx, model.CloudName())
 	if err != nil {
 		return -1, errors.Trace(err)
 	}

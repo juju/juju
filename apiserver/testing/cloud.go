@@ -22,7 +22,7 @@ type cloudGetter struct {
 	cld *cloud.Cloud
 }
 
-func (c cloudGetter) Get(_ context.Context, name string) (*cloud.Cloud, error) {
+func (c cloudGetter) Cloud(_ context.Context, name string) (*cloud.Cloud, error) {
 	if c.cld == nil {
 		return nil, errors.NotFoundf("cloud %q", name)
 	}

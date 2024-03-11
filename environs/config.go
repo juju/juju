@@ -128,14 +128,14 @@ func Provider(providerType string) (EnvironProvider, error) {
 
 // CloudService provides access to clouds.
 type CloudService interface {
-	Get(ctx context.Context, name string) (*cloud.Cloud, error)
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
 // ProviderConfigSchemaSource returns a function that can be used to
 // get a config.ConfigSchemaSource for the specified cloud.
 func ProviderConfigSchemaSource(cloudService CloudService) config.ConfigSchemaSourceGetter {
 	return func(ctx context.Context, cloudName string) (config.ConfigSchemaSource, error) {
-		cloud, err := cloudService.Get(ctx, cloudName)
+		cloud, err := cloudService.Cloud(ctx, cloudName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

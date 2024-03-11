@@ -44,7 +44,7 @@ func NewNetworkConfigAPI(ctx context.Context, st *state.State, cloudService comm
 		return nil, errors.Trace(err)
 	}
 
-	cloud, err := cloudService.Get(ctx, mod.CloudName())
+	cloud, err := cloudService.Cloud(ctx, mod.CloudName())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

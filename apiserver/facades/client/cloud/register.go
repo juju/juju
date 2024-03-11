@@ -49,7 +49,7 @@ func newFacadeV7(context facade.ModelContext) (*CloudAPI, error) {
 			return service.CredentialValidationContext{}, err
 		}
 
-		cld, err := context.ServiceFactory().Cloud().Get(ctx, m.CloudName())
+		cld, err := context.ServiceFactory().Cloud().Cloud(ctx, m.CloudName())
 		if err != nil {
 			return service.CredentialValidationContext{}, err
 		}

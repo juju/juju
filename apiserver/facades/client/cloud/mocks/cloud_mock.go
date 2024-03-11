@@ -299,33 +299,33 @@ func (m *MockCloudService) EXPECT() *MockCloudServiceMockRecorder {
 	return m.recorder
 }
 
-// Delete mocks base method.
-func (m *MockCloudService) Delete(arg0 context.Context, arg1 string) error {
+// Cloud mocks base method.
+func (m *MockCloudService) Cloud(arg0 context.Context, arg1 string) (*cloud0.Cloud, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Delete indicates an expected call of Delete.
-func (mr *MockCloudServiceMockRecorder) Delete(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockCloudService)(nil).Delete), arg0, arg1)
-}
-
-// Get mocks base method.
-func (m *MockCloudService) Get(arg0 context.Context, arg1 string) (*cloud0.Cloud, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0, arg1)
+	ret := m.ctrl.Call(m, "Cloud", arg0, arg1)
 	ret0, _ := ret[0].(*cloud0.Cloud)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get.
-func (mr *MockCloudServiceMockRecorder) Get(arg0, arg1 any) *gomock.Call {
+// Cloud indicates an expected call of Cloud.
+func (mr *MockCloudServiceMockRecorder) Cloud(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCloudService)(nil).Get), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockCloudService)(nil).Cloud), arg0, arg1)
+}
+
+// DeleteCloud mocks base method.
+func (m *MockCloudService) DeleteCloud(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCloud", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCloud indicates an expected call of DeleteCloud.
+func (mr *MockCloudServiceMockRecorder) DeleteCloud(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCloud", reflect.TypeOf((*MockCloudService)(nil).DeleteCloud), arg0, arg1)
 }
 
 // ListAll mocks base method.
@@ -343,18 +343,18 @@ func (mr *MockCloudServiceMockRecorder) ListAll(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAll", reflect.TypeOf((*MockCloudService)(nil).ListAll), arg0)
 }
 
-// Save mocks base method.
-func (m *MockCloudService) Save(arg0 context.Context, arg1 cloud0.Cloud) error {
+// UpsertCloud mocks base method.
+func (m *MockCloudService) UpsertCloud(arg0 context.Context, arg1 cloud0.Cloud) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Save", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpsertCloud", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Save indicates an expected call of Save.
-func (mr *MockCloudServiceMockRecorder) Save(arg0, arg1 any) *gomock.Call {
+// UpsertCloud indicates an expected call of UpsertCloud.
+func (mr *MockCloudServiceMockRecorder) UpsertCloud(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockCloudService)(nil).Save), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertCloud", reflect.TypeOf((*MockCloudService)(nil).UpsertCloud), arg0, arg1)
 }
 
 // MockCloudPermissionService is a mock of CloudPermissionService interface.

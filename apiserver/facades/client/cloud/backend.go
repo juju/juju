@@ -19,9 +19,9 @@ import (
 // CloudService provides access to clouds.
 type CloudService interface {
 	ListAll(stdcontext.Context) ([]cloud.Cloud, error)
-	Get(stdcontext.Context, string) (*cloud.Cloud, error)
-	Save(ctx stdcontext.Context, cld cloud.Cloud) error
-	Delete(ctx stdcontext.Context, name string) error
+	Cloud(stdcontext.Context, string) (*cloud.Cloud, error)
+	UpsertCloud(ctx stdcontext.Context, cld cloud.Cloud) error
+	DeleteCloud(ctx stdcontext.Context, name string) error
 }
 
 // CloudPermissionService provides access to cloud permissions.

@@ -127,7 +127,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	model, st := s.newCAASModel(c)
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(
 		model,
-		&testing.MockCloudService{Cloud: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
+		&testing.MockCloudService{CloudInfo: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
 		&testing.MockCredentialService{Credential: ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
