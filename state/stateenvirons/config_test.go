@@ -71,7 +71,7 @@ type cloudGetter struct {
 	cloud *cloud.Cloud
 }
 
-func (c cloudGetter) Get(_ context.Context, name string) (*cloud.Cloud, error) {
+func (c cloudGetter) Cloud(_ context.Context, name string) (*cloud.Cloud, error) {
 	if c.cloud == nil {
 		return nil, errors.NotFoundf("cloud %q", name)
 	}

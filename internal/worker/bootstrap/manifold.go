@@ -65,7 +65,7 @@ type CredentialService interface {
 // CloudService is the interface that is used to interact with the
 // cloud.
 type CloudService interface {
-	Get(context.Context, string) (*cloud.Cloud, error)
+	Cloud(context.Context, string) (*cloud.Cloud, error)
 }
 
 // StorageService instances save a storage pool to dqlite state.

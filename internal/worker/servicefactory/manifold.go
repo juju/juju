@@ -133,7 +133,7 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 	}
 	w, ok := in.(*serviceFactoryWorker)
 	if !ok {
-		return errors.Errorf("expected input of type dbWorker, got %T", in)
+		return errors.Errorf("expected input of type serviceFactoryWorker, got %T", in)
 	}
 
 	switch out := out.(type) {

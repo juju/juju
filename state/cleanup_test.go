@@ -1199,7 +1199,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	c.Assert(err, jc.ErrorIsNil)
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(
 		caas.New)(model,
-		&testing.MockCloudService{Cloud: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
+		&testing.MockCloudService{CloudInfo: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
 		&testing.MockCredentialService{Credential: ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))})
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)

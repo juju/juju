@@ -189,7 +189,7 @@ type cloudGetter struct {
 	cloud *jujucloud.Cloud
 }
 
-func (c cloudGetter) Get(_ stdcontext.Context, name string) (*jujucloud.Cloud, error) {
+func (c cloudGetter) Cloud(_ stdcontext.Context, name string) (*jujucloud.Cloud, error) {
 	if c.cloud == nil {
 		return nil, errors.NotFoundf("cloud %q", name)
 	}

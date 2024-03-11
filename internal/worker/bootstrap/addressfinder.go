@@ -72,7 +72,7 @@ func getEnviron(ctx context.Context, state SystemState, cloudService CloudServic
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloud, err := cloudService.Get(ctx, controllerModel.CloudName())
+	cloud, err := cloudService.Cloud(ctx, controllerModel.CloudName())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

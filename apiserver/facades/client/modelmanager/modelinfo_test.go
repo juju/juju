@@ -1319,7 +1319,7 @@ func (m *mockCloudService) WatchCloud(ctx stdcontext.Context, name string) (watc
 	return nil, errors.NotSupported
 }
 
-func (m *mockCloudService) Get(ctx stdcontext.Context, name string) (*cloud.Cloud, error) {
+func (m *mockCloudService) Cloud(ctx stdcontext.Context, name string) (*cloud.Cloud, error) {
 	cld, ok := m.clouds[name]
 	if !ok {
 		return nil, errors.NotFoundf("cloud %q", name)

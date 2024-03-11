@@ -76,7 +76,7 @@ func newFacade(ctx facade.ModelContext, facadeVersions facades.FacadeVersions) (
 			return service.CredentialValidationContext{}, err
 		}
 
-		cld, err := ctx.ServiceFactory().Cloud().Get(stdctx, m.CloudName())
+		cld, err := ctx.ServiceFactory().Cloud().Cloud(stdctx, m.CloudName())
 		if err != nil {
 			return service.CredentialValidationContext{}, err
 		}

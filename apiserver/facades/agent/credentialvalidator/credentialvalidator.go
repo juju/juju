@@ -162,7 +162,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 }
 
 func (api *CredentialValidatorAPI) cloudSupportsNoAuth(ctx context.Context, cloudName string) (bool, error) {
-	cloud, err := api.cloudService.Get(ctx, cloudName)
+	cloud, err := api.cloudService.Cloud(ctx, cloudName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

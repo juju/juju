@@ -88,7 +88,7 @@ type testCloudService struct {
 	*testing.Stub
 }
 
-func (c testCloudService) Get(ctx context.Context, name string) (*cloud.Cloud, error) {
+func (c testCloudService) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	return &cloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",

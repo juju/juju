@@ -14,7 +14,7 @@ import (
 
 // CloudService provides access to clouds.
 type CloudService interface {
-	Get(context.Context, string) (*cloud.Cloud, error)
+	Cloud(context.Context, string) (*cloud.Cloud, error)
 }
 
 type Pool interface {

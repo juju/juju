@@ -570,7 +570,7 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.cloudService.EXPECT().Get(gomock.Any(), "manual").Return(&cloud.Cloud{
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "manual").Return(&cloud.Cloud{
 		Name:      "manual",
 		Type:      "manual",
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
@@ -627,7 +627,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.cloudService.EXPECT().Get(gomock.Any(), "dummy").Return(&cloud.Cloud{
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&cloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},

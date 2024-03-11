@@ -373,7 +373,7 @@ func (s *updaterSuite) setupMocksNoResources(c *gc.C) *gomock.Controller {
 	s.model = mocks.NewMockModel(ctrl)
 	s.resources = statemocks.NewMockResources(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.cloudService.EXPECT().Get(gomock.Any(), "dummy").Return(&cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
 
 	s.state = mocks.NewMockState(ctrl)
 

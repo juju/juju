@@ -51,13 +51,14 @@ func NewService(st State) *Service {
 	}
 }
 
-// Save inserts or updates the specified cloud.
-func (s *Service) Save(ctx context.Context, cloud cloud.Cloud) error {
+// UpsertCloud inserts or updates the specified cloud.
+func (s *Service) UpsertCloud(ctx context.Context, cloud cloud.Cloud) error {
 	err := s.st.UpsertCloud(ctx, cloud)
 	return errors.Annotatef(err, "updating cloud %q", cloud.Name)
 }
 
-func (s *Service) Delete(ctx context.Context, name string) error {
+// DeleteCloud removes the specified cloud.
+func (s *Service) DeleteCloud(ctx context.Context, name string) error {
 	err := s.st.DeleteCloud(ctx, name)
 	return errors.Annotatef(err, "deleting cloud %q", name)
 }
@@ -68,8 +69,8 @@ func (s *Service) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
 	return all, errors.Trace(err)
 }
 
-// Get returns the named cloud.
-func (s *Service) Get(ctx context.Context, name string) (*cloud.Cloud, error) {
+// Cloud returns the named cloud.
+func (s *Service) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	clouds, err := s.st.ListClouds(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
