@@ -18,7 +18,6 @@ import (
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
-	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -39,8 +38,6 @@ type ControllerServiceFactory interface {
 	Model() *modelservice.Service
 	//ModelDefaults returns the modeldefaults service.
 	ModelDefaults() *modeldefaultsservice.Service
-	// ModelManager returns the model manager service.
-	ModelManager() *modelmanagerservice.Service
 	// ExternalController returns the external controller service.
 	ExternalController() *externalcontrollerservice.WatchableService
 	// Credential returns the credential service.
