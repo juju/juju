@@ -32,13 +32,14 @@ import (
 type ManifoldSuite struct {
 	jujutesting.BaseSuite
 
-	authority              pki.Authority
-	manifold               dependency.Manifold
-	getter                 dependency.Getter
-	stateTracker           stubStateTracker
-	modelLogger            dummyModelLogger
-	serviceFactory         servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.WatchableService
+	authority                    pki.Authority
+	manifold                     dependency.Manifold
+	getter                       dependency.Getter
+	stateTracker                 stubStateTracker
+	modelLogger                  dummyModelLogger
+	serviceFactory               servicefactory.ServiceFactory
+	providerServiceFactoryGetter servicefactory.ProviderServiceFactoryGetter
+	controllerConfigGetter       *controllerconfigservice.WatchableService
 
 	state *state.State
 	pool  *state.StatePool
@@ -62,31 +63,41 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.serviceFactory = stubServiceFactory{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
+	s.providerServiceFactoryGetter = stubProviderServiceFactoryGetter{}
 	s.stub.ResetCalls()
 
 	s.modelLogger = dummyModelLogger{}
 
 	s.getter = s.newGetter(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
-		AgentName:          "agent",
-		AuthorityName:      "authority",
-		StateName:          "state",
-		LogSinkName:        "log-sink",
-		ServiceFactoryName: "service-factory",
-		NewWorker:          s.newWorker,
-		NewModelWorker:     s.newModelWorker,
-		ModelMetrics:       dummyModelMetrics{},
-		Logger:             loggo.GetLogger("test"),
+		AgentName:                  "agent",
+		AuthorityName:              "authority",
+		StateName:                  "state",
+		LogSinkName:                "log-sink",
+		ServiceFactoryName:         "service-factory",
+		ProviderServiceFactoryName: "provider-service-factory",
+		NewWorker:                  s.newWorker,
+		NewModelWorker:             s.newModelWorker,
+		ModelMetrics:               dummyModelMetrics{},
+		Logger:                     loggo.GetLogger("test"),
+		GetProviderServiceFactoryGetter: func(getter dependency.Getter, name string) (modelworkermanager.ProviderServiceFactoryGetter, error) {
+			var a any
+			if err := getter.Get(name, &a); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return providerServiceFactoryGetter{}, nil
+		},
 	})
 }
 
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
-		"agent":           &fakeAgent{},
-		"authority":       s.authority,
-		"state":           &s.stateTracker,
-		"log-sink":        s.modelLogger,
-		"service-factory": s.serviceFactory,
+		"agent":                    &fakeAgent{},
+		"authority":                s.authority,
+		"state":                    &s.stateTracker,
+		"log-sink":                 s.modelLogger,
+		"service-factory":          s.serviceFactory,
+		"provider-service-factory": s.providerServiceFactoryGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -110,7 +121,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "authority", "state", "log-sink", "service-factory"}
+var expectedInputs = []string{"agent", "authority", "state", "log-sink", "service-factory", "provider-service-factory"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -158,11 +169,12 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Controller: modelworkermanager.StatePoolController{
 			StatePool: s.pool,
 		},
-		ControllerConfigGetter: s.controllerConfigGetter,
-		ErrorDelay:             jworker.RestartDelay,
-		Logger:                 loggo.GetLogger("test"),
-		MachineID:              "1",
-		LogSink:                dummyModelLogger{},
+		ControllerConfigGetter:       s.controllerConfigGetter,
+		ErrorDelay:                   jworker.RestartDelay,
+		Logger:                       loggo.GetLogger("test"),
+		MachineID:                    "1",
+		LogSink:                      dummyModelLogger{},
+		ProviderServiceFactoryGetter: providerServiceFactoryGetter{},
 	})
 }
 
@@ -228,4 +240,16 @@ type stubServiceFactory struct {
 
 func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
 	return s.controllerConfigGetter
+}
+
+type stubProviderServiceFactoryGetter struct {
+	servicefactory.ProviderServiceFactoryGetter
+}
+
+type providerServiceFactoryGetter struct {
+	modelworkermanager.ProviderServiceFactoryGetter
+}
+
+func (s providerServiceFactoryGetter) FactoryForModel(_ string) modelworkermanager.ProviderServiceFactory {
+	return nil
 }

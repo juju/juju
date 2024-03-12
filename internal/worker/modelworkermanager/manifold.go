@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	coredependency "github.com/juju/juju/core/dependency"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
@@ -27,19 +28,26 @@ type Logger interface {
 	Infof(string, ...interface{})
 }
 
+// GetProviderServiceFactoryGetterFunc returns a ProviderServiceFactoryGetter
+// from the given dependency.Getter.
+type GetProviderServiceFactoryGetterFunc func(getter dependency.Getter, name string) (ProviderServiceFactoryGetter, error)
+
 // ManifoldConfig holds the information necessary to run a model worker manager
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName          string
-	AuthorityName      string
-	StateName          string
-	ServiceFactoryName string
-	LogSinkName        string
+	AgentName                  string
+	AuthorityName              string
+	StateName                  string
+	ServiceFactoryName         string
+	ProviderServiceFactoryName string
+	LogSinkName                string
 
 	NewWorker      func(Config) (worker.Worker, error)
 	NewModelWorker NewModelWorkerFunc
 	ModelMetrics   ModelMetrics
 	Logger         Logger
+
+	GetProviderServiceFactoryGetter GetProviderServiceFactoryGetterFunc
 }
 
 // Validate validates the manifold configuration.
@@ -56,6 +64,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
 	}
+	if config.ProviderServiceFactoryName == "" {
+		return errors.NotValidf("empty ProviderServiceFactoryName")
+	}
 	if config.LogSinkName == "" {
 		return errors.NotValidf("empty LogSinkName")
 	}
@@ -71,6 +82,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if config.GetProviderServiceFactoryGetter == nil {
+		return errors.NotValidf("nil GetProviderServiceFactoryGetter")
+	}
 	return nil
 }
 
@@ -83,6 +97,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.LogSinkName,
 			config.ServiceFactoryName,
+			config.ProviderServiceFactoryName,
 		},
 		Start: config.start,
 	}
@@ -113,6 +128,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	providerServiceFactoryGetter, err := config.GetProviderServiceFactoryGetter(getter, config.ProviderServiceFactoryName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -133,14 +153,46 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		Controller: StatePoolController{
 			StatePool: statePool,
 		},
-		LogSink:                logSink,
-		ControllerConfigGetter: controllerServiceFactory.ControllerConfig(),
-		NewModelWorker:         config.NewModelWorker,
-		ErrorDelay:             jworker.RestartDelay,
+		LogSink:                      logSink,
+		ControllerConfigGetter:       controllerServiceFactory.ControllerConfig(),
+		NewModelWorker:               config.NewModelWorker,
+		ErrorDelay:                   jworker.RestartDelay,
+		ProviderServiceFactoryGetter: providerServiceFactoryGetter,
 	})
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+}
+
+// GetProviderServiceFactoryGetter returns a ProviderServiceFactoryGetter from
+// the given dependency.Getter.
+func GetProviderServiceFactoryGetter(getter dependency.Getter, name string) (ProviderServiceFactoryGetter, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factoryGetter servicefactory.ProviderServiceFactoryGetter) ProviderServiceFactoryGetter {
+		return providerServiceFactoryGetter{factoryGetter: factoryGetter}
+	})
+}
+
+type providerServiceFactoryGetter struct {
+	factoryGetter servicefactory.ProviderServiceFactoryGetter
+}
+
+// FactoryForModel returns a ProviderServiceFactory for the given model.
+func (g providerServiceFactoryGetter) FactoryForModel(modelUUID string) ProviderServiceFactory {
+	return providerServiceFactory{factory: g.factoryGetter.FactoryForModel(modelUUID)}
+}
+
+type providerServiceFactory struct {
+	factory servicefactory.ProviderServiceFactory
+}
+
+// Cloud returns the cloud service.
+func (f providerServiceFactory) Cloud() ProviderCloudService {
+	return f.factory.Cloud()
+}
+
+// Credential returns the credential service.
+func (f providerServiceFactory) Credential() ProviderCredentialService {
+	return f.factory.Credential()
 }

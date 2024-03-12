@@ -697,15 +697,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
-			AgentName:          agentName,
-			AuthorityName:      certificateWatcherName,
-			StateName:          stateName,
-			LogSinkName:        logSinkName,
-			ServiceFactoryName: serviceFactoryName,
-			NewWorker:          modelworkermanager.New,
-			NewModelWorker:     config.NewModelWorker,
-			ModelMetrics:       config.DependencyEngineMetrics,
-			Logger:             loggo.GetLogger("juju.workers.modelworkermanager"),
+			AgentName:                       agentName,
+			AuthorityName:                   certificateWatcherName,
+			StateName:                       stateName,
+			LogSinkName:                     logSinkName,
+			ServiceFactoryName:              serviceFactoryName,
+			ProviderServiceFactoryName:      providerServiceFactoryName,
+			NewWorker:                       modelworkermanager.New,
+			NewModelWorker:                  config.NewModelWorker,
+			ModelMetrics:                    config.DependencyEngineMetrics,
+			Logger:                          loggo.GetLogger("juju.workers.modelworkermanager"),
+			GetProviderServiceFactoryGetter: modelworkermanager.GetProviderServiceFactoryGetter,
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{

@@ -33,8 +33,9 @@ var _ = gc.Suite(&suite{})
 type suite struct {
 	authority pki.Authority
 	testing.IsolationSuite
-	workerC                chan *mockWorker
-	controllerConfigGetter *stubControllerConfigGetter
+	workerC                      chan *mockWorker
+	controllerConfigGetter       *stubControllerConfigGetter
+	providerServiceFactoryGetter modelworkermanager.ProviderServiceFactoryGetter
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
@@ -46,6 +47,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.controllerConfigGetter = &stubControllerConfigGetter{
 		controllerConfig: coretesting.FakeControllerConfig(),
 	}
+	s.providerServiceFactoryGetter = providerServiceFactoryGetter{}
 }
 
 func (s *suite) TestStartEmpty(c *gc.C) {
@@ -194,16 +196,17 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	watcher := newMockModelWatcher()
 	controller := newMockController()
 	config := modelworkermanager.Config{
-		Authority:              s.authority,
-		Logger:                 loggo.GetLogger("test"),
-		MachineID:              "1",
-		ModelWatcher:           watcher,
-		Controller:             controller,
-		ControllerConfigGetter: s.controllerConfigGetter,
-		NewModelWorker:         s.startModelWorker,
-		ModelMetrics:           dummyModelMetrics{},
-		ErrorDelay:             time.Millisecond,
-		LogSink:                dummyModelLogger{},
+		Authority:                    s.authority,
+		Logger:                       loggo.GetLogger("test"),
+		MachineID:                    "1",
+		ModelWatcher:                 watcher,
+		Controller:                   controller,
+		ControllerConfigGetter:       s.controllerConfigGetter,
+		NewModelWorker:               s.startModelWorker,
+		ModelMetrics:                 dummyModelMetrics{},
+		ErrorDelay:                   time.Millisecond,
+		LogSink:                      dummyModelLogger{},
+		ProviderServiceFactoryGetter: s.providerServiceFactoryGetter,
 	}
 	w, err := modelworkermanager.New(config)
 	c.Assert(err, jc.ErrorIsNil)
