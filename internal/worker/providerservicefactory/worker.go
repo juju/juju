@@ -5,6 +5,7 @@ package providerservicefactory
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
@@ -109,6 +110,30 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.
 			coremodel.UUID(modelUUID), s.dbGetter, s.logger,
 		),
 	}
+}
+
+// The following loggers are required because the Logger interfaces in the other
+// locations have a Child method that returns the same Logger type. As this
+// a self referential type, we need to wrap it in a new type to satisfy the
+// interface. The solution to this is to return a concrete type, but that is
+// not idea either, as it means we can't push the testing logger into the
+// tests.
+
+// loggoLogger is a loggo.Logger for the service factory.
+type loggoLogger struct {
+	loggo.Logger
+}
+
+// NewLogger returns a new logger for the service factory.
+func NewLogger(ns string) Logger {
+	return loggoLogger{
+		Logger: loggo.GetLogger(ns),
+	}
+}
+
+// Child returns a child logger that satisfies the Logger interface.
+func (c loggoLogger) Child(name string) Logger {
+	return c
 }
 
 // serviceFactoryLogger is a Logger for the service factory.
