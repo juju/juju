@@ -313,15 +313,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PruneInterval: config.ActionPrunerInterval,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.action"),
 		})),
-		// The environ upgrader runs on all controller agents, and
-		// unlocks the gate when the environ is up-to-date. The
-		// environ tracker will be supplied only to the leader,
+		// The provider upgrader runs on all controller agents, and
+		// unlocks the gate when the provider is up-to-date. The
+		// provider tracker will be supplied only to the leader,
 		// which is the agent that will run the upgrade steps;
 		// the other controller agents will wait for it to complete
 		// running those steps before allowing logins to the model.
-		environUpgradeGateName: gate.Manifold(),
-		environUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  environUpgradeGateName,
+		providerUpgradeGateName: gate.Manifold(),
+		providerUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  providerUpgradeGateName,
 			NewWorker: gate.NewFlagWorker,
 			// No Logger defined in gate package.
 		}),
@@ -351,7 +351,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		environTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
+		providerTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
 			APICallerName:  apiCallerName,
 			NewEnvironFunc: config.NewEnvironFunc,
 			Logger:         config.LoggingContext.GetLogger("juju.worker.environ"),
@@ -398,7 +398,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			EnvironName:   providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.provisioner"),
 
 			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
@@ -408,7 +408,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:                apiCallerName,
 			Clock:                        config.Clock,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
-			StorageRegistryName:          environTrackerName,
+			StorageRegistryName:          providerTrackerName,
 			Model:                        modelTag,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			NewWorker:                    storageprovisioner.NewStorageProvisioner,
@@ -416,7 +416,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			EnvironName:   providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.firewaller"),
 
 			NewControllerConnection:      apicaller.NewExternalControllerConnection,
@@ -441,22 +441,22 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName:                apiCallerName,
-			EnvironName:                  environTrackerName,
+			EnvironName:                  providerTrackerName,
 			ClockName:                    clockName,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.instancepoller"),
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,
-			EnvironName:                  environTrackerName,
+			EnvironName:                  providerTrackerName,
 			NewWorker:                    machineundertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		})),
-		environUpgraderName: ifNotDead(ifCredentialValid(environupgrader.Manifold(environupgrader.ManifoldConfig{
+		providerUpgraderName: ifNotDead(ifCredentialValid(environupgrader.Manifold(environupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
-			EnvironName:                  environTrackerName,
-			GateName:                     environUpgradeGateName,
+			EnvironName:                  providerTrackerName,
+			GateName:                     providerUpgradeGateName,
 			ControllerTag:                controllerTag,
 			ModelTag:                     modelTag,
 			NewFacade:                    environupgrader.NewFacade,
@@ -467,7 +467,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		instanceMutaterName: ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			EnvironName:   providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater.environ"),
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewEnvironWorker,
@@ -547,9 +547,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		)),
 
-		environUpgraderName: ifNotDead(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
+		providerUpgraderName: ifNotDead(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
-			GateName:      environUpgradeGateName,
+			GateName:      providerUpgradeGateName,
 			ModelTag:      modelTag,
 			NewFacade:     caasenvironupgrader.NewFacade,
 			NewWorker:     caasenvironupgrader.NewWorker,
@@ -638,10 +638,10 @@ var (
 	}.Decorate
 
 	// ifNotUpgrading wraps a manifold such that it only runs after
-	// the environ upgrade worker has completed.
+	// the provider upgrade worker has completed.
 	ifNotUpgrading = engine.Housing{
 		Flags: []string{
-			environUpgradedFlagName,
+			providerUpgradedFlagName,
 		},
 	}.Decorate
 
@@ -668,11 +668,11 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
-	environUpgradeGateName  = "environ-upgrade-gate"
-	environUpgradedFlagName = "environ-upgraded-flag"
-	environUpgraderName     = "environ-upgrader"
+	providerUpgradeGateName  = "provider-upgrade-gate"
+	providerUpgradedFlagName = "provider-upgraded-flag"
+	providerUpgraderName     = "provider-upgrader"
 
-	environTrackerName         = "environ-tracker"
+	providerTrackerName        = "provider-tracker"
 	undertakerName             = "undertaker"
 	computeProvisionerName     = "compute-provisioner"
 	storageProvisionerName     = "storage-provisioner"
