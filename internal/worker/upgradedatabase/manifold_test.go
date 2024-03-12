@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
-	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	modelservice "github.com/juju/juju/domain/model/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
 
@@ -110,7 +110,7 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentConfig.EXPECT().UpgradedToVersion().Return(version.MustParse("1.0.0")).AnyTimes()
 
 	s.serviceFactory.EXPECT().Upgrade().Return(&upgradeservice.WatchableService{}).AnyTimes()
-	s.serviceFactory.EXPECT().ModelManager().Return(&modelmanagerservice.Service{}).AnyTimes()
+	s.serviceFactory.EXPECT().Model().Return(&modelservice.Service{}).AnyTimes()
 	s.serviceFactory.EXPECT().ControllerNode().Return(&controllernodeservice.Service{}).AnyTimes()
 
 	return ctrl

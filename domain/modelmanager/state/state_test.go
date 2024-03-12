@@ -9,9 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmanager/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -48,76 +46,4 @@ func (s *stateSuite) TestStateCreateWithInvalidUUID(c *gc.C) {
 
 	err := st.Create(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *stateSuite) TestStateListIsEmpty(c *gc.C) {
-	st := state.NewState(s.TxnRunnerFactory())
-
-	models, err := st.List(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, gc.HasLen, 0)
-}
-
-func (s *stateSuite) TestStateList(c *gc.C) {
-	st := state.NewState(s.TxnRunnerFactory())
-
-	uuid := modeltesting.GenModelUUID(c)
-
-	err := st.Create(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-
-	models, err := st.List(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, gc.DeepEquals, []coremodel.UUID{uuid})
-}
-
-func (s *stateSuite) TestStateListMultipleItems(c *gc.C) {
-	st := state.NewState(s.TxnRunnerFactory())
-
-	var uuids []coremodel.UUID
-	for i := 0; i < 10; i++ {
-		uuid := modeltesting.GenModelUUID(c)
-
-		err := st.Create(context.Background(), uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		uuids = append(uuids, uuid)
-	}
-
-	models, err := st.List(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, gc.DeepEquals, uuids)
-}
-
-func (s *stateSuite) TestStateDeleteWithNoMatchingUUID(c *gc.C) {
-	st := state.NewState(s.TxnRunnerFactory())
-	err := st.Delete(context.Background(), modeltesting.GenModelUUID(c))
-	c.Assert(err, jc.ErrorIs, domain.ErrNoRecord)
-}
-
-func (s *stateSuite) TestStateDelete(c *gc.C) {
-	st := state.NewState(s.TxnRunnerFactory())
-
-	uuid := modeltesting.GenModelUUID(c)
-
-	err := st.Create(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.Delete(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *stateSuite) TestStateDeleteCalledTwice(c *gc.C) {
-	st := state.NewState(s.TxnRunnerFactory())
-
-	uuid := modeltesting.GenModelUUID(c)
-
-	err := st.Create(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.Delete(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.Delete(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIs, domain.ErrNoRecord)
 }

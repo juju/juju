@@ -61,8 +61,8 @@ type UpgradeService interface {
 	WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error)
 }
 
-// ModelManagerService is the interface for the model manager service.
-type ModelManagerService interface {
+// ModelService is the interface for the model service.
+type ModelService interface {
 	// ModelList returns a list of all model UUIDs.
 	// This only includes active models from the perspective of dqlite. These
 	// are not the same as alive models.
@@ -78,9 +78,9 @@ type Config struct {
 	// Agent is the running machine agent.
 	Agent agent.Agent
 
-	// ModelManagerService is the model manager service used to identify
+	// ModelService is the model manager service used to identify
 	// the model uuids required to upgrade.
-	ModelManagerService ModelManagerService
+	ModelService ModelService
 
 	// UpgradeService is the upgrade service used to drive the upgrade.
 	UpgradeService UpgradeService
@@ -137,8 +137,8 @@ type upgradeDBWorker struct {
 
 	dbGetter coredatabase.DBGetter
 
-	modelManagerService ModelManagerService
-	upgradeService      UpgradeService
+	modelService   ModelService
+	upgradeService UpgradeService
 
 	logger Logger
 	clock  clock.Clock
@@ -160,8 +160,8 @@ func NewUpgradeDatabaseWorker(config Config) (worker.Worker, error) {
 
 		dbGetter: config.DBGetter,
 
-		modelManagerService: config.ModelManagerService,
-		upgradeService:      config.UpgradeService,
+		modelService:   config.ModelService,
+		upgradeService: config.UpgradeService,
 
 		logger: config.Logger,
 		clock:  config.Clock,
@@ -458,7 +458,7 @@ func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
 func (w *upgradeDBWorker) upgradeModels(ctx context.Context) error {
 	w.logger.Infof("upgrading model databases from: %v to: %v", w.fromVersion, w.toVersion)
 
-	models, err := w.modelManagerService.ModelList(ctx)
+	models, err := w.modelService.ModelList(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "getting model list")
 	}

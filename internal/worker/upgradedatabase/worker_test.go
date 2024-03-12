@@ -705,7 +705,7 @@ func (s *workerSuite) getConfig() Config {
 		Logger:                s.logger,
 		Clock:                 clock.WallClock,
 		UpgradeService:        s.upgradeService,
-		ModelManagerService:   s.modelManagerService,
+		ModelService:          s.modelService,
 		DBGetter:              s.dbGetter,
 		FromVersion:           version.MustParse("3.0.0"),
 		ToVersion:             version.MustParse("6.6.6"),
@@ -739,7 +739,7 @@ func (s *workerSuite) expectControllerDBUpgrade() {
 }
 
 func (s *workerSuite) expectModelList(models []coremodel.UUID) {
-	s.modelManagerService.EXPECT().ModelList(gomock.Any()).Return(models, nil)
+	s.modelService.EXPECT().ModelList(gomock.Any()).Return(models, nil)
 }
 
 func (s *workerSuite) expectModelDBUpgrade(c *gc.C, modelUUID coremodel.UUID) coredatabase.TxnRunner {

@@ -307,6 +307,38 @@ SELECT type FROM model_type;
 	})
 }
 
+// List returns a list of all model UUIDs in the system that have not been
+// deleted.
+func (s *State) List(ctx context.Context) ([]coremodel.UUID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var models []coremodel.UUID
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `SELECT uuid FROM model_list;`
+		rows, err := tx.QueryContext(ctx, stmt)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var model coremodel.UUID
+			if err := rows.Scan(&model); err != nil {
+				return errors.Trace(err)
+			}
+			if err := rows.Err(); err != nil {
+				return errors.Trace(err)
+			}
+			models = append(models, model)
+		}
+		return nil
+	})
+	return models, errors.Trace(err)
+}
+
 // setCloudRegion is responsible for setting a model's cloud region. This
 // operation can only be performed once and will fail with an error that
 // satisfies errors.AlreadyExists on subsequent tries.
