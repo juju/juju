@@ -85,6 +85,40 @@ func (s *serviceSuite) TestUpdateControllerValidationWithMissingConfig(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, `.*without complete s3 config: missing S3 endpoint`)
 }
 
+func (s *serviceSuite) TestUpdateControllerValidationOnlyObjectStoreType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we allow config to be updated one value at a time
+
+	coerced := map[string]string{controller.ObjectStoreType: "s3"}
+	cfg := controller.Config{controller.ObjectStoreType: "s3"}
+	_, current := makeDefaultConfig("file")
+
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
+		return validateModification(current)
+	})
+
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateControllerValidationAllAtOnce(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we allow the setting of all s3 config values in one
+
+	cfg, coerced := makeDefaultConfig("s3")
+	_, current := makeMinimalConfig("file")
+
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
+		return validateModification(current)
+	})
+
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+}
+
 func (s *serviceSuite) TestUpdateControllerValidationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

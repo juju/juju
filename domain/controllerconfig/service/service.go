@@ -191,13 +191,10 @@ func validObjectStoreProgression(current map[string]string, updateAttrs controll
 		return nil
 	} else if cur == objectstore.FileBackend && upd == objectstore.S3Backend {
 		// To be 100% sure that we can change from filestorage to s3storage,
-		// we're going to check if the current config has a complete s3 config.
+		// we're going to check if the updated config will have a complete s3 config.
 		// This is rather expensive, but it's the only way to be sure that we
 		// can change from filestorage to s3storage.
-		if err := controller.HasCompleteS3ControllerConfig(updateAttrs); err != nil {
-			return errors.Annotatef(err, "can not change %q from %q to %q without complete s3 config", controller.ObjectStoreType, cur, upd)
-		}
-		if err := hasCompleteS3Config(current); err != nil {
+		if err := updateCompletesS3Config(current, updateAttrs); err != nil {
 			return errors.Annotatef(err, "can not change %q from %q to %q without complete s3 config", controller.ObjectStoreType, cur, upd)
 		}
 		return nil
@@ -214,10 +211,19 @@ func contains(s []string, e string) bool {
 	return false
 }
 
-func hasCompleteS3Config(config map[string]string) error {
-	endpoint := config[controller.ObjectStoreS3Endpoint]
-	staticKey := config[controller.ObjectStoreS3StaticKey]
-	secretKey := config[controller.ObjectStoreS3StaticSecret]
+func updateCompletesS3Config(config map[string]string, updateAttrs controller.Config) error {
+	endpoint := updateAttrs.ObjectStoreS3Endpoint()
+	if endpoint == "" {
+		endpoint = config[controller.ObjectStoreS3Endpoint]
+	}
+	staticKey := updateAttrs.ObjectStoreS3StaticKey()
+	if staticKey == "" {
+		staticKey = config[controller.ObjectStoreS3StaticKey]
+	}
+	secretKey := updateAttrs.ObjectStoreS3StaticSecret()
+	if secretKey == "" {
+		secretKey = config[controller.ObjectStoreS3StaticSecret]
+	}
 	return controller.HasCompleteS3Config(endpoint, staticKey, secretKey)
 }
 
