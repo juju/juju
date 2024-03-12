@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"k8s.io/client-go/informers"
@@ -55,12 +56,16 @@ func (c ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 		return nil, errors.Trace(err)
 	}
 
-	var broker K8sBroker
+	var broker caas.Broker
 	if err := getter.Get(c.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
 	}
+	k8sBroker, ok := broker.(K8sBroker)
+	if !ok {
+		return nil, errors.Errorf("broker does not implement K8sBroker")
+	}
 
-	return NewMapper(c.Logger, broker.SharedInformerFactory().Core().V1().ServiceAccounts())
+	return NewMapper(c.Logger, k8sBroker.SharedInformerFactory().Core().V1().ServiceAccounts())
 }
 
 func (c ManifoldConfig) Validate() error {
