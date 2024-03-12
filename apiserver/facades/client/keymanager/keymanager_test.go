@@ -135,6 +135,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 	s.setAuthorizedKeys(c, key1, key2, "bad key")
 
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
+	newLineKey := sshtesting.ValidKeyFour.Key + " line1\nline2"
 
 	newAttrs := map[string]interface{}{
 		config.AuthorizedKeysKey: strings.Join([]string{key1, key2, "bad key", newKey}, "\n"),
@@ -143,7 +144,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").Name(),
-		Keys: []string{key2, newKey, newKey, "invalid-key"},
+		Keys: []string{key2, newKey, newKey, "invalid-key", newLineKey},
 	}
 	results, err := s.api.AddKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,6 +155,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 			{Error: nil},
 			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", newKey))},
 			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
+			{Error: apiservertesting.ServerError(fmt.Sprintf("invalid ssh key: %s", newLineKey))},
 		},
 	})
 }
@@ -239,8 +241,8 @@ func (s *keyManagerSuite) assertDeleteKeys(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
-			{Error: apiservertesting.ServerError("invalid ssh key: " + sshtesting.ValidKeyThree.Fingerprint)},
-			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
+			{Error: apiservertesting.ServerError("key not found: " + sshtesting.ValidKeyThree.Fingerprint)},
+			{Error: apiservertesting.ServerError("key not found: invalid-key")},
 		},
 	})
 }
