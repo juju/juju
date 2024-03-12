@@ -60,6 +60,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"migration-master",
 		"not-alive-flag",
 		"not-dead-flag",
+		"provider-service-factory",
 		"remote-relations",
 		"secrets-pruner",
 		"state-cleaner",
@@ -107,6 +108,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"migration-master",
 		"not-alive-flag",
 		"not-dead-flag",
+		"provider-service-factory",
 		"remote-relations",
 		"secrets-pruner",
 		"state-cleaner",
@@ -126,6 +128,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		"provider-service-factory",
 		// model upgrade manifolds are run on all
 		// controller agents, "responsible" or not.
 		"environ-upgrade-gate",
@@ -366,6 +369,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"not-alive-flag": {"agent", "api-caller"},
 
 	"not-dead-flag": {"agent", "api-caller"},
+
+	"provider-service-factory": {},
 
 	"remote-relations": {
 		"agent",
@@ -609,6 +614,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"not-alive-flag": {"agent", "api-caller"},
 
 	"not-dead-flag": {"agent", "api-caller"},
+
+	"provider-service-factory": {},
 
 	"remote-relations": {
 		"agent",

@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/internal/worker/machineundertaker"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
+	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/pruner"
 	"github.com/juju/juju/internal/worker/remoterelations"
@@ -120,6 +121,9 @@ type ManifoldsConfig struct {
 	// NewMigrationMaster is called to create a new migrationmaster
 	// worker.
 	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
+
+	// ProviderServiceFactory is used to access the provider service.
+	ProviderServiceFactory modelworkermanager.ProviderServiceFactory
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -148,6 +152,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Filter:        apiConnectFilter,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.apicaller"),
 		}),
+
+		// The provider service factory is used to access the provider service.
+		// It's injected into the model worker manager so that it can be used
+		// by the provider and broker workers.
+		providerServiceFactoryName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.ProviderServiceFactory)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
 
 		// The logging config updater listens for logging config updates
 		// for the model and configures the logging context appropriately.
@@ -658,23 +672,24 @@ const (
 	environUpgradedFlagName = "environ-upgraded-flag"
 	environUpgraderName     = "environ-upgrader"
 
-	environTrackerName       = "environ-tracker"
-	undertakerName           = "undertaker"
-	computeProvisionerName   = "compute-provisioner"
-	storageProvisionerName   = "storage-provisioner"
-	charmDownloaderName      = "charm-downloader"
-	firewallerName           = "firewaller"
-	unitAssignerName         = "unit-assigner"
-	applicationScalerName    = "application-scaler"
-	instancePollerName       = "instance-poller"
-	charmRevisionUpdaterName = "charm-revision-updater"
-	stateCleanerName         = "state-cleaner"
-	statusHistoryPrunerName  = "status-history-pruner"
-	actionPrunerName         = "action-pruner"
-	machineUndertakerName    = "machine-undertaker"
-	remoteRelationsName      = "remote-relations"
-	loggingConfigUpdaterName = "logging-config-updater"
-	instanceMutaterName      = "instance-mutater"
+	environTrackerName         = "environ-tracker"
+	undertakerName             = "undertaker"
+	computeProvisionerName     = "compute-provisioner"
+	storageProvisionerName     = "storage-provisioner"
+	charmDownloaderName        = "charm-downloader"
+	firewallerName             = "firewaller"
+	unitAssignerName           = "unit-assigner"
+	applicationScalerName      = "application-scaler"
+	instancePollerName         = "instance-poller"
+	charmRevisionUpdaterName   = "charm-revision-updater"
+	stateCleanerName           = "state-cleaner"
+	statusHistoryPrunerName    = "status-history-pruner"
+	actionPrunerName           = "action-pruner"
+	machineUndertakerName      = "machine-undertaker"
+	remoteRelationsName        = "remote-relations"
+	loggingConfigUpdaterName   = "logging-config-updater"
+	instanceMutaterName        = "instance-mutater"
+	providerServiceFactoryName = "provider-service-factory"
 
 	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"
