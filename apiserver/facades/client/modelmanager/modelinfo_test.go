@@ -1295,16 +1295,6 @@ func (m *mockMigration) EndTime() time.Time {
 	return m.end
 }
 
-type mockModelManagerService struct{}
-
-func (mockModelManagerService) Create(_ stdcontext.Context, _ coremodel.UUID) error {
-	return nil
-}
-
-func (mockModelManagerService) Delete(_ stdcontext.Context, _ coremodel.UUID) error {
-	return nil
-}
-
 type mockModelService struct{}
 
 func (mockModelService) DeleteModel(_ stdcontext.Context, _ coremodel.UUID) error {

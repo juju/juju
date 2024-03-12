@@ -51,12 +51,6 @@ var (
 
 type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.Broker, error)
 
-// ModelManagerService defines a interface for interacting with the underlying
-// state.
-type ModelManagerService interface {
-	Create(context.Context, coremodel.UUID) error
-}
-
 // ModelService defines a interface for interacting with the underlying state.
 type ModelService interface {
 	DeleteModel(context.Context, coremodel.UUID) error
@@ -89,22 +83,21 @@ type StateBackend interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	modelManagerService ModelManagerService
-	modelService        ModelService
-	state               StateBackend
-	modelExporter       ModelExporter
-	ctlrState           common.ModelManagerBackend
-	cloudService        CloudService
-	credentialService   CredentialService
-	store               objectstore.ObjectStore
-	configSchemaSource  config.ConfigSchemaSourceGetter
-	check               common.BlockCheckerInterface
-	authorizer          facade.Authorizer
-	toolsFinder         common.ToolsFinder
-	apiUser             names.UserTag
-	isAdmin             bool
-	model               common.Model
-	getBroker           newCaasBrokerFunc
+	modelService       ModelService
+	state              StateBackend
+	modelExporter      ModelExporter
+	ctlrState          common.ModelManagerBackend
+	cloudService       CloudService
+	credentialService  CredentialService
+	store              objectstore.ObjectStore
+	configSchemaSource config.ConfigSchemaSourceGetter
+	check              common.BlockCheckerInterface
+	authorizer         facade.Authorizer
+	toolsFinder        common.ToolsFinder
+	apiUser            names.UserTag
+	isAdmin            bool
+	model              common.Model
+	getBroker          newCaasBrokerFunc
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -115,7 +108,6 @@ func NewModelManagerAPI(
 	ctlrSt common.ModelManagerBackend,
 	cloudService CloudService,
 	credentialService CredentialService,
-	modelManagerService ModelManagerService,
 	modelService ModelService,
 	store objectstore.ObjectStore,
 	configSchemaSource config.ConfigSchemaSourceGetter,
@@ -140,23 +132,22 @@ func NewModelManagerAPI(
 	isAdmin := err == nil
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:      common.NewModelStatusAPI(st, authorizer, apiUser),
-		state:               st,
-		modelExporter:       modelExporter,
-		ctlrState:           ctlrSt,
-		cloudService:        cloudService,
-		credentialService:   credentialService,
-		modelManagerService: modelManagerService,
-		configSchemaSource:  configSchemaSource,
-		store:               store,
-		getBroker:           getBroker,
-		check:               blockChecker,
-		authorizer:          authorizer,
-		toolsFinder:         toolsFinder,
-		apiUser:             apiUser,
-		isAdmin:             isAdmin,
-		model:               m,
-		modelService:        modelService,
+		ModelStatusAPI:     common.NewModelStatusAPI(st, authorizer, apiUser),
+		state:              st,
+		modelExporter:      modelExporter,
+		ctlrState:          ctlrSt,
+		cloudService:       cloudService,
+		credentialService:  credentialService,
+		store:              store,
+		configSchemaSource: configSchemaSource,
+		getBroker:          getBroker,
+		check:              blockChecker,
+		authorizer:         authorizer,
+		toolsFinder:        toolsFinder,
+		apiUser:            apiUser,
+		isAdmin:            isAdmin,
+		model:              m,
+		modelService:       modelService,
 	}, nil
 }
 
@@ -399,12 +390,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		)
 	}
 	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	// Ensure that we place the model in the known model list table on the
-	// controller.
-	if err := m.modelManagerService.Create(ctx, coremodel.UUID(createdModel.UUID())); err != nil {
 		return result, errors.Trace(err)
 	}
 

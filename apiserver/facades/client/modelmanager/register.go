@@ -82,7 +82,6 @@ func newFacadeV10(ctx facade.ModelContext) (*ModelManagerAPI, error) {
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.ModelManager(),
 		serviceFactory.Model(),
 		ctx.ObjectStore(),
 		configSchemaSource,
