@@ -515,7 +515,7 @@ func (pas ProviderAddresses) Values() []string {
 }
 
 // ToSpaceAddresses transforms the ProviderAddresses to SpaceAddresses by using
-// the input lookup for conversion of space name to space ID.
+// the input lookup to get a space ID from the name or the CIDR.
 func (pas ProviderAddresses) ToSpaceAddresses(lookup SpaceLookup) (SpaceAddresses, error) {
 	if pas == nil {
 		return nil, nil
@@ -532,13 +532,24 @@ func (pas ProviderAddresses) ToSpaceAddresses(lookup SpaceLookup) (SpaceAddresse
 	sas := make(SpaceAddresses, len(pas))
 	for i, pa := range pas {
 		sas[i] = SpaceAddress{MachineAddress: pa.MachineAddress}
+
+		// If the provider explicitly sets the space, i.e. MAAS, prefer the name.
 		if pa.SpaceName != "" {
 			info := spaceInfos.GetByName(string(pa.SpaceName))
 			if info == nil {
 				return nil, errors.NotFoundf("space with name %q", pa.SpaceName)
 			}
 			sas[i].SpaceID = info.ID
+			continue
 		}
+
+		// Otherwise attempt to look up the CIDR.
+		sInfo, err := spaceInfos.InferSpaceFromCIDRAndSubnetID(pa.CIDR, string(pa.ProviderSubnetID))
+		if err != nil {
+			logger.Debugf("no matching subnet for CIDR %q and provider ID %q", pa.CIDR, pa.ProviderSubnetID)
+			continue
+		}
+		sas[i].SpaceID = sInfo.ID
 	}
 	return sas, nil
 }
