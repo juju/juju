@@ -220,8 +220,8 @@ func (s *State) ListSecretBackends(ctx context.Context) ([]secretbackend.SecretB
 	}
 	var backends []secretbackend.SecretBackendInfo
 	q := `
-	SELECT uuid, name, backend_type, token_rotate_interval, secret_count
-	FROM secret_backend`[1:]
+SELECT uuid, name, backend_type, token_rotate_interval, secret_count
+FROM secret_backend`[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
 		if err != nil {
@@ -413,7 +413,9 @@ func (s *State) WatchSecretBackendRotationChanges(wf secretbackend.WatcherFactor
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	initialQ := `SELECT backend_uuid FROM secret_backend_rotation`
+	initialQ := `
+SELECT backend_uuid
+FROM secret_backend_rotation`[1:]
 	w, err := wf.NewNamespaceWatcher("secret_backend_rotation", changestream.All, initialQ)
 	if err != nil {
 		return nil, errors.Trace(err)

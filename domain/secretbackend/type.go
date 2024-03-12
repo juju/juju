@@ -4,13 +4,16 @@
 package secretbackend
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/changestream"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/model"
 )
 
 // CreateSecretBackendParams are used to create a secret backend.
@@ -58,4 +61,10 @@ type WatcherFactory interface {
 type SecretBackendRotateWatcher interface {
 	worker.Worker
 	Changes() <-chan []watcher.SecretBackendRotateChange
+}
+
+// ModelGetter provides methods for working with models for backend service.
+type ModelGetter interface {
+	GetModel(ctx context.Context, uuid model.UUID) (*coremodel.Model, error)
+	GetSecretBackend(ctx context.Context, modelUUID model.UUID) (model.SecretBackendIdentifier, error)
 }

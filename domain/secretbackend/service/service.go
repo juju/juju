@@ -12,13 +12,14 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	internalsecrets "github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -66,9 +67,14 @@ func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.Ba
 
 // GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user.
 func (s *Service) GetSecretBackendConfigForAdmin(
-	ctx context.Context, modelConfig *config.Config, cloud cloud.Cloud, cred cloud.Credential,
+	ctx context.Context, modelUUID model.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
 ) (*provider.ModelBackendConfigInfo, error) {
 	var info provider.ModelBackendConfigInfo
+	m, err := model.GetModel(ctx, modelUUID)
+	if err != nil {
+		return nil, domain.CoerceError(err)
+	}
+
 	info.Configs = make(map[string]provider.ModelBackendConfig)
 	// We need to include builtin backends for secret draining and accessing those secrets while drain is in progress.
 	// TODO(secrets) - only use those in use by model
@@ -76,29 +82,32 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 	jujuBackendID := s.controllerUUID
 	info.Configs[jujuBackendID] = provider.ModelBackendConfig{
 		ControllerUUID: s.controllerUUID,
-		ModelUUID:      modelConfig.UUID(),
-		ModelName:      modelConfig.Name(),
+		ModelUUID:      m.UUID,
+		ModelName:      m.Name,
 		BackendConfig:  juju.BuiltInConfig(),
 	}
-	backendName := modelConfig.SecretBackend()
-	if backendName == provider.Auto || backendName == provider.Internal {
+	backend, err := model.GetSecretBackend(ctx, modelUUID)
+	if err != nil {
+		return nil, domain.CoerceError(err)
+	}
+	if backend.Name == provider.Auto || backend.Name == provider.Internal {
 		info.ActiveID = jujuBackendID
 	}
 
-	if modelConfig.Type() == "caas" {
+	if m.ModelType == coremodel.CAAS {
 		// TODO: "caas" const?
 		k8sConfig, err := getK8sBackendConfig(cloud, cred)
 		if err != nil {
 			return nil, domain.CoerceError(err)
 		}
-		k8sBackendID := modelConfig.UUID()
+		k8sBackendID := m.UUID
 		info.Configs[k8sBackendID] = provider.ModelBackendConfig{
 			ControllerUUID: s.controllerUUID,
-			ModelUUID:      modelConfig.UUID(),
-			ModelName:      modelConfig.Name(),
+			ModelUUID:      m.UUID,
+			ModelName:      m.Name,
 			BackendConfig:  *k8sConfig,
 		}
-		if backendName == provider.Auto {
+		if backend.Name == provider.Auto {
 			info.ActiveID = k8sBackendID
 		}
 	}
@@ -108,13 +117,13 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 		return nil, domain.CoerceError(err)
 	}
 	for _, b := range backends {
-		if b.Name == backendName {
+		if b.Name == backend.Name {
 			info.ActiveID = b.ID
 		}
 		info.Configs[b.ID] = provider.ModelBackendConfig{
 			ControllerUUID: s.controllerUUID,
-			ModelUUID:      modelConfig.UUID(),
-			ModelName:      modelConfig.Name(),
+			ModelUUID:      m.UUID,
+			ModelName:      m.Name,
 			BackendConfig: provider.BackendConfig{
 				BackendType: b.BackendType,
 				Config:      b.Config,
@@ -122,7 +131,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 		}
 	}
 	if info.ActiveID == "" {
-		return nil, errors.NotFoundf("secret backend %q", backendName)
+		return nil, errors.NotFoundf("secret backend %q", backend.Name)
 	}
 	return &info, nil
 }
@@ -130,7 +139,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 // GetSecretBackendConfigLegacy gets the config needed to create a client to secret backends.
 // TODO - drop when we no longer support juju 3.1.x
 func (s *Service) GetSecretBackendConfigLegacy(
-	ctx context.Context, modelConfig *config.Config,
+	ctx context.Context, modelUUID model.UUID, model secretbackend.ModelGetter,
 	cloud cloud.Cloud, cred cloud.Credential,
 ) (*provider.ModelBackendConfigInfo, error) {
 	// TODO: implement once we have secret service in place.
@@ -139,7 +148,7 @@ func (s *Service) GetSecretBackendConfigLegacy(
 
 // GetSecretBackendConfig returns the secret backend configuration for the given backend ID.
 func (s *Service) GetSecretBackendConfig(
-	ctx context.Context, modelConfig *config.Config,
+	ctx context.Context, modelUUID model.UUID, model secretbackend.ModelGetter,
 	cloud cloud.Cloud, cred cloud.Credential,
 ) (*provider.ModelBackendConfigInfo, error) {
 	// TODO: implement once we have secret service in place.
@@ -149,10 +158,96 @@ func (s *Service) GetSecretBackendConfig(
 // GetSecretBackendConfigForDrain returns the secret backend configuration for the given backend ID for the drain worker.
 func (s *Service) GetSecretBackendConfigForDrain(
 	ctx context.Context, backendID string,
-	modelConfig *config.Config, cloud cloud.Cloud, cred cloud.Credential,
+	modelUUID model.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
 ) (*provider.ModelBackendConfigInfo, error) {
 	// TODO: implement once we have secret service in place.
 	return nil, nil
+}
+
+// BackendSummaryInfo returns a summary of the secret backends.
+// If we just want a model's in-use backends, it's the caller's
+// resposibility to provide the backendIDs in the filter.
+func (s *Service) BackendSummaryInfo(
+	ctx context.Context,
+	modelUUID model.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
+	reveal bool, filter secretbackend.SecretBackendFilter,
+) ([]secretbackend.SecretBackendInfo, error) {
+	backends, err := s.st.ListSecretBackends(ctx)
+	if err != nil {
+		return nil, domain.CoerceError(err)
+	}
+	// If we want all backends, include those which are not in use.
+	if filter.All {
+		// The internal (controller) backend.
+		backends = append(backends, secretbackend.SecretBackendInfo{
+			SecretBackend: secrets.SecretBackend{
+				ID:          s.controllerUUID,
+				Name:        juju.BackendName,
+				BackendType: juju.BackendType,
+			},
+		})
+		m, err := model.GetModel(ctx, modelUUID)
+		if err != nil {
+			return nil, domain.CoerceError(err)
+		}
+		if m.ModelType == coremodel.CAAS {
+			// The kubernetes backend.
+			k8sConfig, err := getK8sBackendConfig(cloud, cred)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			k8sBackend := secretbackend.SecretBackendInfo{
+				SecretBackend: secrets.SecretBackend{
+					ID:          m.UUID,
+					Name:        kubernetes.BuiltInName(m.Name),
+					BackendType: kubernetes.BackendType,
+					Config:      k8sConfig.Config,
+				},
+				// TODO: implement secret count for secret backend.
+				// For now, we just set it to 1 to indicate that the backend is in use.
+				NumSecrets: 1,
+			}
+			// For local k8s secrets, corresponding to every hosted model,
+			// do not include the result if there are no secrets.
+			if k8sBackend.NumSecrets > 0 || !filter.All {
+				backends = append(backends, k8sBackend)
+			}
+		}
+	}
+	wanted := set.NewStrings(filter.Names...)
+	for i := 0; i < len(backends); {
+		b := backends[i]
+		if !wanted.IsEmpty() && !wanted.Contains(b.Name) {
+			backends = append(backends[:i], backends[i+1:]...)
+			continue
+		} else {
+			i++
+		}
+		p, err := s.registry(b.BackendType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		b.Status = status.Active.String()
+		if b.BackendType != juju.BackendType && b.BackendType != kubernetes.BackendType {
+			if err := pingBackend(p, b.Config); err != nil {
+				b.Status = status.Error.String()
+				b.Message = err.Error()
+			}
+		}
+		if len(b.Config) == 0 {
+			continue
+		}
+		configValidator, ok := p.(provider.ProviderConfig)
+		if !ok {
+			continue
+		}
+		for n, f := range configValidator.ConfigSchema() {
+			if f.Secret && !reveal {
+				delete(b.Config, n)
+			}
+		}
+	}
+	return backends, nil
 }
 
 // CheckSecretBackend checks the secret backend for the given backend ID.
@@ -327,83 +422,6 @@ func (s *Service) GetSecretBackendByName(ctx context.Context, name string) (*sec
 		return nil, domain.CoerceError(err)
 	}
 	return b, nil
-}
-
-// BackendSummaryInfo returns a summary of the secret backends.
-// If we just want a model's in-use backends, it's the caller's
-// resposibility to provide the backendIDs in the filter.
-func (s *Service) BackendSummaryInfo(
-	ctx context.Context,
-	modelConfig *config.Config, cloud cloud.Cloud, cred cloud.Credential,
-	reveal bool, filter secretbackend.SecretBackendFilter,
-) ([]secretbackend.SecretBackendInfo, error) {
-	backends, err := s.st.ListSecretBackends(ctx)
-	if err != nil {
-		return nil, domain.CoerceError(err)
-	}
-	// If we want all backends, include those which are not in use.
-	if filter.All {
-		// The internal (controller) backend.
-		backends = append(backends, secretbackend.SecretBackendInfo{
-			SecretBackend: secrets.SecretBackend{
-				ID:          s.controllerUUID,
-				Name:        juju.BackendName,
-				BackendType: juju.BackendType,
-			},
-		})
-		if modelConfig.Type() == "caas" {
-			// The kubernetes backend.
-			k8sConfig, err := getK8sBackendConfig(cloud, cred)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			k8sBackend := secretbackend.SecretBackendInfo{
-				SecretBackend: secrets.SecretBackend{
-					ID:          modelConfig.UUID(),
-					Name:        kubernetes.BuiltInName(modelConfig.Name()),
-					BackendType: kubernetes.BackendType,
-					Config:      k8sConfig.Config,
-				},
-				NumSecrets: 0, // TODO: ????? Inject SecretService???
-			}
-			// For local k8s secrets, corresponding to every hosted model,
-			// do not include the result if there are no secrets.
-			if k8sBackend.NumSecrets > 0 || !filter.All {
-				backends = append(backends, k8sBackend)
-			}
-		}
-	}
-	wanted := set.NewStrings(filter.Names...)
-	for i, b := range backends {
-		if !wanted.IsEmpty() && !wanted.Contains(b.Name) {
-			backends = append(backends[:i], backends[i+1:]...)
-			continue
-		}
-		p, err := s.registry(b.BackendType)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		b.Status = status.Active.String()
-		if b.BackendType != juju.BackendType && b.BackendType != kubernetes.BackendType {
-			if err := pingBackend(p, b.Config); err != nil {
-				b.Status = status.Error.String()
-				b.Message = err.Error()
-			}
-		}
-		if len(b.Config) == 0 {
-			continue
-		}
-		configValidator, ok := p.(provider.ProviderConfig)
-		if !ok {
-			continue
-		}
-		for n, f := range configValidator.ConfigSchema() {
-			if f.Secret && !reveal {
-				delete(b.Config, n)
-			}
-		}
-	}
-	return nil, nil
 }
 
 // IncreCountForSecretBackend increments the secret count for the given secret backend.
