@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	usererrors "github.com/juju/juju/domain/user/errors"
+	"github.com/juju/juju/internal/uuid"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -30,9 +31,10 @@ type dummyStateCloud struct {
 }
 
 type dummyState struct {
-	clouds map[string]dummyStateCloud
-	models map[coremodel.UUID]model.ModelCreationArgs
-	users  set.Strings
+	clouds         map[string]dummyStateCloud
+	models         map[coremodel.UUID]model.ModelCreationArgs
+	secretBackends map[coremodel.UUID]model.SecretBackendIdentifier
+	users          set.Strings
 }
 
 type serviceSuite struct {
@@ -135,6 +137,39 @@ func (d *dummyState) UpdateCredential(
 	}
 
 	return nil
+}
+
+func (d *dummyState) Get(_ context.Context, uuid coremodel.UUID) (*model.Model, error) {
+	args, exists := d.models[uuid]
+	if !exists {
+		return nil, fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+	}
+	return &model.Model{
+		UUID:      uuid.String(),
+		Name:      args.Name,
+		ModelType: args.Type.String(),
+	}, nil
+}
+
+func (d *dummyState) SetSecretBackend(_ context.Context, modelUUID coremodel.UUID, backendName string) error {
+	if _, exists := d.models[modelUUID]; !exists {
+		return fmt.Errorf("%w %q", modelerrors.NotFound, modelUUID)
+	}
+	if d.secretBackends == nil {
+		d.secretBackends = map[coremodel.UUID]model.SecretBackendIdentifier{}
+	}
+	d.secretBackends[modelUUID] = model.SecretBackendIdentifier{
+		UUID: uuid.MustNewUUID().String(),
+		Name: backendName,
+	}
+	return nil
+}
+
+func (d *dummyState) GetSecretBackend(_ context.Context, modelUUID coremodel.UUID) (model.SecretBackendIdentifier, error) {
+	if _, exists := d.models[modelUUID]; !exists {
+		return model.SecretBackendIdentifier{}, fmt.Errorf("%w %q", modelerrors.NotFound, modelUUID)
+	}
+	return d.secretBackends[modelUUID], nil
 }
 
 func (s *serviceSuite) SetUpTest(c *C) {
@@ -590,4 +625,72 @@ func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *C) {
 
 	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestGetSetSecretBackend(c *C) {
+	cred := credential.ID{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: s.userUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.ID{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	svc := NewService(s.state, DefaultAgentBinaryFinder())
+	id, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Credential:  cred,
+		Owner:       s.userUUID,
+		Name:        "my-awesome-model",
+		Type:        coremodel.IAAS,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.SetSecretBackend(context.Background(), id, "my-backend")
+	c.Assert(err, jc.ErrorIsNil)
+
+	backend, err := svc.GetSecretBackend(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backend, DeepEquals, model.SecretBackendIdentifier{
+		UUID: backend.UUID,
+		Name: "my-backend",
+	})
+}
+
+func (s *serviceSuite) TestGetModel(c *C) {
+	cred := credential.ID{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: s.userUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.ID{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	svc := NewService(s.state, DefaultAgentBinaryFinder())
+	id, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Credential:  cred,
+		Owner:       s.userUUID,
+		Name:        "my-awesome-model",
+		Type:        coremodel.IAAS,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := svc.GetModel(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, DeepEquals, &coremodel.Model{
+		UUID:      id.String(),
+		Name:      "my-awesome-model",
+		ModelType: "iaas",
+	})
 }

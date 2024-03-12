@@ -28,8 +28,17 @@ type State interface {
 	// List returns a list of all model UUIDs.
 	List(context.Context) ([]coremodel.UUID, error)
 
+	// Get returns the model with the provided uuid.
+	Get(context.Context, coremodel.UUID) (*model.Model, error)
+
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.ID) error
+
+	// SetSecretBackend sets the secret backend for a model.
+	SetSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error
+
+	// GetSecretBackend returns the secret backend for a model.
+	GetSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (model.SecretBackendIdentifier, error)
 }
 
 // Service defines a service for interacting with the underlying state based
@@ -133,6 +142,24 @@ func (s *Service) CreateModel(
 	return uuid, s.st.Create(ctx, uuid, args)
 }
 
+// GetModel is responsible for returning the model with the provided uuid.
+func (s *Service) GetModel(ctx context.Context, uuid coremodel.UUID) (*coremodel.Model, error) {
+	m, err := s.st.Get(ctx, uuid)
+	if err != nil {
+		return nil, err
+	}
+	modelType := coremodel.ModelType(m.ModelType)
+	if !modelType.IsValid() {
+		// THis should never happen.
+		return nil, errors.NotValidf("model type %q", m.ModelType)
+	}
+	return &coremodel.Model{
+		UUID:      m.UUID,
+		Name:      m.Name,
+		ModelType: modelType,
+	}, nil
+}
+
 // DeleteModel is responsible for removing a model from Juju and all of it's
 // associated metadata.
 // - errors.NotValid: When the model uuid is not valid.
@@ -228,4 +255,14 @@ func validateAgentVersion(
 	}
 
 	return nil
+}
+
+// SetSecretBackend sets the secret backend for a model.
+func (s *Service) SetSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
+	return s.st.SetSecretBackend(ctx, modelUUID, backendName)
+}
+
+// GetSecretBackend returns the secret backend identifier for a model.
+func (s *Service) GetSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (model.SecretBackendIdentifier, error) {
+	return s.st.GetSecretBackend(ctx, modelUUID)
 }
