@@ -78,3 +78,24 @@ func (m ModelCreationArgs) Validate() error {
 	}
 	return nil
 }
+
+// Model represents a subset of a model metadata.
+type Model struct {
+	// Name returns the human friendly name of the model.
+	Name string
+
+	// UUID is the universally unique identifier of the model.
+	UUID string
+
+	// ModelType is the type of model.
+	ModelType string
+}
+
+// SecretBackendIdentifier contains the identifiers of a secret backend.
+type SecretBackendIdentifier struct {
+	// UUID is the secret backend UUID.
+	UUID string
+
+	// Name is the name of the secret backend.
+	Name string
+}

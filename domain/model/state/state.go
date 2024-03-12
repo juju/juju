@@ -491,3 +491,83 @@ AND cloud_uuid = ?
 	}
 	return nil
 }
+
+// GetModel is responsible for returning the model with the provided uuid.
+func (s *State) Get(ctx context.Context, uuid model.UUID) (*model.Model, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	q := `
+SELECT m.model_uuid, m.name, t.type
+FROM model_metadata m
+INNER JOIN model_type t ON m.model_type_id = t.id
+WHERE m.model_uuid = ?`[1:]
+	m := model.Model{}
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, q, uuid).Scan(&m.UUID, &m.Name, &m.ModelType)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf(
+			"%w model %q%w",
+			errors.NotFound, uuid, errors.Hide(err),
+		)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &m, nil
+}
+
+// SetSecretBackend is responsible for setting the secret backend for the model.
+func (s *State) SetSecretBackend(ctx context.Context, modelUUID model.UUID, backendName string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	qSecretBackend := `
+SELECT uuid
+FROM secret_backend
+WHERE name = ?`[1:]
+
+	qModel := `
+UPDATE model_metadata
+SET secret_backend_uuid = ?
+WHERE model_uuid = ?`[1:]
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var backendUUID string
+		err = tx.QueryRowContext(ctx, qSecretBackend, backendName).Scan(&backendUUID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf(
+				"%w secret backend %q%w",
+				errors.NotFound, backendName, errors.Hide(err),
+			)
+		}
+		if err != nil {
+			return err
+		}
+
+		_, err := tx.ExecContext(ctx, qModel, backendUUID, modelUUID)
+		return err
+	})
+	return errors.Trace(err)
+}
+
+// GetSecretBackend is responsible for returning the secret backend for the model.
+func (s *State) GetSecretBackend(ctx context.Context, modelUUID model.UUID) (backend model.SecretBackendIdentifier, _ error) {
+	db, err := s.DB()
+	if err != nil {
+		return backend, errors.Trace(err)
+	}
+
+	q := `
+SELECT s.uuid, s.name
+FROM secret_backend s
+INNER JOIN model_metadata m ON m.secret_backend_uuid = s.uuid
+WHERE m.model_uuid = ?`[1:]
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, q, modelUUID).Scan(&backend.UUID, &backend.Name)
+	})
+	return backend, errors.Trace(err)
+}

@@ -24,6 +24,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	userstate "github.com/juju/juju/domain/user/state"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/version"
 )
 
@@ -482,4 +483,115 @@ func (m *modelSuite) TestListModels(c *gc.C) {
 	c.Check(uuidsSet.Contains(uuid1.String()), jc.IsTrue)
 	c.Check(uuidsSet.Contains(uuid2.String()), jc.IsTrue)
 	c.Check(uuidsSet.Contains(m.uuid.String()), jc.IsTrue)
+}
+
+func (m *modelSuite) TestGet(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	result, err := modelSt.Get(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, &model.Model{
+		UUID:      m.uuid.String(),
+		Name:      "my-test-model",
+		ModelType: "iaas",
+	})
+}
+
+func (m *modelSuite) TestGetNotFound(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	err := modelSt.Delete(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = modelSt.Get(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (m *modelSuite) TestSetSecretBackend(c *gc.C) {
+	runner, err := m.TxnRunnerFactory()()
+	c.Assert(err, jc.ErrorIsNil)
+
+	backendID := uuid.MustNewUUID().String()
+	_ = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		backendQ := `
+		INSERT INTO secret_backend (uuid, name, backend_type) VALUES
+			(?, ?, ?)`[1:]
+		_, err := tx.ExecContext(ctx, backendQ, backendID, "myvault", "vault")
+		c.Assert(err, jc.ErrorIsNil)
+
+		row := tx.QueryRowContext(
+			ctx,
+			"SELECT secret_backend_uuid FROM model_metadata WHERE model_uuid = ?",
+			m.uuid,
+		)
+		var val sql.NullString
+		err = row.Scan(&val)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(val.Valid, jc.IsFalse)
+		return nil
+	})
+
+	modelSt := NewState(m.TxnRunnerFactory())
+	err = modelSt.SetSecretBackend(context.Background(), m.uuid, "myvault")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(
+			ctx,
+			"SELECT secret_backend_uuid FROM model_metadata WHERE model_uuid = ?",
+			m.uuid,
+		)
+		var val sql.NullString
+		err = row.Scan(&val)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(val.Valid, jc.IsTrue)
+		c.Assert(val.String, gc.Equals, backendID)
+		return nil
+	})
+}
+
+func (m *modelSuite) TestSetSecretBackendButBackendNotFound(c *gc.C) {
+	runner, err := m.TxnRunnerFactory()()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(
+			ctx,
+			"SELECT secret_backend_uuid FROM model_metadata WHERE model_uuid = ?",
+			m.uuid,
+		)
+		var val sql.NullString
+		err = row.Scan(&val)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(val.Valid, jc.IsFalse)
+		return nil
+	})
+
+	modelSt := NewState(m.TxnRunnerFactory())
+	err = modelSt.SetSecretBackend(context.Background(), m.uuid, "myvault")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, gc.ErrorMatches, `not found secret backend "myvault"`)
+}
+
+func (m *modelSuite) TestGetSecretBackend(c *gc.C) {
+	runner, err := m.TxnRunnerFactory()()
+	c.Assert(err, jc.ErrorIsNil)
+
+	backendID := uuid.MustNewUUID().String()
+	_ = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		backendQ := `
+		INSERT INTO secret_backend (uuid, name, backend_type) VALUES
+			(?, ?, ?)`[1:]
+		_, err := tx.ExecContext(ctx, backendQ, backendID, "myvault", "vault")
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	})
+
+	modelSt := NewState(m.TxnRunnerFactory())
+	err = modelSt.SetSecretBackend(context.Background(), m.uuid, "myvault")
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := modelSt.GetSecretBackend(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, model.SecretBackendIdentifier{
+		UUID: backendID,
+		Name: "myvault",
+	})
 }
