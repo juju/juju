@@ -10,6 +10,8 @@ import (
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	credentialstate "github.com/juju/juju/domain/credential/state"
+	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
+	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 )
 
 // ProviderFactory provides access to the services required by the apiserver.
@@ -52,5 +54,13 @@ func (s *ProviderFactory) Credential() *credentialservice.WatchableProviderServi
 			s.controllerDB,
 			s.logger.Child("credential"),
 		),
+	)
+}
+
+// Config returns the model config service.
+func (s *ProviderFactory) Config() *modelconfigservice.WatchableProviderService {
+	return modelconfigservice.NewWatchableProviderService(
+		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),
 	)
 }

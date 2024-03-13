@@ -14,6 +14,7 @@ import (
 
 	service "github.com/juju/juju/domain/cloud/service"
 	service0 "github.com/juju/juju/domain/credential/service"
+	service1 "github.com/juju/juju/domain/modelconfig/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -53,6 +54,20 @@ func (m *MockProviderServiceFactory) Cloud() *service.WatchableProviderService {
 func (mr *MockProviderServiceFactoryMockRecorder) Cloud() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockProviderServiceFactory)(nil).Cloud))
+}
+
+// Config mocks base method.
+func (m *MockProviderServiceFactory) Config() *service1.WatchableProviderService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Config")
+	ret0, _ := ret[0].(*service1.WatchableProviderService)
+	return ret0
+}
+
+// Config indicates an expected call of Config.
+func (mr *MockProviderServiceFactoryMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockProviderServiceFactory)(nil).Config))
 }
 
 // Credential mocks base method.

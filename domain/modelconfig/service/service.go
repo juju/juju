@@ -25,12 +25,6 @@ type ModelDefaultsProvider interface {
 	ModelDefaults(context.Context) (modeldefaults.Defaults, error)
 }
 
-// Service defines the service for interacting with ModelConfig.
-type Service struct {
-	defaultsProvider ModelDefaultsProvider
-	st               State
-}
-
 // State represents the state entity for accessing and setting per
 // model configuration values.
 type State interface {
@@ -60,6 +54,12 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+}
+
+// Service defines the service for interacting with ModelConfig.
+type Service struct {
+	defaultsProvider ModelDefaultsProvider
+	st               State
 }
 
 // NewService creates a new ModelConfig service.
@@ -331,5 +331,61 @@ func NewWatchableService(
 // Watch returns a watcher that returns keys for any changes to model
 // config.
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewNamespaceWatcher("model_config", changestream.All, s.st.AllKeysQuery())
+}
+
+// ProviderService defines the service for interacting with ModelConfig.
+// The provider service is a subset of the ModelConfig service, and is used by
+// the provider package to interact with the ModelConfig service. By not
+// exposing the full ModelConfig service, the provider package is not able to
+// modify the ModelConfig entities, only read them.
+type ProviderService struct {
+	st State
+}
+
+// NewProviderService creates a new ModelConfig service.
+func NewProviderService(
+	st State,
+) *ProviderService {
+	return &ProviderService{
+		st: st,
+	}
+}
+
+// ModelConfig returns the current config for the model.
+func (s *ProviderService) ModelConfig(ctx context.Context) (*config.Config, error) {
+	stConfig, err := s.st.ModelConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting model config from state: %w", err)
+	}
+
+	altConfig := transform.Map(stConfig, func(k, v string) (string, any) { return k, v })
+	return config.New(config.NoDefaults, altConfig)
+}
+
+// WatchableProviderService defines the service for interacting with ModelConfig
+// and the ability to create watchers.
+type WatchableProviderService struct {
+	ProviderService
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableProviderService creates a new WatchableProviderService for
+// interacting with ModelConfig and the ability to create watchers.
+func NewWatchableProviderService(
+	st State,
+	watcherFactory WatcherFactory,
+) *WatchableProviderService {
+	return &WatchableProviderService{
+		ProviderService: ProviderService{
+			st: st,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// Watch returns a watcher that returns keys for any changes to model
+// config.
+func (s *WatchableProviderService) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher("model_config", changestream.All, s.st.AllKeysQuery())
 }

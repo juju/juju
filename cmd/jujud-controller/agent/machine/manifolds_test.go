@@ -1025,6 +1025,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"provider-service-factory": {
 		"agent",
 		"change-stream",
+		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
@@ -1662,6 +1663,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"provider-service-factory": {
 		"agent",
 		"change-stream",
+		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
