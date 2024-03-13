@@ -65,6 +65,6 @@ type SecretBackendRotateWatcher interface {
 
 // ModelGetter provides methods for working with models for backend service.
 type ModelGetter interface {
-	GetModel(ctx context.Context, uuid model.UUID) (*coremodel.Model, error)
-	GetSecretBackend(ctx context.Context, modelUUID model.UUID) (model.SecretBackendIdentifier, error)
+	GetModel(ctx context.Context, uuid coremodel.UUID) (*coremodel.Model, error)
+	GetSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (model.SecretBackendIdentifier, error)
 }

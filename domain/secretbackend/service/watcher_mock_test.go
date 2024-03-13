@@ -145,7 +145,7 @@ func (m *MockModelGetter) EXPECT() *MockModelGetterMockRecorder {
 }
 
 // GetModel mocks base method.
-func (m *MockModelGetter) GetModel(arg0 context.Context, arg1 model0.UUID) (*model.Model, error) {
+func (m *MockModelGetter) GetModel(arg0 context.Context, arg1 model.UUID) (*model.Model, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModel", arg0, arg1)
 	ret0, _ := ret[0].(*model.Model)
@@ -160,7 +160,7 @@ func (mr *MockModelGetterMockRecorder) GetModel(arg0, arg1 any) *gomock.Call {
 }
 
 // GetSecretBackend mocks base method.
-func (m *MockModelGetter) GetSecretBackend(arg0 context.Context, arg1 model0.UUID) (model0.SecretBackendIdentifier, error) {
+func (m *MockModelGetter) GetSecretBackend(arg0 context.Context, arg1 model.UUID) (model0.SecretBackendIdentifier, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecretBackend", arg0, arg1)
 	ret0, _ := ret[0].(model0.SecretBackendIdentifier)

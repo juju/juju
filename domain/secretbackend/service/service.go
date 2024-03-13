@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/environs/cloudspec"
 	internalsecrets "github.com/juju/juju/internal/secrets"
@@ -67,7 +66,7 @@ func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.Ba
 
 // GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user.
 func (s *Service) GetSecretBackendConfigForAdmin(
-	ctx context.Context, modelUUID model.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
+	ctx context.Context, modelUUID coremodel.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
 ) (*provider.ModelBackendConfigInfo, error) {
 	var info provider.ModelBackendConfigInfo
 	m, err := model.GetModel(ctx, modelUUID)
@@ -138,7 +137,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 // GetSecretBackendConfigLegacy gets the config needed to create a client to secret backends.
 // TODO - drop when we no longer support juju 3.1.x
 func (s *Service) GetSecretBackendConfigLegacy(
-	ctx context.Context, modelUUID model.UUID, model secretbackend.ModelGetter,
+	ctx context.Context, modelUUID coremodel.UUID, model secretbackend.ModelGetter,
 	cloud cloud.Cloud, cred cloud.Credential,
 ) (*provider.ModelBackendConfigInfo, error) {
 	// TODO: implement once we have secret service in place.
@@ -147,7 +146,7 @@ func (s *Service) GetSecretBackendConfigLegacy(
 
 // GetSecretBackendConfig returns the secret backend configuration for the given backend ID.
 func (s *Service) GetSecretBackendConfig(
-	ctx context.Context, modelUUID model.UUID, model secretbackend.ModelGetter,
+	ctx context.Context, modelUUID coremodel.UUID, model secretbackend.ModelGetter,
 	cloud cloud.Cloud, cred cloud.Credential,
 ) (*provider.ModelBackendConfigInfo, error) {
 	// TODO: implement once we have secret service in place.
@@ -157,7 +156,7 @@ func (s *Service) GetSecretBackendConfig(
 // GetSecretBackendConfigForDrain returns the secret backend configuration for the given backend ID for the drain worker.
 func (s *Service) GetSecretBackendConfigForDrain(
 	ctx context.Context, backendID string,
-	modelUUID model.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
+	modelUUID coremodel.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
 ) (*provider.ModelBackendConfigInfo, error) {
 	// TODO: implement once we have secret service in place.
 	return nil, nil
@@ -168,7 +167,7 @@ func (s *Service) GetSecretBackendConfigForDrain(
 // resposibility to provide the backendIDs in the filter.
 func (s *Service) BackendSummaryInfo(
 	ctx context.Context,
-	modelUUID model.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
+	modelUUID coremodel.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
 	reveal bool, filter secretbackend.SecretBackendFilter,
 ) ([]secretbackend.SecretBackendInfo, error) {
 	backends, err := s.st.ListSecretBackends(ctx)

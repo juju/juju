@@ -165,13 +165,13 @@ func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
 			},
 		},
 	}}, nil)
-	s.mockModelService.EXPECT().GetModel(gomock.Any(), model.UUID(jujutesting.ModelTag.Id())).
+	s.mockModelService.EXPECT().GetModel(gomock.Any(), coremodel.UUID(jujutesting.ModelTag.Id())).
 		Return(&coremodel.Model{
 			UUID:      jujutesting.ModelTag.Id(),
 			Name:      "fred",
 			ModelType: coremodel.ModelType(modelType),
 		}, nil)
-	s.mockModelService.EXPECT().GetSecretBackend(gomock.Any(), model.UUID(jujutesting.ModelTag.Id())).
+	s.mockModelService.EXPECT().GetSecretBackend(gomock.Any(), coremodel.UUID(jujutesting.ModelTag.Id())).
 		Return(model.SecretBackendIdentifier{
 			UUID: vaultBackendID,
 			Name: backendName,
@@ -179,7 +179,7 @@ func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
 
 	info, err := svc.GetSecretBackendConfigForAdmin(
 		context.Background(),
-		model.UUID(jujutesting.ModelTag.Id()), s.mockModelService, cld, cred,
+		coremodel.UUID(jujutesting.ModelTag.Id()), s.mockModelService, cld, cred,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
@@ -350,7 +350,7 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 	}, nil)
 
 	if filter.All {
-		s.mockModelService.EXPECT().GetModel(gomock.Any(), model.UUID(jujutesting.ModelTag.Id())).
+		s.mockModelService.EXPECT().GetModel(gomock.Any(), coremodel.UUID(jujutesting.ModelTag.Id())).
 			Return(&coremodel.Model{
 				UUID:      jujutesting.ModelTag.Id(),
 				Name:      "fred",
@@ -395,7 +395,7 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 	}
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
 	info, err := svc.BackendSummaryInfo(context.Background(),
-		model.UUID(jujutesting.ModelTag.Id()),
+		coremodel.UUID(jujutesting.ModelTag.Id()),
 		s.mockModelService, cld, cred, reveal, filter,
 	)
 	c.Assert(err, jc.ErrorIsNil)

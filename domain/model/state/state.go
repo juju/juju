@@ -493,7 +493,7 @@ AND cloud_uuid = ?
 }
 
 // GetModel is responsible for returning the model with the provided uuid.
-func (s *State) Get(ctx context.Context, uuid model.UUID) (*model.Model, error) {
+func (s *State) Get(ctx context.Context, uuid coremodel.UUID) (*model.Model, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -521,7 +521,7 @@ WHERE m.model_uuid = ?`[1:]
 }
 
 // SetSecretBackend is responsible for setting the secret backend for the model.
-func (s *State) SetSecretBackend(ctx context.Context, modelUUID model.UUID, backendName string) error {
+func (s *State) SetSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -555,7 +555,7 @@ WHERE model_uuid = ?`[1:]
 }
 
 // GetSecretBackend is responsible for returning the secret backend for the model.
-func (s *State) GetSecretBackend(ctx context.Context, modelUUID model.UUID) (backend model.SecretBackendIdentifier, _ error) {
+func (s *State) GetSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (backend model.SecretBackendIdentifier, _ error) {
 	db, err := s.DB()
 	if err != nil {
 		return backend, errors.Trace(err)
