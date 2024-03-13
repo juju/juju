@@ -1,7 +1,7 @@
 // Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environ_test
+package providertracker_test
 
 import (
 	"context"
@@ -27,22 +27,22 @@ type fixture struct {
 	initialSpec   environscloudspec.CloudSpec
 }
 
-func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
+func (fix *fixture) Run(c *gc.C, test func(*testObserver)) {
 	watcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.CleanKill(c, watcher)
 	cloudWatcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.CleanKill(c, cloudWatcher)
-	context := &runContext{
+	env := &testObserver{
 		cloud:        fix.initialSpec,
 		config:       newModelConfig(c, fix.initialConfig),
 		watcher:      watcher,
 		cloudWatcher: cloudWatcher,
 	}
-	context.stub.SetErrors(fix.observerErrs...)
-	test(context)
+	env.stub.SetErrors(fix.observerErrs...)
+	test(env)
 }
 
-type runContext struct {
+type testObserver struct {
 	mu           sync.Mutex
 	stub         testing.Stub
 	cloud        environscloudspec.CloudSpec
@@ -53,128 +53,128 @@ type runContext struct {
 }
 
 // SetConfig updates the configuration returned by ModelConfig.
-func (context *runContext) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.config = newModelConfig(c, extraAttrs)
+func (o *testObserver) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.config = newModelConfig(c, extraAttrs)
 }
 
 // SetCloudSpec updates the spec returned by CloudSpec.
-func (context *runContext) SetCloudSpec(c *gc.C, spec environscloudspec.CloudSpec) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.cloud = spec
+func (o *testObserver) SetCloudSpec(c *gc.C, spec environscloudspec.CloudSpec) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.cloud = spec
 }
 
 // CloudSpec is part of the environ.ConfigObserver interface.
-func (context *runContext) CloudSpec(context.Context) (environscloudspec.CloudSpec, error) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.stub.AddCall("CloudSpec")
-	if err := context.stub.NextErr(); err != nil {
+func (o *testObserver) CloudSpec(context.Context) (environscloudspec.CloudSpec, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.stub.AddCall("CloudSpec")
+	if err := o.stub.NextErr(); err != nil {
 		return environscloudspec.CloudSpec{}, err
 	}
-	return context.cloud, nil
+	return o.cloud, nil
 }
 
 // ModelConfig is part of the environ.ConfigObserver interface.
-func (context *runContext) ModelConfig(context.Context) (*config.Config, error) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.stub.AddCall("ModelConfig")
-	if err := context.stub.NextErr(); err != nil {
+func (o *testObserver) ModelConfig(context.Context) (*config.Config, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.stub.AddCall("ModelConfig")
+	if err := o.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return config.New(config.NoDefaults, context.config)
+	return config.New(config.NoDefaults, o.config)
 }
 
 // KillModelConfigNotify kills the watcher returned from WatchForModelConfigChanges with
 // the error configured in the enclosing fixture.
-func (context *runContext) KillModelConfigNotify() {
-	context.watcher.Kill()
+func (o *testObserver) KillModelConfigNotify() {
+	o.watcher.Kill()
 }
 
 // SendModelConfigNotify sends a value on the channel used by WatchForModelConfigChanges
 // results.
-func (context *runContext) SendModelConfigNotify() {
-	context.watcher.changes <- struct{}{}
+func (o *testObserver) SendModelConfigNotify() {
+	o.watcher.changes <- struct{}{}
 }
 
 // CloseModelConfigNotify closes the channel used by WatchForModelConfigChanges results.
-func (context *runContext) CloseModelConfigNotify() {
-	close(context.watcher.changes)
+func (o *testObserver) CloseModelConfigNotify() {
+	close(o.watcher.changes)
 }
 
 // KillCloudSpecNotify kills the watcher returned from WatchCloudSpecChanges with
 // the error configured in the enclosing fixture.
-func (context *runContext) KillCloudSpecNotify() {
-	context.cloudWatcher.Kill()
+func (o *testObserver) KillCloudSpecNotify() {
+	o.cloudWatcher.Kill()
 }
 
 // SendCloudSpecNotify sends a value on the channel used by WatchCloudSpecChanges
 // results.
-func (context *runContext) SendCloudSpecNotify() {
-	context.cloudWatcher.changes <- struct{}{}
+func (o *testObserver) SendCloudSpecNotify() {
+	o.cloudWatcher.changes <- struct{}{}
 }
 
 // CloseCloudSpecNotify closes the channel used by WatchCloudSpecChanges results.
-func (context *runContext) CloseCloudSpecNotify() {
-	close(context.cloudWatcher.changes)
+func (o *testObserver) CloseCloudSpecNotify() {
+	close(o.cloudWatcher.changes)
 }
 
 // WatchForModelConfigChanges is part of the environ.ConfigObserver interface.
-func (context *runContext) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.stub.AddCall("WatchForModelConfigChanges")
-	if err := context.stub.NextErr(); err != nil {
+func (o *testObserver) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.stub.AddCall("WatchForModelConfigChanges")
+	if err := o.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return context.watcher, nil
+	return o.watcher, nil
 }
 
-func (context *runContext) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.stub.AddCall("WatchCloudSpecChanges")
-	if err := context.stub.NextErr(); err != nil {
+func (o *testObserver) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.stub.AddCall("WatchCloudSpecChanges")
+	if err := o.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return context.cloudWatcher, nil
+	return o.cloudWatcher, nil
 }
 
 // KillCredentialNotify kills the watcher returned from WatchCredentialChanges with
 // the error configured in the enclosing fixture.
-func (context *runContext) KillCredentialNotify() {
-	context.credWatcher.Kill()
+func (o *testObserver) KillCredentialNotify() {
+	o.credWatcher.Kill()
 }
 
 // SendCredentialNotify sends a value on the channel used by WatchCredentialChanges
 // results.
-func (context *runContext) SendCredentialNotify() {
-	context.credWatcher.changes <- struct{}{}
+func (o *testObserver) SendCredentialNotify() {
+	o.credWatcher.changes <- struct{}{}
 }
 
 // CloseCredentialNotify closes the channel used by WatchCredentialChanges results.
-func (context *runContext) CloseCredentialNotify() {
-	close(context.credWatcher.changes)
+func (o *testObserver) CloseCredentialNotify() {
+	close(o.credWatcher.changes)
 }
 
 // WatchCredential is part of the environ.ConfigObserver interface.
-func (context *runContext) WatchCredential(cred names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.stub.AddCall("WatchCredential")
-	if err := context.stub.NextErr(); err != nil {
+func (o *testObserver) WatchCredential(cred names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.stub.AddCall("WatchCredential")
+	if err := o.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return context.watcher, nil
+	return o.watcher, nil
 }
 
-func (context *runContext) CheckCallNames(c *gc.C, names ...string) {
-	context.mu.Lock()
-	defer context.mu.Unlock()
-	context.stub.CheckCallNames(c, names...)
+func (o *testObserver) CheckCallNames(c *gc.C, names ...string) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.stub.CheckCallNames(c, names...)
 }
 
 // newNotifyWatcher returns a watcher.NotifyWatcher that will fail with the

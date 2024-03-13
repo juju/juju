@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environ_test
+package providertracker_test
 
 import (
 	"context"
@@ -17,28 +17,28 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/worker/environ"
+	"github.com/juju/juju/internal/worker/providertracker"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type TrackerSuite struct {
+type WorkerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&TrackerSuite{})
+var _ = gc.Suite(&WorkerSuite{})
 
-func (s *TrackerSuite) validConfig(observer environ.ConfigObserver) environ.Config {
+func (s *WorkerSuite) validConfig(observer providertracker.ConfigObserver) providertracker.Config {
 	if observer == nil {
-		observer = &runContext{}
+		observer = &testObserver{}
 	}
-	return environ.Config{
+	return providertracker.Config{
 		Observer:       observer,
 		NewEnvironFunc: newMockEnviron,
 		Logger:         loggo.GetLogger("test"),
 	}
 }
 
-func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
+func (s *WorkerSuite) TestValidateObserver(c *gc.C) {
 	config := s.validConfig(nil)
 	config.Observer = nil
 	s.testValidate(c, config, func(err error) {
@@ -47,7 +47,7 @@ func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 	})
 }
 
-func (s *TrackerSuite) TestValidateNewEnvironFunc(c *gc.C) {
+func (s *WorkerSuite) TestValidateNewEnvironFunc(c *gc.C) {
 	config := s.validConfig(nil)
 	config.NewEnvironFunc = nil
 	s.testValidate(c, config, func(err error) {
@@ -56,7 +56,7 @@ func (s *TrackerSuite) TestValidateNewEnvironFunc(c *gc.C) {
 	})
 }
 
-func (s *TrackerSuite) TestValidateLogger(c *gc.C) {
+func (s *WorkerSuite) TestValidateLogger(c *gc.C) {
 	config := s.validConfig(nil)
 	config.Logger = nil
 	s.testValidate(c, config, func(err error) {
@@ -65,190 +65,190 @@ func (s *TrackerSuite) TestValidateLogger(c *gc.C) {
 	})
 }
 
-func (s *TrackerSuite) testValidate(c *gc.C, config environ.Config, check func(err error)) {
+func (s *WorkerSuite) testValidate(c *gc.C, config providertracker.Config, check func(err error)) {
 	err := config.Validate()
 	check(err)
 
-	tracker, err := environ.NewTracker(config)
-	c.Check(tracker, gc.IsNil)
+	worker, err := providertracker.NewWorker(context.Background(), config)
+	c.Check(worker, gc.IsNil)
 	check(err)
 }
 
-func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
+func (s *WorkerSuite) TestModelConfigFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
 			errors.New("no you"),
 		},
 	}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Check(err, gc.ErrorMatches, "retrieving model config: no you")
-		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "ModelConfig")
+		c.Check(worker, gc.IsNil)
+		observer.CheckCallNames(c, "ModelConfig")
 	})
 }
 
-func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
+func (s *WorkerSuite) TestModelConfigInvalid(c *gc.C) {
 	fix := &fixture{}
-	fix.Run(c, func(runContext *runContext) {
-		config := s.validConfig(runContext)
+	fix.Run(c, func(observer *testObserver) {
+		config := s.validConfig(observer)
 		config.NewEnvironFunc = func(context.Context, environs.OpenParams) (environs.Environ, error) {
 			return nil, errors.NotValidf("config")
 		}
-		tracker, err := environ.NewTracker(config)
+		worker, err := providertracker.NewWorker(context.Background(), config)
 		c.Check(err, gc.ErrorMatches,
 			`creating environ for model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): config not valid`)
-		c.Check(tracker, gc.IsNil)
-		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec")
+		c.Check(worker, gc.IsNil)
+		observer.CheckCallNames(c, "ModelConfig", "CloudSpec")
 	})
 }
 
-func (s *TrackerSuite) TestModelConfigValid(c *gc.C) {
+func (s *WorkerSuite) TestModelConfigValid(c *gc.C) {
 	fix := &fixture{
 		initialConfig: coretesting.Attrs{
 			"name": "this-particular-name",
 		},
 	}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, tracker)
+		defer workertest.CleanKill(c, worker)
 
-		gotEnviron := tracker.Environ()
+		gotEnviron := worker.Environ()
 		c.Assert(gotEnviron, gc.NotNil)
 		c.Check(gotEnviron.Config().Name(), gc.Equals, "this-particular-name")
 	})
 }
 
-func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
+func (s *WorkerSuite) TestCloudSpec(c *gc.C) {
 	cloudSpec := environscloudspec.CloudSpec{
 		Name:   "foo",
 		Type:   "bar",
 		Region: "baz",
 	}
 	fix := &fixture{initialSpec: cloudSpec}
-	fix.Run(c, func(runContext *runContext) {
-		config := s.validConfig(runContext)
+	fix.Run(c, func(observer *testObserver) {
+		config := s.validConfig(observer)
 		config.NewEnvironFunc = func(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
 			c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
 			return nil, errors.NotValidf("cloud spec")
 		}
-		tracker, err := environ.NewTracker(config)
+		worker, err := providertracker.NewWorker(context.Background(), config)
 		c.Check(err, gc.ErrorMatches,
 			`creating environ for model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): cloud spec not valid`)
-		c.Check(tracker, gc.IsNil)
-		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec")
+		c.Check(worker, gc.IsNil)
+		observer.CheckCallNames(c, "ModelConfig", "CloudSpec")
 	})
 }
 
-func (s *TrackerSuite) TestWatchFails(c *gc.C) {
+func (s *WorkerSuite) TestWatchFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
 			nil, nil, errors.New("grrk splat"),
 		},
 	}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, tracker)
+		defer workertest.DirtyKill(c, worker)
 
-		err = workertest.CheckKilled(c, tracker)
+		err = workertest.CheckKilled(c, worker)
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): watching environ config: grrk splat`)
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges")
+		observer.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges")
 	})
 }
 
-func (s *TrackerSuite) TestModelConfigWatchCloses(c *gc.C) {
+func (s *WorkerSuite) TestModelConfigWatchCloses(c *gc.C) {
 	fix := &fixture{}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, tracker)
+		defer workertest.DirtyKill(c, worker)
 
-		context.CloseModelConfigNotify()
-		err = workertest.CheckKilled(c, tracker)
+		observer.CloseModelConfigNotify()
+		err = workertest.CheckKilled(c, worker)
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): environ config watch closed`)
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
+		observer.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
 	})
 }
 
-func (s *TrackerSuite) TestCloudSpecWatchCloses(c *gc.C) {
+func (s *WorkerSuite) TestCloudSpecWatchCloses(c *gc.C) {
 	fix := &fixture{}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, tracker)
+		defer workertest.DirtyKill(c, worker)
 
-		context.CloseCloudSpecNotify()
-		err = workertest.CheckKilled(c, tracker)
+		observer.CloseCloudSpecNotify()
+		err = workertest.CheckKilled(c, worker)
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): cloud watch closed`)
-		context.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
+		observer.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
 	})
 }
 
-func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
+func (s *WorkerSuite) TestWatchedModelConfigFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
 			nil, nil, nil, nil, errors.New("blam ouch"),
 		},
 	}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Check(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, tracker)
+		defer workertest.DirtyKill(c, worker)
 
-		context.SendModelConfigNotify()
-		err = workertest.CheckKilled(c, tracker)
+		observer.SendModelConfigNotify()
+		err = workertest.CheckKilled(c, worker)
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): reading model config: blam ouch`)
 	})
 }
 
-func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
+func (s *WorkerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 	fix := &fixture{}
-	fix.Run(c, func(runContext *runContext) {
-		config := s.validConfig(runContext)
+	fix.Run(c, func(observer *testObserver) {
+		config := s.validConfig(observer)
 		config.NewEnvironFunc = func(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
 			env := &mockEnviron{cfg: args.Config}
 			env.SetErrors(nil, errors.New("SetConfig is broken"))
 			return env, nil
 		}
-		tracker, err := environ.NewTracker(config)
+		worker, err := providertracker.NewWorker(context.Background(), config)
 		c.Check(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, tracker)
+		defer workertest.DirtyKill(c, worker)
 
-		runContext.SendModelConfigNotify()
-		err = workertest.CheckKilled(c, tracker)
+		observer.SendModelConfigNotify()
+		err = workertest.CheckKilled(c, worker)
 		c.Check(err, gc.ErrorMatches,
 			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): updating environ config: SetConfig is broken`)
-		runContext.CheckCallNames(c,
+		observer.CheckCallNames(c,
 			"ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
 	})
 }
 
-func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
+func (s *WorkerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 	fix := &fixture{
 		initialConfig: coretesting.Attrs{
 			"name": "original-name",
 		},
 	}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Check(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, tracker)
+		defer workertest.CleanKill(c, worker)
 
-		context.SetConfig(c, coretesting.Attrs{
+		observer.SetConfig(c, coretesting.Attrs{
 			"name": "updated-name",
 		})
-		gotEnviron := tracker.Environ()
+		gotEnviron := worker.Environ()
 		c.Assert(gotEnviron.Config().Name(), gc.Equals, "original-name")
 
 		timeout := time.After(coretesting.LongWait)
 		attempt := time.After(0)
-		context.SendModelConfigNotify()
+		observer.SendModelConfigNotify()
 		for {
 			select {
 			case <-attempt:
@@ -266,22 +266,22 @@ func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 	})
 }
 
-func (s *TrackerSuite) TestWatchedCloudSpecUpdates(c *gc.C) {
+func (s *WorkerSuite) TestWatchedCloudSpecUpdates(c *gc.C) {
 	fix := &fixture{
 		initialSpec: environscloudspec.CloudSpec{Name: "cloud", Type: "lxd"},
 	}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Check(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, tracker)
+		defer workertest.CleanKill(c, worker)
 
-		context.SetCloudSpec(c, environscloudspec.CloudSpec{Name: "lxd", Type: "lxd", Endpoint: "http://api"})
-		gotEnviron := tracker.Environ().(*mockEnviron)
+		observer.SetCloudSpec(c, environscloudspec.CloudSpec{Name: "lxd", Type: "lxd", Endpoint: "http://api"})
+		gotEnviron := worker.Environ().(*mockEnviron)
 		c.Assert(gotEnviron.CloudSpec(), jc.DeepEquals, fix.initialSpec)
 
 		timeout := time.After(coretesting.LongWait)
 		attempt := time.After(0)
-		context.SendCloudSpecNotify()
+		observer.SendCloudSpecNotify()
 		for {
 			select {
 			case <-attempt:
@@ -299,7 +299,7 @@ func (s *TrackerSuite) TestWatchedCloudSpecUpdates(c *gc.C) {
 	})
 }
 
-func (s *TrackerSuite) TestWatchedCloudSpecCredentialsUpdates(c *gc.C) {
+func (s *WorkerSuite) TestWatchedCloudSpecCredentialsUpdates(c *gc.C) {
 	original := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -317,18 +317,18 @@ func (s *TrackerSuite) TestWatchedCloudSpecCredentialsUpdates(c *gc.C) {
 	fix := &fixture{
 		initialSpec: environscloudspec.CloudSpec{Name: "cloud", Type: "lxd", Credential: &original},
 	}
-	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(s.validConfig(context))
+	fix.Run(c, func(observer *testObserver) {
+		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
 		c.Check(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, tracker)
+		defer workertest.CleanKill(c, worker)
 
-		context.SetCloudSpec(c, environscloudspec.CloudSpec{Name: "lxd", Type: "lxd", Credential: &differentContent})
-		gotEnviron := tracker.Environ().(*mockEnviron)
+		observer.SetCloudSpec(c, environscloudspec.CloudSpec{Name: "lxd", Type: "lxd", Credential: &differentContent})
+		gotEnviron := worker.Environ().(*mockEnviron)
 		c.Assert(gotEnviron.CloudSpec(), jc.DeepEquals, fix.initialSpec)
 
 		timeout := time.After(coretesting.LongWait)
 		attempt := time.After(0)
-		context.SendCloudSpecNotify()
+		observer.SendCloudSpecNotify()
 		for {
 			select {
 			case <-attempt:

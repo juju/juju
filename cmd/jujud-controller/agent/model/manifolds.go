@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/worker/cleaner"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
-	"github.com/juju/juju/internal/worker/environ"
 	"github.com/juju/juju/internal/worker/environupgrader"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -53,6 +52,7 @@ import (
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
+	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/pruner"
 	"github.com/juju/juju/internal/worker/remoterelations"
@@ -351,10 +351,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		providerTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			NewEnvironFunc: config.NewEnvironFunc,
-			Logger:         config.LoggingContext.GetLogger("juju.worker.environ"),
+		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.Manifold(providertracker.ManifoldConfig{
+			APICallerName:              apiCallerName,
+			ProviderServiceFactoryName: providerServiceFactoryName,
+			NewEnvironFunc:             config.NewEnvironFunc,
+			Logger:                     config.LoggingContext.GetLogger("juju.worker.providertracker"),
 		}))),
 
 		// Everything else should be wrapped in ifResponsible,

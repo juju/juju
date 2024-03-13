@@ -1,7 +1,7 @@
 // Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environ
+package providertracker
 
 import (
 	"context"
@@ -29,9 +29,9 @@ type ConfigObserver interface {
 	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
 }
 
-// Config describes the dependencies of a Tracker.
+// Config describes the dependencies of a Worker.
 //
-// It's arguable that it should be called TrackerConfig, because of the heavy
+// It's arguable that it should be called WorkerConfig, because of the heavy
 // use of model config in this package.
 type Config struct {
 	Observer       ConfigObserver
@@ -39,7 +39,7 @@ type Config struct {
 	Logger         Logger
 }
 
-// Validate returns an error if the config cannot be used to start a Tracker.
+// Validate returns an error if the config cannot be used to start a Worker.
 func (config Config) Validate() error {
 	if config.Observer == nil {
 		return errors.NotValidf("nil Observer")
@@ -53,32 +53,29 @@ func (config Config) Validate() error {
 	return nil
 }
 
-// Tracker loads an environment, makes it available to clients, and updates
+// Worker loads an environment, makes it available to clients, and updates
 // the environment in response to config changes until it is killed.
-type Tracker struct {
+type Worker struct {
 	config           Config
 	catacomb         catacomb.Catacomb
 	environ          environs.Environ
 	currentCloudSpec environscloudspec.CloudSpec
 }
 
-// NewTracker loads an environment from the observer and returns a new Tracker,
+// NewWorker loads a provider from the observer and returns a new Worker,
 // or an error if anything goes wrong. If a tracker is returned, its Environ()
 // method is immediately usable.
-//
-// The caller is responsible for Kill()ing the returned Tracker and Wait()ing
-// for any errors it might return.
-func NewTracker(config Config) (*Tracker, error) {
+func NewWorker(ctx context.Context, config Config) (*Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	environ, spec, err := environs.GetEnvironAndCloud(context.TODO(), config.Observer, config.NewEnvironFunc)
+	environ, spec, err := environs.GetEnvironAndCloud(ctx, config.Observer, config.NewEnvironFunc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	t := &Tracker{
+	t := &Worker{
 		config:           config,
 		environ:          environ,
 		currentCloudSpec: *spec,
@@ -94,12 +91,12 @@ func NewTracker(config Config) (*Tracker, error) {
 }
 
 // Environ returns the encapsulated Environ. It will continue to be updated in
-// the background for as long as the Tracker continues to run.
-func (t *Tracker) Environ() environs.Environ {
+// the background for as long as the Worker continues to run.
+func (t *Worker) Environ() environs.Environ {
 	return t.environ
 }
 
-func (t *Tracker) loop() (err error) {
+func (t *Worker) loop() (err error) {
 	cfg := t.environ.Config()
 	defer errors.DeferredAnnotatef(&err, "model %q (%s)", cfg.Name(), cfg.UUID())
 
@@ -169,11 +166,11 @@ func (t *Tracker) loop() (err error) {
 }
 
 // Kill is part of the worker.Worker interface.
-func (t *Tracker) Kill() {
+func (t *Worker) Kill() {
 	t.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (t *Tracker) Wait() error {
+func (t *Worker) Wait() error {
 	return t.catacomb.Wait()
 }

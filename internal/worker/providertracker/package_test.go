@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environ_test
+package providertracker_test
 
 import (
 	stdtesting "testing"

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environ
+package providertracker
 
 import (
 	"context"
@@ -22,19 +22,21 @@ type Logger interface {
 	Warningf(string, ...interface{})
 }
 
-// ManifoldConfig describes the resources used by a Tracker.
+// ManifoldConfig describes the resources used by a Worker.
 type ManifoldConfig struct {
-	APICallerName  string
-	NewEnvironFunc environs.NewEnvironFunc
-	Logger         Logger
+	APICallerName              string
+	ProviderServiceFactoryName string
+	NewEnvironFunc             environs.NewEnvironFunc
+	Logger                     Logger
 }
 
-// Manifold returns a Manifold that encapsulates a *Tracker and exposes it as
+// Manifold returns a Manifold that encapsulates a *Worker and exposes it as
 // an environs.Environ resource.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	manifold := dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
+			config.ProviderServiceFactoryName,
 		},
 		Output: manifoldOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -46,7 +48,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			w, err := NewTracker(Config{
+			w, err := NewWorker(ctx, Config{
 				Observer:       apiSt,
 				NewEnvironFunc: config.NewEnvironFunc,
 				Logger:         config.Logger,
@@ -60,19 +62,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return manifold
 }
 
-// manifoldOutput extracts an environs.Environ resource from a *Tracker.
+// manifoldOutput extracts an environs.Environ resource from a *Worker.
 func manifoldOutput(in worker.Worker, out interface{}) error {
-	inTracker, ok := in.(*Tracker)
+	w, ok := in.(*Worker)
 	if !ok {
 		return errors.Errorf("expected *environ.Tracker, got %T", in)
 	}
 	switch result := out.(type) {
 	case *environs.Environ:
-		*result = inTracker.Environ()
+		*result = w.Environ()
 	case *environs.CloudDestroyer:
-		*result = inTracker.Environ()
+		*result = w.Environ()
 	case *storage.ProviderRegistry:
-		*result = inTracker.Environ()
+		*result = w.Environ()
 	default:
 		return errors.Errorf("expected *environs.Environ, *storage.ProviderRegistry, or *environs.CloudDestroyer, got %T", out)
 	}
