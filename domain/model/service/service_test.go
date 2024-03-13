@@ -123,6 +123,17 @@ func (d *dummyState) Get(
 	return info, nil
 }
 
+func (d *dummyState) GetModelType(
+	_ context.Context,
+	uuid coremodel.UUID,
+) (coremodel.ModelType, error) {
+	info, exists := d.models[uuid]
+	if !exists {
+		return "", fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+	}
+	return info.ModelType, nil
+}
+
 func (d *dummyState) Delete(
 	_ context.Context,
 	uuid coremodel.UUID,

@@ -1,347 +1,418 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package providertracker_test
+package providertracker
 
 import (
 	"context"
-	"reflect"
 	"time"
 
-	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/worker/providertracker"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
 )
 
-type WorkerSuite struct {
-	coretesting.BaseSuite
+type workerSuite struct {
+	baseSuite
+
+	states chan string
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = gc.Suite(&workerSuite{})
 
-func (s *WorkerSuite) validConfig(observer providertracker.ConfigObserver) providertracker.Config {
-	if observer == nil {
-		observer = &testObserver{}
+func (s *workerSuite) TestWorkerStartup(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we can startup with a normal environ.
+
+	s.expectModel(c)
+	cfg := s.expectGetEnviron(c)
+	s.expectEnvironConfig(c, cfg)
+	s.expectConfigWatcher(c)
+
+	// Create the worker.
+
+	w, err := s.newWorker(c, s.environ)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.ensureStartup(c)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we can startup with the cloud spec setter and environ.
+
+	s.expectModel(c)
+	cfg := s.expectGetEnviron(c)
+	s.expectEnvironConfig(c, cfg)
+	s.expectConfigWatcher(c)
+
+	// Now we've got the cloud spec setter, we need to ensure we watch the
+	// cloud and credentials.
+
+	s.expectCloudWatcher(c)
+	s.expectCredentialWatcher(c)
+
+	// Create the worker.
+
+	w, err := s.newWorker(c, s.newCloudSpecEnviron())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.ensureStartup(c)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we can startup with a normal environ.
+
+	s.expectModel(c)
+	cfg := s.expectGetEnviron(c)
+	s.expectEnvironConfig(c, cfg)
+	ch := s.expectConfigWatcher(c)
+	s.expectEnvironSetConfig(c, cfg)
+
+	// Create the worker.
+
+	w, err := s.newWorker(c, s.environ)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.ensureStartup(c)
+
+	// Dispatch a config change, ensure it's picked up via the environ.
+
+	select {
+	case ch <- []string{"foo"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending config change")
 	}
-	return providertracker.Config{
-		Observer:       observer,
-		NewEnvironFunc: newMockEnviron,
-		Logger:         loggo.GetLogger("test"),
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we can startup with a normal environ.
+
+	s.expectModel(c)
+	cfg := s.expectGetEnviron(c)
+	s.expectEnvironConfig(c, cfg)
+	s.expectConfigWatcher(c)
+
+	// Now we've got the cloud spec setter, we need to ensure we watch the
+	// cloud and credentials.
+
+	ch := s.expectCloudWatcher(c)
+	s.expectCredentialWatcher(c)
+
+	// This will cause the cloud spec to be updated.
+	s.expectEnvironSetSpecUpdate(c)
+
+	// Create the worker.
+
+	w, err := s.newWorker(c, s.newCloudSpecEnviron())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.ensureStartup(c)
+
+	// Send a notification so that a cloud change is picked up.
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending config change")
 	}
+
+	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestValidateObserver(c *gc.C) {
-	config := s.validConfig(nil)
-	config.Observer = nil
-	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.ErrorIs, errors.NotValid)
-		c.Check(err, gc.ErrorMatches, "nil Observer not valid")
-	})
+func (s *workerSuite) TestWorkerCloudDoesNotUpdateEnviron(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we can startup with a normal environ.
+
+	s.expectModel(c)
+	cfg := s.expectGetEnviron(c)
+	s.expectEnvironConfig(c, cfg)
+	s.expectConfigWatcher(c)
+
+	// Now we've got the cloud spec setter, we need to ensure we watch the
+	// cloud and credentials.
+
+	ch := s.expectCloudWatcher(c)
+	s.expectCredentialWatcher(c)
+
+	// Nothing has changed, so no cloud spec is updated
+	s.expectEnvironSetSpecNoUpdate(c)
+
+	// Create the worker.
+
+	w, err := s.newWorker(c, s.newCloudSpecEnviron())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Send a notification so that a cloud change is picked up.
+
+	s.ensureStartup(c)
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending config change")
+	}
+
+	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestValidateNewEnvironFunc(c *gc.C) {
-	config := s.validConfig(nil)
-	config.NewEnvironFunc = nil
-	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.ErrorIs, errors.NotValid)
-		c.Check(err, gc.ErrorMatches, "nil NewEnvironFunc not valid")
-	})
+func (s *workerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we can startup with a normal environ.
+
+	s.expectModel(c)
+	cfg := s.expectGetEnviron(c)
+	s.expectEnvironConfig(c, cfg)
+	s.expectConfigWatcher(c)
+
+	// Now we've got the cloud spec setter, we need to ensure we watch the
+	// cloud and credentials.
+
+	s.expectCloudWatcher(c)
+	ch := s.expectCredentialWatcher(c)
+
+	// This will cause the cloud spec to be updated.
+	s.expectEnvironSetSpecUpdate(c)
+
+	// Create the worker.
+
+	w, err := s.newWorker(c, s.newCloudSpecEnviron())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.ensureStartup(c)
+
+	// Send a notification so that a credential change is picked up.
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending config change")
+	}
+
+	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestValidateLogger(c *gc.C) {
-	config := s.validConfig(nil)
-	config.Logger = nil
-	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.ErrorIs, errors.NotValid)
-		c.Check(err, gc.ErrorMatches, "nil Logger not valid")
-	})
+func (s *workerSuite) TestWorkerCredentialDoesNotUpdateEnviron(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we can startup with a normal environ.
+
+	s.expectModel(c)
+	cfg := s.expectGetEnviron(c)
+	s.expectEnvironConfig(c, cfg)
+	s.expectConfigWatcher(c)
+
+	// Now we've got the cloud spec setter, we need to ensure we watch the
+	// cloud and credentials.
+
+	s.expectCloudWatcher(c)
+	ch := s.expectCredentialWatcher(c)
+
+	// Nothing has changed, so no cloud spec is updated
+	s.expectEnvironSetSpecNoUpdate(c)
+
+	// Create the worker.
+
+	w, err := s.newWorker(c, s.newCloudSpecEnviron())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Send a notification so that a credential change is picked up.
+
+	s.ensureStartup(c)
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending config change")
+	}
+
+	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) testValidate(c *gc.C, config providertracker.Config, check func(err error)) {
-	err := config.Validate()
-	check(err)
-
-	worker, err := providertracker.NewWorker(context.Background(), config)
-	c.Check(worker, gc.IsNil)
-	check(err)
-}
-
-func (s *WorkerSuite) TestModelConfigFails(c *gc.C) {
-	fix := &fixture{
-		observerErrs: []error{
-			errors.New("no you"),
+func (s *workerSuite) getConfig(environ environs.Environ) Config {
+	return Config{
+		ModelService:      s.modelService,
+		CloudService:      s.cloudService,
+		ConfigService:     s.configService,
+		CredentialService: s.credentialService,
+		NewEnviron: func(ctx context.Context, op environs.OpenParams) (environs.Environ, error) {
+			return environ, nil
 		},
+		Logger: s.logger,
 	}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Check(err, gc.ErrorMatches, "retrieving model config: no you")
-		c.Check(worker, gc.IsNil)
-		observer.CheckCallNames(c, "ModelConfig")
-	})
 }
 
-func (s *WorkerSuite) TestModelConfigInvalid(c *gc.C) {
-	fix := &fixture{}
-	fix.Run(c, func(observer *testObserver) {
-		config := s.validConfig(observer)
-		config.NewEnvironFunc = func(context.Context, environs.OpenParams) (environs.Environ, error) {
-			return nil, errors.NotValidf("config")
+func (s *workerSuite) expectModel(c *gc.C) coremodel.UUID {
+	id := modeltesting.GenModelUUID(c)
+
+	s.modelService.EXPECT().Model(gomock.Any()).Return(coremodel.ReadOnlyModel{
+		UUID:            id,
+		Name:            "model",
+		Type:            coremodel.IAAS,
+		Cloud:           "cloud",
+		CredentialOwner: "owner",
+		CredentialName:  "name",
+	}, nil)
+
+	return id
+}
+
+func (s *workerSuite) expectGetEnviron(c *gc.C) *config.Config {
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.configService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
+		Cloud: "cloud",
+		Owner: "owner",
+		Name:  "name",
+	}).Return(cloud.Credential{}, nil)
+
+	return cfg
+}
+
+func (s *workerSuite) expectEnvironConfig(c *gc.C, cfg *config.Config) {
+	s.environ.EXPECT().Config().Return(cfg)
+}
+
+func (s *workerSuite) expectEnvironSetConfig(c *gc.C, cfg *config.Config) {
+	s.configService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+	s.environ.EXPECT().SetConfig(cfg)
+}
+
+func (s *workerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
+		Cloud: "cloud",
+		Owner: "owner",
+		Name:  "name",
+	}).Return(cloud.Credential{
+		Revoked: true,
+	}, nil)
+	s.cloudSpecSetter.EXPECT().SetCloudSpec(gomock.Any(), gomock.Any()).Return(nil)
+}
+
+func (s *workerSuite) expectEnvironSetSpecNoUpdate(c *gc.C) {
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
+		Cloud: "cloud",
+		Owner: "owner",
+		Name:  "name",
+	}).Return(cloud.Credential{}, nil)
+}
+
+func (s *workerSuite) expectConfigWatcher(c *gc.C) chan []string {
+	ch := make(chan []string)
+	// Seed the initial event.
+	go func() {
+		select {
+		case ch <- []string{}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out seeding initial event")
 		}
-		worker, err := providertracker.NewWorker(context.Background(), config)
-		c.Check(err, gc.ErrorMatches,
-			`creating environ for model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): config not valid`)
-		c.Check(worker, gc.IsNil)
-		observer.CheckCallNames(c, "ModelConfig", "CloudSpec")
-	})
+	}()
+
+	watcher := watchertest.NewMockStringsWatcher(ch)
+
+	s.configService.EXPECT().Watch().Return(watcher, nil)
+
+	return ch
 }
 
-func (s *WorkerSuite) TestModelConfigValid(c *gc.C) {
-	fix := &fixture{
-		initialConfig: coretesting.Attrs{
-			"name": "this-particular-name",
-		},
-	}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, worker)
-
-		gotEnviron := worker.Environ()
-		c.Assert(gotEnviron, gc.NotNil)
-		c.Check(gotEnviron.Config().Name(), gc.Equals, "this-particular-name")
-	})
-}
-
-func (s *WorkerSuite) TestCloudSpec(c *gc.C) {
-	cloudSpec := environscloudspec.CloudSpec{
-		Name:   "foo",
-		Type:   "bar",
-		Region: "baz",
-	}
-	fix := &fixture{initialSpec: cloudSpec}
-	fix.Run(c, func(observer *testObserver) {
-		config := s.validConfig(observer)
-		config.NewEnvironFunc = func(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
-			c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
-			return nil, errors.NotValidf("cloud spec")
+func (s *workerSuite) expectCloudWatcher(c *gc.C) chan struct{} {
+	ch := make(chan struct{})
+	// Seed the initial event.
+	go func() {
+		select {
+		case ch <- struct{}{}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out seeding initial event")
 		}
-		worker, err := providertracker.NewWorker(context.Background(), config)
-		c.Check(err, gc.ErrorMatches,
-			`creating environ for model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): cloud spec not valid`)
-		c.Check(worker, gc.IsNil)
-		observer.CheckCallNames(c, "ModelConfig", "CloudSpec")
-	})
+	}()
+
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+
+	s.cloudService.EXPECT().WatchCloud(gomock.Any(), "cloud").Return(watcher, nil)
+
+	return ch
 }
 
-func (s *WorkerSuite) TestWatchFails(c *gc.C) {
-	fix := &fixture{
-		observerErrs: []error{
-			nil, nil, errors.New("grrk splat"),
-		},
-	}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, worker)
-
-		err = workertest.CheckKilled(c, worker)
-		c.Check(err, gc.ErrorMatches,
-			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): watching environ config: grrk splat`)
-		observer.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges")
-	})
-}
-
-func (s *WorkerSuite) TestModelConfigWatchCloses(c *gc.C) {
-	fix := &fixture{}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, worker)
-
-		observer.CloseModelConfigNotify()
-		err = workertest.CheckKilled(c, worker)
-		c.Check(err, gc.ErrorMatches,
-			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): environ config watch closed`)
-		observer.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
-	})
-}
-
-func (s *WorkerSuite) TestCloudSpecWatchCloses(c *gc.C) {
-	fix := &fixture{}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, worker)
-
-		observer.CloseCloudSpecNotify()
-		err = workertest.CheckKilled(c, worker)
-		c.Check(err, gc.ErrorMatches,
-			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): cloud watch closed`)
-		observer.CheckCallNames(c, "ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
-	})
-}
-
-func (s *WorkerSuite) TestWatchedModelConfigFails(c *gc.C) {
-	fix := &fixture{
-		observerErrs: []error{
-			nil, nil, nil, nil, errors.New("blam ouch"),
-		},
-	}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Check(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, worker)
-
-		observer.SendModelConfigNotify()
-		err = workertest.CheckKilled(c, worker)
-		c.Check(err, gc.ErrorMatches,
-			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): reading model config: blam ouch`)
-	})
-}
-
-func (s *WorkerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
-	fix := &fixture{}
-	fix.Run(c, func(observer *testObserver) {
-		config := s.validConfig(observer)
-		config.NewEnvironFunc = func(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
-			env := &mockEnviron{cfg: args.Config}
-			env.SetErrors(nil, errors.New("SetConfig is broken"))
-			return env, nil
+func (s *workerSuite) expectCredentialWatcher(c *gc.C) chan struct{} {
+	ch := make(chan struct{})
+	// Seed the initial event.
+	go func() {
+		select {
+		case ch <- struct{}{}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out seeding initial event")
 		}
-		worker, err := providertracker.NewWorker(context.Background(), config)
-		c.Check(err, jc.ErrorIsNil)
-		defer workertest.DirtyKill(c, worker)
+	}()
 
-		observer.SendModelConfigNotify()
-		err = workertest.CheckKilled(c, worker)
-		c.Check(err, gc.ErrorMatches,
-			`model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): updating environ config: SetConfig is broken`)
-		observer.CheckCallNames(c,
-			"ModelConfig", "CloudSpec", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
-	})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+
+	s.credentialService.EXPECT().WatchCredential(gomock.Any(), credential.Key{
+		Cloud: "cloud",
+		Owner: "owner",
+		Name:  "name",
+	}).Return(watcher, nil)
+
+	return ch
 }
 
-func (s *WorkerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
-	fix := &fixture{
-		initialConfig: coretesting.Attrs{
-			"name": "original-name",
-		},
-	}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Check(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, worker)
-
-		observer.SetConfig(c, coretesting.Attrs{
-			"name": "updated-name",
-		})
-		gotEnviron := worker.Environ()
-		c.Assert(gotEnviron.Config().Name(), gc.Equals, "original-name")
-
-		timeout := time.After(coretesting.LongWait)
-		attempt := time.After(0)
-		observer.SendModelConfigNotify()
-		for {
-			select {
-			case <-attempt:
-				name := gotEnviron.Config().Name()
-				if name == "original-name" {
-					attempt = time.After(coretesting.ShortWait)
-					continue
-				}
-				c.Check(name, gc.Equals, "updated-name")
-			case <-timeout:
-				c.Fatalf("timed out waiting for environ to be updated")
-			}
-			break
-		}
-	})
+func (s *workerSuite) newWorker(c *gc.C, environ environs.Environ) (*trackerWorker, error) {
+	return newWorker(context.Background(), s.getConfig(environ), s.states)
 }
 
-func (s *WorkerSuite) TestWatchedCloudSpecUpdates(c *gc.C) {
-	fix := &fixture{
-		initialSpec: environscloudspec.CloudSpec{Name: "cloud", Type: "lxd"},
+func (s *workerSuite) newCloudSpecEnviron() *cloudSpecEnviron {
+	return &cloudSpecEnviron{
+		Environ:         s.environ,
+		CloudSpecSetter: s.cloudSpecSetter,
 	}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Check(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, worker)
-
-		observer.SetCloudSpec(c, environscloudspec.CloudSpec{Name: "lxd", Type: "lxd", Endpoint: "http://api"})
-		gotEnviron := worker.Environ().(*mockEnviron)
-		c.Assert(gotEnviron.CloudSpec(), jc.DeepEquals, fix.initialSpec)
-
-		timeout := time.After(coretesting.LongWait)
-		attempt := time.After(0)
-		observer.SendCloudSpecNotify()
-		for {
-			select {
-			case <-attempt:
-				ep := gotEnviron.CloudSpec().Endpoint
-				if ep == "" {
-					attempt = time.After(coretesting.ShortWait)
-					continue
-				}
-				c.Check(ep, gc.Equals, "http://api")
-			case <-timeout:
-				c.Fatalf("timed out waiting for environ to be updated")
-			}
-			break
-		}
-	})
 }
 
-func (s *WorkerSuite) TestWatchedCloudSpecCredentialsUpdates(c *gc.C) {
-	original := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		map[string]string{
-			"username": "user",
-			"password": "secret",
-		},
-	)
-	differentContent := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		map[string]string{
-			"username": "user",
-			"password": "not-secret-anymore",
-		},
-	)
-	fix := &fixture{
-		initialSpec: environscloudspec.CloudSpec{Name: "cloud", Type: "lxd", Credential: &original},
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	// Ensure we buffer the channel, this is because we might miss the
+	// event if we're too quick at starting up.
+	s.states = make(chan string, 1)
+
+	return s.baseSuite.setupMocks(c)
+}
+
+func (s *workerSuite) ensureStartup(c *gc.C) {
+	select {
+	case state := <-s.states:
+		c.Assert(state, gc.Equals, stateStarted)
+	case <-time.After(testing.ShortWait * 10):
+		c.Fatalf("timed out waiting for startup")
 	}
-	fix.Run(c, func(observer *testObserver) {
-		worker, err := providertracker.NewWorker(context.Background(), s.validConfig(observer))
-		c.Check(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, worker)
+}
 
-		observer.SetCloudSpec(c, environscloudspec.CloudSpec{Name: "lxd", Type: "lxd", Credential: &differentContent})
-		gotEnviron := worker.Environ().(*mockEnviron)
-		c.Assert(gotEnviron.CloudSpec(), jc.DeepEquals, fix.initialSpec)
-
-		timeout := time.After(coretesting.LongWait)
-		attempt := time.After(0)
-		observer.SendCloudSpecNotify()
-		for {
-			select {
-			case <-attempt:
-				ep := gotEnviron.CloudSpec().Credential
-				if reflect.DeepEqual(ep, &original) {
-					attempt = time.After(coretesting.ShortWait)
-					continue
-				}
-				c.Check(reflect.DeepEqual(ep, &differentContent), jc.IsTrue)
-			case <-timeout:
-				c.Fatalf("timed out waiting for environ to be updated")
-			}
-			break
-		}
-	})
+type cloudSpecEnviron struct {
+	environs.Environ
+	environs.CloudSpecSetter
 }

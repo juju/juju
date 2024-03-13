@@ -17,11 +17,8 @@ import (
 
 	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/credential"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/state"
 )
@@ -93,40 +90,6 @@ type NewModelConfig struct {
 // all a model's required workers; and for returning nil when there's
 // no more model to manage.
 type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
-
-// ProviderCloudService represents the cloud service provided by the provider.
-type ProviderCloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-	// WatchCloud returns a watcher that observes changes to the specified cloud.
-	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
-}
-
-// ProviderCredentialService represents the credential service provided by the
-// provider.
-type ProviderCredentialService interface {
-	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-	// WatchCredential returns a watcher that observes changes to the specified
-	// credential.
-	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
-}
-
-// ProviderServiceFactory provides access to the services required by the
-// provider.
-type ProviderServiceFactory interface {
-	// Cloud returns the cloud service.
-	Cloud() ProviderCloudService
-	// Credential returns the credential service.
-	Credential() ProviderCredentialService
-}
-
-// ProviderServiceFactoryGetter represents a way to get a ProviderServiceFactory
-// for a given model.
-type ProviderServiceFactoryGetter interface {
-	// FactoryForModel returns a ProviderServiceFactory for the given model.
-	FactoryForModel(modelUUID string) ProviderServiceFactory
-}
 
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.

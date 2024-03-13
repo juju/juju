@@ -139,7 +139,8 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		UUID:  modelUUID,
 	}
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly()).Return(nil)
+	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(coremodel.IAAS)).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -197,7 +198,8 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		UUID:  modelUUID,
 	}
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly()).Return(errors.New("boom"))
+	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(coremodel.IAAS)).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{

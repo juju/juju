@@ -38,6 +38,9 @@ type State interface {
 	// Get returns the model associated with the provided uuid.
 	Get(context.Context, coremodel.UUID) (coremodel.Model, error)
 
+	// GetModelType returns the model type for a model with the provided uuid.
+	GetModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
+
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
 
@@ -196,6 +199,16 @@ func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Mod
 	}
 
 	return s.st.Get(ctx, uuid)
+}
+
+// ModelType returns the current model type based on the cloud name being used
+// for the model.
+func (s *Service) ModelType(ctx context.Context, uuid coremodel.UUID) (coremodel.ModelType, error) {
+	if err := uuid.Validate(); err != nil {
+		return coremodel.ModelType(""), fmt.Errorf("model type uuid: %w", err)
+	}
+
+	return s.st.GetModelType(ctx, uuid)
 }
 
 // DeleteModel is responsible for removing a model from Juju and all of it's

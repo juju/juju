@@ -352,9 +352,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
 		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.Manifold(providertracker.ManifoldConfig{
-			APICallerName:              apiCallerName,
 			ProviderServiceFactoryName: providerServiceFactoryName,
-			NewEnvironFunc:             config.NewEnvironFunc,
+			NewEnviron:                 config.NewEnvironFunc,
+			NewWorker:                  providertracker.NewWorker,
+			GetProviderServiceFactory:  providertracker.GetProviderServiceFactory,
 			Logger:                     config.LoggingContext.GetLogger("juju.worker.providertracker"),
 		}))),
 

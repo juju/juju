@@ -101,11 +101,13 @@ type ServiceFactoryGetter interface {
 // ProviderServiceFactory provides access to the services required by the
 // provider.
 type ProviderServiceFactory interface {
-	// Cloud returns the cloud service.
+	// Model returns the provider model service.
+	Model() *modelservice.ProviderService
+	// Cloud returns the provider cloud service.
 	Cloud() *cloudservice.WatchableProviderService
-	// Config returns the config service.
+	// Config returns the provider config service.
 	Config() *modelconfigservice.WatchableProviderService
-	// Credential returns the credential service.
+	// Credential returns the provider credential service.
 	Credential() *credentialservice.WatchableProviderService
 }
 

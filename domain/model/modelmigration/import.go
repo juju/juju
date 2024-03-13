@@ -18,6 +18,7 @@ import (
 	userservice "github.com/juju/juju/domain/access/service"
 	userstate "github.com/juju/juju/domain/access/state"
 	domainmodel "github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/config"
@@ -40,8 +41,11 @@ func RegisterImport(coordinator Coordinator, logger Logger) {
 // ModelService defines the model service used to import models from another
 // controller to this one.
 type ModelService interface {
-	// CreateModel is responsible for creating a new model that is being imported.
+	// CreateModel is responsible for creating a new model that is being
+	// imported.
 	CreateModel(context.Context, domainmodel.ModelCreationArgs) (coremodel.UUID, error)
+	// ModelType returns the type of the model.
+	ModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 	// DeleteModel is responsible for removing a model from the system.
 	DeleteModel(context.Context, coremodel.UUID) error
 }
@@ -149,8 +153,16 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		)
 	}
 
+	modelType, err := i.modelService.ModelType(ctx, createdModelUUID)
+	if err != nil {
+		return fmt.Errorf(
+			"importing model %q with uuid %q during migration, getting model type: %w",
+			modelName, uuid, err,
+		)
+	}
+
 	// If the model is read only, we need to create a read only model.
-	err = i.readOnlyModelService.CreateModel(ctx, args.AsReadOnly())
+	err = i.readOnlyModelService.CreateModel(ctx, args.AsReadOnly(modelType))
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
@@ -176,7 +188,8 @@ func (i importOperation) Rollback(ctx context.Context, model description.Model) 
 
 	modelUUID := coremodel.UUID(uuid)
 
-	if err := i.modelService.DeleteModel(ctx, modelUUID); err != nil {
+	// If the model isn't found, we can simply ignore the error.
+	if err := i.modelService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return fmt.Errorf(
 			"rollback of model %q with uuid %q during migration: %w",
 			modelName, uuid, err,

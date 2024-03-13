@@ -135,6 +135,15 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	})
 }
 
+func (m *stateSuite) TestGetModelType(c *gc.C) {
+	runner := m.TxnRunnerFactory()
+
+	modelSt := NewState(runner)
+	modelType, err := modelSt.GetModelType(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelType, gc.Equals, coremodel.IAAS)
+}
+
 func (m *stateSuite) TestGetModelNotFound(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 

@@ -31,13 +31,13 @@ func GetEnviron(ctx context.Context, st EnvironConfigGetter, newEnviron NewEnvir
 
 // GetEnvironAndCloud returns the environs.Environ ("provider") and cloud associated
 // with the model.
-func GetEnvironAndCloud(ctx context.Context, st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, *environscloudspec.CloudSpec, error) {
-	modelConfig, err := st.ModelConfig(ctx)
+func GetEnvironAndCloud(ctx context.Context, getter EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, *environscloudspec.CloudSpec, error) {
+	modelConfig, err := getter.ModelConfig(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "retrieving model config")
 	}
 
-	cloudSpec, err := st.CloudSpec(ctx)
+	cloudSpec, err := getter.CloudSpec(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotatef(
 			err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())

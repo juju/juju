@@ -187,9 +187,18 @@ type providerServiceFactory struct {
 	factory servicefactory.ProviderServiceFactory
 }
 
+func (f providerServiceFactory) Model() ProviderModelService {
+	return f.factory.Model()
+}
+
 // Cloud returns the cloud service.
 func (f providerServiceFactory) Cloud() ProviderCloudService {
 	return f.factory.Cloud()
+}
+
+// Config returns the cloud service.
+func (f providerServiceFactory) Config() ProviderConfigService {
+	return f.factory.Config()
 }
 
 // Credential returns the credential service.

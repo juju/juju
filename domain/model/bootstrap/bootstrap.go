@@ -79,12 +79,12 @@ func CreateModel(
 				func(ctx context.Context, cloudName string) (string, error) {
 					return state.CloudType()(ctx, tx, cloudName)
 				})
-			mType, err := service.ModelTypeForCloud(ctx, modelTypeState, args.Cloud)
+			modelType, err := service.ModelTypeForCloud(ctx, modelTypeState, args.Cloud)
 			if err != nil {
 				return fmt.Errorf("determining cloud type for model %q: %w", args.Name, err)
 			}
 
-			if err := state.Create(ctx, tx, uuid, mType, args); err != nil {
+			if err := state.Create(ctx, tx, uuid, modelType, args); err != nil {
 				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, uuid, err)
 			}
 
@@ -97,15 +97,29 @@ func CreateModel(
 // its associated metadata. The data will be read-only and cannot be modified
 // once created.
 func CreateReadOnlyModel(
-	args model.ReadOnlyModelCreationArgs,
+	args model.ModelCreationArgs,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
 			return fmt.Errorf("model creation args: %w", err)
 		}
 
+		if args.UUID == "" {
+			return fmt.Errorf("missing model uuid")
+		}
+
+		var modelType coremodel.ModelType
+		err := controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			var err error
+			modelType, err = state.GetModelType(ctx, tx, args.UUID)
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("getting model type: %w", err)
+		}
+
 		return model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			return state.CreateReadOnlyModel(ctx, args, tx)
+			return state.CreateReadOnlyModel(ctx, args.AsReadOnly(modelType), tx)
 		})
 	}
 }

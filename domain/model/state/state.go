@@ -122,6 +122,27 @@ func (s *State) Get(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, 
 	})
 }
 
+// GetModelType returns the model type for the provided model uuid. If the model
+// does not exist then an error satisfying [modelerrors.NotFound] will be
+// returned.
+func (s *State) GetModelType(ctx context.Context, uuid coremodel.UUID) (coremodel.ModelType, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var modelType coremodel.ModelType
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		modelType, err = GetModelType(ctx, tx, uuid)
+		return err
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return modelType, nil
+}
+
 // Get returns the model associated with the provided uuid.
 // If the model does not exist then an error satisfying [modelerrors.NotFound]
 // will be returned.
@@ -179,6 +200,33 @@ WHERE md.model_uuid = ?
 	model.Credential = credKey
 
 	return model, nil
+}
+
+// GetModelType returns the model type for the provided model uuid. If the model
+// does not exist then an error satisfying [modelerrors.NotFound] will be
+// returned.
+func GetModelType(
+	ctx context.Context,
+	tx *sql.Tx,
+	uuid coremodel.UUID,
+) (coremodel.ModelType, error) {
+	stmt := `
+SELECT mt.type
+FROM model_metadata AS md
+LEFT JOIN model_list ml ON ml.uuid = md.model_uuid
+LEFT JOIN model_type mt ON mt.id = md.model_type_id
+WHERE md.model_uuid = ?
+`
+	row := tx.QueryRowContext(ctx, stmt, uuid)
+
+	var modelType coremodel.ModelType
+	err := row.Scan(&modelType)
+	if errors.Is(err, sql.ErrNoRows) {
+		return modelType, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+	} else if err != nil {
+		return modelType, fmt.Errorf("getting model type for uuid %q: %w", uuid, domain.CoerceError(err))
+	}
+	return modelType, nil
 }
 
 // Create is responsible for creating a new model from start to finish. It will
