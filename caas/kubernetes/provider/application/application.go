@@ -64,8 +64,12 @@ const (
 	containerProbePeriod = 5
 	// containerProbeSuccess is the number of successful probes to mark the check as healthy.
 	containerProbeSuccess = 1
-	// containerProbeFailure is the number of failed probes to mark the check as unhealthy.
-	containerProbeFailure = 1
+	// containerLivenessProbeFailure is the number of failed liveness probes to mark the check as unhealthy.
+	containerLivenessProbeFailure = 3
+	// 	containerReadinessProbeFailure = 1 is the number of failed readiness probes to mark the check as unhealthy.
+	containerReadinessProbeFailure = 1
+	// containerStartupProbeFailure is the number of failed startup probes to mark the check as unhealthy.
+	containerStartupProbeFailure = 1
 )
 
 var (
@@ -1322,7 +1326,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		TimeoutSeconds:      containerProbeTimeout,
 		PeriodSeconds:       containerProbePeriod,
 		SuccessThreshold:    containerProbeSuccess,
-		FailureThreshold:    containerProbeFailure,
+		FailureThreshold:    containerLivenessProbeFailure,
 	}
 	charmContainerReadinessProbe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
@@ -1335,9 +1339,21 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		TimeoutSeconds:      containerProbeTimeout,
 		PeriodSeconds:       containerProbePeriod,
 		SuccessThreshold:    containerProbeSuccess,
-		FailureThreshold:    containerProbeFailure,
+		FailureThreshold:    containerReadinessProbeFailure,
 	}
-	charmContainerStartupProbe := charmContainerLivenessProbe
+	charmContainerStartupProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/v1/health?level=alive",
+				Port: intstr.Parse(containerAgentPebblePort),
+			},
+		},
+		InitialDelaySeconds: containerProbeInitialDelay,
+		TimeoutSeconds:      containerProbeTimeout,
+		PeriodSeconds:       containerProbePeriod,
+		SuccessThreshold:    containerProbeSuccess,
+		FailureThreshold:    containerStartupProbeFailure,
+	}
 	charmContainerExtraVolumeMounts := []corev1.VolumeMount{
 		{
 			Name:      constants.CharmVolumeName,
@@ -1495,7 +1511,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				TimeoutSeconds:      containerProbeTimeout,
 				PeriodSeconds:       containerProbePeriod,
 				SuccessThreshold:    containerProbeSuccess,
-				FailureThreshold:    containerProbeFailure,
+				FailureThreshold:    containerLivenessProbeFailure,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler:        pebble.ReadinessHandler(pebble.WorkloadHealthCheckPort(i)),
@@ -1503,7 +1519,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				TimeoutSeconds:      containerProbeTimeout,
 				PeriodSeconds:       containerProbePeriod,
 				SuccessThreshold:    containerProbeSuccess,
-				FailureThreshold:    containerProbeFailure,
+				FailureThreshold:    containerReadinessProbeFailure,
 			},
 			// Run Pebble as root (because it's a service manager).
 			SecurityContext: &corev1.SecurityContext{
