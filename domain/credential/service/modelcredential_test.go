@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
@@ -274,7 +274,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialUnknownModelType(c 
 	results, err := v.Validate(
 		context.Background(),
 		s.context,
-		credential.ID{
+		corecredential.ID{
 			Cloud: "dummy",
 			Owner: "bob",
 			Name:  "default",
@@ -304,7 +304,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForIAASModel(c *gc.
 	results, err := v.Validate(
 		context.Background(),
 		s.context,
-		credential.ID{
+		corecredential.ID{
 			Cloud: "dummy",
 			Owner: "bob",
 			Name:  "default",
@@ -320,7 +320,7 @@ func (s *ModelCredentialSuite) TestValidateModelCredentialCloudMismatch(c *gc.C)
 	_, err := v.Validate(
 		context.Background(),
 		s.context,
-		credential.ID{
+		corecredential.ID{
 			Cloud: "other",
 			Owner: "bob",
 			Name:  "default",
@@ -369,7 +369,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForCAASModel(c *gc.
 	results, err := v.Validate(
 		context.Background(),
 		s.context,
-		credential.ID{
+		corecredential.ID{
 			Cloud: "dummy",
 			Owner: "bob",
 			Name:  "default",

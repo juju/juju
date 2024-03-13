@@ -35,6 +35,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
@@ -876,10 +877,10 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	}).AnyTimes()
 
 	// Context factory init.
-	ctx.api.EXPECT().Model(gomock.Any()).Return(&model.Model{
+	ctx.api.EXPECT().Model(gomock.Any()).Return(&types.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
-		ModelType: model.IAAS,
+		ModelType: types.IAAS,
 	}, nil).AnyTimes()
 
 	// Set up the initial install op.

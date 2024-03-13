@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
@@ -31,34 +32,34 @@ type WatcherFactory interface {
 type State interface {
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	// If the credential already exists, the existing credential's value of Invalid is returned.
-	UpsertCloudCredential(ctx context.Context, id credential.ID, credential credential.CloudCredentialInfo) (*bool, error)
+	UpsertCloudCredential(ctx context.Context, id corecredential.ID, credential credential.CloudCredentialInfo) (*bool, error)
 
 	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
-	InvalidateCloudCredential(ctx context.Context, id credential.ID, reason string) error
+	InvalidateCloudCredential(ctx context.Context, id corecredential.ID, reason string) error
 
 	// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 	// keyed by credential name.
 	CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]credential.CloudCredentialResult, error)
 
 	// CloudCredential returns the cloud credential for the given name, cloud, owner.
-	CloudCredential(ctx context.Context, id credential.ID) (credential.CloudCredentialResult, error)
+	CloudCredential(ctx context.Context, id corecredential.ID) (credential.CloudCredentialResult, error)
 
 	// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 	// for a given owner.
-	AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[credential.ID]credential.CloudCredentialResult, error)
+	AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.ID]credential.CloudCredentialResult, error)
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
-	RemoveCloudCredential(ctx context.Context, id credential.ID) error
+	RemoveCloudCredential(ctx context.Context, id corecredential.ID) error
 
 	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 	WatchCredential(
 		ctx context.Context,
 		getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
-		id credential.ID,
+		id corecredential.ID,
 	) (watcher.NotifyWatcher, error)
 
 	// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
-	ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[coremodel.UUID]string, error)
+	ModelsUsingCloudCredential(ctx context.Context, id corecredential.ID) (map[coremodel.UUID]string, error)
 }
 
 // ValidationContextGetter returns the artefacts for a specified model, used to make credential validation calls.
@@ -125,7 +126,7 @@ func (s *Service) WithLegacyRemover(remover func(tag names.CloudCredentialTag) e
 }
 
 // CloudCredential returns the cloud credential for the given tag.
-func (s *Service) CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error) {
+func (s *Service) CloudCredential(ctx context.Context, id corecredential.ID) (cloud.Credential, error) {
 	if err := id.Validate(); err != nil {
 		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
 	}
@@ -141,12 +142,12 @@ func (s *Service) CloudCredential(ctx context.Context, id credential.ID) (cloud.
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[credential.ID]cloud.Credential, error) {
+func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.ID]cloud.Credential, error) {
 	creds, err := s.st.AllCloudCredentialsForOwner(ctx, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make(map[credential.ID]cloud.Credential)
+	result := make(map[corecredential.ID]cloud.Credential)
 	for id, c := range creds {
 		result[id] = cloudCredentialFromCredentialResult(c)
 	}
@@ -186,7 +187,7 @@ func credentialInfoFromCloudCredential(cred cloud.Credential) credential.CloudCr
 }
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
-func (s *Service) UpdateCloudCredential(ctx context.Context, id credential.ID, cred cloud.Credential) error {
+func (s *Service) UpdateCloudCredential(ctx context.Context, id corecredential.ID, cred cloud.Credential) error {
 	if err := id.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id updating cloud credential")
 	}
@@ -195,7 +196,7 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, id credential.ID, c
 }
 
 // RemoveCloudCredential removes a cloud credential with the given tag.
-func (s *Service) RemoveCloudCredential(ctx context.Context, id credential.ID) error {
+func (s *Service) RemoveCloudCredential(ctx context.Context, id corecredential.ID) error {
 	if err := id.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id removing cloud credential")
 	}
@@ -203,14 +204,14 @@ func (s *Service) RemoveCloudCredential(ctx context.Context, id credential.ID) e
 }
 
 // InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
-func (s *Service) InvalidateCredential(ctx context.Context, id credential.ID, reason string) error {
+func (s *Service) InvalidateCredential(ctx context.Context, id corecredential.ID, reason string) error {
 	if err := id.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id invalidating cloud credential")
 	}
 	return s.st.InvalidateCloudCredential(ctx, id, reason)
 }
 
-func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (map[coremodel.UUID]string, error) {
+func (s *Service) modelsUsingCredential(ctx context.Context, id corecredential.ID) (map[coremodel.UUID]string, error) {
 	models, err := s.st.ModelsUsingCloudCredential(ctx, id)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
@@ -218,7 +219,7 @@ func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (
 	return models, nil
 }
 
-func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID coremodel.UUID, id credential.ID, cred *cloud.Credential) ([]error, error) {
+func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID coremodel.UUID, id corecredential.ID, cred *cloud.Credential) ([]error, error) {
 	if s.validator == nil || s.validationContextGetter == nil {
 		return nil, errors.Errorf("missing validation helpers")
 	}
@@ -256,7 +257,7 @@ type UpdateCredentialModelResult struct {
 // validationContextGetter prior to calling this function, or else an error will be returned.
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
-func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
+func (s *Service) CheckAndUpdateCredential(ctx context.Context, id corecredential.ID, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
 	if err := id.Validate(); err != nil {
 		return nil, errors.Annotatef(err, "invalid id updating cloud credential")
 	}
@@ -332,7 +333,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 // validating the credential.
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
-func (s *Service) CheckAndRevokeCredential(ctx context.Context, id credential.ID, force bool) error {
+func (s *Service) CheckAndRevokeCredential(ctx context.Context, id corecredential.ID, force bool) error {
 	if err := id.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id revoking cloud credential")
 	}
@@ -420,7 +421,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory, logger Logger)
 
 // WatchCredential returns a watcher that observes changes to the specified
 // credential.
-func (s *WatchableService) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchCredential(ctx context.Context, id corecredential.ID) (watcher.NotifyWatcher, error) {
 	if err := id.Validate(); err != nil {
 		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
 	}

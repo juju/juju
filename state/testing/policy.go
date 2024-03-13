@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/core/credential"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"

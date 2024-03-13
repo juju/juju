@@ -7,15 +7,15 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
+	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelType indicates a model type.
 type ModelType string
-
-// UUID represents a model unique identifier.
-type UUID string
 
 const (
 	// IAAS is the type for IAAS models.
@@ -25,16 +25,9 @@ const (
 	CAAS ModelType = "caas"
 )
 
-// Model represents the state of a model.
-type Model struct {
-	// Name returns the human friendly name of the model.
-	Name string
-
-	// UUID is the universally unique identifier of the model.
-	UUID string
-
-	// ModelType is the type of model.
-	ModelType ModelType
+// String returns m as a string.
+func (m ModelType) String() string {
+	return string(m)
 }
 
 // IsValid returns true if the value of Type is a known valid type.
@@ -49,6 +42,40 @@ func (m ModelType) IsValid() bool {
 	return false
 }
 
+// Model represents the state of a model.
+type Model struct {
+	// Name returns the human friendly name of the model.
+	Name string
+
+	// UUID is the universally unique identifier of the model.
+	UUID UUID
+
+	// ModelType is the type of model.
+	ModelType ModelType
+
+	// AgentVersion is the target version for agents running under this model.
+	AgentVersion version.Number
+
+	// Cloud is the name of the cloud to associate with the model.
+	// Must not be empty for a valid struct.
+	Cloud string
+
+	// CloudRegion is the region that the model will use in the cloud.
+	CloudRegion string
+
+	// Credential is the id attributes for the credential to be associated with
+	// model. Credential must be for the same cloud as that of the model.
+	// Credential can be the zero value of the struct to not have a credential
+	// associated with the model.
+	Credential credential.ID
+
+	// Owner is the uuid of the user that owns this model in the Juju controller.
+	Owner user.UUID
+}
+
+// UUID represents a model unique identifier.
+type UUID string
+
 // NewUUID is a convince function for generating a new model uuid.
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
@@ -56,11 +83,6 @@ func NewUUID() (UUID, error) {
 		return UUID(""), err
 	}
 	return UUID(uuid.String()), nil
-}
-
-// String returns m as a string.
-func (m ModelType) String() string {
-	return string(m)
 }
 
 // String implements the stringer interface for UUID.

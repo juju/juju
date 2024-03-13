@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/credentialmanager"
-	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/juju/testing"
 )
 

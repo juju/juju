@@ -13,10 +13,10 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coreuser "github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	"github.com/juju/juju/environs/config"

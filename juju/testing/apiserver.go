@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -97,7 +98,7 @@ var (
 	DefaultCredentialTag = names.NewCloudCredentialTag("dummy/admin/default")
 
 	// DefaultCredentialId is the default credential id for all models.
-	DefaultCredentialId = credential.IdFromTag(DefaultCredentialTag)
+	DefaultCredentialId = corecredential.IdFromTag(DefaultCredentialTag)
 )
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
@@ -607,7 +608,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), credential.ID{
+		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), corecredential.ID{
 			Cloud: "caascloud",
 			Owner: "admin",
 			Name:  "dummy-credential",

@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
@@ -79,7 +80,7 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(), credential.ID{
+		context.Background(), corecredential.ID{
 			Cloud: "my-cloud",
 			Owner: "test-user",
 			Name:  "foobar",
@@ -97,7 +98,7 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
-			Credential: credential.ID{
+			Credential: corecredential.ID{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",
@@ -108,6 +109,35 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (m *modelSuite) TestGetModel(c *gc.C) {
+	runner := m.TxnRunnerFactory()
+
+	modelSt := NewState(runner)
+	modelInfo, err := modelSt.Get(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelInfo, gc.Equals, coremodel.Model{
+		Cloud:       "my-cloud",
+		CloudRegion: "my-region",
+		Credential: corecredential.ID{
+			Cloud: "my-cloud",
+			Owner: "test-user",
+			Name:  "foobar",
+		},
+		Name:      "my-test-model",
+		Owner:     m.userUUID,
+		ModelType: coremodel.IAAS,
+	})
+}
+
+func (m *modelSuite) TestGetModelNotFound(c *gc.C) {
+	runner := m.TxnRunnerFactory()
+
+	modelSt := NewState(runner)
+
+	_, err := modelSt.Get(context.Background(), modeltesting.GenModelUUID(c))
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestCreateModelAgentWithNoModel is asserting that if we attempt to make a
@@ -302,7 +332,7 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(), credential.ID{
+		context.Background(), corecredential.ID{
 			Cloud: "my-cloud2",
 			Owner: "test-user",
 			Name:  "foobar1",
@@ -315,7 +345,7 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	err = modelSt.UpdateCredential(
 		context.Background(),
 		m.uuid,
-		credential.ID{
+		corecredential.ID{
 			Cloud: "my-cloud2",
 			Owner: "test-user",
 			Name:  "foobar1",
@@ -349,7 +379,7 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(), credential.ID{
+		context.Background(), corecredential.ID{
 			Cloud: "minikube",
 			Owner: "test-user",
 			Name:  "foobar",
@@ -365,7 +395,7 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 		m.uuid,
 		model.ModelCreationArgs{
 			Cloud: "minikube",
-			Credential: credential.ID{
+			Credential: corecredential.ID{
 				Cloud: "minikube",
 				Owner: "test-user",
 				Name:  "foobar",
@@ -438,7 +468,7 @@ func (m *modelSuite) TestListModels(c *gc.C) {
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
-			Credential: credential.ID{
+			Credential: corecredential.ID{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",
@@ -458,7 +488,7 @@ func (m *modelSuite) TestListModels(c *gc.C) {
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
-			Credential: credential.ID{
+			Credential: corecredential.ID{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",

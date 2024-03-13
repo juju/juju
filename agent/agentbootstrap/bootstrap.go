@@ -21,14 +21,13 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
-	"github.com/juju/juju/domain/credential"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	machinebootstrap "github.com/juju/juju/domain/machine/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
@@ -223,16 +222,16 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
 
-	controllerModelType := coremodel.IAAS
+	controllerModelType := model.IAAS
 	if cloud.CloudIsCAAS(stateParams.ControllerCloud) {
-		controllerModelType = coremodel.CAAS
+		controllerModelType = model.CAAS
 	}
 
 	// Add initial Admin user to the database. This will return Admin user UUID
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
 
-	controllerModelUUID := coremodel.UUID(
+	controllerModelUUID := model.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
 	controllerModelArgs := modeldomain.ModelCreationArgs{

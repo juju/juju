@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	jujuversion "github.com/juju/juju/version"
@@ -21,6 +21,9 @@ import (
 type State interface {
 	// Create creates a new model with all of its associated metadata.
 	Create(context.Context, coremodel.UUID, model.ModelCreationArgs) error
+
+	// Get returns the model associated with the provided uuid.
+	Get(context.Context, coremodel.UUID) (coremodel.Model, error)
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
@@ -131,6 +134,17 @@ func (s *Service) CreateModel(
 	}
 
 	return uuid, s.st.Create(ctx, uuid, args)
+}
+
+// Model returns the model associated with the provided uuid.
+// The following error types can be expected to be returned:
+// - [modelerrors.ModelNotFound]: When the model does not exist.
+func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
+	if err := uuid.Validate(); err != nil {
+		return coremodel.Model{}, fmt.Errorf("model uuid: %w", err)
+	}
+
+	return s.st.Get(ctx, uuid)
 }
 
 // DeleteModel is responsible for removing a model from Juju and all of it's

@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coreuser "github.com/juju/juju/core/user"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
-	"github.com/juju/juju/domain/credential"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	"github.com/juju/juju/domain/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"

@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/core/credential"
 )
 
 type CallContextSuite struct {

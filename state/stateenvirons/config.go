@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"

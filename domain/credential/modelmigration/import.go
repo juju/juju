@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/credential/state"
 )

@@ -9,9 +9,9 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/credential"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/state"
 )

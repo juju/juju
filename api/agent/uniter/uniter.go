@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/types"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
@@ -384,7 +384,7 @@ func (client *Client) RelationById(ctx context.Context, id int) (*Relation, erro
 }
 
 // Model returns the model entity.
-func (client *Client) Model(ctx context.Context) (*model.Model, error) {
+func (client *Client) Model(ctx context.Context) (*types.Model, error) {
 	var result params.ModelResult
 	err := client.facade.FacadeCall(ctx, "CurrentModel", nil, &result)
 	if err != nil {
@@ -393,11 +393,11 @@ func (client *Client) Model(ctx context.Context) (*model.Model, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	modelType := model.ModelType(result.Type)
+	modelType := types.ModelType(result.Type)
 	if modelType == "" {
-		modelType = model.IAAS
+		modelType = types.IAAS
 	}
-	return &model.Model{
+	return &types.Model{
 		Name:      result.Name,
 		UUID:      result.UUID,
 		ModelType: modelType,

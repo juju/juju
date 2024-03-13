@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/core/credential"
 )
 
 type (
