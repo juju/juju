@@ -537,7 +537,7 @@ func getPodSpec() corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -619,7 +619,7 @@ func getPodSpec() corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -682,7 +682,7 @@ func getPodSpec() corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
