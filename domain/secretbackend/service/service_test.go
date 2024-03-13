@@ -837,37 +837,6 @@ func (s *serviceSuite) TestGetSecretBackendByName(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestIncreCountForSecretBackend(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
-		func(backendType string) (provider.SecretBackendProvider, error) {
-			return providerWithConfig{
-				SecretBackendProvider: s.mockRegistry,
-			}, nil
-		},
-	)
-
-	s.mockState.EXPECT().IncreCountForSecretBackend(gomock.Any(), "backend-uuid").Return(nil)
-	err := svc.IncreCountForSecretBackend(context.Background(), "backend-uuid")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestDecreCountForSecretBackend(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
-		func(backendType string) (provider.SecretBackendProvider, error) {
-			return providerWithConfig{
-				SecretBackendProvider: s.mockRegistry,
-			}, nil
-		},
-	)
-	s.mockState.EXPECT().DecreCountForSecretBackend(gomock.Any(), "backend-uuid").Return(nil)
-	err := svc.DecreCountForSecretBackend(context.Background(), "backend-uuid")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(

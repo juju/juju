@@ -421,25 +421,29 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	backends, err := s.state.ListSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.HasLen, 2)
-	c.Assert(backends, gc.DeepEquals, []*coresecrets.SecretBackend{
+	c.Assert(backends, gc.DeepEquals, []secretbackend.SecretBackendInfo{
 		{
-			ID:                  backendID1,
-			Name:                "my-backend1",
-			BackendType:         "vault",
-			TokenRotateInterval: &rotateInternal1,
-			Config: map[string]interface{}{
-				"key1": "value1",
-				"key2": "value2",
+			SecretBackend: coresecrets.SecretBackend{
+				ID:                  backendID1,
+				Name:                "my-backend1",
+				BackendType:         "vault",
+				TokenRotateInterval: &rotateInternal1,
+				Config: map[string]interface{}{
+					"key1": "value1",
+					"key2": "value2",
+				},
 			},
 		},
 		{
-			ID:                  backendID2,
-			Name:                "my-backend2",
-			BackendType:         "kubernetes",
-			TokenRotateInterval: &rotateInternal2,
-			Config: map[string]interface{}{
-				"key3": "value3",
-				"key4": "value4",
+			SecretBackend: coresecrets.SecretBackend{
+				ID:                  backendID2,
+				Name:                "my-backend2",
+				BackendType:         "kubernetes",
+				TokenRotateInterval: &rotateInternal2,
+				Config: map[string]interface{}{
+					"key3": "value3",
+					"key4": "value4",
+				},
 			},
 		},
 	})
@@ -667,7 +671,7 @@ func (s *stateSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 
 	watcherFactory := NewMockWatcherFactory(ctrl)
 	watcherFactory.EXPECT().NewNamespaceWatcher(
-		"secret_backend_rotate", changestream.All, `SELECT backend_uuid FROM secret_backend_rotate`,
+		"secret_backend_rotation", changestream.All, `SELECT backend_uuid FROM secret_backend_rotation`,
 	).Return(mockWatcher, nil)
 
 	w, err := s.state.WatchSecretBackendRotationChanges(watcherFactory)

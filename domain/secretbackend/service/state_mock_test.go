@@ -57,20 +57,6 @@ func (mr *MockStateMockRecorder) CreateSecretBackend(arg0, arg1 any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecretBackend", reflect.TypeOf((*MockState)(nil).CreateSecretBackend), arg0, arg1)
 }
 
-// DecreCountForSecretBackend mocks base method.
-func (m *MockState) DecreCountForSecretBackend(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DecreCountForSecretBackend", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DecreCountForSecretBackend indicates an expected call of DecreCountForSecretBackend.
-func (mr *MockStateMockRecorder) DecreCountForSecretBackend(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecreCountForSecretBackend", reflect.TypeOf((*MockState)(nil).DecreCountForSecretBackend), arg0, arg1)
-}
-
 // DeleteSecretBackend mocks base method.
 func (m *MockState) DeleteSecretBackend(arg0 context.Context, arg1 string, arg2 bool) error {
 	m.ctrl.T.Helper()
@@ -113,20 +99,6 @@ func (m *MockState) GetSecretBackendByName(arg0 context.Context, arg1 string) (*
 func (mr *MockStateMockRecorder) GetSecretBackendByName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendByName", reflect.TypeOf((*MockState)(nil).GetSecretBackendByName), arg0, arg1)
-}
-
-// IncreCountForSecretBackend mocks base method.
-func (m *MockState) IncreCountForSecretBackend(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IncreCountForSecretBackend", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// IncreCountForSecretBackend indicates an expected call of IncreCountForSecretBackend.
-func (mr *MockStateMockRecorder) IncreCountForSecretBackend(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncreCountForSecretBackend", reflect.TypeOf((*MockState)(nil).IncreCountForSecretBackend), arg0, arg1)
 }
 
 // ListSecretBackends mocks base method.

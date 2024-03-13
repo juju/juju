@@ -95,7 +95,6 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 	}
 
 	if m.ModelType == coremodel.CAAS {
-		// TODO: "caas" const?
 		k8sConfig, err := getK8sBackendConfig(cloud, cred)
 		if err != nil {
 			return nil, domain.CoerceError(err)
@@ -422,18 +421,6 @@ func (s *Service) GetSecretBackendByName(ctx context.Context, name string) (*sec
 		return nil, domain.CoerceError(err)
 	}
 	return b, nil
-}
-
-// IncreCountForSecretBackend increments the secret count for the given secret backend.
-func (s *Service) IncreCountForSecretBackend(ctx context.Context, backendID string) error {
-	err := s.st.IncreCountForSecretBackend(ctx, backendID)
-	return domain.CoerceError(err)
-}
-
-// DecreCountForSecretBackend decrements the secret count for the given secret backend.
-func (s *Service) DecreCountForSecretBackend(ctx context.Context, backendID string) error {
-	err := s.st.DecreCountForSecretBackend(ctx, backendID)
-	return domain.CoerceError(err)
 }
 
 // RotateBackendToken rotates the token for the given secret backend.

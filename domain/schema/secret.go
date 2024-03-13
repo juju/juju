@@ -32,7 +32,6 @@ CREATE TABLE
         name TEXT NOT NULL,
         backend_type TEXT NOT NULL,
         token_rotate_interval INT,
-        secret_count INT,
         CONSTRAINT fk_secret_backend_type
             FOREIGN KEY (backend_type)
             REFERENCES secret_backend_type (type)

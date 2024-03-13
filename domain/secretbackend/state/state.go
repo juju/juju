@@ -183,28 +183,13 @@ func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO: How to track if the secret backend is `in-use` for `Force`!!!
-	// secret_backend.secret_count++ whenever a secret is created?
-	if !force {
-		// Check if the backend is in use
-		q := `
-SELECT secret_count FROM secret_backend WHERE uuid = ?`[1:]
-		var count sql.NullInt64
-		err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, q, backendID).Scan(&count)
-			return err
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if count.Valid && count.Int64 > 0 {
-			return errors.Errorf("cannot delete secret backend %q, it is in use", backendID)
-		}
-	}
+	// TODO: check if the backend is in use
+	// if !force {
+	// }
 	q := `
-DELETE FROM secret_backend_config WHERE backend_uuid = ?;
-DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;
-DELETE FROM secret_backend WHERE uuid = ?;`[1:]
+	DELETE FROM secret_backend_config WHERE backend_uuid = ?;
+	DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;
+	DELETE FROM secret_backend WHERE uuid = ?;`[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, backendID, backendID, backendID)
 		return err
@@ -220,7 +205,7 @@ func (s *State) ListSecretBackends(ctx context.Context) ([]secretbackend.SecretB
 	}
 	var backends []secretbackend.SecretBackendInfo
 	q := `
-SELECT uuid, name, backend_type, token_rotate_interval, secret_count
+SELECT uuid, name, backend_type, token_rotate_interval
 FROM secret_backend`[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
@@ -232,10 +217,9 @@ FROM secret_backend`[1:]
 			var (
 				backend             secretbackend.SecretBackendInfo
 				tokenRotateInterval NullableDuration
-				secretCount         sql.NullInt64
 			)
 			err = rows.Scan(
-				&backend.ID, &backend.Name, &backend.BackendType, &tokenRotateInterval, &secretCount,
+				&backend.ID, &backend.Name, &backend.BackendType, &tokenRotateInterval,
 			)
 			if err != nil {
 				return err
@@ -243,10 +227,6 @@ FROM secret_backend`[1:]
 			if tokenRotateInterval.Valid {
 				backend.TokenRotateInterval = &tokenRotateInterval.Duration
 			}
-			if secretCount.Valid {
-				backend.NumSecrets = int(secretCount.Int64)
-			}
-			// TODO: use Prepare() query for better performance.
 			configQ := `
 SELECT name, content
 FROM secret_backend_config
@@ -274,25 +254,28 @@ WHERE backend_uuid = ?`[1:]
 	return backends, errors.Trace(err)
 }
 
-func (s *State) getSecretBackend(
-	ctx context.Context, query func(context.Context, *sql.Tx) (*sql.Rows, string, error),
-) (*coresecrets.SecretBackend, error) {
+func (s *State) getSecretBackend(ctx context.Context, k string, v string) (*coresecrets.SecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	q := fmt.Sprintf(`
+SELECT b.uuid, b.name, b.backend_type, b.token_rotate_interval, c.name, c.content
+FROM secret_backend b
+LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
+WHERE b.%s = ?`, k)[1:]
 	var backend coresecrets.SecretBackend
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) (err error) {
-		rows, identifier, err := query(ctx, tx)
+		rows, err := tx.QueryContext(ctx, q, v)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		defer func() {
 			if err != nil {
-				err = errors.Annotatef(err, "cannot get secret backend %q", identifier)
+				err = errors.Annotatef(err, "cannot get secret backend %q", v)
 			} else if backend.ID == "" {
-				err = errors.NotFoundf("secret backend %q", identifier)
+				err = errors.NotFoundf("secret backend %q", v)
 			}
 		}()
 		for rows.Next() {
@@ -326,62 +309,12 @@ func (s *State) getSecretBackend(
 
 // GetSecretBackendByName returns the secret backend for the given backend name.
 func (s *State) GetSecretBackendByName(ctx context.Context, backendName string) (*coresecrets.SecretBackend, error) {
-	q := `
-SELECT b.uuid, b.name, b.backend_type, b.token_rotate_interval, c.name, c.content
-FROM secret_backend b
-LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
-WHERE b.name = ?`[1:]
-	return s.getSecretBackend(ctx, func(ctx context.Context, tx *sql.Tx) (*sql.Rows, string, error) {
-		rows, err := tx.QueryContext(ctx, q, backendName)
-		return rows, backendName, err
-	})
+	return s.getSecretBackend(ctx, "name", backendName)
 }
 
 // GetSecretBackend returns the secret backend for the given backend ID.
 func (s *State) GetSecretBackend(ctx context.Context, backendID string) (*coresecrets.SecretBackend, error) {
-	q := `
-SELECT b.uuid, b.name, b.backend_type, b.token_rotate_interval, c.name, c.content
-FROM secret_backend b
-LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
-WHERE b.uuid = ?`[1:]
-	return s.getSecretBackend(ctx, func(ctx context.Context, tx *sql.Tx) (*sql.Rows, string, error) {
-		rows, err := tx.QueryContext(ctx, q, backendID)
-		return rows, backendID, err
-	})
-}
-
-// IncreCountForSecretBackend increments the secret count for the given secret backend.
-func (s *State) IncreCountForSecretBackend(ctx context.Context, backendID string) error {
-	db, err := s.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	q := `
-UPDATE secret_backend
-SET secret_count = secret_count + 1
-WHERE uuid = ?`[1:]
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, backendID)
-		return err
-	})
-	return errors.Trace(err)
-}
-
-// DecreCountForSecretBackend decrements the secret count for the given secret backend.
-func (s *State) DecreCountForSecretBackend(ctx context.Context, backendID string) error {
-	db, err := s.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	q := `
-UPDATE secret_backend
-SET secret_count = secret_count - 1
-WHERE uuid = ?`[1:]
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, backendID)
-		return err
-	})
-	return errors.Trace(err)
+	return s.getSecretBackend(ctx, "uuid", backendID)
 }
 
 // SecretBackendRotated updates the next rotation time for the secret backend.
@@ -413,9 +346,7 @@ func (s *State) WatchSecretBackendRotationChanges(wf secretbackend.WatcherFactor
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	initialQ := `
-SELECT backend_uuid
-FROM secret_backend_rotation`[1:]
+	initialQ := `SELECT backend_uuid FROM secret_backend_rotation`
 	w, err := wf.NewNamespaceWatcher("secret_backend_rotation", changestream.All, initialQ)
 	if err != nil {
 		return nil, errors.Trace(err)
