@@ -6,9 +6,13 @@ package commands
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -218,7 +222,6 @@ type bootstrapCommand struct {
 	BootstrapSeries          string
 	BootstrapBase            string
 	BootstrapImage           string
-	BuildAgent               bool
 	JujuDbSnapPath           string
 	JujuDbSnapAssertionsPath string
 	MetadataSource           string
@@ -250,6 +253,9 @@ type bootstrapCommand struct {
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
+
+	Dev       bool
+	devSrcDir string
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -318,7 +324,6 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-base)")
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture)")
-	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
 	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
 		"Path to a locally built .snap to use as the internal juju-db service.")
 	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --db-snap")
@@ -345,6 +350,9 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
 		"The Charmhub channel to download the controller charm from (if not using a local charm)")
+	if jujuversion.Current.Build > 0 {
+		f.BoolVar(&c.Dev, "dev", false, "Use local build for development")
+	}
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -372,6 +380,27 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.BootstrapBase != "" {
 		if _, err := corebase.ParseBaseFromString(c.BootstrapBase); err != nil {
 			return errors.NotValidf("base %q", c.BootstrapBase)
+		}
+	}
+
+	if c.Dev {
+		_, b, _, _ := runtime.Caller(0)
+		modCmd := exec.Command("go", "list", "-m", "-json")
+		modCmd.Dir = filepath.Dir(b)
+		modInfo, err := modCmd.Output()
+		if err != nil {
+			return fmt.Errorf("--dev requires juju binary to be built locally: %w", err)
+		}
+		mod := struct {
+			Path string `json:"Path"`
+			Dir  string `json:"Dir"`
+		}{}
+		err = json.Unmarshal(modInfo, &mod)
+		if err != nil {
+			return fmt.Errorf("--dev requires juju binary to be built locally: %w", err)
+		}
+		if mod.Path != "github.com/juju/juju" {
+			return fmt.Errorf("cannot use juju binary built for --dev")
 		}
 	}
 
@@ -426,8 +455,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.showRegionsForCloud != "" {
 		return cmd.CheckEmpty(args)
 	}
-	if c.AgentVersionParam != "" && c.BuildAgent {
-		return errors.New("--agent-version and --build-agent can't be used together")
+	if c.AgentVersionParam != "" && c.Dev {
+		return errors.New("--agent-version and --dev can't be used together")
 	}
 	if c.initialModelName == "" {
 		c.initialModelName = os.Getenv("JUJU_BOOTSTRAP_MODEL")
@@ -913,7 +942,7 @@ to create a new model to deploy %sworkloads.
 		SupportedBootstrapBases:   supportedBootstrapBases,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
-		BuildAgent:                c.BuildAgent,
+		Dev:                       c.Dev,
 		BuildAgentTarball:         sync.BuildAgentTarball,
 		AgentVersion:              c.AgentVersion,
 		Cloud:                     cloud,

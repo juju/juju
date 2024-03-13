@@ -72,13 +72,13 @@ func newUpgradeModelCommand() cmd.Command {
 type upgradeModelCommand struct {
 	modelcmd.ModelCommandBase
 
-	vers          string
-	Version       version.Number
-	DryRun        bool
-	ResetPrevious bool
-	AssumeYes     bool
-	AgentStream   string
-	timeout       time.Duration
+	AgentVersionParam string
+	Version           version.Number
+	DryRun            bool
+	ResetPrevious     bool
+	AssumeYes         bool
+	AgentStream       string
+	timeout           time.Duration
 	// IgnoreAgentVersions is used to allow an admin to request an agent
 	// version without waiting for all agents to be at the right version.
 	IgnoreAgentVersions bool
@@ -103,7 +103,7 @@ func (c *upgradeModelCommand) Info() *cmd.Info {
 func (c *upgradeModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
-	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Upgrade to specific version")
 	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
 	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
@@ -115,8 +115,8 @@ func (c *upgradeModelCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *upgradeModelCommand) Init(args []string) error {
-	if c.vers != "" {
-		vers, err := version.Parse(c.vers)
+	if c.AgentVersionParam != "" {
+		vers, err := version.Parse(c.AgentVersionParam)
 		if err != nil {
 			return err
 		}

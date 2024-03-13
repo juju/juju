@@ -114,10 +114,14 @@ type BootstrapParams struct {
 	// directive used to choose the initial instance.
 	Placement string
 
-	// BuildAgent reports whether we should build and upload the local agent
+	// Dev reports whether we should upload the local agent
 	// binary and override the environment's specified agent-version.
-	// It is an error to specify BuildAgent with a nil BuildAgentTarball.
-	BuildAgent bool
+	// It is an error to specify Dev with a nil BuildAgentTarball.
+	Dev bool
+
+	// DevSrcDir is the directory of github.com/juju/juju on the local
+	// machine for dev mode.
+	DevSrcDir string
 
 	// BuildAgentTarball, if non-nil, is a function that may be used to
 	// build tools to upload. If this is nil, tools uploading will never
@@ -249,9 +253,6 @@ func bootstrapCAAS(
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
-	if args.BuildAgent {
-		return errors.NotSupportedf("--build-agent when bootstrapping a k8s controller")
-	}
 	if args.BootstrapImage != "" {
 		return errors.NotSupportedf("--bootstrap-image when bootstrapping a k8s controller")
 	}
@@ -461,7 +462,7 @@ func bootstrapIAAS(
 
 	agentVersion := jujuversion.Current
 	var availableTools coretools.List
-	if !args.BuildAgent {
+	if !args.Dev {
 		latestPatchTxt := ""
 		versionTxt := fmt.Sprintf("%v", args.AgentVersion)
 		if args.AgentVersion == nil {
@@ -485,58 +486,28 @@ func bootstrapIAAS(
 			}
 		}
 	}
-	// If there are no prepackaged tools and a specific version has not been
-	// requested, look for or build a local binary.
-	var builtTools *sync.BuiltAgent
-	if len(availableTools) == 0 && (args.AgentVersion == nil || isCompatibleVersion(*args.AgentVersion, jujuversion.Current)) {
+	if args.Dev {
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
 		if err = validateUploadAllowed(environ, &bootstrapArch, &bootstrapBase, constraintsValidator); err != nil {
 			return err
 		}
-		if args.BuildAgent {
-			ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
-		} else {
-			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
-		}
-		var forceVersion version.Number
-		availableTools, forceVersion, err = locallyBuildableTools()
-		if err != nil {
-			return errors.Annotate(err, "cannot package bootstrap agent binary")
-		}
-		builtTools, err = args.BuildAgentTarball(
-			args.BuildAgent, cfg.AgentStream(),
-			func(version.Number) version.Number { return forceVersion },
-		)
+		ctx.Infof("Preparing local Juju agent binary")
+
+		builtTools, err := args.BuildAgentTarball(args.DevSrcDir, cfg.AgentStream(), bootstrapArch)
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		defer os.RemoveAll(builtTools.Dir)
-		// Combine the built agent information with the list of
-		// available tools.
-		for i, tool := range availableTools {
-			if tool.URL != "" {
-				continue
-			}
-			filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
-			tool.URL = fmt.Sprintf("file://%s", filename)
-			tool.Size = builtTools.Size
-			tool.SHA256 = builtTools.Sha256Hash
 
-			// Use the version from the built tools but with the
-			// corrected series and arch - this ensures the build
-			// number is right if we found a valid official build.
-			version := builtTools.Version
-			version.Release = tool.Version.Release
-			version.Arch = tool.Version.Arch
-			// But if not an official build, use the forced version.
-			if !builtTools.Official {
-				version.Number = forceVersion
-			}
-			tool.Version = version
-			availableTools[i] = tool
-		}
+		filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
+		availableTools = append(availableTools, &coretools.Tools{
+			Version: builtTools.Version,
+			URL:     fmt.Sprintf("file://%s", filename),
+			SHA256:  builtTools.Sha256Hash,
+			Size:    builtTools.Size,
+		})
 	}
 	if len(availableTools) == 0 {
 		return errors.New(noToolsMessage)

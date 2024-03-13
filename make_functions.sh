@@ -8,7 +8,7 @@ BUILD_DIR=${BUILD_DIR:-${PROJECT_DIR}/_build}
 JUJUD_BIN_DIR=${JUJUD_BIN_DIR:-${BUILD_DIR}/bin}
 
 # Versioning variables
-JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-}
+JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-$(cat ${BUILD_DIR}/build.number)}
 JUJU_DB_VERSION=${JUJU_DB_VERSION:-}
 
 # Docker variables
@@ -30,16 +30,6 @@ _make_docker_staging_dir() {
     echo "$dir"
 }
 
-_juju_version() {
-    echo "$1" | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}(\.[[:digit:]]{1,9})?"
-}
-_strip_build_version() {
-    echo "$1" | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}"
-}
-_image_version() {
-    _strip_build_version "$(_juju_version $@)"
-}
-
 microk8s_operator_update() {
     echo "Uploading image $(operator_image_path) to microk8s"
     # For macos we have to push the image into the microk8s multipass vm because
@@ -57,21 +47,12 @@ microk8s_operator_update() {
 }
 
 juju_version() {
-    (cd "${PROJECT_DIR}" && go run version/helper/main.go)
-}
-
-operator_image_release_path() {
-    juju_version=$(juju_version)
-    echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version $juju_version)"
+    (cd "${PROJECT_DIR}" && GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) CGO_ENABLED=0 go run -ldflags "-X github.com/juju/juju/version.build=${JUJU_BUILD_NUMBER}" version/helper/main.go)
 }
 
 operator_image_path() {
     juju_version=$(juju_version)
-    if [[ -z "${JUJU_BUILD_NUMBER}" ]] || [[ ${JUJU_BUILD_NUMBER} -eq 0 ]]; then
-        operator_image_release_path
-    else
-        echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version "$juju_version").${JUJU_BUILD_NUMBER}"
-    fi
+    echo "${DOCKER_USERNAME}/jujud-operator:$(juju_version)"
 }
 
 

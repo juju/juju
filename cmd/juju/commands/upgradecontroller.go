@@ -5,10 +5,14 @@ package commands
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -25,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -32,7 +37,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
-	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
@@ -75,14 +79,13 @@ func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.C
 type upgradeControllerCommand struct {
 	modelcmd.ControllerCommandBase
 
-	vers          string
-	Version       version.Number
-	BuildAgent    bool
-	DryRun        bool
-	ResetPrevious bool
-	AssumeYes     bool
-	AgentStream   string
-	timeout       time.Duration
+	AgentVersionParam string
+	Version           version.Number
+	DryRun            bool
+	ResetPrevious     bool
+	AssumeYes         bool
+	AgentStream       string
+	timeout           time.Duration
 	// IgnoreAgentVersions is used to allow an admin to request an agent
 	// version without waiting for all agents to be at the right version.
 	IgnoreAgentVersions bool
@@ -92,6 +95,9 @@ type upgradeControllerCommand struct {
 	controllerAPI    ControllerAPI
 
 	controllerModelDetails *jujuclient.ModelDetails
+
+	Dev       bool
+	devSrcDir string
 }
 
 // ControllerAPI defines the controller API methods.
@@ -117,9 +123,8 @@ func (c *upgradeControllerCommand) Info() *cmd.Info {
 func (c *upgradeControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 
-	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Upgrade to specific version")
 	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
-	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
 	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
 	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
@@ -127,25 +132,45 @@ func (c *upgradeControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
 		"Don't check if all agents have already reached the current version")
 	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Timeout before upgrade is aborted")
+	if jujuversion.Current.Build > 0 {
+		f.BoolVar(&c.Dev, "dev", false, "Use local build for development")
+	}
 }
 
 func (c *upgradeControllerCommand) Init(args []string) error {
-	if c.vers != "" {
-		vers, err := version.Parse(c.vers)
+	if c.AgentVersionParam != "" {
+		vers, err := version.Parse(c.AgentVersionParam)
 		if err != nil {
 			return err
 		}
-		if c.BuildAgent && vers.Build != 0 {
-			// TODO(fwereade): when we start taking versions from actual built
-			// code, we should disable --agent-version when used with --build-agent.
-			// For now, it's the only way to experiment with version upgrade
-			// behaviour live, so the only restriction is that Build cannot
-			// be used (because its value needs to be chosen internally so as
-			// not to collide with existing tools).
-			return errors.New("cannot specify build number when building an agent")
-		}
 		c.Version = vers
 	}
+
+	if c.Dev {
+		_, b, _, _ := runtime.Caller(0)
+		modCmd := exec.Command("go", "list", "-m", "-json")
+		modCmd.Dir = filepath.Dir(b)
+		modInfo, err := modCmd.Output()
+		if err != nil {
+			return fmt.Errorf("--dev requires juju binary to be built locally: %w", err)
+		}
+		mod := struct {
+			Path string `json:"Path"`
+			Dir  string `json:"Dir"`
+		}{}
+		err = json.Unmarshal(modInfo, &mod)
+		if err != nil {
+			return fmt.Errorf("--dev requires juju binary to be built locally: %w", err)
+		}
+		if mod.Path != "github.com/juju/juju" {
+			return fmt.Errorf("cannot use juju binary built for --dev")
+		}
+		c.devSrcDir = mod.Dir
+	}
+	if c.AgentVersionParam != "" && c.Dev {
+		return errors.New("--agent-version and --dev can't be used together")
+	}
+
 	return cmd.CheckEmpty(args)
 }
 
@@ -222,104 +247,35 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	//c.fullControllerModelName = modelcmd.JoinModelName(controllerName, controllerModel)
 
-	if c.controllerModelDetails.ModelType == model.CAAS {
-		if c.BuildAgent {
-			return errors.NotSupportedf("--build-agent for k8s model upgrades")
-		}
-	}
 	return c.upgradeController(ctx, c.timeout, c.controllerModelDetails.ModelType)
 }
 
-func (c *upgradeControllerCommand) uploadTools(
-	modelUpgrader ModelUpgraderAPI, buildAgent bool, agentVersion version.Number, dryRun bool,
-) (targetVersion version.Number, err error) {
-	builtTools, err := sync.BuildAgentTarball(
-		buildAgent, "upgrade",
-		func(builtVersion version.Number) version.Number {
-			builtVersion.Build++
-			if agentVersion.Build >= builtVersion.Build {
-				builtVersion.Build = agentVersion.Build + 1
-			}
-			targetVersion = builtVersion
-			return builtVersion
-		},
-	)
+func (c *upgradeControllerCommand) uploadTools(modelUpgrader ModelUpgraderAPI, dryRun bool) (version.Number, error) {
+	// TODO(jujud-controller-snap): arch handling here
+	builtTools, err := sync.BuildAgentTarball(c.devSrcDir, "upgrade", arch.AMD64)
 	if err != nil {
-		return targetVersion, errors.Trace(err)
+		return version.Zero, errors.Trace(err)
 	}
 	defer os.RemoveAll(builtTools.Dir)
 
 	if dryRun {
 		logger.Debugf("dryrun, skipping upload agent binary")
-		return targetVersion, nil
+		return version.Zero, nil
 	}
 
-	uploadToolsVersion := builtTools.Version
-	uploadToolsVersion.Number = targetVersion
-
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
-	logger.Infof("uploading agent binary %v (%dkB) to Juju controller", targetVersion, (builtTools.Size+512)/1024)
+	logger.Infof("uploading agent binary %v (%dkB) to Juju controller", builtTools.Version, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)
 	if err != nil {
-		return targetVersion, errors.Trace(err)
+		return version.Zero, errors.Trace(err)
 	}
 	defer f.Close()
 
-	_, err = modelUpgrader.UploadTools(f, uploadToolsVersion)
+	_, err = modelUpgrader.UploadTools(f, builtTools.Version)
 	if err != nil {
-		return targetVersion, errors.Trace(err)
+		return version.Zero, errors.Trace(err)
 	}
-	return targetVersion, nil
-}
-
-func (c *upgradeControllerCommand) upgradeWithTargetVersion(
-	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, dryRun bool,
-	modelType model.ModelType, targetVersion, agentVersion version.Number,
-) (chosenVersion version.Number, err error) {
-	chosenVersion, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, dryRun)
-	if err == nil {
-		// All good!
-		// Upgraded to the provided target version.
-		logger.Debugf("upgraded to the provided target version %q", targetVersion)
-		return chosenVersion, nil
-	}
-	if !errors.Is(err, errors.NotFound) {
-		return chosenVersion, err
-	}
-
-	// If target version is the current local binary version, then try to upload.
-	canImplicitUpload := CheckCanImplicitUpload(
-		modelType, isOfficialClient(), jujuversion.Current, agentVersion,
-	)
-	if !canImplicitUpload {
-		// expecting to upload a local binary but we are not allowed to upload, so pretend there
-		// is no more recent version available.
-		logger.Debugf("no available binary found, and we are not allowed to upload, err %v", err)
-		return chosenVersion, errUpToDate
-	}
-
-	if targetVersion.Compare(jujuversion.Current.ToPatch()) != 0 {
-		logger.Warningf(
-			"try again with --agent-version=%s if you want to upgrade using the local packaged jujud from the snap",
-			jujuversion.Current.ToPatch(),
-		)
-		return chosenVersion, errUpToDate
-	}
-
-	// found a best target version but a local binary is required to be uploaded.
-	if chosenVersion, err = c.uploadTools(modelUpgrader, false, agentVersion, dryRun); err != nil {
-		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
-	}
-	fmt.Fprintf(ctx.Stdout,
-		"no prepackaged agent binaries available, using the local snap jujud %v%s\n",
-		chosenVersion, "",
-	)
-
-	chosenVersion, err = c.notifyControllerUpgrade(ctx, modelUpgrader, chosenVersion, dryRun)
-	if err != nil {
-		return chosenVersion, err
-	}
-	return chosenVersion, nil
+	return builtTools.Version.Number, nil
 }
 
 func (c *upgradeControllerCommand) upgradeController(
@@ -331,11 +287,7 @@ func (c *upgradeControllerCommand) upgradeController(
 		if err == nil {
 			fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", targetVersion)
 			if c.DryRun {
-				if c.BuildAgent {
-					fmt.Fprintf(ctx.Stderr, "%s --build-agent\n", upgradeControllerMessage)
-				} else {
-					fmt.Fprintf(ctx.Stderr, "%s\n", upgradeControllerMessage)
-				}
+				fmt.Fprintf(ctx.Stderr, "%s\n", upgradeControllerMessage)
 			} else {
 				fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", targetVersion)
 			}
@@ -387,22 +339,12 @@ func (c *upgradeControllerCommand) upgradeController(
 		return errUpToDate
 	}
 
-	if c.BuildAgent {
+	if c.Dev {
 		if targetVersion != version.Zero {
-			return errors.Errorf("--build-agent cannot be used with --agent-version together")
+			return errors.Errorf("--dev cannot be used with --agent-version together")
 		}
-	}
-
-	// Decide the target version to upgrade.
-	if targetVersion != version.Zero {
-		targetVersion, err = c.upgradeWithTargetVersion(
-			ctx, modelUpgrader, c.DryRun,
-			modelType, targetVersion, agentVersion,
-		)
-		return err
-	}
-	if c.BuildAgent {
-		if targetVersion, err = c.uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+		targetVersion, err = c.uploadTools(modelUpgrader, c.DryRun)
+		if err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := " (built from source)"
@@ -413,21 +355,16 @@ func (c *upgradeControllerCommand) upgradeController(
 		targetVersion, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
 		return err
 	}
-	// juju upgrade-controller without --build-agent or --agent-version
-	// or juju upgrade-model without --agent-version
+
 	targetVersion, err = c.notifyControllerUpgrade(
 		ctx, modelUpgrader,
 		version.Zero, // no target version provided, we figure it out on the server side.
 		c.DryRun,
 	)
-	if err == nil {
-		// All good!
-		// Upgraded to a next stable version or the newest stable version.
-		logger.Debugf("upgraded to a next version or latest stable version")
-		return nil
-	}
 	if errors.Is(err, errors.NotFound) {
 		return errUpToDate
+	} else if err != nil {
+		return err
 	}
 	return err
 }
@@ -487,52 +424,4 @@ func (c *upgradeControllerCommand) confirmResetPreviousUpgrade(ctx *cmd.Context)
 	}
 	answer := strings.ToLower(scanner.Text())
 	return answer == "y" || answer == "yes", nil
-}
-
-// For test.
-var CheckCanImplicitUpload = checkCanImplicitUpload
-
-func checkCanImplicitUpload(
-	modelType model.ModelType, isOfficialClient bool,
-	clientVersion, agentVersion version.Number,
-) bool {
-	if modelType != model.IAAS {
-		logger.Tracef("the model is not IAAS model")
-		return false
-	}
-
-	if !isOfficialClient {
-		logger.Tracef("the client is not an official client")
-		// For non official (under $GOPATH) client, always use --build-agent explicitly.
-		return false
-	}
-	newerClient := clientVersion.Compare(agentVersion.ToPatch()) >= 0
-	if !newerClient {
-		logger.Tracef(
-			"the client version(%s) is not newer than agent version(%s)",
-			clientVersion, agentVersion.ToPatch(),
-		)
-		return false
-	}
-
-	if agentVersion.Build > 0 || clientVersion.Build > 0 {
-		return true
-	}
-	return false
-}
-
-func isOfficialClient() bool {
-	// If there's an error getting jujud version, play it safe.
-	// We pretend it's not official and don't do an implicit upload.
-	jujudPath, err := tools.ExistingJujuLocation()
-	if err != nil {
-		return false
-	}
-	_, official, err := tools.JujudVersion(jujudPath)
-	if err != nil {
-		return false
-	}
-	// For non official (under $GOPATH) client, always use --build-agent explicitly.
-	// For official (under /snap/juju/bin) client, upload only if the client is not a published version.
-	return official
 }
