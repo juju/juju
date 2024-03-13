@@ -561,13 +561,44 @@ func (s *State) GetSecretBackend(ctx context.Context, modelUUID model.UUID) (bac
 		return backend, errors.Trace(err)
 	}
 
-	q := `
-SELECT s.uuid, s.name
-FROM secret_backend s
-INNER JOIN model_metadata m ON m.secret_backend_uuid = s.uuid
-WHERE m.model_uuid = ?`[1:]
+	qModel := `
+SELECT secret_backend_uuid
+FROM model_metadata
+WHERE model_uuid = ?`[1:]
+	qBackend := `
+SELECT name
+FROM secret_backend
+WHERE uuid = ?`[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, q, modelUUID).Scan(&backend.UUID, &backend.Name)
+		var backendUUID sql.NullString
+		err := tx.QueryRowContext(ctx, qModel, modelUUID).Scan(&backendUUID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf(
+				"%w model %q%w",
+				errors.NotFound, modelUUID, errors.Hide(err),
+			)
+		}
+		if err != nil {
+			return err
+		}
+		if !backendUUID.Valid {
+			// No backend configured for the model.
+			// TODO: this should never happen once we start to
+			// write the internal and k8s secret backend in the database, then
+			// all the models will have a secret backend by default(either the
+			// internal for IaaS or the k8s backend for CaaS model).
+			return nil
+		}
+		backend.UUID = backendUUID.String
+		err = tx.QueryRowContext(ctx, qBackend, backendUUID.String).Scan(&backend.Name)
+		if errors.Is(err, sql.ErrNoRows) {
+			// This should never happen because the `secret_backend_uuid` is a FK.
+			return fmt.Errorf(
+				"%w secret backend %q%w",
+				errors.NotFound, backendUUID.String, errors.Hide(err),
+			)
+		}
+		return err
 	})
 	return backend, errors.Trace(err)
 }

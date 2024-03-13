@@ -595,3 +595,21 @@ func (m *modelSuite) TestGetSecretBackend(c *gc.C) {
 		Name: "myvault",
 	})
 }
+
+func (m *modelSuite) TestGetSecretBackendNotSet(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	result, err := modelSt.GetSecretBackend(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, model.SecretBackendIdentifier{})
+}
+
+func (m *modelSuite) TestGetSecretBackendNotFound(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	err := modelSt.Delete(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := modelSt.GetSecretBackend(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, gc.ErrorMatches, `not found model "`+m.uuid.String()+`"`)
+	c.Assert(result, gc.DeepEquals, model.SecretBackendIdentifier{})
+}
