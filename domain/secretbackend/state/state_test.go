@@ -108,7 +108,7 @@ WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 
 func (s *stateSuite) TestCreateSecretBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
 	result, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
@@ -153,9 +153,14 @@ func (s *stateSuite) TestCreateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	}, nil)
 }
 
+func (s *stateSuite) TestUpdateSecretBackendInvalidArg(c *gc.C) {
+	err := s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{})
+	c.Assert(err, gc.ErrorMatches, `backend ID is missing`)
+}
+
 func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
@@ -180,7 +185,7 @@ func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 		},
 	}, &nextRotateTime)
 
-	newRotateInternal := time.Duration(48 * time.Hour)
+	newRotateInternal := 48 * time.Hour
 	newNextRotateTime := time.Now().Add(newRotateInternal)
 	nameChange := "my-backend-updated"
 	err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
@@ -210,7 +215,7 @@ func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 
 func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
@@ -255,7 +260,7 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 
 func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
@@ -312,7 +317,7 @@ WHERE backend_uuid = ?`[1:], backendID)
 
 func (s *stateSuite) TestDeleteSecretBackendWithNoConfigNoNextRotationTime(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
@@ -367,7 +372,7 @@ func (s *stateSuite) TestDeleteSecretBackendInUseWithForce(c *gc.C) {
 
 func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	backendID1 := uuid.MustNewUUID().String()
-	rotateInternal1 := time.Duration(24 * time.Hour)
+	rotateInternal1 := 24 * time.Hour
 	nextRotateTime1 := time.Now().Add(rotateInternal1)
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID1,
@@ -393,7 +398,7 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	}, &nextRotateTime1)
 
 	backendID2 := uuid.MustNewUUID().String()
-	rotateInternal2 := time.Duration(48 * time.Hour)
+	rotateInternal2 := 48 * time.Hour
 	nextRotateTime2 := time.Now().Add(rotateInternal2)
 	_, err = s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID2,
@@ -457,7 +462,7 @@ func (s *stateSuite) TestListSecretBackendsEmpty(c *gc.C) {
 
 func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
@@ -523,7 +528,7 @@ func (s *stateSuite) TestGetSecretBackendByNameNotFound(c *gc.C) {
 
 func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
@@ -590,7 +595,7 @@ func (s *stateSuite) TestGetSecretBackendNotFound(c *gc.C) {
 
 func (s *stateSuite) TestSecretBackendRotated(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
@@ -646,8 +651,8 @@ func (s *stateSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 
 	backendID1 := uuid.MustNewUUID().String()
 	backendID2 := uuid.MustNewUUID().String()
-	nextRotateTime1 := time.Now().Add(time.Duration(12 * time.Hour))
-	nextRotateTime2 := time.Now().Add(time.Duration(24 * time.Hour))
+	nextRotateTime1 := time.Now().Add(12 * time.Hour)
+	nextRotateTime2 := time.Now().Add(24 * time.Hour)
 
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:             backendID1,
@@ -680,7 +685,7 @@ func (s *stateSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 	select {
 	case <-w.Changes():
-		// consume the inital empty change then send the backend IDs
+		// consume the initial empty change then send the backend IDs
 		go func() {
 			ch <- []string{backendID1, backendID2}
 		}()

@@ -99,7 +99,7 @@ INSERT INTO secret_backend (uuid, name, backend_type, token_rotate_interval) VAL
 			backend.ID, backend.Name, backend.BackendType, backend.TokenRotateInterval,
 		)
 		if err != nil {
-			return errors.Annotatef(err, "cannot insert secret backend %q", backend.Name)
+			return fmt.Errorf("cannot insert secret backend %q: %w", backend.Name, err)
 		}
 		if backend.NextRotateTime != nil && !backend.NextRotateTime.IsZero() {
 			rotateQ := `
@@ -110,7 +110,7 @@ INSERT INTO secret_backend_rotation (backend_uuid, next_rotation_time) VALUES
 				dateTimeToString(*backend.NextRotateTime),
 			)
 			if err != nil {
-				return errors.Annotatef(err, "cannot insert secret backend rotation for %q", backend.Name)
+				return fmt.Errorf("cannot insert secret backend rotation for %q: %w", backend.Name, err)
 			}
 		}
 		configQ := `
@@ -119,16 +119,19 @@ INSERT INTO secret_backend_config (backend_uuid, name, content) VALUES
 		for k, v := range backend.Config {
 			_, err = tx.ExecContext(ctx, configQ, backend.ID, k, v)
 			if err != nil {
-				return errors.Annotatef(err, "cannot insert secret backend config for %q", backend.Name)
+				return fmt.Errorf("cannot insert secret backend config for %q: %w", backend.Name, err)
 			}
 		}
 		return err
 	})
-	return backend.ID, errors.Trace(err)
+	return backend.ID, domain.CoerceError(err)
 }
 
 // UpdateSecretBackend updates an existing secret backend.
 func (s *State) UpdateSecretBackend(ctx context.Context, backend secretbackend.UpdateSecretBackendParams) error {
+	if backend.ID == "" {
+		return errors.NewNotValid(nil, "backend ID is missing")
+	}
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -139,7 +142,10 @@ func (s *State) UpdateSecretBackend(ctx context.Context, backend secretbackend.U
 UPDATE secret_backend SET name = ? WHERE uuid = ?`[1:]
 			_, err := tx.ExecContext(ctx, nameQ, *backend.NameChange, backend.ID)
 			if err != nil {
-				return errors.Annotatef(err, "cannot update secret backend name for %q", backend.ID)
+				return fmt.Errorf(
+					"cannot update secret backend name to %q for %q: %w",
+					*backend.NameChange, backend.ID, err,
+				)
 			}
 		}
 		if backend.TokenRotateInterval != nil {
@@ -147,7 +153,7 @@ UPDATE secret_backend SET name = ? WHERE uuid = ?`[1:]
 UPDATE secret_backend SET token_rotate_interval = ? WHERE uuid = ?`[1:]
 			_, err := tx.ExecContext(ctx, rotateQ, *backend.TokenRotateInterval, backend.ID)
 			if err != nil {
-				return errors.Annotatef(err, "cannot update secret backend rotation for %q", backend.ID)
+				return fmt.Errorf("cannot update secret backend token rotate interval for %q: %w", backend.ID, err)
 			}
 		}
 		if backend.NextRotateTime != nil {
@@ -159,7 +165,7 @@ UPDATE secret_backend_rotation SET next_rotation_time = ? WHERE backend_uuid = ?
 				backend.ID,
 			)
 			if err != nil {
-				return errors.Annotatef(err, "cannot update secret backend rotation for %q", backend.ID)
+				return fmt.Errorf("cannot update secret backend rotation time for %q: %w", backend.ID, err)
 			}
 		}
 		configQ := `
@@ -169,12 +175,12 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET content = ?`[1:]
 		for k, v := range backend.Config {
 			_, err = tx.ExecContext(ctx, configQ, backend.ID, k, v, v)
 			if err != nil {
-				return errors.Annotatef(err, "cannot update secret backend config for %q", backend.ID)
+				return fmt.Errorf("cannot update secret backend config for %q: %w", backend.ID, err)
 			}
 		}
-		return err
+		return nil
 	})
-	return errors.Trace(err)
+	return domain.CoerceError(err)
 }
 
 // DeleteSecretBackend deletes the secret backend for the given backend ID.
@@ -186,15 +192,26 @@ func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force
 	// TODO: check if the backend is in use
 	// if !force {
 	// }
-	q := `
-	DELETE FROM secret_backend_config WHERE backend_uuid = ?;
-	DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;
-	DELETE FROM secret_backend WHERE uuid = ?;`[1:]
+	qCfg := `DELETE FROM secret_backend_config WHERE backend_uuid = ?`
+	qRotation := `DELETE FROM secret_backend_rotation WHERE backend_uuid = ?`
+	qBackend := `DELETE FROM secret_backend WHERE uuid = ?`
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, backendID, backendID, backendID)
-		return err
+		if _, err := tx.ExecContext(ctx, qCfg, backendID); err != nil {
+			return fmt.Errorf("deleting secret backend config for %q: %w", backendID, err)
+		}
+		if _, err := tx.ExecContext(ctx, qRotation, backendID); err != nil {
+			return fmt.Errorf("deleting secret backend rotation for %q: %w", backendID, err)
+		}
+		_, err = tx.ExecContext(ctx, qBackend, backendID)
+		if err != nil {
+			return fmt.Errorf("deleting secret backend for %q: %w", backendID, err)
+		}
+		return nil
 	})
-	return errors.Trace(err)
+	if err != nil {
+		return domain.CoerceError(err)
+	}
+	return nil
 }
 
 // ListSecretBackends returns a list of all secret backends.
@@ -210,7 +227,7 @@ FROM secret_backend`[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
 		if err != nil {
-			return err
+			return fmt.Errorf("querying secret backends: %w", err)
 		}
 		defer rows.Close()
 		for rows.Next() {
@@ -222,7 +239,7 @@ FROM secret_backend`[1:]
 				&backend.ID, &backend.Name, &backend.BackendType, &tokenRotateInterval,
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("scanning secret backend: %w", err)
 			}
 			if tokenRotateInterval.Valid {
 				backend.TokenRotateInterval = &tokenRotateInterval.Duration
@@ -233,14 +250,14 @@ FROM secret_backend_config
 WHERE backend_uuid = ?`[1:]
 			configRows, err := tx.QueryContext(ctx, configQ, backend.ID)
 			if err != nil {
-				return err
+				return fmt.Errorf("querying secret backend config: %w", err)
 			}
 			defer configRows.Close()
 			for configRows.Next() {
 				var name, content string
 				err = configRows.Scan(&name, &content)
 				if err != nil {
-					return err
+					return fmt.Errorf("scanning secret backend config: %w", err)
 				}
 				if backend.Config == nil {
 					backend.Config = make(map[string]interface{})
@@ -251,7 +268,7 @@ WHERE backend_uuid = ?`[1:]
 		}
 		return rows.Err()
 	})
-	return backends, errors.Trace(err)
+	return backends, domain.CoerceError(err)
 }
 
 func (s *State) getSecretBackend(ctx context.Context, k string, v string) (*coresecrets.SecretBackend, error) {
@@ -268,12 +285,12 @@ WHERE b.%s = ?`, k)[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) (err error) {
 		rows, err := tx.QueryContext(ctx, q, v)
 		if err != nil {
-			return err
+			return fmt.Errorf("querying secret backend: %w", err)
 		}
 		defer rows.Close()
 		defer func() {
 			if err != nil {
-				err = errors.Annotatef(err, "cannot get secret backend %q", v)
+				err = fmt.Errorf("cannot get secret backend %q:%w", v, err)
 			} else if backend.ID == "" {
 				err = errors.NotFoundf("secret backend %q", v)
 			}
@@ -286,7 +303,7 @@ WHERE b.%s = ?`, k)[1:]
 				&name, &content,
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("scanning secret backend: %w", err)
 			}
 			if tokenRotateInterval.Valid {
 				backend.TokenRotateInterval = &tokenRotateInterval.Duration
@@ -302,7 +319,7 @@ WHERE b.%s = ?`, k)[1:]
 		return rows.Err()
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, domain.CoerceError(err)
 	}
 	return &backend, nil
 }
@@ -335,7 +352,10 @@ SET next_rotation_time = ?
 WHERE backend_uuid = ? AND next_rotation_time > ?`[1:]
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, nextS, backendID, nextS)
-		return err
+		if err != nil {
+			return fmt.Errorf("updating secret backend rotation: %w", err)
+		}
+		return nil
 	})
 	return errors.Trace(err)
 }
@@ -424,7 +444,7 @@ WHERE b.uuid IN (%s)`[1:], placeholders)
 	err := w.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q, values...)
 		if err != nil {
-			return err
+			return fmt.Errorf("querying secret backend rotation changes: %w", err)
 		}
 		defer rows.Close()
 		for rows.Next() {
@@ -432,7 +452,7 @@ WHERE b.uuid IN (%s)`[1:], placeholders)
 			var next sql.NullString
 			err = rows.Scan(&change.ID, &change.Name, &next)
 			if err != nil {
-				return err
+				return fmt.Errorf("scanning secret backend rotation changes: %w", err)
 			}
 			if !next.Valid {
 				w.logger.Warningf("secret backend %q has no next rotation time", change.ID)
@@ -446,7 +466,7 @@ WHERE b.uuid IN (%s)`[1:], placeholders)
 		}
 		return rows.Err()
 	})
-	return changes, errors.Trace(err)
+	return changes, domain.CoerceError(err)
 }
 
 // Changes returns the channel of secret backend rotation changes.

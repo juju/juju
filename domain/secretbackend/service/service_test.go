@@ -703,13 +703,7 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 
 	err := svc.UpdateSecretBackend(context.Background(), coresecrets.SecretBackend{}, false)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err, gc.ErrorMatches, "missing backend ID")
-
-	err = svc.UpdateSecretBackend(context.Background(), coresecrets.SecretBackend{
-		ID: "backend-uuid",
-	}, false)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err, gc.ErrorMatches, "missing backend name")
+	c.Assert(err, gc.ErrorMatches, "missing backend ID or name")
 
 	err = svc.UpdateSecretBackend(context.Background(), coresecrets.SecretBackend{
 		ID:   "backend-uuid",
@@ -725,7 +719,7 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err, gc.ErrorMatches, `backend "auto" not valid`)
 
-	s.mockState.EXPECT().GetSecretBackendByName(gomock.Any(), "invalid").Return(&coresecrets.SecretBackend{}, nil)
+	s.mockState.EXPECT().GetSecretBackend(gomock.Any(), "backend-uuid").Return(&coresecrets.SecretBackend{}, nil)
 	s.mockRegistry.EXPECT().Type().Return("something").AnyTimes()
 	err = svc.UpdateSecretBackend(context.Background(), coresecrets.SecretBackend{
 		ID:          "backend-uuid",
@@ -736,7 +730,7 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `config for provider "something" not valid`)
 }
 
-func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, force bool) {
+func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, force bool) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(
 		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
@@ -755,14 +749,25 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, force bool) {
 	}
 	now := time.Now()
 	s.mockClock.EXPECT().Now().Return(now)
-	s.mockState.EXPECT().GetSecretBackendByName(gomock.Any(), "myvault").Return(&coresecrets.SecretBackend{
-		ID:          "backend-uuid",
-		Name:        "myvault",
-		BackendType: "vault",
-		Config: map[string]interface{}{
-			"endpoint": "http://vault",
-		},
-	}, nil)
+	if byName {
+		s.mockState.EXPECT().GetSecretBackendByName(gomock.Any(), "myvault").Return(&coresecrets.SecretBackend{
+			ID:          "backend-uuid",
+			Name:        "myvault",
+			BackendType: "vault",
+			Config: map[string]interface{}{
+				"endpoint": "http://vault",
+			},
+		}, nil)
+	} else {
+		s.mockState.EXPECT().GetSecretBackend(gomock.Any(), "backend-uuid").Return(&coresecrets.SecretBackend{
+			ID:          "backend-uuid",
+			Name:        "myvault",
+			BackendType: "vault",
+			Config: map[string]interface{}{
+				"endpoint": "http://vault",
+			},
+		}, nil)
+	}
 	s.mockState.EXPECT().UpdateSecretBackend(gomock.Any(), secretbackend.UpdateSecretBackendParams{
 		ID:                  "backend-uuid",
 		NameChange:          ptr("myvault"),
@@ -780,7 +785,8 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, force bool) {
 		}).Return(s.mockSecretProvider, nil)
 		s.mockSecretProvider.EXPECT().Ping().Return(nil)
 	}
-	err := svc.UpdateSecretBackend(context.Background(), coresecrets.SecretBackend{
+
+	arg := coresecrets.SecretBackend{
 		ID:                  "backend-uuid",
 		Name:                "myvault",
 		BackendType:         vault.BackendType,
@@ -788,16 +794,28 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, force bool) {
 		Config: map[string]interface{}{
 			"tls-server-name": "server-name",
 		},
-	}, force, "namespace")
+	}
+	if byName {
+		arg.ID = ""
+	}
+	err := svc.UpdateSecretBackend(context.Background(), arg, force, "namespace")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateSecretBackend(c *gc.C) {
-	s.assertUpdateSecretBackend(c, false)
+	s.assertUpdateSecretBackend(c, false, false)
+}
+
+func (s *serviceSuite) TestUpdateSecretBackendByName(c *gc.C) {
+	s.assertUpdateSecretBackend(c, true, false)
 }
 
 func (s *serviceSuite) TestUpdateSecretBackendWithForce(c *gc.C) {
-	s.assertUpdateSecretBackend(c, true)
+	s.assertUpdateSecretBackend(c, false, true)
+}
+
+func (s *serviceSuite) TestUpdateSecretBackendWithForceByName(c *gc.C) {
+	s.assertUpdateSecretBackend(c, true, true)
 }
 
 func (s *serviceSuite) TestDeleteSecretBackend(c *gc.C) {

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/version/v2"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -146,7 +147,7 @@ func (s *Service) CreateModel(
 func (s *Service) GetModel(ctx context.Context, uuid coremodel.UUID) (*coremodel.Model, error) {
 	m, err := s.st.Get(ctx, uuid)
 	if err != nil {
-		return nil, err
+		return nil, domain.CoerceError(err)
 	}
 	modelType := coremodel.ModelType(m.ModelType)
 	if !modelType.IsValid() {
@@ -258,11 +259,15 @@ func validateAgentVersion(
 }
 
 // SetSecretBackend sets the secret backend for a model.
-func (s *Service) SetSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
+func (s *Service) SetSecretBackend(
+	ctx context.Context, modelUUID coremodel.UUID, backendName string,
+) error {
 	return s.st.SetSecretBackend(ctx, modelUUID, backendName)
 }
 
 // GetSecretBackend returns the secret backend identifier for a model.
-func (s *Service) GetSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (model.SecretBackendIdentifier, error) {
+func (s *Service) GetSecretBackend(
+	ctx context.Context, modelUUID coremodel.UUID,
+) (model.SecretBackendIdentifier, error) {
 	return s.st.GetSecretBackend(ctx, modelUUID)
 }

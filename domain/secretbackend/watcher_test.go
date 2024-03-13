@@ -159,6 +159,6 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	select {
 	case change := <-watcher.Changes():
 		c.Fatalf("unexpected change: %v", change)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testing.ShortWait):
 	}
 }

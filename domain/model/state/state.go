@@ -515,7 +515,7 @@ WHERE m.model_uuid = ?`[1:]
 		)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, fmt.Errorf("getting model %q: %w", uuid, err)
 	}
 	return &m, nil
 }
@@ -545,13 +545,19 @@ WHERE model_uuid = ?`[1:]
 			)
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("getting secret backend %q: %w", backendName, err)
 		}
 
 		_, err := tx.ExecContext(ctx, qModel, backendUUID, modelUUID)
-		return err
+		if err != nil {
+			return fmt.Errorf(
+				"setting secret backend %q for model %q: %w",
+				backendName, modelUUID, err,
+			)
+		}
+		return nil
 	})
-	return errors.Trace(err)
+	return domain.CoerceError(err)
 }
 
 // GetSecretBackend is responsible for returning the secret backend for the model.
@@ -579,7 +585,7 @@ WHERE uuid = ?`[1:]
 			)
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("getting secret backend for model %q: %w", modelUUID, err)
 		}
 		if !backendUUID.Valid {
 			// No backend configured for the model.
@@ -598,7 +604,10 @@ WHERE uuid = ?`[1:]
 				errors.NotFound, backendUUID.String, errors.Hide(err),
 			)
 		}
-		return err
+		if err != nil {
+			return fmt.Errorf("getting secret backend name for %q: %w", backendUUID.String, err)
+		}
+		return nil
 	})
-	return backend, errors.Trace(err)
+	return backend, domain.CoerceError(err)
 }
