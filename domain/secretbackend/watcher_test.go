@@ -50,7 +50,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	}
 
 	backendID1 := uuid.MustNewUUID().String()
-	rotateInternal := time.Duration(24 * time.Hour)
+	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
 	result, err := state.CreateSecretBackend(context.Background(),
 		secretbackend.CreateSecretBackendParams{
@@ -117,7 +117,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Triggered - update the rotation time.
-	newRotateInternal := time.Duration(48 * time.Hour)
+	newRotateInternal := 48 * time.Hour
 	newNextRotateTime := time.Now().Add(newRotateInternal)
 	err = state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
 		ID:                  backendID2,
