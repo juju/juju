@@ -86,13 +86,14 @@ func (d *dummyState) Create(
 	}
 
 	d.models[uuid] = coremodel.Model{
-		Name:        args.Name,
-		UUID:        uuid,
-		ModelType:   args.Type,
-		Cloud:       args.Cloud,
-		CloudRegion: args.CloudRegion,
-		Credential:  args.Credential,
-		Owner:       args.Owner,
+		AgentVersion: args.AgentVersion,
+		Name:         args.Name,
+		UUID:         uuid,
+		ModelType:    args.Type,
+		Cloud:        args.Cloud,
+		CloudRegion:  args.CloudRegion,
+		Credential:   args.Credential,
+		Owner:        args.Owner,
 	}
 	return nil
 }

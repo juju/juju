@@ -28,13 +28,14 @@ func (*ImportTest) TestImports(c *gc.C) {
 	c.Assert(found, jc.SameContents, []string{
 		"core/arch",
 		"core/constraints",
+		"core/credential",
 		"core/instance",
 		"core/life",
 		"core/model",
-		"core/user",
 		"core/network",
 		"core/permission",
 		"core/status",
+		"core/user",
 		"internal/uuid",
 	})
 }
