@@ -124,7 +124,7 @@ INSERT INTO secret_backend_config (backend_uuid, name, content) VALUES
 		}
 		return err
 	})
-	return backend.ID, domain.CoerceError(err)
+	return backend.ID, errors.Trace(err)
 }
 
 // UpdateSecretBackend updates an existing secret backend.
@@ -180,7 +180,7 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET content = ?`[1:]
 		}
 		return nil
 	})
-	return domain.CoerceError(err)
+	return errors.Trace(err)
 }
 
 // DeleteSecretBackend deletes the secret backend for the given backend ID.
@@ -209,7 +209,7 @@ func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force
 		return nil
 	})
 	if err != nil {
-		return domain.CoerceError(err)
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -268,7 +268,7 @@ WHERE backend_uuid = ?`[1:]
 		}
 		return rows.Err()
 	})
-	return backends, domain.CoerceError(err)
+	return backends, errors.Trace(err)
 }
 
 func (s *State) getSecretBackend(ctx context.Context, k string, v string) (*coresecrets.SecretBackend, error) {
@@ -319,7 +319,7 @@ WHERE b.%s = ?`, k)[1:]
 		return rows.Err()
 	})
 	if err != nil {
-		return nil, domain.CoerceError(err)
+		return nil, errors.Trace(err)
 	}
 	return &backend, nil
 }
@@ -466,7 +466,7 @@ WHERE b.uuid IN (%s)`[1:], placeholders)
 		}
 		return rows.Err()
 	})
-	return changes, domain.CoerceError(err)
+	return changes, errors.Trace(err)
 }
 
 // Changes returns the channel of secret backend rotation changes.

@@ -557,7 +557,7 @@ WHERE model_uuid = ?`[1:]
 		}
 		return nil
 	})
-	return domain.CoerceError(err)
+	return errors.Trace(err)
 }
 
 // GetSecretBackend is responsible for returning the secret backend for the model.
@@ -609,5 +609,5 @@ WHERE uuid = ?`[1:]
 		}
 		return nil
 	})
-	return backend, domain.CoerceError(err)
+	return backend, errors.Trace(err)
 }
