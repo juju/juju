@@ -63,7 +63,7 @@ func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *gc.C) {
 	// We do care about the order of the calls.
 	gomock.InOrder(
 		s.op.EXPECT().Setup(s.scope).Return(errors.New("boom")),
-		s.op.EXPECT().Rollback(gomock.Any()).Return(nil),
+		s.op.EXPECT().Rollback(gomock.Any(), s.model).Return(nil),
 	)
 
 	err := m.Perform(context.Background(), s.scope, s.model)
@@ -82,7 +82,7 @@ func (s *migrationSuite) TestPerformWithRollbackAtExecution(c *gc.C) {
 	gomock.InOrder(
 		s.op.EXPECT().Setup(s.scope).Return(nil),
 		s.op.EXPECT().Execute(gomock.Any(), s.model).Return(errors.New("boom")),
-		s.op.EXPECT().Rollback(gomock.Any()).Return(nil),
+		s.op.EXPECT().Rollback(gomock.Any(), s.model).Return(nil),
 	)
 
 	err := m.Perform(context.Background(), s.scope, s.model)
@@ -101,7 +101,7 @@ func (s *migrationSuite) TestPerformWithRollbackError(c *gc.C) {
 	gomock.InOrder(
 		s.op.EXPECT().Setup(s.scope).Return(nil),
 		s.op.EXPECT().Execute(gomock.Any(), s.model).Return(errors.New("boom")),
-		s.op.EXPECT().Rollback(gomock.Any()).Return(errors.New("sad")),
+		s.op.EXPECT().Rollback(gomock.Any(), s.model).Return(errors.New("sad")),
 	)
 
 	err := m.Perform(context.Background(), s.scope, s.model)

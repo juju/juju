@@ -55,17 +55,17 @@ func (mr *MockOperationMockRecorder) Execute(arg0, arg1 any) *gomock.Call {
 }
 
 // Rollback mocks base method.
-func (m *MockOperation) Rollback(arg0 context.Context) error {
+func (m *MockOperation) Rollback(arg0 context.Context, arg1 description.Model) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Rollback", arg0)
+	ret := m.ctrl.Call(m, "Rollback", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Rollback indicates an expected call of Rollback.
-func (mr *MockOperationMockRecorder) Rollback(arg0 any) *gomock.Call {
+func (mr *MockOperationMockRecorder) Rollback(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rollback", reflect.TypeOf((*MockOperation)(nil).Rollback), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rollback", reflect.TypeOf((*MockOperation)(nil).Rollback), arg0, arg1)
 }
 
 // Setup mocks base method.

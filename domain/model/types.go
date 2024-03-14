@@ -79,6 +79,19 @@ func (m ModelCreationArgs) Validate() error {
 	return nil
 }
 
+// AsReadOnly returns a ReadOnlyModelCreationArgs struct that is a copy of the
+// ModelCreationArgs struct. This is useful when you want to create a model
+// within the model database.
+func (m ModelCreationArgs) AsReadOnly() ReadOnlyModelCreationArgs {
+	return ReadOnlyModelCreationArgs{
+		UUID:        m.UUID,
+		Type:        m.Type,
+		Cloud:       m.Cloud,
+		CloudRegion: m.CloudRegion,
+		Name:        m.Name,
+	}
+}
+
 // ReadOnlyModelCreationArgs is a struct that is used to create a model
 // within the model database. This struct is used to create a model with all of
 // its associated metadata.
