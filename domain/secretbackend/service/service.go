@@ -169,7 +169,7 @@ func (s *Service) BackendSummaryInfo(
 	ctx context.Context,
 	modelUUID coremodel.UUID, model secretbackend.ModelGetter, cloud cloud.Cloud, cred cloud.Credential,
 	reveal bool, filter secretbackend.SecretBackendFilter,
-) ([]secretbackend.SecretBackendInfo, error) {
+) ([]*secretbackend.SecretBackendInfo, error) {
 	backends, err := s.st.ListSecretBackends(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -177,7 +177,7 @@ func (s *Service) BackendSummaryInfo(
 	// If we want all backends, include those which are not in use.
 	if filter.All {
 		// The internal (controller) backend.
-		backends = append(backends, secretbackend.SecretBackendInfo{
+		backends = append(backends, &secretbackend.SecretBackendInfo{
 			SecretBackend: secrets.SecretBackend{
 				ID:          s.controllerUUID,
 				Name:        juju.BackendName,
@@ -194,7 +194,7 @@ func (s *Service) BackendSummaryInfo(
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			k8sBackend := secretbackend.SecretBackendInfo{
+			k8sBackend := &secretbackend.SecretBackendInfo{
 				SecretBackend: secrets.SecretBackend{
 					ID:          m.UUID,
 					Name:        kubernetes.BuiltInName(m.Name),

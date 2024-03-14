@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"sort"
 	time "time"
 
 	"github.com/juju/collections/set"
@@ -108,12 +109,12 @@ var (
 type serviceSuite struct {
 	testing.IsolationSuite
 
-	mockState                      *MockState
-	mockWatcherFactory             *MockWatcherFactory
-	mockRegistry                   *MockSecretBackendProvider
-	mockSecretProvider             *MockSecretsBackend
-	mockSecretBackendRotateWatcher *MockSecretBackendRotateWatcher
-	mockModelService               *MockModelGetter
+	mockState                                     *MockState
+	mockWatcherFactory                            *MockWatcherFactory
+	mockRegistry                                  *MockSecretBackendProvider
+	mockSecretProvider, mockSepicalSecretProvider *MockSecretsBackend
+	mockSecretBackendRotateWatcher                *MockSecretBackendRotateWatcher
+	mockModelService                              *MockModelGetter
 
 	mockClock *MockClock
 	logger    Logger
@@ -128,6 +129,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockWatcherFactory = NewMockWatcherFactory(ctrl)
 	s.mockRegistry = NewMockSecretBackendProvider(ctrl)
 	s.mockSecretProvider = NewMockSecretsBackend(ctrl)
+	s.mockSepicalSecretProvider = NewMockSecretsBackend(ctrl)
 	s.mockSecretBackendRotateWatcher = NewMockSecretBackendRotateWatcher(ctrl)
 	s.mockModelService = NewMockModelGetter(ctrl)
 
@@ -156,7 +158,7 @@ func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
 		cred = cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
 	}
 
-	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return([]secretbackend.SecretBackendInfo{{
+	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return([]*secretbackend.SecretBackendInfo{{
 		SecretBackend: coresecrets.SecretBackend{ID: vaultBackendID,
 			Name:        "myvault",
 			BackendType: vault.BackendType,
@@ -323,9 +325,9 @@ func (s *serviceSuite) TestGetSecretBackendConfigForDrain(c *gc.C) {
 func (s *serviceSuite) assertBackendSummaryInfo(
 	c *gc.C, svc *Service, modelType coremodel.ModelType,
 	reveal bool, filter secretbackend.SecretBackendFilter,
-	expected []secretbackend.SecretBackendInfo,
+	expected []*secretbackend.SecretBackendInfo,
 ) {
-	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return([]secretbackend.SecretBackendInfo{
+	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return([]*secretbackend.SecretBackendInfo{
 		{
 			SecretBackend: coresecrets.SecretBackend{
 				ID:          vaultBackendID,
@@ -359,7 +361,6 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 	}
 
 	s.mockRegistry.EXPECT().Type().Return(vault.BackendType).AnyTimes()
-	pingCount := 0
 	if set.NewStrings(filter.Names...).Contains("myvault") || filter.All {
 		s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{
 			BackendConfig: provider.BackendConfig{
@@ -369,8 +370,10 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 					"token":    "deadbeef",
 				},
 			},
-		}).Return(s.mockSecretProvider, nil)
-		pingCount++
+		}).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			s.mockSecretProvider.EXPECT().Ping().Return(nil).Times(1)
+			return s.mockSecretProvider, nil
+		})
 	}
 	if set.NewStrings(filter.Names...).Contains("another-vault") || filter.All {
 		s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{
@@ -380,11 +383,11 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 					"endpoint": "http://another-vault",
 				},
 			},
-		}).Return(s.mockSecretProvider, nil)
-		pingCount++
+		}).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			s.mockSepicalSecretProvider.EXPECT().Ping().Return(errors.New("boom")).Times(1)
+			return s.mockSepicalSecretProvider, nil
+		})
 	}
-	// We only ping external backends - the vault is the one we currently support.
-	s.mockSecretProvider.EXPECT().Ping().Return(nil).Times(pingCount)
 
 	cld := cloud.Cloud{
 		Name:              "test",
@@ -398,6 +401,9 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 		coremodel.UUID(jujutesting.ModelTag.Id()),
 		s.mockModelService, cld, cred, reveal, filter,
 	)
+	sort.Slice(info, func(i, j int) bool {
+		return info[i].Name < info[j].Name
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.DeepEquals, expected)
 }
@@ -418,17 +424,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 	s.assertBackendSummaryInfo(
 		c, svc, coremodel.CAAS, false,
 		secretbackend.SecretBackendFilter{All: true},
-		[]secretbackend.SecretBackendInfo{
-			{
-				SecretBackend: coresecrets.SecretBackend{
-					ID:          "vault-backend-id",
-					Name:        "myvault",
-					BackendType: vault.BackendType,
-					Config: map[string]interface{}{
-						"endpoint": "http://vault",
-					},
-				},
-			},
+		[]*secretbackend.SecretBackendInfo{
 			{
 				SecretBackend: coresecrets.SecretBackend{
 					ID:          "another-vault-id",
@@ -438,13 +434,8 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 						"endpoint": "http://another-vault",
 					},
 				},
-			},
-			{
-				SecretBackend: coresecrets.SecretBackend{
-					ID:          jujutesting.ControllerTag.Id(),
-					Name:        juju.BackendName,
-					BackendType: juju.BackendType,
-				},
+				Status:  "error",
+				Message: "boom",
 			},
 			{
 				SecretBackend: coresecrets.SecretBackend{
@@ -457,7 +448,28 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 						"endpoint":            "http://nowhere",
 						"is-controller-cloud": true,
 					},
-				}, NumSecrets: 1,
+				},
+				NumSecrets: 1,
+				Status:     "active",
+			},
+			{
+				SecretBackend: coresecrets.SecretBackend{
+					ID:          jujutesting.ControllerTag.Id(),
+					Name:        juju.BackendName,
+					BackendType: juju.BackendType,
+				},
+				Status: "active",
+			},
+			{
+				SecretBackend: coresecrets.SecretBackend{
+					ID:          "vault-backend-id",
+					Name:        "myvault",
+					BackendType: vault.BackendType,
+					Config: map[string]interface{}{
+						"endpoint": "http://vault",
+					},
+				},
+				Status: "active",
 			},
 		},
 	)
@@ -479,17 +491,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
 	s.assertBackendSummaryInfo(
 		c, svc, coremodel.IAAS, false,
 		secretbackend.SecretBackendFilter{All: true},
-		[]secretbackend.SecretBackendInfo{
-			{
-				SecretBackend: coresecrets.SecretBackend{
-					ID:          "vault-backend-id",
-					Name:        "myvault",
-					BackendType: vault.BackendType,
-					Config: map[string]interface{}{
-						"endpoint": "http://vault",
-					},
-				},
-			},
+		[]*secretbackend.SecretBackendInfo{
 			{
 				SecretBackend: coresecrets.SecretBackend{
 					ID:          "another-vault-id",
@@ -499,6 +501,8 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
 						"endpoint": "http://another-vault",
 					},
 				},
+				Status:  "error",
+				Message: "boom",
 			},
 			{
 				SecretBackend: coresecrets.SecretBackend{
@@ -506,6 +510,18 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
 					Name:        juju.BackendName,
 					BackendType: juju.BackendType,
 				},
+				Status: "active",
+			},
+			{
+				SecretBackend: coresecrets.SecretBackend{
+					ID:          "vault-backend-id",
+					Name:        "myvault",
+					BackendType: vault.BackendType,
+					Config: map[string]interface{}{
+						"endpoint": "http://vault",
+					},
+				},
+				Status: "active",
 			},
 		},
 	)
@@ -529,7 +545,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *gc.C) {
 		secretbackend.SecretBackendFilter{
 			Names: []string{"another-vault"},
 		},
-		[]secretbackend.SecretBackendInfo{
+		[]*secretbackend.SecretBackendInfo{
 			{
 				SecretBackend: coresecrets.SecretBackend{
 					ID:          "another-vault-id",
@@ -539,6 +555,8 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *gc.C) {
 						"endpoint": "http://another-vault",
 					},
 				},
+				Status:  "error",
+				Message: "boom",
 			},
 		},
 	)
@@ -562,7 +580,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNamesNotFound(c *gc.C) {
 		secretbackend.SecretBackendFilter{
 			Names: []string{"non-existing-vault"},
 		},
-		[]secretbackend.SecretBackendInfo{},
+		[]*secretbackend.SecretBackendInfo{},
 	)
 }
 

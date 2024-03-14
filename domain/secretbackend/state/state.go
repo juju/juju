@@ -52,18 +52,6 @@ func (nd NullableDuration) Value() (driver.Value, error) {
 	return int64(nd.Duration), nil
 }
 
-func dateTimeToString(t time.Time) string {
-	return t.UTC().Round(time.Second).Format(time.RFC3339)
-}
-
-func stringToDatetime(s string) (time.Time, error) {
-	dt, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return time.Time{}, err
-	}
-	return dt.Round(time.Second), nil
-}
-
 // Logger is the interface used by the state to log messages.
 type Logger interface {
 	Debugf(string, ...interface{})
@@ -107,7 +95,7 @@ INSERT INTO secret_backend_rotation (backend_uuid, next_rotation_time) VALUES
 	(?, ?)`[1:]
 			_, err = tx.ExecContext(
 				ctx, rotateQ, backend.ID,
-				dateTimeToString(*backend.NextRotateTime),
+				sql.NullTime{Time: *backend.NextRotateTime, Valid: true},
 			)
 			if err != nil {
 				return fmt.Errorf("cannot insert secret backend rotation for %q: %w", backend.Name, err)
@@ -161,7 +149,7 @@ UPDATE secret_backend SET token_rotate_interval = ? WHERE uuid = ?`[1:]
 UPDATE secret_backend_rotation SET next_rotation_time = ? WHERE backend_uuid = ?`[1:]
 			_, err := tx.ExecContext(
 				ctx, rotateQ,
-				dateTimeToString(*backend.NextRotateTime),
+				sql.NullTime{Time: *backend.NextRotateTime, Valid: true},
 				backend.ID,
 			)
 			if err != nil {
@@ -212,58 +200,63 @@ func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force
 }
 
 // ListSecretBackends returns a list of all secret backends.
-func (s *State) ListSecretBackends(ctx context.Context) ([]secretbackend.SecretBackendInfo, error) {
+func (s *State) ListSecretBackends(ctx context.Context) (backends []*secretbackend.SecretBackendInfo, _ error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var backends []secretbackend.SecretBackendInfo
 	q := `
-SELECT uuid, name, backend_type, token_rotate_interval
-FROM secret_backend`[1:]
+SELECT b.uuid, b.name, b.backend_type, b.token_rotate_interval, c.name, c.content
+FROM secret_backend b
+LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
+ORDER BY b.uuid`[1:]
+
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
 		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)
 		}
 		defer rows.Close()
+
+		var (
+			lastID         string
+			currentBackend *secretbackend.SecretBackendInfo
+		)
 		for rows.Next() {
 			var (
 				backend             secretbackend.SecretBackendInfo
 				tokenRotateInterval NullableDuration
+				name, content       sql.NullString
 			)
-			err = rows.Scan(
+			if err := rows.Scan(
 				&backend.ID, &backend.Name, &backend.BackendType, &tokenRotateInterval,
-			)
-			if err != nil {
+				&name, &content,
+			); err != nil {
 				return fmt.Errorf("scanning secret backend: %w", err)
 			}
 			if tokenRotateInterval.Valid {
 				backend.TokenRotateInterval = &tokenRotateInterval.Duration
 			}
-			configQ := `
-SELECT name, content
-FROM secret_backend_config
-WHERE backend_uuid = ?`[1:]
-			configRows, err := tx.QueryContext(ctx, configQ, backend.ID)
-			if err != nil {
-				return fmt.Errorf("querying secret backend config: %w", err)
+
+			if currentBackend == nil || backend.ID != lastID {
+				// Encountered a new backend.
+				currentBackend = &backend
+				lastID = backend.ID
+				backends = append(backends, currentBackend)
 			}
-			defer configRows.Close()
-			for configRows.Next() {
-				var name, content string
-				err = configRows.Scan(&name, &content)
-				if err != nil {
-					return fmt.Errorf("scanning secret backend config: %w", err)
-				}
-				if backend.Config == nil {
-					backend.Config = make(map[string]interface{})
-				}
-				backend.Config[name] = content
+
+			if !name.Valid || !content.Valid {
+				continue
 			}
-			backends = append(backends, backend)
+			if currentBackend.Config == nil {
+				currentBackend.Config = make(map[string]interface{})
+			}
+			currentBackend.Config[name.String] = content.String
 		}
-		return rows.Err()
+		if err = rows.Err(); err != nil {
+			return fmt.Errorf("scanning secret backends: %w", err)
+		}
+		return nil
 	})
 	return backends, errors.Trace(err)
 }
@@ -342,13 +335,16 @@ func (s *State) SecretBackendRotated(ctx context.Context, backendID string, next
 	if err != nil {
 		return errors.Trace(err)
 	}
-	nextS := dateTimeToString(next)
 	q := `
 UPDATE secret_backend_rotation
 SET next_rotation_time = ?
 WHERE backend_uuid = ? AND next_rotation_time > ?`[1:]
+	nextN := sql.NullTime{
+		Time:  next,
+		Valid: true,
+	}
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, nextS, backendID, nextS)
+		_, err := tx.ExecContext(ctx, q, nextN, backendID, nextN)
 		if err != nil {
 			return fmt.Errorf("updating secret backend rotation: %w", err)
 		}
@@ -414,7 +410,6 @@ func (w *secretBackendRotateWatcher) loop() (err error) {
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
-			w.logger.Debugf("processing secret backend rotation changes: %v", backendIDs)
 			var err error
 			changes, err = w.processChanges(ctx, backendIDs...)
 			if err != nil {
@@ -430,6 +425,8 @@ func (w *secretBackendRotateWatcher) loop() (err error) {
 }
 
 func (w *secretBackendRotateWatcher) processChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error) {
+	w.logger.Debugf("processing secret backend rotation changes for: %v", backendIDs)
+
 	placeholders, values := database.SliceToPlaceholder(backendIDs)
 	q := fmt.Sprintf(`
 SELECT b.uuid, b.name, r.next_rotation_time
@@ -446,7 +443,8 @@ WHERE b.uuid IN (%s)`[1:], placeholders)
 		defer rows.Close()
 		for rows.Next() {
 			var change watcher.SecretBackendRotateChange
-			var next sql.NullString
+			var next sql.NullTime
+
 			err = rows.Scan(&change.ID, &change.Name, &next)
 			if err != nil {
 				return fmt.Errorf("scanning secret backend rotation changes: %w", err)
@@ -455,10 +453,12 @@ WHERE b.uuid IN (%s)`[1:], placeholders)
 				w.logger.Warningf("secret backend %q has no next rotation time", change.ID)
 				continue
 			}
-			w.logger.Debugf("backend rotation change: %q, %q, %q", change.ID, change.Name, next.String)
-			if change.NextTriggerTime, err = stringToDatetime(next.String); err != nil {
-				return errors.Trace(err)
-			}
+			change.NextTriggerTime = next.Time
+
+			w.logger.Debugf(
+				"backend rotation change processed: %q, %q, %q",
+				change.ID, change.Name, change.NextTriggerTime,
+			)
 			changes = append(changes, change)
 		}
 		return rows.Err()

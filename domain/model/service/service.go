@@ -151,7 +151,7 @@ func (s *Service) GetModel(ctx context.Context, uuid coremodel.UUID) (*coremodel
 	}
 	modelType := coremodel.ModelType(m.ModelType)
 	if !modelType.IsValid() {
-		// THis should never happen.
+		// This should never happen.
 		return nil, errors.NotValidf("model type %q", m.ModelType)
 	}
 	return &coremodel.Model{

@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"sort"
 	"time"
 
@@ -58,7 +59,7 @@ WHERE uuid = ?`[1:], expectedSecretBackend.ID)
 		actual.TokenRotateInterval = &tokenRotateInterval.Duration
 	}
 	if expectedNextRotationTime != nil {
-		var actualNextRotationTime string
+		var actualNextRotationTime sql.NullTime
 		row = db.QueryRow(`
 SELECT next_rotation_time
 FROM secret_backend_rotation
@@ -66,8 +67,8 @@ WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 		c.Assert(row.Err(), gc.IsNil)
 		err = row.Scan(&actualNextRotationTime)
 		c.Assert(err, gc.IsNil)
-
-		c.Assert(actualNextRotationTime, gc.Equals, expectedNextRotationTime.UTC().Round(time.Second).Format(time.RFC3339))
+		c.Assert(actualNextRotationTime.Valid, jc.IsTrue)
+		c.Assert(actualNextRotationTime.Time.Equal(*expectedNextRotationTime), jc.IsTrue)
 	} else {
 		row = db.QueryRow(`
 SELECT COUNT(*)
@@ -471,7 +472,10 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	backends, err := s.state.ListSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.HasLen, 2)
-	c.Assert(backends, gc.DeepEquals, []secretbackend.SecretBackendInfo{
+	sort.Slice(backends, func(i, j int) bool {
+		return backends[i].Name < backends[j].Name
+	})
+	c.Assert(backends, gc.DeepEquals, []*secretbackend.SecretBackendInfo{
 		{
 			SecretBackend: coresecrets.SecretBackend{
 				ID:                  backendID1,
@@ -747,10 +751,10 @@ func (s *stateSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 
 		c.Assert(changes[0].ID, gc.Equals, backendID1)
 		c.Assert(changes[0].Name, gc.Equals, "my-backend1")
-		c.Assert(changes[0].NextTriggerTime, gc.DeepEquals, nextRotateTime1.UTC().Round(time.Second))
+		c.Assert(changes[0].NextTriggerTime.Equal(nextRotateTime1), jc.IsTrue)
 		c.Assert(changes[1].ID, gc.Equals, backendID2)
 		c.Assert(changes[1].Name, gc.Equals, "my-backend2")
-		c.Assert(changes[1].NextTriggerTime, gc.DeepEquals, nextRotateTime2.UTC().Round(time.Second))
+		c.Assert(changes[1].NextTriggerTime.Equal(nextRotateTime2), jc.IsTrue)
 	case <-time.After(jujutesting.LongWait):
 		c.Fatalf("timed out waiting for backend rotation changes")
 	}

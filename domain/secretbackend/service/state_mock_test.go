@@ -102,10 +102,10 @@ func (mr *MockStateMockRecorder) GetSecretBackendByName(arg0, arg1 any) *gomock.
 }
 
 // ListSecretBackends mocks base method.
-func (m *MockState) ListSecretBackends(arg0 context.Context) ([]secretbackend.SecretBackendInfo, error) {
+func (m *MockState) ListSecretBackends(arg0 context.Context) ([]*secretbackend.SecretBackendInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSecretBackends", arg0)
-	ret0, _ := ret[0].([]secretbackend.SecretBackendInfo)
+	ret0, _ := ret[0].([]*secretbackend.SecretBackendInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
