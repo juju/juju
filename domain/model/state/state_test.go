@@ -28,16 +28,17 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type modelSuite struct {
+type stateSuite struct {
 	schematesting.ControllerSuite
+
 	uuid     coremodel.UUID
 	userUUID user.UUID
 	userName string
 }
 
-var _ = gc.Suite(&modelSuite{})
+var _ = gc.Suite(&stateSuite{})
 
-func (m *modelSuite) SetUpTest(c *gc.C) {
+func (m *stateSuite) SetUpTest(c *gc.C) {
 	m.ControllerSuite.SetUpTest(c)
 
 	// We need to generate a user in the database so that we can set the model
@@ -111,7 +112,7 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (m *modelSuite) TestGetModel(c *gc.C) {
+func (m *stateSuite) TestGetModel(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 
 	modelSt := NewState(runner)
@@ -131,7 +132,7 @@ func (m *modelSuite) TestGetModel(c *gc.C) {
 	})
 }
 
-func (m *modelSuite) TestGetModelNotFound(c *gc.C) {
+func (m *stateSuite) TestGetModelNotFound(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 
 	modelSt := NewState(runner)
@@ -143,7 +144,7 @@ func (m *modelSuite) TestGetModelNotFound(c *gc.C) {
 // TestCreateModelAgentWithNoModel is asserting that if we attempt to make a
 // model agent record where no model already exists that we get back a
 // [modelerrors.NotFound] error.
-func (m *modelSuite) TestCreateModelAgentWithNoModel(c *gc.C) {
+func (m *stateSuite) TestCreateModelAgentWithNoModel(c *gc.C) {
 	runner, err := m.TxnRunnerFactory()()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -158,7 +159,7 @@ func (m *modelSuite) TestCreateModelAgentWithNoModel(c *gc.C) {
 // TestCreateModelAgentAlreadyExists is asserting that if we attempt to make a
 // model agent record when one already exists we get a
 // [modelerrors.AlreadyExists] back.
-func (m *modelSuite) TestCreateModelAgentAlreadyExists(c *gc.C) {
+func (m *stateSuite) TestCreateModelAgentAlreadyExists(c *gc.C) {
 	runner, err := m.TxnRunnerFactory()()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -169,7 +170,7 @@ func (m *modelSuite) TestCreateModelAgentAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
-func (m *modelSuite) TestCreateModelMetadataWithNoModel(c *gc.C) {
+func (m *stateSuite) TestCreateModelMetadataWithNoModel(c *gc.C) {
 	runner, err := m.TxnRunnerFactory()()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -191,7 +192,7 @@ func (m *modelSuite) TestCreateModelMetadataWithNoModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (m *modelSuite) TestCreateModelMetadataWithExistingMetadata(c *gc.C) {
+func (m *stateSuite) TestCreateModelMetadataWithExistingMetadata(c *gc.C) {
 	runner, err := m.TxnRunnerFactory()()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -212,7 +213,7 @@ func (m *modelSuite) TestCreateModelMetadataWithExistingMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
-func (m *modelSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
+func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
@@ -229,7 +230,7 @@ func (m *modelSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
-func (m *modelSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
+func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
@@ -249,7 +250,7 @@ func (m *modelSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 // TestCreateModelWithNonExistentOwner is here to assert that if we try and make
 // a model with a user/owner that does not exist a [usererrors.NotFound] error
 // is returned.
-func (m *modelSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
+func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
@@ -269,7 +270,7 @@ func (m *modelSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 // TestCreateModelWithRemovedOwner is here to test that if we try and create a
 // new model with an owner that has been removed from the Juju user base that
 // the operation fails with a [usererrors.NotFound] error.
-func (m *modelSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
+func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 	userState := userstate.NewState(m.TxnRunnerFactory())
 	err := userState.RemoveUser(context.Background(), m.userName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,7 +291,7 @@ func (m *modelSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
-func (m *modelSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
+func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
@@ -307,7 +308,7 @@ func (m *modelSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
+func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
 	err := cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
 		Name:      "my-cloud2",
@@ -358,7 +359,7 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 // for the same cloud as the model when no cloud region has been set. This is a
 // regression test discovered during DQlite development where we messed up the
 // logic assuming that a cloud region was always set for a model.
-func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
+func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
 	err := cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
 		Name:      "minikube",
@@ -411,7 +412,7 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 // TestDeleteModel tests that we can delete a model that is already created in
 // the system. We also confirm that list models returns no models after the
 // deletion.
-func (m *modelSuite) TestDeleteModel(c *gc.C) {
+func (m *stateSuite) TestDeleteModel(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Delete(
 		context.Background(),
@@ -449,7 +450,7 @@ func (m *modelSuite) TestDeleteModel(c *gc.C) {
 	c.Check(modelUUIDS, gc.HasLen, 0)
 }
 
-func (m *modelSuite) TestDeleteModelNotFound(c *gc.C) {
+func (m *stateSuite) TestDeleteModelNotFound(c *gc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Delete(context.Background(), uuid)
@@ -458,7 +459,7 @@ func (m *modelSuite) TestDeleteModelNotFound(c *gc.C) {
 
 // TestListModels is testing that once we have created several models calling
 // list returns all of the models created.
-func (m *modelSuite) TestListModels(c *gc.C) {
+func (m *stateSuite) TestListModels(c *gc.C) {
 	uuid1 := modeltesting.GenModelUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(

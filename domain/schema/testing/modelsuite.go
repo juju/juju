@@ -6,6 +6,7 @@ package testing
 import (
 	gc "gopkg.in/check.v1"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -17,6 +18,11 @@ type ModelSuite struct {
 	testing.DqliteSuite
 
 	modelUUID string
+}
+
+// ModelTxnRunner returns a txn runner attached to the model database.
+func (s *ModelSuite) ModelTxnRunner() coredatabase.TxnRunner {
+	return s.TxnRunner()
 }
 
 // SetUpTest is responsible for setting up a testing database suite initialised

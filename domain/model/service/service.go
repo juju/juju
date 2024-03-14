@@ -92,17 +92,17 @@ func agentVersionSelector() version.Number {
 // If the ModelCreationArgs do not have a credential name set then no cloud
 // credential will be associated with the model.
 //
-// If the caller has not prescribed a spefici agent version to use for the model
-// the current controllers supported agent version will be used.
-
+// If the caller has not prescribed a specific agent version to use for the
+// model the current controllers supported agent version will be used.
+//
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use or a model
 // with the same name and owner already exists.
 // - [errors.NotFound]: When the cloud, cloud region, or credential do not exist.
 // - [github.com/juju/juju/domain/user/errors.NotFound]: When the owner of the
+// model can not be found.
 // - [modelerrors.AgentVersionNotSupported]: When the prescribed agent version
 // cannot be used with this controller.
-// mode cannot be found.
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.ModelCreationArgs,

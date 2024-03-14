@@ -71,3 +71,20 @@ func CreateModel(
 		})
 	}
 }
+
+// CreateReadOnlyModel creates a new model within the model database with all of
+// its associated metadata. The data will be read-only and cannot be modified
+// once created.
+func CreateReadOnlyModel(
+	args model.ReadOnlyModelCreationArgs,
+) func(context.Context, database.TxnRunner) error {
+	return func(ctx context.Context, db database.TxnRunner) error {
+		if err := args.Validate(); err != nil {
+			return fmt.Errorf("model creation args: %w", err)
+		}
+
+		return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			return state.CreateReadOnlyModel(ctx, args, tx)
+		})
+	}
+}

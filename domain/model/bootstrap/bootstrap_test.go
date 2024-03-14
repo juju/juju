@@ -105,3 +105,22 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 
 	c.Check(uuid, gc.Equals, modelUUID)
 }
+
+type modelBootstrapSuite struct {
+	schematesting.ModelSuite
+}
+
+var _ = gc.Suite(&modelBootstrapSuite{})
+
+func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
+	fn := CreateReadOnlyModel(model.ReadOnlyModelCreationArgs{
+		UUID:        modeltesting.GenModelUUID(c),
+		Name:        "test",
+		Type:        coremodel.IAAS,
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+	})
+
+	err := fn(context.Background(), s.ModelTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+}

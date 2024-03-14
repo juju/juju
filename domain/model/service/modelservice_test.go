@@ -1,0 +1,58 @@
+// Copyright 2024 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package service
+
+import (
+	"context"
+
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/domain/model"
+)
+
+type dummyModelState struct {
+	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
+}
+
+func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
+	d.models[args.UUID] = args
+	return nil
+}
+
+type modelServiceSuite struct {
+	testing.IsolationSuite
+
+	state *dummyModelState
+}
+
+var _ = gc.Suite(&modelServiceSuite{})
+
+func (s *modelServiceSuite) SetUpTest(c *gc.C) {
+	s.state = &dummyModelState{
+		models: map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
+	}
+}
+
+func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
+	svc := NewModelService(s.state)
+
+	id := modeltesting.GenModelUUID(c)
+	args := model.ReadOnlyModelCreationArgs{
+		UUID:        id,
+		Name:        "my-awesome-model",
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Type:        coremodel.IAAS,
+	}
+	err := svc.CreateModel(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, exists := s.state.models[id]
+	c.Assert(exists, jc.IsTrue)
+	c.Check(got, gc.Equals, args)
+}
