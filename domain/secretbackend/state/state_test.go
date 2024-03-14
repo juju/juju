@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/uuid"
@@ -134,6 +135,19 @@ func (s *stateSuite) TestCreateSecretBackend(c *gc.C) {
 			"key2": "value2",
 		},
 	}, &nextRotateTime)
+
+	_, err = s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		ID:                  backendID,
+		Name:                "my-backend",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal,
+		NextRotateTime:      &nextRotateTime,
+		Config: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+		},
+	})
+	c.Assert(err, jc.ErrorIs, domain.ErrDuplicate)
 }
 
 func (s *stateSuite) TestCreateSecretBackendWithNoRotateNoConfig(c *gc.C) {
@@ -256,6 +270,37 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 			"key2": "value2",
 		},
 	}, &nextRotateTime)
+}
+
+func (s *stateSuite) TestUpdateSecretBackendNameAlreadyExists(c *gc.C) {
+	backendID1 := uuid.MustNewUUID().String()
+	rotateInternal := 24 * time.Hour
+	nextRotateTime := time.Now().Add(rotateInternal)
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		ID:                  backendID1,
+		Name:                "my-backend1",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal,
+		NextRotateTime:      &nextRotateTime,
+	})
+	c.Assert(err, gc.IsNil)
+
+	backendID2 := uuid.MustNewUUID().String()
+	_, err = s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		ID:                  backendID2,
+		Name:                "my-backend2",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal,
+		NextRotateTime:      &nextRotateTime,
+	})
+	c.Assert(err, gc.IsNil)
+
+	nameChange := "my-backend1"
+	err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		ID:         backendID2,
+		NameChange: &nameChange,
+	})
+	c.Assert(err, jc.ErrorIs, domain.ErrDuplicate)
 }
 
 func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
