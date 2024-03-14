@@ -223,12 +223,16 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"object_store_metadata_hash_type",
 
 		"application",
-		"charm",
 		"machine",
 		"net_node",
 		"cloud_service",
 		"cloud_container",
 		"unit",
+
+		// Charm
+		"charm",
+		"charm_storage",
+		"charm_storage_property",
 
 		// Spaces
 		"space",

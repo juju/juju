@@ -401,6 +401,44 @@ CREATE TABLE charm (
     uuid    TEXT PRIMARY KEY,
     url     TEXT NOT NULL
 );
+
+CREATE TABLE charm_storage (
+    charm_uuid       TEXT NOT NULL,
+    name             TEXT NOT NULL,
+    description      TEXT,
+    storage_kind_id  INT NOT NULL,
+    shared           BOOLEAN,
+    read_only        BOOLEAN,
+    count_min        INT NOT NULL,
+    count_max        INT NOT NULL,
+    minimum_size_mib INT,
+    location         TEXT,
+    CONSTRAINT       fk_storage_instance_kind
+        FOREIGN KEY  (storage_kind_id)
+        REFERENCES   storage_kind(id),
+    CONSTRAINT       fk_charm_storage_charm
+        FOREIGN KEY  (charm_uuid)
+        REFERENCES   charm(uuid),
+    PRIMARY KEY (charm_uuid, name)
+);
+
+CREATE INDEX idx_charm_storage_charm
+ON charm_storage (charm_uuid);
+
+CREATE TABLE charm_storage_property (
+    charm_uuid   TEXT NOT NULL,
+    storage_name TEXT NOT NULL,
+    property     TEXT NOT NULL,
+    CONSTRAINT       fk_charm_storage_property_charm_storage
+        FOREIGN KEY  (charm_uuid, storage_name)
+        REFERENCES   charm_storage(charm_uuid, name),
+    PRIMARY KEY (charm_uuid, storage_name, property)
+);
+
+-- Note that this is not unique; it speeds access by charm storage.
+CREATE INDEX idx_charm_storage_property
+ON charm_storage_property (charm_uuid, storage_name);
+
 `)
 }
 
@@ -598,8 +636,9 @@ INSERT INTO storage_kind VALUES
 -- so too will be the rows in this table to reflect the current charm's
 -- storage definitions.
 CREATE TABLE application_storage_constraint (
-    application_uuid        TEXT NOT NULL,
-    storage_name            TEXT NOT NULL,
+    application_uuid TEXT NOT NULL,
+    charm_uuid       TEXT NOT NULL,
+    storage_name     TEXT NOT NULL,
     -- These attributes are filled in by sourcing data from:
     -- user supplied, model config, charm config, opinionated fallbacks.
     -- By the time the row is written, all values are known.
@@ -619,7 +658,10 @@ CREATE TABLE application_storage_constraint (
     CONSTRAINT       fk_application_storage_constraint_application
         FOREIGN KEY  (application_uuid)
         REFERENCES   application(uuid),
-    PRIMARY KEY (application_uuid, storage_name)
+    CONSTRAINT       fk_application_storage_constraint_charm_storage
+        FOREIGN KEY  (charm_uuid, storage_name)
+        REFERENCES   charm_storage(charm_uuid, name),
+    PRIMARY KEY (application_uuid, charm_uuid, storage_name)
 );
 
 -- Note that this is not unique; it speeds access by application.
@@ -634,8 +676,9 @@ ON application_storage_constraint (application_uuid);
 -- but need to allow for a unit's charm to temporarily diverge from that
 -- of its application.
 CREATE TABLE unit_storage_constraint (
-    unit_uuid               TEXT NOT NULL,
-    storage_name            TEXT NOT NULL,
+    unit_uuid    TEXT NOT NULL,
+    charm_uuid   TEXT NOT NULL,
+    storage_name TEXT NOT NULL,
     -- These attributes are filled in by sourcing data from:
     -- user supplied, model config, charm config, opinionated fallbacks.
     -- By the time the row is written, all values are known.
@@ -652,10 +695,10 @@ CREATE TABLE unit_storage_constraint (
     storage_pool TEXT NOT NULL,
     size         INT  NOT NULL,
     count        INT  NOT NULL,
-    CONSTRAINT       fk_unit_storage_constraint_unit
-        FOREIGN KEY  (unit_uuid)
-        REFERENCES   unit(uuid),
-    PRIMARY KEY (unit_uuid, storage_name)
+    CONSTRAINT       fk_unit_storage_constraint_charm_storage
+        FOREIGN KEY  (charm_uuid, storage_name)
+        REFERENCES   charm_storage(charm_uuid, name),
+    PRIMARY KEY (unit_uuid, charm_uuid, storage_name)
 );
 
 -- Note that this is not unique; it speeds access by unit.
