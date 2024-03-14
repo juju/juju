@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -21,24 +20,6 @@ import (
 	"github.com/juju/juju/domain/credential"
 	jujutesting "github.com/juju/juju/testing"
 )
-
-type baseSuite struct {
-	testing.IsolationSuite
-
-	state          *MockState
-	validator      *MockCredentialValidator
-	watcherFactory *MockWatcherFactory
-}
-
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.validator = NewMockCredentialValidator(ctrl)
-	s.state = NewMockState(ctrl)
-	s.watcherFactory = NewMockWatcherFactory(ctrl)
-
-	return ctrl
-}
 
 type serviceSuite struct {
 	baseSuite
@@ -713,63 +694,4 @@ func (s *serviceSuite) TestCheckAndRevokeCredentialInvalidID(c *gc.C) {
 	id := corecredential.ID{Cloud: "cirrus", Owner: "fred"}
 	err := s.service().CheckAndRevokeCredential(context.Background(), id, false)
 	c.Assert(err, gc.ErrorMatches, "invalid id revoking cloud credential.*")
-}
-
-type providerServiceSuite struct {
-	baseSuite
-}
-
-var _ = gc.Suite(&providerServiceSuite{})
-
-func (s *providerServiceSuite) service() *WatchableProviderService {
-	return NewWatchableProviderService(s.state, s.watcherFactory)
-}
-
-func (s *providerServiceSuite) TestCloudCredential(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
-	cred := credential.CloudCredentialResult{
-		CloudCredentialInfo: credential.CloudCredentialInfo{
-			AuthType: string(cloud.UserPassAuthType),
-			Attributes: map[string]string{
-				"hello": "world",
-			},
-			Label: "foo",
-		},
-	}
-	s.state.EXPECT().CloudCredential(gomock.Any(), id).Return(cred, nil)
-
-	result, err := s.service().CloudCredential(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
-}
-
-func (s *providerServiceSuite) TestCloudCredentialInvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
-	_, err := s.service().CloudCredential(context.Background(), id)
-	c.Assert(err, gc.ErrorMatches, "invalid id getting cloud credential.*")
-}
-
-func (s *providerServiceSuite) TestWatchCredential(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	nw := watchertest.NewMockNotifyWatcher(nil)
-
-	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
-	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), id).Return(nw, nil)
-
-	w, err := s.service().WatchCredential(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
-}
-
-func (s *providerServiceSuite) TestWatchCredentialInvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
-	_, err := s.service().WatchCredential(context.Background(), id)
-	c.Assert(err, gc.ErrorMatches, "invalid id watching cloud credential.*")
 }

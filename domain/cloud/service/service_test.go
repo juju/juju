@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -15,19 +14,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/watcher/watchertest"
 )
-
-type baseSuite struct {
-	testing.IsolationSuite
-	state          *MockState
-	watcherFactory *MockWatcherFactory
-}
-
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.state = NewMockState(ctrl)
-	s.watcherFactory = NewMockWatcherFactory(ctrl)
-	return ctrl
-}
 
 type serviceSuite struct {
 	baseSuite
@@ -113,48 +99,6 @@ func (s *serviceSuite) TestWatchCloud(c *gc.C) {
 	s.state.EXPECT().WatchCloud(gomock.Any(), gomock.Any(), "cirrus").Return(nw, nil)
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(w, gc.NotNil)
-}
-
-type providerServiceSuite struct {
-	baseSuite
-}
-
-var _ = gc.Suite(&providerServiceSuite{})
-
-func (s *providerServiceSuite) TestCloud(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	one := &cloud.Cloud{
-		Name: "fluffy",
-	}
-	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(one, nil)
-
-	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, one)
-}
-
-func (s *providerServiceSuite) TestCloudNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(nil, errors.NotFoundf(`cloud "fluffy"`))
-
-	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
-	c.Assert(err, gc.ErrorMatches, `cloud "fluffy" not found`)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
-	c.Check(result, gc.IsNil)
-}
-
-func (s *providerServiceSuite) TestWatchCloud(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	nw := watchertest.NewMockNotifyWatcher(nil)
-
-	s.state.EXPECT().WatchCloud(gomock.Any(), gomock.Any(), "cirrus").Return(nw, nil)
-
-	w, err := NewWatchableProviderService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(w, gc.NotNil)
 }

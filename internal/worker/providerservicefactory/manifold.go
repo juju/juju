@@ -28,11 +28,17 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to run a provider service
 // factory worker in a dependency.Engine.
 type ManifoldConfig struct {
-	ChangeStreamName                string
-	Logger                          Logger
-	NewWorker                       func(Config) (worker.Worker, error)
+	ChangeStreamName string
+	Logger           Logger
+	NewWorker        func(Config) (worker.Worker, error)
+
+	// NewProviderServiceFactoryGetter returns a new provider service factory
+	// getter, to select a provider service factory per model UUID.
 	NewProviderServiceFactoryGetter ProviderServiceFactoryGetterFn
-	NewProviderServiceFactory       ProviderServiceFactoryFn
+
+	// NewProviderServiceFactory returns a new provider service factory for
+	// the given model UUID.
+	NewProviderServiceFactory ProviderServiceFactoryFn
 }
 
 // ProviderServiceFactoryGetterFn is a function that returns a provider service
@@ -71,9 +77,7 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-// Manifold returns a dependency.Manifold that will run an apiserver
-// worker. The manifold outputs an *apiserverhttp.Mux, for other workers
-// to register handlers against.
+// Manifold returns a dependency.Manifold that will run an provider service.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -84,7 +88,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)

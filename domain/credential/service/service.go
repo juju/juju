@@ -30,6 +30,8 @@ type WatcherFactory interface {
 
 // State describes retrieval and persistence methods for credentials.
 type State interface {
+	ProviderState
+
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	// If the credential already exists, the existing credential's value of Invalid is returned.
 	UpsertCloudCredential(ctx context.Context, id corecredential.ID, credential credential.CloudCredentialInfo) (*bool, error)
@@ -41,22 +43,12 @@ type State interface {
 	// keyed by credential name.
 	CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]credential.CloudCredentialResult, error)
 
-	// CloudCredential returns the cloud credential for the given name, cloud, owner.
-	CloudCredential(ctx context.Context, id corecredential.ID) (credential.CloudCredentialResult, error)
-
 	// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 	// for a given owner.
 	AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.ID]credential.CloudCredentialResult, error)
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
 	RemoveCloudCredential(ctx context.Context, id corecredential.ID) error
-
-	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
-	WatchCredential(
-		ctx context.Context,
-		getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
-		id corecredential.ID,
-	) (watcher.NotifyWatcher, error)
 
 	// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
 	ModelsUsingCloudCredential(ctx context.Context, id corecredential.ID) (map[coremodel.UUID]string, error)
@@ -391,64 +383,6 @@ func (s *WatchableService) WithLegacyUpdater(updater func(tag names.CloudCredent
 func (s *WatchableService) WithLegacyRemover(remover func(tag names.CloudCredentialTag) error) *WatchableService {
 	s.legacyRemover = remover
 	return s
-}
-
-// ProviderService provides the API for working with clouds.
-// The provider service is a subset of the cloud service, and is used by the
-// provider package to interact with the cloud service. By not exposing the
-// full cloud service, the provider package is not able to modify the cloud
-// entities, only read them.
-type ProviderService struct {
-	st State
-}
-
-// NewProviderService returns a new service reference wrapping the input state.
-func NewProviderService(st State) *ProviderService {
-	return &ProviderService{
-		st: st,
-	}
-}
-
-// CloudCredential returns the cloud credential for the given tag.
-func (s *ProviderService) CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error) {
-	if err := id.Validate(); err != nil {
-		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
-	}
-	credInfo, err := s.st.CloudCredential(ctx, id)
-	if err != nil {
-		return cloud.Credential{}, errors.Trace(err)
-	}
-	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
-	cred.Invalid = credInfo.Invalid
-	cred.InvalidReason = credInfo.InvalidReason
-	return cred, nil
-}
-
-// WatchableProviderService provides the API for working with credentials and
-// the ability to create watchers.
-type WatchableProviderService struct {
-	ProviderService
-	watcherFactory WatcherFactory
-}
-
-// NewWatchableProviderService returns a new service reference wrapping the
-// input state.
-func NewWatchableProviderService(st State, watcherFactory WatcherFactory) *WatchableProviderService {
-	return &WatchableProviderService{
-		ProviderService: ProviderService{
-			st: st,
-		},
-		watcherFactory: watcherFactory,
-	}
-}
-
-// WatchCredential returns a watcher that observes changes to the specified
-// credential.
-func (s *WatchableProviderService) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
-	if err := id.Validate(); err != nil {
-		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
-	}
-	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, id)
 }
 
 func cloudCredentialFromCredentialResult(credInfo credential.CloudCredentialResult) cloud.Credential {
