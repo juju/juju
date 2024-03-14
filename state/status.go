@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/internal/mongo/utils"
 )
 
+var status_logger = loggo.GetLogger("juju.status")
+
 type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
 
 // ModelStatus holds all the current status values for a given model
@@ -264,6 +266,13 @@ type setStatusParams struct {
 	// badge is used to specialize any NotFound error emitted.
 	badge string
 
+	// statusKind is the kind of the entity for which the status is being set.
+	statusKind string
+
+	// statusId is the id of the entity for which the status is being set. It's
+	// not necessarily the same as the entity's Id().
+	statusId string
+
 	// globalKey uniquely identifies the entity to which the
 	globalKey string
 
@@ -319,7 +328,8 @@ func setStatus(db Database, params setStatusParams) (err error) {
 		historyDoc = params.historyOverwrite
 	}
 
-	newStatus, historyErr := probablyUpdateStatusHistory(db, params.globalKey, *historyDoc)
+	newStatus, historyErr := probablyUpdateStatusHistory(db,
+		params.statusKind, params.statusId, params.globalKey, *historyDoc)
 	if params.historyOverwrite == nil && (!newStatus && historyErr == nil) {
 		// If this status is not new (i.e. it is exactly the same as
 		// our last status), there is no need to update the record.
@@ -407,7 +417,8 @@ type recordedHistoricalStatusDoc struct {
 // we update that record to have a new timestamp.
 // Status messages are considered to be the same if they only differ in their timestamps.
 // The call returns true if a new status history record has been created.
-func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (bool, error) {
+func probablyUpdateStatusHistory(db Database,
+	statusKind string, statusId string, globalKey string, doc statusDoc) (bool, error) {
 	historyDoc := &historicalStatusDoc{
 		Status:     doc.Status,
 		StatusInfo: doc.StatusInfo,
@@ -415,6 +426,14 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (
 		Updated:    doc.Updated,
 		GlobalKey:  globalKey,
 	}
+
+	status_logger.InfoWithLabelsf("status update", map[string]string{
+		"domain": "status",
+		"kind":   statusKind,
+		"id":     statusId,
+		"value":  doc.Status.String(),
+	})
+
 	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()
 
