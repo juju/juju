@@ -112,3 +112,24 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	_, err = db.ExecContext(context.Background(), "UPDATE model SET name = 'new-name' WHERE uuid = $1", id)
 	c.Assert(err, gc.ErrorMatches, `model table is read-only`)
 }
+
+func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner)
+
+	// Ensure that you can't update it.
+
+	id := modeltesting.GenModelUUID(c)
+	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+		UUID:        id,
+		Name:        "my-awesome-model",
+		Type:        coremodel.IAAS,
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	db := s.DB()
+	_, err = db.ExecContext(context.Background(), "DELETE FROM model WHERE uuid = $1", id)
+	c.Assert(err, gc.ErrorMatches, `model table is immutable`)
+}

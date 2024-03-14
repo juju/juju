@@ -421,7 +421,10 @@ func (s *schemaSuite) TestModelChangeLogTriggers(c *gc.C) {
 
 	// These are additional triggers that are not change log triggers, but
 	// will be present in the schema.
-	additional := set.NewStrings("trg_readonly_model")
+	additional := set.NewStrings(
+		"trg_readonly_model_delete",
+		"trg_readonly_model_update",
+	)
 
 	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.Union(additional).SortedValues())
 }
