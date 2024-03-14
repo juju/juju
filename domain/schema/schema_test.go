@@ -211,6 +211,9 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"change_log_namespace",
 		"change_log_witness",
 
+		// Model
+		"model",
+
 		// Model config
 		"model_config",
 
@@ -415,7 +418,12 @@ func (s *schemaSuite) TestModelChangeLogTriggers(c *gc.C) {
 		"trg_log_storage_volume_update",
 		"trg_log_storage_volume_delete",
 	)
-	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.SortedValues())
+
+	// These are additional triggers that are not change log triggers, but
+	// will be present in the schema.
+	additional := set.NewStrings("trg_readonly_model")
+
+	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.Union(additional).SortedValues())
 }
 
 func (s *schemaSuite) assertChangeLogCount(c *gc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
