@@ -207,7 +207,7 @@ CREATE TABLE cloud_defaults (
     cloud_uuid TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT,
-    PRIMARY KEY (cloud_uuid, key)
+    PRIMARY KEY (cloud_uuid, key),
     CONSTRAINT chk_key_empty CHECK (key != ""),
     CONSTRAINT fk_cloud_uuid
         FOREIGN KEY (cloud_uuid)
@@ -222,7 +222,7 @@ CREATE TABLE cloud_auth_type (
         REFERENCES        cloud(uuid),
     CONSTRAINT        fk_cloud_auth_type_auth_type
         FOREIGN KEY       (auth_type_id)
-        REFERENCES        auth_type(id)
+        REFERENCES        auth_type(id),
     PRIMARY KEY (cloud_uuid, auth_type_id)
 );
 
@@ -263,7 +263,7 @@ CREATE TABLE cloud_ca_cert (
     ca_cert           TEXT NOT NULL,
     CONSTRAINT        fk_cloud_ca_cert_cloud
         FOREIGN KEY       (cloud_uuid)
-        REFERENCES        cloud(uuid)
+        REFERENCES        cloud(uuid),
     PRIMARY KEY (cloud_uuid, ca_cert)
 );
 
@@ -282,10 +282,10 @@ CREATE TABLE cloud_credential (
         CONSTRAINT chk_name_empty CHECK (name != ""),
         CONSTRAINT          fk_cloud_credential_cloud
             FOREIGN KEY         (cloud_uuid)
-            REFERENCES          cloud(uuid)
+            REFERENCES          cloud(uuid),
         CONSTRAINT          fk_cloud_credential_auth_type
             FOREIGN KEY         (auth_type_id)
-            REFERENCES          auth_type(id)
+            REFERENCES          auth_type(id),
         CONSTRAINT          fk_cloud_credential_user
             FOREIGN KEY         (owner_uuid)
             REFERENCES          user(uuid)
@@ -319,7 +319,7 @@ CREATE TABLE cloud_credential_attributes (
     cloud_credential_uuid TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT,
-    PRIMARY KEY (cloud_credential_uuid, key)
+    PRIMARY KEY (cloud_credential_uuid, key),
     CONSTRAINT chk_key_empty CHECK (key != ""),
     CONSTRAINT fk_cloud_credential_uuid
         FOREIGN KEY (cloud_credential_uuid)
@@ -400,7 +400,7 @@ CREATE TABLE model_metadata (
         REFERENCES            cloud_credential(uuid),
     CONSTRAINT            fk_model_metadata_model_type_id
         FOREIGN KEY           (model_type_id)
-        REFERENCES            model_type(id)
+        REFERENCES            model_type(id),
     CONSTRAINT            fk_model_metadata_owner_uuid
         FOREIGN KEY           (owner_uuid)
         REFERENCES            user(uuid)
