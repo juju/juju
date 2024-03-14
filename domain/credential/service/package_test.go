@@ -6,6 +6,8 @@ package service
 import (
 	"testing"
 
+	jujutesting "github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
 
@@ -14,4 +16,22 @@ import (
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
+}
+
+type baseSuite struct {
+	jujutesting.IsolationSuite
+
+	state          *MockState
+	validator      *MockCredentialValidator
+	watcherFactory *MockWatcherFactory
+}
+
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.validator = NewMockCredentialValidator(ctrl)
+	s.state = NewMockState(ctrl)
+	s.watcherFactory = NewMockWatcherFactory(ctrl)
+
+	return ctrl
 }

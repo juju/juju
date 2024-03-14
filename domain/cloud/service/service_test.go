@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -15,19 +14,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/watcher/watchertest"
 )
-
-type baseSuite struct {
-	testing.IsolationSuite
-	state          *MockState
-	watcherFactory *MockWatcherFactory
-}
-
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.state = NewMockState(ctrl)
-	s.watcherFactory = NewMockWatcherFactory(ctrl)
-	return ctrl
-}
 
 type serviceSuite struct {
 	baseSuite
@@ -74,34 +60,35 @@ func (s *serviceSuite) TestListAll(c *gc.C) {
 	clouds := []cloud.Cloud{{
 		Name: "fluffy",
 	}}
-	s.state.EXPECT().ListClouds(gomock.Any(), "").Return(clouds, nil)
+	s.state.EXPECT().ListClouds(gomock.Any()).Return(clouds, nil)
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).ListAll(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, clouds)
+	c.Check(result, jc.DeepEquals, clouds)
 }
 
 func (s *serviceSuite) TestCloud(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	one := cloud.Cloud{
+	one := &cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().ListClouds(gomock.Any(), "fluffy").Return([]cloud.Cloud{one}, nil)
+	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(one, nil)
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &one)
+	c.Check(result, jc.DeepEquals, one)
 }
 
 func (s *serviceSuite) TestCloudNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ListClouds(gomock.Any(), "fluffy").Return(nil, nil)
+	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(nil, errors.NotFoundf(`cloud "fluffy"`))
 
 	result, err := NewWatchableService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
 	c.Assert(err, gc.ErrorMatches, `cloud "fluffy" not found`)
-	c.Assert(result, gc.IsNil)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(result, gc.IsNil)
 }
 
 func (s *serviceSuite) TestWatchCloud(c *gc.C) {
@@ -113,5 +100,5 @@ func (s *serviceSuite) TestWatchCloud(c *gc.C) {
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Check(w, gc.NotNil)
 }

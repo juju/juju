@@ -96,3 +96,21 @@ type ServiceFactoryGetter interface {
 	// FactoryForModel returns a ServiceFactory for the given model.
 	FactoryForModel(modelUUID string) ServiceFactory
 }
+
+// ProviderServiceFactory provides access to the services required by the
+// provider.
+type ProviderServiceFactory interface {
+	// Cloud returns the cloud service.
+	Cloud() *cloudservice.WatchableProviderService
+	// Config returns the config service.
+	Config() *modelconfigservice.WatchableProviderService
+	// Credential returns the credential service.
+	Credential() *credentialservice.WatchableProviderService
+}
+
+// ProviderServiceFactoryGetter represents a way to get a ProviderServiceFactory
+// for a given model.
+type ProviderServiceFactoryGetter interface {
+	// FactoryForModel returns a ProviderServiceFactory for the given model.
+	FactoryForModel(modelUUID string) ProviderServiceFactory
+}

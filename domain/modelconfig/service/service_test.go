@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +19,7 @@ import (
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
 
 type serviceSuite struct {
+	jtesting.IsolationSuite
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -29,7 +31,9 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 }
 
 func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
-	ctx, _ := jujutesting.LongWaitContext()
+	ctx, cancel := jujutesting.LongWaitContext()
+	defer cancel()
+
 	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
 		return modeldefaults.Defaults{
 			"foo": modeldefaults.DefaultAttributeValue{
@@ -67,7 +71,7 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	cfg, err = svc.ModelConfig(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, map[string]any{
+	c.Check(cfg.AllAttrs(), jc.DeepEquals, map[string]any{
 		"name":           "wallyworld",
 		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 		"type":           "sometype",
@@ -81,7 +85,7 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	case <-ctx.Done():
 		c.Fatal(ctx.Err())
 	}
-	c.Assert(changes, jc.SameContents, []string{
+	c.Check(changes, jc.SameContents, []string{
 		"name", "uuid", "type", "foo", "secret-backend", "logging-config",
 	})
 }

@@ -92,13 +92,14 @@ import (
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	prworker "github.com/juju/juju/internal/worker/presence"
+	"github.com/juju/juju/internal/worker/providerservicefactory"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	psworker "github.com/juju/juju/internal/worker/pubsub"
 	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
-	workersf "github.com/juju/juju/internal/worker/servicefactory"
+	workerservicefactory "github.com/juju/juju/internal/worker/servicefactory"
 	"github.com/juju/juju/internal/worker/singular"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
@@ -717,14 +718,22 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		serviceFactoryName: workersf.Manifold(workersf.ManifoldConfig{
+		serviceFactoryName: workerservicefactory.Manifold(workerservicefactory.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
-			Logger:                      workersf.NewLogger("juju.worker.servicefactory"),
-			NewWorker:                   workersf.NewWorker,
-			NewServiceFactoryGetter:     workersf.NewServiceFactoryGetter,
-			NewControllerServiceFactory: workersf.NewControllerServiceFactory,
-			NewModelServiceFactory:      workersf.NewModelServiceFactory,
+			Logger:                      workerservicefactory.NewLogger("juju.worker.servicefactory"),
+			NewWorker:                   workerservicefactory.NewWorker,
+			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
+			NewControllerServiceFactory: workerservicefactory.NewControllerServiceFactory,
+			NewModelServiceFactory:      workerservicefactory.NewModelServiceFactory,
+		}),
+
+		providerServiceFactoryName: providerservicefactory.Manifold(providerservicefactory.ManifoldConfig{
+			ChangeStreamName:                changeStreamName,
+			Logger:                          providerservicefactory.NewLogger("juju.worker.providerservicefactory"),
+			NewWorker:                       providerservicefactory.NewWorker,
+			NewProviderServiceFactoryGetter: providerservicefactory.NewProviderServiceFactoryGetter,
+			NewProviderServiceFactory:       providerservicefactory.NewProviderServiceFactory,
 		}),
 
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
@@ -1325,6 +1334,7 @@ const (
 	leaseManagerName              = "lease-manager"
 	stateConverterName            = "state-converter"
 	serviceFactoryName            = "service-factory"
+	providerServiceFactoryName    = "provider-service-factory"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 	controllerAgentConfigName     = "controller-agent-config"

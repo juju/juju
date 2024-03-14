@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -23,24 +22,10 @@ import (
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
-
-	state          *MockState
-	validator      *MockCredentialValidator
-	watcherFactory *MockWatcherFactory
+	baseSuite
 }
 
 var _ = gc.Suite(&serviceSuite{})
-
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.validator = NewMockCredentialValidator(ctrl)
-	s.state = NewMockState(ctrl)
-	s.watcherFactory = NewMockWatcherFactory(ctrl)
-
-	return ctrl
-}
 
 func (s *serviceSuite) service() *WatchableService {
 	return NewWatchableService(s.state, s.watcherFactory, loggo.GetLogger("test"))
@@ -213,8 +198,6 @@ func (s *serviceSuite) TestWatchCredentialInvalidID(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid id watching cloud credential.*")
 }
 
-var invalid = true
-
 func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -226,6 +209,8 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 	}
 
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(nil, errors.NotFound)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, cred).Return(&invalid, nil)
 
 	var legacyUpdated bool
@@ -331,6 +316,8 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[coremodel.UUID]string{
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	contextError := errors.New("failed context")
@@ -371,6 +358,8 @@ func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[coremodel.UUID]string{
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), id, &cred, false).Return(nil, nil)
 
@@ -407,6 +396,8 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[coremodel.UUID]string{
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	validationError := errors.New("cred error")
@@ -512,6 +503,8 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *g
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666":    "anothermodel",
 	}, nil)
+
+	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	validationError := errors.New("cred error")

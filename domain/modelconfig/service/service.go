@@ -25,21 +25,10 @@ type ModelDefaultsProvider interface {
 	ModelDefaults(context.Context) (modeldefaults.Defaults, error)
 }
 
-// Service defines the service for interacting with ModelConfig.
-type Service struct {
-	defaultsProvider ModelDefaultsProvider
-	st               State
-}
-
 // State represents the state entity for accessing and setting per
 // model configuration values.
 type State interface {
-	// AllKeysQuery returns a SQL statement that will return all known model config
-	// keys.
-	AllKeysQuery() string
-
-	// ModelConfig returns the currently set config for the model.
-	ModelConfig(context.Context) (map[string]string, error)
+	ProviderState
 
 	// ModelConfigHasAttributes returns the set of attributes that model config
 	// currently has set out of the list supplied.
@@ -60,6 +49,12 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+}
+
+// Service defines the service for interacting with ModelConfig.
+type Service struct {
+	defaultsProvider ModelDefaultsProvider
+	st               State
 }
 
 // NewService creates a new ModelConfig service.
