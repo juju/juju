@@ -164,24 +164,34 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 
 		return f(runnerCtx)
 	})
-	runner.Go(func() error {
+
+	// We need to use a raw goroutine here, because the first tomb goroutine can
+	// potentially start and finish before the second one starts. This means
+	// that the attempt to run the second tomb goroutine will panic. This is
+	// non-recoverable. Utilizing a raw goroutine that it will spawn the
+	// goroutine, but if it has already finished we correctly handle the case
+	// and close it.
+	// I've only ever witnessed this in tests, but it's a possibility in the
+	// real world.
+	go func() {
 		defer cancel()
 
 		for {
 			select {
 			case <-w.tomb.Dying():
-				return nil
+				return
 			case <-runnerCtx.Done():
-				return nil
+				return
 
 			case <-w.clock.After(extender.Duration()):
 				// Attempt to extend the lock if the function is still running.
 				if err := extender.Extend(runnerCtx); err != nil {
-					return errors.Trace(err)
+					w.logger.Infof("failed to extend lock for %q: %v", hash, err)
+					return
 				}
 			}
 		}
-	})
+	}()
 
 	select {
 	case <-ctx.Done():
