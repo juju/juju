@@ -22,6 +22,11 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/cmd/jujud-controller/agent CommandRunner
 
+const (
+	// This is the address that the raft workers will use for the server.
+	serverAddress = "localhost:17070"
+)
+
 func TestPackage(t *stdtesting.T) {
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
