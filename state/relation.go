@@ -158,12 +158,14 @@ func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
 		}
 	}
 	return setStatus(r.st.db(), setStatusParams{
-		badge:     "relation",
-		globalKey: r.globalScope(),
-		status:    statusInfo.Status,
-		message:   statusInfo.Message,
-		rawData:   statusInfo.Data,
-		updated:   timeOrNow(statusInfo.Since, r.st.clock()),
+		badge:      "relation",
+		statusKind: relationKindPrefix,
+		statusId:   fmt.Sprint(r.Id()),
+		globalKey:  r.globalScope(),
+		status:     statusInfo.Status,
+		message:    statusInfo.Message,
+		rawData:    statusInfo.Data,
+		updated:    timeOrNow(statusInfo.Since, r.st.clock()),
 	})
 }
 
@@ -768,6 +770,9 @@ func (r *Relation) unit(
 		scope:       scope,
 	}, nil
 }
+
+// relationKindPrefix is the string we use to denote relation kind.
+const relationKindPrefix = "r#"
 
 // globalScope returns the scope prefix for relation scope document keys
 // in the global scope.

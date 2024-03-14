@@ -325,12 +325,14 @@ func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
 		return errors.Errorf("cannot set invalid status %q", volumeStatus.Status)
 	}
 	return setStatus(v.mb.db(), setStatusParams{
-		badge:     "volume",
-		globalKey: volumeGlobalKey(v.VolumeTag().Id()),
-		status:    volumeStatus.Status,
-		message:   volumeStatus.Message,
-		rawData:   volumeStatus.Data,
-		updated:   timeOrNow(volumeStatus.Since, v.mb.clock()),
+		badge:      "volume",
+		statusKind: volumeKindPrefix,
+		statusId:   v.VolumeTag().Id(),
+		globalKey:  volumeGlobalKey(v.VolumeTag().Id()),
+		status:     volumeStatus.Status,
+		message:    volumeStatus.Message,
+		rawData:    volumeStatus.Data,
+		updated:    timeOrNow(volumeStatus.Since, v.mb.clock()),
 	})
 }
 
@@ -1546,6 +1548,10 @@ func (sb *storageBackend) AllVolumes() ([]Volume, error) {
 	return volumesToInterfaces(volumes), nil
 }
 
+// volumeGlobalKey returns the global database key for the named volume.
 func volumeGlobalKey(name string) string {
-	return "v#" + name
+	return volumeKindPrefix + name
 }
+
+// volumeKindPrefix is the string we use to denote a volume kind.
+const volumeKindPrefix = "v#"

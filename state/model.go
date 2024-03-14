@@ -32,6 +32,9 @@ import (
 // settings and constraints.
 const modelGlobalKey = "e"
 
+// modelKindPrefix is the string we use to denote model kind.
+const modelKindPrefix = modelGlobalKey + "#"
+
 // modelKey will create the key for a given model using the modelGlobalKey.
 func modelKey(modelUUID string) string {
 	return fmt.Sprintf("%s#%s", modelGlobalKey, modelUUID)
@@ -368,7 +371,7 @@ func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGet
 		return nil, nil, errors.Trace(err)
 	}
 	if args.MigrationMode != MigrationModeImporting {
-		_, _ = probablyUpdateStatusHistory(newSt.db(), modelGlobalKey, modelStatusDoc)
+		_, _ = probablyUpdateStatusHistory(newSt.db(), modelKindPrefix, modelGlobalKey, modelGlobalKey, modelStatusDoc)
 	}
 
 	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
@@ -579,12 +582,14 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
 	}
 	return setStatus(m.st.db(), setStatusParams{
-		badge:     "model",
-		globalKey: m.globalKey(),
-		status:    sInfo.Status,
-		message:   sInfo.Message,
-		rawData:   sInfo.Data,
-		updated:   timeOrNow(sInfo.Since, m.st.clock()),
+		badge:      "model",
+		statusKind: modelKindPrefix,
+		statusId:   modelGlobalKey,
+		globalKey:  m.globalKey(),
+		status:     sInfo.Status,
+		message:    sInfo.Message,
+		rawData:    sInfo.Data,
+		updated:    timeOrNow(sInfo.Since, m.st.clock()),
 	})
 }
 

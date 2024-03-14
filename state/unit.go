@@ -190,6 +190,12 @@ func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
 
+// unitKindPrefix is the string we use to denote unit kind.
+const unitKindPrefix = "u#charm"
+
+// unitWorkloadVersionKindPrefix is the string we use to denote unit workload version kind.
+const unitWorkloadVersionKindPrefix = unitKindPrefix + "#sat#workload-version"
+
 // globalWorkloadVersionKey returns the global database key for the
 // workload version status key for this unit.
 func globalWorkloadVersionKey(name string) string {
@@ -244,11 +250,13 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	// stop a swarm of watchers being notified for irrelevant changes.
 	now := u.st.clock().Now()
 	return setStatus(u.st.db(), setStatusParams{
-		badge:     "workload",
-		globalKey: u.globalWorkloadVersionKey(),
-		status:    status.Active,
-		message:   version,
-		updated:   &now,
+		badge:      "workload",
+		statusKind: unitWorkloadVersionKindPrefix,
+		statusId:   u.Name(),
+		globalKey:  u.globalWorkloadVersionKey(),
+		status:     status.Active,
+		message:    version,
+		updated:    &now,
 	})
 }
 
@@ -490,7 +498,8 @@ func (op *UpdateUnitOperation) Done(err error) error {
 	// We can't include in the ops slice the necessary status history updates,
 	// so as with existing practice, do a best effort update of status history.
 	for key, doc := range op.setStatusDocs {
-		_, _ = probablyUpdateStatusHistory(op.unit.st.db(), key, doc)
+		_, _ = probablyUpdateStatusHistory(op.unit.st.db(),
+			unitKindPrefix, op.unit.Name(), key, doc)
 	}
 	return nil
 }
@@ -1481,6 +1490,8 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 
 	return setStatus(u.st.db(), setStatusParams{
 		badge:            "unit",
+		statusKind:       unitKindPrefix,
+		statusId:         u.Name(),
 		globalKey:        u.globalKey(),
 		status:           unitStatus.Status,
 		message:          unitStatus.Message,

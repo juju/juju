@@ -158,8 +158,11 @@ func (a *Application) ApplicationTag() names.ApplicationTag {
 // applicationGlobalKey returns the global database key for the application
 // with the given name.
 func applicationGlobalKey(appName string) string {
-	return "a#" + appName
+	return applicationKindPrefix + appName
 }
+
+// applicationKindPrefix is the string we use to denote application kind.
+const applicationKindPrefix = "a#"
 
 // globalKey returns the global database key for the application.
 func (a *Application) globalKey() string {
@@ -2533,9 +2536,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	_, _ = probablyUpdateStatusHistory(a.st.db(), globalKey, *unitStatusDoc)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), *workloadVersionDoc)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), unitKindPrefix, name, globalKey, *unitStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), unitWorkloadVersionKindPrefix, name, globalWorkloadVersionKey(name), *workloadVersionDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), unitAgentKindPrefix, name, agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
 }
 
@@ -3496,6 +3499,8 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 
 	return setStatus(a.st.db(), setStatusParams{
 		badge:            "application",
+		statusKind:       applicationKindPrefix,
+		statusId:         a.Name(),
 		globalKey:        a.globalKey(),
 		status:           statusInfo.Status,
 		message:          statusInfo.Message,
@@ -3517,12 +3522,14 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	}
 
 	err = setStatus(a.st.db(), setStatusParams{
-		badge:     "operator",
-		globalKey: applicationGlobalOperatorKey(a.Name()),
-		status:    sInfo.Status,
-		message:   sInfo.Message,
-		rawData:   sInfo.Data,
-		updated:   timeOrNow(sInfo.Since, a.st.clock()),
+		badge:      "operator",
+		statusKind: applicationKindPrefix,
+		statusId:   a.Name(),
+		globalKey:  applicationGlobalOperatorKey(a.Name()),
+		status:     sInfo.Status,
+		message:    sInfo.Message,
+		rawData:    sInfo.Data,
+		updated:    timeOrNow(sInfo.Since, a.st.clock()),
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -3537,7 +3544,8 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	}
 	if historyDoc != nil {
 		// rewriting application status history
-		_, err = probablyUpdateStatusHistory(a.st.db(), a.globalKey(), *historyDoc)
+		_, err = probablyUpdateStatusHistory(a.st.db(),
+			applicationKindPrefix, a.Name(), a.globalKey(), *historyDoc)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3870,7 +3878,9 @@ func (op *AddUnitOperation) Done(err error) error {
 			StatusData: mgoutils.EscapeKeys(op.props.CloudContainerStatus.Data),
 			Updated:    timeOrNow(op.props.CloudContainerStatus.Since, u.st.clock()).UnixNano(),
 		}
-		_, err := probablyUpdateStatusHistory(op.application.st.db(), globalCloudContainerKey(op.unitName), doc)
+		_, err := probablyUpdateStatusHistory(
+			op.application.st.db(), cloudContainerKindPrefix, op.unitName,
+			globalCloudContainerKey(op.unitName), doc)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3887,6 +3897,8 @@ func (op *AddUnitOperation) Done(err error) error {
 		if newHistory != nil {
 			err = setStatus(op.application.st.db(), setStatusParams{
 				badge:            "unit",
+				statusKind:       unitKindPrefix,
+				statusId:         op.unitName,
 				globalKey:        unitGlobalKey(op.unitName),
 				status:           unitStatus.Status,
 				message:          unitStatus.Message,
