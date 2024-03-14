@@ -524,11 +524,11 @@ func (s charmhubSeriesValidator) ValidateApplications(applications []Application
 	for _, resp := range refreshResp {
 		var found bool
 		for _, base := range resp.Entity.Bases {
-			track, err := corecharm.ChannelTrack(base.Channel)
+			channel, err := corebase.ParseChannel(base.Channel)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if channelToValidate == track || force {
+			if channelToValidate == channel.Track || force {
 				found = true
 				break
 			}

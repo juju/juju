@@ -466,6 +466,39 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 	})
 }
 
+func (s *RefreshConfigSuite) TestRefreshOneWithBaseChannelRiskBuild(c *gc.C) {
+	id := "foo"
+	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04/stable",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	req, err := config.Build()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{{
+			InstanceKey: "instance-key",
+			ID:          "foo",
+			Revision:    1,
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
+				Architecture: arch.DefaultArchitecture,
+			},
+			TrackingChannel: "latest/stable",
+		}},
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "refresh",
+			InstanceKey: "instance-key",
+			ID:          &id,
+		}},
+		Fields: expRefreshFields,
+	})
+
+}
+
 func (s *RefreshConfigSuite) TestRefreshOneBuildInstanceKeyCompatibility(c *gc.C) {
 	id := "foo"
 	config, err := RefreshOne("", id, 1, "latest/stable", RefreshBase{
