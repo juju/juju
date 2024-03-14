@@ -35,6 +35,7 @@ func ModelDDL() *schema.Schema {
 		lifeSchema,
 		changeLogSchema,
 		changeLogModelNamespaceSchema,
+		modelSchema,
 		modelConfigSchema,
 		objectStoreMetadataSchema,
 		applicationSchema,
@@ -155,6 +156,37 @@ INSERT INTO change_log_namespace VALUES
     (14, 'secret_unit_consumer', 'Secret unit consumer current revision changes based on UUID'),
     (15, 'secret_remote_application_consumer', 'Secret remote application consumer current revision changes based on UUID'),
     (16, 'secret_remote_unit_consumer', 'Secret remote unit consumer current revision changes based on UUID');
+`)
+}
+
+func modelSchema() schema.Patch {
+	return schema.MakePatch(`
+-- The model table represents a readonly denormalised model data. The intended
+-- use is to provide a read-only view of the model data for the purpose of
+-- accessing common model data without the need to span multiple databases.
+CREATE TABLE model (
+    uuid            TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    type            TEXT NOT NULL,
+    cloud           TEXT NOT NULL,
+    cloud_region    TEXT NOT NULL
+);
+
+-- A unique constraint over a constant index ensures only 1 entry matching the
+-- condition can exist.
+CREATE UNIQUE INDEX idx_singleton_model ON model ((1));
+
+-- The model table is read-only, so we create a trigger to prevent updates.
+CREATE TRIGGER trg_readonly_model_update
+BEFORE UPDATE ON model
+BEGIN
+    SELECT RAISE(abort, 'model table is read-only');
+END;
+CREATE TRIGGER trg_readonly_model_delete
+BEFORE DELETE ON model
+BEGIN
+    SELECT RAISE(abort, 'model table is immutable');
+END;
 `)
 }
 

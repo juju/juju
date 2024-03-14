@@ -263,6 +263,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			controllerModelCreateFunc,
 		),
 		database.BootstrapModelConcern(controllerModelUUID,
+			modelbootstrap.CreateReadOnlyModel(controllerModelArgs.AsReadOnly()),
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 		),
 	}

@@ -29,7 +29,7 @@ func (b *BaseOperation) Execute(context.Context, description.Model) error {
 }
 
 // Rollback is a no-op by default.
-func (b *BaseOperation) Rollback(context.Context) error {
+func (b *BaseOperation) Rollback(context.Context, description.Model) error {
 	return nil
 }
 
@@ -54,7 +54,7 @@ type Operation interface {
 	// Rollback should only be called on controller DB operations. The
 	// model DB operations are not rolled back, but instead we remove the
 	// db, clearing the model.
-	Rollback(context.Context) error
+	Rollback(context.Context, description.Model) error
 }
 
 // Scope is a collection of database txn runners that can be used by the
@@ -121,7 +121,7 @@ func (m *Coordinator) Perform(ctx context.Context, scope Scope, model descriptio
 	defer func() {
 		if err != nil {
 			for ; current >= 0; current-- {
-				if rollbackErr := m.operations[current].Rollback(ctx); rollbackErr != nil {
+				if rollbackErr := m.operations[current].Rollback(ctx, model); rollbackErr != nil {
 					err = errors.Annotatef(err, "rollback operation at %d with %v", current, rollbackErr)
 				}
 			}

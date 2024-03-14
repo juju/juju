@@ -12,7 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	. "gopkg.in/check.v1"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
@@ -43,7 +43,7 @@ type serviceSuite struct {
 	state     *dummyState
 }
 
-var _ = Suite(&serviceSuite{})
+var _ = gc.Suite(&serviceSuite{})
 
 func (d *dummyState) Create(
 	_ context.Context,
@@ -157,7 +157,7 @@ func (d *dummyState) UpdateCredential(
 	return nil
 }
 
-func (s *serviceSuite) SetUpTest(c *C) {
+func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.modelUUID = modeltesting.GenModelUUID(c)
 	var err error
 	s.userUUID, err = user.NewUUID()
@@ -169,13 +169,13 @@ func (s *serviceSuite) SetUpTest(c *C) {
 	}
 }
 
-func (s *serviceSuite) TestCreateModelInvalidArgs(c *C) {
+func (s *serviceSuite) TestCreateModelInvalidArgs(c *gc.C) {
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
 	_, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestModelCreation(c *C) {
+func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -205,16 +205,16 @@ func (s *serviceSuite) TestModelCreation(c *C) {
 
 	// Test that because we have not specified an agent version that the current
 	// controller version is chosen.
-	c.Check(args.AgentVersion, Equals, jujuversion.Current)
+	c.Check(args.AgentVersion, gc.Equals, jujuversion.Current)
 
 	modelList, err := svc.ModelList(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelList, DeepEquals, []coremodel.UUID{
+	c.Check(modelList, gc.DeepEquals, []coremodel.UUID{
 		id,
 	})
 }
 
-func (s *serviceSuite) TestModelCreationInvalidCloud(c *C) {
+func (s *serviceSuite) TestModelCreationInvalidCloud(c *gc.C) {
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
 	_, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
@@ -227,7 +227,7 @@ func (s *serviceSuite) TestModelCreationInvalidCloud(c *C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *serviceSuite) TestModelCreationNoCloudRegion(c *C) {
+func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Regions: []string{"myregion"},
 	}
@@ -246,7 +246,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *C) {
 
 // TestModelCreationOwnerNotFound is testing that if we make a model with an
 // owner that doesn't exist we get back a [usererrors.NotFound] error.
-func (s *serviceSuite) TestModelCreationOwnerNotFound(c *C) {
+func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.ID{},
 		Regions:     []string{"myregion"},
@@ -267,7 +267,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *C) {
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
-func (s *serviceSuite) TestModelCreationNoCloudCredential(c *C) {
+func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.ID{},
 		Regions:     []string{"myregion"},
@@ -290,7 +290,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *C) {
+func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.ID{},
 		Regions:     []string{"myregion"},
@@ -318,7 +318,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *C) {
+func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
@@ -330,7 +330,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *serviceSuite) TestUpdateModelCredential(c *C) {
+func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
@@ -359,7 +359,7 @@ func (s *serviceSuite) TestUpdateModelCredential(c *C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialReplace(c *C) {
+func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
@@ -395,7 +395,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *C) {
+func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
@@ -424,7 +424,7 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *C) {
+func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
@@ -465,7 +465,7 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *C) {
+func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
@@ -500,7 +500,7 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *serviceSuite) TestDeleteModel(c *C) {
+func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -533,7 +533,7 @@ func (s *serviceSuite) TestDeleteModel(c *C) {
 	c.Assert(exists, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestDeleteModelNotFound(c *C) {
+func (s *serviceSuite) TestDeleteModelNotFound(c *gc.C) {
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
 	err := svc.DeleteModel(context.Background(), s.modelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
@@ -542,7 +542,7 @@ func (s *serviceSuite) TestDeleteModelNotFound(c *C) {
 // TestAgentVersionUnsupportedGreater is asserting that if we try and create a
 // model with an agent version that is greater then that of the controller the
 // operation fails with a [modelerrors.AgentVersionNotSupported] error.
-func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *C) {
+func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Name:  "foobar",
@@ -579,7 +579,7 @@ func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *C) {
 // model with an agent version that is less then that of the controller the
 // operation fails with a [modelerrors.AgentVersionNotSupported] error. This
 // fails because find tools will report [errors.NotFound].
-func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *C) {
+func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 	cred := credential.ID{
 		Cloud: "aws",
 		Name:  "foobar",
