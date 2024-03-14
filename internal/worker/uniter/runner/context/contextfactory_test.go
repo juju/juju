@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -31,7 +32,7 @@ type ContextFactorySuite struct {
 	paths      runnertesting.RealPaths
 	factory    context.ContextFactory
 	membership map[int][]string
-	modelType  model.ModelType
+	modelType  types.ModelType
 }
 
 var _ = gc.Suite(&ContextFactorySuite{})
@@ -40,14 +41,14 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.BaseHookContextSuite.SetUpTest(c)
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
-	s.modelType = model.IAAS
+	s.modelType = types.IAAS
 }
 
 func (s *ContextFactorySuite) setupContextFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
 	s.unit.EXPECT().PrincipalName().Return("", false, nil)
-	s.uniter.EXPECT().Model(gomock.Any()).Return(&model.Model{
+	s.uniter.EXPECT().Model(gomock.Any()).Return(&types.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
 		ModelType: s.modelType,
@@ -208,7 +209,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.modelType = model.CAAS
+	s.modelType = types.CAAS
 	s.setupContextFactory(c, ctrl)
 
 	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{

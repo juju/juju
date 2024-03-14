@@ -10,8 +10,8 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/credential"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"

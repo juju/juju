@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/bootstrap"

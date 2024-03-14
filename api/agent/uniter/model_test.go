@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -44,9 +44,9 @@ func (s *modelSuite) TestModel(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	m, err := client.Model(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, &model.Model{
+	c.Assert(m, jc.DeepEquals, &types.Model{
 		Name:      "mary",
 		UUID:      "deadbeaf",
-		ModelType: model.CAAS,
+		ModelType: types.CAAS,
 	})
 }

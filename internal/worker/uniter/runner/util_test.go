@@ -22,7 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/network"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner"
@@ -106,10 +106,10 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
 	s.unit.EXPECT().PrincipalName().Return("", false, nil).AnyTimes()
-	s.uniter.EXPECT().Model(stdcontext.Background()).Return(&model.Model{
+	s.uniter.EXPECT().Model(stdcontext.Background()).Return(&types.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
-		ModelType: model.IAAS,
+		ModelType: types.IAAS,
 	}, nil).AnyTimes()
 	s.uniter.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
 	s.uniter.EXPECT().APIAddresses().Return([]string{"10.6.6.6"}, nil).AnyTimes()

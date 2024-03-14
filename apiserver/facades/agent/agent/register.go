@@ -9,8 +9,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/credential"
 )
 
 // Register is called to expose a package of facades onto a given registry.

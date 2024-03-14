@@ -10,10 +10,10 @@ import (
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	coreuser "github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/model/service"

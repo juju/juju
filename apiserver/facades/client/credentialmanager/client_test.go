@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )

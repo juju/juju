@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
+	corecredential "github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -35,7 +36,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
-func credentialKeyMap(id credential.ID) sqlair.M {
+func credentialKeyMap(id corecredential.ID) sqlair.M {
 	return sqlair.M{
 		"credential_name": id.Name,
 		"cloud_name":      id.Cloud,
@@ -43,7 +44,7 @@ func credentialKeyMap(id credential.ID) sqlair.M {
 	}
 }
 
-func (st *State) credentialUUID(ctx context.Context, tx *sqlair.TX, id credential.ID) (string, error) {
+func (st *State) credentialUUID(ctx context.Context, tx *sqlair.TX, id corecredential.ID) (string, error) {
 	selectQ := `
 SELECT &M.uuid
 FROM v_cloud_credential
@@ -72,7 +73,7 @@ AND cloud_name = $M.cloud_name
 //
 // If the owner of the credential can't be found then an error satisfying
 // [usererrors.NotFound] will be returned.
-func (st *State) UpsertCloudCredential(ctx context.Context, id credential.ID, credential credential.CloudCredentialInfo) (*bool, error) {
+func (st *State) UpsertCloudCredential(ctx context.Context, id corecredential.ID, credential credential.CloudCredentialInfo) (*bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -131,7 +132,7 @@ AND owner_name = $M.owner
 
 // CreateCredential saves the specified credential.
 // Exported for use in the related credential bootstrap package.
-func CreateCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, id credential.ID, credential credential.CloudCredentialInfo) error {
+func CreateCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, id corecredential.ID, credential credential.CloudCredentialInfo) error {
 	if err := upsertCredential(ctx, tx, credentialUUID, id, credential); err != nil {
 		return errors.Annotatef(err, "creating credential %s", credentialUUID)
 	}
@@ -141,7 +142,7 @@ func CreateCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string,
 	return nil
 }
 
-func upsertCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, id credential.ID, credential credential.CloudCredentialInfo) error {
+func upsertCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, id corecredential.ID, credential credential.CloudCredentialInfo) error {
 	dbCredential, err := dbCredentialFromCredential(ctx, tx, credentialUUID, id, credential)
 	if err != nil {
 		return errors.Trace(err)
@@ -231,7 +232,7 @@ ON CONFLICT(cloud_credential_uuid, key) DO UPDATE SET key=excluded.key,
 //
 // If no user is found for the credential owner then an error satisfying
 // [usererrors.NotFound] will be returned.
-func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, id credential.ID, credential credential.CloudCredentialInfo) (*Credential, error) {
+func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, id corecredential.ID, credential credential.CloudCredentialInfo) (*Credential, error) {
 	cred := &Credential{
 		ID:            credentialUUID,
 		Name:          id.Name,
@@ -299,7 +300,7 @@ WHERE  cloud.name = $Cloud.name
 }
 
 // InvalidateCloudCredential marks a cloud credential with the given name, cloud and owner. as invalid.
-func (st *State) InvalidateCloudCredential(ctx context.Context, id credential.ID, reason string) error {
+func (st *State) InvalidateCloudCredential(ctx context.Context, id corecredential.ID, reason string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -370,7 +371,7 @@ func (st *State) CloudCredentialsForOwner(ctx context.Context, owner, cloudName 
 }
 
 // CloudCredential returns the cloud credential for the given details.
-func (st *State) CloudCredential(ctx context.Context, id credential.ID) (credential.CloudCredentialResult, error) {
+func (st *State) CloudCredential(ctx context.Context, id corecredential.ID) (credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return credential.CloudCredentialResult{}, errors.Trace(err)
@@ -451,17 +452,17 @@ FROM   cloud_credential cc
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[credential.ID]credential.CloudCredentialResult, error) {
+func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.ID]credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	result := make(map[credential.ID]credential.CloudCredentialResult)
+	result := make(map[corecredential.ID]credential.CloudCredentialResult)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		infos, err := st.loadCloudCredentials(ctx, tx, "", "", owner)
 		for _, info := range infos {
-			result[credential.ID{
+			result[corecredential.ID{
 				Cloud: info.CloudName,
 				Owner: owner,
 				Name:  info.Label,
@@ -479,7 +480,7 @@ func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) 
 }
 
 // RemoveCloudCredential removes a cloud credential with the given name, cloud and owner..
-func (st *State) RemoveCloudCredential(ctx context.Context, id credential.ID) error {
+func (st *State) RemoveCloudCredential(ctx context.Context, id corecredential.ID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -522,7 +523,7 @@ WHERE  cloud_credential.uuid = $M.uuid
 func (st *State) WatchCredential(
 	ctx context.Context,
 	getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
-	id credential.ID,
+	id corecredential.ID,
 ) (watcher.NotifyWatcher, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -543,7 +544,7 @@ func (st *State) WatchCredential(
 }
 
 // ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
-func (st *State) ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[coremodel.UUID]string, error) {
+func (st *State) ModelsUsingCloudCredential(ctx context.Context, id corecredential.ID) (map[coremodel.UUID]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)

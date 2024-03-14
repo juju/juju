@@ -11,10 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	usererrors "github.com/juju/juju/domain/user/errors"
@@ -54,6 +55,68 @@ func (s *State) Create(
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return Create(ctx, uuid, input, tx)
 	})
+}
+
+// Get returns the model associated with the provided uuid.
+// If the model does not exist then an error satisfying modelerrors.NotFound
+// will be returned.
+func (s *State) Get(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
+	db, err := s.DB()
+	if err != nil {
+		return coremodel.Model{}, errors.Trace(err)
+	}
+
+	modelStmt := `
+SELECT md.name, cl.name, cr.name, mt.type, u.uuid, cc.cloud_uuid, cc.name, o.name, ccn.name
+FROM model_metadata AS md
+LEFT JOIN model_list ml ON ml.uuid = md.model_uuid
+LEFT JOIN cloud cl ON cl.uuid = md.cloud_uuid
+LEFT JOIN cloud_region cr ON cr.uuid = md.cloud_region_uuid
+LEFT JOIN cloud_credential cc ON cc.uuid = md.cloud_credential_uuid
+LEFT JOIN model_type mt ON mt.id = md.model_type_id
+LEFT JOIN user u ON u.uuid = md.owner_uuid
+LEFT JOIN user o ON o.uuid = cc.owner_uuid
+LEFT JOIN cloud ccn ON ccn.uuid = cc.cloud_uuid
+WHERE md.model_uuid = ?
+`
+
+	var model coremodel.Model
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, modelStmt, uuid)
+
+		var (
+			modelType string
+			userUUID  string
+			cloudUUID string
+			credID    credential.ID
+		)
+		if err := row.Scan(
+			&model.Name,
+			&model.Cloud,
+			&model.CloudRegion,
+			&modelType,
+			&userUUID,
+			&cloudUUID,
+			&credID.Name,
+			&credID.Owner,
+			&credID.Cloud,
+		); err != nil {
+			return errors.Annotatef(err, "getting model %q", uuid)
+		}
+		if err := row.Err(); err != nil {
+			return errors.Trace(err)
+		}
+
+		model.ModelType = coremodel.ModelType(modelType)
+		model.Owner = user.UUID(userUUID)
+		model.Credential = credID
+
+		return row.Err()
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return coremodel.Model{}, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+	}
+	return model, errors.Trace(err)
 }
 
 // Create is responsible for creating a new model from start to finish. It will

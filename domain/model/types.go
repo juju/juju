@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/credential"
 )
 
 // ModelCreationArgs supplies the information required for instantiating a new

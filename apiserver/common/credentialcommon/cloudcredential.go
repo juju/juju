@@ -12,7 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )

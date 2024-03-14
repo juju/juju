@@ -14,10 +14,10 @@ import (
 	"github.com/juju/version/v2"
 	. "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	usererrors "github.com/juju/juju/domain/user/errors"
@@ -31,7 +31,7 @@ type dummyStateCloud struct {
 
 type dummyState struct {
 	clouds map[string]dummyStateCloud
-	models map[coremodel.UUID]model.ModelCreationArgs
+	models map[coremodel.UUID]coremodel.Model
 	users  set.Strings
 }
 
@@ -85,8 +85,28 @@ func (d *dummyState) Create(
 		}
 	}
 
-	d.models[uuid] = args
+	d.models[uuid] = coremodel.Model{
+		AgentVersion: args.AgentVersion,
+		Name:         args.Name,
+		UUID:         uuid,
+		ModelType:    args.Type,
+		Cloud:        args.Cloud,
+		CloudRegion:  args.CloudRegion,
+		Credential:   args.Credential,
+		Owner:        args.Owner,
+	}
 	return nil
+}
+
+func (d *dummyState) Get(
+	_ context.Context,
+	uuid coremodel.UUID,
+) (coremodel.Model, error) {
+	info, exists := d.models[uuid]
+	if !exists {
+		return coremodel.Model{}, fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+	}
+	return info, nil
 }
 
 func (d *dummyState) Delete(
@@ -144,7 +164,7 @@ func (s *serviceSuite) SetUpTest(c *C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = &dummyState{
 		clouds: map[string]dummyStateCloud{},
-		models: map[coremodel.UUID]model.ModelCreationArgs{},
+		models: map[coremodel.UUID]coremodel.Model{},
 		users:  set.NewStrings(s.userUUID.String()),
 	}
 }

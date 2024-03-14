@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -123,11 +124,18 @@ func NewContextFactory(ctx context.Context, config FactoryConfig) (ContextFactor
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Convert the API model type to the internal model type.
+	modelType := model.ModelType(m.ModelType)
+	if !modelType.IsValid() {
+		return nil, errors.Errorf("invalid model type: %q", m.ModelType)
+	}
+
 	var (
 		machineTag names.MachineTag
 		zone       string
 	)
-	if m.ModelType == model.IAAS {
+	if m.ModelType == types.IAAS {
 		machineTag, err = config.Unit.AssignedMachine()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -164,7 +172,7 @@ func NewContextFactory(ctx context.Context, config FactoryConfig) (ContextFactor
 		clock:                config.Clock,
 		zone:                 zone,
 		principal:            principal,
-		modelType:            m.ModelType,
+		modelType:            modelType,
 	}
 	return f, nil
 }

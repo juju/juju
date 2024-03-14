@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -69,7 +69,7 @@ type CredentialValidator interface {
 	Validate(
 		ctx stdcontext.Context,
 		validationContext CredentialValidationContext,
-		credentialID credential.ID,
+		credentialID corecredential.ID,
 		credential *cloud.Credential,
 		checkCloudInstances bool,
 	) ([]error, error)
@@ -87,7 +87,7 @@ func NewCredentialValidator() CredentialValidator {
 func (v defaultCredentialValidator) Validate(
 	ctx stdcontext.Context,
 	validationContext CredentialValidationContext,
-	id credential.ID,
+	id corecredential.ID,
 	cred *cloud.Credential,
 	checkCloudInstances bool,
 ) (machineErrors []error, err error) {
@@ -211,7 +211,7 @@ var (
 )
 
 func (v defaultCredentialValidator) buildOpenParams(
-	ctx CredentialValidationContext, credentialID credential.ID, credential *cloud.Credential,
+	ctx CredentialValidationContext, credentialID corecredential.ID, credential *cloud.Credential,
 ) (environs.OpenParams, error) {
 	fail := func(original error) (environs.OpenParams, error) {
 		return environs.OpenParams{}, original
@@ -238,7 +238,7 @@ func (v defaultCredentialValidator) buildOpenParams(
 // name against the provided cloud definition and credentials.
 func (v defaultCredentialValidator) validateCloudCredential(
 	cld cloud.Cloud,
-	credentialID credential.ID,
+	credentialID corecredential.ID,
 ) error {
 	if !credentialID.IsZero() {
 		if credentialID.Cloud != cld.Name {

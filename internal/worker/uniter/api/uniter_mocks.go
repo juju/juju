@@ -15,8 +15,8 @@ import (
 	time "time"
 
 	uniter "github.com/juju/juju/api/agent/uniter"
+	types "github.com/juju/juju/api/types"
 	application "github.com/juju/juju/core/application"
-	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
@@ -225,10 +225,10 @@ func (mr *MockUniterClientMockRecorder) LeadershipSettings() *gomock.Call {
 }
 
 // Model mocks base method.
-func (m *MockUniterClient) Model(arg0 context.Context) (*model.Model, error) {
+func (m *MockUniterClient) Model(arg0 context.Context) (*types.Model, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model", arg0)
-	ret0, _ := ret[0].(*model.Model)
+	ret0, _ := ret[0].(*types.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -15,9 +15,9 @@ import (
 
 	cloud "github.com/juju/juju/apiserver/facades/client/cloud"
 	cloud0 "github.com/juju/juju/cloud"
+	credential "github.com/juju/juju/core/credential"
 	permission "github.com/juju/juju/core/permission"
 	watcher "github.com/juju/juju/core/watcher"
-	credential "github.com/juju/juju/domain/credential"
 	service "github.com/juju/juju/domain/credential/service"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"

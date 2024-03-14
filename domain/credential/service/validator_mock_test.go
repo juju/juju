@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	cloud "github.com/juju/juju/cloud"
-	credential "github.com/juju/juju/domain/credential"
+	credential "github.com/juju/juju/core/credential"
 	gomock "go.uber.org/mock/gomock"
 )
 

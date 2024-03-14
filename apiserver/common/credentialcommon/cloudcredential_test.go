@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
-	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/rpc/params"
 )
 

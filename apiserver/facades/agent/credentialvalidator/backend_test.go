@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/state"
 )
 

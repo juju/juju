@@ -10,8 +10,8 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
@@ -28,7 +28,7 @@ type UniterClient interface {
 	ActionStatus(ctx context.Context, tag names.ActionTag) (string, error)
 	Relation(ctx context.Context, tag names.RelationTag) (Relation, error)
 	RelationById(context.Context, int) (Relation, error)
-	Model(context.Context) (*model.Model, error)
+	Model(context.Context) (*types.Model, error)
 	ModelConfig(context.Context) (*config.Config, error)
 	UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error)
 	StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error)

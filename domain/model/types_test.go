@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/credential"
 )
 
 type typesSuite struct {
