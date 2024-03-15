@@ -239,7 +239,7 @@ func (s *State) ListSecretBackends(ctx context.Context) (backends []*secretbacke
 SELECT b.uuid, b.name, b.backend_type, b.token_rotate_interval, c.name, c.content
 FROM secret_backend b
 LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
-ORDER BY b.uuid`[1:]
+ORDER BY b.name`[1:]
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
@@ -248,10 +248,7 @@ ORDER BY b.uuid`[1:]
 		}
 		defer rows.Close()
 
-		var (
-			lastID         string
-			currentBackend *secretbackend.SecretBackendInfo
-		)
+		var currentBackend *secretbackend.SecretBackendInfo
 		for rows.Next() {
 			var (
 				backend             secretbackend.SecretBackendInfo
@@ -268,10 +265,9 @@ ORDER BY b.uuid`[1:]
 				backend.TokenRotateInterval = &tokenRotateInterval.Duration
 			}
 
-			if currentBackend == nil || backend.ID != lastID {
+			if currentBackend == nil || currentBackend.ID != backend.ID {
 				// Encountered a new backend.
 				currentBackend = &backend
-				lastID = backend.ID
 				backends = append(backends, currentBackend)
 			}
 
@@ -440,6 +436,8 @@ func (w *secretBackendRotateWatcher) loop() (err error) {
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
+			w.logger.Debugf("received secret backend rotation changes: %v", backendIDs)
+
 			var err error
 			changes, err = w.processChanges(ctx, backendIDs...)
 			if err != nil {
@@ -455,8 +453,6 @@ func (w *secretBackendRotateWatcher) loop() (err error) {
 }
 
 func (w *secretBackendRotateWatcher) processChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error) {
-	w.logger.Debugf("processing secret backend rotation changes for: %v", backendIDs)
-
 	placeholders, values := database.SliceToPlaceholder(backendIDs)
 	q := fmt.Sprintf(`
 SELECT b.uuid, b.name, r.next_rotation_time

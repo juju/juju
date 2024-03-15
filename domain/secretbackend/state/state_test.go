@@ -531,9 +531,6 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	backends, err := s.state.ListSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.HasLen, 2)
-	sort.Slice(backends, func(i, j int) bool {
-		return backends[i].Name < backends[j].Name
-	})
 	c.Assert(backends, gc.DeepEquals, []*secretbackend.SecretBackendInfo{
 		{
 			SecretBackend: coresecrets.SecretBackend{
