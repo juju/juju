@@ -575,7 +575,18 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	if factory.applicationService != nil {
-		err = factory.applicationService.CreateApplication(context.Background(), params.Name, applicationservice.AddApplicationParams{})
+		cons := make(map[string]storage.Constraints)
+		for name, sc := range params.Storage {
+			cons[name] = storage.Constraints{
+				Pool:  sc.Pool,
+				Size:  sc.Size,
+				Count: sc.Count,
+			}
+		}
+		err = factory.applicationService.CreateApplication(context.Background(), params.Name, applicationservice.AddApplicationParams{
+			Charm:   params.Charm,
+			Storage: cons,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

@@ -41,13 +41,14 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	return NewFacade(
 		resources,
 		authorizer,
 		systemState,
 		&stateShim{State: st},
 		serviceFactory.ControllerConfig(),
-		serviceFactory.Application(),
+		serviceFactory.Application(registry),
 		broker,
 		ctx.StatePool().Clock(),
 		ctx.Logger().Child("caasapplication"),

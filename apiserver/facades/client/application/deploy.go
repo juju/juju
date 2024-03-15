@@ -79,6 +79,7 @@ type MachineService interface {
 type ApplicationService interface {
 	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
 	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+	UpdateApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
@@ -146,6 +147,7 @@ func DeployApplication(
 		asa.Constraints = args.Constraints
 	}
 
+	// TODO(dqlite) - remove mongo AddApplication call.
 	// To ensure dqlite unit names match those created in mongo, grab the next unit
 	// sequence number before writing the mongo units.
 	nextUnitNum, err := st.ReadSequence(args.ApplicationName)
@@ -158,8 +160,13 @@ func DeployApplication(
 		unitArgs[i].UnitName = &n
 	}
 	app, err := st.AddApplication(asa, store)
+
+	// Dual write storage constraints to dqlite.
 	if err == nil {
-		err = applicationService.CreateApplication(ctx, args.ApplicationName, applicationservice.AddApplicationParams{}, unitArgs...)
+		err = applicationService.CreateApplication(ctx, args.ApplicationName, applicationservice.AddApplicationParams{
+			Charm:   args.Charm,
+			Storage: args.Storage,
+		}, unitArgs...)
 	}
 	return app, errors.Trace(err)
 }

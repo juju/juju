@@ -323,6 +323,11 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm:   ch,
+		Storage: nil,
+	}).Return(nil)
+
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl,
@@ -350,6 +355,11 @@ func (s *ApplicationSuite) TestSetCharmEverything(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app.EXPECT().UpdateApplicationConfig(coreconfig.ConfigAttributes{"trust": true}, nil, schemaFields, defaults)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm:   ch,
+		Storage: nil,
+	}).Return(nil)
 
 	err = s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName:    "postgresql",
@@ -407,6 +417,12 @@ func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
 	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm:   ch,
+		Storage: nil,
+	}).Return(nil)
+
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl,
@@ -458,6 +474,16 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm: ch,
+		Storage: map[string]storage.Constraints{
+			"a": {},
+			"b": {Pool: "radiant"},
+			"c": {Size: 123},
+			"d": {Count: 456},
+		},
+	}).Return(nil)
 
 	toUint64Ptr := func(v uint64) *uint64 {
 		return &v
@@ -533,6 +559,11 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm:   ch,
+		Storage: nil,
+	}).Return(nil)
+
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
@@ -577,6 +608,11 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm:   ch,
+		Storage: nil,
+	}).Return(nil)
+
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl,
@@ -615,6 +651,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
+
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm:   ch,
+		Storage: nil,
+	}).Return(nil)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
@@ -668,6 +709,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
+
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm:   ch,
+		Storage: nil,
+	}).Return(nil)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
@@ -750,6 +796,11 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().SetCharm(gomock.Any(), gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
+		Charm:   ch,
+		Storage: nil,
+	}).Return(nil)
 
 	// Try to upgrade the charm
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{

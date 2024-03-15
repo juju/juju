@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainstorage "github.com/juju/juju/domain/storage"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -143,7 +144,7 @@ func (s *stateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.DeleteApplication(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, applicationerrors.HasUnits)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationHasUnits)
 	c.Assert(err, gc.ErrorMatches, `.*cannot delete application "666" as it still has 1 unit\(s\)`)
 
 	var appCount int
@@ -196,5 +197,28 @@ func (s *stateSuite) TestAddUnitsMissingApplication(c *gc.C) {
 		UnitName: ptr("foo/666"),
 	}
 	err := s.state.AddUnits(context.Background(), "666", u)
-	c.Assert(err, jc.ErrorIs, applicationerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestStorageDefaultsNone(c *gc.C) {
+	defaults, err := s.state.StorageDefaults(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaults, jc.DeepEquals, domainstorage.StorageDefaults{})
+}
+
+func (s *stateSuite) TestStorageDefaults(c *gc.C) {
+	db := s.DB()
+	_, err := db.ExecContext(context.Background(), "INSERT INTO model_config (key, value) VALUES (?, ?)",
+		"storage-default-block-source", "ebs-fast")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.ExecContext(context.Background(), "INSERT INTO model_config (key, value) VALUES (?, ?)",
+		"storage-default-filesystem-source", "elastic-fs")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaults, err := s.state.StorageDefaults(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaults, jc.DeepEquals, domainstorage.StorageDefaults{
+		DefaultBlockSource:      ptr("ebs-fast"),
+		DefaultFilesystemSource: ptr("elastic-fs"),
+	})
 }

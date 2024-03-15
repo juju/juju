@@ -67,6 +67,8 @@ import (
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
 	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
@@ -533,17 +535,45 @@ func (s *ApiServerSuite) StatePool() *state.StatePool {
 
 // NewFactory returns a factory for the given model.
 func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory, func() bool) {
+	var (
+		st       *state.State
+		model    *state.Model
+		releaser func() bool
+		err      error
+	)
 	if modelUUID == s.ServiceFactorySuite.ControllerModelUUID.String() {
-		st, err := s.controller.SystemState()
+		st, err = s.controller.SystemState()
 		c.Assert(err, jc.ErrorIsNil)
-		return factory.NewFactory(st, s.controller.StatePool()).
-				WithApplicationService(s.ServiceFactoryGetter(c).FactoryForModel(modelUUID).Application()),
-			func() bool { return true }
+		model = s.ControllerModel(c)
+		releaser = func() bool { return true }
+	} else {
+		pooledSt, err := s.controller.GetState(names.NewModelTag(modelUUID))
+		c.Assert(err, jc.ErrorIsNil)
+		releaser = pooledSt.Release
+		st = pooledSt.State
+		model, err = st.Model()
+		c.Assert(err, jc.ErrorIsNil)
 	}
-	st, err := s.controller.GetState(names.NewModelTag(modelUUID))
-	c.Assert(err, jc.ErrorIsNil)
-	return factory.NewFactory(st.State, s.controller.StatePool()).
-		WithApplicationService(s.ServiceFactoryGetter(c).FactoryForModel(modelUUID).Application()), st.Release
+
+	modelServiceFactory := s.ServiceFactoryGetter(c).FactoryForModel(modelUUID)
+	var registry storage.ProviderRegistry
+	if model.Type() == state.ModelTypeIAAS {
+		registry = storage.ChainedProviderRegistry{
+			dummy.StorageProviders(),
+			provider.CommonStorageProviders(),
+		}
+	} else {
+		registry = storage.ChainedProviderRegistry{
+			storage.StaticProviderRegistry{
+				Providers: map[storage.ProviderType]storage.Provider{
+					"kubernetes": &dummy.StorageProvider{},
+				},
+			},
+			provider.CommonStorageProviders(),
+		}
+	}
+	return factory.NewFactory(st, s.controller.StatePool()).
+		WithApplicationService(modelServiceFactory.Application(registry)), releaser
 }
 
 // ControllerModelUUID returns the controller model uuid.

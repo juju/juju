@@ -261,7 +261,9 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	unitName := bootstrap.ControllerApplicationName + "/0"
 	s.application.EXPECT().Name().Return(bootstrap.ControllerApplicationName)
 	s.stateBackend.EXPECT().Unit(unitName).Return(s.unit, nil)
-	s.applicationService.EXPECT().CreateApplication(gomock.Any(), bootstrap.ControllerApplicationName, applicationservice.AddApplicationParams{}, applicationservice.AddUnitParams{UnitName: &unitName})
+	s.applicationService.EXPECT().CreateApplication(gomock.Any(), bootstrap.ControllerApplicationName, applicationservice.AddApplicationParams{
+		Charm: s.charm,
+	}, applicationservice.AddUnitParams{UnitName: &unitName})
 
 	deployer := s.newBaseDeployer(c, cfg)
 

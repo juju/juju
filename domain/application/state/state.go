@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coredb "github.com/juju/juju/core/database"
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storagestate "github.com/juju/juju/domain/storage/state"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -40,8 +43,8 @@ func NewState(factory coredb.TxnRunnerFactory, logger Logger) *State {
 // UpsertApplication creates or updates the specified application,
 // also adding any units if specified.
 // TODO - this just creates a minimal row for now.
-func (s *State) UpsertApplication(ctx context.Context, name string, units ...application.AddUnitParams) error {
-	db, err := s.DB()
+func (st *State) UpsertApplication(ctx context.Context, name string, units ...application.AddUnitParams) error {
+	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -105,8 +108,8 @@ VALUES ($M.application_uuid, $M.name, $M.life_id)
 }
 
 // DeleteApplication deletes the specified application.
-func (s *State) DeleteApplication(ctx context.Context, name string) error {
-	db, err := s.DB()
+func (st *State) DeleteApplication(ctx context.Context, name string) error {
+	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -153,11 +156,11 @@ func (s *State) DeleteApplication(ctx context.Context, name string) error {
 		}
 		numUnits, _ := result["count"].(int64)
 		if numUnits > 0 {
-			return fmt.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, errors.Hide(applicationerrors.HasUnits))
+			return fmt.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, errors.Hide(applicationerrors.ApplicationHasUnits))
 		}
 
 		if err := tx.Query(ctx, deleteApplicationStmt, appNameParam).Run(); err != nil {
-			return errors.Annotatef(err, "deleting application %q", name)
+			return errors.Trace(err)
 		}
 		return nil
 	})
@@ -166,8 +169,8 @@ func (s *State) DeleteApplication(ctx context.Context, name string) error {
 
 // AddUnits adds the specified units to the application.
 // TODO - this just creates a minimal row for now.
-func (s *State) AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitParams) error {
-	db, err := s.DB()
+func (st *State) AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitParams) error {
+	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,7 +240,7 @@ VALUES ($M.unit_uuid, $M.net_node_uuid, $M.unit_id, $M.life_id, $M.application_u
 			}
 		}
 		if len(result) == 0 {
-			return fmt.Errorf("application %q not found%w", applicationName, errors.Hide(applicationerrors.NotFound))
+			return fmt.Errorf("application %q not found%w", applicationName, errors.Hide(applicationerrors.ApplicationNotFound))
 		}
 		applicationUUID := result["uuid"].(string)
 
@@ -276,4 +279,53 @@ VALUES ($M.unit_uuid, $M.net_node_uuid, $M.unit_id, $M.life_id, $M.application_u
 		return nil
 	}, nil
 
+}
+
+// StorageDefaults returns the default storage sources for a model.
+func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error) {
+	rval := domainstorage.StorageDefaults{}
+
+	db, err := st.DB()
+	if err != nil {
+		return rval, errors.Trace(err)
+	}
+
+	attrs := []string{application.StorageDefaultBlockSourceKey, application.StorageDefaultFilesystemSourceKey}
+	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
+	stmt, err := sqlair.Prepare(`
+SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
+`, sqlair.S{}, KeyValue{})
+	if err != nil {
+		return rval, errors.Trace(err)
+	}
+
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var values []KeyValue
+		err := tx.Query(ctx, stmt, attrsSlice).GetAll(&values)
+		if err != nil {
+			return fmt.Errorf("getting model config attrs for storage defaults: %w", err)
+		}
+
+		for _, kv := range values {
+			switch k := kv.Key; k {
+			case application.StorageDefaultBlockSourceKey:
+				v := fmt.Sprint(kv.Value)
+				rval.DefaultBlockSource = &v
+			case application.StorageDefaultFilesystemSourceKey:
+				v := fmt.Sprint(kv.Value)
+				rval.DefaultFilesystemSource = &v
+			}
+		}
+		return nil
+	})
+}
+
+// GetStoragePoolByName returns the storage pool with the specified name, returning an error
+// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
+func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
+	db, err := st.DB()
+	if err != nil {
+		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
+	}
+	return storagestate.GetStoragePoolByName(ctx, db, name)
 }

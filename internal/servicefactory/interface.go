@@ -72,8 +72,8 @@ type ModelServiceFactory interface {
 	Machine() *machineservice.Service
 	// BlockDevice returns the block device service.
 	BlockDevice() *blockdeviceservice.WatchableService
-	// Application returns the machine service.
-	Application() *applicationservice.Service
+	// Application returns the application service.
+	Application(registry storage.ProviderRegistry) *applicationservice.Service
 	// Unit returns the machine service.
 	Unit() *unitservice.Service
 	// Space returns the space service.

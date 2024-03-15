@@ -116,6 +116,20 @@ func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockApplicationService)(nil).CreateApplication), varargs...)
 }
 
+// UpdateApplicationCharm mocks base method.
+func (m *MockApplicationService) UpdateApplicationCharm(arg0 context.Context, arg1 string, arg2 service.UpdateCharmParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApplicationCharm", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateApplicationCharm indicates an expected call of UpdateApplicationCharm.
+func (mr *MockApplicationServiceMockRecorder) UpdateApplicationCharm(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationCharm", reflect.TypeOf((*MockApplicationService)(nil).UpdateApplicationCharm), arg0, arg1, arg2)
+}
+
 // MockStoragePoolGetter is a mock of StoragePoolGetter interface.
 type MockStoragePoolGetter struct {
 	ctrl     *gomock.Controller

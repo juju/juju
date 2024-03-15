@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -125,21 +126,23 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	stateCharm := CharmToStateCharm
 	serviceFactory := ctx.ServiceFactory()
 
-	var (
-		storagePoolGetter StoragePoolGetter
-		registry          storage.ProviderRegistry
-		caasBroker        caas.Broker
+	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
+		m, serviceFactory.Cloud(), serviceFactory.Credential(),
+		stateenvirons.GetNewEnvironFunc(environs.New),
+		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 	)
-	modelType := model.Type()
-	if modelType == state.ModelTypeCAAS {
+	if err != nil {
+		return nil, errors.Annotate(err, "getting storage provider registry")
+	}
+	storagePoolGetter := serviceFactory.Storage(registry)
+
+	var caasBroker caas.Broker
+	if model.Type() == state.ModelTypeCAAS {
 		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
-		registry = stateenvirons.NewStorageProviderRegistry(caasBroker)
-		storagePoolGetter = serviceFactory.Storage(registry)
 	}
-
 	resources := ctx.Resources()
 
 	leadershipReader, err := ctx.LeadershipReader()
@@ -181,7 +184,8 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		state:              state,
 		storagePoolGetter:  storagePoolGetter,
 	}
-	repoDeploy := NewDeployFromRepositoryAPI(state, serviceFactory.Application(), ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
+	applicationService := serviceFactory.Application(registry)
+	repoDeploy := NewDeployFromRepositoryAPI(state, applicationService, ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
 
 	return NewAPIBase(
 		state,
@@ -195,7 +199,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
-		serviceFactory.Application(),
+		applicationService,
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
@@ -1103,6 +1107,7 @@ func (api *APIBase) applicationSetCharm(
 		logger.Warningf("proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
 	}
 
+	//
 	force := params.Force
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(newCharm),
@@ -1127,9 +1132,30 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
-	// TODO(wallyworld) - do in a single transaction
+	// TODO(dqlite) - remove SetCharm (replaced below with UpdateApplicationCharm).
 	if err := params.Application.SetCharm(cfg, api.store); err != nil {
 		return errors.Annotate(err, "updating charm config")
+	}
+
+	var storageConstraints map[string]storage.Constraints
+	if len(params.StorageConstraints) > 0 {
+		storageConstraints = make(map[string]storage.Constraints)
+		for name, cons := range params.StorageConstraints {
+			sc := storage.Constraints{Pool: cons.Pool}
+			if cons.Size != nil {
+				sc.Size = *cons.Size
+			}
+			if cons.Count != nil {
+				sc.Count = *cons.Count
+			}
+			storageConstraints[name] = sc
+		}
+	}
+	if err := api.applicationService.UpdateApplicationCharm(ctx, params.AppName, applicationservice.UpdateCharmParams{
+		Charm:   newCharm,
+		Storage: storageConstraints,
+	}); err != nil {
+		return errors.Annotatef(err, "updating charm for application %q", params.AppName)
 	}
 	if attr := appConfig.Attributes(); len(attr) > 0 {
 		return params.Application.UpdateApplicationConfig(attr, nil, appSchema, appDefaults)

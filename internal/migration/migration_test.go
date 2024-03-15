@@ -296,7 +296,7 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.serviceFactory.EXPECT().Cloud().Return(nil).AnyTimes()
 	s.serviceFactory.EXPECT().Credential().Return(nil).AnyTimes()
 	s.serviceFactory.EXPECT().Machine().Return(nil)
-	s.serviceFactory.EXPECT().Application().Return(nil)
+	s.serviceFactory.EXPECT().Application(gomock.Any()).Return(nil)
 	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
 	s.serviceFactoryGetter.EXPECT().FactoryForModel("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6").Return(s.serviceFactory)
 
