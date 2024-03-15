@@ -43,6 +43,27 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 }
 
+func (s *stateSuite) TestNullableDuration(c *gc.C) {
+	nd := NullableDuration{Duration: 10 * time.Second, Valid: true}
+	v, err := nd.Value()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(v, gc.Equals, int64(10*time.Second))
+
+	nd = NullableDuration{Duration: 0, Valid: false}
+	v, err = nd.Value()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(v, gc.IsNil)
+
+	err = nd.Scan("10s")
+	c.Assert(err, gc.ErrorMatches, `cannot scan type string into NullableDuration`)
+	c.Assert(nd.Valid, jc.IsFalse)
+
+	err = nd.Scan(int64(20 * time.Second))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nd.Duration, gc.Equals, 20*time.Second)
+	c.Assert(nd.Valid, jc.IsTrue)
+}
+
 func (s *stateSuite) TestGetModel(c *gc.C) {
 	// We need to generate a user in the database so that we can set the model
 	// owner.
