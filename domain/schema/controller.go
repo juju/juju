@@ -383,7 +383,8 @@ CREATE TABLE model_metadata (
     cloud_uuid            TEXT NOT NULL,
     cloud_region_uuid     TEXT,
     cloud_credential_uuid TEXT,
-    model_type_id         INT,
+    secret_backend_uuid   TEXT,
+    model_type_id         INT NOT NULL,
     name                  TEXT NOT NULL,
     owner_uuid            TEXT NOT NULL,
     CONSTRAINT            fk_model_metadata_model
@@ -398,6 +399,10 @@ CREATE TABLE model_metadata (
     CONSTRAINT            fk_model_metadata_cloud_credential
         FOREIGN KEY           (cloud_credential_uuid)
         REFERENCES            cloud_credential(uuid),
+    CONSTRAINT            fk_model_metadata_secret_backend
+        FOREIGN KEY           (secret_backend_uuid)
+        REFERENCES            secret_backend(uuid)
+        ON DELETE SET NULL, -- TODO: !!!Or should we "ON DELETE SET DEFAULT" and default to "auto|internal"?
     CONSTRAINT            fk_model_metadata_model_type_id
         FOREIGN KEY           (model_type_id)
         REFERENCES            model_type(id)
