@@ -159,12 +159,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := NewWorker(cfg)
 			if err != nil {
 				config.PrometheusRegisterer.Unregister(metricsCollector)
+				controllerConfigWatcher.Unsubscribe()
 				return nil, errors.Trace(err)
 			}
 			return common.NewCleanupWorker(w, func() {
 				// Clean up the metrics for the worker, so the next time a
 				// worker is created we can safely register the metrics again.
 				config.PrometheusRegisterer.Unregister(metricsCollector)
+				controllerConfigWatcher.Unsubscribe()
 			}), nil
 		},
 	}
