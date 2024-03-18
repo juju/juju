@@ -424,21 +424,6 @@ CREATE TABLE charm_storage (
 
 CREATE INDEX idx_charm_storage_charm
 ON charm_storage (charm_uuid);
-
-CREATE TABLE charm_storage_property (
-    charm_uuid   TEXT NOT NULL,
-    storage_name TEXT NOT NULL,
-    property     TEXT NOT NULL,
-    CONSTRAINT       fk_charm_storage_property_charm_storage
-        FOREIGN KEY  (charm_uuid, storage_name)
-        REFERENCES   charm_storage(charm_uuid, name),
-    PRIMARY KEY (charm_uuid, storage_name, property)
-);
-
--- Note that this is not unique; it speeds access by charm storage.
-CREATE INDEX idx_charm_storage_property
-ON charm_storage_property (charm_uuid, storage_name);
-
 `)
 }
 
@@ -631,18 +616,18 @@ INSERT INTO storage_kind VALUES
     (0, 'block', 'Allows for the creation of raw storage volumes'), 
     (1, 'filesystem', 'Provides a hierarchical file storage system');
 
--- This table stores storage constraint values for each named storage item
+-- This table stores storage directive values for each named storage item
 -- defined by the application's current charm. If the charm is updated, then
 -- so too will be the rows in this table to reflect the current charm's
 -- storage definitions.
-CREATE TABLE application_storage_constraint (
+CREATE TABLE application_storage_directive (
     application_uuid TEXT NOT NULL,
     charm_uuid       TEXT NOT NULL,
     storage_name     TEXT NOT NULL,
     -- These attributes are filled in by sourcing data from:
     -- user supplied, model config, charm config, opinionated fallbacks.
     -- By the time the row is written, all values are known.
-    -- Constraint value types (pool, size, count) hitherto have
+    -- Directive value attributes (pool, size, count) hitherto have
     -- been fixed (since first implemented). We don't envisage
     -- any change to how these are modelled.
     --
@@ -655,34 +640,34 @@ CREATE TABLE application_storage_constraint (
     storage_pool TEXT NOT NULL,
     size         INT  NOT NULL,
     count        INT  NOT NULL,
-    CONSTRAINT       fk_application_storage_constraint_application
+    CONSTRAINT       fk_application_storage_directive_application
         FOREIGN KEY  (application_uuid)
         REFERENCES   application(uuid),
-    CONSTRAINT       fk_application_storage_constraint_charm_storage
+    CONSTRAINT       fk_application_storage_directive_charm_storage
         FOREIGN KEY  (charm_uuid, storage_name)
         REFERENCES   charm_storage(charm_uuid, name),
     PRIMARY KEY (application_uuid, charm_uuid, storage_name)
 );
 
 -- Note that this is not unique; it speeds access by application.
-CREATE INDEX idx_application_storage_constraint
-ON application_storage_constraint (application_uuid);
+CREATE INDEX idx_application_storage_directive
+ON application_storage_directive (application_uuid);
 
--- This table stores storage constraint values for each named storage item
+-- This table stores storage directive values for each named storage item
 -- defined by the unit's current charm. If the charm is updated, then
 -- so too will be the rows in this table to reflect the current charm's
 -- storage definitions.
--- Note: usually we just get the storage constraints off the application
+-- Note: usually we just get the storage directives off the application
 -- but need to allow for a unit's charm to temporarily diverge from that
 -- of its application.
-CREATE TABLE unit_storage_constraint (
+CREATE TABLE unit_storage_directive (
     unit_uuid    TEXT NOT NULL,
     charm_uuid   TEXT NOT NULL,
     storage_name TEXT NOT NULL,
     -- These attributes are filled in by sourcing data from:
     -- user supplied, model config, charm config, opinionated fallbacks.
     -- By the time the row is written, all values are known.
-    -- Constraint value types (pool, size, count) hitherto have
+    -- Directive value attributes (pool, size, count) hitherto have
     -- been fixed (since first implemented). We don't envisage
     -- any change to how these are modelled.
     --
@@ -695,15 +680,15 @@ CREATE TABLE unit_storage_constraint (
     storage_pool TEXT NOT NULL,
     size         INT  NOT NULL,
     count        INT  NOT NULL,
-    CONSTRAINT       fk_unit_storage_constraint_charm_storage
+    CONSTRAINT       fk_unit_storage_directive_charm_storage
         FOREIGN KEY  (charm_uuid, storage_name)
         REFERENCES   charm_storage(charm_uuid, name),
     PRIMARY KEY (unit_uuid, charm_uuid, storage_name)
 );
 
 -- Note that this is not unique; it speeds access by unit.
-CREATE INDEX idx_unit_storage_constraint
-ON unit_storage_constraint (unit_uuid);
+CREATE INDEX idx_unit_storage_directive
+ON unit_storage_directive (unit_uuid);
 
 CREATE TABLE storage_instance (
     uuid            TEXT PRIMARY KEY,

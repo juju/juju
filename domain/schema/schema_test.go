@@ -232,7 +232,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Charm
 		"charm",
 		"charm_storage",
-		"charm_storage_property",
 
 		// Spaces
 		"space",
@@ -262,8 +261,8 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"storage_instance",
 		"storage_unit_owner",
 		"storage_attachment",
-		"application_storage_constraint",
-		"unit_storage_constraint",
+		"application_storage_directive",
+		"unit_storage_directive",
 		"storage_volume",
 		"storage_instance_volume",
 		"storage_volume_attachment",
