@@ -357,8 +357,8 @@ func (s *stateSuite) ensureCharm(c *gc.C, url, uuid string) {
 func (s *stateSuite) ensureStorage(c *gc.C, name, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO storage_instance (uuid, storage_kind_id, name, life_id)
-		VALUES (?, ?, ?, ?)`, uuid, "0", name, "0")
+		INSERT INTO storage_instance (uuid, storage_kind_id, storage_pool, name, life_id)
+		VALUES (?, ?, ?, ?, ?)`, uuid, "0", "loop", name, "0")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
