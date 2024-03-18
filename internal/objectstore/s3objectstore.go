@@ -274,9 +274,6 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 }
 
 func (t *s3ObjectStore) loop() error {
-	// Report the initial started state.
-	t.reportInternalState(stateStarted)
-
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
 		return errors.Annotatef(err, "ensuring file store directories exist")
@@ -326,6 +323,9 @@ func (t *s3ObjectStore) loop() error {
 		// If we allow draining, then we can attempt to use the file accessor.
 		fileFallback = useFileAccessor
 	}
+
+	// Report the initial started state.
+	t.reportInternalState(stateStarted)
 
 	// Sequence the get request with the put, remove requests.
 	for {
