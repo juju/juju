@@ -232,6 +232,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		permission.ControllerForAccess(permission.SuperuserAccess),
 	)
 
+	controllerUUID := model.UUID(
+		stateParams.ControllerConfig.ControllerUUID(),
+	)
 	controllerModelUUID := model.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
@@ -260,7 +263,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		controllerModelCreateFunc,
-		modelbootstrap.CreateReadOnlyModel(controllerModelArgs),
+		modelbootstrap.CreateReadOnlyModel(controllerModelArgs, controllerUUID),
 		modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 	}
 	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)

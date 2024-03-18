@@ -10,6 +10,7 @@ import (
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -17,6 +18,8 @@ import (
 	usererrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
 	userstate "github.com/juju/juju/domain/access/state"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -68,6 +71,13 @@ type Logger interface {
 	Debugf(string, ...interface{})
 }
 
+// ControllerConfigService defines the controller config service used for model
+// migration.
+type ControllerConfigService interface {
+	// ControllerConfig returns the config values for the controller.
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // importOperation implements the steps to import models from another controller
 // into the current controller. importOperation assumes that data related to the
 // model such as cloud credentials and users have already been imported or
@@ -75,9 +85,10 @@ type Logger interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	modelService         ModelService
-	readOnlyModelService ReadOnlyModelService
-	userService          UserService
+	modelService            ModelService
+	readOnlyModelService    ReadOnlyModelService
+	userService             UserService
+	controllerConfigService ControllerConfigService
 
 	logger Logger
 }
@@ -93,6 +104,9 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		modelstate.NewModelState(scope.ModelDB()),
 	)
 	i.userService = userservice.NewService(userstate.NewState(scope.ControllerDB(), i.logger))
+	i.controllerConfigService = controllerconfigservice.NewService(
+		controllerconfigstate.NewState(scope.ControllerDB()),
+	)
 	return nil
 }
 
@@ -139,6 +153,17 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		UUID:         coremodel.UUID(uuid),
 	}
 
+	controllerConfig, err := i.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return fmt.Errorf(
+			"importing model %q with uuid %q during migration, getting controller uuid: %w",
+			modelName, uuid, err,
+		)
+	}
+
+	// NOTE: Try to get all things that can fail before creating the model in
+	// the database.
+
 	createdModelUUID, err := i.modelService.CreateModel(ctx, args)
 	if err != nil {
 		return fmt.Errorf(
@@ -153,6 +178,11 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		)
 	}
 
+	// When importing a model, we need to move the model from the prior
+	// controller to the current controller. This is done, during the import
+	// operation, so it never changes once the model is up and running.
+	controllerUUID := coremodel.UUID(controllerConfig.ControllerUUID())
+
 	modelType, err := i.modelService.ModelType(ctx, createdModelUUID)
 	if err != nil {
 		return fmt.Errorf(
@@ -162,7 +192,7 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	}
 
 	// If the model is read only, we need to create a read only model.
-	err = i.readOnlyModelService.CreateModel(ctx, args.AsReadOnly(modelType))
+	err = i.readOnlyModelService.CreateModel(ctx, args.AsReadOnly(controllerUUID, modelType))
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",

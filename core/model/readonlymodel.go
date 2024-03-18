@@ -10,6 +10,9 @@ type ReadOnlyModel struct {
 	// UUID represents the model UUID.
 	UUID UUID
 
+	// ControllerUUID represents the controller UUID.
+	ControllerUUID UUID
+
 	// Name is the name of the model.
 	Name string
 

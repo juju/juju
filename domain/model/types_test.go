@@ -126,6 +126,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 func (*typesSuite) TestModelToReadOnlyModel(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	userUUID := usertesting.GenUserUUID(c)
+	controllerUUID := modeltesting.GenModelUUID(c)
 
 	args := ModelCreationArgs{
 		UUID:        modelUUID,
@@ -140,9 +141,10 @@ func (*typesSuite) TestModelToReadOnlyModel(c *gc.C) {
 		Owner: userUUID,
 	}
 
-	model := args.AsReadOnly(coremodel.IAAS)
+	model := args.AsReadOnly(controllerUUID, coremodel.IAAS)
 	c.Check(model, gc.DeepEquals, ReadOnlyModelCreationArgs{
 		UUID:            modelUUID,
+		ControllerUUID:  controllerUUID,
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,
 		Cloud:           "my-cloud",
@@ -155,6 +157,7 @@ func (*typesSuite) TestModelToReadOnlyModel(c *gc.C) {
 func (*typesSuite) TestReadOnlyModelCreationArgsValidation(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	userUUID := usertesting.GenUserUUID(c)
+	controllerUUID := modeltesting.GenModelUUID(c)
 
 	tests := []struct {
 		Args    ModelCreationArgs
@@ -246,7 +249,7 @@ func (*typesSuite) TestReadOnlyModelCreationArgsValidation(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("testing: %d %v", i, test.Args)
 
-		err := test.Args.AsReadOnly(coremodel.CAAS).Validate()
+		err := test.Args.AsReadOnly(controllerUUID, coremodel.CAAS).Validate()
 		if test.ErrTest == nil {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

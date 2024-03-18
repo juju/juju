@@ -22,13 +22,15 @@ import (
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type importSuite struct {
-	modelService         *MockModelService
-	readOnlyModelService *MockReadOnlyModelService
-	userService          *MockUserService
+	modelService            *MockModelService
+	readOnlyModelService    *MockReadOnlyModelService
+	userService             *MockUserService
+	controllerConfigService *MockControllerConfigService
 }
 
 var _ = gc.Suite(&importSuite{})
@@ -39,6 +41,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelService = NewMockModelService(ctrl)
 	s.readOnlyModelService = NewMockReadOnlyModelService(ctrl)
 	s.userService = NewMockUserService(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	return ctrl
 }
@@ -124,6 +127,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		},
 		nil,
 	)
+	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	args := model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
@@ -140,7 +144,10 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	}
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
 	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(coremodel.IAAS)).Return(nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
+		coremodel.UUID(testing.ControllerTag.Id()),
+		coremodel.IAAS,
+	)).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -161,9 +168,10 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	})
 
 	importOp := &importOperation{
-		userService:          i.userService,
-		modelService:         i.modelService,
-		readOnlyModelService: i.readOnlyModelService,
+		userService:             i.userService,
+		modelService:            i.modelService,
+		controllerConfigService: i.controllerConfigService,
+		readOnlyModelService:    i.readOnlyModelService,
 	}
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
@@ -183,6 +191,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		},
 		nil,
 	)
+	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	args := model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
@@ -199,7 +208,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	}
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
 	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(coremodel.IAAS)).Return(errors.New("boom"))
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
+		coremodel.UUID(testing.ControllerTag.Id()),
+		coremodel.IAAS,
+	)).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
@@ -221,9 +233,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	})
 
 	importOp := &importOperation{
-		userService:          i.userService,
-		modelService:         i.modelService,
-		readOnlyModelService: i.readOnlyModelService,
+		userService:             i.userService,
+		modelService:            i.modelService,
+		controllerConfigService: i.controllerConfigService,
+		readOnlyModelService:    i.readOnlyModelService,
 	}
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))

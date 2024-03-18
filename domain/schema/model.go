@@ -168,6 +168,7 @@ func modelSchema() schema.Patch {
 -- accessing common model data without the need to span multiple databases.
 CREATE TABLE model (
     uuid             TEXT PRIMARY KEY,
+    controller_uuid  TEXT NOT NULL,
     name             TEXT NOT NULL,
     type             TEXT NOT NULL,
     cloud            TEXT NOT NULL,

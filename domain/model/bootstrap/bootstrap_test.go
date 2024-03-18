@@ -121,6 +121,7 @@ func (s *modelBootstrapSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
+	controllerUUID := modeltesting.GenModelUUID(c)
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	args := model.ModelCreationArgs{
@@ -141,7 +142,7 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateReadOnlyModel(args)
+	fn = CreateReadOnlyModel(args, controllerUUID)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -75,7 +75,10 @@ func (m ModelCreationArgs) Validate() error {
 // AsReadOnly returns a ReadOnlyModelCreationArgs struct that is a copy of the
 // ModelCreationArgs struct. This is useful when you want to create a model
 // within the model database.
-func (m ModelCreationArgs) AsReadOnly(modelType coremodel.ModelType) ReadOnlyModelCreationArgs {
+func (m ModelCreationArgs) AsReadOnly(
+	controllerUUID coremodel.UUID,
+	modelType coremodel.ModelType,
+) ReadOnlyModelCreationArgs {
 	var (
 		credOwner string
 		credName  string
@@ -87,6 +90,7 @@ func (m ModelCreationArgs) AsReadOnly(modelType coremodel.ModelType) ReadOnlyMod
 
 	return ReadOnlyModelCreationArgs{
 		UUID:            m.UUID,
+		ControllerUUID:  controllerUUID,
 		Name:            m.Name,
 		Type:            modelType,
 		Cloud:           m.Cloud,
@@ -104,6 +108,10 @@ type ReadOnlyModelCreationArgs struct {
 	// value is optional and if omitted will be generated for the caller. Use
 	// this value when you are trying to import a model during model migration.
 	UUID coremodel.UUID
+
+	// ControllerUUID represents the unique id for the controller that the model
+	// is associated with.
+	ControllerUUID coremodel.UUID
 
 	// Name is the name of the model.
 	// Must not be empty for a valid struct.
