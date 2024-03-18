@@ -410,6 +410,21 @@ type recordedHistoricalStatusDoc struct {
 	StatusData map[string]interface{} `bson:"statusdata"`
 }
 
+// logStatusUpdate sends the status update to the status logger.
+//
+// The "idle" status for the machine-lxd-profile is omitted from the status log,
+// since only the applied or error statuses are useful in that case.
+func logStatusUpdate(statusKind string, statusId string, doc statusDoc) {
+	if statusKind != "machine-lxd-profile" || doc.Status != status.Idle {
+		status_logger.InfoWithLabelsf("status update", map[string]string{
+			"domain": "status",
+			"kind":   statusKind,
+			"id":     statusId,
+			"value":  doc.Status.String(),
+		})
+	}
+}
+
 // probablyUpdateStatusHistory inspects existing status-history
 // and determines if this status is new or the same as the last recorded.
 // If this is a new status, a new status history record will be added.
@@ -427,12 +442,7 @@ func probablyUpdateStatusHistory(db Database,
 		GlobalKey:  globalKey,
 	}
 
-	status_logger.InfoWithLabelsf("status update", map[string]string{
-		"domain": "status",
-		"kind":   statusKind,
-		"id":     statusId,
-		"value":  doc.Status.String(),
-	})
+	logStatusUpdate(statusKind, statusId, doc)
 
 	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()

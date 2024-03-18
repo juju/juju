@@ -190,9 +190,6 @@ func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
 
-// unitGlobalKeyPrefix is the string we use to denote unit kind.
-const unitGlobalKeyPrefix = "u#charm"
-
 // unitWorkloadVersionKind returns the unit workload version kind.
 func (u *Unit) unitWorkloadVersionKind() string {
 	return u.Kind() + "-version"
