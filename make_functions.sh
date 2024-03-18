@@ -144,7 +144,7 @@ build_push_operator_image() {
             --platform="$build_multi_osarch" \
             "${BUILD_DIR}"
         if [[ "$push_image" = true ]]; then
-            "$DOCKER_BIN" manifest push "$(operator_image_path)" "docker://$(operator_image_path)"
+            "$DOCKER_BIN" manifest push -f v2s2 "$(operator_image_path)" "docker://$(operator_image_path)"
         fi
     else
         echo "unknown OCI_BUILDER=${OCI_BUILDER} expected docker or podman"
