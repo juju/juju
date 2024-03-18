@@ -29,9 +29,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
 			expect.ConsumeVersion().Return(1)
-			expect.Bindings().Return(map[string]string{
-				"binding-key": "binding-value",
-			})
 			// Return the endpoint mocks
 			expect.Endpoints().Return([]MigrationRemoteEndpoint{
 				{
@@ -107,9 +104,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpoints
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
 			expect.ConsumeVersion().Return(1)
-			expect.Bindings().Return(map[string]string{
-				"binding-key": "binding-value",
-			})
 			// Return the endpoint mocks
 			expect.Endpoints().Return(nil, errors.New("fail"))
 			expect.GlobalKey().Return("c#app-uuid-1")
@@ -159,10 +153,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
 			expect.ConsumeVersion().Return(1)
-			expect.Bindings().Return(map[string]string{
-				"binding-key": "binding-value",
-			})
-
 			expect.GlobalKey().Return("c#app-uuid-1")
 		}),
 	}

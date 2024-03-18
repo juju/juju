@@ -55,8 +55,6 @@ type remoteEndpointDoc struct {
 	Scope     charm.RelationScope `bson:"scope"`
 }
 
-type attributeMap map[string]interface{}
-
 func newRemoteApplication(st *State, doc *remoteApplicationDoc) *RemoteApplication {
 	app := &RemoteApplication{
 		st:  st,
@@ -162,26 +160,6 @@ func (a *RemoteApplication) StatusHistory(filter status.StatusHistoryFilter) ([]
 		clock:     a.st.clock(),
 	}
 	return statusHistory(args)
-}
-
-func copyStrings(values []string) []string {
-	if values == nil {
-		return nil
-	}
-	result := make([]string, len(values))
-	copy(result, values)
-	return result
-}
-
-func copyAttributes(values attributeMap) attributeMap {
-	if values == nil {
-		return nil
-	}
-	result := make(attributeMap)
-	for key, value := range values {
-		result[key] = value
-	}
-	return result
 }
 
 // DestroyOperation returns a model operation to destroy remote application.

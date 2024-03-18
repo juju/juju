@@ -3181,33 +3181,28 @@
                 "Constraints": {
                     "type": "object",
                     "properties": {
-                        "Attributes": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
                         "Count": {
                             "type": "integer"
                         },
-                        "Type": {
+                        "Pool": {
                             "type": "string"
+                        },
+                        "Size": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "Type",
-                        "Count",
-                        "Attributes"
+                        "Pool",
+                        "Size",
+                        "Count"
                     ]
                 },
-                "ConsumeApplicationArgV5": {
+                "ConsumeApplicationArg": {
                     "type": "object",
                     "properties": {
-                        "ApplicationOfferDetailsV5": {
-                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
+                        "ApplicationOfferDetails": {
+                            "$ref": "#/definitions/ApplicationOfferDetails"
                         },
                         "application-alias": {
                             "type": "string"
