@@ -4,10 +4,9 @@
 package domain
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"time"
-
-	"database/sql/driver"
 )
 
 // NullableDuration represents a nullable time.Duration.

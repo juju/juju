@@ -43,27 +43,6 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 }
 
-func (s *stateSuite) TestNullableDuration(c *gc.C) {
-	nd := NullableDuration{Duration: 10 * time.Second, Valid: true}
-	v, err := nd.Value()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, gc.Equals, int64(10*time.Second))
-
-	nd = NullableDuration{Duration: 0, Valid: false}
-	v, err = nd.Value()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, gc.IsNil)
-
-	err = nd.Scan("10s")
-	c.Assert(err, gc.ErrorMatches, `cannot scan type string into NullableDuration`)
-	c.Assert(nd.Valid, jc.IsFalse)
-
-	err = nd.Scan(int64(20 * time.Second))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nd.Duration, gc.Equals, 20*time.Second)
-	c.Assert(nd.Valid, jc.IsTrue)
-}
-
 func (s *stateSuite) TestGetModel(c *gc.C) {
 	// We need to generate a user in the database so that we can set the model
 	// owner.
@@ -130,7 +109,7 @@ WHERE uuid = ?`[1:], expectedSecretBackend.ID)
 
 	var (
 		actual              coresecrets.SecretBackend
-		tokenRotateInterval NullableDuration
+		tokenRotateInterval domain.NullableDuration
 	)
 	err := row.Scan(&actual.ID, &actual.Name, &actual.BackendType, &tokenRotateInterval)
 	c.Assert(err, gc.IsNil)
@@ -186,6 +165,37 @@ WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 		c.Assert(count, gc.Equals, 0)
 	}
 	c.Assert(actual, gc.DeepEquals, expectedSecretBackend)
+}
+
+func (s *stateSuite) TestCreateSecretBackendFailed(c *gc.C) {
+	backendID := uuid.MustNewUUID().String()
+	rotateInternal := 24 * time.Hour
+	nextRotateTime := time.Now().Add(rotateInternal)
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		ID:                  backendID,
+		Name:                "my-backend",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal,
+		NextRotateTime:      &nextRotateTime,
+		Config: map[string]interface{}{
+			"key1": "",
+		},
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `cannot upsert secret backend config for "my-backend": empty config name or content`)
+
+	_, err = s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		ID:                  backendID,
+		Name:                "my-backend",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal,
+		NextRotateTime:      &nextRotateTime,
+		Config: map[string]interface{}{
+			"": "value1",
+		},
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `cannot upsert secret backend config for "my-backend": empty config name or content`)
 }
 
 func (s *stateSuite) TestCreateSecretBackend(c *gc.C) {
@@ -353,7 +363,7 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	}, &nextRotateTime)
 }
 
-func (s *stateSuite) TestUpdateSecretBackendNameAlreadyExists(c *gc.C) {
+func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
@@ -381,7 +391,26 @@ func (s *stateSuite) TestUpdateSecretBackendNameAlreadyExists(c *gc.C) {
 		ID:         backendID2,
 		NameChange: &nameChange,
 	})
-	c.Assert(err, jc.ErrorIs, domain.ErrDuplicate)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+	c.Assert(err, gc.ErrorMatches, `secret backend name "my-backend1": already exists`)
+
+	err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		ID: backendID2,
+		Config: map[string]interface{}{
+			"key1": "",
+		},
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `cannot upsert secret backend config for "`+backendID2+`": empty config name or content`)
+
+	err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		ID: backendID2,
+		Config: map[string]interface{}{
+			"": "value1",
+		},
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `cannot upsert secret backend config for "`+backendID2+`": empty config name or content`)
 }
 
 func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
