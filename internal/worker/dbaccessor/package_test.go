@@ -21,7 +21,7 @@ import (
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client
+//go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client,ClusterConfig
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
@@ -45,6 +45,7 @@ type baseSuite struct {
 	prometheusRegisterer    *MockRegisterer
 	nodeManager             *MockNodeManager
 	controllerConfigWatcher *MockConfigWatcher
+	clusterConfig           *MockClusterConfig
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -58,6 +59,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
 	s.nodeManager = NewMockNodeManager(ctrl)
 	s.controllerConfigWatcher = NewMockConfigWatcher(ctrl)
+	s.clusterConfig = NewMockClusterConfig(ctrl)
 
 	s.logger = jujujujutesting.CheckLogger{
 		Log: c,
@@ -69,12 +71,6 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
 	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
-}
-
-func (s *baseSuite) expectWorkerRetry() {
-	s.clock.EXPECT().After(10 * time.Second).AnyTimes().DoAndReturn(func(d time.Duration) <-chan time.Time {
-		return clock.WallClock.After(10 * time.Millisecond)
-	})
 }
 
 func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
@@ -105,6 +101,15 @@ func (s *baseSuite) expectTimer(ticks int) func() {
 	}
 }
 
+func (s *baseSuite) expectNoConfigChanges() {
+	ch := make(chan struct{})
+
+	exp := s.controllerConfigWatcher.EXPECT()
+
+	exp.Changes().Return(ch).AnyTimes()
+	exp.Unsubscribe().AnyTimes()
+}
+
 // expectNodeStartupAndShutdown encompasses expectations for starting the
 // Dqlite app, ensuring readiness, logging and updating the node info,
 // and shutting it down when the worker exits.
@@ -119,6 +124,12 @@ func (s *baseSuite) expectNodeStartupAndShutdown() {
 	// The worker created in openDatabase can retry if the dbApp isn't ready
 	// after it bounces.
 	s.expectWorkerRetry()
+}
+
+func (s *baseSuite) expectWorkerRetry() {
+	s.clock.EXPECT().After(10 * time.Second).AnyTimes().DoAndReturn(func(d time.Duration) <-chan time.Time {
+		return clock.WallClock.After(10 * time.Millisecond)
+	})
 }
 
 func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
@@ -136,6 +147,7 @@ func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 		},
 		MetricsCollector:        &Collector{},
 		ControllerConfigWatcher: s.controllerConfigWatcher,
+		ClusterConfig:           s.clusterConfig,
 	}
 
 	w, err := NewWorker(cfg)

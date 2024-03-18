@@ -156,6 +156,9 @@ type WorkerConfig struct {
 	// agent configuration changes on disk. When it changes, we must reload it
 	// and assess potential changes to the database cluster.
 	ControllerConfigWatcher controlleragentconfig.ConfigWatcher
+
+	// ClusterConfig supplies bind addresses used for Dqlite clustering.
+	ClusterConfig ClusterConfig
 }
 
 // Validate ensures that the config values are valid.
@@ -186,6 +189,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ControllerConfigWatcher == nil {
 		return errors.NotValidf("missing ControllerConfigWatcher")
+	}
+	if c.ClusterConfig == nil {
+		return errors.NotValidf("missing ClusterConfig")
 	}
 	return nil
 }
@@ -347,13 +353,21 @@ func (w *dbWorker) loop() (err error) {
 
 			req.done <- nil
 
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
-
 		case apiDetails := <-w.apiServerChanges:
 			if err := w.processAPIServerChange(apiDetails); err != nil {
 				return errors.Trace(err)
 			}
+
+		case <-w.cfg.ControllerConfigWatcher.Changes():
+			clusterConf, err := w.cfg.ClusterConfig.DBBindAddresses()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			w.cfg.Logger.Infof("new cluster config: %+v", clusterConf)
+
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+
 		}
 	}
 }

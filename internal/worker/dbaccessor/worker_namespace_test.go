@@ -57,6 +57,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -117,6 +118,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -152,6 +154,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -187,6 +190,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -249,6 +253,7 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -284,6 +289,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -322,6 +328,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -360,6 +367,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
