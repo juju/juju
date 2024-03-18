@@ -373,8 +373,9 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
 		if err != nil {
 			errs = append(errs, err)
+		} else {
+			dt.endpoints = bindings.Map()
 		}
-		dt.endpoints = bindings.Map()
 	}
 	// resolve and validate resources
 	resources, pendingResourceUploads, resolveResErr := v.resolveResources(dt.charmURL, dt.origin, dt.resources, resolvedCharm.Meta().Resources)
