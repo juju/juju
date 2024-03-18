@@ -1557,7 +1557,6 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *
 		URL:             app.URL(),
 		SourceModelUUID: app.SourceModelTag().Id(),
 		IsConsumerProxy: app.IsConsumerProxy(),
-		Bindings:        app.Bindings(),
 		Macaroon:        app.Macaroon(),
 		Version:         app.ConsumeVersion(),
 	}
@@ -1575,30 +1574,6 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *
 		}
 	}
 	doc.Endpoints = eps
-	descSpaces := app.Spaces()
-	spaces := make([]remoteSpaceDoc, len(descSpaces))
-	for i, space := range descSpaces {
-		spaces[i] = remoteSpaceDoc{
-			CloudType:          space.CloudType(),
-			Name:               space.Name(),
-			ProviderId:         space.ProviderId(),
-			ProviderAttributes: space.ProviderAttributes(),
-		}
-		descSubnets := space.Subnets()
-		subnets := make([]remoteSubnetDoc, len(descSubnets))
-		for i, subnet := range descSubnets {
-			subnets[i] = remoteSubnetDoc{
-				CIDR:              subnet.CIDR(),
-				ProviderId:        subnet.ProviderId(),
-				VLANTag:           subnet.VLANTag(),
-				AvailabilityZones: subnet.AvailabilityZones(),
-				ProviderSpaceId:   subnet.ProviderSpaceId(),
-				ProviderNetworkId: subnet.ProviderNetworkId(),
-			}
-		}
-		spaces[i].Subnets = subnets
-	}
-	doc.Spaces = spaces
 	return doc
 }
 

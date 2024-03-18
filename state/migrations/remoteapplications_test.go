@@ -40,41 +40,10 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 					Interface: "db",
 				},
 			}, nil)
-			// Return the spaces mocks
-			expect.Spaces().Return([]MigrationRemoteSpace{
-				{
-					Name:       "app-uuid-1-spaces-1",
-					CloudType:  "aws",
-					ProviderId: "provider-id-1",
-					ProviderAttributes: map[string]interface{}{
-						"attr-1": "value-1",
-					},
-					Subnets: []MigrationRemoteSubnet{
-						{
-							CIDR:              "10.0.0.1/24",
-							ProviderId:        "provider-id-2",
-							VLANTag:           1,
-							AvailabilityZones: []string{"eu-west-1"},
-							ProviderSpaceId:   "provider-space-id",
-							ProviderNetworkId: "provider-network-id",
-						},
-					},
-				},
-			})
 
 			expect.GlobalKey().Return("c#app-uuid-1")
 		}),
 	}
-
-	remoteSpace := NewMockRemoteSpace(ctrl)
-	remoteSpace.EXPECT().AddSubnet(description.SubnetArgs{
-		CIDR:              "10.0.0.1/24",
-		ProviderId:        "provider-id-2",
-		VLANTag:           1,
-		AvailabilityZones: []string{"eu-west-1"},
-		ProviderSpaceId:   "provider-space-id",
-		ProviderNetworkId: "provider-network-id",
-	})
 
 	remoteApplication := NewMockRemoteApplication(ctrl)
 	remoteApplication.EXPECT().SetStatus(description.StatusArgs{
@@ -85,14 +54,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 		Role:      "role",
 		Interface: "db",
 	})
-	remoteApplication.EXPECT().AddSpace(description.RemoteSpaceArgs{
-		Name:       "app-uuid-1-spaces-1",
-		CloudType:  "aws",
-		ProviderId: "provider-id-1",
-		ProviderAttributes: map[string]interface{}{
-			"attr-1": "value-1",
-		},
-	}).Return(remoteSpace)
 
 	source := NewMockRemoteApplicationSource(ctrl)
 	source.EXPECT().AllRemoteApplications().Return(entities, nil)

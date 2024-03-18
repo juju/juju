@@ -380,8 +380,6 @@ type RemoteApplication interface {
 	SourceModel() names.ModelTag
 	Endpoints() ([]state.Endpoint, error)
 	AddEndpoints(eps []charm.Relation) error
-	Bindings() map[string]string
-	Spaces() []state.RemoteSpace
 	Destroy() error
 	DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation
 	Status() (status.StatusInfo, error)

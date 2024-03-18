@@ -2319,32 +2319,6 @@ func (s remoteApplicationShim) Endpoints() ([]migrations.MigrationRemoteEndpoint
 	return result, nil
 }
 
-func (s remoteApplicationShim) Spaces() []migrations.MigrationRemoteSpace {
-	spaces := s.RemoteApplication.Spaces()
-	result := make([]migrations.MigrationRemoteSpace, len(spaces))
-	for k, v := range spaces {
-		subnets := make([]migrations.MigrationRemoteSubnet, len(v.Subnets))
-		for k, v := range v.Subnets {
-			subnets[k] = migrations.MigrationRemoteSubnet{
-				CIDR:              v.CIDR,
-				ProviderId:        v.ProviderId,
-				VLANTag:           v.VLANTag,
-				AvailabilityZones: v.AvailabilityZones,
-				ProviderSpaceId:   v.ProviderSpaceId,
-				ProviderNetworkId: v.ProviderNetworkId,
-			}
-		}
-		result[k] = migrations.MigrationRemoteSpace{
-			CloudType:          v.CloudType,
-			Name:               v.Name,
-			ProviderId:         v.ProviderId,
-			ProviderAttributes: v.ProviderAttributes,
-			Subnets:            subnets,
-		}
-	}
-	return result
-}
-
 func (s remoteApplicationShim) GlobalKey() string {
 	return s.RemoteApplication.globalKey()
 }

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // BaseAPI provides various boilerplate methods used by the facade business logic.
@@ -441,15 +440,6 @@ func (api *BaseAPI) makeOfferParams(
 			Role:      ep.Role,
 		})
 
-	}
-
-	// CAAS models don't have spaces.
-	model, err := backend.Model()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	if model.Type() == state.ModelTypeCAAS {
-		return &result, app, nil
 	}
 
 	return &result, app, nil

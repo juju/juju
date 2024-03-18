@@ -153,20 +153,6 @@ func (mr *MockMigrationRemoteApplicationMockRecorder) SourceModel() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SourceModel", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).SourceModel))
 }
 
-// Spaces mocks base method.
-func (m *MockMigrationRemoteApplication) Spaces() []MigrationRemoteSpace {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Spaces")
-	ret0, _ := ret[0].([]MigrationRemoteSpace)
-	return ret0
-}
-
-// Spaces indicates an expected call of Spaces.
-func (mr *MockMigrationRemoteApplicationMockRecorder) Spaces() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Spaces", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).Spaces))
-}
-
 // Tag mocks base method.
 func (m *MockMigrationRemoteApplication) Tag() names.Tag {
 	m.ctrl.T.Helper()
