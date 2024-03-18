@@ -255,6 +255,11 @@ func (v *volume) Tag() names.Tag {
 	return v.VolumeTag()
 }
 
+// Kind returns a human readable name identifying the volume kind.
+func (v *volume) Kind() string {
+	return v.Tag().Kind()
+}
+
 // VolumeTag is required to implement Volume.
 func (v *volume) VolumeTag() names.VolumeTag {
 	return names.NewVolumeTag(v.doc.Name)
@@ -326,7 +331,7 @@ func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
 	}
 	return setStatus(v.mb.db(), setStatusParams{
 		badge:      "volume",
-		statusKind: volumeKindPrefix,
+		statusKind: v.Kind(),
 		statusId:   v.VolumeTag().Id(),
 		globalKey:  volumeGlobalKey(v.VolumeTag().Id()),
 		status:     volumeStatus.Status,

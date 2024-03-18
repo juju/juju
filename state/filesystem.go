@@ -205,6 +205,11 @@ func (f *filesystem) Tag() names.Tag {
 	return f.FilesystemTag()
 }
 
+// Kind returns a human readable name identifying the filesystem kind.
+func (f *filesystem) Kind() string {
+	return f.Tag().Kind()
+}
+
 // FilesystemTag is required to implement Filesystem.
 func (f *filesystem) FilesystemTag() names.FilesystemTag {
 	return names.NewFilesystemTag(f.doc.FilesystemId)
@@ -284,7 +289,7 @@ func (f *filesystem) SetStatus(fsStatus status.StatusInfo) error {
 	}
 	return setStatus(f.mb.db(), setStatusParams{
 		badge:      "filesystem",
-		statusKind: filesystemKindPrefix,
+		statusKind: f.Kind(),
 		statusId:   f.FilesystemTag().Id(),
 		globalKey:  filesystemGlobalKey(f.FilesystemTag().Id()),
 		status:     fsStatus.Status,
@@ -1533,10 +1538,11 @@ func filesystemsToInterfaces(sb []*filesystem) []Filesystem {
 	return result
 }
 
-// filesystemKindPrefix is the kind string we use to denote filesystem kind.
-const filesystemKindPrefix = "f#"
+// filesystemGlobalKeyPrefix is the kind string we use to denote filesystem
+// kind.
+const filesystemGlobalKeyPrefix = "f#"
 
 // filesystemGlobalKey returns the global database key for the filesystem.
 func filesystemGlobalKey(name string) string {
-	return filesystemKindPrefix + name
+	return filesystemGlobalKeyPrefix + name
 }

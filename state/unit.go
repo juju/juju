@@ -190,11 +190,18 @@ func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
 
-// unitKindPrefix is the string we use to denote unit kind.
-const unitKindPrefix = "u#charm"
+// unitGlobalKeyPrefix is the string we use to denote unit kind.
+const unitGlobalKeyPrefix = "u#charm"
 
-// unitWorkloadVersionKindPrefix is the string we use to denote unit workload version kind.
-const unitWorkloadVersionKindPrefix = unitKindPrefix + "#sat#workload-version"
+// unitWorkloadVersionKind returns the unit workload version kind.
+func (u *Unit) unitWorkloadVersionKind() string {
+	return u.Kind() + "-version"
+}
+
+// cloudContainerKind returns the cloud container kind.
+func (u *Unit) cloudContainerKind() string {
+	return u.Kind() + "-container"
+}
 
 // globalWorkloadVersionKey returns the global database key for the
 // workload version status key for this unit.
@@ -251,7 +258,7 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	now := u.st.clock().Now()
 	return setStatus(u.st.db(), setStatusParams{
 		badge:      "workload",
-		statusKind: unitWorkloadVersionKindPrefix,
+		statusKind: u.unitWorkloadVersionKind(),
 		statusId:   u.Name(),
 		globalKey:  u.globalWorkloadVersionKey(),
 		status:     status.Active,
@@ -499,7 +506,7 @@ func (op *UpdateUnitOperation) Done(err error) error {
 	// so as with existing practice, do a best effort update of status history.
 	for key, doc := range op.setStatusDocs {
 		_, _ = probablyUpdateStatusHistory(op.unit.st.db(),
-			unitKindPrefix, op.unit.Name(), key, doc)
+			op.unit.Kind(), op.unit.Name(), key, doc)
 	}
 	return nil
 }
@@ -1490,7 +1497,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 
 	return setStatus(u.st.db(), setStatusParams{
 		badge:            "unit",
-		statusKind:       unitKindPrefix,
+		statusKind:       u.Kind(),
 		statusId:         u.Name(),
 		globalKey:        u.globalKey(),
 		status:           unitStatus.Status,
@@ -1670,6 +1677,11 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 // other entities from the same state.
 func (u *Unit) Tag() names.Tag {
 	return u.UnitTag()
+}
+
+// Kind returns a human readable name identifying the unit workload kind.
+func (u *Unit) Kind() string {
+	return u.Tag().Kind() + "-workload"
 }
 
 // UnitTag returns a names.UnitTag representing this Unit, unless the

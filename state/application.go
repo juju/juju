@@ -149,6 +149,11 @@ func (a *Application) Tag() names.Tag {
 	return a.ApplicationTag()
 }
 
+// Kind returns a human readable name identifying the application kind.
+func (a *Application) Kind() string {
+	return a.Tag().Kind()
+}
+
 // ApplicationTag returns the more specific ApplicationTag rather than the generic
 // Tag.
 func (a *Application) ApplicationTag() names.ApplicationTag {
@@ -158,11 +163,11 @@ func (a *Application) ApplicationTag() names.ApplicationTag {
 // applicationGlobalKey returns the global database key for the application
 // with the given name.
 func applicationGlobalKey(appName string) string {
-	return applicationKindPrefix + appName
+	return appGlobalKeyPrefix + appName
 }
 
-// applicationKindPrefix is the string we use to denote application kind.
-const applicationKindPrefix = "a#"
+// appGlobalKeyPrefix is the string we use to denote application kind.
+const appGlobalKeyPrefix = "a#"
 
 // globalKey returns the global database key for the application.
 func (a *Application) globalKey() string {
@@ -2532,13 +2537,15 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
 	}
 
+	u := newUnit(a.st, m.Type(), udoc)
+	uAgent := newUnitAgent(a.st, unitTag, "")
 	// At the last moment we still have the statusDocs in scope, set the initial
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	_, _ = probablyUpdateStatusHistory(a.st.db(), unitKindPrefix, name, globalKey, *unitStatusDoc)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), unitWorkloadVersionKindPrefix, name, globalWorkloadVersionKey(name), *workloadVersionDoc)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), unitAgentKindPrefix, name, agentGlobalKey, agentStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), u.Kind(), name, globalKey, *unitStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), u.unitWorkloadVersionKind(), name, globalWorkloadVersionKey(name), *workloadVersionDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), uAgent.Kind(), name, agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
 }
 
@@ -3499,7 +3506,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 
 	return setStatus(a.st.db(), setStatusParams{
 		badge:            "application",
-		statusKind:       applicationKindPrefix,
+		statusKind:       a.Kind(),
 		statusId:         a.Name(),
 		globalKey:        a.globalKey(),
 		status:           statusInfo.Status,
@@ -3523,7 +3530,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 
 	err = setStatus(a.st.db(), setStatusParams{
 		badge:      "operator",
-		statusKind: applicationKindPrefix,
+		statusKind: a.Kind(),
 		statusId:   a.Name(),
 		globalKey:  applicationGlobalOperatorKey(a.Name()),
 		status:     sInfo.Status,
@@ -3545,7 +3552,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	if historyDoc != nil {
 		// rewriting application status history
 		_, err = probablyUpdateStatusHistory(a.st.db(),
-			applicationKindPrefix, a.Name(), a.globalKey(), *historyDoc)
+			a.Kind(), a.Name(), a.globalKey(), *historyDoc)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3879,7 +3886,7 @@ func (op *AddUnitOperation) Done(err error) error {
 			Updated:    timeOrNow(op.props.CloudContainerStatus.Since, u.st.clock()).UnixNano(),
 		}
 		_, err := probablyUpdateStatusHistory(
-			op.application.st.db(), cloudContainerKindPrefix, op.unitName,
+			op.application.st.db(), u.cloudContainerKind(), op.unitName,
 			globalCloudContainerKey(op.unitName), doc)
 		if err != nil {
 			return errors.Trace(err)
@@ -3897,7 +3904,7 @@ func (op *AddUnitOperation) Done(err error) error {
 		if newHistory != nil {
 			err = setStatus(op.application.st.db(), setStatusParams{
 				badge:            "unit",
-				statusKind:       unitKindPrefix,
+				statusKind:       u.Kind(),
 				statusId:         op.unitName,
 				globalKey:        unitGlobalKey(op.unitName),
 				status:           unitStatus.Status,

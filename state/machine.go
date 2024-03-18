@@ -220,11 +220,11 @@ func (m *Machine) forceDestroyedOps() []txn.Op {
 
 // machineGlobalKey returns the global database key for the identified machine.
 func machineGlobalKey(id string) string {
-	return machineKindPrefix + id
+	return machineGlobalKeyPrefix + id
 }
 
-// machineKindPrefix is the kind string we use to denote machine kind.
-const machineKindPrefix = "m#"
+// machineGlobalKeyPrefix is the kind string we use to denote machine kind.
+const machineGlobalKeyPrefix = "m#"
 
 // machineGlobalInstanceKey returns the global database key for the identified
 // machine's instance.
@@ -232,8 +232,11 @@ func machineGlobalInstanceKey(id string) string {
 	return machineGlobalKey(id) + "#instance"
 }
 
-// machineInstaanceKind is the kind string we use for machine instances.
-const machineInstanceKindPrefix = "m#instance"
+// InstanceKind returns a human readable name identifying the machine instance
+// kind.
+func (m *Machine) InstanceKind() string {
+	return m.Tag().Kind() + "-instance"
+}
 
 // globalInstanceKey returns the global database key for the machine's instance.
 func (m *Machine) globalInstanceKey() string {
@@ -246,8 +249,11 @@ func machineGlobalModificationKey(id string) string {
 	return machineGlobalKey(id) + "#modification"
 }
 
-// machineModificationKind is the kind string we use for machine modifications.
-const machineModificationKindPrefix = "m#modification"
+// ModificationKind returns the human readable kind string we use for when an
+// lxd profile is applied on a machine..
+func (m *Machine) ModificationKind() string {
+	return m.Tag().Kind() + "-lxd-profile"
+}
 
 // globalModificationKey returns the global database key for the machine's
 // modification changes.
@@ -397,6 +403,11 @@ func (d *ModelInstanceData) InstanceNames(machineID string) (instance.Id, string
 // from the same state.
 func (m *Machine) Tag() names.Tag {
 	return m.MachineTag()
+}
+
+// Kind returns a human readable name identifying the machine kind.
+func (m *Machine) Kind() string {
+	return m.Tag().Kind()
 }
 
 // MachineTag returns the more specific MachineTag type as opposed
@@ -1320,7 +1331,7 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 	return setStatus(m.st.db(), setStatusParams{
 		badge:      "instance",
-		statusKind: machineInstanceKindPrefix,
+		statusKind: m.InstanceKind(),
 		statusId:   m.doc.Id,
 		globalKey:  m.globalInstanceKey(),
 		status:     sInfo.Status,
@@ -1362,7 +1373,7 @@ func (m *Machine) ModificationStatus() (status.StatusInfo, error) {
 func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 	return setStatus(m.st.db(), setStatusParams{
 		badge:      "modification",
-		statusKind: machineModificationKindPrefix,
+		statusKind: m.ModificationKind(),
 		statusId:   m.doc.Id,
 		globalKey:  m.globalModificationKey(),
 		status:     sInfo.Status,
@@ -1979,7 +1990,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	}
 	return setStatus(m.st.db(), setStatusParams{
 		badge:      "machine",
-		statusKind: machineKindPrefix,
+		statusKind: m.Kind(),
 		statusId:   m.doc.Id,
 		globalKey:  m.globalKey(),
 		status:     statusInfo.Status,

@@ -80,9 +80,6 @@ func globalCloudContainerKey(name string) string {
 	return unitGlobalKey(name) + "#container"
 }
 
-// cloudContainerKindPrefix is the string we use to denote cloud container kind.
-const cloudContainerKindPrefix = unitKindPrefix + "#container"
-
 func (u *Unit) cloudContainer() (*cloudContainerDoc, error) {
 	coll, closer := u.st.db().GetCollection(cloudContainersC)
 	defer closer()
