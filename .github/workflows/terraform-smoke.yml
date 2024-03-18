@@ -60,6 +60,11 @@ jobs:
               --constraints "arch=$(go env GOARCH)"
         juju version
 
+    - name: Create additional networks when testing with LXD
+      run: |
+        sudo lxc network create management-br ipv4.address=10.150.40.1/24 ipv4.nat=true ipv6.address=none ipv6.nat=false
+        sudo lxc network create public-br ipv4.address=10.170.80.1/24 ipv4.nat=true ipv6.address=none ipv6.nat=false
+
     - name: Find terraform provider for juju latest release
       uses: actions/checkout@v3
       with:
@@ -81,6 +86,8 @@ jobs:
         echo "JUJU_CA_CERT<<EOF" >> $GITHUB_ENV
         juju show-controller | yq .$CONTROLLER.details.ca-cert >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
+        echo "TEST_MANAGEMENT_BR=10.150.40.0/24" >> $GITHUB_ENV
+        echo "TEST_PUBLIC_BR=10.170.80.0/24" >> $GITHUB_ENV
 
     - name: Run terraform provider for juju ACC tests
       shell: bash
