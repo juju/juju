@@ -5,6 +5,7 @@ package dbaccessor
 
 import (
 	"context"
+	"path"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -126,6 +127,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 			agentConfig := thisAgent.CurrentConfig()
+			controllerID := agentConfig.Tag().Id()
+			configPath := path.Join(agentConfig.DataDir(), "agents", "controller-"+controllerID, "controller.conf")
+			controllerConf := controllerConfigReader{configPath: configPath}
 
 			var controllerConfigWatcher controlleragentconfig.ConfigWatcher
 			if err := getter.Get(config.ControllerAgentConfigName, &controllerConfigWatcher); err != nil {
@@ -148,23 +152,26 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NodeManager:             config.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
 				Clock:                   config.Clock,
 				Hub:                     config.Hub,
-				ControllerID:            agentConfig.Tag().Id(),
+				ControllerID:            controllerID,
 				MetricsCollector:        metricsCollector,
 				Logger:                  config.Logger,
 				NewApp:                  config.NewApp,
 				NewDBWorker:             config.NewDBWorker,
 				ControllerConfigWatcher: controllerConfigWatcher,
+				ClusterConfig:           controllerConf,
 			}
 
 			w, err := NewWorker(cfg)
 			if err != nil {
 				config.PrometheusRegisterer.Unregister(metricsCollector)
+				controllerConfigWatcher.Unsubscribe()
 				return nil, errors.Trace(err)
 			}
 			return common.NewCleanupWorker(w, func() {
 				// Clean up the metrics for the worker, so the next time a
 				// worker is created we can safely register the metrics again.
 				config.PrometheusRegisterer.Unregister(metricsCollector)
+				controllerConfigWatcher.Unsubscribe()
 			}), nil
 		},
 	}

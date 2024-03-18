@@ -508,7 +508,7 @@ CREATE TABLE block_device (
     in_use             BOOLEAN,
     CONSTRAINT         fk_filesystem_type
         FOREIGN KEY    (filesystem_type_id)
-        REFERENCES     filesystem_type(id)
+        REFERENCES     filesystem_type(id),
     CONSTRAINT         fk_block_device_machine
         FOREIGN KEY    (machine_uuid)
         REFERENCES     machine(uuid)
@@ -541,7 +541,7 @@ CREATE TABLE block_device_link_device (
     name              TEXT NOT NULL,
     CONSTRAINT        fk_block_device_link_device
         FOREIGN KEY   (block_device_uuid)
-        REFERENCES    block_device(uuid)
+        REFERENCES    block_device(uuid),
     PRIMARY KEY (block_device_uuid, name)
 );
 

@@ -118,6 +118,7 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 		Hub:                     pubsub.NewStructuredHub(nil),
 		ControllerID:            agentConfig.Tag().Id(),
 		ControllerConfigWatcher: controllerConfigWatcher{},
+		ClusterConfig:           clusterConfig{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -293,10 +294,12 @@ func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx)
 	return errors.Trace(database.StdTxn(ctx, r.db, f))
 }
 
-type controllerConfigWatcher struct{}
+type controllerConfigWatcher struct {
+	changes chan struct{}
+}
 
 func (c controllerConfigWatcher) Changes() <-chan struct{} {
-	panic("implement me")
+	return c.changes
 }
 
 func (c controllerConfigWatcher) Done() <-chan struct{} {
@@ -305,4 +308,10 @@ func (c controllerConfigWatcher) Done() <-chan struct{} {
 
 func (c controllerConfigWatcher) Unsubscribe() {
 	panic("implement me")
+}
+
+type clusterConfig struct{}
+
+func (c clusterConfig) DBBindAddresses() (map[string]string, error) {
+	return nil, nil
 }

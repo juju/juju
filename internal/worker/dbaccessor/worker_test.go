@@ -47,6 +47,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
 	mgrExp.SetClusterToLocalNode(gomock.Any()).Return(nil).AnyTimes()
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -85,6 +86,8 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(context.DeadlineExceeded)
 	appExp.Close().Return(nil)
+
+	s.expectNoConfigChanges()
 
 	// We expect to request API details.
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
@@ -128,6 +131,8 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(context.DeadlineExceeded).Times(2)
 	appExp.Close().Return(nil).Times(2)
+
+	s.expectNoConfigChanges()
 
 	// We expect to request API details.
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
@@ -182,6 +187,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
 
 	// When we are starting up as a new node,
@@ -279,6 +285,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
@@ -316,6 +323,7 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	// We don't expect a handover, because we're not rebinding.
 
@@ -352,6 +360,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -442,6 +451,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// this call to shut-down is actually run before reconfiguring the node.
 	// When the loop exits, the node is already set to nil.
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -495,6 +505,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 
 	// Ensure that we expect a clean startup and shutdown.
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -547,6 +558,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 
 	// Ensure that we expect a clean startup and shutdown.
 	s.expectNodeStartupAndShutdown()
+	s.expectNoConfigChanges()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
