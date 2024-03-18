@@ -601,11 +601,11 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	err = modelSt.Create(
 		context.Background(),
 		modelUUID,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud: testCloud.Name,
 			Name:  coremodel.ControllerModelName,
 			Owner: userUUID,
-			Type:  coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -17,10 +18,21 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+// ModelTypeState represents the state required for determining the type of model
+// based on the cloud being set for it.
+type ModelTypeState interface {
+	// CloudType is responsible for reporting the type for a given cloud name.
+	// If no cloud exists for the provided name then an error of
+	// [clouderrors.NotFound] will be returned.
+	CloudType(context.Context, string) (string, error)
+}
+
 // State is the model state required by this service.
 type State interface {
+	ModelTypeState
+
 	// Create creates a new model with all of its associated metadata.
-	Create(context.Context, coremodel.UUID, model.ModelCreationArgs) error
+	Create(context.Context, coremodel.UUID, coremodel.ModelType, model.ModelCreationArgs) error
 
 	// Get returns the model associated with the provided uuid.
 	Get(context.Context, coremodel.UUID) (coremodel.Model, error)
@@ -30,6 +42,11 @@ type State interface {
 
 	// List returns a list of all model UUIDs.
 	List(context.Context) ([]coremodel.UUID, error)
+
+	// ModelCloudNameAndCredential returns the cloud name and credential id for a
+	// model identified by the model name and the owner. If no model exists for
+	// the provided name and user a [modelerrors.NotFound] error is returned.
+	ModelCloudNameAndCredential(context.Context, string, string) (string, credential.ID, error)
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.ID) error
@@ -54,6 +71,10 @@ type AgentBinaryFinder interface {
 
 // agentBinaryFinderFn is func type for the AgentBinaryFinder interface.
 type agentBinaryFinderFn func(version.Number) (bool, error)
+
+var (
+	caasCloudTypes = []string{"kubernetes"}
+)
 
 func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, error) {
 	return t(v)
@@ -87,9 +108,31 @@ func agentVersionSelector() version.Number {
 	return jujuversion.Current
 }
 
+// DefaultModelCloudNameAndCredential returns the default cloud name and
+// credential that should be used for newly created models that haven't had
+// either cloud or credential specified. If no default credential is available
+// the zero value of [credential.ID] will be returned.
+//
+// The defaults that are source come from the controllers default model. If
+// there is a reason finding the controllers default model a
+// [modelerrors.NotFound] error will be returned.
+func (s *Service) DefaultModelCloudNameAndCredential(
+	ctx context.Context,
+) (string, credential.ID, error) {
+	cloudName, cred, err := s.st.ModelCloudNameAndCredential(
+		ctx, coremodel.ControllerModelName, coremodel.ControllerModelOwnerUsername,
+	)
+
+	if err != nil {
+		return "", credential.ID{}, fmt.Errorf("getting default model cloud name and credential: %w", err)
+	}
+	return cloudName, cred, nil
+}
+
 // CreateModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function will returned the created model's uuid.
-// If the ModelCreationArgs do not have a credential name set then no cloud
+// If the ModelCreationArgs does not have a credential name set then the cloud
+// credential will be set to
 // credential will be associated with the model.
 //
 // If the caller has not prescribed a specific agent version to use for the
@@ -109,6 +152,14 @@ func (s *Service) CreateModel(
 ) (coremodel.UUID, error) {
 	if err := args.Validate(); err != nil {
 		return coremodel.UUID(""), err
+	}
+
+	modelType, err := ModelTypeForCloud(ctx, s.st, args.Cloud)
+	if err != nil {
+		return coremodel.UUID(""), fmt.Errorf(
+			"determining model type when creating model %q: %w",
+			args.Name, err,
+		)
 	}
 
 	agentVersion := args.AgentVersion
@@ -133,7 +184,7 @@ func (s *Service) CreateModel(
 		}
 	}
 
-	return uuid, s.st.Create(ctx, uuid, args)
+	return uuid, s.st.Create(ctx, uuid, modelType, args)
 }
 
 // Model returns the model associated with the provided uuid.
@@ -171,6 +222,25 @@ func (s *Service) ModelList(ctx context.Context) ([]coremodel.UUID, error) {
 		return nil, errors.Annotatef(err, "retrieving model list")
 	}
 	return uuids, nil
+}
+
+// ModelTypeForCloud is responsible returning the model type based on the cloud
+// name being used for the model. If no cloud exists for the provided name then
+// an error of [clouderrors.NotFound] will be returned.
+func ModelTypeForCloud(
+	ctx context.Context,
+	state ModelTypeState,
+	cloudName string,
+) (coremodel.ModelType, error) {
+	cloudType, err := state.CloudType(ctx, cloudName)
+	if err != nil {
+		return coremodel.ModelType(""), fmt.Errorf("determining model type from cloud: %w", err)
+	}
+
+	if set.NewStrings(caasCloudTypes...).Contains(cloudType) {
+		return coremodel.CAAS, nil
+	}
+	return coremodel.IAAS, nil
 }
 
 // UpdateCredential is responsible for updating the cloud credential

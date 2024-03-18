@@ -74,7 +74,6 @@ func (s *bootstrapSuite) TestUUIDIsCreated(c *gc.C) {
 		},
 		Name:  "test",
 		Owner: s.adminUserUUID,
-		Type:  coremodel.IAAS,
 	})
 
 	err := fn(context.Background(), s.ControllerTxnRunner())
@@ -96,7 +95,6 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 		},
 		Name:  "test",
 		Owner: s.adminUserUUID,
-		Type:  coremodel.IAAS,
 		UUID:  modelUUID,
 	})
 

@@ -137,7 +137,6 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		Name:  "test-model",
 		Owner: userUUID,
 		UUID:  modelUUID,
-		Type:  coremodel.CAAS,
 	}
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly()).Return(nil)
@@ -196,7 +195,6 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		Name:  "test-model",
 		Owner: userUUID,
 		UUID:  modelUUID,
-		Type:  coremodel.CAAS,
 	}
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly()).Return(errors.New("boom"))

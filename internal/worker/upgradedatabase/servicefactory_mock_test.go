@@ -21,10 +21,9 @@ import (
 	service5 "github.com/juju/juju/domain/flag/service"
 	service6 "github.com/juju/juju/domain/model/service"
 	service7 "github.com/juju/juju/domain/modeldefaults/service"
-	service8 "github.com/juju/juju/domain/modelmanager/service"
-	service9 "github.com/juju/juju/domain/objectstore/service"
-	service10 "github.com/juju/juju/domain/upgrade/service"
-	service11 "github.com/juju/juju/domain/user/service"
+	service8 "github.com/juju/juju/domain/objectstore/service"
+	service9 "github.com/juju/juju/domain/upgrade/service"
+	service10 "github.com/juju/juju/domain/user/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -52,10 +51,10 @@ func (m *MockControllerServiceFactory) EXPECT() *MockControllerServiceFactoryMoc
 }
 
 // AgentObjectStore mocks base method.
-func (m *MockControllerServiceFactory) AgentObjectStore() *service9.WatchableService {
+func (m *MockControllerServiceFactory) AgentObjectStore() *service8.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentObjectStore")
-	ret0, _ := ret[0].(*service9.WatchableService)
+	ret0, _ := ret[0].(*service8.WatchableService)
 	return ret0
 }
 
@@ -191,25 +190,11 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelDefaults() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelDefaults", reflect.TypeOf((*MockControllerServiceFactory)(nil).ModelDefaults))
 }
 
-// ModelManager mocks base method.
-func (m *MockControllerServiceFactory) ModelManager() *service8.Service {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service8.Service)
-	return ret0
-}
-
-// ModelManager indicates an expected call of ModelManager.
-func (mr *MockControllerServiceFactoryMockRecorder) ModelManager() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelManager", reflect.TypeOf((*MockControllerServiceFactory)(nil).ModelManager))
-}
-
 // Upgrade mocks base method.
-func (m *MockControllerServiceFactory) Upgrade() *service10.WatchableService {
+func (m *MockControllerServiceFactory) Upgrade() *service9.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service10.WatchableService)
+	ret0, _ := ret[0].(*service9.WatchableService)
 	return ret0
 }
 
@@ -220,10 +205,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) Upgrade() *gomock.Call {
 }
 
 // User mocks base method.
-func (m *MockControllerServiceFactory) User() *service11.Service {
+func (m *MockControllerServiceFactory) User() *service10.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "User")
-	ret0, _ := ret[0].(*service11.Service)
+	ret0, _ := ret[0].(*service10.Service)
 	return ret0
 }
 

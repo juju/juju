@@ -222,11 +222,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
 
-	controllerModelType := model.IAAS
-	if cloud.CloudIsCAAS(stateParams.ControllerCloud) {
-		controllerModelType = model.CAAS
-	}
-
 	// Add initial Admin user to the database. This will return Admin user UUID
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
@@ -241,7 +236,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		Cloud:        stateParams.ControllerCloud.Name,
 		CloudRegion:  stateParams.ControllerCloudRegion,
 		Credential:   credential.IdFromTag(cloudCredTag),
-		Type:         controllerModelType,
 		UUID:         controllerModelUUID,
 	}
 	_, controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelArgs)

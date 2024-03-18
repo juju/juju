@@ -123,7 +123,6 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 		Credential:   s.CredentialID,
 		Name:         coremodel.ControllerModelName,
 		Owner:        s.AdminUserUUID,
-		Type:         coremodel.IAAS,
 		UUID:         s.ControllerModelUUID,
 	}
 
@@ -138,7 +137,6 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 		Credential:   s.CredentialID,
 		Name:         "test",
 		Owner:        s.AdminUserUUID,
-		Type:         coremodel.IAAS,
 		UUID:         s.DefaultModelUUID,
 	}
 

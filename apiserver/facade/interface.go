@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -65,9 +66,9 @@ type LeadershipModelContext interface {
 type MultiModelContext interface {
 	ModelContext
 
-	// ServiceFactoryForModel returns the services factory for a given
-	// model uuid.
-	ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory
+	// ServiceFactoryForModel returns the services factory for a given model
+	// uuid.
+	ServiceFactoryForModel(model.UUID) servicefactory.ServiceFactory
 
 	// ObjectStoreForModel returns the object store for a given model uuid.
 	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)

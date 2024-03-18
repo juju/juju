@@ -18,7 +18,6 @@ import (
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
-	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -69,11 +68,6 @@ func (s *TestingServiceFactory) Model() *modelservice.Service {
 
 // ModelDefaults returns the model defaults service.
 func (s *TestingServiceFactory) ModelDefaults() *modeldefaultsservice.Service {
-	return nil
-}
-
-// ModelManager returns the model manager service.
-func (s *TestingServiceFactory) ModelManager() *modelmanagerservice.Service {
 	return nil
 }
 

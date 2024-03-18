@@ -95,6 +95,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	err = modelSt.Create(
 		context.Background(),
 		m.uuid,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
@@ -106,7 +107,6 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 			},
 			Name:  "my-test-model",
 			Owner: m.userUUID,
-			Type:  coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +150,7 @@ func (m *stateSuite) TestCreateModelAgentWithNoModel(c *gc.C) {
 
 	testUUID := modeltesting.GenModelUUID(c)
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return createModelAgent(context.Background(), testUUID, version.Current, tx)
+		return createModelAgent(context.Background(), tx, testUUID, version.Current)
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
@@ -164,7 +164,7 @@ func (m *stateSuite) TestCreateModelAgentAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return createModelAgent(context.Background(), m.uuid, version.Current, tx)
+		return createModelAgent(context.Background(), tx, m.uuid, version.Current)
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -178,15 +178,15 @@ func (m *stateSuite) TestCreateModelMetadataWithNoModel(c *gc.C) {
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return createModelMetadata(
 			ctx,
+			tx,
 			testUUID,
+			coremodel.IAAS,
 			model.ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "fantasticmodel",
 				Owner:       m.userUUID,
-				Type:        coremodel.IAAS,
 			},
-			tx,
 		)
 	})
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
@@ -199,15 +199,15 @@ func (m *stateSuite) TestCreateModelMetadataWithExistingMetadata(c *gc.C) {
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return createModelMetadata(
 			ctx,
+			tx,
 			m.uuid,
+			coremodel.IAAS,
 			model.ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "fantasticmodel",
 				Owner:       m.userUUID,
-				Type:        coremodel.IAAS,
 			},
-			tx,
 		)
 	})
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -219,12 +219,12 @@ func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 	err := modelSt.Create(
 		context.Background(),
 		testUUID,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "my-region",
 			Name:        "my-test-model",
 			Owner:       m.userUUID,
-			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -236,12 +236,12 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 	err := modelSt.Create(
 		context.Background(),
 		testUUID,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       m.userUUID,
-			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -256,12 +256,12 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 	err := modelSt.Create(
 		context.Background(),
 		testUUID,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       user.UUID("noexist"), // does not exist
-			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
@@ -280,12 +280,12 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 	err = modelSt.Create(
 		context.Background(),
 		testUUID,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       m.userUUID,
-			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
@@ -297,12 +297,12 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 	err := modelSt.Create(
 		context.Background(),
 		testUUID,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "noexist",
 			CloudRegion: "my-region",
 			Name:        "noregion",
 			Owner:       m.userUUID,
-			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -394,6 +394,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	err = modelSt.Create(
 		context.Background(),
 		m.uuid,
+		coremodel.CAAS,
 		model.ModelCreationArgs{
 			Cloud: "minikube",
 			Credential: corecredential.ID{
@@ -403,7 +404,6 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 			},
 			Name:  "controller",
 			Owner: m.userUUID,
-			Type:  coremodel.CAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -465,6 +465,7 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 	err := modelSt.Create(
 		context.Background(),
 		uuid1,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
@@ -476,7 +477,6 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 			},
 			Name:  "listtest1",
 			Owner: m.userUUID,
-			Type:  coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -485,6 +485,7 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 	err = modelSt.Create(
 		context.Background(),
 		uuid2,
+		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
@@ -496,7 +497,6 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 			},
 			Name:  "listtest2",
 			Owner: m.userUUID,
-			Type:  coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

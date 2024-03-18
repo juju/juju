@@ -43,12 +43,11 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 		}, nil
 	}
 
-	cfg, err := config.New(config.NoDefaults, map[string]any{
+	attrs := map[string]any{
 		"name": "wallyworld",
 		"uuid": "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 		"type": "sometype",
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	}
 
 	st := testing.NewState()
 	defer st.Close()
@@ -65,10 +64,10 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	}
 	c.Assert(len(changes), gc.Equals, 0)
 
-	err = svc.SetModelConfig(ctx, cfg)
+	err = svc.SetModelConfig(ctx, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err = svc.ModelConfig(ctx)
+	cfg, err := svc.ModelConfig(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cfg.AllAttrs(), jc.DeepEquals, map[string]any{

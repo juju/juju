@@ -14,9 +14,16 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
 	jujuversion "github.com/juju/juju/version"
 )
+
+type modelTypeStateFunc func(context.Context, string) (string, error)
+
+func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, error) {
+	return m(c, n)
+}
 
 // CreateModel is responsible for making a new model with all of its associated
 // metadata during the bootstrap process.
@@ -67,7 +74,20 @@ func CreateModel(
 		}
 
 		return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			return state.Create(ctx, uuid, args, tx)
+			modelTypeState := modelTypeStateFunc(
+				func(ctx context.Context, cloudName string) (string, error) {
+					return state.CloudType()(ctx, tx, cloudName)
+				})
+			mType, err := service.ModelTypeForCloud(ctx, modelTypeState, args.Cloud)
+			if err != nil {
+				return fmt.Errorf("determining cloud type for model %q: %w", args.Name, err)
+			}
+
+			if err := state.Create(ctx, tx, uuid, mType, args); err != nil {
+				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, uuid, err)
+			}
+
+			return nil
 		})
 	}
 }

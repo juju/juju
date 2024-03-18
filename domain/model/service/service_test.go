@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	usererrors "github.com/juju/juju/domain/user/errors"
@@ -32,7 +32,7 @@ type dummyStateCloud struct {
 type dummyState struct {
 	clouds map[string]dummyStateCloud
 	models map[coremodel.UUID]coremodel.Model
-	users  set.Strings
+	users  map[user.UUID]string
 }
 
 type serviceSuite struct {
@@ -45,9 +45,22 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
+func (d *dummyState) CloudType(
+	_ context.Context,
+	name string,
+) (string, error) {
+	_, exists := d.clouds[name]
+	if !exists {
+		return "", clouderrors.NotFound
+	}
+
+	return "aws", nil
+}
+
 func (d *dummyState) Create(
 	_ context.Context,
 	uuid coremodel.UUID,
+	modelType coremodel.ModelType,
 	args model.ModelCreationArgs,
 ) error {
 	if _, exists := d.models[uuid]; exists {
@@ -65,7 +78,8 @@ func (d *dummyState) Create(
 		return fmt.Errorf("%w cloud %q", errors.NotFound, args.Cloud)
 	}
 
-	if !d.users.Contains(args.Owner.String()) {
+	_, exists = d.users[user.UUID(args.Owner.String())]
+	if !exists {
 		return fmt.Errorf("%w for owner %q", usererrors.NotFound, args.Owner)
 	}
 
@@ -89,7 +103,7 @@ func (d *dummyState) Create(
 		AgentVersion: args.AgentVersion,
 		Name:         args.Name,
 		UUID:         uuid,
-		ModelType:    args.Type,
+		ModelType:    modelType,
 		Cloud:        args.Cloud,
 		CloudRegion:  args.CloudRegion,
 		Credential:   args.Credential,
@@ -131,6 +145,26 @@ func (d *dummyState) List(
 	return rval, nil
 }
 
+func (d *dummyState) ModelCloudNameAndCredential(
+	_ context.Context,
+	modelName string,
+	ownerName string,
+) (string, credential.ID, error) {
+	var ownerUUID user.UUID
+	for k, v := range d.users {
+		if v == ownerName {
+			ownerUUID = k
+		}
+	}
+
+	for _, model := range d.models {
+		if model.Owner == ownerUUID && model.Name == modelName {
+			return model.Cloud, model.Credential, nil
+		}
+	}
+	return "", credential.ID{}, modelerrors.NotFound
+}
+
 func (d *dummyState) UpdateCredential(
 	_ context.Context,
 	uuid coremodel.UUID,
@@ -165,7 +199,9 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.state = &dummyState{
 		clouds: map[string]dummyStateCloud{},
 		models: map[coremodel.UUID]coremodel.Model{},
-		users:  set.NewStrings(s.userUUID.String()),
+		users: map[user.UUID]string{
+			s.userUUID: "admin",
+		},
 	}
 }
 
@@ -195,7 +231,6 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,13 +250,13 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 }
 
 func (s *serviceSuite) TestModelCreationInvalidCloud(c *gc.C) {
+	s.state.clouds["aws"] = dummyStateCloud{}
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
 	_, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -238,7 +273,6 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
 		CloudRegion: "noexist",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -261,7 +295,6 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 		CloudRegion: "myregion",
 		Owner:       notFoundUser,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
@@ -284,7 +317,6 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 		},
 		Owner: s.userUUID,
 		Name:  "my-awesome-model",
-		Type:  coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -302,7 +334,6 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -312,7 +343,6 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -350,7 +380,6 @@ func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -386,7 +415,6 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -415,7 +443,6 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -456,7 +483,6 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -491,7 +517,6 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -520,7 +545,6 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -566,7 +590,6 @@ func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 		Credential:   cred,
 		Owner:        s.userUUID,
 		Name:         "my-awesome-model",
-		Type:         coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
@@ -603,7 +626,6 @@ func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 		Credential:   cred,
 		Owner:        s.userUUID,
 		Name:         "my-awesome-model",
-		Type:         coremodel.IAAS,
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)

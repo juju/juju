@@ -40,10 +40,6 @@ type ModelCreationArgs struct {
 	// Owner is the uuid of the user that owns this model in the Juju controller.
 	Owner user.UUID
 
-	// Type is the type of the model.
-	// Type must satisfy IsValid() for a valid struct.
-	Type coremodel.ModelType
-
 	// UUID represents the unique id for the model when being created. This
 	// value is optional and if omitted will be generated for the caller. Use
 	// this value when you are trying to import a model during model migration.
@@ -61,9 +57,6 @@ func (m ModelCreationArgs) Validate() error {
 	}
 	if err := m.Owner.Validate(); err != nil {
 		return fmt.Errorf("%w owner: %w", errors.NotValid, err)
-	}
-	if !m.Type.IsValid() {
-		return fmt.Errorf("%w model type of %q", errors.NotSupported, m.Type)
 	}
 	if !m.Credential.IsZero() {
 		if err := m.Credential.Validate(); err != nil {
@@ -85,10 +78,12 @@ func (m ModelCreationArgs) Validate() error {
 func (m ModelCreationArgs) AsReadOnly() ReadOnlyModelCreationArgs {
 	return ReadOnlyModelCreationArgs{
 		UUID:        m.UUID,
-		Type:        m.Type,
 		Cloud:       m.Cloud,
 		CloudRegion: m.CloudRegion,
 		Name:        m.Name,
+		// TODO (tlm): This is a hack that Simon or TLM will deal with in
+		// coming days. See #17063 for a possible solution to this problem.
+		Type: coremodel.IAAS,
 	}
 }
 
