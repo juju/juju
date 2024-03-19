@@ -35,6 +35,12 @@ type OffersAPI struct {
 	authContext *commoncrossmodel.AuthContext
 }
 
+// OffersAPI implements the cross model interface and is the concrete
+// implementation of the api end point.
+type OffersAPIV4 struct {
+	OffersAPI
+}
+
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
@@ -148,6 +154,19 @@ func (api *OffersAPI) makeAddOfferArgsFromParams(user names.UserTag, backend Bac
 // The results contain details about the deployed applications such as connection count.
 func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
 	var result params.QueryApplicationOffersResults
+	user := api.Authorizer.GetAuthTag().(names.UserTag)
+	offers, err := api.getApplicationOffersDetails(user, filters, permission.AdminAccess)
+	if err != nil {
+		return result, apiservererrors.ServerError(err)
+	}
+	result.Results = offers
+	return result, nil
+}
+
+// ListApplicationOffers gets deployed details about application offers that match given filter.
+// The results contain details about the deployed applications such as connection count.
+func (api *OffersAPIV4) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResultsV4, error) {
+	var result params.QueryApplicationOffersResultsV4
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	offers, err := api.getApplicationOffersDetails(user, filters, permission.AdminAccess)
 	if err != nil {

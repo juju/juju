@@ -287,14 +287,6 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "admin", DisplayName: "", Access: "admin"},
 					{UserName: "mary", DisplayName: "mary", Access: "consume"},
@@ -312,10 +304,6 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 			}},
 		},
 	}
-	if s.mockState.model.modelType == state.ModelTypeCAAS {
-		expectedOfferDetails[0].Spaces = nil
-		expectedOfferDetails[0].Bindings = nil
-	}
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
 		expectedOfferDetails,
 	})
@@ -324,16 +312,6 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 		s.env.stub.CheckNoCalls(c)
 		return
 	}
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	})
 }
 
 func (s *applicationOffersSuite) TestList(c *gc.C) {
@@ -443,14 +421,6 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "fred@external", DisplayName: "", Access: "admin"},
 					{UserName: "mary", DisplayName: "mary", Access: "consume"},
@@ -506,14 +476,6 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "someone", DisplayName: "someone", Access: "read"},
 				},
@@ -693,14 +655,6 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 				OfferUUID:              "hosted-" + name + "-uuid",
 				OfferURL:               url,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "someone", DisplayName: "someone", Access: "read"},
 				},
@@ -741,16 +695,6 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 	if len(expected) == 0 {
 		return
 	}
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	})
 }
 
 func (s *applicationOffersSuite) TestFind(c *gc.C) {
@@ -765,14 +709,6 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "admin", DisplayName: "", Access: "admin"},
 				}},
@@ -814,14 +750,6 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "someone", DisplayName: "someone", Access: "read"},
 				}},
@@ -1046,16 +974,6 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					Endpoints: []params.RemoteEndpoint{
 						{Name: "db"},
 					},
-					Bindings: map[string]string{"db2": "myspace"},
-					Spaces: []params.RemoteSpace{
-						{
-							Name:       "myspace",
-							ProviderId: "juju-space-myspace",
-							Subnets: []params.Subnet{
-								{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}},
-							},
-						},
-					},
 					Users: []params.OfferUserDetails{
 						{UserName: "someone", DisplayName: "someone", Access: "consume"},
 					},
@@ -1266,14 +1184,6 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 		OfferUUID:              offerUUID,
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
-		Bindings:               map[string]string{"database": "myspace"},
-		Spaces: []params.RemoteSpace{
-			{
-				Name:       "myspace",
-				ProviderId: "juju-space-myspace",
-				Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-			},
-		},
 		Users: []params.OfferUserDetails{
 			{UserName: "someone", DisplayName: "someone", Access: "consume"},
 		},
@@ -1347,7 +1257,6 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 		OfferUUID:              offerUUID,
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
-		Bindings:               map[string]string{"database": "default-endpoint"},
 		Users: []params.OfferUserDetails{
 			{UserName: "someone", DisplayName: "someone", Access: "consume"},
 		},
@@ -1443,16 +1352,6 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 		{
 			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
 		},
-	})
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
 	})
 }
 

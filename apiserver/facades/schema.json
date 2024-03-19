@@ -1990,8 +1990,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv19 provides the Application API facade for version 19.",
-        "Version": 19,
+        "Description": "APIv20 provides the Application API facade for version 20.",
+        "Version": 20,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2827,14 +2827,6 @@
                         "application-description": {
                             "type": "string"
                         },
-                        "bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
                         "endpoints": {
                             "type": "array",
                             "items": {
@@ -2852,12 +2844,6 @@
                         },
                         "source-model-tag": {
                             "type": "string"
-                        },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteSpace"
-                            }
                         },
                         "users": {
                             "type": "array",
@@ -3270,14 +3256,6 @@
                         "application-description": {
                             "type": "string"
                         },
-                        "bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
                         "endpoints": {
                             "type": "array",
                             "items": {
@@ -3301,12 +3279,6 @@
                         },
                         "source-model-tag": {
                             "type": "string"
-                        },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteSpace"
-                            }
                         },
                         "users": {
                             "type": "array",
@@ -4049,43 +4021,6 @@
                         "limit"
                     ]
                 },
-                "RemoteSpace": {
-                    "type": "object",
-                    "properties": {
-                        "cloud-type": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "provider-attributes": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "subnets": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Subnet"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cloud-type",
-                        "name",
-                        "provider-id",
-                        "provider-attributes",
-                        "subnets"
-                    ]
-                },
                 "ScaleApplicationInfo": {
                     "type": "object",
                     "properties": {
@@ -4204,49 +4139,6 @@
                     "additionalProperties": false,
                     "required": [
                         "result"
-                    ]
-                },
-                "Subnet": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "provider-network-id": {
-                            "type": "string"
-                        },
-                        "provider-space-id": {
-                            "type": "string"
-                        },
-                        "space-tag": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "vlan-tag": {
-                            "type": "integer"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cidr",
-                        "vlan-tag",
-                        "life",
-                        "space-tag",
-                        "zones"
                     ]
                 },
                 "UnitInfoResult": {
@@ -4443,7 +4335,7 @@
     {
         "Name": "ApplicationOffers",
         "Description": "OffersAPI implements the cross model interface and is the concrete\nimplementation of the api end point.",
-        "Version": 4,
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -4614,14 +4506,6 @@
                         "application-name": {
                             "type": "string"
                         },
-                        "bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
                         "charm-url": {
                             "type": "string"
                         },
@@ -4649,12 +4533,6 @@
                         "source-model-tag": {
                             "type": "string"
                         },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteSpace"
-                            }
-                        },
                         "users": {
                             "type": "array",
                             "items": {
@@ -4680,14 +4558,6 @@
                         "application-description": {
                             "type": "string"
                         },
-                        "bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
                         "endpoints": {
                             "type": "array",
                             "items": {
@@ -4705,12 +4575,6 @@
                         },
                         "source-model-tag": {
                             "type": "string"
-                        },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteSpace"
-                            }
                         },
                         "users": {
                             "type": "array",
@@ -5245,86 +5109,6 @@
                         "role",
                         "interface",
                         "limit"
-                    ]
-                },
-                "RemoteSpace": {
-                    "type": "object",
-                    "properties": {
-                        "cloud-type": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "provider-attributes": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "subnets": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Subnet"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cloud-type",
-                        "name",
-                        "provider-id",
-                        "provider-attributes",
-                        "subnets"
-                    ]
-                },
-                "Subnet": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "provider-network-id": {
-                            "type": "string"
-                        },
-                        "provider-space-id": {
-                            "type": "string"
-                        },
-                        "space-tag": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "vlan-tag": {
-                            "type": "integer"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cidr",
-                        "vlan-tag",
-                        "life",
-                        "space-tag",
-                        "zones"
                     ]
                 }
             }
@@ -20491,7 +20275,7 @@
     {
         "Name": "CrossModelRelations",
         "Description": "CrossModelRelationsAPI provides access to the CrossModelRelations API facade.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -20844,9 +20628,6 @@
                         "remote-endpoint": {
                             "$ref": "#/definitions/RemoteEndpoint"
                         },
-                        "remote-space": {
-                            "$ref": "#/definitions/RemoteSpace"
-                        },
                         "source-model-tag": {
                             "type": "string"
                         }
@@ -20857,7 +20638,6 @@
                         "source-model-tag",
                         "relation-token",
                         "remote-endpoint",
-                        "remote-space",
                         "offer-uuid",
                         "local-endpoint-name"
                     ]
@@ -21170,43 +20950,6 @@
                     },
                     "additionalProperties": false
                 },
-                "RemoteSpace": {
-                    "type": "object",
-                    "properties": {
-                        "cloud-type": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "provider-attributes": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "subnets": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Subnet"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cloud-type",
-                        "name",
-                        "provider-id",
-                        "provider-attributes",
-                        "subnets"
-                    ]
-                },
                 "SecretRevisionChange": {
                     "type": "object",
                     "properties": {
@@ -21294,49 +21037,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "Subnet": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "provider-network-id": {
-                            "type": "string"
-                        },
-                        "provider-space-id": {
-                            "type": "string"
-                        },
-                        "space-tag": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "vlan-tag": {
-                            "type": "integer"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cidr",
-                        "vlan-tag",
-                        "life",
-                        "space-tag",
-                        "zones"
                     ]
                 },
                 "WatchRemoteSecretChangesArg": {

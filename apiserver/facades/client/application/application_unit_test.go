@@ -2667,20 +2667,6 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 	}}
 
 	s.consumeApplicationArgs.Args[0].ApplicationAlias = "beirut"
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.Bindings = map[string]string{"server": "myspace"}
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.Spaces = []params.RemoteSpace{{
-		CloudType:  "grandaddy",
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		Subnets: []params.Subnet{{
-			CIDR:       "5.6.7.0/24",
-			ProviderId: "juju-subnet-1",
-			Zones:      []string{"az1"},
-		}},
-	}}
 
 	s.backend.EXPECT().RemoteApplication("beirut").Return(nil, errors.NotFoundf(`saas application "beirut"`))
 	s.backend.EXPECT().AddRemoteApplication(s.addRemoteApplicationParams).Return(nil, nil)

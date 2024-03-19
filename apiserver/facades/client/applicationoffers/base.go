@@ -163,7 +163,148 @@ func (api *BaseAPI) applicationOffersFromModel(
 	return results, nil
 }
 
+// applicationOffersFromModel gets details about remote applications that match given filters.
+func (api *OffersAPIV4) applicationOffersFromModel(
+	modelUUID string,
+	user names.UserTag,
+	requiredAccess permission.Access,
+	filters ...jujucrossmodel.ApplicationOfferFilter,
+) ([]params.ApplicationOfferAdminDetailsV4, error) {
+	// Get the relevant backend for the specified model.
+	backend, releaser, err := api.StatePool.Get(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer releaser()
+
+	// If requireAdmin is true, the user must be a controller superuser
+	// or model admin to proceed.
+	var isAdmin bool
+	err = api.checkAdmin(user, backend)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return nil, err
+	}
+	isAdmin = err == nil
+	if requiredAccess == permission.AdminAccess && !isAdmin {
+		return nil, err
+	}
+
+	offers, err := api.GetApplicationOffers(backend).ListOffers(filters...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	apiUserDisplayName, err := api.userDisplayName(backend, user)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var results []params.ApplicationOfferAdminDetailsV4
+	for _, appOffer := range offers {
+		userAccess := permission.AdminAccess
+		// If the user is not a model admin, they need at least read
+		// access on an offer to see it.
+		if !isAdmin {
+			if userAccess, err = api.checkOfferAccess(user, backend, appOffer.OfferUUID); err != nil {
+				return nil, errors.Trace(err)
+			}
+			if userAccess == permission.NoAccess {
+				continue
+			}
+			isAdmin = userAccess == permission.AdminAccess
+		}
+		offerParams, app, err := api.makeOfferParams(backend, &appOffer)
+		// Just because we can't compose the result for one offer, log
+		// that and move on to the next one.
+		if err != nil {
+			logger.Warningf("cannot get application offer: %v", err)
+			continue
+		}
+		offerParams.Users = []params.OfferUserDetails{{
+			UserName:    user.Id(),
+			DisplayName: apiUserDisplayName,
+			Access:      string(userAccess),
+		}}
+		offer := params.ApplicationOfferAdminDetailsV4{
+			ApplicationOfferDetailsV4: *offerParams,
+		}
+		// Only admins can see some sensitive details of the offer.
+		if isAdmin {
+			if err := api.getOfferAdminDetails(user, backend, app, &offer); err != nil {
+				logger.Warningf("cannot get offer admin details: %v", err)
+			}
+		}
+		results = append(results, offer)
+	}
+	return results, nil
+}
+
 func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
+	curl, _ := app.CharmURL()
+	conns, err := backend.OfferConnections(offer.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offer.ApplicationName = app.Name()
+	offer.CharmURL = *curl
+	for _, oc := range conns {
+		connDetails := params.OfferConnection{
+			SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),
+			Username:       oc.UserName(),
+			RelationId:     oc.RelationId(),
+		}
+		rel, err := backend.KeyRelation(oc.RelationKey())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ep, err := rel.Endpoint(app.Name())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		relStatus, err := rel.Status()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		connDetails.Endpoint = ep.Name
+		connDetails.Status = params.EntityStatus{
+			Status: relStatus.Status,
+			Info:   relStatus.Message,
+			Data:   relStatus.Data,
+			Since:  relStatus.Since,
+		}
+		relIngress, err := backend.IngressNetworks(oc.RelationKey())
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err == nil {
+			connDetails.IngressSubnets = relIngress.CIDRS()
+		}
+		offer.Connections = append(offer.Connections, connDetails)
+	}
+
+	offerUsers, err := backend.GetOfferUsers(offer.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for userName, access := range offerUsers {
+		if userName == user.Id() {
+			continue
+		}
+		displayName, err := api.userDisplayName(backend, names.NewUserTag(userName))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		offer.Users = append(offer.Users, params.OfferUserDetails{
+			UserName:    userName,
+			DisplayName: displayName,
+			Access:      string(access),
+		})
+	}
+	return nil
+}
+
+func (api *OffersAPIV4) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetailsV4) error {
 	curl, _ := app.CharmURL()
 	conns, err := backend.OfferConnections(offer.OfferUUID)
 	if err != nil {
@@ -382,6 +523,51 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	return result, nil
 }
 
+// getApplicationOffersDetails gets details about remote applications that match given filter.
+func (api *OffersAPIV4) getApplicationOffersDetails(
+	user names.UserTag,
+	filters params.OfferFilters,
+	requiredPermission permission.Access,
+) ([]params.ApplicationOfferAdminDetailsV4, error) {
+
+	// If there are no filters specified, that's an error since the
+	// caller is expected to specify at the least one or more models
+	// to avoid an unbounded query across all models.
+	if len(filters.Filters) == 0 {
+		return nil, errors.New("at least one offer filter is required")
+	}
+
+	// Gather all the filter details for doing a query for each model.
+	models, filtersPerModel, err := api.getModelFilters(user, filters)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Ensure the result is deterministic.
+	var allUUIDs []string
+	for modelUUID := range filtersPerModel {
+		allUUIDs = append(allUUIDs, modelUUID)
+	}
+	sort.Strings(allUUIDs)
+
+	// Do the per model queries.
+	var result []params.ApplicationOfferAdminDetailsV4
+	for _, modelUUID := range allUUIDs {
+		filters := filtersPerModel[modelUUID]
+		offers, err := api.applicationOffersFromModel(modelUUID, user, requiredPermission, filters...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		model := models[modelUUID]
+
+		for _, offerDetails := range offers {
+			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.Owner().Id(), model.Name(), offerDetails.OfferName, "")
+			result = append(result, offerDetails)
+		}
+	}
+	return result, nil
+}
+
 func makeOfferFilterFromParams(filter params.OfferFilter) (jujucrossmodel.ApplicationOfferFilter, error) {
 	offerFilter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName:              filter.OfferName,
@@ -449,6 +635,43 @@ func (api *BaseAPI) makeOfferParams(backend Backend,
 		return &result, app, nil
 	}
 
+	return &result, app, nil
+}
+
+func (api *OffersAPIV4) makeOfferParams(backend Backend,
+	offer *jujucrossmodel.ApplicationOffer,
+) (*params.ApplicationOfferDetailsV4, crossmodel.Application, error) {
+	app, err := backend.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	result := params.ApplicationOfferDetailsV4{
+		SourceModelTag:         backend.ModelTag().String(),
+		OfferName:              offer.OfferName,
+		OfferUUID:              offer.OfferUUID,
+		ApplicationDescription: offer.ApplicationDescription,
+	}
+
+	// Create result.Endpoints both IAAS and CAAS can use.
+	for alias, ep := range offer.Endpoints {
+		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
+			Name:      alias,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+		})
+
+	}
+
+	// CAAS models don't have spaces.
+	model, err := backend.Model()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	if model.Type() == state.ModelTypeCAAS {
+		return &result, app, nil
+	}
+
 	// We could lift this much higher in the function call, but we need to be
 	// sure that CAAS can handle the fact that this API call is called.
 	allSpaceInfosLookup, err := backend.AllSpaceInfos()
@@ -464,7 +687,6 @@ func (api *BaseAPI) makeOfferParams(backend Backend,
 
 	return &result, app, nil
 }
-
 func (api *BaseAPI) spacesAndBindingParams(
 	backend Backend,
 	app crossmodel.Application,

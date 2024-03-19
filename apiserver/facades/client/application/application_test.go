@@ -962,7 +962,9 @@ func (s *applicationSuite) apiv16() *application.APIv16 {
 		APIv17: &application.APIv17{
 			APIv18: &application.APIv18{
 				APIv19: &application.APIv19{
-					APIBase: s.applicationAPI,
+					APIv20: &application.APIv20{
+						APIBase: s.applicationAPI,
+					},
 				},
 			},
 		},

@@ -76,6 +76,17 @@ type ApplicationOfferDetails struct {
 	OfferName              string             `json:"offer-name"`
 	ApplicationDescription string             `json:"application-description"`
 	Endpoints              []RemoteEndpoint   `json:"endpoints,omitempty"`
+	Users                  []OfferUserDetails `json:"users,omitempty"`
+}
+
+// ApplicationOfferDetails represents an application offering from an external model.
+type ApplicationOfferDetailsV4 struct {
+	SourceModelTag         string             `json:"source-model-tag"`
+	OfferUUID              string             `json:"offer-uuid"`
+	OfferURL               string             `json:"offer-url"`
+	OfferName              string             `json:"offer-name"`
+	ApplicationDescription string             `json:"application-description"`
+	Endpoints              []RemoteEndpoint   `json:"endpoints,omitempty"`
 	Spaces                 []RemoteSpace      `json:"spaces,omitempty"`
 	Bindings               map[string]string  `json:"bindings,omitempty"`
 	Users                  []OfferUserDetails `json:"users,omitempty"`
@@ -97,6 +108,15 @@ type ApplicationOfferAdminDetails struct {
 	Connections     []OfferConnection `json:"connections,omitempty"`
 }
 
+// ApplicationOfferAdminDetails represents an application offering,
+// including details about how it has been deployed.
+type ApplicationOfferAdminDetailsV4 struct {
+	ApplicationOfferDetailsV4
+	ApplicationName string            `json:"application-name"`
+	CharmURL        string            `json:"charm-url"`
+	Connections     []OfferConnection `json:"connections,omitempty"`
+}
+
 // OfferConnection holds details about a connection to an offer.
 type OfferConnection struct {
 	SourceModelTag string       `json:"source-model-tag"`
@@ -111,6 +131,12 @@ type OfferConnection struct {
 type QueryApplicationOffersResults struct {
 	// Results contains application offers matching each filter.
 	Results []ApplicationOfferAdminDetails `json:"results"`
+}
+
+// QueryApplicationOffersResults is a result of searching application offers.
+type QueryApplicationOffersResultsV4 struct {
+	// Results contains application offers matching each filter.
+	Results []ApplicationOfferAdminDetailsV4 `json:"results"`
 }
 
 // AddApplicationOffers is used when adding offers to an application directory.
@@ -192,9 +218,30 @@ type ConsumeApplicationArg struct {
 	ApplicationAlias string `json:"application-alias,omitempty"`
 }
 
+// ConsumeApplicationArg holds the arguments for consuming a remote application.
+type ConsumeApplicationArgV4 struct {
+	// The offer to be consumed.
+	ApplicationOfferDetailsV4
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+
+	// ControllerInfo contains connection details to the controller
+	// hosting the offer.
+	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
+
+	// ApplicationAlias is the name of the alias to use for the application name.
+	ApplicationAlias string `json:"application-alias,omitempty"`
+}
+
 // ConsumeApplicationArgs is a collection of arg for consuming applications.
 type ConsumeApplicationArgs struct {
 	Args []ConsumeApplicationArg `json:"args,omitempty"`
+}
+
+// ConsumeApplicationArgs is a collection of arg for consuming applications.
+type ConsumeApplicationArgsV4 struct {
+	Args []ConsumeApplicationArgV4 `json:"args,omitempty"`
 }
 
 // TokenResult holds a token and an error.
@@ -523,6 +570,37 @@ type RegisterRemoteRelationArg struct {
 	// RemoteEndpoint contains info about the endpoint in the remote model.
 	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
 
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string `json:"offer-uuid"`
+
+	// LocalEndpointName is the name of the endpoint in the local model.
+	LocalEndpointName string `json:"local-endpoint-name"`
+
+	// ConsumeVersion is incremented each time a new consumer
+	// proxy is created for an offer.
+	ConsumeVersion int `json:"consume-version,omitempty"`
+
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+}
+
+// RegisterRemoteRelationArg holds attributes used to register a remote relation.
+type RegisterRemoteRelationArgV2 struct {
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
+
+	// SourceModelTag is the tag of the model hosting the application.
+	SourceModelTag string `json:"source-model-tag"`
+
+	// RelationToken is the relation token on the remote model.
+	RelationToken string `json:"relation-token"`
+
+	// RemoteEndpoint contains info about the endpoint in the remote model.
+	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
+
 	// RemoteSpace contains provider-level info about the space the
 	// endpoint is bound to in the remote model.
 	RemoteSpace RemoteSpace `json:"remote-space"`
@@ -547,6 +625,11 @@ type RegisterRemoteRelationArg struct {
 // RegisterRemoteRelationArgs holds args used to add remote relations.
 type RegisterRemoteRelationArgs struct {
 	Relations []RegisterRemoteRelationArg `json:"relations"`
+}
+
+// RegisterRemoteRelationArgsV2 holds args used to add remote relations.
+type RegisterRemoteRelationArgsV2 struct {
+	Relations []RegisterRemoteRelationArgV2 `json:"relations"`
 }
 
 // RegisterRemoteRelationResult holds a remote relation details and an error.

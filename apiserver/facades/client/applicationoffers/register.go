@@ -18,8 +18,22 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ApplicationOffers", 4, func(ctx facade.Context) (facade.Facade, error) {
+		return newOffersAPIV4(ctx)
+	}, reflect.TypeOf((*OffersAPIV4)(nil)))
+	registry.MustRegister("ApplicationOffers", 5, func(ctx facade.Context) (facade.Facade, error) {
 		return newOffersAPI(ctx)
 	}, reflect.TypeOf((*OffersAPI)(nil)))
+}
+
+// newOffersAPIV4 returns a new application offers OffersAPIV4 facade.
+func newOffersAPIV4(ctx facade.Context) (*OffersAPIV4, error) {
+	offersAPI, err := newOffersAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &OffersAPIV4{
+		*offersAPI,
+	}, nil
 }
 
 // newOffersAPI returns a new application offers OffersAPI facade.
