@@ -108,6 +108,10 @@ func newRemoteApplication(st *State, doc *remoteApplicationDoc) *RemoteApplicati
 	return app
 }
 
+// remoteAppGlobalKeyPrefix is the string we use to denote
+// remoteApplication kind.
+const remoteAppGlobalKeyPrefix = "c#"
+
 // remoteApplicationGlobalKey returns the global database key for the
 // remote application with the given name.
 //
@@ -116,7 +120,7 @@ func newRemoteApplication(st *State, doc *remoteApplicationDoc) *RemoteApplicati
 // and r and a were taken.
 // TODO(babbageclunk): check whether this is still the case.
 func remoteApplicationGlobalKey(appName string) string {
-	return "c#" + appName
+	return remoteAppGlobalKeyPrefix + appName
 }
 
 // globalKey returns the global database key for the remote application.
@@ -178,6 +182,11 @@ func (a *RemoteApplication) Token() (string, error) {
 // Tag returns a name identifying the application.
 func (a *RemoteApplication) Tag() names.Tag {
 	return names.NewApplicationTag(a.Name())
+}
+
+// Kind returns a human readable name identifying the remote application kind.
+func (a *RemoteApplication) Kind() string {
+	return "remote-application"
 }
 
 // Life returns whether the application is Alive, Dying or Dead.
@@ -541,12 +550,14 @@ func (a *RemoteApplication) SetStatus(info status.StatusInfo) error {
 	}
 
 	return setStatus(a.st.db(), setStatusParams{
-		badge:     fmt.Sprintf("saas application %q", a.doc.Name),
-		globalKey: a.globalKey(),
-		status:    info.Status,
-		message:   info.Message,
-		rawData:   info.Data,
-		updated:   timeOrNow(info.Since, a.st.clock()),
+		badge:      fmt.Sprintf("saas application %q", a.doc.Name),
+		statusKind: a.Kind(),
+		statusId:   a.Name(),
+		globalKey:  a.globalKey(),
+		status:     info.Status,
+		message:    info.Message,
+		rawData:    info.Data,
+		updated:    timeOrNow(info.Since, a.st.clock()),
 	})
 }
 
@@ -615,7 +626,8 @@ func (op *terminateRemoteApplicationOperation) Done(err error) error {
 	if err != nil {
 		return errors.Annotatef(err, "terminating saas application %q", op.app.Name())
 	}
-	_, _ = probablyUpdateStatusHistory(op.app.st.db(), op.app.globalKey(), op.doc)
+	_, _ = probablyUpdateStatusHistory(op.app.st.db(),
+		op.app.Kind(), op.app.Name(), op.app.globalKey(), op.doc)
 	// Set the life to Dead so that the lifecycle watcher will trigger to inform the
 	// relevant workers that this application is gone.
 	ops := []txn.Op{{

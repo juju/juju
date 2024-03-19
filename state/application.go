@@ -149,6 +149,11 @@ func (a *Application) Tag() names.Tag {
 	return a.ApplicationTag()
 }
 
+// Kind returns a human readable name identifying the application kind.
+func (a *Application) Kind() string {
+	return a.Tag().Kind()
+}
+
 // ApplicationTag returns the more specific ApplicationTag rather than the generic
 // Tag.
 func (a *Application) ApplicationTag() names.ApplicationTag {
@@ -158,8 +163,11 @@ func (a *Application) ApplicationTag() names.ApplicationTag {
 // applicationGlobalKey returns the global database key for the application
 // with the given name.
 func applicationGlobalKey(appName string) string {
-	return "a#" + appName
+	return appGlobalKeyPrefix + appName
 }
+
+// appGlobalKeyPrefix is the string we use to denote application kind.
+const appGlobalKeyPrefix = "a#"
 
 // globalKey returns the global database key for the application.
 func (a *Application) globalKey() string {
@@ -2529,13 +2537,15 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
 	}
 
+	u := newUnit(a.st, m.Type(), udoc)
+	uAgent := newUnitAgent(a.st, unitTag, "")
 	// At the last moment we still have the statusDocs in scope, set the initial
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	_, _ = probablyUpdateStatusHistory(a.st.db(), globalKey, *unitStatusDoc)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), *workloadVersionDoc)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), u.Kind(), name, globalKey, *unitStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), u.unitWorkloadVersionKind(), name, globalWorkloadVersionKey(name), *workloadVersionDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), uAgent.Kind(), name, agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
 }
 
@@ -3496,6 +3506,8 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 
 	return setStatus(a.st.db(), setStatusParams{
 		badge:            "application",
+		statusKind:       a.Kind(),
+		statusId:         a.Name(),
 		globalKey:        a.globalKey(),
 		status:           statusInfo.Status,
 		message:          statusInfo.Message,
@@ -3517,12 +3529,14 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	}
 
 	err = setStatus(a.st.db(), setStatusParams{
-		badge:     "operator",
-		globalKey: applicationGlobalOperatorKey(a.Name()),
-		status:    sInfo.Status,
-		message:   sInfo.Message,
-		rawData:   sInfo.Data,
-		updated:   timeOrNow(sInfo.Since, a.st.clock()),
+		badge:      "operator",
+		statusKind: a.Kind(),
+		statusId:   a.Name(),
+		globalKey:  applicationGlobalOperatorKey(a.Name()),
+		status:     sInfo.Status,
+		message:    sInfo.Message,
+		rawData:    sInfo.Data,
+		updated:    timeOrNow(sInfo.Since, a.st.clock()),
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -3537,7 +3551,8 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	}
 	if historyDoc != nil {
 		// rewriting application status history
-		_, err = probablyUpdateStatusHistory(a.st.db(), a.globalKey(), *historyDoc)
+		_, err = probablyUpdateStatusHistory(a.st.db(),
+			a.Kind(), a.Name(), a.globalKey(), *historyDoc)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3870,7 +3885,9 @@ func (op *AddUnitOperation) Done(err error) error {
 			StatusData: mgoutils.EscapeKeys(op.props.CloudContainerStatus.Data),
 			Updated:    timeOrNow(op.props.CloudContainerStatus.Since, u.st.clock()).UnixNano(),
 		}
-		_, err := probablyUpdateStatusHistory(op.application.st.db(), globalCloudContainerKey(op.unitName), doc)
+		_, err := probablyUpdateStatusHistory(
+			op.application.st.db(), u.cloudContainerKind(), op.unitName,
+			globalCloudContainerKey(op.unitName), doc)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3887,6 +3904,8 @@ func (op *AddUnitOperation) Done(err error) error {
 		if newHistory != nil {
 			err = setStatus(op.application.st.db(), setStatusParams{
 				badge:            "unit",
+				statusKind:       u.Kind(),
+				statusId:         op.unitName,
 				globalKey:        unitGlobalKey(op.unitName),
 				status:           unitStatus.Status,
 				message:          unitStatus.Message,

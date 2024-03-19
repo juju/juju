@@ -368,7 +368,7 @@ func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGet
 		return nil, nil, errors.Trace(err)
 	}
 	if args.MigrationMode != MigrationModeImporting {
-		_, _ = probablyUpdateStatusHistory(newSt.db(), modelGlobalKey, modelStatusDoc)
+		_, _ = probablyUpdateStatusHistory(newSt.db(), newModel.Kind(), modelGlobalKey, modelGlobalKey, modelStatusDoc)
 	}
 
 	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
@@ -401,6 +401,11 @@ func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGet
 // by any other entities from the same state.
 func (m *Model) Tag() names.Tag {
 	return m.ModelTag()
+}
+
+// Kind returns a human readable name identifying the model kind.
+func (m *Model) Kind() string {
+	return m.Tag().Kind()
 }
 
 // ModelTag is the concrete model tag for this model.
@@ -579,12 +584,14 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
 	}
 	return setStatus(m.st.db(), setStatusParams{
-		badge:     "model",
-		globalKey: m.globalKey(),
-		status:    sInfo.Status,
-		message:   sInfo.Message,
-		rawData:   sInfo.Data,
-		updated:   timeOrNow(sInfo.Since, m.st.clock()),
+		badge:      "model",
+		statusKind: m.Kind(),
+		statusId:   modelGlobalKey,
+		globalKey:  m.globalKey(),
+		status:     sInfo.Status,
+		message:    sInfo.Message,
+		rawData:    sInfo.Data,
+		updated:    timeOrNow(sInfo.Since, m.st.clock()),
 	})
 }
 

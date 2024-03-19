@@ -93,12 +93,14 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 		return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)
 	}
 	return setStatus(u.st.db(), setStatusParams{
-		badge:     "agent",
-		globalKey: u.globalKey(),
-		status:    unitAgentStatus.Status,
-		message:   unitAgentStatus.Message,
-		rawData:   unitAgentStatus.Data,
-		updated:   timeOrNow(unitAgentStatus.Since, u.st.clock()),
+		badge:      "agent",
+		statusKind: u.Kind(),
+		statusId:   u.name,
+		globalKey:  u.globalKey(),
+		status:     unitAgentStatus.Status,
+		message:    unitAgentStatus.Message,
+		rawData:    unitAgentStatus.Data,
+		updated:    timeOrNow(unitAgentStatus.Since, u.st.clock()),
 	})
 }
 
@@ -117,8 +119,11 @@ func (u *UnitAgent) StatusHistory(filter status.StatusHistoryFilter) ([]status.S
 
 // unitAgentGlobalKey returns the global database key for the named unit.
 func unitAgentGlobalKey(name string) string {
-	return "u#" + name
+	return unitAgentGlobalKeyPrefix + name
 }
+
+// unitAgentGlobalKeyPrefix is the string we use to denote unit agent kind.
+const unitAgentGlobalKeyPrefix = "u#"
 
 // globalKey returns the global database key for the unit.
 func (u *UnitAgent) globalKey() string {
@@ -128,4 +133,9 @@ func (u *UnitAgent) globalKey() string {
 // Tag returns a names.Tag identifying this agent's unit.
 func (u *UnitAgent) Tag() names.Tag {
 	return u.tag
+}
+
+// Kind returns a human readable name identifying the unit agent kind.
+func (u *UnitAgent) Kind() string {
+	return u.Tag().Kind() + "-agent"
 }

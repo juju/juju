@@ -74,6 +74,11 @@ func (r *Relation) Tag() names.Tag {
 	return names.NewRelationTag(r.doc.Key)
 }
 
+// Kind returns a human readable name identifying the relation kind.
+func (r *Relation) Kind() string {
+	return r.Tag().Kind()
+}
+
 // UnitCount is the number of units still in relation scope.
 func (r *Relation) UnitCount() int {
 	return r.doc.UnitCount
@@ -158,12 +163,14 @@ func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
 		}
 	}
 	return setStatus(r.st.db(), setStatusParams{
-		badge:     "relation",
-		globalKey: r.globalScope(),
-		status:    statusInfo.Status,
-		message:   statusInfo.Message,
-		rawData:   statusInfo.Data,
-		updated:   timeOrNow(statusInfo.Since, r.st.clock()),
+		badge:      "relation",
+		statusKind: r.Kind(),
+		statusId:   fmt.Sprint(r.Id()),
+		globalKey:  r.globalScope(),
+		status:     statusInfo.Status,
+		message:    statusInfo.Message,
+		rawData:    statusInfo.Data,
+		updated:    timeOrNow(statusInfo.Since, r.st.clock()),
 	})
 }
 
