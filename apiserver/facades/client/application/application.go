@@ -466,11 +466,6 @@ func compatibilityApplicationDeployArgs(arg params.ApplicationDeploy) (params.Ap
 	if err != nil {
 		return arg, err
 	}
-	curl, err := charm.ParseURL(arg.CharmURL)
-	if err != nil {
-		return arg, err
-	}
-	arg.CharmURL = curl.WithSeries(originSeries).String()
 	origin.Series = originSeries
 	arg.Series = originSeries
 	return arg, nil

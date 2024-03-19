@@ -304,11 +304,6 @@ func compatibilityAddCharmWithAuthArg(arg params.AddCharmWithAuth) (params.AddCh
 	if err != nil {
 		return arg, err
 	}
-	curl, err := charm.ParseURL(arg.URL)
-	if err != nil {
-		return arg, err
-	}
-	arg.URL = curl.WithSeries(originSeries).String()
 	arg.Origin.Series = originSeries
 	arg.Series = originSeries
 	return arg, nil
