@@ -223,12 +223,15 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"object_store_metadata_hash_type",
 
 		"application",
-		"charm",
 		"machine",
 		"net_node",
 		"cloud_service",
 		"cloud_container",
 		"unit",
+
+		// Charm
+		"charm",
+		"charm_storage",
 
 		// Spaces
 		"space",
@@ -256,11 +259,10 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"storage_pool_attribute",
 		"storage_kind",
 		"storage_instance",
-		"storage_instance_pool",
 		"storage_unit_owner",
 		"storage_attachment",
-		"storage_constraint_type",
-		"storage_instance_constraint",
+		"application_storage_directive",
+		"unit_storage_directive",
 		"storage_volume",
 		"storage_instance_volume",
 		"storage_volume_attachment",

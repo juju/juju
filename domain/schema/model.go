@@ -401,6 +401,29 @@ CREATE TABLE charm (
     uuid    TEXT PRIMARY KEY,
     url     TEXT NOT NULL
 );
+
+CREATE TABLE charm_storage (
+    charm_uuid       TEXT NOT NULL,
+    name             TEXT NOT NULL,
+    description      TEXT,
+    storage_kind_id  INT NOT NULL,
+    shared           BOOLEAN,
+    read_only        BOOLEAN,
+    count_min        INT NOT NULL,
+    count_max        INT NOT NULL,
+    minimum_size_mib INT,
+    location         TEXT,
+    CONSTRAINT       fk_storage_instance_kind
+        FOREIGN KEY  (storage_kind_id)
+        REFERENCES   storage_kind(id),
+    CONSTRAINT       fk_charm_storage_charm
+        FOREIGN KEY  (charm_uuid)
+        REFERENCES   charm(uuid),
+    PRIMARY KEY (charm_uuid, name)
+);
+
+CREATE INDEX idx_charm_storage_charm
+ON charm_storage (charm_uuid);
 `)
 }
 
@@ -567,6 +590,9 @@ CREATE TABLE storage_pool (
     type TEXT NOT NULL
 );
 
+CREATE UNIQUE INDEX idx_storage_pool_name
+ON storage_pool (name);
+
 CREATE TABLE storage_pool_attribute (
     storage_pool_uuid TEXT NOT NULL,
     key               TEXT NOT NULL,
@@ -578,8 +604,8 @@ CREATE TABLE storage_pool_attribute (
 );
 
 CREATE TABLE storage_kind (
-    id   		INT PRIMARY KEY,
-    kind 		TEXT NOT NULL,
+    id          INT PRIMARY KEY,
+    kind        TEXT NOT NULL,
     description TEXT                     
 );
 
@@ -590,28 +616,98 @@ INSERT INTO storage_kind VALUES
     (0, 'block', 'Allows for the creation of raw storage volumes'), 
     (1, 'filesystem', 'Provides a hierarchical file storage system');
 
+-- This table stores storage directive values for each named storage item
+-- defined by the application's current charm. If the charm is updated, then
+-- so too will be the rows in this table to reflect the current charm's
+-- storage definitions.
+CREATE TABLE application_storage_directive (
+    application_uuid TEXT NOT NULL,
+    charm_uuid       TEXT NOT NULL,
+    storage_name     TEXT NOT NULL,
+    -- These attributes are filled in by sourcing data from:
+    -- user supplied, model config, charm config, opinionated fallbacks.
+    -- By the time the row is written, all values are known.
+    -- Directive value attributes (pool, size, count) hitherto have
+    -- been fixed (since first implemented). We don't envisage
+    -- any change to how these are modelled.
+    --
+    -- Note: one might wonder why storage_pool below is not a
+    -- FK to a row defined in the storage pool table. This value
+    -- can also be one of the pool types. As with the comment on the
+    -- type column in the storage pool table, it's problematic to use a lookup
+    -- with an ID. Storage pools, once created, cannot be renamed so
+    -- this will not be able to become "orphaned".
+    storage_pool TEXT NOT NULL,
+    size         INT  NOT NULL,
+    count        INT  NOT NULL,
+    CONSTRAINT       fk_application_storage_directive_application
+        FOREIGN KEY  (application_uuid)
+        REFERENCES   application(uuid),
+    CONSTRAINT       fk_application_storage_directive_charm_storage
+        FOREIGN KEY  (charm_uuid, storage_name)
+        REFERENCES   charm_storage(charm_uuid, name),
+    PRIMARY KEY (application_uuid, charm_uuid, storage_name)
+);
+
+-- Note that this is not unique; it speeds access by application.
+CREATE INDEX idx_application_storage_directive
+ON application_storage_directive (application_uuid);
+
+-- This table stores storage directive values for each named storage item
+-- defined by the unit's current charm. If the charm is updated, then
+-- so too will be the rows in this table to reflect the current charm's
+-- storage definitions.
+-- Note: usually we just get the storage directives off the application
+-- but need to allow for a unit's charm to temporarily diverge from that
+-- of its application.
+CREATE TABLE unit_storage_directive (
+    unit_uuid    TEXT NOT NULL,
+    charm_uuid   TEXT NOT NULL,
+    storage_name TEXT NOT NULL,
+    -- These attributes are filled in by sourcing data from:
+    -- user supplied, model config, charm config, opinionated fallbacks.
+    -- By the time the row is written, all values are known.
+    -- Directive value attributes (pool, size, count) hitherto have
+    -- been fixed (since first implemented). We don't envisage
+    -- any change to how these are modelled.
+    --
+    -- Note: one might wonder why storage_pool below is not a
+    -- FK to a row defined in the storage pool table. This value
+    -- can also be one of the pool types. As with the comment on the
+    -- type column in the storage pool table, it's problematic to use a lookup
+    -- with an ID. Storage pools, once created, cannot be renamed so
+    -- this will not be able to become "orphaned".
+    storage_pool TEXT NOT NULL,
+    size         INT  NOT NULL,
+    count        INT  NOT NULL,
+    CONSTRAINT       fk_unit_storage_directive_charm_storage
+        FOREIGN KEY  (charm_uuid, storage_name)
+        REFERENCES   charm_storage(charm_uuid, name),
+    PRIMARY KEY (unit_uuid, charm_uuid, storage_name)
+);
+
+-- Note that this is not unique; it speeds access by unit.
+CREATE INDEX idx_unit_storage_directive
+ON unit_storage_directive (unit_uuid);
+
 CREATE TABLE storage_instance (
     uuid            TEXT PRIMARY KEY,
     storage_kind_id INT NOT NULL,
     name            TEXT NOT NULL,
     life_id         INT NOT NULL,
+    -- Note: one might wonder why storage_pool below is not a
+    -- FK to a row defined in the storage pool table. This value
+    -- can also be one of the pool types. As with the comment on the
+    -- type column in the storage pool table, it's problematic to use a lookup
+    -- with an ID. Storage pools, once created, cannot be renamed so
+    -- this will not be able to become "orphaned".
+    storage_pool TEXT NOT NULL,
     CONSTRAINT       fk_storage_instance_kind
         FOREIGN KEY  (storage_kind_id)
         REFERENCES   storage_kind(id),
     CONSTRAINT       fk_storage_instance_life
         FOREIGN KEY  (life_id)
         REFERENCES   life(id)
-);
-
-CREATE TABLE storage_instance_pool (
-    storage_instance_uuid TEXT PRIMARY KEY,
-    storage_pool_uuid     TEXT NOT NULL,
-    CONSTRAINT       fk_storage_instance_pool_instance
-        FOREIGN KEY  (storage_instance_uuid)
-        REFERENCES   storage_instance(uuid),
-    CONSTRAINT       fk_storage_instance_pool_pool
-        FOREIGN KEY  (storage_pool_uuid)
-        REFERENCES   storage_pool(uuid)
 );
 
 -- storage_unit_owner is used to indicate when
@@ -646,36 +742,6 @@ CREATE TABLE storage_attachment (
 -- Note that this is not unique; it speeds access by unit.
 CREATE INDEX idx_storage_attachment_unit
 ON storage_attachment (unit_uuid);
-
-CREATE TABLE storage_constraint_type (
-    id          INT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    description TEXT
-);
-
-CREATE UNIQUE INDEX idx_storage_constraint_type
-ON storage_constraint_type (name);
-
-INSERT INTO storage_constraint_type VALUES
-    (0, 'pool', 'The storage pool from which storage must be provisioned'), 
-    (1, 'size', 'Minimum size in MiB'),
-    (2, 'count', 'Number of storage instances required'); 
-
-CREATE TABLE storage_instance_constraint (
-    uuid                  TEXT PRIMARY KEY,
-    storage_instance_uuid TEXT NOT NULL,
-    constraint_type_id    INT NOT NULL,
-    value                 TEXT NOT NULL,
-    CONSTRAINT       fk_storage_instance_constraint_instance
-        FOREIGN KEY  (storage_instance_uuid)
-        REFERENCES   storage_instance(uuid),
-    CONSTRAINT       fk_storage_instance_constraint_type
-        FOREIGN KEY  (constraint_type_id)
-        REFERENCES   storage_constraint_type(id)
-);
-
-CREATE UNIQUE INDEX idx_storage_instance_constraint
-ON storage_instance_constraint (storage_instance_uuid, constraint_type_id);
 
 CREATE TABLE storage_provisioning_status (
     id          INT PRIMARY KEY,

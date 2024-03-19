@@ -229,6 +229,8 @@ func (s *serviceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").
+		Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError).MaxTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "mine",
 		Storage: map[string]charm.Storage{
