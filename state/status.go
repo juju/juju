@@ -414,9 +414,13 @@ type recordedHistoricalStatusDoc struct {
 //
 // The "idle" status for the machine-lxd-profile is omitted from the status log,
 // since only the applied or error statuses are useful in that case.
+//
+// TODO (cderici): Once the statusesHistoryC collection goes away we'll lose
+// access to the doc parameter, so we'll replace it with a couple more
+// parameters for the status info and the status value.
 func logStatusUpdate(statusKind string, statusId string, doc statusDoc) {
 	if statusKind != "machine-lxd-profile" || doc.Status != status.Idle {
-		status_logger.InfoWithLabelsf("status update", map[string]string{
+		status_logger.InfoWithLabelsf(doc.StatusInfo, map[string]string{
 			"domain": "status",
 			"kind":   statusKind,
 			"id":     statusId,
