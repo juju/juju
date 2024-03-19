@@ -67,9 +67,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
 		ConsumeVersion:  1,
-		Bindings: map[string]string{
-			"binding-key": "binding-value",
-		},
 	}).Return(remoteApplication)
 
 	migration := ExportRemoteApplications{}
@@ -130,9 +127,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpoints
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
 		ConsumeVersion:  1,
-		Bindings: map[string]string{
-			"binding-key": "binding-value",
-		},
 	}).Return(remoteApplication)
 
 	migration := ExportRemoteApplications{}
@@ -174,9 +168,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
 		ConsumeVersion:  1,
-		Bindings: map[string]string{
-			"binding-key": "binding-value",
-		},
 	}).Return(remoteApplication)
 
 	migration := ExportRemoteApplications{}

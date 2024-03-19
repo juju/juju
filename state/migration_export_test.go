@@ -2158,6 +2158,35 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
+	mac, err := newMacaroon("apimac")
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "charisma",
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+		// Macaroon not exported.
+		Macaroon: mac,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2175,11 +2204,6 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
 	c.Check(app.SourceModelTag(), gc.Equals, s.Model.ModelTag())
 	c.Check(app.IsConsumerProxy(), jc.IsFalse)
-	c.Check(app.Bindings(), gc.DeepEquals, map[string]string{
-		"db":       "private",
-		"db-admin": "private",
-		"logging":  "public",
-	})
 
 	c.Assert(app.Endpoints(), gc.HasLen, 3)
 	ep := app.Endpoints()[0]
@@ -2194,9 +2218,6 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(ep.Name(), gc.Equals, "logging")
 	c.Check(ep.Interface(), gc.Equals, "logging")
 	c.Check(ep.Role(), gc.Equals, "provider")
-
-	actualSpaces := app.Spaces()
-	c.Assert(actualSpaces, gc.HasLen, 2)
 
 	c.Assert(model.Relations(), gc.HasLen, 1)
 	rel := model.Relations()[0]
