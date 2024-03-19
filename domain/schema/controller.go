@@ -412,6 +412,14 @@ CREATE TABLE model_metadata (
 
 CREATE UNIQUE INDEX idx_model_metadata_name_owner
 ON model_metadata (name, owner_uuid);
+
+CREATE VIEW v_model_metadata AS
+SELECT 
+    m.model_uuid,
+    m.name,
+    t.type
+FROM model_metadata m
+INNER JOIN model_type t ON m.model_type_id = t.id;
 `)
 }
 
