@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -683,7 +684,7 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 
 func (s *MigrationSuite) TestMinionReports(c *gc.C) {
 	// Create some machines and units to report with.
-	factory2 := factory.NewFactory(s.State2, s.StatePool)
+	factory2 := factory.NewFactory(s.State2, s.StatePool, testing.FakeControllerConfig())
 	m0 := factory2.MakeMachine(c, nil)
 	u0 := factory2.MakeUnit(c, &factory.UnitParams{Machine: m0})
 	m1 := factory2.MakeMachine(c, nil)
@@ -708,7 +709,7 @@ func (s *MigrationSuite) TestMinionReportsCAAS(c *gc.C) {
 	// Create some machines and units to report with.
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	factory2 := factory.NewFactory(st, s.StatePool)
+	factory2 := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 	ch := factory2.MakeCharmV2(c, &factory.CharmParams{
 		Name:   "snappass-test",
 		Series: "quantal",

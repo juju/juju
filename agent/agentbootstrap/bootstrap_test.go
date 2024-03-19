@@ -214,27 +214,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
-	// Check controller config
-	controllerCfg, err = st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerCfg, jc.DeepEquals, controller.Config{
-		"controller-uuid":           testing.ControllerTag.Id(),
-		"ca-cert":                   testing.CACert,
-		"state-port":                1234,
-		"api-port":                  17777,
-		"set-numa-control-policy":   false,
-		"max-txn-log-size":          "10M",
-		"model-logfile-max-backups": 1,
-		"model-logfile-max-size":    "1M",
-		"model-logs-size":           "1M",
-		"auditing-enabled":          false,
-		"audit-log-capture-args":    true,
-		"audit-log-max-size":        "200M",
-		"audit-log-max-backups":     5,
-		"query-tracing-threshold":   "1s",
-		"object-store-type":         "file",
-	})
-
 	// Check that controller model configuration has been added, and
 	// model constraints set.
 	model, err = st.Model()

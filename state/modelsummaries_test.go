@@ -52,7 +52,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 		Type:  state.ModelTypeCAAS,
 	})
 	modelUUIDs["user2model"] = st2.ModelUUID()
-	f2 := factory.NewFactory(st2, s.StatePool)
+	f2 := factory.NewFactory(st2, s.StatePool, testing.FakeControllerConfig())
 	f2.MakeUnit(c, nil)
 	st2.Close()
 	user3 := s.Factory.MakeUser(c, &factory.UserParams{
