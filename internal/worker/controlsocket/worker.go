@@ -6,6 +6,7 @@
 package controlsocket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,15 +16,16 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/user/errors"
+	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/socketlistener"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 const (
@@ -37,6 +39,50 @@ const (
 	userCreator = "controller@juju"
 )
 
+// UserService is the interface for the user service.
+type UserService interface {
+	// AddUser will add a new user to the database and return the UUID of the
+	// user if successful. If no password is set in the incoming argument,
+	// the user will be added with an activation key.
+	// The following error types are possible from this function:
+	//   - usererrors.UserNameNotValid: When the username supplied is not valid.
+	//   - usererrors.AlreadyExists: If a user with the supplied name already exists.
+	//   - usererrors.CreatorUUIDNotFound: If a creator has been supplied for the user
+	//     and the creator does not exist.
+	//   - auth.ErrPasswordNotValid: If the password supplied is not valid.
+	AddUser(ctx context.Context, arg service.AddUserArg) (user.UUID, []byte, error)
+
+	// GetUserByName will find and return the user associated with name. If there is no
+	// user for the user name then an error that satisfies usererrors.NotFound will
+	// be returned. If supplied with an invalid user name then an error that satisfies
+	// usererrors.UserNameNotValid will be returned.
+	//
+	// GetUserByName will not return users that have been previously removed.
+	GetUserByName(ctx context.Context, name string) (user.User, error)
+
+	// GetUserByAuth will find and return the user with UUID. If there is no
+	// user for the name and password, then an error that satisfies
+	// usererrors.NotFound will be returned. If supplied with an invalid user name
+	// then an error that satisfies usererrors.UserNameNotValid will be returned.
+	// It will not return users that have been previously removed.
+	GetUserByAuth(ctx context.Context, name string, password auth.Password) (user.User, error)
+
+	// RemoveUser marks the user as removed and removes any credentials or
+	// activation codes for the current users. Once a user is removed they are no
+	// longer usable in Juju and should never be un removed.
+	// The following error types are possible from this function:
+	// - usererrors.UserNameNotValid: When the username supplied is not valid.
+	// - usererrors.NotFound: If no user by the given UUID exists.
+	RemoveUser(ctx context.Context, name string) error
+}
+
+// PermissionService is the interface for the permission service.
+type PermissionService interface {
+	// AddUserPermission adds a user to the model with the given access.
+	// If the user already has the given access, this is a no-op.
+	AddUserPermission(ctx context.Context, username string, access permission.Access) error
+}
+
 // Logger represents the methods used by the worker to log information.
 type Logger interface {
 	Errorf(string, ...any)
@@ -48,21 +94,25 @@ type Logger interface {
 
 // Config represents configuration for the controlsocket worker.
 type Config struct {
-	State  State
-	Logger Logger
+	// UserService is the user service for the model.
+	UserService UserService
+	// PermissionService is the permission service for the model.
+	PermissionService PermissionService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
+	// Logger is the logger used by the worker.
+	Logger Logger
 }
 
 // Validate returns an error if config cannot drive the Worker.
 func (config Config) Validate() error {
-	if config.State == nil {
-		return errors.NotValidf("nil State")
+	if config.UserService == nil {
+		return errors.NotValidf("nil UserService")
 	}
-	if config.Logger == nil {
-		return errors.NotValidf("nil Logger")
+	if config.PermissionService == nil {
+		return errors.NotValidf("nil PermissionService")
 	}
 	if config.SocketName == "" {
 		return errors.NotValidf("empty SocketName")
@@ -70,13 +120,19 @@ func (config Config) Validate() error {
 	if config.NewSocketListener == nil {
 		return errors.NotValidf("nil NewSocketListener func")
 	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
 	return nil
 }
 
 // Worker is a controlsocket worker.
 type Worker struct {
-	config   Config
 	catacomb catacomb.Catacomb
+
+	userService       UserService
+	permissionService PermissionService
+	logger            Logger
 }
 
 // NewWorker returns a controlsocket worker with the given config.
@@ -86,7 +142,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
-		config: config,
+		userService:       config.UserService,
+		permissionService: config.PermissionService,
+		logger:            config.Logger,
 	}
 	sl, err := config.NewSocketListener(socketlistener.Config{
 		Logger:           config.Logger,
@@ -100,7 +158,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
-		Work: w.run,
+		Work: w.loop,
 		Init: []worker.Worker{sl},
 	})
 	if err != nil {
@@ -117,7 +175,7 @@ func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *Worker) run() error {
+func (w *Worker) loop() error {
 	select {
 	case <-w.catacomb.Dying():
 		return w.catacomb.ErrDying()
@@ -148,7 +206,7 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	code, err := w.addMetricsUser(parsedBody.Username, parsedBody.Password)
+	code, err := w.addMetricsUser(req.Context(), parsedBody.Username, auth.NewPassword(parsedBody.Password))
 	if err != nil {
 		w.writeResponse(resp, code, errorf("%v", err))
 		return
@@ -157,23 +215,30 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 	w.writeResponse(resp, code, infof("created user %q", parsedBody.Username))
 }
 
-func (w *Worker) addMetricsUser(username, password string) (int, error) {
+func (w *Worker) addMetricsUser(ctx context.Context, username string, password auth.Password) (int, error) {
 	err := validateMetricsUsername(username)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
-	if password == "" {
-		return http.StatusBadRequest, errors.NotValidf("empty password")
+	creatorUser, err := w.userService.GetUserByName(ctx, userCreator)
+	if err != nil {
+		return http.StatusInternalServerError, errors.Annotatef(err, "retrieving creator user %q: %v", userCreator, err)
 	}
 
-	user, err := w.config.State.AddUser(username, username, password, userCreator)
+	_, _, err = w.userService.AddUser(ctx, service.AddUserArg{
+		Name:        username,
+		DisplayName: username,
+		Password:    &password,
+		CreatorUUID: creatorUser.UUID,
+	})
+
 	cleanup := true
 	// Error handling here is a bit subtle.
 	switch {
-	case errors.Is(err, errors.AlreadyExists):
+	case errors.Is(err, usererrors.AlreadyExists):
 		// Retrieve existing user
-		user, err = w.config.State.User(names.NewUserTag(username))
+		user, err := w.userService.GetUserByAuth(ctx, username, password)
 		if err != nil {
 			return http.StatusInternalServerError,
 				fmt.Errorf("retrieving existing user %q: %v", username, err)
@@ -183,11 +248,11 @@ func (w *Worker) addMetricsUser(username, password string) (int, error) {
 		// worker shouldn't mess with users that have not been created by it.
 		// So ensure the user is identical to what we would have created, and
 		// otherwise error.
-		if user.CreatedBy() != userCreator {
-			return http.StatusConflict, errors.AlreadyExistsf("user %q (created by %q)", user.Name(), user.CreatedBy())
+		if user.Disabled {
+			return http.StatusForbidden, errors.Forbiddenf("user %q is disabled", user.Name)
 		}
-		if !user.PasswordValid(password) {
-			return http.StatusConflict, errors.AlreadyExistsf("user %q", user.Name())
+		if user.CreatorName != userCreator {
+			return http.StatusConflict, errors.AlreadyExistsf("user %q (created by %q)", user.Name, user.CreatorName)
 		}
 
 	case err == nil:
@@ -196,15 +261,15 @@ func (w *Worker) addMetricsUser(username, password string) (int, error) {
 		// If there is an error granting permissions, we should attempt to "rollback"
 		// and remove the user again.
 		defer func() {
-			if cleanup == false {
+			if !cleanup {
 				// Operation successful - nothing to clean up
 				return
 			}
 
-			err := w.config.State.RemoveUser(user.UserTag())
+			err := w.userService.RemoveUser(ctx, username)
 			if err != nil {
 				// Best we can do here is log an error.
-				w.config.Logger.Warningf("add metrics user failed, but could not clean up user %q: %v",
+				w.logger.Warningf("add metrics user failed, but could not clean up user %q: %v",
 					username, err)
 			}
 		}()
@@ -213,18 +278,7 @@ func (w *Worker) addMetricsUser(username, password string) (int, error) {
 		return http.StatusInternalServerError, errors.Annotatef(err, "creating user %q: %v", username, err)
 	}
 
-	// Give the new user permission to access the metrics endpoint.
-	var model model
-	model, err = w.config.State.Model()
-	if err != nil {
-		return http.StatusInternalServerError, errors.Annotatef(err, "retrieving current model: %v", err)
-	}
-
-	_, err = model.AddUser(state.UserAccessSpec{
-		User:      user.UserTag(),
-		CreatedBy: names.NewUserTag(userCreator),
-		Access:    permission.ReadAccess,
-	})
+	err = w.permissionService.AddUserPermission(ctx, username, permission.ReadAccess)
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return http.StatusInternalServerError, errors.Annotatef(err, "adding user %q to model %q: %v", username, bootstrap.ControllerModelName, err)
 	}
@@ -235,7 +289,7 @@ func (w *Worker) addMetricsUser(username, password string) (int, error) {
 
 func (w *Worker) handleRemoveMetricsUser(resp http.ResponseWriter, req *http.Request) {
 	username := mux.Vars(req)["username"]
-	code, err := w.removeMetricsUser(username)
+	code, err := w.removeMetricsUser(req.Context(), username)
 	if err != nil {
 		w.writeResponse(resp, code, errorf("%v", err))
 		return
@@ -244,26 +298,25 @@ func (w *Worker) handleRemoveMetricsUser(resp http.ResponseWriter, req *http.Req
 	w.writeResponse(resp, code, infof("deleted user %q", username))
 }
 
-func (w *Worker) removeMetricsUser(username string) (int, error) {
+func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, error) {
 	err := validateMetricsUsername(username)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
-	userTag := names.NewUserTag(username)
 	// We shouldn't mess with users that weren't created by us.
-	user, err := w.config.State.User(userTag)
-	if errors.Is(err, errors.NotFound) || errors.Is(err, errors.UserNotFound) || stateerrors.IsDeletedUserError(err) {
+	user, err := w.userService.GetUserByName(ctx, username)
+	if errors.Is(err, usererrors.NotFound) {
 		// succeed as no-op
 		return http.StatusOK, nil
 	} else if err != nil {
 		return http.StatusInternalServerError, err
 	}
-	if user.CreatedBy() != userCreator {
-		return http.StatusForbidden, errors.Forbiddenf("cannot remove user %q created by %q", user.Name(), user.CreatedBy())
+	if user.CreatorName != userCreator {
+		return http.StatusForbidden, errors.Forbiddenf("cannot remove user %q created by %q", user.Name, user.CreatorName)
 	}
 
-	err = w.config.State.RemoveUser(userTag)
+	err = w.userService.RemoveUser(ctx, username)
 	// Any "not found" errors should have been caught above, so fail here.
 	if err != nil {
 		return http.StatusInternalServerError, err
@@ -277,10 +330,6 @@ func validateMetricsUsername(username string) error {
 		return errors.BadRequestf("missing username")
 	}
 
-	if !names.IsValidUserName(username) {
-		return errors.NotValidf("username %q", username)
-	}
-
 	if !strings.HasPrefix(username, jujuMetricsUserPrefix) {
 		return errors.BadRequestf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix)
 	}
@@ -289,13 +338,13 @@ func validateMetricsUsername(username string) error {
 }
 
 func (w *Worker) writeResponse(resp http.ResponseWriter, statusCode int, body any) {
-	w.config.Logger.Debugf("operation finished with HTTP status %v", statusCode)
+	w.logger.Debugf("operation finished with HTTP status %v", statusCode)
 	resp.Header().Set("Content-Type", "application/json")
 
 	message, err := json.Marshal(body)
 	if err != nil {
-		w.config.Logger.Errorf("error marshalling response body to JSON: %v", err)
-		w.config.Logger.Errorf("response body was %#v", body)
+		w.logger.Errorf("error marshalling response body to JSON: %v", err)
+		w.logger.Errorf("response body was %#v", body)
 
 		// Mark this as an "internal server error"
 		statusCode = http.StatusInternalServerError
@@ -304,10 +353,10 @@ func (w *Worker) writeResponse(resp http.ResponseWriter, statusCode int, body an
 	}
 
 	resp.WriteHeader(statusCode)
-	w.config.Logger.Tracef("returning response %q", message)
+	w.logger.Tracef("returning response %q", message)
 	_, err = resp.Write(message)
 	if err != nil {
-		w.config.Logger.Warningf("error writing HTTP response: %v", err)
+		w.logger.Warningf("error writing HTTP response: %v", err)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/auth"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -55,7 +56,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(authenticator, gc.NotNil)
 
-	s.userService.EXPECT().GetUserByAuth(context.Background(), "user", "password").Return(user, nil).AnyTimes()
+	s.userService.EXPECT().GetUserByAuth(context.Background(), "user", auth.NewPassword("password")).Return(user, nil).AnyTimes()
 
 	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     tag,

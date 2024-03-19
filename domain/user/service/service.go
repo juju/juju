@@ -183,24 +183,24 @@ func (s *Service) GetUserByName(
 // usererrors.NotFound will be returned. If supplied with an invalid user name
 // then an error that satisfies usererrors.UserNameNotValid will be returned.
 // It will not return users that have been previously removed.
-// TODO (manadart 2024-02-13) Should this not accept a typed password?
 func (s *Service) GetUserByAuth(
 	ctx context.Context,
 	name string,
-	password string,
+	password auth.Password,
 ) (user.User, error) {
 	if err := domainuser.ValidateUserName(name); err != nil {
 		return user.User{}, errors.Annotatef(err, "validating username %q", name)
 	}
+	if err := password.Validate(); err != nil {
+		return user.User{}, errors.Trace(err)
+	}
 
-	pass := auth.NewPassword(password)
-
-	usr, err := s.st.GetUserByAuth(ctx, name, pass)
+	usr, err := s.st.GetUserByAuth(ctx, name, password)
 	if err != nil {
 		// We only need to ensure destruction on an error.
 		// The happy path hashes the password in state,
 		// and in so doing destroys it.
-		pass.Destroy()
+		password.Destroy()
 		return user.User{}, errors.Annotatef(err, "getting user %q", name)
 	}
 

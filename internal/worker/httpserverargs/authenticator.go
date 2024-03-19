@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
 )
 
@@ -28,7 +29,7 @@ type ControllerConfigService interface {
 // authenticate a user.
 type UserService interface {
 	// GetUserByAuth returns the user with the given name and password.
-	GetUserByAuth(ctx context.Context, name, password string) (coreuser.User, error)
+	GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error)
 	// GetUserByName returns the user with the given name.
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 	// UpdateLastLogin updates the last login time for the user with the

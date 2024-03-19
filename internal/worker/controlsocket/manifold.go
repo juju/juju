@@ -7,31 +7,28 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/socketlistener"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state"
 )
 
-// SocketListener describes a worker that listens on a unix socket.
-type SocketListener interface {
-	worker.Worker
-}
-
-func NewSocketListener(config socketlistener.Config) (SocketListener, error) {
-	return socketlistener.NewSocketListener(config)
-}
-
 // ManifoldConfig describes the dependencies required by the controlsocket worker.
 type ManifoldConfig struct {
-	StateName         string
-	Logger            Logger
-	NewWorker         func(Config) (worker.Worker, error)
-	NewSocketListener func(socketlistener.Config) (SocketListener, error)
-	SocketName        string
+	ServiceFactoryName string
+	Logger             Logger
+	NewWorker          func(Config) (worker.Worker, error)
+	NewSocketListener  func(socketlistener.Config) (SocketListener, error)
+	SocketName         string
+
+	// TODO (stickupkid): Delete me once permissions are in place.
+	StateName string
 }
 
 // Manifold returns a Manifold that encapsulates the controlsocket worker.
@@ -39,6 +36,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.StateName,
+			config.ServiceFactoryName,
 		},
 		Start: config.start,
 	}
@@ -46,8 +44,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.StateName == "" {
-		return errors.NotValidf("empty StateName")
+	if cfg.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -60,6 +58,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.SocketName == "" {
 		return errors.NotValidf("empty SocketName")
+	}
+	if cfg.StateName == "" {
+		return errors.NotValidf("empty StateName")
 	}
 	return nil
 }
@@ -87,9 +88,17 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		}
 	}()
 
+	var serviceFactory servicefactory.ControllerFactory
+	if err = getter.Get(cfg.ServiceFactoryName, &serviceFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var w worker.Worker
 	w, err = cfg.NewWorker(Config{
-		State:             stateShim{st},
+		UserService: serviceFactory.User(),
+		PermissionService: permissionService{
+			state: st,
+		},
 		Logger:            cfg.Logger,
 		SocketName:        cfg.SocketName,
 		NewSocketListener: cfg.NewSocketListener,
@@ -98,4 +107,41 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+}
+
+// SocketListener describes a worker that listens on a unix socket.
+type SocketListener interface {
+	worker.Worker
+}
+
+// NewSocketListener is a function that creates a new socket listener.
+func NewSocketListener(config socketlistener.Config) (SocketListener, error) {
+	return socketlistener.NewSocketListener(config)
+}
+
+// TODO (stickupkid): Delete me once permissions are in place, this is just
+// thin wrapper around the state to add user permissions.
+type permissionService struct {
+	state *state.State
+}
+
+func (p permissionService) AddUserPermission(ctx context.Context, username string, access permission.Access) error {
+	model, err := p.state.Model()
+	if err != nil {
+		return errors.Annotate(err, "getting model")
+	}
+
+	if !names.IsValidUserName(username) {
+		return errors.NotValidf("invalid username %q", username)
+	}
+
+	_, err = model.AddUser(state.UserAccessSpec{
+		User:      names.NewUserTag(username),
+		CreatedBy: names.NewUserTag(userCreator),
+		Access:    access,
+	})
+	if err != nil {
+		return errors.Annotate(err, "adding user")
+	}
+	return nil
 }

@@ -832,11 +832,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The controlsocket worker runs on the controller machine.
 		controlSocketName: ifController(controlsocket.Manifold(controlsocket.ManifoldConfig{
-			StateName:         stateName,
-			Logger:            loggo.GetLogger("juju.worker.controlsocket"),
-			NewWorker:         controlsocket.NewWorker,
-			NewSocketListener: controlsocket.NewSocketListener,
-			SocketName:        path.Join(agentConfig.DataDir(), "control.socket"),
+			ServiceFactoryName: serviceFactoryName,
+			Logger:             loggo.GetLogger("juju.worker.controlsocket"),
+			NewWorker:          controlsocket.NewWorker,
+			NewSocketListener:  controlsocket.NewSocketListener,
+			SocketName:         path.Join(agentConfig.DataDir(), "control.socket"),
+			// TODO (stickupkid): Remove state once we add permissions.
+			StateName: stateName,
 		})),
 
 		objectStoreName: ifController(objectstore.Manifold(objectstore.ManifoldConfig{

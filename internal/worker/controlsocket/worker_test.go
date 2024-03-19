@@ -6,27 +6,31 @@ package controlsocket
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"path"
 	"strings"
 
-	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v5"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
+	coreuser "github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/user/errors"
+	"github.com/juju/juju/domain/user/service"
+	auth "github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
-	state  *fakeState
-	logger Logger
+	jujutesting.IsolationSuite
+
+	logger            Logger
+	userService       *MockUserService
+	permissionService *MockPermissionService
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -42,17 +46,13 @@ type handlerTest struct {
 	ignoreBody bool   // if true, test will not read the request body
 }
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.state = &fakeState{}
-	s.logger = loggo.GetLogger(c.TestName())
-}
-
 func (s *workerSuite) runHandlerTest(c *gc.C, test handlerTest) {
 	tmpDir := c.MkDir()
 	socket := path.Join(tmpDir, "test.socket")
 
 	_, err := NewWorker(Config{
-		State:             s.state,
+		UserService:       s.userService,
+		PermissionService: s.permissionService,
 		Logger:            s.logger,
 		SocketName:        socket,
 		NewSocketListener: NewSocketListener,
@@ -88,18 +88,9 @@ func (s *workerSuite) runHandlerTest(c *gc.C, test handlerTest) {
 	}
 }
 
-func (s *workerSuite) assertState(c *gc.C, users []fakeUser) {
-	c.Assert(len(s.state.users), gc.Equals, len(users))
-
-	for _, expected := range users {
-		actual, ok := s.state.users[expected.name]
-		c.Assert(ok, gc.Equals, true)
-		c.Check(actual.creator, gc.Equals, expected.creator)
-		c.Check(actual.password, gc.Equals, expected.password)
-	}
-}
-
 func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodGet,
 		endpoint:   "/metrics-users",
@@ -109,6 +100,8 @@ func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *gc.C) {
 }
 
 func (s *workerSuite) TestMetricsUsersAddMissingBody(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -118,6 +111,8 @@ func (s *workerSuite) TestMetricsUsersAddMissingBody(c *gc.C) {
 }
 
 func (s *workerSuite) TestMetricsUsersAddInvalidBody(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -128,6 +123,8 @@ func (s *workerSuite) TestMetricsUsersAddInvalidBody(c *gc.C) {
 }
 
 func (s *workerSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -137,17 +134,9 @@ func (s *workerSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddMissingPassword(c *gc.C) {
-	s.runHandlerTest(c, handlerTest{
-		method:     http.MethodPost,
-		endpoint:   "/metrics-users",
-		body:       `{"username":"juju-metrics-r0"}`,
-		statusCode: http.StatusBadRequest,
-		response:   ".*empty password.*",
-	})
-}
-
 func (s *workerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -158,7 +147,19 @@ func (s *workerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *gc.C) {
 }
 
 func (s *workerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
-	s.state = newFakeState(nil)
+	defer s.setupMocks(c).Finish()
+
+	s.userService.EXPECT().GetUserByName(gomock.Any(), userCreator).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
+		Name:        "juju-metrics-r0",
+		DisplayName: "juju-metrics-r0",
+		Password:    ptr(auth.NewPassword("bar")),
+		CreatorUUID: coreuser.UUID("deadbeef"),
+	}).Return(coreuser.UUID("foobar"), nil, nil)
+	s.permissionService.EXPECT().AddUserPermission(gomock.Any(), "juju-metrics-r0", permission.ReadAccess).Return(nil)
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -166,15 +167,24 @@ func (s *workerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
 		statusCode: http.StatusOK,
 		response:   `.*created user \\\"juju-metrics-r0\\\".*`,
 	})
-	s.assertState(c, []fakeUser{
-		{name: "juju-metrics-r0", password: "bar", creator: "controller@juju"},
-	})
 }
 
 func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
-	s.state = newFakeState([]fakeUser{
-		{name: "juju-metrics-r0", password: "bar", creator: "not-you"},
-	})
+	defer s.setupMocks(c).Finish()
+
+	s.userService.EXPECT().GetUserByName(gomock.Any(), userCreator).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
+		Name:        "juju-metrics-r0",
+		DisplayName: "juju-metrics-r0",
+		Password:    ptr(auth.NewPassword("bar")),
+		CreatorUUID: coreuser.UUID("deadbeef"),
+	}).Return(coreuser.UUID("foobar"), nil, usererrors.AlreadyExists)
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
+		CreatorName: "not-you",
+	}, nil)
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -182,48 +192,51 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
 		statusCode: http.StatusConflict,
 		response:   ".*user .* already exists.*",
 	})
-	// Nothing should have changed.
-	s.assertState(c, []fakeUser{
-		{name: "juju-metrics-r0", password: "bar", creator: "not-you"},
-	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddDifferentPassword(c *gc.C) {
-	s.state = newFakeState([]fakeUser{
-		{name: "juju-metrics-r0", password: "foo", creator: userCreator},
-	})
-	s.runHandlerTest(c, handlerTest{
-		method:     http.MethodPost,
-		endpoint:   "/metrics-users",
-		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
-		statusCode: http.StatusConflict,
-		response:   `.*user \\\"juju-metrics-r0\\\" already exists.*`,
-	})
-	// Nothing should have changed.
-	s.assertState(c, []fakeUser{
-		{name: "juju-metrics-r0", password: "foo", creator: userCreator},
-	})
-}
+func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-func (s *workerSuite) TestMetricsUsersAddAddErr(c *gc.C) {
-	s.state = newFakeState(nil)
-	s.state.addErr = fmt.Errorf("spanner in the works")
+	s.userService.EXPECT().GetUserByName(gomock.Any(), userCreator).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
+		Name:        "juju-metrics-r0",
+		DisplayName: "juju-metrics-r0",
+		Password:    ptr(auth.NewPassword("bar")),
+		CreatorUUID: coreuser.UUID("deadbeef"),
+	}).Return(coreuser.UUID("foobar"), nil, usererrors.AlreadyExists)
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
+		CreatorName: "not-you",
+		Disabled:    true,
+	}, nil)
 
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
 		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
-		statusCode: http.StatusInternalServerError,
-		response:   ".*spanner in the works.*",
+		statusCode: http.StatusForbidden,
+		response:   ".*user .* is disabled.*",
 	})
-	// Nothing should have changed.
-	s.assertState(c, nil)
 }
 
 func (s *workerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
-	s.state = newFakeState([]fakeUser{
-		{name: "juju-metrics-r0", password: "bar", creator: userCreator},
-	})
+	defer s.setupMocks(c).Finish()
+
+	s.userService.EXPECT().GetUserByName(gomock.Any(), userCreator).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
+		Name:        "juju-metrics-r0",
+		DisplayName: "juju-metrics-r0",
+		Password:    ptr(auth.NewPassword("bar")),
+		CreatorUUID: coreuser.UUID("deadbeef"),
+	}).Return(coreuser.UUID("foobar"), nil, usererrors.AlreadyExists)
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
+		CreatorName: userCreator,
+	}, nil)
+	s.permissionService.EXPECT().AddUserPermission(gomock.Any(), "juju-metrics-r0", permission.ReadAccess).Return(nil)
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -231,27 +244,11 @@ func (s *workerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
 		statusCode: http.StatusOK, // succeed as a no-op
 		response:   `.*created user \\\"juju-metrics-r0\\\".*`,
 	})
-	// Nothing should have changed.
-	s.assertState(c, []fakeUser{
-		{name: "juju-metrics-r0", password: "bar", creator: userCreator},
-	})
-}
-
-func (s *workerSuite) TestMetricsUsersAddFailed(c *gc.C) {
-	s.state = newFakeState(nil)
-	s.state.model.err = fmt.Errorf("spanner in the works")
-
-	s.runHandlerTest(c, handlerTest{
-		method:     http.MethodPost,
-		endpoint:   "/metrics-users",
-		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
-		statusCode: http.StatusInternalServerError,
-		response:   ".*spanner in the works.*",
-	})
-	s.assertState(c, nil)
 }
 
 func (s *workerSuite) TestMetricsUsersRemoveInvalidMethod(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodGet,
 		endpoint:   "/metrics-users/foo",
@@ -261,6 +258,8 @@ func (s *workerSuite) TestMetricsUsersRemoveInvalidMethod(c *gc.C) {
 }
 
 func (s *workerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
 		endpoint:   "/metrics-users/foo",
@@ -270,48 +269,47 @@ func (s *workerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *gc.C) {
 }
 
 func (s *workerSuite) TestMetricsUsersRemoveSuccess(c *gc.C) {
-	s.state = newFakeState([]fakeUser{
-		{name: "juju-metrics-r0", password: "bar", creator: "controller@juju"},
-	})
+	defer s.setupMocks(c).Finish()
+
+	s.userService.EXPECT().GetUserByName(gomock.Any(), "juju-metrics-r0").Return(coreuser.User{
+		UUID:        coreuser.UUID("deadbeef"),
+		CreatorName: userCreator,
+	}, nil)
+	s.userService.EXPECT().RemoveUser(gomock.Any(), "juju-metrics-r0").Return(nil)
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
 		endpoint:   "/metrics-users/juju-metrics-r0",
 		statusCode: http.StatusOK,
 		response:   `.*deleted user \\\"juju-metrics-r0\\\".*`,
 	})
-	s.assertState(c, nil)
 }
 
 func (s *workerSuite) TestMetricsUsersRemoveForbidden(c *gc.C) {
-	s.state = newFakeState([]fakeUser{
-		{name: "juju-metrics-r0", password: "foo", creator: "not-you"},
-	})
+	defer s.setupMocks(c).Finish()
+
+	s.userService.EXPECT().GetUserByName(gomock.Any(), "juju-metrics-r0").Return(coreuser.User{
+		UUID:        coreuser.UUID("deadbeef"),
+		Name:        "juju-metrics-r0",
+		CreatorName: "not-you",
+	}, nil)
+
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
 		endpoint:   "/metrics-users/juju-metrics-r0",
 		statusCode: http.StatusForbidden,
 		response:   `.*cannot remove user \\\"juju-metrics-r0\\\" created by \\\"not-you\\\".*`,
 	})
-	// Nothing should have changed.
-	s.assertState(c, []fakeUser{
-		{name: "juju-metrics-r0", password: "foo", creator: "not-you"},
-	})
 }
 
 func (s *workerSuite) TestMetricsUsersRemoveNotFound(c *gc.C) {
-	s.state = newFakeState(nil)
-	s.runHandlerTest(c, handlerTest{
-		method:     http.MethodDelete,
-		endpoint:   "/metrics-users/juju-metrics-r0",
-		statusCode: http.StatusOK, // succeed as a no-op
-		response:   `.*deleted user \\\"juju-metrics-r0\\\".*`,
-	})
-	s.assertState(c, nil)
-}
+	defer s.setupMocks(c).Finish()
 
-func (s *workerSuite) TestMetricsUsersRemoveIdempotent(c *gc.C) {
-	s.state = newFakeState(nil)
-	s.state.userErr = stateerrors.NewDeletedUserError("juju-metrics-r0")
+	s.userService.EXPECT().GetUserByName(gomock.Any(), "juju-metrics-r0").Return(coreuser.User{
+		UUID:        coreuser.UUID("deadbeef"),
+		Name:        "juju-metrics-r0",
+		CreatorName: "not-you",
+	}, usererrors.NotFound)
 
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
@@ -319,120 +317,17 @@ func (s *workerSuite) TestMetricsUsersRemoveIdempotent(c *gc.C) {
 		statusCode: http.StatusOK, // succeed as a no-op
 		response:   `.*deleted user \\\"juju-metrics-r0\\\".*`,
 	})
-	// Nothing should have changed.
-	s.assertState(c, nil)
 }
 
-func (s *workerSuite) TestMetricsUsersRemoveFailed(c *gc.C) {
-	s.state = newFakeState([]fakeUser{
-		{name: "juju-metrics-r0", password: "bar", creator: userCreator},
-	})
-	s.state.removeErr = fmt.Errorf("spanner in the works")
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
-	s.runHandlerTest(c, handlerTest{
-		method:     http.MethodDelete,
-		endpoint:   "/metrics-users/juju-metrics-r0",
-		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
-		statusCode: http.StatusInternalServerError,
-		response:   ".*spanner in the works.*",
-	})
-	// Nothing should have changed.
-	s.assertState(c, []fakeUser{
-		{name: "juju-metrics-r0", password: "bar", creator: userCreator},
-	})
-}
+	s.userService = NewMockUserService(ctrl)
+	s.permissionService = NewMockPermissionService(ctrl)
 
-type fakeState struct {
-	users map[string]fakeUser
-	model *fakeModel
+	s.logger = testing.NewCheckLogger(c)
 
-	userErr, addErr, removeErr error
-}
-
-func newFakeState(users []fakeUser) *fakeState {
-	s := &fakeState{
-		users: make(map[string]fakeUser, len(users)),
-	}
-	for _, user := range users {
-		s.users[user.name] = user
-	}
-	s.model = &fakeModel{nil}
-	return s
-}
-
-func (s *fakeState) User(tag names.UserTag) (user, error) {
-	if s.userErr != nil {
-		return nil, s.userErr
-	}
-
-	username := tag.Name()
-	u, ok := s.users[username]
-	if !ok {
-		return nil, errors.UserNotFoundf("user %q", username)
-	}
-	return u, nil
-}
-
-func (s *fakeState) AddUser(name, displayName, password, creator string) (user, error) {
-	if s.addErr != nil {
-		return nil, s.addErr
-	}
-
-	if _, ok := s.users[name]; ok {
-		// The real state code doesn't return the user if it already exists, it
-		// returns a typed nil value.
-		return (*fakeUser)(nil), errors.AlreadyExistsf("user %q", name)
-	}
-
-	u := fakeUser{name, displayName, password, creator}
-	s.users[name] = u
-	return u, nil
-}
-
-func (s *fakeState) RemoveUser(tag names.UserTag) error {
-	if s.removeErr != nil {
-		return s.removeErr
-	}
-
-	username := tag.Name()
-	if _, ok := s.users[username]; !ok {
-		return errors.UserNotFoundf("user %q", username)
-	}
-
-	delete(s.users, username)
-	return nil
-}
-
-func (s *fakeState) Model() (model, error) {
-	return s.model, nil
-}
-
-type fakeUser struct {
-	name, displayName, password, creator string
-}
-
-func (u fakeUser) Name() string {
-	return u.name
-}
-
-func (u fakeUser) CreatedBy() string {
-	return u.creator
-}
-
-func (u fakeUser) UserTag() names.UserTag {
-	return names.NewUserTag(u.name)
-}
-
-func (u fakeUser) PasswordValid(s string) bool {
-	return s == u.password
-}
-
-type fakeModel struct {
-	err error
-}
-
-func (m *fakeModel) AddUser(_ state.UserAccessSpec) (permission.UserAccess, error) {
-	return permission.UserAccess{}, m.err
+	return ctrl
 }
 
 // Return an *http.Client with custom transport that allows it to connect to
@@ -445,4 +340,8 @@ func client(socketPath string) *http.Client {
 			},
 		},
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

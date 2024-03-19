@@ -316,7 +316,7 @@ func (s *serviceSuite) TestGetUserByAuth(c *gc.C) {
 		Name: "user",
 	}, nil)
 
-	u, err := s.service().GetUserByAuth(context.Background(), "name", "pass")
+	u, err := s.service().GetUserByAuth(context.Background(), "name", auth.NewPassword("pass"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(u.UUID, gc.Equals, uuid)
 }
