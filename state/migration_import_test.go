@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/mocks"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -429,7 +430,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	platform *state.Platform, primeStatusHistory bool,
 ) (*state.Charm, *state.Application, string) {
 	// Add a application with charm settings, app config, and leadership settings.
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 
 	serverSpace, err := s.State.AddSpace("server", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -570,7 +571,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	newModel, newSt := s.importModel(c, s.State)
 	// Manually copy across the charm from the old model
 	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
+	f := factory.NewFactory(newSt, s.StatePool, testing.FakeControllerConfig())
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		URL:      testCharm.URL(),
@@ -613,7 +614,7 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 
 func (s *MigrationImportSuite) TestCharmhubApplicationCharmOriginNormalised(c *gc.C) {
 	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
-	f := factory.NewFactory(s.State, s.StatePool)
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
 
 	testCharm := f.MakeCharm(c, &factory.CharmParams{Revision: "8", URL: "ch:mysql-8"})
 	wrongRev := 4
@@ -648,7 +649,7 @@ func (s *MigrationImportSuite) TestCharmhubApplicationCharmOriginNormalised(c *g
 
 func (s *MigrationImportSuite) TestLocalApplicationCharmOriginNormalised(c *gc.C) {
 	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
-	f := factory.NewFactory(s.State, s.StatePool)
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
 
 	testCharm := f.MakeCharm(c, &factory.CharmParams{Revision: "8", URL: "local:mysql-8"})
 	wrongRev := 4
@@ -699,7 +700,7 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	newModel, newSt := s.importModel(c, s.State)
 	// Manually copy across the charm from the old model
 	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
+	f := factory.NewFactory(newSt, s.StatePool, testing.FakeControllerConfig())
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		URL:      testCharm.URL(),
@@ -736,7 +737,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	newModel, newSt := s.importModel(c, caasSt)
 	// Manually copy across the charm from the old model
 	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
+	f := factory.NewFactory(newSt, s.StatePool, testing.FakeControllerConfig())
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "focal",
@@ -767,7 +768,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("status: %s", ss)
 
-	addUnitFactory := factory.NewFactory(caasSt, s.StatePool)
+	addUnitFactory := factory.NewFactory(caasSt, s.StatePool, testing.FakeControllerConfig())
 	unit := addUnitFactory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
 		Status: &status.StatusInfo{
@@ -800,7 +801,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	_, newSt := s.importModel(c, caasSt)
 	// Manually copy across the charm from the old model
 	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
+	f := factory.NewFactory(newSt, s.StatePool, testing.FakeControllerConfig())
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "focal",
@@ -1010,7 +1011,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	f := factory.NewFactory(s.State, s.StatePool)
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
 	})
@@ -1022,7 +1023,7 @@ func (s *MigrationImportSuite) TestCAASUnits(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	f := factory.NewFactory(caasSt, s.StatePool)
+	f := factory.NewFactory(caasSt, s.StatePool, testing.FakeControllerConfig())
 	app := f.MakeApplication(c, &factory.ApplicationParams{Constraints: cons})
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Application: app,
@@ -1032,7 +1033,7 @@ func (s *MigrationImportSuite) TestCAASUnits(c *gc.C) {
 
 func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G virt-type=lxd")
-	f := factory.NewFactory(s.State, s.StatePool)
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
 	})
@@ -1040,7 +1041,7 @@ func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestUnitWithoutAnyPersistedState(c *gc.C) {
-	f := factory.NewFactory(s.State, s.StatePool)
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
 
 	// Export unit without any controller-persisted state
 	exported := f.MakeUnit(c, &factory.UnitParams{
@@ -2817,7 +2818,7 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C) {
 	st := s.State
 	// Add a application with charm settings, app config, and leadership settings.
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 
 	// Add a application with charm settings, app config, and leadership settings.
 	testCharm := f.MakeCharmV2(c, &factory.CharmParams{
@@ -2858,7 +2859,7 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 func (s *MigrationImportSuite) TestApplicationFillInCharmOriginID(c *gc.C) {
 	st := s.State
 	// Add a application with charm settings, app config, and leadership settings.
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 
 	// Add a application with charm settings, app config, and leadership settings.
 	testCharm := f.MakeCharmV2(c, &factory.CharmParams{
@@ -3201,7 +3202,7 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 	_, newSt := s.importModel(c, caasSt)
 	// Manually copy across the charm from the old model
 	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
+	f := factory.NewFactory(newSt, s.StatePool, testing.FakeControllerConfig())
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "focal",

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -70,7 +71,7 @@ func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{})
 	defer st.Close()
 
-	localFactory := factory.NewFactory(st, s.StatePool)
+	localFactory := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	application := localFactory.MakeApplication(c, nil)
 	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application})
 	state.PrimeUnitStatusHistory(c, s.Clock, unit, status.Active, 20000, 1000, nil)

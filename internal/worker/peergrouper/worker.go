@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"reflect"
@@ -25,21 +26,31 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
+// ControllerConfigService is an interface for getting the controller config.
+type ControllerConfigService interface {
+	// ControllerConfig returns the config values for the controller.
+	ControllerConfig(ctx context.Context) (controller.Config, error)
+
+	// Watch returns a watcher that returns keys for any changes to controller
+	// config.
+	Watch() (watcher.StringsWatcher, error)
+}
+
 type State interface {
 	RemoveControllerReference(m ControllerNode) error
-	ControllerConfig() (controller.Config, error)
 	ControllerIds() ([]string, error)
 	ControllerNode(id string) (ControllerNode, error)
 	ControllerHost(id string) (ControllerHost, error)
 	WatchControllerInfo() state.StringsWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
-	WatchControllerConfig() state.NotifyWatcher
 }
 
 type ControllerNode interface {
@@ -137,13 +148,14 @@ type pgWorker struct {
 
 // Config holds the configuration for a peergrouper worker.
 type Config struct {
-	State              State
-	APIHostPortsSetter APIHostPortsSetter
-	MongoSession       MongoSession
-	Clock              clock.Clock
-	MongoPort          int
-	APIPort            int
-	ControllerAPIPort  int
+	State                   State
+	ControllerConfigService ControllerConfigService
+	APIHostPortsSetter      APIHostPortsSetter
+	MongoSession            MongoSession
+	Clock                   clock.Clock
+	MongoPort               int
+	APIPort                 int
+	ControllerAPIPort       int
 
 	// ControllerId is the id of the controller running this worker.
 	// It is used in checking if this working is running on the
@@ -169,6 +181,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.State == nil {
 		return errors.NotValidf("nil State")
+	}
+	if config.ControllerConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigService")
 	}
 	if config.APIHostPortsSetter == nil {
 		return errors.NotValidf("nil APIHostPortsSetter")
@@ -247,7 +262,10 @@ func (w *pgWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	configChanges, err := w.watchForConfigChanges()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	configChanges, err := w.watchForConfigChanges(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -327,7 +345,7 @@ func (w *pgWorker) loop() error {
 		}
 
 		var failed bool
-		cfg, err := w.config.State.ControllerConfig()
+		cfg, err := w.config.ControllerConfigService.ControllerConfig(ctx)
 		if err != nil {
 			logger.Errorf("cannot read controller config: %v", err)
 			failed = true
@@ -377,6 +395,10 @@ func (w *pgWorker) loop() error {
 	}
 }
 
+func (w *pgWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
 func scaleRetry(value time.Duration) time.Duration {
 	value *= 2
 	if value > maxRetryInterval {
@@ -420,17 +442,23 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 
 // watchForConfigChanges starts a watcher for changes to controller config.
 // It returns a channel which will receive events if the watcher fires.
-// This is separate from watchForControllerChanges because of the worker loop
-// logic. If controller nodes have not changed, then further processing
-// does not occur, whereas we want to re-publish API addresses and check
-// for replica-set changes if either the management or HA space configs have
-// changed.
-func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
-	controllerConfigWatcher := w.config.State.WatchControllerConfig()
-	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
+func (w *pgWorker) watchForConfigChanges(ctx context.Context) (<-chan []string, error) {
+	watcher, err := w.config.ControllerConfigService.Watch()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return controllerConfigWatcher.Changes(), nil
+	if err := w.catacomb.Add(watcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Consume the initial events from the watchers. The watcher will
+	// dispatch an initial event when it is created, so we need to consume
+	// that event before we can start watching.
+	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return watcher.Changes(), nil
 }
 
 // updateControllerNodes updates the peergrouper's current list of

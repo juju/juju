@@ -28,7 +28,7 @@ func (s *ModelStatusSuite) SetUpTest(c *gc.C) {
 	m, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.model = m
-	s.factory = factory.NewFactory(s.st, s.StatePool)
+	s.factory = factory.NewFactory(s.st, s.StatePool, testing.FakeControllerConfig())
 }
 
 func (s *ModelStatusSuite) TearDownTest(c *gc.C) {

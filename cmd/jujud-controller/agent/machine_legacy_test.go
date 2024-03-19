@@ -143,8 +143,9 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 		Password: password,
 	})
 
-	st := s.ControllerModel(c).State()
-	err := st.UpdateControllerConfig(map[string]interface{}{
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+
+	err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
 		"audit-log-exclude-methods": "Client.FullStatus",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,7 +195,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 		c.Assert(records[1].Request.Method, gc.Equals, "AddMachines")
 
 		// Now update the controller config to remove the exclusion.
-		err := st.UpdateControllerConfig(map[string]interface{}{
+		err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
 			"audit-log-exclude-methods": "",
 		}, nil)
 		c.Assert(err, jc.ErrorIsNil)

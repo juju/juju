@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/state/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -2857,7 +2858,7 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	s.Model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{
 		Name: "gitlab", Charm: ch,

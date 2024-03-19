@@ -684,7 +684,7 @@ func (s *SecretsSuite) newCAASState(c *gc.C) *state.State {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
-	s.Factory = factory.NewFactory(st, s.StatePool)
+	s.Factory = factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "gitlab-k8s",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s"}),

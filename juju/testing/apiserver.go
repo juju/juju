@@ -573,7 +573,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 			provider.CommonStorageProviders(),
 		}
 	}
-	return factory.NewFactory(st, s.controller.StatePool()).
+	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
 		WithApplicationService(modelServiceFactory.Application(registry)), releaser
 }
 
