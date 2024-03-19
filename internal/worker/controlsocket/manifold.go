@@ -12,7 +12,8 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/servicefactory"
+	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/socketlistener"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
@@ -88,7 +89,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		}
 	}()
 
-	var serviceFactory servicefactory.ControllerFactory
+	var serviceFactory servicefactory.ControllerServiceFactory
 	if err = getter.Get(cfg.ServiceFactoryName, &serviceFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -135,13 +136,24 @@ func (p permissionService) AddUserPermission(ctx context.Context, username strin
 		return errors.NotValidf("invalid username %q", username)
 	}
 
+	// This password doesn't matter, as we don't read from the state user.
+	metricsPassword, err := password.RandomPassword()
+	if err != nil {
+		return errors.Annotatef(err, "generating random password")
+	}
+
+	_, err = p.state.AddUser(username, username, metricsPassword, userCreator)
+	if err != nil {
+		return errors.Annotate(err, "adding user")
+	}
+
 	_, err = model.AddUser(state.UserAccessSpec{
 		User:      names.NewUserTag(username),
-		CreatedBy: names.NewUserTag(userCreator),
+		CreatedBy: names.NewUserTag("controller@juju"),
 		Access:    access,
 	})
 	if err != nil {
-		return errors.Annotate(err, "adding user")
+		return errors.Annotate(err, "adding user permission")
 	}
 	return nil
 }

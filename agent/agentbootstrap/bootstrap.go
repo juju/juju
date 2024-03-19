@@ -231,6 +231,13 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
 
+	// Add initial metrics user to the database.
+	metricsPassword, err := password.RandomPassword()
+	if err != nil {
+		return nil, err
+	}
+	_, addMetricUser := userbootstrap.AddUserWithPassword("juju-metrics", auth.NewPassword(metricsPassword))
+
 	controllerModelUUID := model.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
@@ -256,6 +263,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			// The admin user needs to be added before everything else that
 			// requires being owned by a Juju user.
 			addAdminUser,
+			addMetricUser,
 			ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
 			cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),

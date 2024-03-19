@@ -36,7 +36,7 @@ const (
 	// userCreator is the listed "creator" of metrics users in state.
 	// This user CANNOT be a local user (it must have a domain), otherwise the
 	// model addUser code will complain about the user not existing.
-	userCreator = "controller@juju"
+	userCreator = "juju-metrics"
 )
 
 // UserService is the interface for the user service.
