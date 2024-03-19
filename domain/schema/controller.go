@@ -402,7 +402,6 @@ CREATE TABLE model_metadata (
     CONSTRAINT            fk_model_metadata_secret_backend
         FOREIGN KEY           (secret_backend_uuid)
         REFERENCES            secret_backend(uuid)
-        ON DELETE SET NULL, -- TODO: !!!Or should we "ON DELETE SET DEFAULT" and default to "auto|internal"?
     CONSTRAINT            fk_model_metadata_model_type_id
         FOREIGN KEY           (model_type_id)
         REFERENCES            model_type(id)
