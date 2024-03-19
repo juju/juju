@@ -78,7 +78,10 @@ func (s *baseObjectStoreSuite) TestLocking(c *gc.C) {
 
 	s.expectClaimRelease("hash")
 	s.expectExtendDuration(time.Second)
-	s.expectClockAfter(make(chan time.Time))
+
+	// The clock after might not be called, as we might schedule the goroutine
+	// fast enough, that the second goroutine isn't called.
+	s.maybeExpectClockAfter(make(chan time.Time))
 
 	w := &baseObjectStore{
 		claimer: s.claimer,
@@ -333,6 +336,12 @@ func (s *baseObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.claimExtender = NewMockClaimExtender(ctrl)
 
 	return ctrl
+}
+
+func (s *baseObjectStoreSuite) maybeExpectClockAfter(ch chan time.Time) {
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(dur time.Duration) <-chan time.Time {
+		return ch
+	}).AnyTimes()
 }
 
 func (s *baseObjectStoreSuite) expectClockAfter(ch chan time.Time) {
