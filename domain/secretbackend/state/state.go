@@ -10,18 +10,15 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
-	"github.com/juju/juju/internal/database"
+	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 )
 
 // Logger is the interface used by the state to log messages.
@@ -53,226 +50,50 @@ func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (*coremodel.M
 
 	stmt, err := sqlair.Prepare(`
 SELECT 
-    m.model_uuid AS &Model.uuid,
-    m.name       AS &Model.name,
-    t.type       AS &Model.type
-FROM model_metadata m
-INNER JOIN model_type t ON m.model_type_id = t.id
-WHERE m.model_uuid = $M.uuid`, sqlair.M{}, Model{})
+    model_uuid AS &Model.uuid,
+    name       AS &Model.name,
+    type       AS &Model.type
+FROM v_model_metadata
+WHERE model_uuid = $M.uuid`, sqlair.M{}, Model{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var m Model
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
+		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("model %q:%w", uuid, modelerrors.NotFound)
+		}
+		return errors.Trace(err)
 	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("%w model %q%w", errors.NotFound, uuid, errors.Hide(err))
-	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(domain.CoerceError(err))
 	}
 	if !m.Type.IsValid() {
 		// This should never happen.
-		return nil, fmt.Errorf("invalid model type for model %q", uuid)
+		return nil, fmt.Errorf("invalid model type for model %q", m.Name)
 	}
 	return &coremodel.Model{
-		UUID:      coremodel.UUID(m.UUID),
+		UUID:      coremodel.UUID(m.ID),
 		Name:      m.Name,
 		ModelType: m.Type,
 	}, nil
 }
 
-// CreateSecretBackend adds a new secret backend.
-func (s *State) CreateSecretBackend(ctx context.Context, backend secretbackend.CreateSecretBackendParams) (string, error) {
+// UpsertSecretBackend persists the input secret backend entity.
+func (s *State) UpsertSecretBackend(ctx context.Context, params secretbackend.UpsertSecretBackendParams) (string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-
-	backendStmt, err := sqlair.Prepare(`
-INSERT INTO secret_backend
-(uuid, name, backend_type, token_rotate_interval) VALUES
-(
-    $SecretBackend.uuid,
-    $SecretBackend.name,
-    $SecretBackend.backend_type,
-    $SecretBackend.token_rotate_interval
-)`, SecretBackend{})
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	rotateStmt, err := sqlair.Prepare(`
-INSERT INTO secret_backend_rotation
-(backend_uuid, next_rotation_time) VALUES
-(
-    $SecretBackendRotation.backend_uuid,
-    $SecretBackendRotation.next_rotation_time
-)`, SecretBackendRotation{})
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	configStmt, err := sqlair.Prepare(`
-INSERT INTO secret_backend_config
-(backend_uuid, name, content) VALUES
-(
-    $SecretBackendConfig.backend_uuid,
-    $SecretBackendConfig.name,
-    $SecretBackendConfig.content
-)`, SecretBackendConfig{})
-	if err != nil {
+	operation := upsertOperation{UpsertSecretBackendParams: params}
+	if err := operation.Prepare(); err != nil {
 		return "", errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		sb := SecretBackend{
-			UUID:        backend.ID,
-			Name:        backend.Name,
-			BackendType: backend.BackendType,
-		}
-		if backend.TokenRotateInterval != nil {
-			sb.TokenRotateInterval = domain.NullableDuration{Duration: *backend.TokenRotateInterval, Valid: true}
-		}
-		err := tx.Query(ctx, backendStmt, sb).Run()
-		if err != nil {
-			return fmt.Errorf("cannot insert secret backend %q: %w", backend.Name, err)
-		}
-		if backend.NextRotateTime != nil && !backend.NextRotateTime.IsZero() {
-			err = tx.Query(ctx, rotateStmt,
-				SecretBackendRotation{
-					BackendUUID:      backend.ID,
-					NextRotationTime: sql.NullTime{Time: *backend.NextRotateTime, Valid: true},
-				},
-			).Run()
-			if err != nil {
-				return fmt.Errorf("cannot insert secret backend rotation for %q: %w", backend.Name, err)
-			}
-		}
-		for k, v := range backend.Config {
-			err = tx.Query(ctx, configStmt,
-				SecretBackendConfig{
-					BackendUUID: backend.ID,
-					Name:        k,
-					Content:     v.(string),
-				},
-			).Run()
-			if err != nil {
-				return handleSecretBackendConfigError(err, backend.Name)
-			}
-		}
-		return err
+		return errors.Trace(operation.Apply(ctx, tx))
 	})
-	return backend.ID, domain.CoerceError(err)
-}
-
-func handleSecretBackendConfigError(err error, identifier string) error {
-	if err == nil {
-		return nil
-	}
-	if database.IsErrConstraintCheck(err) {
-		return fmt.Errorf(
-			"cannot upsert secret backend config for %q: %w",
-			identifier, errors.NewNotValid(nil, "empty config name or content"),
-		)
-	}
-	return fmt.Errorf("cannot upsert secret backend config for %q: %w", identifier, err)
-}
-
-// UpdateSecretBackend updates an existing secret backend.
-func (s *State) UpdateSecretBackend(ctx context.Context, backend secretbackend.UpdateSecretBackendParams) error {
-	if backend.ID == "" {
-		return errors.NewNotValid(nil, "backend ID is missing")
-	}
-	db, err := s.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	nameStmt, err := sqlair.Prepare(`
-UPDATE secret_backend
-SET name = $SecretBackend.name
-WHERE uuid = $SecretBackend.uuid`, SecretBackend{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	rotateIntervalStmt, err := sqlair.Prepare(`
-UPDATE secret_backend
-SET token_rotate_interval = $SecretBackend.token_rotate_interval
-WHERE uuid = $SecretBackend.uuid`, SecretBackend{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	rotationTimeStmt, err := sqlair.Prepare(`
-UPDATE secret_backend_rotation
-SET next_rotation_time = $SecretBackendRotation.next_rotation_time
-WHERE backend_uuid = $SecretBackendRotation.backend_uuid`, SecretBackendRotation{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	configStmt, err := sqlair.Prepare(`
-INSERT INTO secret_backend_config (backend_uuid, name, content) VALUES
-(
-    $SecretBackendConfig.backend_uuid,
-    $SecretBackendConfig.name,
-    $SecretBackendConfig.content
-)
-ON CONFLICT (backend_uuid, name) DO UPDATE SET content = EXCLUDED.content`, SecretBackendConfig{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if backend.NameChange != nil {
-			err := tx.Query(ctx, nameStmt,
-				SecretBackend{
-					UUID: backend.ID,
-					Name: *backend.NameChange,
-				},
-			).Run()
-			if database.IsErrConstraintUnique(err) {
-				return fmt.Errorf("secret backend name %q: %w", *backend.NameChange, errors.AlreadyExists)
-			}
-			if err != nil {
-				return fmt.Errorf(
-					"cannot update secret backend name to %q for %q: %w",
-					*backend.NameChange, backend.ID, err,
-				)
-			}
-		}
-		if backend.TokenRotateInterval != nil {
-			err := tx.Query(ctx, rotateIntervalStmt,
-				SecretBackend{
-					UUID:                backend.ID,
-					TokenRotateInterval: domain.NullableDuration{Duration: *backend.TokenRotateInterval, Valid: true},
-				},
-			).Run()
-			if err != nil {
-				return fmt.Errorf("cannot update secret backend token rotate interval for %q: %w", backend.ID, err)
-			}
-		}
-		if backend.NextRotateTime != nil {
-			err := tx.Query(ctx, rotationTimeStmt,
-				SecretBackendRotation{
-					BackendUUID:      backend.ID,
-					NextRotationTime: sql.NullTime{Time: *backend.NextRotateTime, Valid: true},
-				},
-			).Run()
-			if err != nil {
-				return fmt.Errorf("cannot update secret backend rotation time for %q: %w", backend.ID, err)
-			}
-		}
-		for k, v := range backend.Config {
-			err = tx.Query(ctx, configStmt,
-				SecretBackendConfig{
-					BackendUUID: backend.ID,
-					Name:        k,
-					Content:     v.(string),
-				},
-			).Run()
-			if err != nil {
-				return handleSecretBackendConfigError(err, backend.ID)
-			}
-		}
-		return nil
-	})
-	return domain.CoerceError(err)
+	return params.ID, domain.CoerceError(err)
 }
 
 // DeleteSecretBackend deletes the secret backend for the given backend ID.
@@ -329,7 +150,7 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 }
 
 // ListSecretBackends returns a list of all secret backends.
-func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackendInfo, error) {
+func (s *State) ListSecretBackends(ctx context.Context) ([]*coresecrets.SecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -360,13 +181,7 @@ ORDER BY b.name`, SecretBackendRow{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
 	}
-	var result []*secretbackend.SecretBackendInfo
-	for _, backend := range rows.ToSecretBackendInfo() {
-		result = append(result, &secretbackend.SecretBackendInfo{
-			SecretBackend: *backend,
-		})
-	}
-	return result, errors.Trace(err)
+	return rows.ToSecretBackends(), errors.Trace(err)
 }
 
 func (s *State) getSecretBackend(ctx context.Context, columName string, v string) (*coresecrets.SecretBackend, error) {
@@ -402,9 +217,9 @@ WHERE b.%s = $M.identifier`, columName)
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
 	}
 	if len(rows) == 0 {
-		return nil, errors.NotFoundf("secret backend %q", v)
+		return nil, fmt.Errorf("secret backend %q: %w", v, backenderrors.NotFound)
 	}
-	return rows.ToSecretBackendInfo()[0], errors.Trace(err)
+	return rows.ToSecretBackends()[0], errors.Trace(err)
 }
 
 // GetSecretBackendByName returns the secret backend for the given backend name.
@@ -440,7 +255,7 @@ WHERE backend_uuid = $SecretBackendRotation.backend_uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt,
 			SecretBackendRotation{
-				BackendUUID:      backendID,
+				ID:               backendID,
 				NextRotationTime: sql.NullTime{Time: next, Valid: true},
 			},
 		).Run()
@@ -450,126 +265,4 @@ WHERE backend_uuid = $SecretBackendRotation.backend_uuid
 		return nil
 	})
 	return domain.CoerceError(err)
-}
-
-// WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
-func (s *State) WatchSecretBackendRotationChanges(wf secretbackend.WatcherFactory) (secretbackend.SecretBackendRotateWatcher, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	initialQ := `SELECT backend_uuid FROM secret_backend_rotation`
-	w, err := wf.NewNamespaceWatcher("secret_backend_rotation", changestream.All, initialQ)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newSecretBackendRotateWatcher(w, db, s.logger), nil
-}
-
-type secretBackendRotateWatcher struct {
-	tomb          tomb.Tomb
-	sourceWatcher watcher.StringsWatcher
-	db            coredatabase.TxnRunner
-	logger        Logger
-
-	out chan []watcher.SecretBackendRotateChange
-
-	stmt *sqlair.Statement
-}
-
-func newSecretBackendRotateWatcher(
-	sourceWatcher watcher.StringsWatcher, db coredatabase.TxnRunner, logger Logger,
-) *secretBackendRotateWatcher {
-	w := &secretBackendRotateWatcher{
-		sourceWatcher: sourceWatcher,
-		db:            db,
-		logger:        logger,
-		out:           make(chan []watcher.SecretBackendRotateChange),
-	}
-	w.tomb.Go(func() error {
-		defer close(w.out)
-		return w.loop()
-	})
-	return w
-}
-
-func (w *secretBackendRotateWatcher) loop() (err error) {
-	defer func() {
-		if err != nil {
-			w.logger.Warningf("secret backend rotation watcher stopped, err: %v", err)
-		}
-	}()
-	if err = w.prepareStatement(); err != nil {
-		return errors.Trace(err)
-	}
-
-	// To allow the initial event to sent.
-	out := w.out
-	var changes []watcher.SecretBackendRotateChange
-	ctx := w.tomb.Context(context.Background())
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case backendIDs, ok := <-w.sourceWatcher.Changes():
-			if !ok {
-				return errors.Errorf("event watcher closed")
-			}
-			w.logger.Debugf("received secret backend rotation changes: %v", backendIDs)
-
-			var err error
-			changes, err = w.processChanges(ctx, backendIDs...)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if len(changes) > 0 {
-				out = w.out
-			}
-		case out <- changes:
-			out = nil
-		}
-	}
-}
-
-func (w *secretBackendRotateWatcher) prepareStatement() (err error) {
-	w.stmt, err = sqlair.Prepare(`
-SELECT 
-    b.uuid               AS &SecretBackendRotationRow.uuid,
-    b.name               AS &SecretBackendRotationRow.name,
-    r.next_rotation_time AS &SecretBackendRotationRow.next_rotation_time
-FROM secret_backend b
-    LEFT JOIN secret_backend_rotation r ON b.uuid = r.backend_uuid
-WHERE b.uuid IN ($S[:])`,
-		sqlair.S{}, SecretBackendRotationRow{},
-	)
-	return errors.Trace(err)
-}
-
-func (w *secretBackendRotateWatcher) processChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error) {
-	var rows SecretBackendRotationRows
-	args := sqlair.S(transform.Slice(backendIDs, func(s string) any { return any(s) }))
-	err := w.db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, w.stmt, args).GetAll(&rows)
-		if err != nil {
-			return fmt.Errorf("querying secret backend rotation changes: %w", err)
-		}
-		return nil
-	})
-	return rows.ToChanges(w.logger), errors.Trace(err)
-}
-
-// Changes returns the channel of secret backend rotation changes.
-func (w *secretBackendRotateWatcher) Changes() <-chan []watcher.SecretBackendRotateChange {
-	return w.out
-}
-
-// Kill (worker.Worker) kills the watcher via its tomb.
-func (w *secretBackendRotateWatcher) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait (worker.Worker) waits for the watcher's tomb to die,
-// and returns the error with which it was killed.
-func (w *secretBackendRotateWatcher) Wait() error {
-	return w.tomb.Wait()
 }

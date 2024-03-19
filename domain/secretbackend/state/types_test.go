@@ -26,10 +26,10 @@ func ptr[T any](x T) *T {
 	return &x
 }
 
-func (s *typesSuite) TestToSecretBackendInfo(c *gc.C) {
+func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 	rows := SecretBackendRows{
 		{
-			UUID:        "uuid1",
+			ID:          "uuid1",
 			Name:        "name1",
 			BackendType: "vault",
 			TokenRotateInterval: domain.NullableDuration{
@@ -40,7 +40,7 @@ func (s *typesSuite) TestToSecretBackendInfo(c *gc.C) {
 			ConfigContent: "content11",
 		},
 		{
-			UUID:        "uuid1",
+			ID:          "uuid1",
 			Name:        "name1",
 			BackendType: "vault",
 			TokenRotateInterval: domain.NullableDuration{
@@ -51,7 +51,7 @@ func (s *typesSuite) TestToSecretBackendInfo(c *gc.C) {
 			ConfigContent: "content12",
 		},
 		{
-			UUID:        "uuid2",
+			ID:          "uuid2",
 			Name:        "name2",
 			BackendType: "vault",
 			TokenRotateInterval: domain.NullableDuration{
@@ -61,7 +61,7 @@ func (s *typesSuite) TestToSecretBackendInfo(c *gc.C) {
 			ConfigContent: "content21",
 		},
 		{
-			UUID:        "uuid3",
+			ID:          "uuid3",
 			Name:        "name3",
 			BackendType: "vault",
 			TokenRotateInterval: domain.NullableDuration{
@@ -72,7 +72,7 @@ func (s *typesSuite) TestToSecretBackendInfo(c *gc.C) {
 			ConfigContent: "content31",
 		},
 		{
-			UUID:        "uuid1",
+			ID:          "uuid1",
 			Name:        "name1",
 			BackendType: "vault",
 			TokenRotateInterval: domain.NullableDuration{
@@ -83,12 +83,26 @@ func (s *typesSuite) TestToSecretBackendInfo(c *gc.C) {
 			ConfigContent: "content13",
 		},
 		{
-			UUID:        "uuid4",
+			ID:          "uuid4",
 			Name:        "name4",
 			BackendType: "vault",
 		},
+		{
+			ID:            "uuid5",
+			Name:          "name5",
+			BackendType:   "vault",
+			ConfigName:    "config51",
+			ConfigContent: "content51",
+		},
+		{
+			ID:            "uuid5",
+			Name:          "name5",
+			BackendType:   "vault",
+			ConfigName:    "config52",
+			ConfigContent: "content52",
+		},
 	}
-	result := rows.ToSecretBackendInfo()
+	result := rows.ToSecretBackends()
 	c.Assert(result, gc.DeepEquals, []*coresecrets.SecretBackend{
 		{
 			ID:                  "uuid1",
@@ -123,6 +137,15 @@ func (s *typesSuite) TestToSecretBackendInfo(c *gc.C) {
 			Name:        "name4",
 			BackendType: "vault",
 		},
+		{
+			ID:          "uuid5",
+			Name:        "name5",
+			BackendType: "vault",
+			Config: map[string]interface{}{
+				"config51": "content51",
+				"config52": "content52",
+			},
+		},
 	})
 }
 
@@ -130,17 +153,17 @@ func (s *typesSuite) TestToChanges(c *gc.C) {
 	now := time.Now()
 	rows := SecretBackendRotationRows{
 		{
-			UUID:             "uuid1",
+			ID:               "uuid1",
 			Name:             "name1",
 			NextRotationTime: sql.NullTime{Time: now.Add(1 * time.Second), Valid: true},
 		},
 		{
-			UUID:             "uuid2",
+			ID:               "uuid2",
 			Name:             "name2",
 			NextRotationTime: sql.NullTime{Time: now.Add(2 * time.Second), Valid: true},
 		},
 		{
-			UUID:             "uuid3",
+			ID:               "uuid3",
 			Name:             "name3",
 			NextRotationTime: sql.NullTime{Valid: false},
 		},
