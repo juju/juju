@@ -294,6 +294,16 @@ DELETE FROM secret_backend_rotation WHERE backend_uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// TODO: we should set it to the `default` backend once we start to include the
+	// `internal` and `k8s` backends in the database.
+	// For now, we reset it to NULL.
+	modelMetadataStmt, err := sqlair.Prepare(`
+UPDATE model_metadata
+SET secret_backend_uuid = NULL
+WHERE secret_backend_uuid = $M.uuid`, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 	backendStmt, err := sqlair.Prepare(`
 DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
@@ -306,6 +316,9 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 		}
 		if err := tx.Query(ctx, rotationStmt, arg).Run(); err != nil {
 			return fmt.Errorf("deleting secret backend rotation for %q: %w", backendID, err)
+		}
+		if err = tx.Query(ctx, modelMetadataStmt, arg).Run(); err != nil {
+			return fmt.Errorf("resetting secret backend %q to NULL for model metadata: %w", backendID, err)
 		}
 		if err = tx.Query(ctx, backendStmt, arg).Run(); err != nil {
 			return fmt.Errorf("deleting secret backend for %q: %w", backendID, err)

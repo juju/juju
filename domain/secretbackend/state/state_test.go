@@ -44,6 +44,17 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *stateSuite) TestGetModel(c *gc.C) {
+	modelUUID := s.createModel(c)
+	model, err := s.state.GetModel(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(model, gc.DeepEquals, &coremodel.Model{
+		UUID:      modelUUID,
+		Name:      "my-model",
+		ModelType: coremodel.IAAS,
+	})
+}
+
+func (s *stateSuite) createModel(c *gc.C) coremodel.UUID {
 	// We need to generate a user in the database so that we can set the model
 	// owner.
 	userName := "test-user"
@@ -78,23 +89,19 @@ func (s *stateSuite) TestGetModel(c *gc.C) {
 
 	modelUUID := coremodel.UUID(uuid.MustNewUUID().String())
 	q = `
-INSERT INTO model_list (uuid) VALUES (?);
+INSERT INTO model_list (uuid) VALUES (?)`[1:]
+	_, err = db.ExecContext(context.Background(), q, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	q = `
 INSERT INTO model_metadata
 	(model_uuid, cloud_uuid, model_type_id, name, owner_uuid)
 VALUES (?, ?, ?, ?, ?);`[1:]
 	_, err = db.ExecContext(
 		context.Background(), q,
-		modelUUID, modelUUID, cloud_uuid, 0, "my-model", userUUID,
+		modelUUID, cloud_uuid, 0, "my-model", userUUID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.state.GetModel(context.Background(), modelUUID)
-	c.Assert(err, gc.IsNil)
-	c.Assert(model, gc.DeepEquals, &coremodel.Model{
-		UUID:      modelUUID,
-		Name:      "my-model",
-		ModelType: coremodel.IAAS,
-	})
+	return modelUUID
 }
 
 func (s *stateSuite) assertSecretBackend(
@@ -414,7 +421,9 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 }
 
 func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
+	db := s.DB()
 	backendID := uuid.MustNewUUID().String()
+
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
 	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
@@ -440,11 +449,27 @@ func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
 		},
 	}, &nextRotateTime)
 
+	modelUUID := s.createModel(c)
+	_, err = db.Exec(`
+UPDATE model_metadata
+SET secret_backend_uuid = ?
+WHERE model_uuid = ?`, backendID, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	row := db.QueryRow(`
+SELECT secret_backend_uuid
+FROM model_metadata
+WHERE model_uuid = ?`[1:], modelUUID)
+	var configuredBackendUUID sql.NullString
+	err = row.Scan(&configuredBackendUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(configuredBackendUUID.Valid, jc.IsTrue)
+	c.Assert(configuredBackendUUID.String, gc.Equals, backendID)
+
 	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
 	c.Assert(err, gc.IsNil)
 
-	db := s.DB()
-	row := db.QueryRow(`
+	row = db.QueryRow(`
 SELECT COUNT(*)
 FROM secret_backend
 WHERE uuid = ?`[1:], backendID)
@@ -468,6 +493,14 @@ WHERE backend_uuid = ?`[1:], backendID)
 	err = row.Scan(&count)
 	c.Assert(err, gc.IsNil)
 	c.Assert(count, gc.Equals, 0)
+
+	row = db.QueryRow(`
+SELECT secret_backend_uuid
+FROM model_metadata
+WHERE model_uuid = ?`[1:], modelUUID)
+	err = row.Scan(&configuredBackendUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(configuredBackendUUID.Valid, jc.IsFalse)
 }
 
 func (s *stateSuite) TestDeleteSecretBackendWithNoConfigNoNextRotationTime(c *gc.C) {
