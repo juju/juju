@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -2174,57 +2173,18 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 // Consume adds remote applications to the model without creating any
 // relations.
 func (api *APIv19) Consume(args params.ConsumeApplicationArgsV4) (params.ErrorResults, error) {
-	var consumeResults params.ErrorResults
-	if err := api.checkCanWrite(); err != nil {
-		return consumeResults, errors.Trace(err)
+	var consumeApplicationArgs []params.ConsumeApplicationArg
+	for _, arg := range args.Args {
+		consumeApplicationArgs = append(consumeApplicationArgs, params.ConsumeApplicationArg{
+			Macaroon:                arg.Macaroon,
+			ControllerInfo:          arg.ControllerInfo,
+			ApplicationAlias:        arg.ApplicationAlias,
+			ApplicationOfferDetails: arg.ApplicationOfferDetails,
+		})
 	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return consumeResults, errors.Trace(err)
-	}
-
-	results := make([]params.ErrorResult, len(args.Args))
-	for i, arg := range args.Args {
-		err := api.consumeOne(arg)
-		results[i].Error = apiservererrors.ServerError(err)
-	}
-	consumeResults.Results = results
-	return consumeResults, nil
-}
-
-func (api *APIv19) consumeOne(arg params.ConsumeApplicationArgV4) error {
-	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Maybe save the details of the controller hosting the offer.
-	var externalControllerUUID string
-	if arg.ControllerInfo != nil {
-		controllerTag, err := names.ParseControllerTag(arg.ControllerInfo.ControllerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// Only save controller details if the offer comes from
-		// a different controller.
-		if controllerTag.Id() != api.backend.ControllerTag().Id() {
-			externalControllerUUID = controllerTag.Id()
-			if _, err = api.backend.SaveController(crossmodel.ControllerInfo{
-				ControllerTag: controllerTag,
-				Alias:         arg.ControllerInfo.Alias,
-				Addrs:         arg.ControllerInfo.Addrs,
-				CACert:        arg.ControllerInfo.CACert,
-			}, sourceModelTag.Id()); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-
-	appName := arg.ApplicationAlias
-	if appName == "" {
-		appName = arg.OfferName
-	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetailsV4, arg.Macaroon)
-	return err
+	return api.APIv20.Consume(params.ConsumeApplicationArgs{
+		Args: consumeApplicationArgs,
+	})
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
@@ -2275,88 +2235,6 @@ func (api *APIBase) saveRemoteApplication(
 		Endpoints:              remoteEps,
 		Macaroon:               mac,
 	})
-}
-
-// saveRemoteApplication saves the details of the specified remote application and its endpoints
-// to the state model so relations to the remote application can be created.
-func (api *APIv19) saveRemoteApplication(
-	sourceModelTag names.ModelTag,
-	applicationName string,
-	externalControllerUUID string,
-	offer params.ApplicationOfferDetailsV4,
-	mac *macaroon.Macaroon,
-) (RemoteApplication, error) {
-	remoteEps := make([]charm.Relation, len(offer.Endpoints))
-	for j, ep := range offer.Endpoints {
-		remoteEps[j] = charm.Relation{
-			Name:      ep.Name,
-			Role:      ep.Role,
-			Interface: ep.Interface,
-		}
-	}
-
-	remoteSpaces := make([]*environs.ProviderSpaceInfo, len(offer.Spaces))
-	for i, space := range offer.Spaces {
-		remoteSpaces[i] = providerSpaceInfoFromParams(space)
-	}
-
-	// If a remote application with the same name and endpoints from the same
-	// source model already exists, we will use that one.
-	// If the status was "terminated", the offer had been removed, so we'll replace
-	// the terminated application with a fresh copy.
-	remoteApp, appStatus, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
-	if err == nil {
-		if appStatus != status.Terminated {
-			return remoteApp, nil
-		}
-		// If the same application was previously terminated due to the offer being removed,
-		// first ensure we delete it from this consuming model before adding again.
-		// TODO(wallyworld) - this operation should be in a single txn.
-		logger.Debugf("removing terminated remote app %q before adding a replacement", applicationName)
-		op := remoteApp.DestroyOperation(true)
-		if err := api.backend.ApplyOperation(op); err != nil {
-			return nil, errors.Annotatef(err, "removing terminated saas application %q", applicationName)
-		}
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-
-	return api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:                   applicationName,
-		OfferUUID:              offer.OfferUUID,
-		URL:                    offer.OfferURL,
-		ExternalControllerUUID: externalControllerUUID,
-		SourceModel:            sourceModelTag,
-		Endpoints:              remoteEps,
-		Spaces:                 remoteSpaces,
-		Bindings:               offer.Bindings,
-		Macaroon:               mac,
-	})
-}
-
-// providerSpaceInfoFromParams converts a params.RemoteSpace to the
-// equivalent ProviderSpaceInfo.
-func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpaceInfo {
-	result := &environs.ProviderSpaceInfo{
-		CloudType:          space.CloudType,
-		ProviderAttributes: space.ProviderAttributes,
-		SpaceInfo: network.SpaceInfo{
-			Name:       network.SpaceName(space.Name),
-			ProviderId: network.Id(space.ProviderId),
-		},
-	}
-	for _, subnet := range space.Subnets {
-		resultSubnet := network.SubnetInfo{
-			CIDR:              subnet.CIDR,
-			ProviderId:        network.Id(subnet.ProviderId),
-			ProviderNetworkId: network.Id(subnet.ProviderNetworkId),
-			ProviderSpaceId:   network.Id(subnet.ProviderSpaceId),
-			VLANTag:           subnet.VLANTag,
-			AvailabilityZones: subnet.Zones,
-		}
-		result.Subnets = append(result.Subnets, resultSubnet)
-	}
-	return result
 }
 
 // maybeUpdateExistingApplicationEndpoints looks for a remote application with the

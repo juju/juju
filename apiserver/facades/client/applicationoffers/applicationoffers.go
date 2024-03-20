@@ -166,14 +166,18 @@ func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
 func (api *OffersAPIV4) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResultsV4, error) {
-	var result params.QueryApplicationOffersResultsV4
-	user := api.Authorizer.GetAuthTag().(names.UserTag)
-	offers, err := api.getApplicationOffersDetails(user, filters, permission.AdminAccess)
+	res, err := api.OffersAPI.ListApplicationOffers(filters)
 	if err != nil {
-		return result, apiservererrors.ServerError(err)
+		return params.QueryApplicationOffersResultsV4{}, errors.Trace(err)
 	}
-	result.Results = offers
-	return result, nil
+	var resultsV4 []params.ApplicationOfferAdminDetailsV4
+	for _, result := range res.Results {
+		resultsV4 = append(resultsV4, params.ApplicationOfferAdminDetailsV4{
+			ApplicationOfferAdminDetails: result,
+		})
+	}
+
+	return params.QueryApplicationOffersResultsV4{}, nil
 }
 
 // ModifyOfferAccess changes the application offer access granted to users.

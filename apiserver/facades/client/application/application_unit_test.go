@@ -132,7 +132,6 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		URL:         "othermodel.hosted-mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints:   []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider"}},
-		Spaces:      []*environs.ProviderSpaceInfo{},
 		Macaroon:    testMac,
 	}
 
@@ -2651,20 +2650,6 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.addRemoteApplicationParams.Name = "beirut"
-	s.addRemoteApplicationParams.Bindings = map[string]string{"server": "myspace"}
-	s.addRemoteApplicationParams.Spaces = []*environs.ProviderSpaceInfo{{
-		CloudType:          "grandaddy",
-		ProviderAttributes: map[string]interface{}{"thunderjaws": 1},
-		SpaceInfo: network.SpaceInfo{
-			Name:       network.SpaceName("myspace"),
-			ProviderId: network.Id("juju-space-myspace"),
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "5.6.7.0/24",
-				ProviderId:        network.Id("juju-subnet-1"),
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
-	}}
 
 	s.consumeApplicationArgs.Args[0].ApplicationAlias = "beirut"
 

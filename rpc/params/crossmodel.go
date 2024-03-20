@@ -81,15 +81,9 @@ type ApplicationOfferDetails struct {
 
 // ApplicationOfferDetails represents an application offering from an external model.
 type ApplicationOfferDetailsV4 struct {
-	SourceModelTag         string             `json:"source-model-tag"`
-	OfferUUID              string             `json:"offer-uuid"`
-	OfferURL               string             `json:"offer-url"`
-	OfferName              string             `json:"offer-name"`
-	ApplicationDescription string             `json:"application-description"`
-	Endpoints              []RemoteEndpoint   `json:"endpoints,omitempty"`
-	Spaces                 []RemoteSpace      `json:"spaces,omitempty"`
-	Bindings               map[string]string  `json:"bindings,omitempty"`
-	Users                  []OfferUserDetails `json:"users,omitempty"`
+	ApplicationOfferDetails
+	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
+	Bindings map[string]string `json:"bindings,omitempty"`
 }
 
 // OfferUserDetails represents an offer consumer and their permission on the offer.
@@ -111,10 +105,9 @@ type ApplicationOfferAdminDetails struct {
 // ApplicationOfferAdminDetails represents an application offering,
 // including details about how it has been deployed.
 type ApplicationOfferAdminDetailsV4 struct {
-	ApplicationOfferDetailsV4
-	ApplicationName string            `json:"application-name"`
-	CharmURL        string            `json:"charm-url"`
-	Connections     []OfferConnection `json:"connections,omitempty"`
+	ApplicationOfferAdminDetails
+	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
+	Bindings map[string]string `json:"bindings,omitempty"`
 }
 
 // OfferConnection holds details about a connection to an offer.
@@ -220,18 +213,9 @@ type ConsumeApplicationArg struct {
 
 // ConsumeApplicationArg holds the arguments for consuming a remote application.
 type ConsumeApplicationArgV4 struct {
-	// The offer to be consumed.
-	ApplicationOfferDetailsV4
-
-	// Macaroon is used for authentication.
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
-
-	// ControllerInfo contains connection details to the controller
-	// hosting the offer.
-	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
-
-	// ApplicationAlias is the name of the alias to use for the application name.
-	ApplicationAlias string `json:"application-alias,omitempty"`
+	ConsumeApplicationArg
+	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
+	Bindings map[string]string `json:"bindings,omitempty"`
 }
 
 // ConsumeApplicationArgs is a collection of arg for consuming applications.
@@ -589,37 +573,11 @@ type RegisterRemoteRelationArg struct {
 
 // RegisterRemoteRelationArg holds attributes used to register a remote relation.
 type RegisterRemoteRelationArgV2 struct {
-	// ApplicationToken is the application token on the remote model.
-	ApplicationToken string `json:"application-token"`
-
-	// SourceModelTag is the tag of the model hosting the application.
-	SourceModelTag string `json:"source-model-tag"`
-
-	// RelationToken is the relation token on the remote model.
-	RelationToken string `json:"relation-token"`
-
-	// RemoteEndpoint contains info about the endpoint in the remote model.
-	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
+	RegisterRemoteRelationArg
 
 	// RemoteSpace contains provider-level info about the space the
 	// endpoint is bound to in the remote model.
 	RemoteSpace RemoteSpace `json:"remote-space"`
-
-	// OfferUUID is the UUID of the offer.
-	OfferUUID string `json:"offer-uuid"`
-
-	// LocalEndpointName is the name of the endpoint in the local model.
-	LocalEndpointName string `json:"local-endpoint-name"`
-
-	// ConsumeVersion is incremented each time a new consumer
-	// proxy is created for an offer.
-	ConsumeVersion int `json:"consume-version,omitempty"`
-
-	// Macaroons are used for authentication.
-	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
-
-	// BakeryVersion is the version of the bakery used to mint macaroons.
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
 // RegisterRemoteRelationArgs holds args used to add remote relations.
