@@ -53,10 +53,6 @@ var (
 
 type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.Broker, error)
 
-type ModelConfigServiceFactory interface {
-	ServiceForModel()
-}
-
 // ModelConfigServiceGetter provides a means to fetch the model config service
 // for a given model uuid.
 type ModelConfigServiceGetter func(coremodel.UUID) (ModelConfigService, error)
