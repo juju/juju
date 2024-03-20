@@ -58,9 +58,10 @@ func (s *stateSuite) TestGetModel(c *gc.C) {
 		Type:            coremodel.IAAS,
 		SecretBackendID: backendUUID,
 	})
+	c.Assert(backendID, gc.Equals, backendUUID)
 
 	nonExistingModelUUID := coremodel.UUID(uuid.MustNewUUID().String())
-	_, err = s.state.GetModel(context.Background(), nonExistingModelUUID)
+	_, _, err = s.state.GetModel(context.Background(), nonExistingModelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: %q`, nonExistingModelUUID))
 }
