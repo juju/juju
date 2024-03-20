@@ -23,7 +23,12 @@ func (s *typesSuite) TestNullableDuration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v, gc.Equals, int64(10*time.Second))
 
-	nd = NullableDuration{Duration: 0, Valid: false}
+	nd = NullableDuration{Valid: true}
+	v, err = nd.Value()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(v, gc.Equals, int64(0))
+
+	nd = NullableDuration{Valid: false}
 	v, err = nd.Value()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v, gc.IsNil)

@@ -249,7 +249,7 @@ func (s *State) SecretBackendRotated(ctx context.Context, backendID string, next
 UPDATE secret_backend_rotation
 SET next_rotation_time = $SecretBackendRotation.next_rotation_time
 WHERE backend_uuid = $SecretBackendRotation.backend_uuid
-    AND next_rotation_time > $SecretBackendRotation.next_rotation_time`, SecretBackendRotation{})
+    AND $SecretBackendRotation.next_rotation_time < next_rotation_time`, SecretBackendRotation{})
 	if err != nil {
 		return errors.Trace(err)
 	}
