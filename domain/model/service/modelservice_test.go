@@ -12,15 +12,14 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/domain/model"
 )
 
 type dummyModelState struct {
-	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
+	models map[coremodel.UUID]coremodel.Model
 }
 
-func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
-	d.models[args.UUID] = args
+func (d *dummyModelState) Create(ctx context.Context, model coremodel.Model) error {
+	d.models[model.UUID] = model
 	return nil
 }
 
@@ -34,7 +33,7 @@ var _ = gc.Suite(&modelServiceSuite{})
 
 func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 	s.state = &dummyModelState{
-		models: map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
+		models: map[coremodel.UUID]coremodel.Model{},
 	}
 }
 
@@ -42,12 +41,12 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 	svc := NewModelService(s.state)
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := coremodel.Model{
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Type:        coremodel.IAAS,
+		ModelType:   coremodel.IAAS,
 	}
 	err := svc.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)

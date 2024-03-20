@@ -66,6 +66,15 @@ func (s *State) Get(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, 
 		return coremodel.Model{}, errors.Trace(err)
 	}
 
+	var model coremodel.Model
+	return model, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		model, err = Get(ctx, tx, uuid)
+		return err
+	})
+}
+
+func Get(ctx context.Context, tx *sql.Tx, uuid coremodel.UUID) (coremodel.Model, error) {
 	modelStmt := `
 SELECT md.name, cl.name, cr.name, mt.type, u.uuid, cc.cloud_uuid, cc.name, o.name, ccn.name
 FROM model_metadata AS md
@@ -81,42 +90,39 @@ WHERE md.model_uuid = ?
 `
 
 	var model coremodel.Model
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, modelStmt, uuid)
+	row := tx.QueryRowContext(ctx, modelStmt, uuid)
 
-		var (
-			modelType string
-			userUUID  string
-			cloudUUID string
-			credID    credential.ID
-		)
-		if err := row.Scan(
-			&model.Name,
-			&model.Cloud,
-			&model.CloudRegion,
-			&modelType,
-			&userUUID,
-			&cloudUUID,
-			&credID.Name,
-			&credID.Owner,
-			&credID.Cloud,
-		); err != nil {
-			return errors.Annotatef(err, "getting model %q", uuid)
-		}
-		if err := row.Err(); err != nil {
-			return errors.Trace(err)
-		}
-
-		model.ModelType = coremodel.ModelType(modelType)
-		model.Owner = user.UUID(userUUID)
-		model.Credential = credID
-
-		return row.Err()
-	})
+	var (
+		// cloudRegion could be null
+		cloudRegion sql.NullString
+		modelType   string
+		userUUID    string
+		cloudUUID   string
+		credID      credential.ID
+	)
+	err := row.Scan(
+		&model.Name,
+		&model.Cloud,
+		&cloudRegion,
+		&modelType,
+		&userUUID,
+		&cloudUUID,
+		&credID.Name,
+		&credID.Owner,
+		&credID.Cloud,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return coremodel.Model{}, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+	} else if err != nil {
+		return coremodel.Model{}, fmt.Errorf("getting model %q: %w", uuid, domain.CoerceError(err))
 	}
-	return model, errors.Trace(err)
+
+	model.CloudRegion = cloudRegion.String
+	model.ModelType = coremodel.ModelType(modelType)
+	model.Owner = user.UUID(userUUID)
+	model.Credential = credID
+
+	return model, nil
 }
 
 // Create is responsible for creating a new model from start to finish. It will

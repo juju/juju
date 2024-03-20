@@ -11,7 +11,6 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -27,24 +26,24 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 	state := NewModelState(runner)
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	model := coremodel.Model{
 		UUID:        id,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
+		ModelType:   coremodel.IAAS,
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
 	row := db.QueryRowContext(context.Background(), "SELECT uuid, name, type, cloud, cloud_region FROM model WHERE uuid = $1", id)
 
-	var got model.ReadOnlyModelCreationArgs
-	err = row.Scan(&got.UUID, &got.Name, &got.Type, &got.Cloud, &got.CloudRegion)
+	var got coremodel.Model
+	err = row.Scan(&got.UUID, &got.Name, &got.ModelType, &got.Cloud, &got.CloudRegion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(got, jc.DeepEquals, args)
+	c.Check(got, jc.DeepEquals, model)
 }
 
 func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
@@ -54,10 +53,10 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 	// Ensure that we can't create the same model twice.
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := coremodel.Model{
 		UUID:        id,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
+		ModelType:   coremodel.IAAS,
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 	}
@@ -73,19 +72,19 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 
 	// Ensure that you can only ever insert one model.
 
-	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err := state.Create(context.Background(), coremodel.Model{
 		UUID:        modeltesting.GenModelUUID(c),
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
+		ModelType:   coremodel.IAAS,
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err = state.Create(context.Background(), coremodel.Model{
 		UUID:        modeltesting.GenModelUUID(c),
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
+		ModelType:   coremodel.IAAS,
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 	})
@@ -99,10 +98,10 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	// Ensure that you can't update it.
 
 	id := modeltesting.GenModelUUID(c)
-	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err := state.Create(context.Background(), coremodel.Model{
 		UUID:        id,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
+		ModelType:   coremodel.IAAS,
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 	})
@@ -120,10 +119,10 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 	// Ensure that you can't update it.
 
 	id := modeltesting.GenModelUUID(c)
-	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err := state.Create(context.Background(), coremodel.Model{
 		UUID:        id,
 		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
+		ModelType:   coremodel.IAAS,
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 	})

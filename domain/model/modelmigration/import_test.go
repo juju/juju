@@ -139,10 +139,25 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		UUID:  modelUUID,
 		Type:  coremodel.CAAS,
 	}
+	model := coremodel.Model{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "AWS",
+		CloudRegion:  "region1",
+		Credential: credential.ID{
+			Name:  "my-credential",
+			Owner: "tlm",
+			Cloud: "AWS",
+		},
+		Name:      "test-model",
+		Owner:     userUUID,
+		UUID:      modelUUID,
+		ModelType: coremodel.CAAS,
+	}
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly()).Return(nil)
+	i.modelService.EXPECT().Model(gomock.Any(), modelUUID).Return(model, nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), model).Return(nil)
 
-	model := description.NewModel(description.ModelArgs{
+	modelDesc := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
 			config.NameKey: "test-model",
 			config.UUIDKey: modelUUID.String(),
@@ -154,7 +169,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		Type:               coremodel.CAAS.String(),
 	})
 
-	model.SetCloudCredential(description.CloudCredentialArgs{
+	modelDesc.SetCloudCredential(description.CloudCredentialArgs{
 		Owner: names.NewUserTag("tlm"),
 		Cloud: names.NewCloudTag("AWS"),
 		Name:  "my-credential",
@@ -167,7 +182,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	}
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), modelDesc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -198,11 +213,27 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		UUID:  modelUUID,
 		Type:  coremodel.CAAS,
 	}
+	model := coremodel.Model{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "AWS",
+		CloudRegion:  "region1",
+		Credential: credential.ID{
+			Name:  "my-credential",
+			Owner: "tlm",
+			Cloud: "AWS",
+		},
+		Name:      "test-model",
+		Owner:     userUUID,
+		UUID:      modelUUID,
+		ModelType: coremodel.CAAS,
+	}
+
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly()).Return(errors.New("boom"))
+	i.modelService.EXPECT().Model(gomock.Any(), modelUUID).Return(model, nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), model).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 
-	model := description.NewModel(description.ModelArgs{
+	modelDesc := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
 			config.NameKey: "test-model",
 			config.UUIDKey: modelUUID.String(),
@@ -214,7 +245,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		Type:               coremodel.CAAS.String(),
 	})
 
-	model.SetCloudCredential(description.CloudCredentialArgs{
+	modelDesc.SetCloudCredential(description.CloudCredentialArgs{
 		Owner: names.NewUserTag("tlm"),
 		Cloud: names.NewCloudTag("AWS"),
 		Name:  "my-credential",
@@ -227,6 +258,6 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	}
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), modelDesc)
 	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
 }

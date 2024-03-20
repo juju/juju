@@ -40,6 +40,10 @@ func RegisterImport(coordinator Coordinator) {
 type ModelService interface {
 	// CreateModel is responsible for creating a new model that is being imported.
 	CreateModel(context.Context, domainmodel.ModelCreationArgs) (coremodel.UUID, error)
+
+	// Model returns the model associated the uuid
+	Model(context.Context, coremodel.UUID) (coremodel.Model, error)
+
 	// DeleteModel is responsible for removing a model from the system.
 	DeleteModel(context.Context, coremodel.UUID) error
 }
@@ -47,7 +51,7 @@ type ModelService interface {
 type ReadOnlyModelService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
-	CreateModel(context.Context, domainmodel.ReadOnlyModelCreationArgs) error
+	CreateModel(context.Context, coremodel.Model) error
 }
 
 // UserService defines the user service used for model migration.
@@ -141,8 +145,13 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		)
 	}
 
+	createdModel, err := i.modelService.Model(ctx, createdModelUUID)
+	if err != nil {
+		return fmt.Errorf("getting imported model %q to create read only data: %w", createdModelUUID, err)
+	}
+
 	// If the model is read only, we need to create a read only model.
-	err = i.readOnlyModelService.CreateModel(ctx, args.AsReadOnly())
+	err = i.readOnlyModelService.CreateModel(ctx, createdModel)
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",

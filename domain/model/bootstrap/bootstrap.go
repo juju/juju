@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/juju/version/v2"
 
@@ -16,6 +18,10 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/state"
 	jujuversion "github.com/juju/juju/version"
+)
+
+const (
+	modelReadonlyDataTimeout = time.Second * 10
 )
 
 // CreateModel is responsible for making a new model with all of its associated
@@ -72,19 +78,79 @@ func CreateModel(
 	}
 }
 
-// CreateReadOnlyModel creates a new model within the model database with all of
-// its associated metadata. The data will be read-only and cannot be modified
-// once created.
-func CreateReadOnlyModel(
-	args model.ReadOnlyModelCreationArgs,
-) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
-		if err := args.Validate(); err != nil {
-			return fmt.Errorf("model creation args: %w", err)
+// CreateReadOnlyModelInfo
+func CreateReadOnlyModelInfo(
+	uuid coremodel.UUID,
+) (func(context.Context, database.TxnRunner) error, func(context.Context, database.TxnRunner) error) {
+
+	modelInfoCh := make(chan coremodel.Model, 1)
+	chClose := sync.OnceFunc(func() {
+		close(modelInfoCh)
+	})
+
+	controllerConcern := func(ctx context.Context, db database.TxnRunner) error {
+		defer chClose()
+
+		if err := uuid.Validate(); err != nil {
+			return fmt.Errorf("getting model %q info to create model readonly information: %w", uuid, err)
 		}
 
-		return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			return state.CreateReadOnlyModel(ctx, args, tx)
+		var model coremodel.Model
+		err := db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			var err error
+			model, err = state.Get(ctx, tx, uuid)
+			return err
 		})
+
+		if err != nil {
+			return fmt.Errorf("getting model %q information for making model database read only information: %w", uuid, err)
+		}
+
+		select {
+		case _, ok := <-modelInfoCh:
+			if !ok {
+				return fmt.Errorf("getting model %q information for read only model information. Channel has been closed %w", uuid, err)
+			}
+		default:
+		}
+
+		select {
+		case modelInfoCh <- model:
+			break
+		case <-ctx.Done():
+			return fmt.Errorf("waiting to send model %q information for read only model information on channel: %w", uuid, ctx.Err())
+		}
+
+		return nil
 	}
+
+	modelConcern := func(ctx context.Context, db database.TxnRunner) error {
+		ctx, cancel := context.WithTimeout(ctx, modelReadonlyDataTimeout)
+		defer cancel()
+
+		var (
+			model coremodel.Model
+			ok    bool
+		)
+		select {
+		case model, ok = <-modelInfoCh:
+			if !ok {
+				return fmt.Errorf("reading read only model %q information. Channel is already closed", uuid)
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("reading read only model %q information. %w", uuid, ctx.Err())
+		}
+
+		err := db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			return state.CreateReadOnlyModel(ctx, tx, model)
+		})
+
+		if err != nil {
+			return fmt.Errorf("setting model %q read only information: %w", uuid, err)
+		}
+
+		return nil
+	}
+
+	return controllerConcern, modelConcern
 }

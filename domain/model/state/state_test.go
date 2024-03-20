@@ -132,6 +132,45 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	})
 }
 
+// TestGetModelWithNoCloudRegion is a regression test for a bug found where we
+// were not dealing with the fact that the sql column for a cloud region could
+// be null.
+func (m *stateSuite) TestGetModelWithNoCloudRegion(c *gc.C) {
+	uuid := modeltesting.GenModelUUID(c)
+	modelSt := NewState(m.TxnRunnerFactory())
+	err := modelSt.Create(
+		context.Background(),
+		uuid,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			Credential: corecredential.ID{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:  "no-cloud-region",
+			Owner: m.userUUID,
+			Type:  coremodel.IAAS,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelInfo, err := modelSt.Get(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelInfo, gc.Equals, coremodel.Model{
+		Cloud: "my-cloud",
+		Credential: corecredential.ID{
+			Cloud: "my-cloud",
+			Owner: "test-user",
+			Name:  "foobar",
+		},
+		Name:      "no-cloud-region",
+		Owner:     m.userUUID,
+		ModelType: coremodel.IAAS,
+	})
+}
+
 func (m *stateSuite) TestGetModelNotFound(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 

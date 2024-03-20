@@ -246,6 +246,8 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	}
 	_, controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelArgs)
 
+	controllerModelReadConcern, controllerModelInfoConcern := modelbootstrap.CreateReadOnlyModelInfo(controllerModelUUID)
+
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
 		nil,
 		stateParams.ControllerInheritedConfig,
@@ -261,9 +263,10 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 			controllerModelCreateFunc,
+			controllerModelReadConcern,
 		),
 		database.BootstrapModelConcern(controllerModelUUID,
-			modelbootstrap.CreateReadOnlyModel(controllerModelArgs.AsReadOnly()),
+			controllerModelInfoConcern,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 		),
 	}
