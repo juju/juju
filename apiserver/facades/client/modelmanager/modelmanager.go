@@ -1006,11 +1006,14 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// cause too much fallout. If we're unable to delete the model from the
 		// database, then we won't be able to create a new model with the same
 		// model uuid as there is a UNIQUE constraint on the model uuid column.
-		err = m.modelService.DeleteModel(ctx, coremodel.UUID(stModel.UUID()))
-		if err != nil && errors.Is(err, modelerrors.NotFound) {
-			return nil
+		if m.modelService != nil {
+			err = m.modelService.DeleteModel(ctx, coremodel.UUID(stModel.UUID()))
+			if err != nil && errors.Is(err, modelerrors.NotFound) {
+				return nil
+			}
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
+		return nil
 	}
 
 	for i, arg := range args.Models {

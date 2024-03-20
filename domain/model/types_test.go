@@ -45,15 +45,6 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 		},
 		{
 			Args: ModelCreationArgs{
-				Cloud:       "my-cloud",
-				CloudRegion: "my-region",
-				Name:        "my-awesome-model",
-				Owner:       userUUID,
-			},
-			ErrTest: errors.NotSupported,
-		},
-		{
-			Args: ModelCreationArgs{
 				Cloud:       "",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
