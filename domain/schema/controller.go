@@ -383,7 +383,8 @@ CREATE TABLE model_metadata (
     cloud_uuid            TEXT NOT NULL,
     cloud_region_uuid     TEXT,
     cloud_credential_uuid TEXT,
-    model_type_id         INT,
+    secret_backend_uuid   TEXT,
+    model_type_id         INT NOT NULL,
     name                  TEXT NOT NULL,
     owner_uuid            TEXT NOT NULL,
     CONSTRAINT            fk_model_metadata_model
@@ -398,6 +399,9 @@ CREATE TABLE model_metadata (
     CONSTRAINT            fk_model_metadata_cloud_credential
         FOREIGN KEY           (cloud_credential_uuid)
         REFERENCES            cloud_credential(uuid),
+    CONSTRAINT            fk_model_metadata_secret_backend
+        FOREIGN KEY           (secret_backend_uuid)
+        REFERENCES            secret_backend(uuid)
     CONSTRAINT            fk_model_metadata_model_type_id
         FOREIGN KEY           (model_type_id)
         REFERENCES            model_type(id),
@@ -408,6 +412,14 @@ CREATE TABLE model_metadata (
 
 CREATE UNIQUE INDEX idx_model_metadata_name_owner
 ON model_metadata (name, owner_uuid);
+
+CREATE VIEW v_model_metadata AS
+SELECT 
+    m.model_uuid,
+    m.name,
+    t.type
+FROM model_metadata m
+INNER JOIN model_type t ON m.model_type_id = t.id;
 `)
 }
 

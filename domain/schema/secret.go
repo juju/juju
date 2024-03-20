@@ -17,6 +17,8 @@ CREATE TABLE
         id INT PRIMARY KEY,
         type TEXT NOT NULL,
         description TEXT,
+        CONSTRAINT chk_empty_type
+            CHECK(type != ''),
         CONSTRAINT uniq_secret_backend_type_type
             UNIQUE(type)
     );
@@ -32,6 +34,8 @@ CREATE TABLE
         name TEXT NOT NULL,
         backend_type TEXT NOT NULL,
         token_rotate_interval INT,
+        CONSTRAINT chk_empty_name
+            CHECK(name != ''),
         CONSTRAINT fk_secret_backend_type
             FOREIGN KEY (backend_type)
             REFERENCES secret_backend_type (type)
@@ -44,6 +48,10 @@ CREATE TABLE
         backend_uuid TEXT NOT NULL,
         name TEXT NOT NULL,
         content TEXT NOT NULL,
+        CONSTRAINT chk_empty_name
+            CHECK(name != ''),
+        CONSTRAINT chk_empty_content
+            CHECK(content != ''),
         CONSTRAINT pk_secret_backend_config
             PRIMARY KEY (backend_uuid, name),
         CONSTRAINT fk_secret_backend_config_backend_uuid
@@ -71,6 +79,8 @@ CREATE TABLE
     secret_rotate_policy (
         id INT PRIMARY KEY,
         policy TEXT NOT NULL,
+        CONSTRAINT chk_empty_policy
+            CHECK(policy != ''),
         CONSTRAINT uniq_secret_rotate_policy_policy
             UNIQUE(policy)
     );
@@ -125,6 +135,10 @@ CREATE TABLE
         revision_uuid TEXT NOT NULL,
         name TEXT NOT NULL,
         content TEXT NOT NULL,
+        CONSTRAINT chk_empty_name
+            CHECK(name != ''),
+        CONSTRAINT chk_empty_content
+            CHECK(content != ''),
         CONSTRAINT pk_secret_content_revision_uuid_name
             PRIMARY KEY (revision_uuid,name),
         CONSTRAINT fk_secret_content_secret_revision_uuid
@@ -292,6 +306,10 @@ CREATE TABLE
         scope TEXT NOT NULL,
         subject TEXT NOT NULL,
         role TEXT NOT NULL,
+        CONSTRAINT chk_empty_scope
+            CHECK(scope != ''),
+        CONSTRAINT chk_empty_subject
+            CHECK(subject != ''),
         CONSTRAINT fk_secret_permission_secret_role_id
             FOREIGN KEY (role)
             REFERENCES secret_role (role)
