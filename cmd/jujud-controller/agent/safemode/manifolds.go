@@ -122,7 +122,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			QueryLoggerName:           queryLoggerName,
 			ControllerAgentConfigName: controllerAgentConfigName,
 			Clock:                     config.Clock,
-			Hub:                       noopHub{},
 			Logger:                    loggo.GetLogger("juju.worker.dbaccessor"),
 			LogDir:                    agentConfig.LogDir(),
 			PrometheusRegisterer:      noopPrometheusRegisterer{},

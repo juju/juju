@@ -17,7 +17,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
 type namespaceSuite struct {
@@ -58,8 +57,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
@@ -119,8 +117,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -155,8 +152,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -191,8 +187,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
@@ -254,8 +249,7 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -290,8 +284,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -329,8 +322,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -368,8 +360,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 

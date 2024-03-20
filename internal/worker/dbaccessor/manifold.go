@@ -36,13 +36,6 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
-// Hub defines the methods of the API server central hub
-// that the DB accessor requires.
-type Hub interface {
-	Subscribe(topic string, handler interface{}) (func(), error)
-	Publish(topic string, data interface{}) (func(), error)
-}
-
 // NewDBWorkerFunc creates a tracked db worker.
 type NewDBWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
@@ -57,7 +50,6 @@ type ManifoldConfig struct {
 	QueryLoggerName           string
 	ControllerAgentConfigName string
 	Clock                     clock.Clock
-	Hub                       Hub
 	Logger                    Logger
 	LogDir                    string
 	PrometheusRegisterer      prometheus.Registerer
@@ -79,9 +71,6 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
-	}
-	if cfg.Hub == nil {
-		return errors.NotValidf("nil Hub")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -151,7 +140,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			cfg := WorkerConfig{
 				NodeManager:             config.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
 				Clock:                   config.Clock,
-				Hub:                     config.Hub,
 				ControllerID:            controllerID,
 				MetricsCollector:        metricsCollector,
 				Logger:                  config.Logger,
