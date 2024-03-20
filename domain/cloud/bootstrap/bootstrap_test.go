@@ -23,7 +23,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestInsertCloud(c *gc.C) {
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
-	err := InsertCloud(cld)(context.Background(), s.TxnRunner())
+	err := InsertCloud(cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var name string
@@ -39,7 +39,7 @@ func (s *bootstrapSuite) TestSetCloudDefaultsNoExist(c *gc.C) {
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
 	})
 
-	err := set(context.Background(), s.TxnRunner())
+	err := set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 
 	var count int
@@ -56,14 +56,14 @@ func (s *bootstrapSuite) TestSetCloudDefaults(c *gc.C) {
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType},
 	}
-	err := InsertCloud(cld)(context.Background(), s.TxnRunner())
+	err := InsertCloud(cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
 	set := SetCloudDefaults("cirrus", map[string]any{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
 	})
 
-	err = set(context.Background(), s.TxnRunner())
+	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
 	st := state.NewState(s.TxnRunnerFactory())
@@ -82,14 +82,14 @@ func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *gc.C) {
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType},
 	}
-	err := InsertCloud(cld)(context.Background(), s.TxnRunner())
+	err := InsertCloud(cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
 	set := SetCloudDefaults("cirrus", map[string]any{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
 	})
 
-	err = set(context.Background(), s.TxnRunner())
+	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
 	st := state.NewState(s.TxnRunnerFactory())
@@ -105,7 +105,7 @@ func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *gc.C) {
 		"foo": "bar",
 	})
 
-	err = set(context.Background(), s.TxnRunner())
+	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
 	st = state.NewState(s.TxnRunnerFactory())

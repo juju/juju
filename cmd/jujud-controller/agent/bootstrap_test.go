@@ -600,13 +600,14 @@ func nullContext() environs.BootstrapContext {
 func bootstrapDqliteWithDummyCloudType(
 	ctx context.Context,
 	mgr database.BootstrapNodeManager,
+	modelUUID model.UUID,
 	logger database.Logger,
-	concerns ...database.BootstrapConcern,
+	opts ...database.BootstrapOpt,
 ) error {
 	// The dummy cloud type needs to be inserted before the other operations.
-	concerns = append([]database.BootstrapConcern{
-		database.BootstrapControllerInitConcern(database.EmptyInit, jujutesting.InsertDummyCloudType),
-	}, concerns...)
+	opts = append([]database.BootstrapOpt{
+		jujutesting.InsertDummyCloudType,
+	}, opts...)
 
-	return database.BootstrapDqlite(ctx, mgr, logger, concerns...)
+	return database.BootstrapDqlite(ctx, mgr, modelUUID, logger, opts...)
 }

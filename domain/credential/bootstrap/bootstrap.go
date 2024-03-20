@@ -14,12 +14,13 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/state"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // InsertCredential inserts  a cloud credential into dqlite.
-func InsertCredential(id corecredential.ID, cred cloud.Credential) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
+func InsertCredential(id corecredential.ID, cred cloud.Credential) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if id.IsZero() {
 			return nil
 		}
@@ -28,7 +29,7 @@ func InsertCredential(id corecredential.ID, cred cloud.Credential) func(context.
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			if err := state.CreateCredential(ctx, tx, credentialUUID.String(), id, credential.CloudCredentialInfo{
 				AuthType:      string(cred.AuthType()),
 				Attributes:    cred.Attributes(),

@@ -19,7 +19,7 @@ type bootstrapSuite struct {
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestInsertBootstrapMachine(c *gc.C) {
-	err := InsertMachine("666")(context.Background(), s.TxnRunner())
+	err := InsertMachine("666")(context.Background(), s.NoopTxnRunner(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var machineId string

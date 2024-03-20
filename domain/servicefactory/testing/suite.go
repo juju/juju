@@ -83,7 +83,7 @@ func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
 		permission.ControllerForAccess(permission.SuperuserAccess),
 	)
 	s.AdminUserUUID = uuid
-	err := fn(context.Background(), s.ControllerTxnRunner())
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -101,7 +101,7 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 				Name: "dummy-region",
 			},
 		},
-	})(context.Background(), s.ControllerTxnRunner())
+	})(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.CredentialID = credential.ID{
@@ -115,7 +115,7 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 			"username": "dummy",
 			"password": "secret",
 		}),
-	)(context.Background(), s.ControllerTxnRunner())
+	)(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -132,7 +132,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	}
 
 	uuid, fn := modelbootstrap.CreateModel(controllerArgs)
-	err := fn(context.Background(), s.ControllerTxnRunner())
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.ControllerModelUUID = uuid
 
@@ -146,7 +146,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	}
 
 	uuid, fn = modelbootstrap.CreateModel(modelArgs)
-	err = fn(context.Background(), s.ControllerTxnRunner())
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.DefaultModelUUID = uuid
 }

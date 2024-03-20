@@ -47,7 +47,7 @@ func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bootstrap.InsertInitialControllerConfig(cfgIn)(ctx.Background(), s.TxnRunner())
+	err = bootstrap.InsertInitialControllerConfig(cfgIn)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfgOut, err := srv.ControllerConfig(ctx.Background())

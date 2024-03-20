@@ -56,8 +56,9 @@ import (
 type DqliteInitializerFunc func(
 	ctx stdcontext.Context,
 	mgr database.BootstrapNodeManager,
+	modelUUID model.UUID,
 	logger database.Logger,
-	concerns ...database.BootstrapConcern,
+	concerns ...database.BootstrapOpt,
 ) error
 
 // Logger describes methods for emitting log output.
@@ -250,29 +251,24 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 
-	databaseBootstrapConcerns := []database.BootstrapConcern{
-		database.BootstrapControllerConcern(
-			// The admin user needs to be added before everything else that
-			// requires being owned by a Juju user.
-			addAdminUser,
-			ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
-			cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
-			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
-			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
-			controllerModelCreateFunc,
-		),
-		database.BootstrapModelConcern(controllerModelUUID,
-			modelbootstrap.CreateReadOnlyModel(controllerModelArgs.AsReadOnly()),
-			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
-		),
+	databaseBootstrapOptions := []database.BootstrapOpt{
+		// The admin user needs to be added before everything else that
+		// requires being owned by a Juju user.
+		addAdminUser,
+		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
+		cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
+		credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
+		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
+		controllerModelCreateFunc,
+		modelbootstrap.CreateReadOnlyModel(controllerModelArgs.AsReadOnly()),
+		modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 	}
 	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
 	if !isCAAS {
 		// TODO(wallyworld) - this is just a placeholder for now
-		databaseBootstrapConcerns = append(databaseBootstrapConcerns,
-			database.BootstrapModelConcern(controllerModelUUID,
-				machinebootstrap.InsertMachine(agent.BootstrapControllerId),
-			))
+		databaseBootstrapOptions = append(databaseBootstrapOptions,
+			machinebootstrap.InsertMachine(agent.BootstrapControllerId),
+		)
 	}
 
 	// If we're running caas, we need to bind to the loopback address
@@ -285,8 +281,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	if err := b.bootstrapDqlite(
 		ctx,
 		database.NewNodeManager(b.agentConfig, isLoopbackPreferred, b.logger, coredatabase.NoopSlowQueryLogger{}),
+		controllerModelUUID,
 		b.logger,
-		databaseBootstrapConcerns...,
+		databaseBootstrapOptions...,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}

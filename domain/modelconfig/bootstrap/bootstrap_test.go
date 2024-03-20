@@ -45,7 +45,7 @@ func (s *bootstrapSuite) TestSetModelConfig(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = SetModelConfig(cfg, defaults)(context.Background(), s.TxnRunner())
+	err = SetModelConfig(cfg, defaults)(context.Background(), s.NoopTxnRunner(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	rows, err := s.DB().Query("SELECT * FROM model_config")

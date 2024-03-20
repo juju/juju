@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
@@ -31,8 +32,8 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 
 	// check tests the variadic operation functionality
 	// and ensures that bootstrap applied the DDL.
-	check := func(ctx context.Context, db database.TxnRunner) error {
-		return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	check := func(ctx context.Context, controller, model database.TxnRunner) error {
+		return controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			rows, err := tx.QueryContext(ctx, "SELECT COUNT(*) FROM lease_type")
 			if err != nil {
 				return err
@@ -76,7 +77,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, BootstrapControllerConcern(check))
+	err := BootstrapDqlite(context.Background(), mgr, model.MustNewUUID(), stubLogger{}, check)
 	c.Assert(err, jc.ErrorIsNil)
 
 }

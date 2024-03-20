@@ -6,6 +6,7 @@ package testing
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
@@ -316,7 +317,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Allow "dummy" cloud.
-	err = InsertDummyCloudType(context.Background(), s.TxnRunner())
+	err = InsertDummyCloudType(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
@@ -430,8 +431,8 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 }
 
 // InsertDummyCloudType is a db bootstrap option which inserts the dummy cloud type.
-func InsertDummyCloudType(ctx context.Context, db database.TxnRunner) error {
-	return cloudstate.AllowCloudType(ctx, db, 666, "dummy")
+func InsertDummyCloudType(ctx context.Context, controller, model database.TxnRunner) error {
+	return cloudstate.AllowCloudType(ctx, controller, 666, "dummy")
 }
 
 // URL returns a URL for this server with the given path and
@@ -650,7 +651,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
 func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) {
-	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
+	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner, noopTxnRunner{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -800,4 +801,14 @@ func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
 		return status, nil
 	}
 	return presence.Alive, nil
+}
+
+type noopTxnRunner struct{}
+
+func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) error) error {
+	return errors.NotImplemented
+}
+
+func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
+	return errors.NotImplemented
 }

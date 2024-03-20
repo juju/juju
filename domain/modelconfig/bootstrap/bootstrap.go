@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/environs/config"
+	internaldatabase "github.com/juju/juju/internal/database"
 )
 
 // SetModelConfig will remove any existing model config for the model and
@@ -20,8 +21,8 @@ import (
 func SetModelConfig(
 	cfg *config.Config,
 	defaultsProvider service.ModelDefaultsProvider,
-) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
+) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		attrs := cfg.AllAttrs()
 		defaults, err := defaultsProvider.ModelDefaults(ctx)
 		if err != nil {
@@ -45,9 +46,7 @@ func SetModelConfig(
 		// - model agent version in the model database correctly.
 		// - change any client code that is passing the value via config.
 		// - add migration logic to get rid of agent version out of config.
-		if _, exists := attrs[config.AgentVersionKey]; exists {
-			delete(attrs, config.AgentVersionKey)
-		}
+		delete(attrs, config.AgentVersionKey)
 
 		cfg, err = config.New(config.NoDefaults, attrs)
 		if err != nil {
@@ -64,7 +63,7 @@ func SetModelConfig(
 			return fmt.Errorf("coercing model config for storage: %w", err)
 		}
 
-		return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			return state.SetModelConfig(ctx, rawCfg, tx)
 		})
 	}

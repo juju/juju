@@ -30,7 +30,7 @@ func (s *bootstrapSuite) TestAddUser(c *gc.C) {
 			Key:        database.ControllerNS,
 		},
 	})
-	err := addAdminUser(ctx, s.TxnRunner())
+	err := addAdminUser(ctx, s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uuid.Validate(), jc.ErrorIsNil)
 
@@ -51,7 +51,7 @@ func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 			Key:        database.ControllerNS,
 		},
 	})
-	err := addAdminUser(ctx, s.TxnRunner())
+	err := addAdminUser(ctx, s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uuid.Validate(), jc.ErrorIsNil)
 
