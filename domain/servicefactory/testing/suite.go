@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -76,7 +77,7 @@ func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory
 
 func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
 	password := auth.NewPassword("dummy-secret")
-	uuid, fn := userbootstrap.AddUserWithPassword(coreuser.AdminUserName, password)
+	uuid, fn := userbootstrap.AddUserWithPassword(coreuser.AdminUserName, password, permission.SuperuserAccess)
 	s.AdminUserUUID = uuid
 	err := fn(context.Background(), s.ControllerTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)

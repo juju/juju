@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	usertesting "github.com/juju/juju/domain/user/testing"
@@ -56,7 +57,7 @@ func (s *serviceSuite) TestAddUserAlreadyExists(c *gc.C) {
 	// The matcher used below verifies that we generated a
 	// UUID when one was not suppied in the AddUserArg.
 	a := gomock.Any()
-	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a).Return(usererrors.AlreadyExists)
+	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a, a).Return(usererrors.AlreadyExists)
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
@@ -71,7 +72,7 @@ func (s *serviceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 	// The matcher used below verifies that we generated a
 	// UUID when one was not supplied in the AddUserArg.
 	a := gomock.Any()
-	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a).Return(usererrors.CreatorUUIDNotFound)
+	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a, a).Return(usererrors.CreatorUUIDNotFound)
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
@@ -88,7 +89,7 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 	creatorUUID := newUUID(c)
 
 	s.state.EXPECT().AddUserWithPasswordHash(
-		gomock.Any(), userUUID, "valid", "display", creatorUUID, gomock.Any(), gomock.Any()).Return(nil)
+		gomock.Any(), userUUID, "valid", "display", creatorUUID, permission.ReadAccess, gomock.Any(), gomock.Any()).Return(nil)
 
 	pass := auth.NewPassword("password")
 
@@ -98,6 +99,7 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 		DisplayName: "display",
 		Password:    &pass,
 		CreatorUUID: creatorUUID,
+		Permission:  permission.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -122,6 +124,25 @@ func (s *serviceSuite) TestAddUserWithPasswordNotValid(c *gc.C) {
 		CreatorUUID: creatorUUID,
 	})
 	c.Assert(err, jc.ErrorIs, auth.ErrPasswordNotValid)
+}
+
+// TestAddUserWithPermissionInvalid is checking that if we try and
+// add a user with invalid permissions that is not valid we get back a error
+// that satisfies domain/user/errors.ErrPermissionNotValid.
+func (s *serviceSuite) TestAddUserWithPermissionInvalid(c *gc.C) {
+	userUUID := newUUID(c)
+	creatorUUID := newUUID(c)
+
+	pass := auth.NewPassword("password")
+
+	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
+		UUID:        userUUID,
+		Name:        "valid",
+		DisplayName: "display",
+		Password:    &pass,
+		CreatorUUID: creatorUUID,
+	})
+	c.Assert(err, jc.ErrorIs, usererrors.PermissionNotValid)
 }
 
 // TestRemoveUser is testing the happy path for removing a user.
@@ -370,7 +391,7 @@ func (s *serviceSuite) TestSetPasswordWithActivationKey(c *gc.C) {
 	payloadBytes, err := json.Marshal(p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	box := s.sealBox(c, key, nonce, payloadBytes)
+	box := s.sealBox(key, nonce, payloadBytes)
 
 	_, err = s.service().SetPasswordWithActivationKey(context.Background(), "name", nonce, box)
 	c.Assert(err, jc.ErrorIsNil)
@@ -404,7 +425,7 @@ func (s *serviceSuite) TestSetPasswordWithActivationKeyWithInvalidKey(c *gc.C) {
 	payloadBytes, err := json.Marshal(p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	box := s.sealBox(c, key, nonce, payloadBytes)
+	box := s.sealBox(key, nonce, payloadBytes)
 
 	// Replace the nonce with a different nonce.
 	_, err = rand.Read(nonce)
@@ -414,7 +435,7 @@ func (s *serviceSuite) TestSetPasswordWithActivationKeyWithInvalidKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.ActivationKeyNotValid)
 }
 
-func (s *serviceSuite) sealBox(c *gc.C, key, nonce, payload []byte) []byte {
+func (s *serviceSuite) sealBox(key, nonce, payload []byte) []byte {
 	var sbKey [activationKeyLength]byte
 	var sbNonce [activationBoxNonceLength]byte
 	copy(sbKey[:], key)

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -579,6 +580,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 		coremodel.ControllerModelOwnerUsername,
 		"test user",
 		userUUID,
+		permission.SuperuserAccess,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -662,6 +664,7 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 		coremodel.ControllerModelOwnerUsername,
 		"test user",
 		userUUID,
+		permission.SuperuserAccess,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -13,11 +13,14 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
+	permissionstate "github.com/juju/juju/domain/permission/state"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	"github.com/juju/juju/internal/auth"
-	databaseutils "github.com/juju/juju/internal/database"
+	internaldatabase "github.com/juju/juju/internal/database"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -47,6 +50,7 @@ func (st *State) AddUser(
 	name string,
 	displayName string,
 	creatorUUID user.UUID,
+	permission permission.Access,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -54,7 +58,7 @@ func (st *State) AddUser(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUser(ctx, tx, uuid, name, displayName, creatorUUID))
+		return errors.Trace(AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission))
 	})
 }
 
@@ -68,6 +72,7 @@ func (st *State) AddUserWithPasswordHash(
 	name string,
 	displayName string,
 	creatorUUID user.UUID,
+	permission permission.Access,
 	passwordHash string,
 	salt []byte,
 ) error {
@@ -77,7 +82,7 @@ func (st *State) AddUserWithPasswordHash(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, passwordHash, salt))
+		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, permission, passwordHash, salt))
 	})
 }
 
@@ -92,6 +97,7 @@ func (st *State) AddUserWithActivationKey(
 	name string,
 	displayName string,
 	creatorUUID user.UUID,
+	permission permission.Access,
 	activationKey []byte,
 ) error {
 	db, err := st.DB()
@@ -100,7 +106,7 @@ func (st *State) AddUserWithActivationKey(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = AddUser(ctx, tx, uuid, name, displayName, creatorUUID)
+		err = AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -445,7 +451,9 @@ func (st *State) GetActivationKey(ctx context.Context, name string) ([]byte, err
 
 	m := make(sqlair.M, 1)
 
-	selectKeyStmt, err := sqlair.Prepare("SELECT (*) AS (&ActivationKey.*) FROM user_activation_key WHERE user_uuid = $M.uuid", m, ActivationKey{})
+	selectKeyStmt, err := sqlair.Prepare(`
+SELECT (*) AS (&ActivationKey.*) FROM user_activation_key WHERE user_uuid = $M.uuid
+`, m, ActivationKey{})
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing activation get query")
 	}
@@ -604,10 +612,11 @@ func AddUserWithPassword(
 	name string,
 	displayName string,
 	creatorUUID user.UUID,
+	permission permission.Access,
 	passwordHash string,
 	salt []byte,
 ) error {
-	err := AddUser(ctx, tx, uuid, name, displayName, creatorUUID)
+	err := AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
 	if err != nil {
 		return errors.Annotatef(err, "adding user with uuid %q", uuid)
 	}
@@ -660,7 +669,20 @@ WHERE  user_uuid = $M.uuid`
 // that satisfies usererrors.AlreadyExists will be returned. If the creator does
 // not exist an error that satisfies usererrors.UserCreatorUUIDNotFound will be
 // returned.
-func AddUser(ctx context.Context, tx *sqlair.TX, uuid user.UUID, name string, displayName string, creatorUuid user.UUID) error {
+func AddUser(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid user.UUID,
+	name string,
+	displayName string,
+	creatorUuid user.UUID,
+	access permission.Access,
+) error {
+	permissionUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Annotate(err, "generating permission UUID")
+	}
+
 	addUserQuery := `
 INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
 VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)`
@@ -677,12 +699,31 @@ VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_a
 		"created_by_uuid": creatorUuid.String(),
 		"created_at":      time.Now(),
 	}).Run()
-	if databaseutils.IsErrConstraintUnique(err) {
+	if internaldatabase.IsErrConstraintUnique(err) {
 		return errors.Annotatef(usererrors.AlreadyExists, "adding user %q", name)
-	} else if databaseutils.IsErrConstraintForeignKey(err) {
+	} else if internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Annotatef(usererrors.CreatorUUIDNotFound, "adding user %q", name)
 	} else if err != nil {
 		return errors.Annotatef(err, "adding user %q", name)
+	}
+
+	// No point in adding permissions if we require no access.
+	if access == permission.NoAccess {
+		return nil
+	}
+
+	err = permissionstate.AddUserPermission(ctx, tx, permissionstate.AddUserPermissionArgs{
+		PermissionUUID: permissionUUID.String(),
+		UserUUID:       uuid.String(),
+		User:           name,
+		Access:         access,
+		Target: permission.ID{
+			ObjectType: permission.Controller,
+			Key:        database.ControllerNS,
+		},
+	})
+	if err != nil {
+		return errors.Annotatef(err, "adding permission for user %q", name)
 	}
 
 	return nil
@@ -715,7 +756,7 @@ WHERE      disabled = false`
 
 	query := tx.Query(ctx, insertDefineUserAuthenticationStmt, sqlair.M{"name": name, "disabled": false})
 	err = query.Run()
-	if databaseutils.IsErrConstraintForeignKey(err) {
+	if internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Annotatef(usererrors.NotFound, "%q", name)
 	} else if err != nil {
 		return errors.Annotatef(err, "setting authentication for user %q", name)

@@ -44,3 +44,19 @@ func (u User) toCoreUserAccess() permission.UserAccess {
 		DateCreated: u.CreatedAt,
 	}
 }
+
+// Permission represents a permission in the system where the values overlap
+// with corepermission.Permission.
+type Permission struct {
+	// UUID is the unique identifier for the permission.
+	UUID string `db:"uuid"`
+
+	// PermissionType is the type of permission.
+	PermissionType int64 `db:"permission_type_id"`
+
+	// GrantOn is the tag that the permission is granted on.
+	GrantOn string `db:"grant_on"`
+
+	// GrantTo is the tag that the permission is granted to.
+	GrantTo string `db:"grant_to"`
+}

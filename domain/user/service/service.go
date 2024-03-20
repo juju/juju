@@ -7,10 +7,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 
 	"github.com/juju/errors"
 	"golang.org/x/crypto/nacl/secretbox"
 
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	domainuser "github.com/juju/juju/domain/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
@@ -24,7 +26,14 @@ type State interface {
 	// an error that satisfies usererrors.AlreadyExists will be returned. If the
 	// users creator is set and does not exist then an error that satisfies
 	// usererrors.CreatorUUIDNotFound will be returned.
-	AddUser(ctx context.Context, uuid user.UUID, name string, displayName string, creatorUUID user.UUID) error
+	AddUser(
+		ctx context.Context,
+		uuid user.UUID,
+		name string,
+		displayName string,
+		creatorUUID user.UUID,
+		permission permission.Access,
+	) error
 
 	// AddUserWithPasswordHash will add a new user to the database with the
 	// provided password hash and salt. If the user already exists an error that
@@ -37,6 +46,7 @@ type State interface {
 		name string,
 		displayName string,
 		creatorUUID user.UUID,
+		permission permission.Access,
 		passwordHash string,
 		passwordSalt []byte,
 	) error
@@ -52,6 +62,7 @@ type State interface {
 		name string,
 		displayName string,
 		creatorUUID user.UUID,
+		permission permission.Access,
 		activationKey []byte,
 	) error
 
@@ -225,6 +236,10 @@ func (s *Service) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, []byt
 		return "", nil, errors.Annotatef(err, "validating creator UUID %q", arg.CreatorUUID)
 	}
 
+	if err := arg.Permission.Validate(); err != nil {
+		return "", nil, fmt.Errorf("validating permission %q: %w: %w", arg.Permission, err, usererrors.PermissionNotValid)
+	}
+
 	if arg.UUID.String() == "" {
 		var err error
 		if arg.UUID, err = user.NewUUID(); err != nil {
@@ -263,7 +278,7 @@ func (s *Service) addUserWithPassword(ctx context.Context, arg AddUserArg) error
 		return errors.Trace(err)
 	}
 
-	err = s.st.AddUserWithPasswordHash(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, hash, salt)
+	err = s.st.AddUserWithPasswordHash(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, arg.Permission, hash, salt)
 	return errors.Trace(err)
 }
 
@@ -273,7 +288,7 @@ func (s *Service) addUserWithActivationKey(ctx context.Context, arg AddUserArg) 
 		return nil, errors.Trace(err)
 	}
 
-	if err = s.st.AddUserWithActivationKey(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, key); err != nil {
+	if err = s.st.AddUserWithActivationKey(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, arg.Permission, key); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return key, nil

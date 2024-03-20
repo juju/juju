@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -38,6 +39,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 		"fred",
 		"test user",
 		userUUID,
+		permission.SuperuserAccess,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)

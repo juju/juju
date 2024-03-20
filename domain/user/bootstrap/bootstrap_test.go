@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/permission"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/auth"
 )
@@ -21,7 +22,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestAddUser(c *gc.C) {
 	ctx := context.Background()
-	uuid, addAdminUser := AddUser("admin")
+	uuid, addAdminUser := AddUser("admin", permission.SuperuserAccess)
 	err := addAdminUser(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uuid.Validate(), jc.ErrorIsNil)
@@ -36,7 +37,7 @@ SELECT name FROM user WHERE name = ?`, "admin")
 
 func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 	ctx := context.Background()
-	uuid, addAdminUser := AddUserWithPassword("admin", auth.NewPassword("password"))
+	uuid, addAdminUser := AddUserWithPassword("admin", auth.NewPassword("password"), permission.SuperuserAccess)
 	err := addAdminUser(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uuid.Validate(), jc.ErrorIsNil)
