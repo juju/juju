@@ -115,6 +115,42 @@ func (s *stateSuite) TestCreatePermissionController(c *gc.C) {
 	s.checkPermissionRow(c, corepermission.SuperuserAccess, "123", "controller")
 }
 
+func (s *stateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+
+	// Setup to add permissions for user Bob on the model
+	s.ensureUser(c, "42", "admin", "42") // model owner
+	s.ensureUser(c, "123", "bob", "42")
+
+	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), permission.UserAccessSpec{
+		User: "bob",
+		Target: corepermission.ID{
+			Key:        "foo-bar",
+			ObjectType: corepermission.Model,
+		},
+		Access: corepermission.ReadAccess,
+	})
+	c.Assert(err, jc.ErrorIs, permissionerrors.TargetInvalid)
+}
+
+func (s *stateSuite) TestCreatePermissionForControllerWithBadInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+
+	// Setup to add permissions for user Bob on the model
+	s.ensureUser(c, "42", "admin", "42") // model owner
+	s.ensureUser(c, "123", "bob", "42")
+
+	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), permission.UserAccessSpec{
+		User: "bob",
+		Target: corepermission.ID{
+			Key:        "foo-bar",
+			ObjectType: corepermission.Controller,
+		},
+		Access: corepermission.SuperuserAccess,
+	})
+	c.Assert(err, jc.ErrorIs, permissionerrors.TargetInvalid)
+}
+
 func (s *stateSuite) checkPermissionRow(c *gc.C, access corepermission.Access, expectedGrantTo, expectedGrantON string) {
 	db := s.DB()
 	// Find the id for access

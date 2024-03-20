@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -36,7 +37,13 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	uuid, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.SuperuserAccess)
+	uuid, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.UserPermissionAccess{
+		Access: permission.SuperuserAccess,
+		ID: permission.ID{
+			ObjectType: permission.Controller,
+			Key:        database.ControllerNS,
+		},
+	})
 	err := fn(context.Background(), s.ControllerTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.adminUserUUID = uuid

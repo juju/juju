@@ -30,5 +30,5 @@ type AddUserArg struct {
 
 	// Permissions are the permissions to grant to the user upon creation.
 	// If no permission is passed, then NoAccess is set.
-	Permission permission.Access
+	Permission permission.UserPermissionAccess
 }

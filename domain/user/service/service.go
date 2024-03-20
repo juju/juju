@@ -32,7 +32,7 @@ type State interface {
 		name string,
 		displayName string,
 		creatorUUID user.UUID,
-		permission permission.Access,
+		permission permission.UserPermissionAccess,
 	) error
 
 	// AddUserWithPasswordHash will add a new user to the database with the
@@ -46,7 +46,7 @@ type State interface {
 		name string,
 		displayName string,
 		creatorUUID user.UUID,
-		permission permission.Access,
+		permission permission.UserPermissionAccess,
 		passwordHash string,
 		passwordSalt []byte,
 	) error
@@ -62,7 +62,7 @@ type State interface {
 		name string,
 		displayName string,
 		creatorUUID user.UUID,
-		permission permission.Access,
+		permission permission.UserPermissionAccess,
 		activationKey []byte,
 	) error
 

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -64,7 +65,13 @@ func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 		name,
 		"test user",
 		userUUID,
-		permission.SuperuserAccess,
+		permission.UserPermissionAccess{
+			Access: permission.SuperuserAccess,
+			ID: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        database.ControllerNS,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return userUUID

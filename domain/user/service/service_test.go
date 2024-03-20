@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
@@ -99,7 +100,13 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 		DisplayName: "display",
 		Password:    &pass,
 		CreatorUUID: creatorUUID,
-		Permission:  permission.ReadAccess,
+		Permission: permission.UserPermissionAccess{
+			Access: permission.ReadAccess,
+			ID: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        database.ControllerNS,
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

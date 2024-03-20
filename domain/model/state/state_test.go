@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -55,7 +56,13 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		m.userName,
 		m.userName,
 		m.userUUID,
-		permission.SuperuserAccess,
+		permission.UserPermissionAccess{
+			Access: permission.SuperuserAccess,
+			ID: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        database.ControllerNS,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

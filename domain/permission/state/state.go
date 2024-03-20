@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -364,9 +365,9 @@ SELECT &M.found_it FROM (
 	// Any answer other than 1 is an error. The targetKey should exist
 	// as a unique identifier across the controller namespace.
 	if len(foundIt) == 0 {
-		return errors.Annotatef(err, "permission target %q does not exist", targetKey)
+		return fmt.Errorf("%q %w", targetKey, permissionerrors.TargetInvalid)
 	}
-	return errors.Annotatef(err, "permission target %q is not unique", targetKey)
+	return fmt.Errorf("%q %w", targetKey, permissionerrors.TargetAlreadyExists)
 }
 
 func objectTag(id corepermission.ID) (result names.Tag) {

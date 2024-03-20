@@ -8,15 +8,29 @@ import (
 	"github.com/juju/names/v5"
 )
 
+// AccessChange represents a change in access level.
 type AccessChange string
 
 const (
-	Grant  AccessChange = "grant"
+	// Grant represents a change in access level to grant.
+	Grant AccessChange = "grant"
+
+	// Revoke represents a change in access level to revoke.
 	Revoke AccessChange = "revoke"
 )
 
 // Access represents a level of access.
 type Access string
+
+// ModelAccess represents a level of access for a model.
+// TODO (stickupkid): Remove the alias and make a new type. Using types to
+// define the scope access permission will remove accidental usage.
+type ModelAccess = Access
+
+// ControllerAccess represents a level of access for a controller.
+// TODO (stickupkid): Remove the alias and make a new type. Using types to
+// define the scope access permission will remove accidental usage.
+type ControllerAccess = Access
 
 const (
 	// NoAccess allows a user no permissions at all.
@@ -26,30 +40,40 @@ const (
 
 	// ReadAccess allows a user to read information about a permission subject,
 	// without being able to make any changes.
-	ReadAccess Access = "read"
+	ReadAccess ModelAccess = "read"
 
 	// WriteAccess allows a user to make changes to a permission subject.
-	WriteAccess Access = "write"
+	WriteAccess ModelAccess = "write"
 
 	// ConsumeAccess allows a user to consume a permission subject.
-	ConsumeAccess Access = "consume"
+	ConsumeAccess ModelAccess = "consume"
 
 	// AdminAccess allows a user full control over the subject.
-	AdminAccess Access = "admin"
+	AdminAccess ModelAccess = "admin"
 
 	// Controller permissions
 
 	// LoginAccess allows a user to log-ing into the subject.
-	LoginAccess Access = "login"
+	LoginAccess ControllerAccess = "login"
 
 	// AddModelAccess allows user to add new models in subjects supporting it.
-	AddModelAccess Access = "add-model"
+	AddModelAccess ControllerAccess = "add-model"
 
 	// SuperuserAccess allows user unrestricted permissions in the subject.
-	SuperuserAccess Access = "superuser"
+	SuperuserAccess ControllerAccess = "superuser"
 )
 
-var AllAccessLevels = []Access{NoAccess, ReadAccess, WriteAccess, ConsumeAccess, AdminAccess, LoginAccess, AddModelAccess, SuperuserAccess}
+// AllAccessLevels is a list of all access levels.
+var AllAccessLevels = []Access{
+	NoAccess,
+	ReadAccess,
+	WriteAccess,
+	ConsumeAccess,
+	AdminAccess,
+	LoginAccess,
+	AddModelAccess,
+	SuperuserAccess,
+}
 
 // Validate returns error if the current is not a valid access level.
 func (a Access) Validate() error {

@@ -228,7 +228,13 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(
 		b.adminUser.Name(),
 		auth.NewPassword(info.Password),
-		permission.SuperuserAccess,
+		permission.UserPermissionAccess{
+			Access: permission.SuperuserAccess,
+			ID: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        coredatabase.ControllerNS,
+			},
+		},
 	)
 
 	controllerModelUUID := model.UUID(
