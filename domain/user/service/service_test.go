@@ -100,9 +100,9 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 		DisplayName: "display",
 		Password:    &pass,
 		CreatorUUID: creatorUUID,
-		Permission: permission.UserPermissionAccess{
+		Permission: permission.AccessSpec{
 			Access: permission.ReadAccess,
-			ID: permission.ID{
+			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        database.ControllerNS,
 			},

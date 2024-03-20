@@ -57,9 +57,9 @@ func (s *stateSuite) createModel(c *gc.C) coremodel.UUID {
 		userUUID,
 		// TODO (stickupkid): This should be AdminAccess, but we don't have
 		// a model to set the user as the owner of.
-		permission.UserPermissionAccess{
+		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
-			ID: permission.ID{
+			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        database.ControllerNS,
 			},

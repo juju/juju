@@ -19,7 +19,7 @@ type State interface {
 	// CreatePermission gives the user access per the provided spec.
 	// It requires the user/target combination has not already been
 	// created.
-	CreatePermission(ctx context.Context, uuid uuid.UUID, spec permission.UserAccessSpec) (corepermission.UserAccess, error)
+	CreatePermission(ctx context.Context, uuid uuid.UUID, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error)
 
 	// DeletePermission removes the given subject's (user) access to the
 	// given target.
@@ -68,7 +68,7 @@ func NewService(st State) *Service {
 
 // CreatePermission gives the user access per the provided spec. All errors
 // are passed through from the spec validation and state layer.
-func (s *Service) CreatePermission(ctx context.Context, spec permission.UserAccessSpec) (corepermission.UserAccess, error) {
+func (s *Service) CreatePermission(ctx context.Context, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error) {
 	if err := spec.Validate(); err != nil {
 		return corepermission.UserAccess{}, errors.Trace(err)
 	}

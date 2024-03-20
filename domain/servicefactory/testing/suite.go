@@ -78,9 +78,9 @@ func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory
 
 func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
 	password := auth.NewPassword("dummy-secret")
-	uuid, fn := userbootstrap.AddUserWithPassword(coreuser.AdminUserName, password, permission.UserPermissionAccess{
+	uuid, fn := userbootstrap.AddUserWithPassword(coreuser.AdminUserName, password, permission.AccessSpec{
 		Access: permission.SuperuserAccess,
-		ID: permission.ID{
+		Target: permission.ID{
 			ObjectType: permission.Controller,
 			Key:        database.ControllerNS,
 		},

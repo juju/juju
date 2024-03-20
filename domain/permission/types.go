@@ -43,28 +43,3 @@ func (args UpsertPermissionArgs) Validate() error {
 	}
 	return nil
 }
-
-// UserAccessSpec defines the attributes that can be set when adding a new
-// user access.
-type UserAccessSpec struct {
-	User   string
-	Target permission.ID
-	Access permission.Access
-}
-
-// Validate validates that the access and target specified in the
-// spec are values allowed together and that the User is not an
-// empty string. If any of these are untrue, a NotValid error is
-// returned.
-func (u UserAccessSpec) Validate() error {
-	if u.User == "" {
-		return errors.NotValidf("empty user")
-	}
-	if err := u.Target.Validate(); err != nil {
-		return err
-	}
-	if err := u.Target.ValidateAccess(u.Access); err != nil {
-		return err
-	}
-	return nil
-}

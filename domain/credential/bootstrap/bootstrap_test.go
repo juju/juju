@@ -40,9 +40,9 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 		"fred",
 		"test user",
 		userUUID,
-		permission.UserPermissionAccess{
+		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
-			ID: permission.ID{
+			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        database.ControllerNS,
 			},

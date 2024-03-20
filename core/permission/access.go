@@ -22,45 +22,31 @@ const (
 // Access represents a level of access.
 type Access string
 
-// ModelAccess represents a level of access for a model.
-// TODO (stickupkid): Remove the alias and make a new type. Using types to
-// define the scope access permission will remove accidental usage.
-type ModelAccess = Access
-
-// ControllerAccess represents a level of access for a controller.
-// TODO (stickupkid): Remove the alias and make a new type. Using types to
-// define the scope access permission will remove accidental usage.
-type ControllerAccess = Access
-
 const (
 	// NoAccess allows a user no permissions at all.
 	NoAccess Access = ""
 
-	// Model Permissions
-
 	// ReadAccess allows a user to read information about a permission subject,
 	// without being able to make any changes.
-	ReadAccess ModelAccess = "read"
+	ReadAccess Access = "read"
 
 	// WriteAccess allows a user to make changes to a permission subject.
-	WriteAccess ModelAccess = "write"
+	WriteAccess Access = "write"
 
 	// ConsumeAccess allows a user to consume a permission subject.
-	ConsumeAccess ModelAccess = "consume"
+	ConsumeAccess Access = "consume"
 
 	// AdminAccess allows a user full control over the subject.
-	AdminAccess ModelAccess = "admin"
-
-	// Controller permissions
+	AdminAccess Access = "admin"
 
 	// LoginAccess allows a user to log-ing into the subject.
-	LoginAccess ControllerAccess = "login"
+	LoginAccess Access = "login"
 
 	// AddModelAccess allows user to add new models in subjects supporting it.
-	AddModelAccess ControllerAccess = "add-model"
+	AddModelAccess Access = "add-model"
 
 	// SuperuserAccess allows user unrestricted permissions in the subject.
-	SuperuserAccess ControllerAccess = "superuser"
+	SuperuserAccess Access = "superuser"
 )
 
 // AllAccessLevels is a list of all access levels.

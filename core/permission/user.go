@@ -3,24 +3,46 @@
 
 package permission
 
-import "fmt"
+import (
+	"github.com/juju/errors"
+)
 
-// UserPermissionAccess represents the access a user has to a permission.
-type UserPermissionAccess struct {
-	// Access is the level of access the user has to the permission.
+type AccessSpec struct {
+	Target ID
 	Access Access
-	// ID represents the unique identifier for the permission.
-	// This is used to identify the permission in the system.
-	ID ID
 }
 
-// Validate returns an error if the UserPermissionAccess is invalid.
-func (a UserPermissionAccess) Validate() error {
-	if err := a.Access.Validate(); err != nil {
-		return fmt.Errorf("invalid access: %w", err)
+// Validate validates that the access and target specified in the
+// spec are values allowed together and that the User is not an
+// empty string. If any of these are untrue, a NotValid error is
+// returned.
+func (u AccessSpec) Validate() error {
+	if err := u.Target.Validate(); err != nil {
+		return err
 	}
-	if err := a.ID.Validate(); err != nil {
-		return fmt.Errorf("invalid id: %w", err)
+	if err := u.Target.ValidateAccess(u.Access); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UserAccessSpec defines the attributes that can be set when adding a new
+// user access.
+type UserAccessSpec struct {
+	AccessSpec
+	User string
+}
+
+// Validate validates that the access and target specified in the
+// spec are values allowed together and that the User is not an
+// empty string. If any of these are untrue, a NotValid error is
+// returned.
+func (u UserAccessSpec) Validate() error {
+	if u.User == "" {
+		return errors.NotValidf("empty user")
+	}
+	if err := u.AccessSpec.Validate(); err != nil {
+		return err
 	}
 	return nil
 }

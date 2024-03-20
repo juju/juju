@@ -65,9 +65,9 @@ func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 		name,
 		"test user",
 		userUUID,
-		permission.UserPermissionAccess{
+		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
-			ID: permission.ID{
+			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        database.ControllerNS,
 			},

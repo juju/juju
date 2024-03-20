@@ -56,9 +56,9 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		m.userName,
 		m.userName,
 		m.userUUID,
-		permission.UserPermissionAccess{
+		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
-			ID: permission.ID{
+			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        database.ControllerNS,
 			},

@@ -23,9 +23,9 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestAddUser(c *gc.C) {
 	ctx := context.Background()
-	uuid, addAdminUser := AddUser("admin", permission.UserPermissionAccess{
+	uuid, addAdminUser := AddUser("admin", permission.AccessSpec{
 		Access: permission.SuperuserAccess,
-		ID: permission.ID{
+		Target: permission.ID{
 			ObjectType: permission.Controller,
 			Key:        database.ControllerNS,
 		},
@@ -44,9 +44,9 @@ SELECT name FROM user WHERE name = ?`, "admin")
 
 func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 	ctx := context.Background()
-	uuid, addAdminUser := AddUserWithPassword("admin", auth.NewPassword("password"), permission.UserPermissionAccess{
+	uuid, addAdminUser := AddUserWithPassword("admin", auth.NewPassword("password"), permission.AccessSpec{
 		Access: permission.SuperuserAccess,
-		ID: permission.ID{
+		Target: permission.ID{
 			ObjectType: permission.Controller,
 			Key:        database.ControllerNS,
 		},

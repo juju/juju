@@ -37,9 +37,9 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	uuid, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.UserPermissionAccess{
+	uuid, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.AccessSpec{
 		Access: permission.SuperuserAccess,
-		ID: permission.ID{
+		Target: permission.ID{
 			ObjectType: permission.Controller,
 			Key:        database.ControllerNS,
 		},

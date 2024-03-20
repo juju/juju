@@ -211,9 +211,9 @@ func (s *stateSuite) TestAddUserWithInvalidPermissions(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		permission.UserPermissionAccess{
+		permission.AccessSpec{
 			Access: permission.ReadAccess,
-			ID: permission.ID{
+			Target: permission.ID{
 				ObjectType: permission.Model,
 				Key:        "foo-bar",
 			},
@@ -1222,10 +1222,10 @@ func (s *stateSuite) TestGetUserUUIDByNameNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, usererrors.NotFound)
 }
 
-func controllerLoginAccess() permission.UserPermissionAccess {
-	return permission.UserPermissionAccess{
+func controllerLoginAccess() permission.AccessSpec {
+	return permission.AccessSpec{
 		Access: permission.LoginAccess,
-		ID: permission.ID{
+		Target: permission.ID{
 			ObjectType: permission.Controller,
 			Key:        coredatabase.ControllerNS,
 		},

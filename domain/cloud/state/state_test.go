@@ -581,9 +581,9 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 		coremodel.ControllerModelOwnerUsername,
 		"test user",
 		userUUID,
-		permission.UserPermissionAccess{
+		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
-			ID: permission.ID{
+			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        database.ControllerNS,
 			},
@@ -671,9 +671,9 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 		coremodel.ControllerModelOwnerUsername,
 		"test user",
 		userUUID,
-		permission.UserPermissionAccess{
+		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
-			ID: permission.ID{
+			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        database.ControllerNS,
 			},

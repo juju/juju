@@ -45,9 +45,9 @@ func (u User) toCoreUserAccess() permission.UserAccess {
 	}
 }
 
-// Permission represents a permission in the system where the values overlap
-// with corepermission.Permission.
-type Permission struct {
+// addUserPermission represents a permission in the system where the values
+// overlap with corepermission.Permission.
+type addUserPermission struct {
 	// UUID is the unique identifier for the permission.
 	UUID string `db:"uuid"`
 

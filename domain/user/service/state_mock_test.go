@@ -43,7 +43,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddUser mocks base method.
-func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.UserPermissionAccess) error {
+func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUser", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
@@ -57,7 +57,7 @@ func (mr *MockStateMockRecorder) AddUser(arg0, arg1, arg2, arg3, arg4, arg5 any)
 }
 
 // AddUserWithActivationKey mocks base method.
-func (m *MockState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.UserPermissionAccess, arg6 []byte) error {
+func (m *MockState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
@@ -71,7 +71,7 @@ func (mr *MockStateMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3
 }
 
 // AddUserWithPasswordHash mocks base method.
-func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.UserPermissionAccess, arg6 string, arg7 []byte) error {
+func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 string, arg7 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)

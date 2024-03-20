@@ -50,7 +50,7 @@ func (st *State) AddUser(
 	name string,
 	displayName string,
 	creatorUUID user.UUID,
-	permission permission.UserPermissionAccess,
+	permission permission.AccessSpec,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -72,7 +72,7 @@ func (st *State) AddUserWithPasswordHash(
 	name string,
 	displayName string,
 	creatorUUID user.UUID,
-	permission permission.UserPermissionAccess,
+	permission permission.AccessSpec,
 	passwordHash string,
 	salt []byte,
 ) error {
@@ -97,7 +97,7 @@ func (st *State) AddUserWithActivationKey(
 	name string,
 	displayName string,
 	creatorUUID user.UUID,
-	permission permission.UserPermissionAccess,
+	permission permission.AccessSpec,
 	activationKey []byte,
 ) error {
 	db, err := st.DB()
@@ -612,7 +612,7 @@ func AddUserWithPassword(
 	name string,
 	displayName string,
 	creatorUUID user.UUID,
-	permission permission.UserPermissionAccess,
+	permission permission.AccessSpec,
 	passwordHash string,
 	salt []byte,
 ) error {
@@ -676,7 +676,7 @@ func AddUser(
 	name string,
 	displayName string,
 	creatorUuid user.UUID,
-	access permission.UserPermissionAccess,
+	access permission.AccessSpec,
 ) error {
 	permissionUUID, err := internaluuid.NewUUID()
 	if err != nil {
@@ -710,11 +710,9 @@ VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_a
 	err = permissionstate.AddUserPermission(ctx, tx, permissionstate.AddUserPermissionArgs{
 		PermissionUUID: permissionUUID.String(),
 		UserUUID:       uuid.String(),
-		User:           name,
 		Access:         access.Access,
-		Target:         access.ID,
+		Target:         access.Target,
 	})
-	fmt.Println("???", err)
 	if err != nil {
 		return errors.Annotatef(err, "adding permission for user %q", name)
 	}

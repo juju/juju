@@ -50,7 +50,7 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 // usererrors.AuthenticationDisabled is returned.
 // If a permission for the user and target key already exists,
 // permissionerrors.AlreadyExists is returned.
-func (s *State) CreatePermission(ctx context.Context, newPermissionUUID uuid.UUID, spec permission.UserAccessSpec) (corepermission.UserAccess, error) {
+func (s *State) CreatePermission(ctx context.Context, newPermissionUUID uuid.UUID, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error) {
 	var userAccess corepermission.UserAccess
 
 	db, err := s.DB()
@@ -67,7 +67,6 @@ func (s *State) CreatePermission(ctx context.Context, newPermissionUUID uuid.UUI
 		if err := AddUserPermission(ctx, tx, AddUserPermissionArgs{
 			PermissionUUID: newPermissionUUID.String(),
 			UserUUID:       user.UUID,
-			User:           spec.User,
 			Access:         spec.Access,
 			Target:         spec.Target,
 		}); err != nil {
@@ -92,12 +91,13 @@ func (s *State) CreatePermission(ctx context.Context, newPermissionUUID uuid.UUI
 type AddUserPermissionArgs struct {
 	PermissionUUID string
 	UserUUID       string
-	User           string
 	Access         corepermission.Access
 	Target         corepermission.ID
 }
 
 // AddUserPermission adds a permission for the given user on the given target.
+// TODO (stickupkid): Work out if there is a better location for common
+// state functions.
 func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissionArgs) error {
 	// Insert a permission doc with
 	// * permissionObjectAccess as permission_type_id
@@ -107,12 +107,12 @@ func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissio
 INSERT INTO permission (uuid, permission_type_id, grant_on, grant_to)
 VALUES ($Permission.uuid, $Permission.permission_type_id, $Permission.grant_on, $Permission.grant_to)
 `
-	insertPermissionStmt, err := sqlair.Prepare(newPermission, Permission{})
+	insertPermissionStmt, err := sqlair.Prepare(newPermission, addUserPermission{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	perm := Permission{
+	perm := addUserPermission{
 		UUID:    spec.PermissionUUID,
 		GrantOn: spec.Target.Key,
 		GrantTo: spec.UserUUID,
@@ -132,9 +132,9 @@ VALUES ($Permission.uuid, $Permission.permission_type_id, $Permission.grant_on, 
 	// have been checked.
 	err = tx.Query(ctx, insertPermissionStmt, perm).Run()
 	if internaldatabase.IsErrConstraintUnique(err) {
-		return errors.Annotatef(permissionerrors.AlreadyExists, "%q on %q", spec.User, spec.Target.Key)
+		return errors.Annotatef(permissionerrors.AlreadyExists, "%q on %q", spec.UserUUID, spec.Target.Key)
 	} else if err != nil {
-		return errors.Annotatef(err, "adding permission %q for %q on %q", spec.Access, spec.User, spec.Target.Key)
+		return errors.Annotatef(err, "adding permission %q for %q on %q", spec.Access, spec.UserUUID, spec.Target.Key)
 	}
 
 	return nil
