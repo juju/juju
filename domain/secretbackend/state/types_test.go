@@ -102,7 +102,7 @@ func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 			ConfigContent: "content52",
 		},
 	}
-	result := rows.ToSecretBackends()
+	result := rows.toSecretBackends()
 	c.Assert(result, gc.DeepEquals, []*coresecrets.SecretBackend{
 		{
 			ID:                  "uuid1",
@@ -168,7 +168,7 @@ func (s *typesSuite) TestToChanges(c *gc.C) {
 			NextRotationTime: sql.NullTime{Valid: false},
 		},
 	}
-	result := rows.ToChanges(jujutesting.NewCheckLogger(c))
+	result := rows.toChanges(jujutesting.NewCheckLogger(c))
 	c.Assert(result, gc.DeepEquals, []watcher.SecretBackendRotateChange{
 		{
 			ID:              "uuid1",

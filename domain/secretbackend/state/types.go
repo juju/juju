@@ -72,8 +72,7 @@ type SecretBackendRow struct {
 // SecretBackendRows represents a slice of SecretBackendRow.
 type SecretBackendRows []SecretBackendRow
 
-// ToSecretBackends returns a slice of coresecrets.SecretBackend from the rows.
-func (rows SecretBackendRows) ToSecretBackends() []*coresecrets.SecretBackend {
+func (rows SecretBackendRows) toSecretBackends() []*coresecrets.SecretBackend {
 	// Sort the rows by backend name to ensure that we group the config.
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].Name < rows[j].Name
@@ -121,8 +120,7 @@ type SecretBackendRotationRow struct {
 
 type SecretBackendRotationRows []SecretBackendRotationRow
 
-// ToChanges returns a slice of watcher.SecretBackendRotateChange from the rows.
-func (rows SecretBackendRotationRows) ToChanges(logger Logger) []watcher.SecretBackendRotateChange {
+func (rows SecretBackendRotationRows) toChanges(logger Logger) []watcher.SecretBackendRotateChange {
 	var result []watcher.SecretBackendRotateChange
 	for _, row := range rows {
 		change := watcher.SecretBackendRotateChange{

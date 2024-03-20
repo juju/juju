@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-func (s *stateSuite) TestUpsertOperationPrepare(c *gc.C) {
+func (s *stateSuite) TestUpsertOperationBuild(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
@@ -29,21 +29,46 @@ func (s *stateSuite) TestUpsertOperationPrepare(c *gc.C) {
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
 		Config: map[string]interface{}{
-			"key1": "",
+			"key1": "value1",
 		},
 	}
 	op := upsertOperation{UpsertSecretBackendParams: params}
-	err := op.Prepare()
+	err := op.build()
 	c.Assert(err, jc.ErrorIsNil)
-
-	params.ID = ""
-	op = upsertOperation{UpsertSecretBackendParams: params}
-	err = op.Prepare()
-	c.Assert(err, jc.ErrorIs, backenderrors.NotValid)
-	c.Assert(err, gc.ErrorMatches, "backend ID is missing: secret backend not valid")
 }
 
-func (s *stateSuite) assertValidate(c *gc.C, hasExisting bool, f func(*secretbackend.UpsertSecretBackendParams), expectedErr string) {
+func (s *stateSuite) TestUpsertOperationBuildFailed(c *gc.C) {
+	op := upsertOperation{}
+	err := op.build()
+	c.Assert(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Assert(err, gc.ErrorMatches, "secret backend not valid: ID is missing")
+
+	op = upsertOperation{
+		UpsertSecretBackendParams: secretbackend.UpsertSecretBackendParams{
+			ID: "id-xx",
+			Config: map[string]interface{}{
+				"": "value1",
+			},
+		},
+	}
+	err = op.build()
+	c.Assert(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `secret backend not valid: empty config key for "id-xx"`)
+
+	op = upsertOperation{
+		UpsertSecretBackendParams: secretbackend.UpsertSecretBackendParams{
+			ID: "id-xx",
+			Config: map[string]interface{}{
+				"key1": "",
+			},
+		},
+	}
+	err = op.build()
+	c.Assert(err, jc.ErrorIs, backenderrors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `secret backend not valid: empty config value for "id-xx"`)
+}
+
+func (s *stateSuite) assertPrepareData(c *gc.C, hasExisting bool, f func(*secretbackend.UpsertSecretBackendParams), expectedErr string) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
@@ -104,9 +129,9 @@ VALUES (?, ?, ?)`
 	f(&params)
 	_ = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		op := upsertOperation{UpsertSecretBackendParams: params}
-		err := op.Prepare()
+		err := op.build()
 		c.Assert(err, jc.ErrorIsNil)
-		err = op.validate(ctx, tx)
+		err = op.prepareData(ctx, tx)
 		if expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
@@ -117,23 +142,23 @@ VALUES (?, ?, ?)`
 }
 
 func (s *stateSuite) TestUpsertOperationInsert(c *gc.C) {
-	s.assertValidate(c, false,
+	s.assertPrepareData(c, false,
 		func(params *secretbackend.UpsertSecretBackendParams) {
 			params.Name = ""
 		},
-		`backend name is missing: secret backend not valid`,
+		`secret backend not valid: name is missing`,
 	)
 
-	s.assertValidate(c, false,
+	s.assertPrepareData(c, false,
 		func(params *secretbackend.UpsertSecretBackendParams) {
 			params.BackendType = ""
 		},
-		`backend type is missing: secret backend not valid`,
+		`secret backend not valid: type is missing`,
 	)
 }
 
 func (s *stateSuite) TestUpsertOperationUpdateFailedTypeImmutable(c *gc.C) {
-	s.assertValidate(c, true,
+	s.assertPrepareData(c, true,
 		func(params *secretbackend.UpsertSecretBackendParams) {
 			params.BackendType = "kubernetes"
 		},

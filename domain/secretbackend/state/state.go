@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
@@ -62,7 +64,7 @@ WHERE model_uuid = $M.uuid`, sqlair.M{}, Model{})
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("model %q:%w", uuid, modelerrors.NotFound)
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
 		}
 		return errors.Trace(err)
 	})
@@ -87,11 +89,11 @@ func (s *State) UpsertSecretBackend(ctx context.Context, params secretbackend.Up
 		return "", errors.Trace(err)
 	}
 	operation := upsertOperation{UpsertSecretBackendParams: params}
-	if err := operation.Prepare(); err != nil {
+	if err := operation.build(); err != nil {
 		return "", errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(operation.Apply(ctx, tx))
+		return errors.Trace(operation.apply(ctx, tx))
 	})
 	return params.ID, domain.CoerceError(err)
 }
@@ -181,7 +183,7 @@ ORDER BY b.name`, SecretBackendRow{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
 	}
-	return rows.ToSecretBackends(), errors.Trace(err)
+	return rows.toSecretBackends(), errors.Trace(err)
 }
 
 func (s *State) getSecretBackend(ctx context.Context, columName string, v string) (*coresecrets.SecretBackend, error) {
@@ -217,9 +219,9 @@ WHERE b.%s = $M.identifier`, columName)
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
 	}
 	if len(rows) == 0 {
-		return nil, fmt.Errorf("secret backend %q: %w", v, backenderrors.NotFound)
+		return nil, fmt.Errorf("%w: %q", backenderrors.NotFound, v)
 	}
-	return rows.ToSecretBackends()[0], errors.Trace(err)
+	return rows.toSecretBackends()[0], errors.Trace(err)
 }
 
 // GetSecretBackendByName returns the secret backend for the given backend name.
@@ -265,4 +267,43 @@ WHERE backend_uuid = $SecretBackendRotation.backend_uuid
 		return nil
 	})
 	return domain.CoerceError(err)
+}
+
+// InitialWatchStatement returns the initial watch statement and the table name to watch.
+func (s *State) InitialWatchStatement() (string, string) {
+	return "secret_backend_rotation", "SELECT backend_uuid FROM secret_backend_rotation"
+}
+
+// GetSecretBackendRotateChanges returns the secret backend rotation changes
+// for the given backend IDs for the Watcher.
+func (s *State) GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	stmt, err := sqlair.Prepare(`
+SELECT 
+    b.uuid               AS &SecretBackendRotationRow.uuid,
+    b.name               AS &SecretBackendRotationRow.name,
+    r.next_rotation_time AS &SecretBackendRotationRow.next_rotation_time
+FROM secret_backend b
+    LEFT JOIN secret_backend_rotation r ON b.uuid = r.backend_uuid
+WHERE b.uuid IN ($S[:])`,
+		sqlair.S{}, SecretBackendRotationRow{},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var rows SecretBackendRotationRows
+	args := sqlair.S(transform.Slice(backendIDs, func(s string) any { return any(s) }))
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, args).GetAll(&rows)
+		if err != nil {
+			return fmt.Errorf("querying secret backend rotation changes: %w", err)
+		}
+		return nil
+	})
+	return rows.toChanges(s.logger), errors.Trace(err)
 }

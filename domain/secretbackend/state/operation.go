@@ -27,10 +27,21 @@ type upsertOperation struct {
 	upsertConfigStmt, clearConfigStmt *sqlair.Statement
 }
 
-// Prepare prepares the sqlair statements.
-func (o *upsertOperation) Prepare() (err error) {
+// build builds the sqlair statements.
+func (o *upsertOperation) build() (err error) {
+	// validate the input parameters here, so we can fail early without accessing the database.
 	if o.ID == "" {
-		return fmt.Errorf("backend ID is missing: %w", backenderrors.NotValid)
+		return fmt.Errorf("%w: ID is missing", backenderrors.NotValid)
+	}
+	for k, v := range o.Config {
+		if k == "" {
+			return fmt.Errorf(
+				"%w: empty config key for %q", backenderrors.NotValid, o.ID)
+		}
+		if v.(string) == "" {
+			return fmt.Errorf(
+				"%w: empty config value for %q", backenderrors.NotValid, o.ID)
+		}
 	}
 
 	o.getBackendStmt, err = sqlair.Prepare(`
@@ -97,16 +108,16 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET content = EXCLUDED.content`,
 	return nil
 }
 
-func (o *upsertOperation) validate(ctx context.Context, tx *sqlair.TX) error {
+func (o *upsertOperation) prepareData(ctx context.Context, tx *sqlair.TX) error {
 	var existing SecretBackend
 	err := tx.Query(ctx, o.getBackendStmt, sqlair.M{"uuid": o.ID}).Get(&existing)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// New insert.
 		if o.Name == "" {
-			return fmt.Errorf("backend name is missing: %w", backenderrors.NotValid)
+			return fmt.Errorf("%w: name is missing", backenderrors.NotValid)
 		}
 		if o.BackendType == "" {
-			return fmt.Errorf("backend type is missing: %w", backenderrors.NotValid)
+			return fmt.Errorf("%w: type is missing", backenderrors.NotValid)
 		}
 		return nil
 	} else if err != nil {
@@ -141,11 +152,12 @@ func (o *upsertOperation) validate(ctx context.Context, tx *sqlair.TX) error {
 	return nil
 }
 
-// Apply applies the upsert operation to the database.
-func (o *upsertOperation) Apply(ctx context.Context, tx *sqlair.TX) error {
-	if err := o.validate(ctx, tx); err != nil {
+// apply applies the upsert operation to the database.
+func (o *upsertOperation) apply(ctx context.Context, tx *sqlair.TX) error {
+	if err := o.prepareData(ctx, tx); err != nil {
 		return errors.Trace(err)
 	}
+
 	sb := SecretBackend{
 		ID:          o.ID,
 		Name:        o.Name,
@@ -157,7 +169,7 @@ func (o *upsertOperation) Apply(ctx context.Context, tx *sqlair.TX) error {
 
 	err := tx.Query(ctx, o.upsertBackendStmt, sb).Run()
 	if database.IsErrConstraintUnique(err) {
-		return fmt.Errorf("secret backend name %q: %w", sb.Name, backenderrors.AlreadyExists)
+		return fmt.Errorf("%w: name %q", backenderrors.AlreadyExists, sb.Name)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot upsert secret backend %q: %w", o.Name, err)
@@ -188,12 +200,6 @@ func (o *upsertOperation) Apply(ctx context.Context, tx *sqlair.TX) error {
 			Name:    k,
 			Content: v.(string),
 		}).Run()
-		if database.IsErrConstraintCheck(err) {
-			return fmt.Errorf(
-				"cannot upsert secret backend config for %q: %w",
-				o.Name, errors.NewNotValid(nil, "empty config name or content"),
-			)
-		}
 		if err != nil {
 			return fmt.Errorf("cannot upsert secret backend config for %q: %w", o.Name, err)
 		}
