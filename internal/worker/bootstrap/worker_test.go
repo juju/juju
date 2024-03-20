@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/user"
+	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
@@ -47,12 +49,13 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.ensureBootstrapParams(c)
 
 	s.expectGateUnlock()
+	s.expectUser(c)
 	s.expectControllerConfig()
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 	s.expectSetAPIHostPorts()
-	s.expectStaateServingInfo()
+	s.expectStateServingInfo()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -97,7 +100,7 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 	c.Assert(cleanup, gc.NotNil)
 }
 
-func (s *workerSuite) TestFilterHostPortsEmptyMgmtSpace(c *gc.C) {
+func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	w := &bootstrapWorker{
 		internalStates: s.states,
@@ -246,6 +249,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		BootstrapUnlocker:       s.bootstrapUnlocker,
 		CharmhubHTTPClient:      s.httpClient,
 		SystemState:             s.state,
+		UserService:             s.userService,
 		ApplicationService:      s.applicationService,
 		ControllerConfigService: s.controllerConfigService,
 		CredentialService:       s.credentialService,
@@ -309,7 +313,17 @@ func (s *workerSuite) expectControllerConfig() {
 		}, nil).Times(2)
 }
 
-func (s *workerSuite) expectStaateServingInfo() {
+func (s *workerSuite) expectUser(c *gc.C) {
+	s.userService.EXPECT().GetUserByName(gomock.Any(), "admin").Return(user.User{
+		UUID: user.MustNewUUID(),
+	}, nil)
+	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u userservice.AddUserArg) (user.UUID, []byte, error) {
+		c.Check(u.Name, gc.Equals, "juju-metrics")
+		return user.MustNewUUID(), nil, nil
+	})
+}
+
+func (s *workerSuite) expectStateServingInfo() {
 	s.agentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
 		APIPort: 42,
 	}, true)
