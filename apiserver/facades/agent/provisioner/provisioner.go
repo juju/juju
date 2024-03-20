@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	stdcontext "context"
 	"sync"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -51,6 +53,12 @@ type StoragePoolGetter interface {
 	GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error)
 }
 
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.ControllerConfigAPI
@@ -67,6 +75,7 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 	*networkingcommon.NetworkConfigAPI
 
+	spaceService                SpaceService
 	st                          *state.State
 	m                           *state.Model
 	controllerConfigService     ControllerConfigService
@@ -191,6 +200,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 			serviceFactory.ExternalController(),
 		),
 		NetworkConfigAPI:            netConfigAPI,
+		spaceService:                ctx.ServiceFactory().Space(),
 		st:                          st,
 		m:                           model,
 		controllerConfigService:     serviceFactory.ControllerConfig(),
@@ -887,7 +897,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args par
 		return errors.Trace(err)
 	}
 
-	policy, err := containerizer.NewBridgePolicy(env, api.st)
+	policy, err := containerizer.NewBridgePolicy(ctx, env, api.spaceService)
 	if err != nil {
 		return errors.Trace(err)
 	}

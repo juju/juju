@@ -4,6 +4,7 @@
 package containerizer
 
 import (
+	"context"
 	"fmt"
 	"hash/crc32"
 	"sort"
@@ -53,10 +54,10 @@ type BridgePolicy struct {
 
 // NewBridgePolicy returns a new BridgePolicy for the input environ config
 // getter and state indirection.
-func NewBridgePolicy(cfgGetter environs.ConfigGetter, st SpaceBacking) (*BridgePolicy, error) {
+func NewBridgePolicy(ctx context.Context, cfgGetter environs.ConfigGetter, spaceService SpaceService) (*BridgePolicy, error) {
 	cfg := cfgGetter.Config()
 
-	spaces, err := st.AllSpaceInfos()
+	spaces, err := spaceService.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting space infos")
 	}
