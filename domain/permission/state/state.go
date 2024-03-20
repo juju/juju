@@ -105,7 +105,7 @@ func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissio
 	// * spec.Target.Key as grant_on
 	newPermission := `
 INSERT INTO permission (uuid, permission_type_id, grant_on, grant_to)
-VALUES ($Permission.uuid, $Permission.permission_type_id, $Permission.grant_on, $Permission.grant_to)
+VALUES ($addUserPermission.uuid, $addUserPermission.permission_type_id, $addUserPermission.grant_on, $addUserPermission.grant_to)
 `
 	insertPermissionStmt, err := sqlair.Prepare(newPermission, addUserPermission{})
 	if err != nil {
