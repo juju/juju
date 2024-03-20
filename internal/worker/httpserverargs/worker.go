@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
 )
 
@@ -142,7 +143,7 @@ func (b *managedServices) ControllerConfig(ctx context.Context) (controller.Conf
 }
 
 // GetUserByName is part of the UserService interface.
-func (b *managedServices) GetUserByAuth(ctx context.Context, name, password string) (coreuser.User, error) {
+func (b *managedServices) GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error) {
 	return b.userService.GetUserByAuth(b.tomb.Context(ctx), name, password)
 }
 

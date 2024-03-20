@@ -20,8 +20,10 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/user"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/bootstrap"
@@ -97,6 +99,18 @@ type FlagService interface {
 type ObjectStoreGetter interface {
 	// GetObjectStore returns a object store for the given namespace.
 	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
+}
+
+// UserService is the interface that is used to add a new user to the
+// database.
+type UserService interface {
+	// AddUser will add a new user to the database and return the UUID of the
+	// user if successful. If no password is set in the incoming argument,
+	// the user will be added with an activation key.
+	AddUser(ctx context.Context, arg userservice.AddUserArg) (user.UUID, []byte, error)
+
+	// GetUserByName will return the user with the given name.
+	GetUserByName(ctx context.Context, name string) (user.User, error)
 }
 
 // ControllerCharmDeployerFunc is the function that is used to upload the
@@ -342,6 +356,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
 				CredentialService:       controllerServiceFactory.Credential(),
 				CloudService:            controllerServiceFactory.Cloud(),
+				UserService:             controllerServiceFactory.User(),
 				StorageService:          modelServiceFactory.Storage(registry),
 				ProviderRegistry:        registry,
 				ApplicationService:      modelServiceFactory.Application(registry),

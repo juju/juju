@@ -99,7 +99,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	password := "hunter2"
 	// It should be not possible to log in as bob with the password "hunter2"
 	// now.
-	_, err := s.userService.GetUserByAuth(context.Background(), "bob", password)
+	_, err := s.userService.GetUserByAuth(context.Background(), "bob", auth.NewPassword(password))
 	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 
 	validNonce := []byte(strings.Repeat("X", 24))
@@ -123,7 +123,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	// It should be possible to log in as bob with the
 	// password "hunter2" now, and there should be no
 	// secret key any longer.
-	user, err := s.userService.GetUserByAuth(context.Background(), "bob", password)
+	user, err := s.userService.GetUserByAuth(context.Background(), "bob", auth.NewPassword(password))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(user.UUID, gc.Equals, s.userUUID)
 

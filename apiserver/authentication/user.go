@@ -23,6 +23,7 @@ import (
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
 )
 
@@ -38,7 +39,7 @@ var logger = loggo.GetLogger("juju.apiserver.authentication")
 // authenticate a user.
 type UserService interface {
 	// GetUserByAuth returns the user with the given name and password.
-	GetUserByAuth(ctx context.Context, name, password string) (coreuser.User, error)
+	GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error)
 	// GetUserByName returns the user with the given name.
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 }
@@ -131,7 +132,7 @@ func (u *LocalUserAuthenticator) Authenticate(
 	// We believe we've got a password, so we'll try to authenticate with it.
 	// This will check the user service for the user, ensuring that the user
 	// isn't disabled or deleted.
-	user, err := u.UserService.GetUserByAuth(ctx, userTag.Name(), authParams.Credentials)
+	user, err := u.UserService.GetUserByAuth(ctx, userTag.Name(), auth.NewPassword(authParams.Credentials))
 	if errors.Is(err, usererrors.NotFound) || errors.Is(err, usererrors.Unauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)

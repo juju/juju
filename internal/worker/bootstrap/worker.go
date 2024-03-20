@@ -19,8 +19,12 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	usererrors "github.com/juju/juju/domain/user/errors"
+	userservice "github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state/binarystorage"
@@ -54,6 +58,7 @@ type WorkerConfig struct {
 	ControllerConfigService ControllerConfigService
 	CredentialService       CredentialService
 	CloudService            CloudService
+	UserService             UserService
 	StorageService          StorageService
 	ProviderRegistry        storage.ProviderRegistry
 	ApplicationService      ApplicationService
@@ -90,6 +95,12 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.CloudService == nil {
 		return errors.NotValidf("nil CloudService")
+	}
+	if c.UserService == nil {
+		return errors.NotValidf("nil UserService")
+	}
+	if c.StorageService == nil {
+		return errors.NotValidf("nil StorageService")
 	}
 	if c.ApplicationService == nil {
 		return errors.NotValidf("nil ApplicationService")
@@ -178,6 +189,11 @@ func (w *bootstrapWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
+	// Insert all the initial users into the state.
+	if err := w.seedInitialUsers(ctx); err != nil {
+		return errors.Annotatef(err, "inserting initial users")
+	}
+
 	agentConfig := w.cfg.Agent.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
@@ -188,13 +204,13 @@ func (w *bootstrapWorker) loop() error {
 	}
 
 	// Seed the controller charm to the object store.
-	args, err := w.bootstrapParams(ctx, dataDir)
+	bootstrapParams, err := w.bootstrapParams(ctx, dataDir)
 	if err != nil {
 		return errors.Annotatef(err, "getting bootstrap params")
 	}
 
 	// Create the user specified storage pools.
-	if err := w.seedStoragePools(ctx, args.StoragePools); err != nil {
+	if err := w.seedStoragePools(ctx, bootstrapParams.StoragePools); err != nil {
 		return errors.Annotate(err, "seeding storage pools")
 	}
 
@@ -202,14 +218,14 @@ func (w *bootstrapWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bootstrapArgs, err := w.seedControllerCharm(ctx, dataDir, args)
-	if err != nil {
+
+	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Retrieve controller addresses needed to set the API host ports.
 	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
-		BootstrapInstanceID:    bootstrapArgs.BootstrapMachineInstanceId,
+		BootstrapInstanceID:    bootstrapParams.BootstrapMachineInstanceId,
 		SystemState:            w.cfg.SystemState,
 		CloudService:           w.cfg.CloudService,
 		CredentialService:      w.cfg.CredentialService,
@@ -243,30 +259,30 @@ func (w *bootstrapWorker) loop() error {
 	return nil
 }
 
-// initialStoragePools extract any storage pools included with the bootstrap params.
-func initialStoragePools(registry storage.ProviderRegistry, poolParams map[string]storage.Attrs) ([]*storage.Config, error) {
-	var result []*storage.Config
-	defaultStoragePools, err := domainstorage.DefaultStoragePools(registry)
+func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
+	// Any failure should be retryable, so we can re-attempt to bootstrap.
+
+	adminUser, err := w.cfg.UserService.GetUserByName(ctx, "admin")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Annotatef(err, "getting admin user")
 	}
-	for _, p := range defaultStoragePools {
-		result = append(result, p)
+
+	pass, err := password.RandomPassword()
+	if err != nil {
+		return errors.Annotatef(err, "generating metrics password")
 	}
-	for name, attrs := range poolParams {
-		pType, _ := attrs[domainstorage.StorageProviderType].(string)
-		if pType == "" {
-			return nil, errors.Errorf("missing provider type for storage pool %q", name)
-		}
-		delete(attrs, domainstorage.StoragePoolName)
-		delete(attrs, domainstorage.StorageProviderType)
-		pool, err := storage.NewConfig(name, storage.ProviderType(pType), attrs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result = append(result, pool)
+	password := auth.NewPassword(pass)
+	_, _, err = w.cfg.UserService.AddUser(ctx, userservice.AddUserArg{
+		Name:        "juju-metrics",
+		DisplayName: "Juju Metrics",
+		Password:    &password,
+		CreatorUUID: adminUser.UUID,
+	})
+	// User already exists, we don't need to do anything in this scenario.
+	if errors.Is(err, usererrors.AlreadyExists) {
+		return nil
 	}
-	return result, nil
+	return errors.Annotatef(err, "inserting initial users")
 }
 
 func (w *bootstrapWorker) seedStoragePools(ctx context.Context, poolParams map[string]storage.Attrs) error {
@@ -371,15 +387,15 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 	return cleanup, nil
 }
 
-func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir string, bootstrapArgs instancecfg.StateInitializationParams) (instancecfg.StateInitializationParams, error) {
+func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir string, bootstrapArgs instancecfg.StateInitializationParams) error {
 	controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
-		return instancecfg.StateInitializationParams{}, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.SystemState.ControllerModelUUID())
 	if err != nil {
-		return instancecfg.StateInitializationParams{}, fmt.Errorf("failed to get object store: %w", err)
+		return fmt.Errorf("failed to get object store: %w", err)
 	}
 
 	// Controller charm seeder will populate the charm for the controller.
@@ -397,10 +413,10 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		LoggerFactory:               w.cfg.LoggerFactory,
 	})
 	if err != nil {
-		return instancecfg.StateInitializationParams{}, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	return bootstrapArgs, w.cfg.PopulateControllerCharm(ctx, deployer)
+	return w.cfg.PopulateControllerCharm(ctx, deployer)
 }
 
 func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (instancecfg.StateInitializationParams, error) {
@@ -413,6 +429,32 @@ func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (
 		return instancecfg.StateInitializationParams{}, errors.Trace(err)
 	}
 	return args, nil
+}
+
+// initialStoragePools extract any storage pools included with the bootstrap params.
+func initialStoragePools(registry storage.ProviderRegistry, poolParams map[string]storage.Attrs) ([]*storage.Config, error) {
+	var result []*storage.Config
+	defaultStoragePools, err := domainstorage.DefaultStoragePools(registry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, p := range defaultStoragePools {
+		result = append(result, p)
+	}
+	for name, attrs := range poolParams {
+		pType, _ := attrs[domainstorage.StorageProviderType].(string)
+		if pType == "" {
+			return nil, errors.Errorf("missing provider type for storage pool %q", name)
+		}
+		delete(attrs, domainstorage.StoragePoolName)
+		delete(attrs, domainstorage.StorageProviderType)
+		pool, err := storage.NewConfig(name, storage.ProviderType(pType), attrs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, pool)
+	}
+	return result, nil
 }
 
 type agentStorageShim struct {

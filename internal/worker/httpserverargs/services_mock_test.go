@@ -15,6 +15,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	user "github.com/juju/juju/core/user"
+	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -80,7 +81,7 @@ func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 }
 
 // GetUserByAuth mocks base method.
-func (m *MockUserService) GetUserByAuth(arg0 context.Context, arg1, arg2 string) (user.User, error) {
+func (m *MockUserService) GetUserByAuth(arg0 context.Context, arg1 string, arg2 auth.Password) (user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByAuth", arg0, arg1, arg2)
 	ret0, _ := ret[0].(user.User)
