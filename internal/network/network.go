@@ -23,10 +23,6 @@ const UnknownId = ""
 // DefaultLXDBridge is the bridge that gets used for LXD containers
 const DefaultLXDBridge = "lxdbr0"
 
-// DefaultKVMBridge is the bridge that is set up by installing libvirt-bin
-// Note: we don't import this from 'container' to avoid import loops
-const DefaultKVMBridge = "virbr0"
-
 // DefaultDockerBridge is the bridge that is set up by Docker.
 const DefaultDockerBridge = "docker0"
 
@@ -155,7 +151,6 @@ func gatherBridgeAddresses(bridgeName string, toRemove map[string][]string) {
 func FilterBridgeAddresses(addresses corenetwork.ProviderAddresses) corenetwork.ProviderAddresses {
 	addressesToRemove := make(map[string][]string)
 	gatherBridgeAddresses(DefaultLXDBridge, addressesToRemove)
-	gatherBridgeAddresses(DefaultKVMBridge, addressesToRemove)
 	filtered := filterAddrs(addresses, addressesToRemove)
 	logger.Debugf("addresses after filtering: %v", filtered)
 	return filtered

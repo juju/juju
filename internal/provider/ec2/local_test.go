@@ -1719,7 +1719,7 @@ func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
+	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"tags", "virt-type"})

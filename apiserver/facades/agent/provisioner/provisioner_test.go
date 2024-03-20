@@ -708,7 +708,7 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
 		{MachineTag: s.machines[0].Tag().String(), ContainerType: string(instance.LXD)},
-		{MachineTag: s.machines[1].Tag().String(), ContainerType: string(instance.KVM)},
+		{MachineTag: s.machines[1].Tag().String(), ContainerType: string(instance.LXD)},
 		{MachineTag: "machine-42", ContainerType: ""},
 		{MachineTag: "unit-foo-0", ContainerType: ""},
 		{MachineTag: "application-bar", ContainerType: ""},
@@ -1475,11 +1475,12 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 }
 
 func (s *withoutControllerSuite) TestContainerManagerConfigDefaults(c *gc.C) {
-	cfg := s.getManagerConfig(c, instance.KVM)
+	cfg := s.getManagerConfig(c, instance.LXD)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigModelUUID:        coretesting.ModelTag.Id(),
 		config.ContainerImageStreamKey:   "released",
 		config.ContainerNetworkingMethod: config.ConfigDefaults()[config.ContainerNetworkingMethod].(string),
+		config.LXDSnapChannel:            "5.0/stable",
 	})
 }
 
@@ -1664,7 +1665,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
 		ContainerTypes: []instance.ContainerType{instance.LXD},
 	}, {
 		MachineTag:     "machine-1",
-		ContainerTypes: []instance.ContainerType{instance.LXD, instance.KVM},
+		ContainerTypes: []instance.ContainerType{instance.LXD},
 	}}}
 	results, err := s.provisioner.SetSupportedContainers(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1682,7 +1683,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok = m1.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD, instance.KVM})
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD})
 }
 
 func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
@@ -1731,7 +1732,7 @@ func (s *withoutControllerSuite) TestSupportedContainers(c *gc.C) {
 		ContainerTypes: []instance.ContainerType{instance.LXD},
 	}, {
 		MachineTag:     "machine-1",
-		ContainerTypes: []instance.ContainerType{instance.LXD, instance.KVM},
+		ContainerTypes: []instance.ContainerType{instance.LXD},
 	}}}
 	_, err := s.provisioner.SetSupportedContainers(context.Background(), setArgs)
 	c.Assert(err, jc.ErrorIsNil)

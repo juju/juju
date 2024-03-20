@@ -390,7 +390,7 @@ type AddMachineOptions struct {
 	Base string `json:"base,omitempty"`
 	// Constraints holds the machine constraints.
 	Constraints string `json:"constraints,omitempty"`
-	// ContainerType holds the machine container type (like "lxc" or "kvm").
+	// ContainerType holds the machine container type (like "lxc").
 	ContainerType string `json:"containerType,omitempty"`
 	// ParentId holds the id of the parent machine.
 	ParentId string `json:"parentId,omitempty"`
@@ -403,7 +403,7 @@ type AddMachineParams struct {
 	// Constraints holds the optional machine constraints.
 	Constraints string `json:"constraints,omitempty"`
 	// ContainerType optionally holds the type of the container (for instance
-	// ""lxc" or kvm"). It is not specified for top level machines.
+	// "lxc"). It is not specified for top level machines.
 	ContainerType string `json:"container-type,omitempty"`
 	// ParentId optionally holds a placeholder pointing to another machine
 	// change or to a unit change. This value is only specified in the case

@@ -27,30 +27,6 @@ func (s *upgradeStepsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *upgradeStepsSuite) TestResetKVMMachineModificationStatusIdle(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	mTag := names.NewMachineTag("0/kvm/0")
-	resetArg := params.Entity{Tag: mTag.String()}
-
-	s.expectResetKVMMachineModificationStatusIdleSuccess(resetArg)
-
-	client := upgradesteps.NewClientFromFacade(s.fCaller)
-	err := client.ResetKVMMachineModificationStatusIdle(mTag)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *upgradeStepsSuite) TestResetKVMMachineModificationStatusIdleError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	mTag := names.NewMachineTag("0/kvm/0")
-	resetArg := params.Entity{Tag: mTag.String()}
-
-	s.expectResetKVMMachineModificationStatusIdleError(resetArg)
-
-	client := upgradesteps.NewClientFromFacade(s.fCaller)
-	err := client.ResetKVMMachineModificationStatusIdle(mTag)
-	c.Assert(err, gc.ErrorMatches, "did not find")
-}
-
 func (s *upgradeStepsSuite) TestWriteAgentState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -93,23 +69,6 @@ func (s *upgradeStepsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
 	return ctrl
-}
-
-func (s *upgradeStepsSuite) expectResetKVMMachineModificationStatusIdleSuccess(resetArg params.Entity) {
-	fExp := s.fCaller.EXPECT()
-	resultSource := params.ErrorResult{}
-	fExp.FacadeCall(gomock.Any(), "ResetKVMMachineModificationStatusIdle", resetArg, gomock.Any()).SetArg(3, resultSource)
-}
-
-func (s *upgradeStepsSuite) expectResetKVMMachineModificationStatusIdleError(resetArg params.Entity) {
-	fExp := s.fCaller.EXPECT()
-	resultSource := params.ErrorResult{
-		Error: &params.Error{
-			Code:    params.CodeNotFound,
-			Message: "did not find",
-		},
-	}
-	fExp.FacadeCall(gomock.Any(), "ResetKVMMachineModificationStatusIdle", resetArg, gomock.Any()).SetArg(3, resultSource)
 }
 
 func (s *upgradeStepsSuite) expectWriteAgentStateSuccess(c *gc.C, args params.SetUnitStateArgs) {

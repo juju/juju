@@ -122,7 +122,7 @@ func (*modelSuite) TestMachineHasApp(c *gc.C) {
 			"nginx": {
 				Units: []Unit{
 					{"nginx/0", "0/lxd/3"},
-					{"nginx/2", "2/kvm/2"},
+					{"nginx/2", "2/lxd/2"},
 				},
 			},
 		},
@@ -133,11 +133,9 @@ func (*modelSuite) TestMachineHasApp(c *gc.C) {
 
 	c.Check(model.machineHasApp("0", "nginx", ""), jc.IsFalse)
 	c.Check(model.machineHasApp("0", "nginx", "lxd"), jc.IsTrue)
-	c.Check(model.machineHasApp("0", "nginx", "kvm"), jc.IsFalse)
 
 	c.Check(model.machineHasApp("2", "nginx", ""), jc.IsFalse)
-	c.Check(model.machineHasApp("2", "nginx", "lxd"), jc.IsFalse)
-	c.Check(model.machineHasApp("2", "nginx", "kvm"), jc.IsTrue)
+	c.Check(model.machineHasApp("2", "nginx", "lxd"), jc.IsTrue)
 }
 
 func (*modelSuite) TestUnsatisfiedMachineAndUnitPlacement(c *gc.C) {
@@ -228,7 +226,7 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTargetContainer(c *gc.C) 
 					{"nginx/1", "1/lxd/3"},
 					{"nginx/2", "2/lxd/0"},
 					{"nginx/3", "1/lxd/2"},
-					{"nginx/4", "3/kvm/2"},
+					{"nginx/4", "3/lxd/2"},
 				},
 			},
 		},
@@ -236,7 +234,7 @@ func (*modelSuite) TestUnitMachinesWithoutAppSourceSomeTargetContainer(c *gc.C) 
 	machines := model.unitMachinesWithoutApp("django", "nginx", "lxd")
 	// Machine 2 is shown because the nginx isn't next to the django unit, but
 	// instead in a container.
-	c.Check(machines, jc.DeepEquals, []string{"0", "3", "4"})
+	c.Check(machines, jc.DeepEquals, []string{"0", "4"})
 }
 
 func (*modelSuite) TestBundleMachineMapped(c *gc.C) {
@@ -306,7 +304,7 @@ func (s *inferMachineMapSuite) SetUpTest(c *gc.C) {
                 to:
                     - new
                     - 4
-                    - kvm:8
+                    - lxc:8
                     - lxc:new
         machines:
             4:
@@ -378,7 +376,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapDeployedUnits(c *gc.C) {
 				Units: []Unit{
 					{"django/0", "0"},
 					{"django/1", "1"},
-					{"django/2", "2/kvm/0"},
+					{"django/2", "2/lxc/0"},
 					{"django/3", "3/lxc/0"},
 					{"django/4", "4/lxc/0"},
 				},

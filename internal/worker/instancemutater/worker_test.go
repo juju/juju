@@ -200,6 +200,7 @@ func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
+	s.expectContainerType()
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectMachineCharmProfilingInfo(0, 3)
 	s.expectLXDProfileNamesTrue()
@@ -216,6 +217,7 @@ func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
+	s.expectContainerType()
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectAliveAndSetModificationStatusIdle(0)
 	s.expectMachineCharmProfilingInfo(0, 2)
@@ -230,6 +232,7 @@ func (s *workerEnvironSuite) TestRemoveAllCharmProfiles(c *gc.C) {
 
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
+	s.expectContainerType()
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectAliveAndSetModificationStatusIdle(0)
 	s.expectCharmProfilingInfoRemove(0)
@@ -250,6 +253,7 @@ func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
 	s.notifyMachinesWaitGroup([][]string{{"0", "1"}, {"0"}}, &group)
 	s.expectFacadeMachineTag(0)
 	s.expectFacadeMachineTag(1)
+	s.expectContainerType()
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.notifyMachineAppLXDProfile(1, 1)
 	s.expectAliveAndSetModificationStatusIdle(1)
@@ -267,6 +271,7 @@ func (s *workerEnvironSuite) TestNoChangeFoundOne(c *gc.C) {
 
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
+	s.expectContainerType()
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectCharmProfilingInfoSimpleNoChange(0)
 
@@ -288,6 +293,7 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
+	s.expectContainerType()
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectCharmProfileInfoNotProvisioned(0)
 
@@ -299,6 +305,7 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
+	s.expectContainerType()
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectCharmProfileInfoError(0)
 	s.expectContextKillError()
@@ -307,11 +314,22 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotSupported)
 }
 
+func (s *workerEnvironSuite) TestMachineContainerTypeNotSupported(c *gc.C) {
+	defer s.setup(c, 1).Finish()
+
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeMachineTag(0)
+	s.expectContainerTypeNone()
+
+	s.cleanKill(c, s.workerForScenario(c))
+}
+
 func (s *workerEnvironSuite) TestMachineNotSupported(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
+	s.expectContainerType()
 
 	// We need another sync point here, because the worker can be killed
 	// before this method is called.
@@ -342,7 +360,6 @@ func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 		s.appLXDProfileWorker[i] = workermocks.NewMockWorker(ctrl)
 	}
 
-	s.expectContainerTypeNone()
 	return ctrl
 }
 
@@ -396,6 +413,12 @@ func (s *workerSuite) expectFacadeMachineTag(machine int) {
 func (s *workerSuite) expectFacadeReturnsNoMachine() {
 	do := s.workGroupAddGetDoneWithMachineFunc()
 	s.facade.EXPECT().Machine(gomock.Any(), s.machineTag).Return(nil, errors.NewNotFound(nil, "machine")).Do(do)
+}
+
+func (s *workerSuite) expectContainerType() {
+	for _, m := range s.machine {
+		m.EXPECT().ContainerType(gomock.Any()).Return(instance.LXD, nil).AnyTimes()
+	}
 }
 
 func (s *workerSuite) expectContainerTypeNone() {
@@ -663,9 +686,7 @@ type workerContainerSuite struct {
 	workerSuite
 
 	lxdContainerTag names.Tag
-	kvmContainerTag names.Tag
 	lxdContainer    *mocks.MockMutaterMachine
-	kvmContainer    *mocks.MockMutaterMachine
 }
 
 var _ = gc.Suite(&workerContainerSuite{})
@@ -674,7 +695,6 @@ func (s *workerContainerSuite) SetUpTest(c *gc.C) {
 	s.workerSuite.SetUpTest(c)
 
 	s.lxdContainerTag = names.NewMachineTag("0/lxd/0")
-	s.kvmContainerTag = names.NewMachineTag("0/kvm/0")
 	s.newWorkerFunc = instancemutater.NewContainerTestWorker
 	s.getRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default"}
@@ -687,7 +707,7 @@ func (s *workerContainerSuite) SetUpTest(c *gc.C) {
 func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.notifyContainers(0, [][]string{{"0/lxd/0", "0/kvm/0"}})
+	s.notifyContainers(0, [][]string{{"0/lxd/0"}})
 	s.expectFacadeMachineTag(0)
 	s.expectFacadeContainerTags()
 	s.expectContainerTypes()
@@ -705,20 +725,16 @@ func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 func (s *workerContainerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := s.workerSuite.setup(c, 1)
 	s.lxdContainer = mocks.NewMockMutaterMachine(ctrl)
-	s.kvmContainer = mocks.NewMockMutaterMachine(ctrl)
 	return ctrl
 }
 
 func (s *workerContainerSuite) expectFacadeContainerTags() {
 	s.facade.EXPECT().Machine(gomock.Any(), s.lxdContainerTag).Return(s.lxdContainer, nil).AnyTimes()
 	s.lxdContainer.EXPECT().Tag().Return(s.lxdContainerTag).AnyTimes()
-	s.facade.EXPECT().Machine(gomock.Any(), s.kvmContainerTag).Return(s.kvmContainer, nil).AnyTimes()
-	s.kvmContainer.EXPECT().Tag().Return(s.kvmContainerTag).AnyTimes()
 }
 
 func (s *workerContainerSuite) expectContainerTypes() {
 	s.lxdContainer.EXPECT().ContainerType(gomock.Any()).Return(instance.LXD, nil).AnyTimes()
-	s.kvmContainer.EXPECT().ContainerType(gomock.Any()).Return(instance.KVM, nil).AnyTimes()
 }
 
 func (s *workerContainerSuite) expectContainerCharmProfilingInfo(rev int) {

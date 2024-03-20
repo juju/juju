@@ -182,10 +182,6 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 				"10.0.4.1",
 				"10.0.4.4",
 			}, nil
-		} else if name == network.DefaultKVMBridge {
-			return []string{
-				"192.168.122.1",
-			}, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil
@@ -237,8 +233,9 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 		expServerInit := corenetwork.ProviderHostPorts{
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.3.3").AsProviderAddress(), NetPort: 4321},
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.4.2").AsProviderAddress(), NetPort: 4321},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("192.168.122.1").AsProviderAddress(), NetPort: 4321},
 		}.HostPorts()
-		c.Assert(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
+		c.Check(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
 	}
 
 	client.EXPECT().APIHostPorts().Return(updatedServers, nil)
@@ -254,7 +251,7 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 		expServerUpd := corenetwork.ProviderHostPorts{
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.3.3").AsProviderAddress(), NetPort: 4001},
 		}.HostPorts()
-		c.Assert(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerUpd})
+		c.Check(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerUpd})
 	}
 }
 

@@ -87,8 +87,6 @@ func (s *bridgePolicySuite) expectAllDefaultDevices(c *gc.C, ctrl *gomock.Contro
 	s.expectLoopbackNIC(ctrl)
 	// container.DefaultLxdBridge
 	s.expectBridgeDeviceWithIP(ctrl, "lxdbr0", corenetwork.AlphaSpaceId)
-	// container.DefaultKvmBridge
-	s.expectBridgeDeviceWithIP(ctrl, "virbr0", corenetwork.AlphaSpaceId)
 }
 
 func (s *bridgePolicySuite) policy() *BridgePolicy {

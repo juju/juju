@@ -376,10 +376,6 @@ func (s *MachinerSuite) TestSetMachineAddresses(c *gc.C) {
 				"10.0.4.1",
 				"10.0.4.4",
 			}, nil
-		} else if name == network.DefaultKVMBridge {
-			return []string{
-				"192.168.122.1",
-			}, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil

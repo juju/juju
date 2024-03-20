@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/container"
-	"github.com/juju/juju/internal/container/kvm"
 	"github.com/juju/juju/internal/container/lxd"
 )
 
@@ -20,8 +19,6 @@ var NewContainerManager = func(forType instance.ContainerType, conf container.Ma
 	switch forType {
 	case instance.LXD:
 		return lxd.NewContainerManager(conf, lxd.NewLocalServer)
-	case instance.KVM:
-		return kvm.NewContainerManager(conf)
 	}
 	return nil, errors.Errorf("unknown container type: %q", forType)
 }

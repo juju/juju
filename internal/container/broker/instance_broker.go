@@ -90,8 +90,6 @@ func New(config Config) (environs.InstanceBroker, error) {
 
 	var newBroker ContainerBrokerFunc
 	switch config.ContainerType {
-	case instance.KVM:
-		newBroker = NewKVMBroker
 	case instance.LXD:
 		newBroker = NewLXDBroker
 	default:

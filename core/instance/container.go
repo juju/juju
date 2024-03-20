@@ -14,13 +14,11 @@ type ContainerType string
 const (
 	NONE ContainerType = "none"
 	LXD  ContainerType = "lxd"
-	KVM  ContainerType = "kvm"
 )
 
 // ContainerTypes is used to validate add-machine arguments.
 var ContainerTypes = []ContainerType{
 	LXD,
-	KVM,
 }
 
 // ParseContainerTypeOrNone converts the specified string into a supported

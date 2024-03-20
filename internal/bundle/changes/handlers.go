@@ -794,7 +794,7 @@ func (p *unitProcessor) existingMachinePlacement(machineID, container string) un
 
 // newMachineForUnit handles the placement directives "new" and
 // "container:new", where container is a supported container type. Most often
-// "lxd" or "kvm".
+// "lxd".
 func (p *unitProcessor) newMachineForUnit(application *charm.ApplicationSpec, placement *charm.UnitPlacement) (unitPlacement, error) {
 	return p.addNewMachine(application, placement.ContainerType)
 }

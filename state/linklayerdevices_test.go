@@ -930,7 +930,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesAllowsParentBridgeDe
 	// Add default bridges per container type to ensure they will be skipped
 	// when deciding which host bridges to use for the container NICs.
 	s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, network.DefaultLXDBridge, "vethX", 1)
-	s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, network.DefaultKVMBridge, "vethY", 1)
 	parentDevice, _ := s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, "br-eth1.250", "eth", 1)
 	childDevice, err := s.containerMachine.LinkLayerDevice("eth0")
 	c.Assert(err, jc.ErrorIsNil)

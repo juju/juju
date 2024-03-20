@@ -12,23 +12,14 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-// UpgradeStepsV2 defines the methods on the version 2 facade for the
+// UpgradeStepsV3 defines the methods on the version 2 facade for the
 // upgrade steps API endpoint.
-type UpgradeStepsV2 interface {
-	UpgradeStepsV1
+type UpgradeSteps interface {
 	WriteAgentState(context.Context, params.SetUnitStateArgs) (params.ErrorResults, error)
-}
-
-// UpgradeStepsV1 defines the methods on the version 2 facade for the
-// upgrade steps API endpoint.
-type UpgradeStepsV1 interface {
-	ResetKVMMachineModificationStatusIdle(context.Context, params.Entity) (params.ErrorResult, error)
 }
 
 // Logger represents the logging methods used by the upgrade steps.
@@ -54,8 +45,6 @@ type UpgradeStepsAPIV1 struct {
 	*UpgradeStepsAPI
 }
 
-var _ UpgradeStepsV2 = (*UpgradeStepsAPI)(nil)
-
 func NewUpgradeStepsAPI(
 	st UpgradeStepsState,
 	ctrlConfigGetter ControllerConfigGetter,
@@ -78,44 +67,6 @@ func NewUpgradeStepsAPI(
 		getUnitAuthFunc:    getUnitAuthFunc,
 		logger:             logger,
 	}, nil
-}
-
-// ResetKVMMachineModificationStatusIdle sets the modification status
-// of a kvm machine to idle if it is in an error state before upgrade.
-// Related to lp:1829393.
-func (api *UpgradeStepsAPI) ResetKVMMachineModificationStatusIdle(ctx context.Context, arg params.Entity) (params.ErrorResult, error) {
-	var result params.ErrorResult
-	canAccess, err := api.getMachineAuthFunc()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	mTag, err := names.ParseMachineTag(arg.Tag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	m, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	if m.ContainerType() != instance.KVM {
-		// noop
-		return result, nil
-	}
-
-	modStatus, err := m.ModificationStatus()
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	if modStatus.Status == status.Error {
-		err = m.SetModificationStatus(status.StatusInfo{Status: status.Idle})
-		result.Error = apiservererrors.ServerError(err)
-	}
-
-	return result, nil
 }
 
 // WriteAgentState writes the agent state for the set of units provided. This
@@ -168,24 +119,6 @@ func (api *UpgradeStepsAPI) WriteAgentState(ctx context.Context, args params.Set
 	}
 
 	return results, nil
-}
-
-func (api *UpgradeStepsAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
-	if !canAccess(tag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	entity, err := api.st.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	// The authorization function guarantees that the tag represents a
-	// machine.
-	var machine Machine
-	var ok bool
-	if machine, ok = entity.(Machine); !ok {
-		return nil, errors.NotValidf("machine entity")
-	}
-	return machine, nil
 }
 
 func (api *UpgradeStepsAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (Unit, error) {

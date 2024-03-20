@@ -244,7 +244,7 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestMachinesWithVirtConstraint(c *gc.C) {
-	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=lxd"))
 }
 
 func (s *MigrationExportSuite) TestMachinesWithRootDiskSourceConstraint(c *gc.C) {
@@ -334,7 +334,7 @@ func (s *MigrationExportSuite) TestCAASSidecarApplications(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
-	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=lxd"))
 }
 
 func (s *MigrationExportSuite) TestApplicationsWithRootDiskSourceConstraint(c *gc.C) {
@@ -350,8 +350,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	if dbModel.Type() == state.ModelTypeCAAS {
 		series = "focal"
 	}
-	var ch *state.Charm
-	ch = f.MakeCharmV2(c, &factory.CharmParams{
+	ch := f.MakeCharmV2(c, &factory.CharmParams{
 		Name:   "snappass-test",
 		Series: series,
 	})

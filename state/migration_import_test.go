@@ -1032,7 +1032,7 @@ func (s *MigrationImportSuite) TestCAASUnits(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
-	cons := constraints.MustParse("arch=amd64 mem=8G virt-type=kvm")
+	cons := constraints.MustParse("arch=amd64 mem=8G virt-type=lxd")
 	f := factory.NewFactory(s.State, s.StatePool)
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
