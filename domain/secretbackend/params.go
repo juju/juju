@@ -19,25 +19,6 @@ type UpsertSecretBackendParams struct {
 	Config              map[string]interface{}
 }
 
-// CreateSecretBackendParams are used to create a secret backend.
-type CreateSecretBackendParams struct {
-	ID                  string
-	Name                string
-	BackendType         string
-	TokenRotateInterval *time.Duration
-	NextRotateTime      *time.Time
-	Config              map[string]interface{}
-}
-
-// UpdateSecretBackendParams are used to update a secret backend.
-type UpdateSecretBackendParams struct {
-	ID                  string
-	NameChange          *string
-	TokenRotateInterval *time.Duration
-	NextRotateTime      *time.Time
-	Config              map[string]interface{}
-}
-
 // SecretBackendInfo contains information about a secret backend.
 type SecretBackendInfo struct {
 	secrets.SecretBackend

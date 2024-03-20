@@ -236,16 +236,11 @@ func (s *State) GetSecretBackend(ctx context.Context, backendID string) (*corese
 
 // SecretBackendRotated updates the next rotation time for the secret backend.
 func (s *State) SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error {
-	if _, err := s.GetSecretBackend(ctx, backendID); err != nil {
-		// Check if the backend exists or not here because the
-		// below UPDATE operation won't tell us.
-		return errors.Trace(err)
-	}
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	stmt, err := sqlair.Prepare(`
+	updateStmt, err := sqlair.Prepare(`
 UPDATE secret_backend_rotation
 SET next_rotation_time = $SecretBackendRotation.next_rotation_time
 WHERE backend_uuid = $SecretBackendRotation.backend_uuid
@@ -253,9 +248,26 @@ WHERE backend_uuid = $SecretBackendRotation.backend_uuid
 	if err != nil {
 		return errors.Trace(err)
 	}
+	getStmt, err := sqlair.Prepare(`
+SELECT uuid AS &SecretBackendRotationRow.uuid
+FROM secret_backend
+WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt,
+		// Check if the secret backend exists.
+		var sb SecretBackendRotationRow
+		err := tx.Query(ctx, getStmt, sqlair.M{"uuid": backendID}).Get(&sb)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", backenderrors.NotFound, backendID)
+		}
+		if err != nil {
+			return fmt.Errorf("checking if secret backend %q exists: %w", backendID, err)
+		}
+
+		err = tx.Query(ctx, updateStmt,
 			SecretBackendRotation{
 				ID:               backendID,
 				NextRotationTime: sql.NullTime{Time: next, Valid: true},
