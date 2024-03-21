@@ -107,7 +107,7 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
 	s.credentialService.CheckCalls(c, []testing.StubCall{
-		{"InvalidateCredential", []interface{}{credential.IdFromTag(credentialTag), "not again"}},
+		{"InvalidateCredential", []interface{}{credential.KeyFromTag(credentialTag), "not again"}},
 	})
 }
 

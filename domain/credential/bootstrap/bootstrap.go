@@ -19,9 +19,9 @@ import (
 )
 
 // InsertCredential inserts  a cloud credential into dqlite.
-func InsertCredential(id corecredential.ID, cred cloud.Credential) internaldatabase.BootstrapOpt {
+func InsertCredential(key corecredential.Key, cred cloud.Credential) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
-		if id.IsZero() {
+		if key.IsZero() {
 			return nil
 		}
 
@@ -30,7 +30,7 @@ func InsertCredential(id corecredential.ID, cred cloud.Credential) internaldatab
 			return errors.Trace(err)
 		}
 		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			if err := state.CreateCredential(ctx, tx, credentialUUID.String(), id, credential.CloudCredentialInfo{
+			if err := state.CreateCredential(ctx, tx, credentialUUID.String(), key, credential.CloudCredentialInfo{
 				AuthType:      string(cred.AuthType()),
 				Attributes:    cred.Attributes(),
 				Revoked:       cred.Revoked,

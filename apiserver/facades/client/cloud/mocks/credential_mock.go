@@ -43,7 +43,7 @@ func (m *MockCredentialValidator) EXPECT() *MockCredentialValidatorMockRecorder 
 }
 
 // Validate mocks base method.
-func (m *MockCredentialValidator) Validate(arg0 context.Context, arg1 service.CredentialValidationContext, arg2 credential.ID, arg3 *cloud.Credential, arg4 bool) ([]error, error) {
+func (m *MockCredentialValidator) Validate(arg0 context.Context, arg1 service.CredentialValidationContext, arg2 credential.Key, arg3 *cloud.Credential, arg4 bool) ([]error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].([]error)

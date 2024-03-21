@@ -61,7 +61,7 @@ type ControllerConfigService interface {
 // CredentialService is the interface that is used to get the
 // cloud credential.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }
 
 // CloudService is the interface that is used to interact with the

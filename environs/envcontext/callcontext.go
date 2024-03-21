@@ -19,10 +19,10 @@ type (
 	ModelCredentialInvalidatorGetter func() (ModelCredentialInvalidatorFunc, error)
 
 	// CredentialIDGetter is a function which returns a credential ID.
-	CredentialIDGetter func() (credential.ID, error)
+	CredentialKeyGetter func() (credential.Key, error)
 
 	// InvalidateCredentialFunc records a credential with the given ID as being invalid.
-	InvalidateCredentialFunc func(ctx context.Context, id credential.ID, reason string) error
+	InvalidateCredentialFunc func(ctx context.Context, key credential.Key, reason string) error
 )
 
 // ModelCredentialInvalidator defines a point of use interface for invalidating
@@ -35,12 +35,12 @@ type ModelCredentialInvalidator interface {
 // NewCredentialInvalidator creates a credential validator with
 // callbacks which update dqlite and mongo.
 func NewCredentialInvalidator(
-	idGetter CredentialIDGetter,
+	keyGetter CredentialKeyGetter,
 	invalidateFunc InvalidateCredentialFunc,
 	legacyInvalidateFunc func(reason string) error,
 ) ModelCredentialInvalidator {
 	return &legacyCredentialAdaptor{
-		idGetter:         idGetter,
+		keyGetter:        keyGetter,
 		invalidateFunc:   invalidateFunc,
 		legacyInvalidate: legacyInvalidateFunc,
 	}
@@ -50,14 +50,14 @@ func NewCredentialInvalidator(
 // for credential validity exists in both dqlite (on credential records) and mongo (on models).
 // The provider calls a single InvalidateModelCredential function which updates both places.
 type legacyCredentialAdaptor struct {
-	idGetter         func() (credential.ID, error)
-	invalidateFunc   func(ctx context.Context, id credential.ID, reason string) error
+	keyGetter        func() (credential.Key, error)
+	invalidateFunc   func(ctx context.Context, key credential.Key, reason string) error
 	legacyInvalidate func(string) error
 }
 
 // InvalidateModelCredential implements ModelCredentialInvalidator.
 func (a *legacyCredentialAdaptor) InvalidateModelCredential(ctx context.Context, reason string) error {
-	credId, err := a.idGetter()
+	credId, err := a.keyGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}

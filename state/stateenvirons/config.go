@@ -35,7 +35,7 @@ type Model interface {
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }
 
 // CloudService provides access to clouds.
@@ -111,7 +111,7 @@ func CloudSpecForModel(
 	}
 	var cred cloud.Credential
 	if ok {
-		cred, err = credentialService.CloudCredential(ctx, credential.IdFromTag(tag))
+		cred, err = credentialService.CloudCredential(ctx, credential.KeyFromTag(tag))
 		if err != nil {
 			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}

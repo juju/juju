@@ -101,7 +101,7 @@ var (
 	DefaultCredentialTag = names.NewCloudCredentialTag("dummy/admin/default")
 
 	// DefaultCredentialId is the default credential id for all models.
-	DefaultCredentialId = corecredential.IdFromTag(DefaultCredentialTag)
+	DefaultCredentialId = corecredential.KeyFromTag(DefaultCredentialTag)
 )
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
@@ -639,7 +639,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), corecredential.ID{
+		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), corecredential.Key{
 			Cloud: "caascloud",
 			Owner: "admin",
 			Name:  "dummy-credential",

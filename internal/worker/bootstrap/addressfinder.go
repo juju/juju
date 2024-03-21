@@ -97,7 +97,7 @@ func getEnviron(ctx context.Context, state SystemState, cloudService CloudServic
 func getEnvironCredential(ctx context.Context, controllerModel bootstrap.Model, credentialService CredentialService) (*cloud.Credential, error) {
 	var cred *cloud.Credential
 	if cloudCredentialTag, ok := controllerModel.CloudCredentialTag(); ok {
-		credentialValue, err := credentialService.CloudCredential(ctx, credential.IdFromTag(cloudCredentialTag))
+		credentialValue, err := credentialService.CloudCredential(ctx, credential.KeyFromTag(cloudCredentialTag))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

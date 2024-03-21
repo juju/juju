@@ -108,7 +108,7 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		)
 	}
 
-	credential := credential.ID{}
+	credential := credential.Key{}
 	// CloudCredential could be nil
 	if model.CloudCredential() != nil {
 		credential.Name = model.CloudCredential().Name()

@@ -486,7 +486,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		return params.ErrorResults{}, nil
 	}
 
-	storedCredential, err := api.credentialService.CloudCredential(ctx, credential.IdFromTag(credentialTag))
+	storedCredential, err := api.credentialService.CloudCredential(ctx, credential.KeyFromTag(credentialTag))
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -501,7 +501,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 	cred := jujucloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
 
 	var result params.ErrorResults
-	modelErrors, err := api.credentialValidator.Validate(ctx, callCtx, credential.IdFromTag(credentialTag), &cred, cloud.Type != "manual")
+	modelErrors, err := api.credentialValidator.Validate(ctx, callCtx, credential.KeyFromTag(credentialTag), &cred, cloud.Type != "manual")
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

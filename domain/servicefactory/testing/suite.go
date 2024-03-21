@@ -44,7 +44,7 @@ type ServiceFactorySuite struct {
 	// CloudName is the name of the cloud made during the setup of this suite.
 	CloudName string
 
-	CredentialID credential.ID
+	CredentialKey credential.Key
 
 	// ControllerModelUUID is the unique id for the controller model. If not set
 	// will be set during test set up.
@@ -104,13 +104,13 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 	})(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.CredentialID = credential.ID{
+	s.CredentialKey = credential.Key{
 		Cloud: s.CloudName,
 		Name:  "default",
 		Owner: coreuser.AdminUserName,
 	}
 	err = credentialbootstrap.InsertCredential(
-		s.CredentialID,
+		s.CredentialKey,
 		cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 			"username": "dummy",
 			"password": "secret",
@@ -125,7 +125,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	controllerArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
-		Credential:   s.CredentialID,
+		Credential:   s.CredentialKey,
 		Name:         coremodel.ControllerModelName,
 		Owner:        s.AdminUserUUID,
 		UUID:         s.ControllerModelUUID,
@@ -139,7 +139,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	modelArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
-		Credential:   s.CredentialID,
+		Credential:   s.CredentialKey,
 		Name:         "test",
 		Owner:        s.AdminUserUUID,
 		UUID:         s.DefaultModelUUID,

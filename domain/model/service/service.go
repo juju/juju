@@ -47,10 +47,10 @@ type State interface {
 	// ModelCloudNameAndCredential returns the cloud name and credential id for a
 	// model identified by the model name and the owner. If no model exists for
 	// the provided name and user a [modelerrors.NotFound] error is returned.
-	ModelCloudNameAndCredential(context.Context, string, string) (string, credential.ID, error)
+	ModelCloudNameAndCredential(context.Context, string, string) (string, credential.Key, error)
 
 	// UpdateCredential updates a model's cloud credential.
-	UpdateCredential(context.Context, coremodel.UUID, credential.ID) error
+	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
 }
 
 // Service defines a service for interacting with the underlying state based
@@ -119,13 +119,13 @@ func agentVersionSelector() version.Number {
 // returned.
 func (s *Service) DefaultModelCloudNameAndCredential(
 	ctx context.Context,
-) (string, credential.ID, error) {
+) (string, credential.Key, error) {
 	cloudName, cred, err := s.st.ModelCloudNameAndCredential(
 		ctx, coremodel.ControllerModelName, coremodel.ControllerModelOwnerUsername,
 	)
 
 	if err != nil {
-		return "", credential.ID{}, fmt.Errorf("getting default model cloud name and credential: %w", err)
+		return "", credential.Key{}, fmt.Errorf("getting default model cloud name and credential: %w", err)
 	}
 	return cloudName, cred, nil
 }
@@ -254,16 +254,16 @@ func ModelTypeForCloud(
 func (s *Service) UpdateCredential(
 	ctx context.Context,
 	uuid coremodel.UUID,
-	id credential.ID,
+	key credential.Key,
 ) error {
 	if err := uuid.Validate(); err != nil {
 		return fmt.Errorf("updating cloud credential model uuid: %w", err)
 	}
-	if err := id.Validate(); err != nil {
+	if err := key.Validate(); err != nil {
 		return fmt.Errorf("updating cloud credential: %w", err)
 	}
 
-	return s.st.UpdateCredential(ctx, uuid, id)
+	return s.st.UpdateCredential(ctx, uuid, key)
 }
 
 // validateAgentVersion is responsible for checking that the agent version that

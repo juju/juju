@@ -322,7 +322,7 @@ func cloudSpecForModel(
 	if !ok {
 		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
 	}
-	cred, err := credentialService.CloudCredential(ctx, credential.IdFromTag(tag))
+	cred, err := credentialService.CloudCredential(ctx, credential.KeyFromTag(tag))
 	if err != nil {
 		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}

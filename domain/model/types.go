@@ -31,7 +31,7 @@ type ModelCreationArgs struct {
 	// model. Credential must be for the same cloud as that of the model.
 	// Credential can be the zero value of the struct to not have a credential
 	// associated with the model.
-	Credential credential.ID
+	Credential credential.Key
 
 	// Name is the name of the model.
 	// Must not be empty for a valid struct.

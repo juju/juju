@@ -69,7 +69,7 @@ type CredentialValidator interface {
 	Validate(
 		ctx stdcontext.Context,
 		validationContext CredentialValidationContext,
-		credentialID corecredential.ID,
+		credentialKey corecredential.Key,
 		credential *cloud.Credential,
 		checkCloudInstances bool,
 	) ([]error, error)
@@ -87,15 +87,15 @@ func NewCredentialValidator() CredentialValidator {
 func (v defaultCredentialValidator) Validate(
 	ctx stdcontext.Context,
 	validationContext CredentialValidationContext,
-	id corecredential.ID,
+	key corecredential.Key,
 	cred *cloud.Credential,
 	checkCloudInstances bool,
 ) (machineErrors []error, err error) {
-	if err := id.Validate(); err != nil {
+	if err := key.Validate(); err != nil {
 		return nil, fmt.Errorf("credential %w", err)
 	}
 
-	openParams, err := v.buildOpenParams(validationContext, id, cred)
+	openParams, err := v.buildOpenParams(validationContext, key, cred)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -211,13 +211,13 @@ var (
 )
 
 func (v defaultCredentialValidator) buildOpenParams(
-	ctx CredentialValidationContext, credentialID corecredential.ID, credential *cloud.Credential,
+	ctx CredentialValidationContext, credentialKey corecredential.Key, credential *cloud.Credential,
 ) (environs.OpenParams, error) {
 	fail := func(original error) (environs.OpenParams, error) {
 		return environs.OpenParams{}, original
 	}
 
-	err := v.validateCloudCredential(ctx.Cloud, credentialID)
+	err := v.validateCloudCredential(ctx.Cloud, credentialKey)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -238,11 +238,11 @@ func (v defaultCredentialValidator) buildOpenParams(
 // name against the provided cloud definition and credentials.
 func (v defaultCredentialValidator) validateCloudCredential(
 	cld cloud.Cloud,
-	credentialID corecredential.ID,
+	credentialKey corecredential.Key,
 ) error {
-	if !credentialID.IsZero() {
-		if credentialID.Cloud != cld.Name {
-			return errors.NotValidf("credential %q", credentialID)
+	if !credentialKey.IsZero() {
+		if credentialKey.Cloud != cld.Name {
+			return errors.NotValidf("credential %q", credentialKey)
 		}
 		return nil
 	}

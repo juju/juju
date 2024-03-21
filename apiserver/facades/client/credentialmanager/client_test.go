@@ -118,7 +118,7 @@ type testCredentialService struct {
 	*testing.Stub
 }
 
-func (b *testCredentialService) InvalidateCredential(ctx context.Context, id credential.ID, reason string) error {
-	b.AddCall("InvalidateCredential", id, reason)
+func (b *testCredentialService) InvalidateCredential(ctx context.Context, key credential.Key, reason string) error {
+	b.AddCall("InvalidateCredential", key, reason)
 	return b.NextErr()
 }

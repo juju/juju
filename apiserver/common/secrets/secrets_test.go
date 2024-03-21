@@ -192,7 +192,7 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
 		tag := names.NewCloudCredentialTag("test/fred/default")
 		model.EXPECT().CloudCredentialTag().Return(tag, true)
 		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
-		credentialService.EXPECT().CloudCredential(gomock.Any(), credential.IdFromTag(tag)).Return(cred, nil)
+		credentialService.EXPECT().CloudCredential(gomock.Any(), credential.KeyFromTag(tag)).Return(cred, nil)
 	}
 
 	backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{

@@ -207,7 +207,7 @@ func (api *AgentAPI) WatchCredentials(ctx context.Context, args params.Entities)
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watch, err := api.credentialService.WatchCredential(ctx, credential.IdFromTag(credentialTag))
+		watch, err := api.credentialService.WatchCredential(ctx, credential.KeyFromTag(credentialTag))
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

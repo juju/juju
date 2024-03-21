@@ -67,7 +67,7 @@ type Model struct {
 	// model. Credential must be for the same cloud as that of the model.
 	// Credential can be the zero value of the struct to not have a credential
 	// associated with the model.
-	Credential credential.ID
+	Credential credential.Key
 
 	// Owner is the uuid of the user that owns this model in the Juju controller.
 	Owner user.UUID

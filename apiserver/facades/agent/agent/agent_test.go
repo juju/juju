@@ -286,7 +286,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	ch <- struct{}{}
 
 	nw := watchertest.NewMockNotifyWatcher(ch)
-	credentialService.EXPECT().WatchCredential(gomock.Any(), credential.IdFromTag(tag)).Return(nw, nil)
+	credentialService.EXPECT().WatchCredential(gomock.Any(), credential.KeyFromTag(tag)).Return(nw, nil)
 	api, err := s.agentAPI(c, authorizer, credentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := api.WatchCredentials(context.Background(), params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})

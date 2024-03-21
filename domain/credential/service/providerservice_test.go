@@ -29,7 +29,7 @@ func (s *providerServiceSuite) service() *WatchableProviderService {
 func (s *providerServiceSuite) TestCloudCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := corecredential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	key := corecredential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
 	cred := credential.CloudCredentialResult{
 		CloudCredentialInfo: credential.CloudCredentialInfo{
 			AuthType: string(cloud.UserPassAuthType),
@@ -39,9 +39,9 @@ func (s *providerServiceSuite) TestCloudCredential(c *gc.C) {
 			Label: "foo",
 		},
 	}
-	s.state.EXPECT().CloudCredential(gomock.Any(), id).Return(cred, nil)
+	s.state.EXPECT().CloudCredential(gomock.Any(), key).Return(cred, nil)
 
-	result, err := s.service().CloudCredential(context.Background(), id)
+	result, err := s.service().CloudCredential(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
 }
@@ -49,8 +49,8 @@ func (s *providerServiceSuite) TestCloudCredential(c *gc.C) {
 func (s *providerServiceSuite) TestCloudCredentialInvalidID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := corecredential.ID{Cloud: "cirrus", Owner: "fred"}
-	_, err := s.service().CloudCredential(context.Background(), id)
+	key := corecredential.Key{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().CloudCredential(context.Background(), key)
 	c.Assert(err, gc.ErrorMatches, "invalid id getting cloud credential.*")
 }
 
@@ -59,10 +59,10 @@ func (s *providerServiceSuite) TestWatchCredential(c *gc.C) {
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
 
-	id := corecredential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
-	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), id).Return(nw, nil)
+	key := corecredential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), key).Return(nw, nil)
 
-	w, err := s.service().WatchCredential(context.Background(), id)
+	w, err := s.service().WatchCredential(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 }
@@ -70,7 +70,7 @@ func (s *providerServiceSuite) TestWatchCredential(c *gc.C) {
 func (s *providerServiceSuite) TestWatchCredentialInvalidID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := corecredential.ID{Cloud: "cirrus", Owner: "fred"}
-	_, err := s.service().WatchCredential(context.Background(), id)
+	key := corecredential.Key{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().WatchCredential(context.Background(), key)
 	c.Assert(err, gc.ErrorMatches, "invalid id watching cloud credential.*")
 }

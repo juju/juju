@@ -44,12 +44,12 @@ func (s *CredentialManagerIntegrationSuite) TestInvalidateModelCredential(c *gc.
 	c.Assert(set, jc.IsTrue)
 
 	credService := s.ControllerServiceFactory(c).Credential()
-	cred, err := credService.CloudCredential(ctx.Background(), credential.IdFromTag(tag))
+	cred, err := credService.CloudCredential(ctx.Background(), credential.KeyFromTag(tag))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cred.Invalid, jc.IsFalse)
 
 	c.Assert(s.client.InvalidateModelCredential(ctx.Background(), "no reason really"), jc.ErrorIsNil)
-	cred, err = credService.CloudCredential(ctx.Background(), credential.IdFromTag(tag))
+	cred, err = credService.CloudCredential(ctx.Background(), credential.KeyFromTag(tag))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cred.Invalid, jc.IsTrue)
 }

@@ -34,10 +34,10 @@ type State interface {
 
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	// If the credential already exists, the existing credential's value of Invalid is returned.
-	UpsertCloudCredential(ctx context.Context, id corecredential.ID, credential credential.CloudCredentialInfo) (*bool, error)
+	UpsertCloudCredential(ctx context.Context, key corecredential.Key, credential credential.CloudCredentialInfo) (*bool, error)
 
 	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
-	InvalidateCloudCredential(ctx context.Context, id corecredential.ID, reason string) error
+	InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error
 
 	// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 	// keyed by credential name.
@@ -45,13 +45,13 @@ type State interface {
 
 	// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 	// for a given owner.
-	AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.ID]credential.CloudCredentialResult, error)
+	AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.Key]credential.CloudCredentialResult, error)
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
-	RemoveCloudCredential(ctx context.Context, id corecredential.ID) error
+	RemoveCloudCredential(ctx context.Context, key corecredential.Key) error
 
 	// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
-	ModelsUsingCloudCredential(ctx context.Context, id corecredential.ID) (map[coremodel.UUID]string, error)
+	ModelsUsingCloudCredential(ctx context.Context, key corecredential.Key) (map[coremodel.UUID]string, error)
 }
 
 // ValidationContextGetter returns the artefacts for a specified model, used to make credential validation calls.
@@ -118,11 +118,11 @@ func (s *Service) WithLegacyRemover(remover func(tag names.CloudCredentialTag) e
 }
 
 // CloudCredential returns the cloud credential for the given tag.
-func (s *Service) CloudCredential(ctx context.Context, id corecredential.ID) (cloud.Credential, error) {
-	if err := id.Validate(); err != nil {
+func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (cloud.Credential, error) {
+	if err := key.Validate(); err != nil {
 		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
 	}
-	credInfo, err := s.st.CloudCredential(ctx, id)
+	credInfo, err := s.st.CloudCredential(ctx, key)
 	if err != nil {
 		return cloud.Credential{}, errors.Trace(err)
 	}
@@ -134,12 +134,12 @@ func (s *Service) CloudCredential(ctx context.Context, id corecredential.ID) (cl
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.ID]cloud.Credential, error) {
+func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.Key]cloud.Credential, error) {
 	creds, err := s.st.AllCloudCredentialsForOwner(ctx, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make(map[corecredential.ID]cloud.Credential)
+	result := make(map[corecredential.Key]cloud.Credential)
 	for id, c := range creds {
 		result[id] = cloudCredentialFromCredentialResult(c)
 	}
@@ -161,39 +161,39 @@ func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner, cloudName
 }
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
-func (s *Service) UpdateCloudCredential(ctx context.Context, id corecredential.ID, cred cloud.Credential) error {
-	if err := id.Validate(); err != nil {
+func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential) error {
+	if err := key.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id updating cloud credential")
 	}
-	_, err := s.st.UpsertCloudCredential(ctx, id, credentialInfoFromCloudCredential(cred))
+	_, err := s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
 	return err
 }
 
 // RemoveCloudCredential removes a cloud credential with the given tag.
-func (s *Service) RemoveCloudCredential(ctx context.Context, id corecredential.ID) error {
-	if err := id.Validate(); err != nil {
+func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.Key) error {
+	if err := key.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id removing cloud credential")
 	}
-	return s.st.RemoveCloudCredential(ctx, id)
+	return s.st.RemoveCloudCredential(ctx, key)
 }
 
 // InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
-func (s *Service) InvalidateCredential(ctx context.Context, id corecredential.ID, reason string) error {
-	if err := id.Validate(); err != nil {
+func (s *Service) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
+	if err := key.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id invalidating cloud credential")
 	}
-	return s.st.InvalidateCloudCredential(ctx, id, reason)
+	return s.st.InvalidateCloudCredential(ctx, key, reason)
 }
 
-func (s *Service) modelsUsingCredential(ctx context.Context, id corecredential.ID) (map[coremodel.UUID]string, error) {
-	models, err := s.st.ModelsUsingCloudCredential(ctx, id)
+func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.Key) (map[coremodel.UUID]string, error) {
+	models, err := s.st.ModelsUsingCloudCredential(ctx, key)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	return models, nil
 }
 
-func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID coremodel.UUID, id corecredential.ID, cred *cloud.Credential) ([]error, error) {
+func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID coremodel.UUID, key corecredential.Key, cred *cloud.Credential) ([]error, error) {
 	if s.validator == nil || s.validationContextGetter == nil {
 		return nil, errors.Errorf("missing validation helpers")
 	}
@@ -202,7 +202,7 @@ func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID core
 		return []error{errors.Trace(err)}, nil
 	}
 
-	modelErrors, err := s.validator.Validate(ctx, validationCtx, id, cred, false)
+	modelErrors, err := s.validator.Validate(ctx, validationCtx, key, cred, false)
 	if err != nil {
 		return []error{errors.Trace(err)}, nil
 	}
@@ -217,8 +217,8 @@ func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID core
 // validationContextGetter prior to calling this function, or else an error will be returned.
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
-func (s *Service) CheckAndUpdateCredential(ctx context.Context, id corecredential.ID, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
-	if err := id.Validate(); err != nil {
+func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
+	if err := key.Validate(); err != nil {
 		return nil, errors.Annotatef(err, "invalid id updating cloud credential")
 	}
 
@@ -226,7 +226,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id corecredentia
 		return nil, errors.New("cannot validate credential with nil context getter")
 	}
 
-	models, err := s.modelsUsingCredential(ctx, id)
+	models, err := s.modelsUsingCredential(ctx, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -240,7 +240,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id corecredentia
 			ModelUUID: uuid,
 			ModelName: name,
 		}
-		result.Errors, err = s.validateCredentialForModel(ctx, uuid, id, &cred)
+		result.Errors, err = s.validateCredentialForModel(ctx, uuid, key, &cred)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -259,10 +259,10 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id corecredentia
 		return modelsResult, credentialerrors.CredentialModelValidation
 	}
 
-	existingInvalid, err := s.st.UpsertCloudCredential(ctx, id, credentialInfoFromCloudCredential(cred))
+	existingInvalid, err := s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
-			err = fmt.Errorf("%w %q for credential %q", credentialerrors.UnknownCloud, id.Name, id.Cloud)
+			err = fmt.Errorf("%w %q for credential %q", credentialerrors.UnknownCloud, key.Name, key.Cloud)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -277,7 +277,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id corecredentia
 	// Existing credential will become valid after this call, and
 	// the model status of all models that use it will be reverted.
 	if existingInvalid != nil && *existingInvalid {
-		tag, err := id.Tag()
+		tag, err := key.Tag()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -293,12 +293,12 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id corecredentia
 // validating the credential.
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
-func (s *Service) CheckAndRevokeCredential(ctx context.Context, id corecredential.ID, force bool) error {
-	if err := id.Validate(); err != nil {
+func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredential.Key, force bool) error {
+	if err := key.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id revoking cloud credential")
 	}
 
-	models, err := s.modelsUsingCredential(ctx, id)
+	models, err := s.modelsUsingCredential(ctx, key)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -308,21 +308,21 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, id corecredentia
 			opMessage = "will be deleted but"
 		}
 		s.logger.Debugf("credential %v %v it is used by model%v",
-			id,
+			key,
 			opMessage,
 			modelsPretty(models),
 		)
 		if !force {
 			// Some models still use this credential - do not delete this credential...
-			return errors.Errorf("cannot revoke credential %v: it is still used by %d model%v", id, len(models), plural(len(models)))
+			return errors.Errorf("cannot revoke credential %v: it is still used by %d model%v", key, len(models), plural(len(models)))
 		}
 	}
-	err = s.st.RemoveCloudCredential(ctx, id)
+	err = s.st.RemoveCloudCredential(ctx, key)
 	if err != nil || s.legacyRemover == nil {
 		return errors.Trace(err)
 	} else {
 		// If credential was successfully removed, we also want to clear all references to it from the models.
-		tag, err := id.Tag()
+		tag, err := key.Tag()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -354,11 +354,11 @@ func NewWatchableService(st State, watcherFactory WatcherFactory, logger Logger)
 
 // WatchCredential returns a watcher that observes changes to the specified
 // credential.
-func (s *WatchableService) WatchCredential(ctx context.Context, id corecredential.ID) (watcher.NotifyWatcher, error) {
-	if err := id.Validate(); err != nil {
+func (s *WatchableService) WatchCredential(ctx context.Context, key corecredential.Key) (watcher.NotifyWatcher, error) {
+	if err := key.Validate(); err != nil {
 		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
 	}
-	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, id)
+	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, key)
 }
 
 // WithValidationContextGetter configures the service to use the specified function

@@ -152,7 +152,7 @@ WHERE md.model_uuid = ?
 		modelType   string
 		userUUID    string
 		cloudUUID   string
-		credID      credential.ID
+		credKey     credential.Key
 		model       coremodel.Model
 	)
 	err := row.Scan(
@@ -162,9 +162,9 @@ WHERE md.model_uuid = ?
 		&modelType,
 		&userUUID,
 		&cloudUUID,
-		&credID.Name,
-		&credID.Owner,
-		&credID.Cloud,
+		&credKey.Name,
+		&credKey.Owner,
+		&credKey.Cloud,
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {
@@ -176,7 +176,7 @@ WHERE md.model_uuid = ?
 	model.CloudRegion = cloudRegion.String
 	model.ModelType = coremodel.ModelType(modelType)
 	model.Owner = user.UUID(userUUID)
-	model.Credential = credID
+	model.Credential = credKey
 
 	return model, nil
 }
@@ -473,10 +473,10 @@ func (s *State) ModelCloudNameAndCredential(
 	ctx context.Context,
 	modelName string,
 	modelOwnerName string,
-) (string, credential.ID, error) {
+) (string, credential.Key, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", credential.ID{}, errors.Trace(err)
+		return "", credential.Key{}, errors.Trace(err)
 	}
 
 	stmt := `
@@ -504,27 +504,27 @@ AND owner_name = ?
 	})
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", credential.ID{}, fmt.Errorf("%w for name %q and owner %q",
+		return "", credential.Key{}, fmt.Errorf("%w for name %q and owner %q",
 			modelerrors.NotFound, modelName, modelOwnerName,
 		)
 	} else if err != nil {
-		return "", credential.ID{}, fmt.Errorf(
+		return "", credential.Key{}, fmt.Errorf(
 			"getting cloud name and credential for model %q with owner %q: %w",
 			modelName, modelOwnerName, domain.CoerceError(err),
 		)
 	}
 
 	if !credentialName.Valid {
-		return cloudName, credential.ID{}, nil
+		return cloudName, credential.Key{}, nil
 	}
 
-	credId := credential.ID{
+	credKey := credential.Key{
 		Cloud: credentialCloud.String,
 		Name:  credentialName.String,
 		Owner: credentialOwner.String,
 	}
 
-	return cloudName, credId, nil
+	return cloudName, credKey, nil
 }
 
 // setCloudRegion is responsible for setting a model's cloud region. This
@@ -604,7 +604,7 @@ AND cloud_region_uuid IS NULL
 func (s *State) UpdateCredential(
 	ctx context.Context,
 	uuid coremodel.UUID,
-	id credential.ID,
+	key credential.Key,
 ) error {
 	db, err := s.DB()
 	if err != nil {
@@ -612,7 +612,7 @@ func (s *State) UpdateCredential(
 	}
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return updateCredential(ctx, uuid, id, tx)
+		return updateCredential(ctx, uuid, key, tx)
 	})
 }
 
@@ -624,7 +624,7 @@ func (s *State) UpdateCredential(
 func updateCredential(
 	ctx context.Context,
 	uuid coremodel.UUID,
-	id credential.ID,
+	key credential.Key,
 	tx *sql.Tx,
 ) error {
 	cloudCredUUIDStmt := `
@@ -649,17 +649,17 @@ AND cloud_uuid = ?
 `
 
 	var cloudCredUUID, cloudUUID string
-	err := tx.QueryRowContext(ctx, cloudCredUUIDStmt, id.Cloud, id.Owner, id.Name).
+	err := tx.QueryRowContext(ctx, cloudCredUUIDStmt, key.Cloud, key.Owner, key.Name).
 		Scan(&cloudCredUUID, &cloudUUID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf(
 			"%w cloud credential %q%w",
-			errors.NotFound, id, errors.Hide(err),
+			errors.NotFound, key, errors.Hide(err),
 		)
 	} else if err != nil {
 		return fmt.Errorf(
 			"getting cloud credential uuid for %q: %w",
-			id, err,
+			key, err,
 		)
 	}
 
@@ -667,7 +667,7 @@ AND cloud_uuid = ?
 	if err != nil {
 		return fmt.Errorf(
 			"setting cloud credential %q for model %q: %w",
-			id, uuid, err)
+			key, uuid, err)
 	}
 
 	if num, err := res.RowsAffected(); err != nil {
@@ -675,7 +675,7 @@ AND cloud_uuid = ?
 	} else if num != 1 {
 		return fmt.Errorf(
 			"%w model %q has different cloud to credential %q",
-			errors.NotValid, uuid, id)
+			errors.NotValid, uuid, key)
 	}
 	return nil
 }

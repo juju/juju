@@ -416,7 +416,7 @@ func (api *CloudAPI) AddCredentials(ctx context.Context, args params.TaggedCrede
 			cloud.AuthType(arg.Credential.AuthType),
 			arg.Credential.Attributes,
 		)
-		if err := api.credentialService.UpdateCloudCredential(ctx, credential.IdFromTag(tag), in); err != nil {
+		if err := api.credentialService.UpdateCloudCredential(ctx, credential.KeyFromTag(tag), in); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -466,7 +466,7 @@ func (api *CloudAPI) UpdateCredentialsCheckModels(ctx context.Context, args para
 			cloud.AuthType(arg.Credential.AuthType),
 			arg.Credential.Attributes,
 		)
-		modelResults, err := api.credentialService.CheckAndUpdateCredential(ctx, credential.IdFromTag(tag), in, args.Force)
+		modelResults, err := api.credentialService.CheckAndUpdateCredential(ctx, credential.KeyFromTag(tag), in, args.Force)
 		results[i].Models = modelResultsToParams(modelResults)
 		if err != nil {
 			if !args.Force {
@@ -519,7 +519,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(ctx context.Context, args para
 			continue
 		}
 
-		if err = api.credentialService.CheckAndRevokeCredential(ctx, credential.IdFromTag(tag), arg.Force); err != nil {
+		if err = api.credentialService.CheckAndRevokeCredential(ctx, credential.KeyFromTag(tag), arg.Force); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -724,8 +724,8 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 	}
 
 	// Helper to parse cloud.CloudCredential into an expected result item.
-	toParam := func(id credential.ID, cred cloud.Credential, includeSecrets bool) params.CredentialContentResult {
-		schemas, err := credentialSchemas(id.Cloud)
+	toParam := func(key credential.Key, cred cloud.Credential, includeSecrets bool) params.CredentialContentResult {
+		schemas, err := credentialSchemas(key.Cloud)
 		if err != nil {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
 		}
@@ -746,7 +746,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 				Name:       cred.Label,
 				AuthType:   string(cred.AuthType()),
 				Attributes: attrs,
-				Cloud:      id.Cloud,
+				Cloud:      key.Cloud,
 			},
 		}
 		if includeValidity {
@@ -755,7 +755,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		}
 
 		// get models
-		credTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", id.Cloud, id.Owner, id.Name))
+		credTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", key.Cloud, key.Owner, key.Name))
 		models, err := api.modelCredentialService.CredentialModelsAndOwnerAccess(credTag)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
@@ -774,33 +774,33 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		if err != nil {
 			return params.CredentialContentResults{}, errors.Trace(err)
 		}
-		for id, cred := range credentials {
-			result = append(result, toParam(id, cred, args.IncludeSecrets))
+		for key, cred := range credentials {
+			result = append(result, toParam(key, cred, args.IncludeSecrets))
 		}
 	} else {
 		// Helper to construct credential ID from cloud and name.
-		credId := func(cloudName, credentialName string) credential.ID {
-			return credential.ID{
+		credKey := func(cloudName, credentialName string) credential.Key {
+			return credential.Key{
 				Cloud: cloudName, Owner: api.apiUser.Id(), Name: credentialName}
 		}
 
 		result = make([]params.CredentialContentResult, len(args.Credentials))
 		for i, given := range args.Credentials {
-			id := credId(given.CloudName, given.CredentialName)
-			if err := id.Validate(); err != nil {
+			key := credKey(given.CloudName, given.CredentialName)
+			if err := key.Validate(); err != nil {
 				result[i] = params.CredentialContentResult{
-					Error: apiservererrors.ServerError(errors.NotValidf("cloud credential ID %q", id)),
+					Error: apiservererrors.ServerError(errors.NotValidf("cloud credential ID %q", key)),
 				}
 				continue
 			}
-			cred, err := api.credentialService.CloudCredential(ctx, id)
+			cred, err := api.credentialService.CloudCredential(ctx, key)
 			if err != nil {
 				result[i] = params.CredentialContentResult{
 					Error: apiservererrors.ServerError(err),
 				}
 				continue
 			}
-			result[i] = toParam(id, cred, args.IncludeSecrets)
+			result[i] = toParam(key, cred, args.IncludeSecrets)
 		}
 	}
 	return params.CredentialContentResults{Results: result}, nil

@@ -953,7 +953,7 @@ type fakeCredentialService struct {
 	credentialsErr error
 }
 
-func (b *fakeCredentialService) CloudCredential(_ context.Context, _ credential.ID) (cloud.Credential, error) {
+func (b *fakeCredentialService) CloudCredential(_ context.Context, _ credential.Key) (cloud.Credential, error) {
 	return b.credential, b.credentialsErr
 }
 

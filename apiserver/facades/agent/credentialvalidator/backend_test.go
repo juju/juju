@@ -108,16 +108,16 @@ type testCredentialService struct {
 	*testing.Stub
 }
 
-func (c testCredentialService) InvalidateCredential(ctx context.Context, id credential.ID, reason string) error {
-	c.AddCall("InvalidateCredential", id, reason)
+func (c testCredentialService) InvalidateCredential(ctx context.Context, key credential.Key, reason string) error {
+	c.AddCall("InvalidateCredential", key, reason)
 	return c.NextErr()
 }
 
-func (c testCredentialService) CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error) {
+func (c testCredentialService) CloudCredential(ctx context.Context, _ credential.Key) (cloud.Credential, error) {
 	return cloud.NewEmptyCredential(), nil
 }
 
-func (c testCredentialService) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
+func (c testCredentialService) WatchCredential(ctx context.Context, _ credential.Key) (watcher.NotifyWatcher, error) {
 	return apiservertesting.NewFakeNotifyWatcher(), nil
 }
 

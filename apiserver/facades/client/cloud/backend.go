@@ -46,14 +46,14 @@ type ModelCredentialService interface {
 
 // CredentialService provides access to the credential domain service.
 type CredentialService interface {
-	CloudCredential(ctx stdcontext.Context, id credential.ID) (cloud.Credential, error)
-	AllCloudCredentialsForOwner(ctx stdcontext.Context, owner string) (map[credential.ID]cloud.Credential, error)
+	CloudCredential(ctx stdcontext.Context, key credential.Key) (cloud.Credential, error)
+	AllCloudCredentialsForOwner(ctx stdcontext.Context, owner string) (map[credential.Key]cloud.Credential, error)
 	CloudCredentialsForOwner(ctx stdcontext.Context, owner, cloudName string) (map[string]cloud.Credential, error)
-	UpdateCloudCredential(ctx stdcontext.Context, id credential.ID, cred cloud.Credential) error
-	RemoveCloudCredential(ctx stdcontext.Context, id credential.ID) error
-	WatchCredential(ctx stdcontext.Context, id credential.ID) (watcher.NotifyWatcher, error)
-	CheckAndUpdateCredential(ctx stdcontext.Context, id credential.ID, cred cloud.Credential, force bool) ([]credentialservice.UpdateCredentialModelResult, error)
-	CheckAndRevokeCredential(ctx stdcontext.Context, id credential.ID, force bool) error
+	UpdateCloudCredential(ctx stdcontext.Context, key credential.Key, cred cloud.Credential) error
+	RemoveCloudCredential(ctx stdcontext.Context, key credential.Key) error
+	WatchCredential(ctx stdcontext.Context, key credential.Key) (watcher.NotifyWatcher, error)
+	CheckAndUpdateCredential(ctx stdcontext.Context, key credential.Key, cred cloud.Credential, force bool) ([]credentialservice.UpdateCredentialModelResult, error)
+	CheckAndRevokeCredential(ctx stdcontext.Context, key credential.Key, force bool) error
 }
 
 type User interface {

@@ -633,9 +633,9 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 		jujucloud.OAuth1AuthType,
 		map[string]string{"token": "foo:bar:baz"},
 	)
-	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.IdFromTag(tagTwo), cred, false).Return(
+	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.KeyFromTag(tagTwo), cred, false).Return(
 		nil, errors.New("cannot update credential \"three\": controller does not manage cloud \"badcloud\""))
-	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.IdFromTag(tagOne), cred, false).Return(
+	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.KeyFromTag(tagOne), cred, false).Return(
 		[]credentialservice.UpdateCredentialModelResult{}, nil)
 
 	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
@@ -685,7 +685,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 		attrs: map[string]string{}})
 
 	cred := jujucloud.Credential{}
-	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.IdFromTag(tag), cred, false).Return(
+	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.KeyFromTag(tag), cred, false).Return(
 		[]credentialservice.UpdateCredentialModelResult{}, nil)
 
 	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
@@ -708,7 +708,7 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 
 	cred := jujucloud.Credential{}
 
-	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.IdFromTag(tag), cred, false).Return(
+	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.KeyFromTag(tag), cred, false).Return(
 		[]credentialservice.UpdateCredentialModelResult{{
 			ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			ModelName: "testModel1",
@@ -769,7 +769,7 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 	_, tag := cloudCredentialTag(credParams{name: "three", owner: "bruce", cloudName: "meep", authType: jujucloud.EmptyAuthType,
 		attrs: map[string]string{}})
 
-	s.credService.EXPECT().CheckAndRevokeCredential(gomock.Any(), credential.IdFromTag(tag), false).Return(nil)
+	s.credService.EXPECT().CheckAndRevokeCredential(gomock.Any(), credential.KeyFromTag(tag), false).Return(nil)
 
 	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{
 		Credentials: []params.RevokeCredentialArg{
@@ -796,7 +796,7 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 	_, tag := cloudCredentialTag(credParams{name: "three", owner: "julia", cloudName: "meep", authType: jujucloud.EmptyAuthType,
 		attrs: map[string]string{}})
 
-	s.credService.EXPECT().CheckAndRevokeCredential(gomock.Any(), credential.IdFromTag(tag), false).Return(nil)
+	s.credService.EXPECT().CheckAndRevokeCredential(gomock.Any(), credential.KeyFromTag(tag), false).Return(nil)
 
 	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{
 		Credentials: []params.RevokeCredentialArg{
@@ -1018,7 +1018,7 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 		}})
 
 	credentialTwo.Invalid = true
-	creds := map[credential.ID]jujucloud.Credential{
+	creds := map[credential.Key]jujucloud.Credential{
 		{Cloud: "meep", Owner: "bruce", Name: "one"}: credentialOne,
 		{Cloud: "meep", Owner: "bruce", Name: "two"}: credentialTwo,
 	}

@@ -25,7 +25,7 @@ import (
 )
 
 type dummyStateCloud struct {
-	Credentials map[string]credential.ID
+	Credentials map[string]credential.Key
 	Regions     []string
 }
 
@@ -149,7 +149,7 @@ func (d *dummyState) ModelCloudNameAndCredential(
 	_ context.Context,
 	modelName string,
 	ownerName string,
-) (string, credential.ID, error) {
+) (string, credential.Key, error) {
 	var ownerUUID user.UUID
 	for k, v := range d.users {
 		if v == ownerName {
@@ -162,29 +162,29 @@ func (d *dummyState) ModelCloudNameAndCredential(
 			return model.Cloud, model.Credential, nil
 		}
 	}
-	return "", credential.ID{}, modelerrors.NotFound
+	return "", credential.Key{}, modelerrors.NotFound
 }
 
 func (d *dummyState) UpdateCredential(
 	_ context.Context,
 	uuid coremodel.UUID,
-	credentialId credential.ID,
+	credentialKey credential.Key,
 ) error {
 	info, exists := d.models[uuid]
 	if !exists {
 		return fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
 	}
 
-	cloud, exists := d.clouds[credentialId.Cloud]
+	cloud, exists := d.clouds[credentialKey.Cloud]
 	if !exists {
-		return fmt.Errorf("%w cloud %q", errors.NotFound, credentialId.Cloud)
+		return fmt.Errorf("%w cloud %q", errors.NotFound, credentialKey.Cloud)
 	}
 
-	if _, exists := cloud.Credentials[credentialId.String()]; !exists {
-		return fmt.Errorf("%w credential %q", errors.NotFound, credentialId.String())
+	if _, exists := cloud.Credentials[credentialKey.String()]; !exists {
+		return fmt.Errorf("%w credential %q", errors.NotFound, credentialKey.String())
 	}
 
-	if info.Cloud != credentialId.Cloud {
+	if info.Cloud != credentialKey.Cloud {
 		return fmt.Errorf("%w credential cloud is different to that of the model", errors.NotValid)
 	}
 
@@ -212,13 +212,13 @@ func (s *serviceSuite) TestCreateModelInvalidArgs(c *gc.C) {
 }
 
 func (s *serviceSuite) TestModelCreation(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
 		Owner: s.userUUID.String(),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String(): cred,
 		},
 		Regions: []string{"myregion"},
@@ -282,7 +282,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
 // owner that doesn't exist we get back a [usererrors.NotFound] error.
 func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{},
+		Credentials: map[string]credential.Key{},
 		Regions:     []string{"myregion"},
 	}
 
@@ -302,7 +302,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 
 func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{},
+		Credentials: map[string]credential.Key{},
 		Regions:     []string{"myregion"},
 	}
 
@@ -310,7 +310,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 	_, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
-		Credential: credential.ID{
+		Credential: credential.Key{
 			Cloud: "aws",
 			Name:  "foo",
 			Owner: s.userUUID.String(),
@@ -324,7 +324,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 
 func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{},
+		Credentials: map[string]credential.Key{},
 		Regions:     []string{"myregion"},
 	}
 
@@ -352,7 +352,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	err := svc.UpdateCredential(context.Background(), id, credential.ID{
+	err := svc.UpdateCredential(context.Background(), id, credential.Key{
 		Owner: s.userUUID.String(),
 		Name:  "foo",
 		Cloud: "aws",
@@ -361,14 +361,14 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *gc.C) {
 }
 
 func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
 		Name:  "foobar",
 	}
 
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String(): cred,
 		},
 		Regions: []string{"myregion"},
@@ -389,19 +389,19 @@ func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
 		Name:  "foobar",
 	}
-	cred2 := credential.ID{
+	cred2 := credential.Key{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
 		Name:  "foobar2",
 	}
 
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String():  cred,
 			cred2.String(): cred2,
 		},
@@ -424,14 +424,14 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
 		Name:  "foobar",
 	}
 
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String(): cred,
 		},
 		Regions: []string{"myregion"},
@@ -447,30 +447,30 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = svc.UpdateCredential(context.Background(), id, credential.ID{})
+	err = svc.UpdateCredential(context.Background(), id, credential.Key{})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
 		Name:  "foobar",
 	}
-	cred2 := credential.ID{
+	cred2 := credential.Key{
 		Cloud: "kubernetes",
 		Owner: s.userUUID.String(),
 		Name:  "foobar2",
 	}
 
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String(): cred,
 		},
 		Regions: []string{"myregion"},
 	}
 	s.state.clouds["kubernetes"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred2.String(): cred2,
 		},
 		Regions: []string{"myregion"},
@@ -492,19 +492,19 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
 		Name:  "foobar",
 	}
-	cred2 := credential.ID{
+	cred2 := credential.Key{
 		Cloud: "aws",
 		Owner: s.userUUID.String(),
 		Name:  "foobar2",
 	}
 
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String(): cred,
 		},
 		Regions: []string{"myregion"},
@@ -526,13 +526,13 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 }
 
 func (s *serviceSuite) TestDeleteModel(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
 		Owner: s.userUUID.String(),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String(): cred,
 		},
 		Regions: []string{"myregion"},
@@ -567,13 +567,13 @@ func (s *serviceSuite) TestDeleteModelNotFound(c *gc.C) {
 // model with an agent version that is greater then that of the controller the
 // operation fails with a [modelerrors.AgentVersionNotSupported] error.
 func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
 		Owner: s.userUUID.String(),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String(): cred,
 		},
 		Regions: []string{"myregion"},
@@ -603,13 +603,13 @@ func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 // operation fails with a [modelerrors.AgentVersionNotSupported] error. This
 // fails because find tools will report [errors.NotFound].
 func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
-	cred := credential.ID{
+	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
 		Owner: s.userUUID.String(),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.ID{
+		Credentials: map[string]credential.Key{
 			cred.String(): cred,
 		},
 		Regions: []string{"myregion"},

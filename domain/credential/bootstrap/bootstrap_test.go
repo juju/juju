@@ -44,13 +44,13 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)
 
-	id := credential.ID{
+	key := credential.Key{
 		Cloud: "cirrus",
 		Owner: "fred",
 		Name:  "foo",
 	}
 
-	err = InsertCredential(id, cred)(ctx, s.TxnRunner(), s.NoopTxnRunner())
+	err = InsertCredential(key, cred)(ctx, s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var owner, cloudName string
