@@ -278,10 +278,11 @@ func (w *dbWorker) loop() (err error) {
 		}
 	}
 
-	// Always read the config on start-up in case it was
-	// written to disk while we couldn't be notified.
-	firstCheck := make(chan struct{})
-	close(firstCheck)
+	// Always check for actionable config on start-up in case
+	// it was written to disk while we couldn't be notified.
+	if err := w.handleClusterConfigChange(false); err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
@@ -327,12 +328,6 @@ func (w *dbWorker) loop() (err error) {
 			}
 
 			req.done <- nil
-
-		case <-firstCheck:
-			firstCheck = nil
-			if err := w.handleClusterConfigChange(false); err != nil {
-				return errors.Trace(err)
-			}
 
 		case <-w.cfg.ControllerConfigWatcher.Changes():
 			w.cfg.Logger.Infof("controller configuration changed on disk")
@@ -696,9 +691,10 @@ func (w *dbWorker) closeDatabase(namespace string) error {
 	return nil
 }
 
-// handleClusterConfigChange deals with cluster topology changes.
-// Note that this is always invoked from the worker loop and will never
-// race with Dqlite initialisation.
+// handleClusterConfigChange reconciles the cluster configuration on disk with
+// the current running state of this node, and takes action as appropriate.
+// The input argument determines whether the inability to read the config
+// should be considered an error condition.
 func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 	log := w.cfg.Logger
 
