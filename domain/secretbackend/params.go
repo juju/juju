@@ -5,8 +5,6 @@ package secretbackend
 
 import (
 	"time"
-
-	"github.com/juju/juju/core/secrets"
 )
 
 // UpsertSecretBackendParams are used to upsert a secret backend.
@@ -17,13 +15,4 @@ type UpsertSecretBackendParams struct {
 	TokenRotateInterval *time.Duration
 	NextRotateTime      *time.Time
 	Config              map[string]interface{}
-}
-
-// SecretBackendInfo contains information about a secret backend.
-type SecretBackendInfo struct {
-	secrets.SecretBackend
-
-	NumSecrets int
-	Status     string
-	Message    string
 }
