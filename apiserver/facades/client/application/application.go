@@ -451,24 +451,86 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 }
 
 // compatibilityApplicationDeployArgs ensures that Deploy calls from
-// a juju 3.x client will work against a juju 2.9.x controller. In
-// juju 3.x, params.ApplicationsDeploy was changed to remove series
+// clients such as juju 3.x, python-libjuju 3.x, etc. work against a 2.9.x
+// controller. To support these clients, we make no assumptions about
+// which of the 3 potential places the OS is specified. We check all 3,
+// assert any provided match, and fill in the remain series.
+//
+// In juju 3.x, params.ApplicationsDeploy was changed to remove series
 // however, the facade version was not changed, nor was the name of
 // the params.ApplicationsDeploy changed. Thus it appears you can use
 // a juju 3.x client to deploy from a juju 2.9 controller, however it
-// fails because the series was not found. Make those corrections here.
+// fails because the series was not found.
+//
+// NOTE: We do not mess with charm url because this is dangerous. Mutating
+// charm url can lead to unexpected results.
 func compatibilityApplicationDeployArgs(arg params.ApplicationDeploy) (params.ApplicationDeploy, error) {
-	origin := arg.CharmOrigin
-	if origin.Series != "" {
-		return arg, nil
-	}
-	originSeries, err := series.GetSeriesFromChannel(origin.Base.Name, origin.Base.Channel)
+	unifiedSeries, err := getUnifiedSeries(arg)
 	if err != nil {
-		return arg, err
+		return arg, errors.Annotatef(err, "cannot deploy application")
 	}
-	origin.Series = originSeries
-	arg.Series = originSeries
+	unifiedBase, err := series.GetBaseFromSeries(unifiedSeries)
+	if err != nil {
+		return arg, errors.Trace(err)
+	}
+
+	arg.Series = unifiedSeries
+	arg.CharmOrigin.Series = unifiedSeries
+	arg.CharmOrigin.Base.Name = unifiedBase.Name
+	arg.CharmOrigin.Base.Channel = unifiedBase.Channel.String()
+
 	return arg, nil
+}
+
+// getUnifiedSeries checks the multiple places a series can be provided in a params.ApplicationDeploy,
+// checks they match if they're provided, and returns the matching series
+func getUnifiedSeries(arg params.ApplicationDeploy) (string, error) {
+	argSeries := arg.Series
+
+	var originSeries string
+	var originBaseSeries string
+	if arg.CharmOrigin != nil {
+		originSeries = arg.CharmOrigin.Series
+
+		if arg.CharmOrigin.Base.Name != "" && arg.CharmOrigin.Base.Channel != "" {
+			var err error
+			originBaseSeries, err = series.GetSeriesFromChannel(arg.CharmOrigin.Base.Name, arg.CharmOrigin.Base.Channel)
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+		}
+	}
+
+	curl, err := charm.ParseURL(arg.CharmURL)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	curlSeries := curl.Series
+
+	// Ensure existence of a series, setting 'unified' to a present value
+	series := []string{argSeries, originSeries, originBaseSeries, curlSeries}
+	var unified string
+	for _, s := range series {
+		if unified == "" {
+			unified = s
+		}
+	}
+	if unified == "" {
+		return "", errors.Errorf("unable to determine series for %q", arg.ApplicationName)
+	}
+	// Ensure uniqueness, assert all provided series are equal
+	for _, s := range series {
+		if s != "" && s != unified {
+			var originBase string
+			if arg.CharmOrigin.Base.Name != "" && arg.CharmOrigin.Base.Channel != "" {
+				originBase = fmt.Sprintf("%s@%s", arg.CharmOrigin.Base.Name, arg.CharmOrigin.Base.Channel)
+			}
+			return "", errors.Errorf(
+				"inconsistent values for series detected. argument: %q, charm origin series: %q, charm origin base: %q, charm url: %q",
+				argSeries, originSeries, originBase, curlSeries)
+		}
+	}
+	return unified, nil
 }
 
 func applicationConfigSchema(modelType state.ModelType) (environschema.Fields, schema.Defaults, error) {

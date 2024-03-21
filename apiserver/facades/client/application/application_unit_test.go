@@ -1235,6 +1235,78 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
 }
 
+// Some clients we need to support deploy applications without any OS data in the
+// charm origin. (juju 2.8 does not understand the concept of a charm origin; pylibjuju
+// 3.0 does, but misses the series/base attributes). Instead it is provided via the
+// Series key.
+func (s *ApplicationSuite) TestDeploySeriesInArgOnly(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
+	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
+
+	track := "latest"
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			Series:          "bionic",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			NumUnits:        1,
+		}, {
+			ApplicationName: "bar",
+			CharmURL:        "cs:bar-0",
+			Series:          "bionic",
+			CharmOrigin: &params.CharmOrigin{
+				Source: "charm-store",
+				Risk:   "stable",
+				Track:  &track,
+			},
+			NumUnits: 1,
+		}, {
+			ApplicationName: "hub",
+			CharmURL:        "hub-0",
+			Series:          "bionic",
+			CharmOrigin: &params.CharmOrigin{
+				Source: "charm-hub",
+				Risk:   "stable",
+			},
+			NumUnits: 1,
+		}},
+	}
+	results, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
+	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
+	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
+}
+
+func (s *ApplicationSuite) TestDeployInconsistentSeries(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			Series:          "bionic",
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "focal"},
+			NumUnits:        1,
+		}},
+	}
+	results, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `.*inconsistent values for series detected.*`)
+}
+
 func (s *ApplicationSuite) expectDefaultK8sModelConfig() {
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"operator-storage": "k8s-operator-storage",
@@ -1619,6 +1691,68 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 	result, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
+}
+
+var unifiedSeriesTests = []struct {
+	desc     string
+	param    params.ApplicationDeploy
+	unified  string
+	errMatch string
+}{
+	{
+		desc:    "Series only",
+		param:   params.ApplicationDeploy{Series: "focal", CharmURL: "ch:foo"},
+		unified: "focal",
+	},
+	{
+		desc: "All present",
+		param: params.ApplicationDeploy{
+			Series:      "focal",
+			CharmURL:    "ch:focal/foo",
+			CharmOrigin: &params.CharmOrigin{Series: "focal", Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
+		},
+		unified: "focal",
+	},
+	{
+		desc: "Clash",
+		param: params.ApplicationDeploy{
+			Series:      "jammy",
+			CharmURL:    "ch:foo",
+			CharmOrigin: &params.CharmOrigin{Series: "focal"},
+		},
+		errMatch: `.*inconsistent values for series detected. argument: "jammy", charm origin series: "focal".*`,
+	},
+	{
+		desc: "Clash with base",
+		param: params.ApplicationDeploy{
+			Series:      "jammy",
+			CharmURL:    "ch:foo",
+			CharmOrigin: &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
+		},
+		errMatch: `.*inconsistent values for series detected. argument: "jammy".* charm origin base: "ubuntu@20.04".*`,
+	},
+	{
+		desc: "No series",
+		param: params.ApplicationDeploy{
+			ApplicationName: "foo",
+			CharmURL:        "ch:foo",
+			CharmOrigin:     &params.CharmOrigin{},
+		},
+		errMatch: `unable to determine series for "foo"`,
+	},
+}
+
+func (s *ApplicationSuite) TestGetUnifiedSeries(c *gc.C) {
+	for i, t := range unifiedSeriesTests {
+		c.Logf("Test %d: %s", i, t.desc)
+		unified, err := application.GetUnifiedSeries(t.param)
+		if t.errMatch == "" {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(unified, gc.Equals, t.unified)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.errMatch)
+		}
+	}
 }
 
 func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
