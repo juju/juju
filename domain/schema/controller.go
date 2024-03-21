@@ -401,7 +401,7 @@ CREATE TABLE model_metadata (
         REFERENCES            cloud_credential(uuid),
     CONSTRAINT            fk_model_metadata_secret_backend
         FOREIGN KEY           (secret_backend_uuid)
-        REFERENCES            secret_backend(uuid)
+        REFERENCES            secret_backend(uuid),
     CONSTRAINT            fk_model_metadata_model_type_id
         FOREIGN KEY           (model_type_id)
         REFERENCES            model_type(id),
@@ -430,6 +430,7 @@ SELECT m.uuid,
        mm.name,
        mm.owner_uuid,
        u.name        AS owner_name
+       mm.secret_backend_uuid
 FROM model_list m
 INNER JOIN model_metadata mm ON m.uuid = mm.model_uuid
 INNER JOIN cloud c ON mm.cloud_uuid = c.uuid
