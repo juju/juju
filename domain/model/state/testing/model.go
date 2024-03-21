@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
@@ -40,6 +41,7 @@ func CreateTestModel(
 		"test-user",
 		"test-user",
 		userUUID,
+		permission.ControllerForAccess(permission.SuperuserAccess),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

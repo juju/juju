@@ -5,7 +5,6 @@ package permission
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/database"
 )
 
 // AccessSpec defines the attributes that can be set when adding a new
@@ -57,7 +56,12 @@ func ControllerForAccess(access Access) AccessSpec {
 		Access: access,
 		Target: ID{
 			ObjectType: Controller,
-			Key:        database.ControllerNS,
+			// This should be controllerNS from the core/database package, but
+			// using that import will cause the whole of the core/database
+			// package into the api client package.
+			// For now I've created a test to ensure that the value is correct.
+			// TODO (stickupkid): Move controllerNS to a namespace package.
+			Key: "controller",
 		},
 	}
 }

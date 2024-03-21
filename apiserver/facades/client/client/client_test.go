@@ -191,6 +191,7 @@ func (s *clientWatchSuite) TestClientWatchAllReadPermission(c *gc.C) {
 		DisplayName: "Fred Flintstone",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("ro-password")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

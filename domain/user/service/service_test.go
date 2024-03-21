@@ -62,6 +62,7 @@ func (s *serviceSuite) TestAddUserAlreadyExists(c *gc.C) {
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
 		CreatorUUID: newUUID(c),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
 }
@@ -77,6 +78,7 @@ func (s *serviceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
 		CreatorUUID: newUUID(c),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIs, usererrors.CreatorUUIDNotFound)
 }
@@ -88,8 +90,10 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 	userUUID := newUUID(c)
 	creatorUUID := newUUID(c)
 
+	perms := permission.ControllerForAccess(permission.LoginAccess)
+
 	s.state.EXPECT().AddUserWithPasswordHash(
-		gomock.Any(), userUUID, "valid", "display", creatorUUID, permission.ReadAccess, gomock.Any(), gomock.Any()).Return(nil)
+		gomock.Any(), userUUID, "valid", "display", creatorUUID, perms, gomock.Any(), gomock.Any()).Return(nil)
 
 	pass := auth.NewPassword("password")
 
@@ -99,7 +103,7 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 		DisplayName: "display",
 		Password:    &pass,
 		CreatorUUID: creatorUUID,
-		Permission:  permission.ControllerForAccess(permission.ReadAccess),
+		Permission:  perms,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -122,6 +126,7 @@ func (s *serviceSuite) TestAddUserWithPasswordNotValid(c *gc.C) {
 		DisplayName: "display",
 		Password:    &badPass,
 		CreatorUUID: creatorUUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIs, auth.ErrPasswordNotValid)
 }
