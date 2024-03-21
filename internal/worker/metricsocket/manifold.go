@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package controlsocket
+package metricsocket
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ManifoldConfig describes the dependencies required by the controlsocket worker.
+// ManifoldConfig describes the dependencies required by the metricsocket worker.
 type ManifoldConfig struct {
 	ServiceFactoryName string
 	Logger             Logger
@@ -32,7 +32,7 @@ type ManifoldConfig struct {
 	StateName string
 }
 
-// Manifold returns a Manifold that encapsulates the controlsocket worker.
+// Manifold returns a Manifold that encapsulates the metricsocket worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{

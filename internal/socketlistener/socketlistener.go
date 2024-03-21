@@ -97,7 +97,7 @@ func (sl *SocketListener) Wait() error {
 	return sl.tomb.Wait()
 }
 
-// run listens on the control socket and handles requests.
+// run listens on the socket and handles requests.
 func (sl *SocketListener) run() error {
 	router := mux.NewRouter()
 	sl.config.RegisterHandlers(router)

@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 	lxdbroker "github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
-	"github.com/juju/juju/internal/worker/controlsocket"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -84,6 +83,7 @@ import (
 	"github.com/juju/juju/internal/worker/logsink"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machiner"
+	"github.com/juju/juju/internal/worker/metricsocket"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
@@ -830,13 +830,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		// The controlsocket worker runs on the controller machine.
-		controlSocketName: ifController(controlsocket.Manifold(controlsocket.ManifoldConfig{
+		// The metricsocket worker runs on the controller machine.
+		metricSocketName: ifController(metricsocket.Manifold(metricsocket.ManifoldConfig{
 			ServiceFactoryName: serviceFactoryName,
-			Logger:             loggo.GetLogger("juju.worker.controlsocket"),
-			NewWorker:          controlsocket.NewWorker,
-			NewSocketListener:  controlsocket.NewSocketListener,
-			SocketName:         path.Join(agentConfig.DataDir(), "control.socket"),
+			Logger:             loggo.GetLogger("juju.worker.metricsocket"),
+			NewWorker:          metricsocket.NewWorker,
+			NewSocketListener:  metricsocket.NewSocketListener,
+			SocketName:         path.Join(agentConfig.DataDir(), "metric.socket"),
 			// TODO (stickupkid): Remove state once we add permissions.
 			StateName: stateName,
 		})),
@@ -1353,5 +1353,5 @@ const (
 	charmhubHTTPClientName = "charmhub-http-client"
 	s3HTTPClientName       = "s3-http-client"
 
-	controlSocketName = "control-socket"
+	metricSocketName = "metric-socket"
 )

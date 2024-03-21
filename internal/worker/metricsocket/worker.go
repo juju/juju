@@ -3,7 +3,7 @@
 
 //go:build linux
 
-package controlsocket
+package metricsocket
 
 import (
 	"context"
@@ -92,7 +92,7 @@ type Logger interface {
 	Tracef(string, ...any)
 }
 
-// Config represents configuration for the controlsocket worker.
+// Config represents configuration for the metricsocket worker.
 type Config struct {
 	// UserService is the user service for the model.
 	UserService UserService
@@ -126,7 +126,7 @@ func (config Config) Validate() error {
 	return nil
 }
 
-// Worker is a controlsocket worker.
+// Worker is a metricsocket worker.
 type Worker struct {
 	catacomb catacomb.Catacomb
 
@@ -135,7 +135,7 @@ type Worker struct {
 	logger            Logger
 }
 
-// NewWorker returns a controlsocket worker with the given config.
+// NewWorker returns a metricsocket worker with the given config.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -153,7 +153,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ShutdownTimeout:  500 * time.Millisecond,
 	})
 	if err != nil {
-		return nil, errors.Annotate(err, "control socket listener:")
+		return nil, errors.Annotate(err, "metric socket listener:")
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
