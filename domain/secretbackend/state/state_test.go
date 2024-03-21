@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -57,13 +56,7 @@ func (s *stateSuite) createModel(c *gc.C) coremodel.UUID {
 		userUUID,
 		// TODO (stickupkid): This should be AdminAccess, but we don't have
 		// a model to set the user as the owner of.
-		permission.AccessSpec{
-			Access: permission.SuperuserAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        database.ControllerNS,
-			},
-		},
+		permission.ControllerForAccess(permission.SuperuserAccess),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/auth"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -42,6 +43,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 		DisplayName: "Bob Brown",
 		Password:    ptr(auth.NewPassword("password")),
 		CreatorUUID: s.AdminUserUUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	user, err := userService.GetUser(context.Background(), userUUID)

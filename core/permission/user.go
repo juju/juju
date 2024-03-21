@@ -5,8 +5,11 @@ package permission
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/database"
 )
 
+// AccessSpec defines the attributes that can be set when adding a new
+// access.
 type AccessSpec struct {
 	Target ID
 	Access Access
@@ -45,4 +48,16 @@ func (u UserAccessSpec) Validate() error {
 		return err
 	}
 	return nil
+}
+
+// ControllerForAccess is the access spec for the controller
+// login access.
+func ControllerForAccess(access Access) AccessSpec {
+	return AccessSpec{
+		Access: access,
+		Target: ID{
+			ObjectType: Controller,
+			Key:        database.ControllerNS,
+		},
+	}
 }

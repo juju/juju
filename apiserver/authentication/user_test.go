@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
@@ -93,6 +94,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -115,6 +117,7 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *gc.C) {
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = userService.DisableUserAuthentication(context.Background(), "bobbrown")
@@ -138,6 +141,7 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *gc.C) {
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = userService.RemoveUser(context.Background(), "bobbrown")
@@ -161,6 +165,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -181,6 +186,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 		Name:        "bob",
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -216,6 +222,7 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *gc.C) {
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -245,6 +252,7 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *gc.C) {
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = userService.DisableUserAuthentication(context.Background(), "bobbrown")
@@ -276,6 +284,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = userService.RemoveUser(context.Background(), "bobbrown")
