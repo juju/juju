@@ -28,7 +28,7 @@ func RegisterExport(coordinator Coordinator) {
 // ExportService provides a subset of the credential domain
 // service methods needed for credential export.
 type ExportService interface {
-	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -58,19 +58,19 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		// Not set.
 		return nil
 	}
-	id := credential.ID{
+	key := credential.Key{
 		Cloud: credInfo.Cloud(),
 		Owner: credInfo.Owner(),
 		Name:  credInfo.Name(),
 	}
-	cred, err := e.service.CloudCredential(ctx, id)
+	cred, err := e.service.CloudCredential(ctx, key)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner:      names.NewUserTag(id.Owner),
-		Cloud:      names.NewCloudTag(id.Cloud),
-		Name:       id.Name,
+		Owner:      names.NewUserTag(key.Owner),
+		Cloud:      names.NewCloudTag(key.Cloud),
+		Name:       key.Name,
 		AuthType:   string(cred.AuthType()),
 		Attributes: cred.Attributes(),
 	})

@@ -241,7 +241,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		Owner:        adminUserUUID,
 		Cloud:        stateParams.ControllerCloud.Name,
 		CloudRegion:  stateParams.ControllerCloudRegion,
-		Credential:   credential.IdFromTag(cloudCredTag),
+		Credential:   credential.KeyFromTag(cloudCredTag),
 		UUID:         controllerModelUUID,
 	}
 	_, controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelArgs)
@@ -257,7 +257,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		addAdminUser,
 		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
 		cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
-		credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
+		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		controllerModelCreateFunc,
 		modelbootstrap.CreateReadOnlyModel(controllerModelArgs.AsReadOnly()),

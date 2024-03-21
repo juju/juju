@@ -49,9 +49,9 @@ func (s *exportSuite) TestExport(c *gc.C) {
 		Name:  "foo",
 	})
 
-	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)
-	s.service.EXPECT().CloudCredential(gomock.Any(), id).
+	s.service.EXPECT().CloudCredential(gomock.Any(), key).
 		Times(1).
 		Return(cred, nil)
 
@@ -73,8 +73,8 @@ func (s *exportSuite) TestExportNotFound(c *gc.C) {
 		Name:  "foo",
 	})
 
-	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
-	s.service.EXPECT().CloudCredential(gomock.Any(), id).
+	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.Any(), key).
 		Times(1).
 		Return(cloud.Credential{}, errors.NotFound)
 

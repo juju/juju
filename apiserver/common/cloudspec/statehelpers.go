@@ -119,6 +119,6 @@ func MakeCloudSpecCredentialContentWatcherForModel(st *state.State, credentialSe
 		if !exists {
 			return nil, nil
 		}
-		return credentialService.WatchCredential(ctx, credential.IdFromTag(credentialTag))
+		return credentialService.WatchCredential(ctx, credential.KeyFromTag(credentialTag))
 	}
 }

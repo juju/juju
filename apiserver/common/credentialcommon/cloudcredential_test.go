@@ -37,7 +37,7 @@ func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 	credentialService := credentialcommon.NewMockCredentialService(ctrl)
 	api := credentialcommon.NewCredentialManagerAPI(s.backend, credentialService)
 
-	credentialService.EXPECT().InvalidateCredential(gomock.Any(), credential.IdFromTag(s.backend.tag), "not again")
+	credentialService.EXPECT().InvalidateCredential(gomock.Any(), credential.KeyFromTag(s.backend.tag), "not again")
 
 	result, err := api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -54,7 +54,7 @@ func (s *CredentialSuite) TestInvalidateModelCredentialError(c *gc.C) {
 
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
-	credentialService.EXPECT().InvalidateCredential(gomock.Any(), credential.IdFromTag(s.backend.tag), "not again")
+	credentialService.EXPECT().InvalidateCredential(gomock.Any(), credential.KeyFromTag(s.backend.tag), "not again")
 
 	result, err := api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)

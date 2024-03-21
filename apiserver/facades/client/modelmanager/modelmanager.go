@@ -66,7 +66,7 @@ type ModelConfigService interface {
 // ModelService defines a interface for interacting with the underlying state.
 type ModelService interface {
 	CreateModel(context.Context, model.ModelCreationArgs) (coremodel.UUID, error)
-	DefaultModelCloudNameAndCredential(context.Context) (string, credential.ID, error)
+	DefaultModelCloudNameAndCredential(context.Context) (string, credential.Key, error)
 	DeleteModel(context.Context, coremodel.UUID) error
 }
 
@@ -83,8 +83,8 @@ type CloudService interface {
 
 // CredentialService exposes State methods needed by credential manager.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, id credential.ID) (jujucloud.Credential, error)
-	InvalidateCredential(ctx context.Context, id credential.ID, reason string) error
+	CloudCredential(ctx context.Context, key credential.Key) (jujucloud.Credential, error)
+	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
 }
 
 // UserService defines a interface for interacting the users of a controller.
@@ -340,7 +340,7 @@ func (m *ModelManagerAPI) createModelNew(ctx context.Context, uuid string, args 
 			return errors.Trace(err)
 		}
 
-		creationArgs.Credential = credential.IdFromTag(cloudCredentialTag)
+		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
 	}
 
 	_, err = m.modelService.CreateModel(ctx, creationArgs)
@@ -452,7 +452,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 	var cred *jujucloud.Credential
 	if cloudCredentialTag != (names.CloudCredentialTag{}) {
-		credentialValue, err := m.credentialService.CloudCredential(ctx, credential.IdFromTag(cloudCredentialTag))
+		credentialValue, err := m.credentialService.CloudCredential(ctx, credential.KeyFromTag(cloudCredentialTag))
 		if err != nil {
 			return result, errors.Annotate(err, "getting credential")
 		}
@@ -905,7 +905,7 @@ func (m *ModelManagerAPI) fillInStatusBasedOnCloudCredentialValidity(ctx context
 
 	// TODO(wallyworld) - bulk query
 	for tag := range credentialModels {
-		cred, err := m.credentialService.CloudCredential(ctx, credential.IdFromTag(tag))
+		cred, err := m.credentialService.CloudCredential(ctx, credential.KeyFromTag(tag))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1049,7 +1049,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
-			cred, err := m.credentialService.CloudCredential(ctx, credential.IdFromTag(credentialTag))
+			cred, err := m.credentialService.CloudCredential(ctx, credential.KeyFromTag(credentialTag))
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}

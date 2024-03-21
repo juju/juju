@@ -21,7 +21,7 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 type CredentialService interface {
-	WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error)
+	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }
 
 // NewAgentAPIV3 returns an object implementing version 3 of the Agent API

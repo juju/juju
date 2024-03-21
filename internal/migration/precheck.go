@@ -397,7 +397,7 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 		return errors.New("model is being imported as part of another migration")
 	}
 	if credTag, found := model.CloudCredentialTag(); found {
-		creds, err := ctx.credentialService.CloudCredential(stdCtx, credential.IdFromTag(credTag))
+		creds, err := ctx.credentialService.CloudCredential(stdCtx, credential.KeyFromTag(credTag))
 		if err != nil {
 			return errors.Trace(err)
 		}

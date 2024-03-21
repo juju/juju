@@ -65,7 +65,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
-				Credential: credential.ID{
+				Credential: credential.Key{
 					Owner: "wallyworld",
 				},
 				Name:  "my-awesome-model",
@@ -96,7 +96,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
-				Credential: credential.ID{
+				Credential: credential.Key{
 					Cloud: "cloud",
 					Owner: "wallyworld",
 					Name:  "mycred",

@@ -175,9 +175,9 @@ type credentialGetter struct {
 	cred *jujucloud.Credential
 }
 
-func (c credentialGetter) CloudCredential(_ stdcontext.Context, id credential.ID) (jujucloud.Credential, error) {
+func (c credentialGetter) CloudCredential(_ stdcontext.Context, key credential.Key) (jujucloud.Credential, error) {
 	if c.cred == nil {
-		return jujucloud.Credential{}, errors.NotFoundf("credential %q", id)
+		return jujucloud.Credential{}, errors.NotFoundf("credential %q", key)
 	}
 	return *c.cred, nil
 }

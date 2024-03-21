@@ -31,7 +31,7 @@ type CredentialValidatorV2 interface {
 
 type CredentialService interface {
 	common.CredentialService
-	InvalidateCredential(ctx context.Context, id credential.ID, reason string) error
+	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
 }
 
 type CredentialValidatorAPI struct {
@@ -87,7 +87,7 @@ func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag para
 	}
 
 	result := params.NotifyWatchResult{}
-	watch, err := api.credentialService.WatchCredential(ctx, credential.IdFromTag(credentialTag))
+	watch, err := api.credentialService.WatchCredential(ctx, credential.KeyFromTag(credentialTag))
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -146,7 +146,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 	}
 
 	result.Credential = modelCredentialTag
-	credential, err := api.credentialService.CloudCredential(ctx, credential.IdFromTag(modelCredentialTag))
+	credential, err := api.credentialService.CloudCredential(ctx, credential.KeyFromTag(modelCredentialTag))
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)

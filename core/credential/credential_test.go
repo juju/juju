@@ -16,12 +16,12 @@ type typeSuite struct {
 
 var _ = gc.Suite(&typeSuite{})
 
-func (s *typeSuite) TestCredentialIdIsZero(c *gc.C) {
-	c.Assert(ID{}.IsZero(), jc.IsTrue)
+func (s *typeSuite) TestCredentialKeyIsZero(c *gc.C) {
+	c.Assert(Key{}.IsZero(), jc.IsTrue)
 }
 
-func (s *typeSuite) TestCredentialIdIsNotZero(c *gc.C) {
-	tests := []ID{
+func (s *typeSuite) TestCredentialKeyIsNotZero(c *gc.C) {
+	tests := []Key{
 		{
 			Owner: "wallyworld",
 		},
@@ -43,13 +43,13 @@ func (s *typeSuite) TestCredentialIdIsNotZero(c *gc.C) {
 	}
 }
 
-func (s *typeSuite) TestCredentialIdValidate(c *gc.C) {
+func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 	tests := []struct {
-		Id  ID
+		Key Key
 		Err error
 	}{
 		{
-			Id: ID{
+			Key: Key{
 				Cloud: "",
 				Name:  "wallyworld",
 				Owner: "wallyworld",
@@ -57,7 +57,7 @@ func (s *typeSuite) TestCredentialIdValidate(c *gc.C) {
 			Err: errors.NotValid,
 		},
 		{
-			Id: ID{
+			Key: Key{
 				Cloud: "my-cloud",
 				Name:  "",
 				Owner: "wallyworld",
@@ -65,7 +65,7 @@ func (s *typeSuite) TestCredentialIdValidate(c *gc.C) {
 			Err: errors.NotValid,
 		},
 		{
-			Id: ID{
+			Key: Key{
 				Cloud: "my-cloud",
 				Name:  "wallyworld",
 				Owner: "",
@@ -73,7 +73,7 @@ func (s *typeSuite) TestCredentialIdValidate(c *gc.C) {
 			Err: errors.NotValid,
 		},
 		{
-			Id: ID{
+			Key: Key{
 				Cloud: "my-cloud",
 				Name:  "wallyworld",
 				Owner: "wallyworld",
@@ -83,7 +83,7 @@ func (s *typeSuite) TestCredentialIdValidate(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		err := test.Id.Validate()
+		err := test.Key.Validate()
 		if test.Err == nil {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {

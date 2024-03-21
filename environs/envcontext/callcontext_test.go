@@ -39,12 +39,12 @@ func (s *CallContextSuite) TestWithValidation(c *gc.C) {
 }
 
 func (s *CallContextSuite) TestNewCredentialInvalidator(c *gc.C) {
-	idGetter := func() (credential.ID, error) {
-		return credential.ID{Name: "foo"}, nil
+	keyGetter := func() (credential.Key, error) {
+		return credential.Key{Name: "foo"}, nil
 	}
 	called := ""
-	invalidate := func(ctx context.Context, id credential.ID, reason string) error {
-		c.Assert(id, jc.DeepEquals, credential.ID{Name: "foo"})
+	invalidate := func(ctx context.Context, key credential.Key, reason string) error {
+		c.Assert(key, jc.DeepEquals, credential.Key{Name: "foo"})
 		called = reason
 		return nil
 	}
@@ -53,7 +53,7 @@ func (s *CallContextSuite) TestNewCredentialInvalidator(c *gc.C) {
 		legacyCalled = reason
 		return nil
 	}
-	invalidator := NewCredentialInvalidator(idGetter, invalidate, legacyInvalidate)
+	invalidator := NewCredentialInvalidator(keyGetter, invalidate, legacyInvalidate)
 	err := invalidator.InvalidateModelCredential(context.Background(), "bad")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, "bad")

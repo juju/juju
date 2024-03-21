@@ -76,9 +76,9 @@ func (s *importSuite) TestImport(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"hello": "world"})
-	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
-	s.service.EXPECT().CloudCredential(gomock.All(), id).Times(1).Return(cloud.Credential{}, errors.NotFound)
-	s.service.EXPECT().UpdateCloudCredential(gomock.Any(), id, cred).Times(1)
+	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cloud.Credential{}, errors.NotFound)
+	s.service.EXPECT().UpdateCloudCredential(gomock.Any(), key, cred).Times(1)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
@@ -100,8 +100,8 @@ func (s *importSuite) TestImportExistingMatches(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"hello": "world"})
-	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
-	s.service.EXPECT().CloudCredential(gomock.All(), id).Times(1).Return(cred, nil)
+	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
@@ -123,8 +123,8 @@ func (s *importSuite) TestImportExistingAuthTypeMisMatch(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"hello": "world"})
-	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
-	s.service.EXPECT().CloudCredential(gomock.All(), id).Times(1).Return(cred, nil)
+	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
@@ -146,8 +146,8 @@ func (s *importSuite) TestImportExistingAttributesMisMatch(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"goodbye": "world"})
-	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
-	s.service.EXPECT().CloudCredential(gomock.All(), id).Times(1).Return(cred, nil)
+	key := credential.Key{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)

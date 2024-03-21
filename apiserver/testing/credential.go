@@ -24,14 +24,14 @@ type credentialGetter struct {
 	cred *cloud.Credential
 }
 
-func (c credentialGetter) CloudCredential(_ context.Context, id credential.ID) (cloud.Credential, error) {
+func (c credentialGetter) CloudCredential(_ context.Context, key credential.Key) (cloud.Credential, error) {
 	if c.cred == nil {
-		return cloud.Credential{}, errors.NotFoundf("credential %q", id)
+		return cloud.Credential{}, errors.NotFoundf("credential %q", key)
 	}
 	return *c.cred, nil
 }
 
-func (c credentialGetter) InvalidateCredential(_ context.Context, _ credential.ID, _ string) error {
+func (c credentialGetter) InvalidateCredential(_ context.Context, _ credential.Key, _ string) error {
 	return nil
 }
 

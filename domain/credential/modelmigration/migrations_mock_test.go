@@ -78,7 +78,7 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CloudCredential mocks base method.
-func (m *MockImportService) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud.Credential, error) {
+func (m *MockImportService) CloudCredential(arg0 context.Context, arg1 credential.Key) (cloud.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(cloud.Credential)
@@ -93,7 +93,7 @@ func (mr *MockImportServiceMockRecorder) CloudCredential(arg0, arg1 any) *gomock
 }
 
 // UpdateCloudCredential mocks base method.
-func (m *MockImportService) UpdateCloudCredential(arg0 context.Context, arg1 credential.ID, arg2 cloud.Credential) error {
+func (m *MockImportService) UpdateCloudCredential(arg0 context.Context, arg1 credential.Key, arg2 cloud.Credential) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCloudCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -130,7 +130,7 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 }
 
 // CloudCredential mocks base method.
-func (m *MockExportService) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud.Credential, error) {
+func (m *MockExportService) CloudCredential(arg0 context.Context, arg1 credential.Key) (cloud.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(cloud.Credential)

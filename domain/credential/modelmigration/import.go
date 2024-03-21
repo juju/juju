@@ -31,8 +31,8 @@ func RegisterImport(coordinator Coordinator) {
 // ImportService provides a subset of the credential domain
 // service methods needed for credential import.
 type ImportService interface {
-	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
-	UpdateCloudCredential(context.Context, credential.ID, cloud.Credential) error
+	CloudCredential(context.Context, credential.Key) (cloud.Credential, error)
+	UpdateCloudCredential(context.Context, credential.Key, cloud.Credential) error
 }
 
 type importOperation struct {
@@ -59,22 +59,22 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	// Need to add credential or make sure an existing credential
 	// matches.
-	id := credential.ID{
+	key := credential.Key{
 		Cloud: cred.Cloud(),
 		Owner: cred.Owner(),
 		Name:  cred.Name(),
 	}
-	if err := id.Validate(); err != nil {
+	if err := key.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
-	existing, err := i.service.CloudCredential(ctx, id)
+	existing, err := i.service.CloudCredential(ctx, key)
 
 	if errors.Is(err, errors.NotFound) {
 		credential := cloud.NewCredential(
 			cloud.AuthType(cred.AuthType()),
 			cred.Attributes())
-		return errors.Trace(i.service.UpdateCloudCredential(ctx, id, credential))
+		return errors.Trace(i.service.UpdateCloudCredential(ctx, key, credential))
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -86,7 +86,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("credential attribute mismatch: %v != %v", existing.Attributes(), cred.Attributes())
 	}
 	if existing.Revoked {
-		return errors.Errorf("credential %q is revoked", id)
+		return errors.Errorf("credential %q is revoked", key)
 	}
 	return nil
 }

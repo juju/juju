@@ -40,7 +40,7 @@ type PrecheckBackend interface {
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }
 
 // UpgradeService provides access to upgrade information.

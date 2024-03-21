@@ -83,7 +83,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(), corecredential.ID{
+		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: "test-user",
 			Name:  "foobar",
@@ -102,7 +102,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
-			Credential: corecredential.ID{
+			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",
@@ -123,7 +123,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	c.Check(modelInfo, gc.Equals, coremodel.Model{
 		Cloud:       "my-cloud",
 		CloudRegion: "my-region",
-		Credential: corecredential.ID{
+		Credential: corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: "test-user",
 			Name:  "foobar",
@@ -153,7 +153,7 @@ func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, gc.Equals, "my-cloud")
-	c.Assert(credentialKey, gc.Equals, corecredential.ID{
+	c.Assert(credentialKey, gc.Equals, corecredential.Key{
 		Cloud: "my-cloud",
 		Owner: "test-user",
 		Name:  "foobar",
@@ -364,7 +364,7 @@ func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(), corecredential.ID{
+		context.Background(), corecredential.Key{
 			Cloud: "my-cloud2",
 			Owner: "test-user",
 			Name:  "foobar1",
@@ -377,7 +377,7 @@ func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	err = modelSt.UpdateCredential(
 		context.Background(),
 		m.uuid,
-		corecredential.ID{
+		corecredential.Key{
 			Cloud: "my-cloud2",
 			Owner: "test-user",
 			Name:  "foobar1",
@@ -411,7 +411,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(), corecredential.ID{
+		context.Background(), corecredential.Key{
 			Cloud: "minikube",
 			Owner: "test-user",
 			Name:  "foobar",
@@ -428,7 +428,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 		coremodel.CAAS,
 		model.ModelCreationArgs{
 			Cloud: "minikube",
-			Credential: corecredential.ID{
+			Credential: corecredential.Key{
 				Cloud: "minikube",
 				Owner: "test-user",
 				Name:  "foobar",
@@ -501,7 +501,7 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
-			Credential: corecredential.ID{
+			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",
@@ -521,7 +521,7 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
-			Credential: corecredential.ID{
+			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",

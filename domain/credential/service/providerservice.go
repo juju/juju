@@ -18,13 +18,13 @@ import (
 // ProviderState describes retrieval and persistence methods for storage.
 type ProviderState interface {
 	// CloudCredential returns the cloud credential for the given name, cloud, owner.
-	CloudCredential(ctx context.Context, id corecredential.ID) (credential.CloudCredentialResult, error)
+	CloudCredential(ctx context.Context, key corecredential.Key) (credential.CloudCredentialResult, error)
 
 	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 	WatchCredential(
 		ctx context.Context,
 		getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
-		id corecredential.ID,
+		key corecredential.Key,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -45,11 +45,11 @@ func NewProviderService(st ProviderState) *ProviderService {
 }
 
 // CloudCredential returns the cloud credential for the given tag.
-func (s *ProviderService) CloudCredential(ctx context.Context, id corecredential.ID) (cloud.Credential, error) {
-	if err := id.Validate(); err != nil {
+func (s *ProviderService) CloudCredential(ctx context.Context, key corecredential.Key) (cloud.Credential, error) {
+	if err := key.Validate(); err != nil {
 		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
 	}
-	credInfo, err := s.st.CloudCredential(ctx, id)
+	credInfo, err := s.st.CloudCredential(ctx, key)
 	if err != nil {
 		return cloud.Credential{}, errors.Trace(err)
 	}
@@ -79,9 +79,9 @@ func NewWatchableProviderService(st ProviderState, watcherFactory WatcherFactory
 
 // WatchCredential returns a watcher that observes changes to the specified
 // credential.
-func (s *WatchableProviderService) WatchCredential(ctx context.Context, id corecredential.ID) (watcher.NotifyWatcher, error) {
-	if err := id.Validate(); err != nil {
+func (s *WatchableProviderService) WatchCredential(ctx context.Context, key corecredential.Key) (watcher.NotifyWatcher, error) {
+	if err := key.Validate(); err != nil {
 		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
 	}
-	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, id)
+	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, key)
 }

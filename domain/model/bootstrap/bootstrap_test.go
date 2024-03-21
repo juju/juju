@@ -52,7 +52,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.credentialName = "test"
-	fn = credentialbootstrap.InsertCredential(credential.ID{
+	fn = credentialbootstrap.InsertCredential(credential.Key{
 		Cloud: s.cloudName,
 		Name:  s.credentialName,
 		Owner: coreuser.AdminUserName,
@@ -68,7 +68,7 @@ func (s *bootstrapSuite) TestUUIDIsCreated(c *gc.C) {
 	uuid, fn := CreateModel(model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.cloudName,
-		Credential: credential.ID{
+		Credential: credential.Key{
 			Cloud: s.cloudName,
 			Name:  s.credentialName,
 			Owner: coreuser.AdminUserName,
@@ -89,7 +89,7 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 	uuid, fn := CreateModel(model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.cloudName,
-		Credential: credential.ID{
+		Credential: credential.Key{
 			Cloud: s.cloudName,
 			Name:  s.credentialName,
 			Owner: coreuser.AdminUserName,

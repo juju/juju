@@ -52,8 +52,8 @@ type CloudService interface {
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
-	WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error)
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }
 
 // UnitRemover deletes a unit from the dqlite database.

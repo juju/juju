@@ -69,7 +69,7 @@ func CreateTestModel(
 
 	credSt := credentialstate.NewState(txnRunner)
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(), corecredential.ID{
+		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: "test-user",
 			Name:  "foobar",
@@ -88,7 +88,7 @@ func CreateTestModel(
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
-			Credential: corecredential.ID{
+			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",

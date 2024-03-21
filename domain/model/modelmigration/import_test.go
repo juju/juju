@@ -129,7 +129,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		AgentVersion: jujuversion.Current,
 		Cloud:        "AWS",
 		CloudRegion:  "region1",
-		Credential: credential.ID{
+		Credential: credential.Key{
 			Name:  "my-credential",
 			Owner: "tlm",
 			Cloud: "AWS",
@@ -187,7 +187,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		AgentVersion: jujuversion.Current,
 		Cloud:        "AWS",
 		CloudRegion:  "region1",
-		Credential: credential.ID{
+		Credential: credential.Key{
 			Name:  "my-credential",
 			Owner: "tlm",
 			Cloud: "AWS",

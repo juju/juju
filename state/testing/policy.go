@@ -100,9 +100,9 @@ type MockCredentialService struct {
 	Credential *cloud.Credential
 }
 
-func (m *MockCredentialService) CloudCredential(ctx stdcontext.Context, id credential.ID) (cloud.Credential, error) {
+func (m *MockCredentialService) CloudCredential(ctx stdcontext.Context, key credential.Key) (cloud.Credential, error) {
 	if m.Credential == nil {
-		return cloud.Credential{}, errors.NotFoundf("credential %q", id)
+		return cloud.Credential{}, errors.NotFoundf("credential %q", key)
 	}
 	return *m.Credential, nil
 }
