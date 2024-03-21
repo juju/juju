@@ -85,15 +85,6 @@ func NewUUID() (UUID, error) {
 	return UUID(uuid.String()), nil
 }
 
-// MustNewUUID is a convenience function for generating a new model uuid.
-func MustNewUUID() UUID {
-	uuid, err := NewUUID()
-	if err != nil {
-		panic(err)
-	}
-	return uuid
-}
-
 // String implements the stringer interface for UUID.
 func (u UUID) String() string {
 	return string(u)

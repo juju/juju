@@ -58,7 +58,7 @@ type DqliteInitializerFunc func(
 	mgr database.BootstrapNodeManager,
 	modelUUID model.UUID,
 	logger database.Logger,
-	concerns ...database.BootstrapOpt,
+	options ...database.BootstrapOpt,
 ) error
 
 // Logger describes methods for emitting log output.

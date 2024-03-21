@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
@@ -77,7 +77,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, model.MustNewUUID(), stubLogger{}, check)
+	err := BootstrapDqlite(context.Background(), mgr, modeltesting.GenModelUUID(c), stubLogger{}, check)
 	c.Assert(err, jc.ErrorIsNil)
 
 }
