@@ -131,6 +131,7 @@ func (rows SecretBackendRotationRows) toChanges(logger Logger) []watcher.SecretB
 		}
 		next := row.NextRotationTime
 		if !next.Valid {
+			// This should not happen because it's a NOT NULL field, but log a warning and skip the row.
 			logger.Warningf("secret backend %q has no next rotation time", change.ID)
 			continue
 		}

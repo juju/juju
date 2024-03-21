@@ -106,7 +106,7 @@ func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO: check if the backend is in use
+	// TODO: check if the backend is in use. JUJU-5707
 	// if !force {
 	// }
 	cfgStmt, err := sqlair.Prepare(`
@@ -121,7 +121,7 @@ DELETE FROM secret_backend_rotation WHERE backend_uuid = $M.uuid`, sqlair.M{})
 	}
 	// TODO: we should set it to the `default` backend once we start to include the
 	// `internal` and `k8s` backends in the database.
-	// For now, we reset it to NULL.
+	// For now, we reset it to NULL. JUJU-5708
 	modelMetadataStmt, err := sqlair.Prepare(`
 UPDATE model_metadata
 SET secret_backend_uuid = NULL
@@ -323,7 +323,7 @@ WHERE b.uuid IN ($S[:])`,
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, args).GetAll(&rows)
 		if errors.Is(err, sql.ErrNoRows) {
-			// This can only happen if the backends were deleted immediately after the rotation gets updated.
+			// This can happen only if the backends were deleted immediately after the rotation gets updated.
 			// We donnot want to trigger anything in this case.
 			return nil
 		}
