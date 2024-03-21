@@ -220,10 +220,10 @@ func (st *State) ReadUserAccessForTarget(ctx context.Context, subject string, ta
 		userAccess.Object = objectTag(target)
 		return nil
 	})
-	if err == nil {
-		return userAccess, nil
+	if err != nil {
+		return corepermission.UserAccess{}, errors.Trace(domain.CoerceError(err))
 	}
-	return corepermission.UserAccess{}, errors.Trace(domain.CoerceError(err))
+	return userAccess, nil
 }
 
 // ReadUserAccessLevelForTarget returns the subject's (user) access level
@@ -250,10 +250,10 @@ func (st *State) ReadUserAccessLevelForTarget(ctx context.Context, subject strin
 		userAccessType = corepermission.Access(accessType)
 		return nil
 	})
-	if err == nil {
-		return userAccessType, nil
+	if err != nil {
+		return userAccessType, errors.Trace(domain.CoerceError(err))
 	}
-	return userAccessType, errors.Trace(domain.CoerceError(err))
+	return userAccessType, nil
 }
 
 // ReadAllUserAccessForUser returns a slice of the user access the given
@@ -273,12 +273,12 @@ func (st *State) ReadAllUserAccessForUser(ctx context.Context, subject string) (
 			return errors.Trace(err)
 		}
 
-		permissions, err = st.readUsersPermissions(ctx, tx, user.UUID)
+		userPermissions, err := st.readUsersPermissions(ctx, tx, user.UUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		permissions, err = grantOnType(ctx, tx, permissions)
+		permissions, err = grantOnType(ctx, tx, userPermissions)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -533,7 +533,7 @@ SELECT &M.found_it FROM (
 	if len(foundIt) == 0 {
 		return "", fmt.Errorf("%q %w", targetKey, permissionerrors.TargetInvalid)
 	}
-	return "", fmt.Errorf("%q %w", targetKey, permissionerrors.TargetAlreadyExists)
+	return "", fmt.Errorf("%q %w", targetKey, permissionerrors.UniqueIdentifierIsNotUnique)
 }
 
 // objectTag returns a names.Tag for the given ID.
@@ -561,21 +561,21 @@ func (st *State) findAccessType(
 	grantOn, grantTo string,
 ) (string, string, error) {
 	findAccessTypeQuery := `
-SELECT type AS &M.access_type, permission.uuid AS &M.permission_uuid
+SELECT type AS &readUserPermission.access_type, permission.uuid AS &readUserPermission.uuid
 FROM permission_access_type
      JOIN permission ON permission_access_type.id = permission.permission_type_id
-WHERE permission.grant_on = $M.grant_on AND permission.grant_to = $M.grant_to
+WHERE permission.grant_on = $readUserPermission.grant_on AND permission.grant_to = $readUserPermission.grant_to
 `
-	findAccessTypeStmt, err := st.Prepare(findAccessTypeQuery, sqlair.M{})
+	findAccessTypeStmt, err := st.Prepare(findAccessTypeQuery, readUserPermission{})
 	if err != nil {
 		return "", "", errors.Annotate(err, "preparing select findAccessType query")
 	}
 
-	input := sqlair.M{
-		"grant_on": grantOn,
-		"grant_to": grantTo,
+	input := readUserPermission{
+		GrantTo: grantTo,
+		GrantOn: grantOn,
 	}
-	result := sqlair.M{}
+	result := readUserPermission{}
 	err = tx.Query(ctx, findAccessTypeStmt, input).Get(&result)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		return "", "", errors.Annotatef(permissionerrors.NotFound, "for %q on %q", grantTo, grantOn)
@@ -583,7 +583,7 @@ WHERE permission.grant_on = $M.grant_on AND permission.grant_to = $M.grant_to
 		return "", "", errors.Annotatef(err, "getting permission for %q on %q", grantTo, grantOn)
 	}
 
-	return result["access_type"].(string), result["permission_uuid"].(string), nil
+	return result.AccessType, result.UUID, nil
 }
 
 // readUsersPermissions returns all permissions for the grantTo, a user UUID.
