@@ -70,9 +70,15 @@ type ModelService interface {
 	DeleteModel(context.Context, coremodel.UUID) error
 }
 
+// ModelInfoService defines a interface for interacting with the underlying
+// state.
+type ModelInfoService interface {
+	CreateModel(context.Context, model.ReadOnlyModelCreationArgs) error
+}
+
 // ModelExporter defines a interface for exporting models.
 type ModelExporter interface {
-	ExportModelPartial(ctx context.Context, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
+	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 }
 
 // CloudService provides access to clouds.
@@ -103,6 +109,7 @@ type StateBackend interface {
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	modelService             ModelService
+	modelInfoService         ModelInfoService
 	modelConfigServiceGetter ModelConfigServiceGetter
 	state                    StateBackend
 	modelExporter            ModelExporter
@@ -119,6 +126,18 @@ type ModelManagerAPI struct {
 	model                    common.Model
 	getBroker                newCaasBrokerFunc
 	userService              UserService
+	controllerUUID           coremodel.UUID
+}
+
+// Services holds the services needed by the model manager api.
+type Services struct {
+	CloudService             CloudService
+	CredentialService        CredentialService
+	ModelService             ModelService
+	ModelInfoService         ModelInfoService
+	ModelConfigServiceGetter ModelConfigServiceGetter
+	UserService              UserService
+	ObjectStore              objectstore.ObjectStore
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -127,12 +146,8 @@ func NewModelManagerAPI(
 	st StateBackend,
 	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
-	cloudService CloudService,
-	credentialService CredentialService,
-	modelService ModelService,
-	modelConfigServiceGetter ModelConfigServiceGetter,
-	userService UserService,
-	store objectstore.ObjectStore,
+	controllerUUID coremodel.UUID,
+	services Services,
 	configSchemaSource config.ConfigSchemaSourceGetter,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
@@ -159,10 +174,10 @@ func NewModelManagerAPI(
 		state:                    st,
 		modelExporter:            modelExporter,
 		ctlrState:                ctlrSt,
-		cloudService:             cloudService,
-		credentialService:        credentialService,
+		cloudService:             services.CloudService,
+		credentialService:        services.CredentialService,
 		configSchemaSource:       configSchemaSource,
-		store:                    store,
+		store:                    services.ObjectStore,
 		getBroker:                getBroker,
 		check:                    blockChecker,
 		authorizer:               authorizer,
@@ -170,9 +185,11 @@ func NewModelManagerAPI(
 		apiUser:                  apiUser,
 		isAdmin:                  isAdmin,
 		model:                    m,
-		modelService:             modelService,
-		modelConfigServiceGetter: modelConfigServiceGetter,
-		userService:              userService,
+		modelService:             services.ModelService,
+		modelInfoService:         services.ModelInfoService,
+		modelConfigServiceGetter: services.ModelConfigServiceGetter,
+		userService:              services.UserService,
+		controllerUUID:           controllerUUID,
 	}, nil
 }
 
@@ -343,7 +360,26 @@ func (m *ModelManagerAPI) createModelNew(ctx context.Context, uuid string, args 
 		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
 	}
 
-	_, err = m.modelService.CreateModel(ctx, creationArgs)
+	// Create the model in the controller database.
+
+	modelUUID, err := m.modelService.CreateModel(ctx, creationArgs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We need to get the model type to pass to the model info service. This
+	// model info inserts read-only data into the model database, to avoid
+	// needing to pass the controller database around to get simple information.
+
+	modelType, err := m.modelService.ModelType(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := m.modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, modelType)); err != nil {
+		return errors.Trace(err)
+	}
+
 	return err
 }
 

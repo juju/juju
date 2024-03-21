@@ -322,6 +322,20 @@ func (mr *MockServiceFactoryMockRecorder) ModelDefaults() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelDefaults", reflect.TypeOf((*MockServiceFactory)(nil).ModelDefaults))
 }
 
+// ModelInfo mocks base method.
+func (m *MockServiceFactory) ModelInfo() *service10.ModelService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelInfo")
+	ret0, _ := ret[0].(*service10.ModelService)
+	return ret0
+}
+
+// ModelInfo indicates an expected call of ModelInfo.
+func (mr *MockServiceFactoryMockRecorder) ModelInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelInfo", reflect.TypeOf((*MockServiceFactory)(nil).ModelInfo))
+}
+
 // ObjectStore mocks base method.
 func (m *MockServiceFactory) ObjectStore() *service15.WatchableService {
 	m.ctrl.T.Helper()

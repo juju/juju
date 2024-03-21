@@ -5,7 +5,6 @@ package modelmanager_test
 
 import (
 	"context"
-	stdcontext "context"
 	"strings"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -173,12 +173,18 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		s.st, nil, s.ctlrSt,
-		&mockCloudService{
-			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
+		coremodel.UUID(s.st.ControllerModelUUID()),
+		modelmanager.Services{
+			CloudService: &mockCloudService{
+				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
+			},
+			CredentialService:        apiservertesting.ConstCredentialGetter(&cred),
+			ModelService:             nil,
+			ModelInfoService:         nil,
+			ModelConfigServiceGetter: nil,
+			UserService:              nil,
+			ObjectStore:              &mockObjectStore{},
 		},
-		apiservertesting.ConstCredentialGetter(&cred),
-		nil, nil, nil,
-		&mockObjectStore{},
 		state.NoopConfigSchemaSource,
 		nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model,
@@ -200,12 +206,18 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		s.st, nil, s.ctlrSt,
-		&mockCloudService{
-			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
+		coremodel.UUID(s.st.ControllerModelUUID()),
+		modelmanager.Services{
+			CloudService: &mockCloudService{
+				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
+			},
+			CredentialService:        apiservertesting.ConstCredentialGetter(&cred),
+			ModelService:             nil,
+			ModelInfoService:         nil,
+			ModelConfigServiceGetter: nil,
+			UserService:              nil,
+			ObjectStore:              &mockObjectStore{},
 		},
-		apiservertesting.ConstCredentialGetter(&cred),
-		nil, nil, nil,
-		&mockObjectStore{},
 		state.NoopConfigSchemaSource,
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model,
@@ -405,7 +417,7 @@ func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
 		start:  start,
 	}
 
-	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
+	results, err := s.modelmanager.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 
@@ -425,7 +437,7 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 		end:    end,
 	}
 
-	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
+	results, err := s.modelmanager.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 
@@ -437,7 +449,7 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
-	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
+	results, err := s.modelmanager.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -599,7 +611,7 @@ func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife st
 }
 
 func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr string) {
-	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
+	results, err := s.modelmanager.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{modelTag}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -947,7 +959,7 @@ func (st *mockState) LatestMigration() (state.ModelMigration, error) {
 	return st.migration, st.NextErr()
 }
 
-func (st *mockState) ModelConfig(stdcontext.Context) (*config.Config, error) {
+func (st *mockState) ModelConfig(context.Context) (*config.Config, error) {
 	st.MethodCall(st, "ModelConfig")
 	return st.modelConfig, st.NextErr()
 }
@@ -1296,11 +1308,11 @@ type mockCloudService struct {
 	clouds map[string]cloud.Cloud
 }
 
-func (m *mockCloudService) WatchCloud(ctx stdcontext.Context, name string) (watcher.NotifyWatcher, error) {
+func (m *mockCloudService) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	return nil, errors.NotSupported
 }
 
-func (m *mockCloudService) Cloud(ctx stdcontext.Context, name string) (*cloud.Cloud, error) {
+func (m *mockCloudService) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	cld, ok := m.clouds[name]
 	if !ok {
 		return nil, errors.NotFoundf("cloud %q", name)
@@ -1308,7 +1320,7 @@ func (m *mockCloudService) Cloud(ctx stdcontext.Context, name string) (*cloud.Cl
 	return &cld, nil
 }
 
-func (m *mockCloudService) ListAll(ctx stdcontext.Context) ([]cloud.Cloud, error) {
+func (m *mockCloudService) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
 	var result []cloud.Cloud
 	for _, cld := range m.clouds {
 		result = append(result, cld)

@@ -670,11 +670,11 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
+	providerTrackerName      = "provider-tracker"
 	providerUpgradeGateName  = "provider-upgrade-gate"
 	providerUpgradedFlagName = "provider-upgraded-flag"
 	providerUpgraderName     = "provider-upgrader"
 
-	providerTrackerName        = "provider-tracker"
 	undertakerName             = "undertaker"
 	computeProvisionerName     = "compute-provisioner"
 	storageProvisionerName     = "storage-provisioner"
