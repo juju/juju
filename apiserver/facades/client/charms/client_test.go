@@ -297,7 +297,7 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 		Force: false,
 	}
 	_, err = api.AddCharm(args)
-	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:jammy/testme"`)
+	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
 func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
