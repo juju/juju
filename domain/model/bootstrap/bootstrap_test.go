@@ -37,7 +37,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	uuid, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.ControllerForAccess(permission.SuperuserAccess))
-	err := fn(context.Background(), s.ControllerTxnRunner())
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.adminUserUUID = uuid
 
@@ -48,7 +48,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 	})
 
-	err = fn(context.Background(), s.ControllerTxnRunner())
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.credentialName = "test"
@@ -60,7 +60,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		cloud.NewCredential(cloud.EmptyAuthType, nil),
 	)
 
-	err = fn(context.Background(), s.ControllerTxnRunner())
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -77,7 +77,7 @@ func (s *bootstrapSuite) TestUUIDIsCreated(c *gc.C) {
 		Owner: s.adminUserUUID,
 	})
 
-	err := fn(context.Background(), s.ControllerTxnRunner())
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(uuid.String() == "", jc.IsFalse)
@@ -99,7 +99,7 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 		UUID:  modelUUID,
 	})
 
-	err := fn(context.Background(), s.ControllerTxnRunner())
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(uuid, gc.Equals, modelUUID)
@@ -120,6 +120,6 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 		CloudRegion: "myregion",
 	})
 
-	err := fn(context.Background(), s.ModelTxnRunner())
+	err := fn(context.Background(), s.NoopTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	_ "github.com/mattn/go-sqlite3"
@@ -131,14 +132,17 @@ func (s *DqliteSuite) TxnRunner() coredatabase.TxnRunner {
 	return s.trackedDB
 }
 
+// DBApp returns the dqlite app.
 func (s *DqliteSuite) DBApp() *app.App {
 	return s.dqlite
 }
 
+// RootPath returns the root path for the dqlite database.
 func (s *DqliteSuite) RootPath() string {
 	return s.rootPath
 }
 
+// DBPath returns the path to the dqlite database.
 func (s *DqliteSuite) DBPath() string {
 	return s.dbPath
 }
@@ -195,6 +199,13 @@ func (s *DqliteSuite) TxnRunnerFactory() func() (coredatabase.TxnRunner, error) 
 	}
 }
 
+// NoopTxnRunner returns a no-op transaction runner.
+// Each call to this function will return the same instance, which will return
+// a not implemented error when used.
+func (s *DqliteSuite) NoopTxnRunner() coredatabase.TxnRunner {
+	return noopTxnRunner{}
+}
+
 func (s *DqliteSuite) cleanupDB(c *gc.C, namespace string, db *sql.DB) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -214,4 +225,20 @@ func FindTCPPort(c *gc.C) int {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(l.Close(), jc.ErrorIsNil)
 	return l.Addr().(*net.TCPAddr).Port
+}
+
+type noopTxnRunner struct{}
+
+// Txn manages the application of a SQLair transaction within which the
+// input function is executed. See https://github.com/canonical/sqlair.
+// The input context can be used by the caller to cancel this process.
+func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) error) error {
+	return errors.NotImplemented
+}
+
+// StdTxn manages the application of a standard library transaction within
+// which the input function is executed.
+// The input context can be used by the caller to cancel this process.
+func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
+	return errors.NotImplemented
 }

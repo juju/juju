@@ -16,6 +16,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
+	internaldatabase "github.com/juju/juju/internal/database"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -41,7 +42,7 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // - [modelerrors.AgentVersionNotSupported]
 func CreateModel(
 	args model.ModelCreationArgs,
-) (coremodel.UUID, func(context.Context, database.TxnRunner) error) {
+) (coremodel.UUID, internaldatabase.BootstrapOpt) {
 	var uuidError error
 	uuid := args.UUID
 	if uuid == "" {
@@ -49,12 +50,12 @@ func CreateModel(
 	}
 
 	if uuidError != nil {
-		return coremodel.UUID(""), func(_ context.Context, _ database.TxnRunner) error {
+		return coremodel.UUID(""), func(_ context.Context, _, _ database.TxnRunner) error {
 			return fmt.Errorf("generating bootstrap model %q uuid: %w", args.Name, uuidError)
 		}
 	}
 
-	return uuid, func(ctx context.Context, db database.TxnRunner) error {
+	return uuid, func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
 			return fmt.Errorf("model creation args: %w", err)
 		}
@@ -73,7 +74,7 @@ func CreateModel(
 			return fmt.Errorf("invalid model uuid: %w", err)
 		}
 
-		return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			modelTypeState := modelTypeStateFunc(
 				func(ctx context.Context, cloudName string) (string, error) {
 					return state.CloudType()(ctx, tx, cloudName)
@@ -97,13 +98,13 @@ func CreateModel(
 // once created.
 func CreateReadOnlyModel(
 	args model.ReadOnlyModelCreationArgs,
-) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
+) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
 			return fmt.Errorf("model creation args: %w", err)
 		}
 
-		return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			return state.CreateReadOnlyModel(ctx, args, tx)
 		})
 	}

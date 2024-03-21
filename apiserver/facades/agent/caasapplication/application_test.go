@@ -44,7 +44,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.ServiceFactorySuite.SetUpTest(c)
 
 	controllerConfig := coretesting.FakeControllerConfig()
-	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), s.TxnRunner())
+	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.clock = testclock.NewClock(time.Now())

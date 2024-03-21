@@ -9,21 +9,21 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/controller"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
-	jujudatabase "github.com/juju/juju/internal/database"
+	internaldatabase "github.com/juju/juju/internal/database"
 )
 
 // InsertInitialControllerConfig inserts the initial controller configuration
 // into the database.
-func InsertInitialControllerConfig(cfg controller.Config) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
-		values, err := controller.EncodeToString(cfg)
+func InsertInitialControllerConfig(cfg jujucontroller.Config) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
+		values, err := jujucontroller.EncodeToString(cfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		fields, _, err := controller.ConfigSchema.ValidationSchema()
+		fields, _, err := jujucontroller.ConfigSchema.ValidationSchema()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -39,10 +39,10 @@ func InsertInitialControllerConfig(cfg controller.Config) func(context.Context, 
 
 		query := "INSERT INTO controller_config (key, value) VALUES (?, ?)"
 
-		return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Trace(controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			for k, v := range values {
 				if _, err := tx.ExecContext(ctx, query, k, v); err != nil {
-					if jujudatabase.IsErrConstraintPrimaryKey(errors.Cause(err)) {
+					if internaldatabase.IsErrConstraintPrimaryKey(errors.Cause(err)) {
 						return errors.AlreadyExistsf("controller configuration key %q", k)
 					}
 					return errors.Annotatef(err, "inserting controller configuration %q, %v", k, v)

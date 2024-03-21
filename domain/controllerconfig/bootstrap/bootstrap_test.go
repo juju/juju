@@ -22,7 +22,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	cfg := controller.Config{controller.CACertKey: testing.CACert}
-	err := InsertInitialControllerConfig(cfg)(context.Background(), s.TxnRunner())
+	err := InsertInitialControllerConfig(cfg)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var cert string

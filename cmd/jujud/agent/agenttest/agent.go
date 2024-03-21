@@ -21,6 +21,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -170,6 +171,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	err = database.BootstrapDqlite(
 		context.Background(),
 		database.NewNodeManager(conf, true, logger, coredatabase.NoopSlowQueryLogger{}),
+		modeltesting.GenModelUUID(c),
 		logger,
 	)
 	c.Assert(err, jc.ErrorIsNil)

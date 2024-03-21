@@ -15,17 +15,18 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/cloud/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // InsertCloud inserts the initial cloud during bootstrap.
-func InsertCloud(cloud cloud.Cloud) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
+func InsertCloud(cloud cloud.Cloud) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		cloudUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			if err := state.CreateCloud(ctx, tx, cloudUUID.String(), cloud); err != nil {
 				return errors.Annotate(err, "creating bootstrap cloud")
 			}
@@ -42,14 +43,14 @@ func InsertCloud(cloud cloud.Cloud) func(context.Context, database.TxnRunner) er
 func SetCloudDefaults(
 	cloudName string,
 	defaults map[string]any,
-) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
+) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		strDefaults, err := modelconfigservice.CoerceConfigForStorage(defaults)
 		if err != nil {
 			return fmt.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
 		}
 
-		err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		err = controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			return state.SetCloudDefaults(ctx, tx, cloudName, strDefaults)
 		})
 

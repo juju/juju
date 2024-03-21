@@ -11,13 +11,14 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/life"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // InsertMachine inserts a machine during bootstrap.
 // TODO - this just creates a minimal row for now.
-func InsertMachine(machineId string) func(context.Context, database.TxnRunner) error {
-	return func(ctx context.Context, db database.TxnRunner) error {
+func InsertMachine(machineId string) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
 
 		createMachine := `
 INSERT INTO machine (uuid, net_node_uuid, machine_id, life_id)
@@ -43,7 +44,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 			return errors.Trace(err)
 		}
 
-		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(model.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			createParams := sqlair.M{
 				"machine_uuid":  machineUUID.String(),
 				"net_node_uuid": nodeUUID.String(),

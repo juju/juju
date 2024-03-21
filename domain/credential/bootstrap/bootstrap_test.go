@@ -27,7 +27,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	ctx := context.Background()
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
-	err := cloudbootstrap.InsertCloud(cld)(ctx, s.TxnRunner())
+	err := cloudbootstrap.InsertCloud(cld)(ctx, s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	userUUID, err := user.NewUUID()
@@ -50,7 +50,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 		Name:  "foo",
 	}
 
-	err = InsertCredential(id, cred)(ctx, s.TxnRunner())
+	err = InsertCredential(id, cred)(ctx, s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var owner, cloudName string
