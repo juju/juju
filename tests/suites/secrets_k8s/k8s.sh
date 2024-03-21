@@ -10,7 +10,7 @@ run_secrets() {
 	# TODO(anvial): remove the revision flag once we update hello-kubecon charm
 	#  (https://discourse.charmhub.io/t/old-ingress-relation-removal/12944)
 	#  or we choose an alternative pair of charms to integrate.
-	juju --show-log deploy nginx-ingress-integrator nginx --channel=edge --revision=89
+	juju --show-log deploy nginx-ingress-integrator nginx --channel=latest/stable --revision=83
 	juju --show-log integrate nginx hello
 	juju --show-log trust nginx --scope=cluster
 
