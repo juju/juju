@@ -94,10 +94,10 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
 		controllerUUID,
 		Services{
+			ServiceFactoryGetter:     serviceFactoryGetter{ctx: ctx},
 			CloudService:             serviceFactory.Cloud(),
 			CredentialService:        serviceFactory.Credential(),
 			ModelService:             serviceFactory.Model(),
-			ModelInfoService:         serviceFactory.ModelInfo(),
 			ModelConfigServiceGetter: modelConfigGetter,
 			UserService:              serviceFactory.Access(),
 			ObjectStore:              ctx.ObjectStore(),

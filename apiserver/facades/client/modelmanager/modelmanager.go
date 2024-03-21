@@ -30,7 +30,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
-	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
@@ -53,51 +52,6 @@ var (
 
 type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.Broker, error)
 
-// ModelConfigServiceGetter provides a means to fetch the model config service
-// for a given model uuid.
-type ModelConfigServiceGetter func(coremodel.UUID) (ModelConfigService, error)
-
-// ModelConfigService describes the set of functions needed for working with a
-// models config.
-type ModelConfigService interface {
-	SetModelConfig(context.Context, map[string]any) error
-}
-
-// ModelService defines a interface for interacting with the underlying state.
-type ModelService interface {
-	CreateModel(context.Context, model.ModelCreationArgs) (coremodel.UUID, error)
-	DefaultModelCloudNameAndCredential(context.Context) (string, credential.Key, error)
-	DeleteModel(context.Context, coremodel.UUID) error
-}
-
-// ModelInfoService defines a interface for interacting with the underlying
-// state.
-type ModelInfoService interface {
-	CreateModel(context.Context, model.ReadOnlyModelCreationArgs) error
-}
-
-// ModelExporter defines a interface for exporting models.
-type ModelExporter interface {
-	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	common.CloudService
-	ListAll(ctx context.Context) ([]jujucloud.Cloud, error)
-}
-
-// CredentialService exposes State methods needed by credential manager.
-type CredentialService interface {
-	CloudCredential(ctx context.Context, key credential.Key) (jujucloud.Credential, error)
-	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
-}
-
-// UserService defines a interface for interacting the users of a controller.
-type UserService interface {
-	GetUserByName(context.Context, string) (coreuser.User, error)
-}
-
 // StateBackend represents the mongo backend.
 type StateBackend interface {
 	common.ModelManagerBackend
@@ -108,8 +62,8 @@ type StateBackend interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
+	serviceFactoryGetter     ServiceFactoryGetter
 	modelService             ModelService
-	modelInfoService         ModelInfoService
 	modelConfigServiceGetter ModelConfigServiceGetter
 	state                    StateBackend
 	modelExporter            ModelExporter
@@ -127,17 +81,6 @@ type ModelManagerAPI struct {
 	getBroker                newCaasBrokerFunc
 	userService              UserService
 	controllerUUID           coremodel.UUID
-}
-
-// Services holds the services needed by the model manager api.
-type Services struct {
-	CloudService             CloudService
-	CredentialService        CredentialService
-	ModelService             ModelService
-	ModelInfoService         ModelInfoService
-	ModelConfigServiceGetter ModelConfigServiceGetter
-	UserService              UserService
-	ObjectStore              objectstore.ObjectStore
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -172,6 +115,7 @@ func NewModelManagerAPI(
 	return &ModelManagerAPI{
 		ModelStatusAPI:           common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:                    st,
+		serviceFactoryGetter:     services.ServiceFactoryGetter,
 		modelExporter:            modelExporter,
 		ctlrState:                ctlrSt,
 		cloudService:             services.CloudService,
@@ -186,7 +130,6 @@ func NewModelManagerAPI(
 		isAdmin:                  isAdmin,
 		model:                    m,
 		modelService:             services.ModelService,
-		modelInfoService:         services.ModelInfoService,
 		modelConfigServiceGetter: services.ModelConfigServiceGetter,
 		userService:              services.UserService,
 		controllerUUID:           controllerUUID,
@@ -289,6 +232,11 @@ func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.Us
 // merged in place of state eventually. We have split it out as a temp work
 // around to get the DDL changes needed into Juju before finishing the rest.
 func (m *ModelManagerAPI) createModelNew(ctx context.Context, uuid string, args params.ModelCreateArgs) error {
+	// TODO (stickupkid): We need to create a saga (pattern) coordinator here,
+	// to ensure that anything written to both databases are at least rollback
+	// if there was an error. If a failure to rollback occurs, then the endpoint
+	// should at least be somewhat idempotent.
+
 	creationArgs := model.ModelCreationArgs{
 		CloudRegion: args.CloudRegion,
 		Name:        args.Name,
@@ -361,23 +309,34 @@ func (m *ModelManagerAPI) createModelNew(ctx context.Context, uuid string, args 
 	}
 
 	// Create the model in the controller database.
-
 	modelUUID, err := m.modelService.CreateModel(ctx, creationArgs)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to create model %q", modelUUID)
 	}
 
-	// We need to get the model type to pass to the model info service. This
-	// model info inserts read-only data into the model database, to avoid
-	// needing to pass the controller database around to get simple information.
-
+	// Get the model type for the model, that was written in to the database.
+	// This model type is stored in the controller database, we can then use
+	// that information to create the read-only model info for the model.
 	modelType, err := m.modelService.ModelType(ctx, modelUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to get model type for model %q", modelUUID)
 	}
 
-	if err := m.modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, modelType)); err != nil {
-		return errors.Trace(err)
+	// We need to get the model service factory from the newly created model
+	// above. We should be able to directly access the model service factory
+	// because the model manager use the MultiModelContext to access other
+	// models.
+
+	// We use the returned model UUID as we can guarantee that's the one that
+	// was written to the database.
+	modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
+	modelInfoService := modelServiceFactory.ModelInfo()
+
+	// Create the model information in the model database. This information
+	// is read-only and is used for providers and brokers without the need
+	// to query the controller database.
+	if err := modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, modelType)); err != nil {
+		return errors.Annotatef(err, "failed to create model info for model %q", modelUUID)
 	}
 
 	return err

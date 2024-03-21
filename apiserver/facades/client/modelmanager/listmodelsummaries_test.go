@@ -67,12 +67,12 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		s.st, nil, &mockState{},
 		modeltesting.GenModelUUID(c),
 		modelmanager.Services{
+			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
 			},
 			CredentialService:        apiservertesting.ConstCredentialGetter(&s.cred),
 			ModelService:             nil,
-			ModelInfoService:         nil,
 			ModelConfigServiceGetter: nil,
 			UserService:              nil,
 			ObjectStore:              &mockObjectStore{},
@@ -103,12 +103,12 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.st, nil, &mockState{},
 		modeltesting.GenModelUUID(c),
 		modelmanager.Services{
+			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
 			},
 			CredentialService:        apiservertesting.ConstCredentialGetter(&s.cred),
 			ModelService:             nil,
-			ModelInfoService:         nil,
 			ModelConfigServiceGetter: nil,
 			UserService:              nil,
 			ObjectStore:              &mockObjectStore{},

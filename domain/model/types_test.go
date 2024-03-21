@@ -132,7 +132,7 @@ func (*typesSuite) TestModelToReadOnlyModel(c *gc.C) {
 		UUID:        modelUUID,
 		Cloud:       "my-cloud",
 		CloudRegion: "my-region",
-		Credential: credential.ID{
+		Credential: credential.Key{
 			Cloud: "cloud",
 			Owner: "wallyworld",
 			Name:  "mycred",
@@ -201,7 +201,7 @@ func (*typesSuite) TestReadOnlyModelCreationArgsValidation(c *gc.C) {
 				UUID:        modelUUID,
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
-				Credential: credential.ID{
+				Credential: credential.Key{
 					Owner: "wallyworld",
 				},
 				Name:  "my-awesome-model",
@@ -234,7 +234,7 @@ func (*typesSuite) TestReadOnlyModelCreationArgsValidation(c *gc.C) {
 				UUID:        modelUUID,
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
-				Credential: credential.ID{
+				Credential: credential.Key{
 					Cloud: "cloud",
 					Owner: "wallyworld",
 					Name:  "mycred",

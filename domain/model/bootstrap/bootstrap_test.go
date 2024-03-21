@@ -127,7 +127,7 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	args := model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.cloudName,
-		Credential: credential.ID{
+		Credential: credential.Key{
 			Cloud: s.cloudName,
 			Name:  s.credentialName,
 			Owner: coreuser.AdminUserName,

@@ -40,8 +40,8 @@ type ConfigService interface {
 // provider.
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(ctx context.Context, id credential.Key) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 	// WatchCredential returns a watcher that observes changes to the specified
 	// credential.
-	WatchCredential(ctx context.Context, id credential.Key) (watcher.NotifyWatcher, error)
+	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }

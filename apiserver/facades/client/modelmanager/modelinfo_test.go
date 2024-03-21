@@ -175,12 +175,12 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		s.st, nil, s.ctlrSt,
 		coremodel.UUID(s.st.ControllerModelUUID()),
 		modelmanager.Services{
+			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 			},
 			CredentialService:        apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:             nil,
-			ModelInfoService:         nil,
 			ModelConfigServiceGetter: nil,
 			UserService:              nil,
 			ObjectStore:              &mockObjectStore{},
@@ -208,12 +208,12 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.st, nil, s.ctlrSt,
 		coremodel.UUID(s.st.ControllerModelUUID()),
 		modelmanager.Services{
+			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
 				clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 			},
 			CredentialService:        apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:             nil,
-			ModelInfoService:         nil,
 			ModelConfigServiceGetter: nil,
 			UserService:              nil,
 			ObjectStore:              &mockObjectStore{},
@@ -301,15 +301,16 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	_true := true
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
 	s.st.CheckCalls(c, []jujutesting.StubCall{
-		{"ControllerTag", nil},
-		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
-		{"Model", nil},
-		{"IsController", nil},
-		{"AllMachines", nil},
-		{"ControllerNodes", nil},
-		{"HAPrimaryMachine", nil},
-		{"ControllerUUID", nil},
-		{"LatestMigration", nil},
+		{FuncName: "ControllerModelUUID", Args: nil},
+		{FuncName: "ControllerTag", Args: nil},
+		{FuncName: "GetBackend", Args: []interface{}{s.st.model.cfg.UUID()}},
+		{FuncName: "Model", Args: nil},
+		{FuncName: "IsController", Args: nil},
+		{FuncName: "AllMachines", Args: nil},
+		{FuncName: "ControllerNodes", Args: nil},
+		{FuncName: "HAPrimaryMachine", Args: nil},
+		{FuncName: "ControllerUUID", Args: nil},
+		{FuncName: "LatestMigration", Args: nil},
 	})
 }
 
