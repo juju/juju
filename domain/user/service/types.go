@@ -4,6 +4,7 @@
 package service
 
 import (
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 )
@@ -26,4 +27,8 @@ type AddUserArg struct {
 
 	// CreatorUUID identifies the user that requested this creation.
 	CreatorUUID user.UUID
+
+	// Permissions are the permissions to grant to the user upon creation.
+	// If no permission is passed, then NoAccess is set.
+	Permission permission.AccessSpec
 }

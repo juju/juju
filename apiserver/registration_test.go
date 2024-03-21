@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	"github.com/juju/juju/domain/user/service"
@@ -53,6 +54,7 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.userUUID, _, err = s.userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bob",
 		CreatorUUID: s.AdminUserUUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

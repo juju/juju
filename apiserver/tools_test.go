@@ -26,6 +26,7 @@ import (
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -347,6 +348,7 @@ func (s *toolsSuite) TestMigrateToolsForUser(c *gc.C) {
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -43,7 +43,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // CreatePermission mocks base method.
-func (m *MockState) CreatePermission(arg0 context.Context, arg1 uuid.UUID, arg2 permission0.UserAccessSpec) (permission.UserAccess, error) {
+func (m *MockState) CreatePermission(arg0 context.Context, arg1 uuid.UUID, arg2 permission.UserAccessSpec) (permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreatePermission", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.UserAccess)

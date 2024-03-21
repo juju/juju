@@ -128,6 +128,7 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 		Name:        arg.Username,
 		DisplayName: arg.DisplayName,
 		CreatorUUID: api.apiUser.UUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	}
 	if arg.Password != "" {
 		pass := auth.NewPassword(arg.Password)

@@ -33,15 +33,17 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *serviceSuite) TestCreatePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().CreatePermission(gomock.Any(), gomock.AssignableToTypeOf(uuid.UUID{}), gomock.AssignableToTypeOf(permission.UserAccessSpec{})).Return(corepermission.UserAccess{}, nil)
+	s.state.EXPECT().CreatePermission(gomock.Any(), gomock.AssignableToTypeOf(uuid.UUID{}), gomock.AssignableToTypeOf(corepermission.UserAccessSpec{})).Return(corepermission.UserAccess{}, nil)
 
-	spec := permission.UserAccessSpec{
+	spec := corepermission.UserAccessSpec{
 		User: "testme",
-		Target: corepermission.ID{
-			ObjectType: corepermission.Cloud,
-			Key:        "aws",
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				ObjectType: corepermission.Cloud,
+				Key:        "aws",
+			},
+			Access: corepermission.AddModelAccess,
 		},
-		Access: corepermission.AddModelAccess,
 	}
 	_, err := NewService(s.state).CreatePermission(context.Background(), spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -50,13 +52,15 @@ func (s *serviceSuite) TestCreatePermission(c *gc.C) {
 func (s *serviceSuite) TestCreatePermissionError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spec := permission.UserAccessSpec{
+	spec := corepermission.UserAccessSpec{
 		User: "testme",
-		Target: corepermission.ID{
-			ObjectType: corepermission.Cloud,
-			Key:        "aws",
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				ObjectType: corepermission.Cloud,
+				Key:        "aws",
+			},
+			Access: corepermission.ReadAccess,
 		},
-		Access: corepermission.ReadAccess,
 	}
 	_, err := NewService(s.state).CreatePermission(context.Background(), spec)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)

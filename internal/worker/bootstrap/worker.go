@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/permission"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -277,6 +278,7 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 		DisplayName: "Juju Metrics",
 		Password:    &password,
 		CreatorUUID: adminUser.UUID,
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	// User already exists, we don't need to do anything in this scenario.
 	if errors.Is(err, usererrors.AlreadyExists) {

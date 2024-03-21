@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	domainuser "github.com/juju/juju/domain/user"
 	"github.com/juju/juju/domain/user/state"
@@ -25,7 +26,7 @@ import (
 //
 // If the username passed to this function is invalid an error satisfying
 // [github.com/juju/juju/domain/user/errors.UsernameNotValid] is returned.
-func AddUser(name string) (user.UUID, func(context.Context, database.TxnRunner) error) {
+func AddUser(name string, access permission.AccessSpec) (user.UUID, func(context.Context, database.TxnRunner) error) {
 	if err := domainuser.ValidateUserName(name); err != nil {
 		return user.UUID(""), func(context.Context, database.TxnRunner) error {
 			return fmt.Errorf("validating bootstrap add user %q: %w", name, err)
@@ -41,7 +42,7 @@ func AddUser(name string) (user.UUID, func(context.Context, database.TxnRunner) 
 
 	return uuid, func(ctx context.Context, db database.TxnRunner) error {
 		err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return state.AddUser(ctx, tx, uuid, name, "", uuid)
+			return state.AddUser(ctx, tx, uuid, name, "", uuid, access)
 		})
 
 		if err != nil {
@@ -57,7 +58,7 @@ func AddUser(name string) (user.UUID, func(context.Context, database.TxnRunner) 
 //
 // If the username passed to this function is invalid an error satisfying
 // [github.com/juju/juju/domain/user/errors.UsernameNotValid] is returned.
-func AddUserWithPassword(name string, password auth.Password) (user.UUID, func(context.Context, database.TxnRunner) error) {
+func AddUserWithPassword(name string, password auth.Password, access permission.AccessSpec) (user.UUID, func(context.Context, database.TxnRunner) error) {
 	defer password.Destroy()
 
 	if err := domainuser.ValidateUserName(name); err != nil {
@@ -99,14 +100,12 @@ func AddUserWithPassword(name string, password auth.Password) (user.UUID, func(c
 	return uuid, func(ctx context.Context, db database.TxnRunner) error {
 		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			if err = state.AddUserWithPassword(
-				ctx,
-				tx,
+				ctx, tx,
 				uuid,
-				name,
-				name,
+				name, name,
 				uuid,
-				pwHash,
-				salt,
+				access,
+				pwHash, salt,
 			); err != nil {
 				return fmt.Errorf("adding bootstrap user %q with password: %w",
 					name, err,

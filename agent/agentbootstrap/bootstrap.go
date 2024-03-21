@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
@@ -224,7 +225,11 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 
 	// Add initial Admin user to the database. This will return Admin user UUID
 	// and a function to insert it into the database.
-	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
+	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(
+		b.adminUser.Name(),
+		auth.NewPassword(info.Password),
+		permission.ControllerForAccess(permission.SuperuserAccess),
+	)
 
 	controllerModelUUID := model.UUID(
 		stateParams.ControllerModelConfig.UUID(),

@@ -45,4 +45,7 @@ const (
 	// ActivationKeyNotValid describes an error that occurs when the activation
 	// key is not valid.
 	ActivationKeyNotValid = errors.ConstError("activation key not valid")
+
+	// PermissionNotValid is used when a permission has failed validation.
+	PermissionNotValid = errors.ConstError("permission not valid")
 )

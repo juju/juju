@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corepermission "github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/permission"
 	permissionerrors "github.com/juju/juju/domain/permission/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	usererrors "github.com/juju/juju/domain/user/errors"
@@ -36,13 +35,15 @@ func (s *stateSuite) TestCreatePermissionModel(c *gc.C) {
 	s.ensureUser(c, "123", "bob", "42")
 	s.ensureCloud(c, "test-cloud")
 
-	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), permission.UserAccessSpec{
+	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
-		Target: corepermission.ID{
-			Key:        "model-uuid",
-			ObjectType: corepermission.Model,
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "model-uuid",
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.WriteAccess,
 		},
-		Access: corepermission.WriteAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -66,13 +67,15 @@ func (s *stateSuite) TestCreatePermissionCloud(c *gc.C) {
 	s.ensureUser(c, "123", "bob", "42")
 	s.ensureCloud(c, "test-cloud")
 
-	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), permission.UserAccessSpec{
+	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
-		Target: corepermission.ID{
-			Key:        "test-cloud",
-			ObjectType: corepermission.Cloud,
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "test-cloud",
+				ObjectType: corepermission.Cloud,
+			},
+			Access: corepermission.AddModelAccess,
 		},
-		Access: corepermission.AddModelAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -94,13 +97,15 @@ func (s *stateSuite) TestCreatePermissionController(c *gc.C) {
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 
-	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), permission.UserAccessSpec{
+	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
-		Target: corepermission.ID{
-			Key:        "controller",
-			ObjectType: corepermission.Controller,
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "controller",
+				ObjectType: corepermission.Controller,
+			},
+			Access: corepermission.SuperuserAccess,
 		},
-		Access: corepermission.SuperuserAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -113,6 +118,46 @@ func (s *stateSuite) TestCreatePermissionController(c *gc.C) {
 	c.Check(userAccess.CreatedBy, gc.Equals, names.NewUserTag("admin"))
 
 	s.checkPermissionRow(c, corepermission.SuperuserAccess, "123", "controller")
+}
+
+func (s *stateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+
+	// Setup to add permissions for user Bob on the model
+	s.ensureUser(c, "42", "admin", "42") // model owner
+	s.ensureUser(c, "123", "bob", "42")
+
+	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "bob",
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "foo-bar",
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.ReadAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIs, permissionerrors.TargetInvalid)
+}
+
+func (s *stateSuite) TestCreatePermissionForControllerWithBadInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+
+	// Setup to add permissions for user Bob on the model
+	s.ensureUser(c, "42", "admin", "42") // model owner
+	s.ensureUser(c, "123", "bob", "42")
+
+	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "bob",
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "foo-bar",
+				ObjectType: corepermission.Controller,
+			},
+			Access: corepermission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIs, permissionerrors.TargetInvalid)
 }
 
 func (s *stateSuite) checkPermissionRow(c *gc.C, access corepermission.Access, expectedGrantTo, expectedGrantON string) {
@@ -150,13 +195,15 @@ FROM permission
 
 func (s *stateSuite) TestCreatePermissionErrorNoUser(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
-	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), permission.UserAccessSpec{
+	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
-		Target: corepermission.ID{
-			Key:        "model-uuid",
-			ObjectType: corepermission.Model,
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "model-uuid",
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.WriteAccess,
 		},
-		Access: corepermission.WriteAccess,
 	})
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
@@ -169,13 +216,15 @@ func (s *stateSuite) TestCreatePermissionErrorDuplicate(c *gc.C) {
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 
-	spec := permission.UserAccessSpec{
+	spec := corepermission.UserAccessSpec{
 		User: "bob",
-		Target: corepermission.ID{
-			Key:        "model-uuid",
-			ObjectType: corepermission.Model,
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "model-uuid",
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.ReadAccess,
 		},
-		Access: corepermission.ReadAccess,
 	}
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,10 +272,12 @@ func (s *stateSuite) TestDeletePermission(c *gc.C) {
 		Key:        "model-uuid",
 		ObjectType: corepermission.Model,
 	}
-	spec := permission.UserAccessSpec{
-		User:   "bob",
-		Target: target,
-		Access: corepermission.ReadAccess,
+	spec := corepermission.UserAccessSpec{
+		User: "bob",
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.ReadAccess,
+		},
 	}
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)

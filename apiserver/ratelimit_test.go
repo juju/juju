@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -111,6 +112,7 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 		Name:        userTag.Name(),
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
@@ -42,45 +43,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddUser mocks base method.
-func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID) error {
+func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUser", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "AddUser", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUser indicates an expected call of AddUser.
-func (mr *MockStateMockRecorder) AddUser(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+func (mr *MockStateMockRecorder) AddUser(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUser", reflect.TypeOf((*MockState)(nil).AddUser), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUser", reflect.TypeOf((*MockState)(nil).AddUser), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // AddUserWithActivationKey mocks base method.
-func (m *MockState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 []byte) error {
+func (m *MockState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUserWithActivationKey indicates an expected call of AddUserWithActivationKey.
-func (mr *MockStateMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
+func (mr *MockStateMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockState)(nil).AddUserWithActivationKey), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockState)(nil).AddUserWithActivationKey), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // AddUserWithPasswordHash mocks base method.
-func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 string, arg6 []byte) error {
+func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 string, arg7 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUserWithPasswordHash indicates an expected call of AddUserWithPasswordHash.
-func (mr *MockStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
+func (mr *MockStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
 // DisableUserAuthentication mocks base method.

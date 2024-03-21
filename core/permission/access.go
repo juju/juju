@@ -8,10 +8,14 @@ import (
 	"github.com/juju/names/v5"
 )
 
+// AccessChange represents a change in access level.
 type AccessChange string
 
 const (
-	Grant  AccessChange = "grant"
+	// Grant represents a change in access level to grant.
+	Grant AccessChange = "grant"
+
+	// Revoke represents a change in access level to revoke.
 	Revoke AccessChange = "revoke"
 )
 
@@ -21,8 +25,6 @@ type Access string
 const (
 	// NoAccess allows a user no permissions at all.
 	NoAccess Access = ""
-
-	// Model Permissions
 
 	// ReadAccess allows a user to read information about a permission subject,
 	// without being able to make any changes.
@@ -37,8 +39,6 @@ const (
 	// AdminAccess allows a user full control over the subject.
 	AdminAccess Access = "admin"
 
-	// Controller permissions
-
 	// LoginAccess allows a user to log-ing into the subject.
 	LoginAccess Access = "login"
 
@@ -49,7 +49,17 @@ const (
 	SuperuserAccess Access = "superuser"
 )
 
-var AllAccessLevels = []Access{NoAccess, ReadAccess, WriteAccess, ConsumeAccess, AdminAccess, LoginAccess, AddModelAccess, SuperuserAccess}
+// AllAccessLevels is a list of all access levels.
+var AllAccessLevels = []Access{
+	NoAccess,
+	ReadAccess,
+	WriteAccess,
+	ConsumeAccess,
+	AdminAccess,
+	LoginAccess,
+	AddModelAccess,
+	SuperuserAccess,
+}
 
 // Validate returns error if the current is not a valid access level.
 func (a Access) Validate() error {
