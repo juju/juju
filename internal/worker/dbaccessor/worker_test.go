@@ -5,8 +5,10 @@ package dbaccessor
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -16,7 +18,6 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/database/dqlite"
-	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/testing"
 )
 
@@ -48,10 +49,9 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer func() {
@@ -89,21 +89,13 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 
 	s.expectNoConfigChanges()
 
-	// We expect to request API details.
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
-	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
+	// We always check for actionable configuration at startup.
+	// Simulate config with just this node as a member.
+	// We should reconfigure as just us and restart the worker.
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{"0": "10.6.6.6:1234"}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
-
-	// Topology is just us. We should reconfigure the node and shut down.
-	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{"0": {ID: "0", InternalAddress: "10.6.6.6:1234"}},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
-	}
 
 	err := workertest.CheckKilled(c, w)
 	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
@@ -134,26 +126,17 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 
 	s.expectNoConfigChanges()
 
-	// We expect to request API details.
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
-	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil).Times(2)
+	// Config shows we're in a cluster and not alone.
+	// Since we can't start, and we are not invoking a back-stop scenario,
+	// We can't reason about our state.
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+		"0": "10.6.6.6",
+		"1": "10.6.6.7",
+	}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 	dbw := w.(*dbWorker)
-
-	// If there are multiple servers reported, we can't reason about our
-	// current state in a discrete fashion. The worker throws an error.
-	select {
-	case dbw.apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
-			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
-	}
 
 	// At this point, the Dqlite node is not started.
 	// The worker is waiting for legitimate server detail messages.
@@ -187,13 +170,30 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
-	s.expectNoConfigChanges()
 	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
 
-	// When we are starting up as a new node,
-	// we request details immediately.
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
-	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
+	// First time though, there is no config, then we get 2
+	// notifications for changes on disk.
+	ch := make(chan struct{})
+	s.expectConfigChanges(ch)
+
+	gomock.InOrder(
+		// Just us; no reconfiguration.
+		// This is the check at start-up.
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+			"0": "10.6.6.6",
+		}, nil),
+		// Not address for us; no reconfiguration.
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+			"1": "10.6.6.7",
+			"2": "10.6.6.8",
+		}, nil),
+		// Legit cluster config; away we go.
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+			"0": "10.6.6.6",
+			"1": "10.6.6.7",
+		}, nil),
+	)
 
 	w := s.newWorker(c)
 	defer func() {
@@ -202,27 +202,11 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	}()
 	dbw := w.(*dbWorker)
 
-	// Without a bind address for ourselves we keep waiting.
+	// This is the first config change, which has incomplete cluster config.
 	select {
-	case dbw.apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0"},
-			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
-	}
-
-	// Without other cluster members we keep waiting.
-	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
+	case ch <- struct{}{}:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("timed out waiting for config change to be processed")
 	}
 
 	// At this point, the Dqlite node is not started.
@@ -233,21 +217,17 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	case <-time.After(testing.ShortWait):
 	}
 
-	// Push a message onto the API details channel,
-	// enabling node startup as a cluster member.
+	// This is the final config change, which has complete cluster config.
+	// The node should start subsequently.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
-			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
+	case ch <- struct{}{}:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("timed out waiting for config change to be processed")
 	}
 
 	ensureStartup(c, dbw)
 
+	// This is a supplementary test of the report.
 	s.client.EXPECT().Leader(gomock.Any()).Return(&dqlite.NodeInfo{
 		ID:      1,
 		Address: "10.10.1.1",
@@ -273,22 +253,27 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	// If this is an existing node, we do not invoke the address or cluster
 	// options, but if the node is not as bootstrapped, we do assume it is
 	// part of a cluster, and uses the TLS option.
-	// IsBootstrapped node is called twice - once to check the startup
-	// conditions and then again upon worker shutdown.
-	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(2)
-	mgrExp.IsLoopbackPreferred().Return(false)
+	// These multiple calls occur during startup, the first config check,
+	// and at shutdown when checking for handover.
+	mgrExp.IsExistingNode().Return(true, nil).MinTimes(1)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).MinTimes(1)
+	mgrExp.IsLoopbackPreferred().Return(false).MinTimes(1)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
+	// Config shows we're in a cluster and not alone,
+	// so we don't attempt to reconfigure ourselves.
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+		"0": "10.6.6.6",
+		"1": "10.6.6.7",
+	}, nil)
+
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
 	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer func() {
@@ -312,11 +297,12 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C
 	// If this is an existing node, we do not invoke the address or cluster
 	// options, but if the node is not as bootstrapped, we do assume it is
 	// part of a cluster, and does not use the TLS option.
-	// IsBootstrapped node is called twice - once to check the startup
-	// conditions and then again upon worker shutdown.
-	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
-	mgrExp.IsLoopbackPreferred().Return(false)
+	// These multiple calls occur during startup, the first config check,
+	// and at shutdown when checking for handover.
+	// We don't expect a handover, because we're not rebinding.
+	mgrExp.IsExistingNode().Return(true, nil).MinTimes(1)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).MinTimes(1)
+	mgrExp.IsLoopbackPreferred().Return(false).MinTimes(1)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -325,9 +311,8 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C
 	s.expectNodeStartupAndShutdown()
 	s.expectNoConfigChanges()
 
-	// We don't expect a handover, because we're not rebinding.
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	// This would be the case on K8s, where we have no counterpart units.
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("not found"))
 
 	w := s.newWorker(c)
 	defer func() {
@@ -351,7 +336,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
-	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsExistingNode().Return(true, nil).MinTimes(1)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.IsLoopbackPreferred().Return(false).Times(3)
 	mgrExp.WithLogFuncOption().Return(nil)
@@ -360,9 +345,24 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	s.expectNodeStartupAndShutdown()
-	s.expectNoConfigChanges()
 
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	// First time though, there is no config, then we get 2
+	// notifications for changes on disk.
+	ch := make(chan struct{})
+	s.expectConfigChanges(ch)
+
+	gomock.InOrder(
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("not there")),
+		// Just us; no reconfiguration.
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+			"0": "10.6.6.6",
+		}, nil),
+		// Not address for us; no reconfiguration.
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+			"1": "10.6.6.7",
+			"2": "10.6.6.8",
+		}, nil),
+	)
 
 	w := s.newWorker(c)
 	defer func() {
@@ -374,30 +374,18 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	ensureStartup(c, dbw)
 
 	// At this point we have started successfully.
-	// Push a message onto the API details channel.
-	// A single server does not cause a binding change.
+	// Push the config change notifications.
+	// None of the cause reconfiguration.
 	select {
-	case dbw.apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
+	case ch <- struct{}{}:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("timed out waiting for config change to be processed")
 	}
 
-	// Multiple servers still do not cause a binding change
-	// if there is no internal address to bind to.
 	select {
-	case dbw.apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0"},
-			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
-			"2": {ID: "2", InternalAddress: "10.6.6.8:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
+	case ch <- struct{}{}:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("timed out waiting for config change to be processed")
 	}
 }
 
@@ -420,6 +408,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 		mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2),
 		// This is the check at shutdown.
 		mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil))
+
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -451,9 +440,20 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// this call to shut-down is actually run before reconfiguring the node.
 	// When the loop exits, the node is already set to nil.
 	s.expectNodeStartupAndShutdown()
-	s.expectNoConfigChanges()
 
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	// First time though, there is no config, then we get a
+	// notification for a change on disk.
+	ch := make(chan struct{})
+	s.expectConfigChanges(ch)
+
+	gomock.InOrder(
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("not there")),
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+			"0": "10.6.6.6",
+			"1": "10.6.6.7",
+			"2": "10.6.6.8",
+		}, nil),
+	)
 
 	w := s.newWorker(c)
 	defer func() {
@@ -466,17 +466,11 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	ensureStartup(c, dbw)
 
 	// At this point we have started successfully.
-	// Push a message onto the API details channel to simulate a move into HA.
+	// Push a config change notification to simulate a move into HA.
 	select {
-	case dbw.apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
-			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
-			"2": {ID: "2", InternalAddress: "10.6.6.8:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
+	case ch <- struct{}{}:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("timed out waiting for config change to be processed")
 	}
 }
 
@@ -505,9 +499,16 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 
 	// Ensure that we expect a clean startup and shutdown.
 	s.expectNodeStartupAndShutdown()
-	s.expectNoConfigChanges()
 
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	// First time though, there is no config, then we get a
+	// notification for a change on disk.
+	ch := make(chan struct{})
+	s.expectConfigChanges(ch)
+
+	gomock.InOrder(
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("not there")),
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{"0": "10.6.6.6"}, nil),
+	)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -522,68 +523,14 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	ensureStartup(c, dbw)
 
 	// At this point we have started successfully.
-	// Push a message onto the API details channel to simulate changes.
+	// Push a config change notification to simulate a move into HA.
+	// Notice the absence of expected calls to [Set]ClusterServer
+	// and SetNodeInfo methods, because we eschew reconfiguration when
+	// loopback binding is preferred.
 	select {
-	case dbw.apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0", InternalAddress: "127.0.0.1:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
-	}
-}
-
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferredAndNotLoopbackBound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	dbDone := make(chan struct{})
-	s.expectClock()
-	s.expectTrackedDBUpdateNodeAndKill(dbDone)
-
-	dataDir := c.MkDir()
-	mgrExp := s.nodeManager.EXPECT()
-	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
-	mgrExp.WithLogFuncOption().Return(nil)
-	mgrExp.WithTracingOption().Return(nil)
-
-	// If this is a loopback preferred node, we do not invoke the TLS or
-	// cluster options.
-	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsLoopbackPreferred().Return(true).Times(2)
-	gomock.InOrder(
-		mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil),
-		mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil),
-	)
-
-	// Ensure that we expect a clean startup and shutdown.
-	s.expectNodeStartupAndShutdown()
-	s.expectNoConfigChanges()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
-
-	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
-
-	w := s.newWorker(c)
-	defer func() {
-		close(dbDone)
-		err := workertest.CheckKilled(c, w)
-		c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
-	}()
-	dbw := w.(*dbWorker)
-
-	ensureStartup(c, dbw)
-
-	// At this point we have started successfully.
-	// Push a message onto the API details channel to simulate changes.
-	select {
-	case dbw.apiServerChanges <- apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {ID: "0", InternalAddress: "127.0.0.1:1234"},
-		},
-	}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for cluster change to be processed")
+	case ch <- struct{}{}:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("timed out waiting for config change to be processed")
 	}
 }
 

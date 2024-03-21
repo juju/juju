@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/controllernode/state"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
-	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
@@ -141,9 +140,6 @@ type WorkerConfig struct {
 	Clock            clock.Clock
 	MetricsCollector *Collector
 
-	// Hub is the pub/sub central hub used to receive notifications
-	// about API server topology changes.
-	Hub         Hub
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
 	NewDBWorker NewDBWorkerFunc
@@ -171,9 +167,6 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing metrics collector")
-	}
-	if c.Hub == nil {
-		return errors.NotValidf("missing Hub")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -211,10 +204,6 @@ type dbWorker struct {
 	// dbRequests is used to synchronise GetDB
 	// requests into this worker's event loop.
 	dbRequests chan dbRequest
-
-	// apiServerChanges is used to handle incoming changes
-	// to API server details within the worker loop.
-	apiServerChanges chan apiserver.Details
 }
 
 // NewWorker creates a new dbaccessor worker.
@@ -241,9 +230,8 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 			RestartDelay: time.Second * 10,
 			Logger:       cfg.Logger,
 		}),
-		dbReady:          make(chan struct{}),
-		dbRequests:       make(chan dbRequest),
-		apiServerChanges: make(chan apiserver.Details),
+		dbReady:    make(chan struct{}),
+		dbRequests: make(chan dbRequest),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -281,31 +269,19 @@ func (w *dbWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	// At this time, while Juju is using both Mongo and Dqlite, we piggyback
-	// off the peer-grouper, which applies any configured HA space and
-	// broadcasts clustering addresses. Once we do away with mongo,
-	// that worker will be replaced with a Dqlite-focussed analogue that does
-	// largely the same thing, though potentially disseminating changes via a
-	// mechanism other than pub/sub.
-	unsub, err := w.cfg.Hub.Subscribe(apiserver.DetailsTopic, w.handleAPIServerChangeMsg)
-	if err != nil {
-		return errors.Annotate(err, "subscribing to API server topology changes")
-	}
-	defer unsub()
-
 	// If this is an existing node, we start it up immediately.
-	// Otherwise, this host is entering a HA cluster, and we need to wait for
-	// the peer-grouper to determine and broadcast addresses satisfying the
-	// Juju HA space (if configured); request those details.
-	// Once received we can continue configuring this node as a member.
+	// Otherwise, this host is entering a HA cluster, and we need cluster
+	// configuration from disk.
 	if extant {
 		if err := w.startExistingDqliteNode(); err != nil {
 			return errors.Trace(err)
 		}
-	} else {
-		if err := w.requestAPIServerDetails(); err != nil {
-			return errors.Trace(err)
-		}
+	}
+
+	// Always check for actionable config on start-up in case
+	// it was written to disk while we couldn't be notified.
+	if err := w.handleClusterConfigChange(false); err != nil {
+		return errors.Trace(err)
 	}
 
 	for {
@@ -353,21 +329,14 @@ func (w *dbWorker) loop() (err error) {
 
 			req.done <- nil
 
-		case apiDetails := <-w.apiServerChanges:
-			if err := w.processAPIServerChange(apiDetails); err != nil {
-				return errors.Trace(err)
-			}
-
 		case <-w.cfg.ControllerConfigWatcher.Changes():
-			clusterConf, err := w.cfg.ClusterConfig.DBBindAddresses()
-			if err != nil {
+			w.cfg.Logger.Infof("controller configuration changed on disk")
+			if err := w.handleClusterConfigChange(true); err != nil {
 				return errors.Trace(err)
 			}
-			w.cfg.Logger.Infof("new cluster config: %+v", clusterConf)
 
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-
 		}
 	}
 }
@@ -536,12 +505,12 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 func (w *dbWorker) startExistingDqliteNode() error {
 	mgr := w.cfg.NodeManager
 	if mgr.IsLoopbackPreferred() {
-		w.cfg.Logger.Infof("host is configured to use loopback address as a Dqlite node")
+		w.cfg.Logger.Infof("Dqlite node is configured to bind to the loopback address")
 
 		return errors.Trace(w.initialiseDqlite())
 	}
 
-	w.cfg.Logger.Infof("host is configured to use cloud-local address as a Dqlite node")
+	w.cfg.Logger.Infof("Dqlite node is configured to bind to a cloud-local address")
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
@@ -641,10 +610,6 @@ func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) e
 				return errors.Trace(err)
 			}
 			w.dbApp = nil
-
-			if err := w.requestAPIServerDetails(); err != nil {
-				return errors.Annotatef(err, "requesting API server details")
-			}
 			return errNotReady
 		}
 		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
@@ -726,29 +691,27 @@ func (w *dbWorker) closeDatabase(namespace string) error {
 	return nil
 }
 
-// handleAPIServerChangeMsg is the callback supplied to the pub/sub
-// subscription for API server details. It effectively synchronises the
-// handling of such messages into the worker's evert loop.
-func (w *dbWorker) handleAPIServerChangeMsg(_ string, apiDetails apiserver.Details, err error) {
-	if err != nil {
-		// This should never happen.
-		w.cfg.Logger.Errorf("pub/sub callback error: %v", err)
-		return
-	}
-
-	select {
-	case <-w.catacomb.Dying():
-	case w.apiServerChanges <- apiDetails:
-	}
-}
-
-// processAPIServerChange deals with cluster topology changes.
-// Note that this is always invoked from the worker loop and will never
-// race with Dqlite initialisation. If this is called then we either came
-// up successfully or we determined that we couldn't and are waiting.
-func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
+// handleClusterConfigChange reconciles the cluster configuration on disk with
+// the current running state of this node, and takes action as appropriate.
+// The input argument determines whether the inability to read the config
+// should be considered an error condition.
+func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 	log := w.cfg.Logger
-	log.Debugf("new API server details: %#v", apiDetails)
+
+	clusterConf, err := w.cfg.ClusterConfig.DBBindAddresses()
+	if err != nil {
+		if noConfigIsFatal {
+			return errors.Trace(err)
+		}
+
+		// If we do not consider the inability to read cluster configuration
+		// fatal, it means we were checking it explicitly just in case it was
+		// written when we couldn't be notified.
+		// Having checked, we can rely hereafter on the charm notifying us.
+		log.Infof("unable to read cluster config at start-up; will await changes: %v", err)
+		return nil
+	}
+	log.Infof("read cluster config: %+v", clusterConf)
 
 	mgr := w.cfg.NodeManager
 	extant, err := mgr.IsExistingNode()
@@ -760,7 +723,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 	defer cancel()
 
 	// If we prefer the loopback address, we shouldn't need to do anything.
-	// We double-check that we are bound to the loopback address, if not,
+	// We double-check that we are bound to the loopback address. if not,
 	// we bounce the worker and try and resolve that in the next go around.
 	if mgr.IsLoopbackPreferred() {
 		if extant {
@@ -775,7 +738,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 			}
 
 			// This should never happen, but we want to be conservative.
-			w.cfg.Logger.Warningf("existing Dqlite node is not bound to loopback; but should be; restarting worker")
+			w.cfg.Logger.Warningf("existing Dqlite node is not bound to loopback, but should be; restarting worker")
 		}
 
 		// We don't have a Dqlite node, but somehow we got here, we should just
@@ -783,13 +746,16 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 		return dependency.ErrBounce
 	}
 
+	// If we are an existing node, we need to check whether we must rebind for
+	// entry into HA, or whether we must invoke a backstop due to having no
+	// more cluster counterparts.
 	if extant {
 		asBootstrapped, err := mgr.IsLoopbackBound(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		serverCount := len(apiDetails.Servers)
+		serverCount := len(clusterConf)
 
 		// If we are as-bootstrapped, check if we are entering HA and need to
 		// change our binding from the loopback IP to a local-cloud address.
@@ -800,13 +766,10 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 				return nil
 			}
 
-			addr, err := w.bindAddrFromServerDetails(apiDetails)
-			if err != nil {
-				if errors.Is(err, errors.NotFound) {
-					w.cfg.Logger.Infof(err.Error())
-					return nil
-				}
-				return errors.Trace(err)
+			addr, ok := clusterConf[w.cfg.ControllerID]
+			if !ok {
+				log.Infof("address for this Dqlite node to bind to not found")
+				return nil
 			}
 
 			if err := w.rebindAddress(ctx, addr); err != nil {
@@ -828,7 +791,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 
 		// Make absolutely sure. We only reconfigure the cluster if the details
 		// indicate exactly one controller machine, and that machine is us.
-		if _, ok := apiDetails.Servers[w.cfg.ControllerID]; ok && serverCount == 1 {
+		if _, ok := clusterConf[w.cfg.ControllerID]; ok && serverCount == 1 {
 			log.Warningf("reconfiguring Dqlite cluster with this node as the only member")
 			if err := w.cfg.NodeManager.SetClusterToLocalNode(ctx); err != nil {
 				return errors.Annotatef(err, "reconfiguring Dqlite cluster")
@@ -847,7 +810,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 
 	// Otherwise this is a node added by enabling HA,
 	// and we need to join to an existing cluster.
-	return errors.Trace(w.joinNodeToCluster(apiDetails))
+	return errors.Trace(w.joinNodeToCluster(clusterConf))
 }
 
 // rebindAddress stops the current node, reconfigures the cluster so that
@@ -889,32 +852,23 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	return errors.Trace(mgr.SetNodeInfo(servers[0]))
 }
 
-// joinNodeToCluster uses the input server details to determine a bind address
+// joinNodeToCluster uses the input cluster config to determine a bind address
 // for this node, and one or more addresses of other nodes to cluster with.
 // It then uses these to initialise Dqlite.
 // If either bind or cluster addresses can not be determined,
 // we just return nil and keep waiting for further server detail messages.
-func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
-	// Get our address from the API details.
-	localAddr, err := w.bindAddrFromServerDetails(apiDetails)
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			w.cfg.Logger.Infof(err.Error())
-			return nil
-		}
-		return errors.Trace(err)
+func (w *dbWorker) joinNodeToCluster(clusterConf map[string]string) error {
+	localAddr, ok := clusterConf[w.cfg.ControllerID]
+	if !ok {
+		w.cfg.Logger.Infof("address for this Dqlite node to bind to not found")
+		return nil
 	}
 
-	// Then get addresses for any other of the servers,
+	// Then get addresses for any of the other servers,
 	// so we can join the cluster.
 	var clusterAddrs []string
-	for id, server := range apiDetails.Servers {
-		hostPort := server.InternalAddress
-		if id != w.cfg.ControllerID && hostPort != "" {
-			addr, _, err := net.SplitHostPort(hostPort)
-			if err != nil {
-				return errors.Annotatef(err, "splitting host/port for %s", hostPort)
-			}
+	for id, addr := range clusterConf {
+		if id != w.cfg.ControllerID && addr != "" {
 			clusterAddrs = append(clusterAddrs, addr)
 		}
 	}
@@ -933,22 +887,6 @@ func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
 
 	return errors.Trace(w.initialiseDqlite(
 		mgr.WithAddressOption(localAddr), mgr.WithClusterOption(clusterAddrs), withTLS))
-}
-
-// bindAddrFromServerDetails returns the internal IP address from the
-// input details that corresponds with this controller machine.
-func (w *dbWorker) bindAddrFromServerDetails(apiDetails apiserver.Details) (string, error) {
-	hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
-	if hostPort == "" {
-		return "", errors.NotFoundf("internal address for this Dqlite node to bind to")
-	}
-
-	addr, _, err := net.SplitHostPort(hostPort)
-	if err != nil {
-		return "", errors.Annotatef(err, "splitting host/port for %s", hostPort)
-	}
-
-	return addr, nil
 }
 
 // shutdownDqlite shuts down the local Dqlite node, making a best-effort
@@ -983,14 +921,6 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context, handover bool) {
 	}
 
 	w.dbApp = nil
-}
-
-func (w *dbWorker) requestAPIServerDetails() error {
-	_, err := w.cfg.Hub.Publish(apiserver.DetailsRequestTopic, apiserver.DetailsRequest{
-		Requester: "db-accessor",
-		LocalOnly: true,
-	})
-	return errors.Trace(err)
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.

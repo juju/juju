@@ -21,7 +21,7 @@ import (
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client,ClusterConfig
+//go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Client,ClusterConfig
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
@@ -38,7 +38,6 @@ type baseSuite struct {
 	logger Logger
 
 	clock                   *MockClock
-	hub                     *MockHub
 	timer                   *MockTimer
 	dbApp                   *MockDBApp
 	client                  *MockClient
@@ -53,7 +52,6 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
-	s.hub = NewMockHub(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
 	s.client = NewMockClient(ctrl)
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
@@ -103,7 +101,10 @@ func (s *baseSuite) expectTimer(ticks int) func() {
 
 func (s *baseSuite) expectNoConfigChanges() {
 	ch := make(chan struct{})
+	s.expectConfigChanges(ch)
+}
 
+func (s *baseSuite) expectConfigChanges(ch chan struct{}) {
 	exp := s.controllerConfigWatcher.EXPECT()
 
 	exp.Changes().Return(ch).AnyTimes()
@@ -136,7 +137,6 @@ func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 	cfg := WorkerConfig{
 		NodeManager:  s.nodeManager,
 		Clock:        s.clock,
-		Hub:          s.hub,
 		ControllerID: "0",
 		Logger:       s.logger,
 		NewApp: func(string, ...app.Option) (DBApp, error) {

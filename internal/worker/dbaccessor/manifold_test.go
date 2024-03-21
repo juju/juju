@@ -43,10 +43,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.Hub = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -81,7 +77,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		QueryLoggerName:           "query-logger",
 		ControllerAgentConfigName: "controller-agent-config",
 		Clock:                     s.clock,
-		Hub:                       s.hub,
 		Logger:                    s.logger,
 		LogDir:                    "log-dir",
 		PrometheusRegisterer:      s.prometheusRegisterer,
