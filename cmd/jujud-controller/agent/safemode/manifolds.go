@@ -221,12 +221,3 @@ func (noopPrometheusRegisterer) MustRegister(...prometheus.Collector) {}
 // instance must only collect consistent metrics throughout its
 // lifetime.
 func (noopPrometheusRegisterer) Unregister(prometheus.Collector) bool { return false }
-
-type noopHub struct{}
-
-func (noopHub) Subscribe(topic string, handler interface{}) (func(), error) {
-	return func() {}, nil
-}
-func (noopHub) Publish(topic string, data interface{}) (func(), error) {
-	return func() {}, nil
-}

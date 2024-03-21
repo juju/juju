@@ -6,9 +6,9 @@ package dbaccessor
 import (
 	"context"
 	"errors"
-	jujutesting "github.com/juju/testing"
 	"time"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
