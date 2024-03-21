@@ -28,7 +28,7 @@ func (s *StorageSuite) TestAddUnitStorage(c *gc.C) {
 
 	count := uint64(1)
 	s.assertUnitStorageAdded(c, ctrl,
-		map[string]params.StorageConstraints{
+		map[string]params.StorageDirectives{
 			"allecto": {Count: &count}})
 }
 
@@ -38,13 +38,13 @@ func (s *StorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
 
 	count := uint64(1)
 	s.assertUnitStorageAdded(c, ctrl,
-		map[string]params.StorageConstraints{
+		map[string]params.StorageDirectives{
 			"multi2up": {Count: &count}},
-		map[string]params.StorageConstraints{
+		map[string]params.StorageDirectives{
 			"multi1to10": {Count: &count}})
 }
 
-func (s *StorageSuite) assertUnitStorageAdded(c *gc.C, ctrl *gomock.Controller, cons ...map[string]params.StorageConstraints) {
+func (s *StorageSuite) assertUnitStorageAdded(c *gc.C, ctrl *gomock.Controller, cons ...map[string]params.StorageDirectives) {
 	// Get the context.
 	ctx := s.getHookContext(c, ctrl, coretesting.ModelTag.Id(), -1, "", names.StorageTag{})
 	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
@@ -57,7 +57,7 @@ func (s *StorageSuite) assertUnitStorageAdded(c *gc.C, ctrl *gomock.Controller, 
 			arg.AddStorage = append(arg.AddStorage, params.StorageAddParams{
 				UnitTag:     s.unit.Tag().String(),
 				StorageName: storage,
-				Constraints: scons,
+				Directives:  scons,
 			})
 		}
 		err := ctx.AddUnitStorage(one)
@@ -82,7 +82,7 @@ func (s *StorageSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 
 	size := uint64(1)
 	err := ctx.AddUnitStorage(
-		map[string]params.StorageConstraints{
+		map[string]params.StorageDirectives{
 			"allecto": {Size: &size},
 		})
 	c.Assert(err, jc.ErrorIsNil)

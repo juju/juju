@@ -23,8 +23,8 @@ const (
 	ErrNoDefaultStoragePool = errors.ConstError("no storage pool specified and no default available")
 )
 
-// These errors are used for storage constraints operations.
+// These errors are used for storage directives operations.
 const (
-	// MissingSharedStorageConstraintError is used when a storage constraint for shared storage is not provided.
-	MissingSharedStorageConstraintError = errors.ConstError("no storage constraints specified")
+	// MissingSharedStorageDirectiveError is used when a storage directive for shared storage is not provided.
+	MissingSharedStorageDirectiveError = errors.ConstError("no storage directive specified")
 )

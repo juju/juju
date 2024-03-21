@@ -284,7 +284,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "ubuntu", "22.04")
 	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "ubuntu", "22.04")
-	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Constraints{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
+	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Directive{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
 	s.assertDeployArgsConfig(c, "mariadb", map[string]interface{}{"dataset-size": "70%"})
 
 	c.Check(s.output.String(), gc.Equals, ""+
@@ -527,7 +527,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "22.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "22.04")
-	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Constraints{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
+	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Directive{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
@@ -2123,7 +2123,7 @@ func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, o
 	c.Assert(arg.CharmOrigin.Base.Channel.Track, gc.Equals, channel, gc.Commentf("%s", pretty.Sprint(arg)))
 }
 
-func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Constraints) {
+func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Directive) {
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args", appName))
 	c.Assert(arg.Storage, gc.DeepEquals, storage)

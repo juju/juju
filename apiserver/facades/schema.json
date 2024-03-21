@@ -1990,8 +1990,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv19 provides the Application API facade for version 19.",
-        "Version": 19,
+        "Description": "APIv20 provides the Application API facade for version 20.",
+        "Version": 20,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2251,7 +2251,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ApplicationSetCharm"
+                            "$ref": "#/definitions/ApplicationSetCharmV2"
                         }
                     },
                     "description": "SetCharm sets the charm for a given for the application."
@@ -2556,7 +2556,7 @@
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
-                                    "$ref": "#/definitions/Constraints"
+                                    "$ref": "#/definitions/Directive"
                                 }
                             }
                         }
@@ -2885,7 +2885,7 @@
                         "life"
                     ]
                 },
-                "ApplicationSetCharm": {
+                "ApplicationSetCharmV2": {
                     "type": "object",
                     "properties": {
                         "application": {
@@ -2939,11 +2939,11 @@
                                 }
                             }
                         },
-                        "storage-constraints": {
+                        "storage-directives": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
-                                    "$ref": "#/definitions/StorageConstraints"
+                                    "$ref": "#/definitions/StorageDirectives"
                                 }
                             }
                         }
@@ -3195,21 +3195,26 @@
                 "Constraints": {
                     "type": "object",
                     "properties": {
+                        "Attributes": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "Count": {
                             "type": "integer"
                         },
-                        "Pool": {
+                        "Type": {
                             "type": "string"
-                        },
-                        "Size": {
-                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "Pool",
-                        "Size",
-                        "Count"
+                        "Type",
+                        "Count",
+                        "Attributes"
                     ]
                 },
                 "ConsumeApplicationArg": {
@@ -3329,14 +3334,6 @@
                                 "$ref": "#/definitions/Placement"
                             }
                         },
-                        "Storage": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/Constraints"
-                                }
-                            }
-                        },
                         "Trust": {
                             "type": "boolean"
                         },
@@ -3370,6 +3367,14 @@
                         },
                         "revision": {
                             "type": "integer"
+                        },
+                        "storage": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/Directive"
+                                }
+                            }
                         }
                     },
                     "additionalProperties": false,
@@ -3382,7 +3387,7 @@
                         "Devices",
                         "DryRun",
                         "Placement",
-                        "Storage",
+                        "storage",
                         "Trust"
                     ]
                 },
@@ -3696,6 +3701,26 @@
                     "additionalProperties": false,
                     "required": [
                         "units"
+                    ]
+                },
+                "Directive": {
+                    "type": "object",
+                    "properties": {
+                        "Count": {
+                            "type": "integer"
+                        },
+                        "Pool": {
+                            "type": "string"
+                        },
+                        "Size": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Pool",
+                        "Size",
+                        "Count"
                     ]
                 },
                 "EndpointRelationData": {
@@ -4130,7 +4155,7 @@
                         "constraints"
                     ]
                 },
-                "StorageConstraints": {
+                "StorageDirectives": {
                     "type": "object",
                     "properties": {
                         "count": {
@@ -22744,7 +22769,7 @@
                         "disks": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/Constraints"
+                                "$ref": "#/definitions/Directive"
                             }
                         },
                         "hardware-characteristics": {
@@ -22877,26 +22902,6 @@
                         "channel"
                     ]
                 },
-                "Constraints": {
-                    "type": "object",
-                    "properties": {
-                        "Count": {
-                            "type": "integer"
-                        },
-                        "Pool": {
-                            "type": "string"
-                        },
-                        "Size": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Pool",
-                        "Size",
-                        "Count"
-                    ]
-                },
                 "DestroyMachineInfo": {
                     "type": "object",
                     "properties": {
@@ -22982,6 +22987,26 @@
                     "additionalProperties": false,
                     "required": [
                         "machine-tags"
+                    ]
+                },
+                "Directive": {
+                    "type": "object",
+                    "properties": {
+                        "Count": {
+                            "type": "integer"
+                        },
+                        "Pool": {
+                            "type": "string"
+                        },
+                        "Size": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Pool",
+                        "Size",
+                        "Count"
                     ]
                 },
                 "Entities": {
@@ -38015,7 +38040,7 @@
                             "type": "string"
                         },
                         "storage": {
-                            "$ref": "#/definitions/StorageConstraints"
+                            "$ref": "#/definitions/StorageDirectives"
                         },
                         "unit": {
                             "type": "string"
@@ -38084,21 +38109,6 @@
                     "required": [
                         "ids"
                     ]
-                },
-                "StorageConstraints": {
-                    "type": "object",
-                    "properties": {
-                        "count": {
-                            "type": "integer"
-                        },
-                        "pool": {
-                            "type": "string"
-                        },
-                        "size": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "StorageDetachmentParams": {
                     "type": "object",
@@ -38204,6 +38214,21 @@
                             "items": {
                                 "$ref": "#/definitions/StorageDetailsResult"
                             }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "StorageDirectives": {
+                    "type": "object",
+                    "properties": {
+                        "count": {
+                            "type": "integer"
+                        },
+                        "pool": {
+                            "type": "string"
+                        },
+                        "size": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -44725,7 +44750,7 @@
                             "type": "string"
                         },
                         "storage": {
-                            "$ref": "#/definitions/StorageConstraints"
+                            "$ref": "#/definitions/StorageDirectives"
                         },
                         "unit": {
                             "type": "string"
@@ -44855,7 +44880,7 @@
                     },
                     "additionalProperties": false
                 },
-                "StorageConstraints": {
+                "StorageDirectives": {
                     "type": "object",
                     "properties": {
                         "count": {

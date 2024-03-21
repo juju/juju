@@ -3536,7 +3536,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	b.OpenPortRange(allEndpoints, network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
 	b.ClosePortRange(allEndpoints, network.MustParsePortRange("7337/tcp"))
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
-	b.AddStorage(map[string][]params.StorageConstraints{
+	b.AddStorage(map[string][]params.StorageDirectives{
 		"multi1to10": {{Count: &stCount}},
 	})
 	req, _ := b.Build()

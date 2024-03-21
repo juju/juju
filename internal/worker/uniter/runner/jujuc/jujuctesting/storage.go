@@ -19,7 +19,7 @@ import (
 type Storage struct {
 	Storage    map[names.StorageTag]jujuc.ContextStorageAttachment
 	StorageTag names.StorageTag
-	Added      map[string]params.StorageConstraints
+	Added      map[string]params.StorageDirectives
 }
 
 // SetAttachment adds the attachment to the storage.
@@ -58,17 +58,17 @@ func (s *Storage) SetStorageTag(id string) {
 }
 
 // SetUnitStorage sets storage that should be added.
-func (s *Storage) SetUnitStorage(name string, constraints params.StorageConstraints) {
+func (s *Storage) SetUnitStorage(name string, constraints params.StorageDirectives) {
 	if s.Added == nil {
-		s.Added = make(map[string]params.StorageConstraints)
+		s.Added = make(map[string]params.StorageDirectives)
 	}
 	s.Added[name] = constraints
 }
 
 // AddUnitStorage sets storage that should be added.
-func (s *Storage) AddUnitStorage(all map[string]params.StorageConstraints) {
+func (s *Storage) AddUnitStorage(all map[string]params.StorageDirectives) {
 	if s.Added == nil {
-		s.Added = make(map[string]params.StorageConstraints)
+		s.Added = make(map[string]params.StorageDirectives)
 	}
 	for k, v := range all {
 		s.Added[k] = v
@@ -117,7 +117,7 @@ func (c *ContextStorage) HookStorage() (jujuc.ContextStorageAttachment, error) {
 }
 
 // AddUnitStorage implements jujuc.ContextStorage.
-func (c *ContextStorage) AddUnitStorage(all map[string]params.StorageConstraints) error {
+func (c *ContextStorage) AddUnitStorage(all map[string]params.StorageDirectives) error {
 	c.stub.AddCall("AddUnitStorage", all)
 	c.info.AddUnitStorage(all)
 	return c.stub.NextErr()

@@ -251,7 +251,7 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 	return cmd
 }
 
-func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
+func (s *RefreshSuite) TestStorageDirectives(c *gc.C) {
 	_, err := s.runRefresh(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
@@ -268,7 +268,7 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 				Base:         s.testBase,
 			},
 		},
-		StorageConstraints: map[string]storage.Constraints{
+		StorageDirectives: map[string]storage.Directive{
 			"bar": {Pool: "baz", Count: 1},
 		},
 		ConfigSettings:   map[string]string{},

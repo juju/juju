@@ -225,7 +225,7 @@ type AddMachineParams struct {
 
 	// Disks describes constraints for disks that must be attached to
 	// the machine when it is provisioned.
-	Disks []storage.Constraints `json:"disks,omitempty"`
+	Disks []storage.Directive `json:"disks,omitempty"`
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.

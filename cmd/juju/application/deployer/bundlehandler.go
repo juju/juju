@@ -69,7 +69,7 @@ type bundleDeploySpec struct {
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
-	bundleStorage       map[string]map[string]storage.Constraints
+	bundleStorage       map[string]map[string]storage.Directive
 	bundleDevices       map[string]map[string]devices.Constraints
 
 	targetModelName string
@@ -146,10 +146,10 @@ type bundleHandler struct {
 	deployResources      DeployResourcesFunc
 
 	// bundleStorage contains a mapping of application-specific storage
-	// constraints. For each application, the storage constraints in the
-	// map will replace or augment the storage constraints specified
+	// constraints. For each application, the storage directives in the
+	// map will replace or augment the storage directives specified
 	// in the bundle itself.
-	bundleStorage map[string]map[string]storage.Constraints
+	bundleStorage map[string]map[string]storage.Directive
 
 	// bundleDevices contains a mapping of application-specific device
 	// constraints. For each application, the device constraints in the
@@ -823,7 +823,7 @@ func (h *bundleHandler) addApplication(ctx context.Context, change *bundlechange
 		configYAML = string(config)
 	}
 
-	storageConstraints, err := h.storageConstraints(p.Application, p.Storage)
+	storageDirectives, err := h.storageDirectives(p.Application, p.Storage)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -903,7 +903,7 @@ func (h *bundleHandler) addApplication(ctx context.Context, change *bundlechange
 		NumUnits:         numUnits,
 		Placement:        placement,
 		ConfigYAML:       configYAML,
-		Storage:          storageConstraints,
+		Storage:          storageDirectives,
 		Devices:          deviceConstraints,
 		Resources:        resNames2IDs,
 		EndpointBindings: p.EndpointBindings,
@@ -929,26 +929,26 @@ func (h *bundleHandler) writeAddedResources(resNames2IDs map[string]string) {
 	}
 }
 
-func (h *bundleHandler) storageConstraints(application string, storageMap map[string]string) (map[string]storage.Constraints, error) {
-	storageConstraints := h.bundleStorage[application]
+func (h *bundleHandler) storageDirectives(application string, storageMap map[string]string) (map[string]storage.Directive, error) {
+	storageDirectives := h.bundleStorage[application]
 	if len(storageMap) > 0 {
-		if storageConstraints == nil {
-			storageConstraints = make(map[string]storage.Constraints)
+		if storageDirectives == nil {
+			storageDirectives = make(map[string]storage.Directive)
 		}
 		for k, v := range storageMap {
-			if _, ok := storageConstraints[k]; ok {
-				// storage constraints overridden
+			if _, ok := storageDirectives[k]; ok {
+				// storage directives overridden
 				// on the command line.
 				continue
 			}
-			cons, err := storage.ParseConstraints(v)
+			cons, err := storage.ParseDirective(v)
 			if err != nil {
-				return nil, errors.Annotate(err, "invalid storage constraints")
+				return nil, errors.Annotate(err, "invalid storage directive")
 			}
-			storageConstraints[k] = cons
+			storageDirectives[k] = cons
 		}
 	}
-	return storageConstraints, nil
+	return storageDirectives, nil
 }
 
 func (h *bundleHandler) deviceConstraints(application string, deviceMap map[string]string) (map[string]devices.Constraints, error) {

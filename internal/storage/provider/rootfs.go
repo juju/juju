@@ -111,7 +111,7 @@ type rootfsFilesystemSource struct {
 func ensureDir(d dirFuncs, path string) error {
 	// If path already exists, we check that it is empty.
 	// It is up to the storage provisioner to ensure that any
-	// shared storage constraints and attachments with the same
+	// shared storage directives and attachments with the same
 	// path are validated etc. So the check here is more a sanity check.
 	fi, err := d.lstat(path)
 	if err == nil {

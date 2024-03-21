@@ -15,8 +15,8 @@ import (
 )
 
 type storageFlag struct {
-	stores       *map[string]storage.Constraints
-	bundleStores *map[string]map[string]storage.Constraints
+	stores       *map[string]storage.Directive
+	bundleStores *map[string]map[string]storage.Directive
 }
 
 // Set implements gnuflag.Value.Set.
@@ -24,37 +24,37 @@ func (f storageFlag) Set(s string) error {
 	fields := strings.SplitN(s, "=", 2)
 	if len(fields) < 2 {
 		if f.bundleStores != nil {
-			return errors.New("expected [<application>:]<store>=<constraints>")
+			return errors.New("expected [<application>:]<store>=<directive>")
 		}
-		return errors.New("expected <store>=<constraints>")
+		return errors.New("expected <store>=<directive>")
 	}
 	var applicationName, storageName string
 	if colon := strings.IndexRune(fields[0], ':'); colon >= 0 {
 		if f.bundleStores == nil {
-			return errors.New("expected <store>=<constraints>")
+			return errors.New("expected <store>=<directive>")
 		}
 		applicationName = fields[0][:colon]
 		storageName = fields[0][colon+1:]
 	} else {
 		storageName = fields[0]
 	}
-	cons, err := storage.ParseConstraints(fields[1])
+	cons, err := storage.ParseDirective(fields[1])
 	if err != nil {
-		return errors.Annotate(err, "cannot parse disk constraints")
+		return errors.Annotate(err, "cannot parse disk storage directive")
 	}
-	var stores map[string]storage.Constraints
+	var stores map[string]storage.Directive
 	if applicationName != "" {
 		if *f.bundleStores == nil {
-			*f.bundleStores = make(map[string]map[string]storage.Constraints)
+			*f.bundleStores = make(map[string]map[string]storage.Directive)
 		}
 		stores = (*f.bundleStores)[applicationName]
 		if stores == nil {
-			stores = make(map[string]storage.Constraints)
+			stores = make(map[string]storage.Directive)
 			(*f.bundleStores)[applicationName] = stores
 		}
 	} else {
 		if *f.stores == nil {
-			*f.stores = make(map[string]storage.Constraints)
+			*f.stores = make(map[string]storage.Directive)
 		}
 		stores = *f.stores
 	}

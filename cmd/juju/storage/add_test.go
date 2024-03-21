@@ -69,13 +69,13 @@ var errorTsts = []tstData{
 	},
 	{
 		args:        []string{"tst/123", "data="},
-		expectedErr: `storage constraints require at least one field to be specified`,
-		visibleErr:  `cannot parse constraints for storage "data": storage constraints require at least one field to be specified`,
+		expectedErr: `storage directives require at least one field to be specified`,
+		visibleErr:  `cannot parse directive for storage "data": storage directives require at least one field to be specified`,
 	},
 	{
 		args:        []string{"tst/123", "data=-676"},
 		expectedErr: `count must be greater than zero, got "-676"`,
-		visibleErr:  `cannot parse constraints for storage "data": cannot parse count: count must be greater than zero, got "-676"`,
+		visibleErr:  `cannot parse directive for storage "data": cannot parse count: count must be greater than zero, got "-676"`,
 	},
 	{
 		args:        []string{"tst/123", "data=676", "data=676"},

@@ -88,9 +88,9 @@ type DeployArgs struct {
 	// created.
 	Placement []*instance.Placement
 
-	// Storage contains Constraints specifying how storage should be
+	// Storage contains Directives specifying how storage should be
 	// handled.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive
 
 	// Devices contains Constraints specifying how devices should be
 	// handled.
@@ -262,13 +262,13 @@ type SetCharmConfig struct {
 	// ConfigSettings is the charm settings to set during the upgrade.
 	// This field is only understood by Application facade version 2
 	// and greater.
-	ConfigSettings map[string]string `json:"config-settings,omitempty"`
+	ConfigSettings map[string]string
 
 	// ConfigSettingsYAML is the charm settings in YAML format to set
 	// during the upgrade. If this is non-empty, it will take precedence
 	// over ConfigSettings. This field is only understood by Application
 	// facade version 2
-	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
+	ConfigSettingsYAML string
 
 	// Force forces the use of the charm in the following scenarios:
 	// overriding a lxd profile upgrade.
@@ -289,10 +289,10 @@ type SetCharmConfig struct {
 	// the upgrade.
 	ResourceIDs map[string]string
 
-	// StorageConstraints is a map of storage names to storage constraints to
+	// StorageDirectives is a map of storage names to storage directives to
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
-	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+	StorageDirectives map[string]storage.Directive
 
 	// EndpointBindings is a map of operator-defined endpoint names to
 	// space names to be merged with any existing endpoint bindings.
@@ -301,11 +301,11 @@ type SetCharmConfig struct {
 
 // SetCharm sets the charm for a given application.
 func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
-	var storageConstraints map[string]params.StorageConstraints
-	if len(cfg.StorageConstraints) > 0 {
-		storageConstraints = make(map[string]params.StorageConstraints)
-		for name, cons := range cfg.StorageConstraints {
-			size, count := cons.Size, cons.Count
+	var storageDirectives map[string]params.StorageDirectives
+	if len(cfg.StorageDirectives) > 0 {
+		storageDirectives = make(map[string]params.StorageDirectives)
+		for name, directive := range cfg.StorageDirectives {
+			size, count := directive.Size, directive.Count
 			var sizePtr, countPtr *uint64
 			if size > 0 {
 				sizePtr = &size
@@ -313,8 +313,8 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 			if count > 0 {
 				countPtr = &count
 			}
-			storageConstraints[name] = params.StorageConstraints{
-				Pool:  cons.Pool,
+			storageDirectives[name] = params.StorageDirectives{
+				Pool:  directive.Pool,
 				Size:  sizePtr,
 				Count: countPtr,
 			}
@@ -324,7 +324,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 	origin := cfg.CharmID.Origin
 	paramsCharmOrigin := origin.ParamsCharmOrigin()
 
-	args := params.ApplicationSetCharm{
+	args := params.ApplicationSetCharmV2{
 		ApplicationName:    cfg.ApplicationName,
 		CharmURL:           cfg.CharmID.URL,
 		CharmOrigin:        &paramsCharmOrigin,
@@ -335,7 +335,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 		ForceBase:          cfg.ForceBase,
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
-		StorageConstraints: storageConstraints,
+		StorageDirectives:  storageDirectives,
 		EndpointBindings:   cfg.EndpointBindings,
 		Generation:         branchName,
 	}
@@ -1029,21 +1029,21 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 
 type DeployInfo struct {
 	// Architecture is the architecture used to deploy the charm.
-	Architecture string `json:"architecture"`
+	Architecture string
 	// Base is the base used to deploy the charm.
-	Base corebase.Base `json:"base,omitempty"`
+	Base corebase.Base
 	// Channel is a string representation of the channel used to
 	// deploy the charm.
-	Channel string `json:"channel"`
+	Channel string
 	// EffectiveChannel is the channel actually deployed from as determined
 	// by the charmhub response.
-	EffectiveChannel *string `json:"effective-channel,omitempty"`
+	EffectiveChannel *string
 	// Is the name of the application deployed. This may vary from
 	// the charm name provided if differs in the metadata.yaml and
 	// no provided on the cli.
-	Name string `json:"name"`
+	Name string
 	// Revision is the revision of the charm deployed.
-	Revision int `json:"revision"`
+	Revision int
 }
 
 type PendingResourceUpload struct {
@@ -1068,11 +1068,11 @@ type DeployFromRepositoryArg struct {
 	// may be non-empty only if NumUnits is 1.
 	AttachStorage []string
 	// Base describes the OS base intended to be used by the charm.
-	Base *corebase.Base `json:"base,omitempty"`
+	Base *corebase.Base
 	// Channel is the channel in the repository to deploy from.
 	// This is an optional value. Required if revision is provided.
 	// Defaults to “stable” if not defined nor required.
-	Channel *string `json:"channel,omitempty"`
+	Channel *string
 	// ConfigYAML is a string that overrides the default config.yml.
 	ConfigYAML string
 	// Cons contains constraints on where units of this application
@@ -1086,27 +1086,27 @@ type DeployFromRepositoryArg struct {
 	// of the config. Does not actually download or deploy the charm.
 	DryRun bool
 	// EndpointBindings
-	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
+	EndpointBindings map[string]string
 	// Force can be set to true to bypass any checks for charm-specific
 	// requirements ("assumes" sections in charm metadata, supported series,
 	// LXD profile allow list)
-	Force bool `json:"force,omitempty"`
+	Force bool
 	// NumUnits is the number of units to deploy. Defaults to 1 if no
 	// value provided. Synonymous with scale for kubernetes charms.
-	NumUnits *int `json:"num-units,omitempty"`
+	NumUnits *int
 	// Placement directives define on which machines the unit(s) must be
 	// created.
 	Placement []*instance.Placement
 	// Revision is the charm revision number. Requires the channel
 	// be explicitly set.
-	Revision *int `json:"revision,omitempty"`
+	Revision *int
 	// Resources is a collection of resource names for the
 	// application, with the value being the revision of the
 	// resource to use if default revision is not desired.
-	Resources map[string]string `json:"resources,omitempty"`
-	// Storage contains Constraints specifying how storage should be
+	Resources map[string]string
+	// Storage contains Directives specifying how storage should be
 	// handled.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive
 	//  Trust allows charm to run hooks that require access credentials
 	Trust bool
 }

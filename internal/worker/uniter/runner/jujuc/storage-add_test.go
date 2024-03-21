@@ -57,7 +57,7 @@ func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 	tests := []tstData{
 		{[]string{}, 1, "storage add requires a storage directive"},
 		{[]string{"data=-676"}, 1, `.*cannot parse count: count must be gre.*`},
-		{[]string{"data="}, 1, ".*storage constraints require at least one.*"},
+		{[]string{"data="}, 1, ".*storage directives require at least one.*"},
 		{[]string{"data=pool"}, 1, `.*only count can be specified for "data".*`},
 		{[]string{"data=pool,1M"}, 1, `.*only count can be specified for "data".*`},
 		{[]string{"data=1M"}, 1, `.*only count can be specified for "data".*`},

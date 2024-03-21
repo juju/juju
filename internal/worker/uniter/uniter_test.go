@@ -1392,7 +1392,7 @@ storage:
 `[1:])
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	storageConstraints := map[string]state.StorageConstraints{
+	storageDirectives := map[string]state.StorageConstraints{
 		"wp-content": {Count: 1},
 	}
 	s.runUniterTests(c, []uniterTest{
@@ -1400,7 +1400,7 @@ storage:
 			"test that storage-attached is called",
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
-			createApplicationAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageDirectives},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1410,7 +1410,7 @@ storage:
 			"test that storage-detaching is called before stop",
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
-			createApplicationAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageDirectives},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1425,7 +1425,7 @@ storage:
 			"test that storage-detaching is called only if previously attached",
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
-			createApplicationAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageDirectives},
 			// provision and destroy the storage before the uniter starts,
 			// to ensure it never sees the storage as attached
 			provisionStorage{},
@@ -1441,7 +1441,7 @@ storage:
 			"test that delay-provisioned storage does not block forever",
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
-			createApplicationAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageDirectives},
 			startUniter{},
 			// no hooks should be run, as storage isn't provisioned
 			waitHooks{},
@@ -1452,7 +1452,7 @@ storage:
 			"test that unprovisioned storage does not block unit termination",
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
-			createApplicationAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageDirectives},
 			unitDying,
 			startUniter{},
 			// no hooks should be run, and unit agent should terminate

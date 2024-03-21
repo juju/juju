@@ -851,8 +851,8 @@ type FilesystemDetailsListResults struct {
 	Results []FilesystemDetailsListResult `json:"results,omitempty"`
 }
 
-// StorageConstraints contains constraints for storage instance.
-type StorageConstraints struct {
+// StorageDirectives contains directives for storage instance.
+type StorageDirectives struct {
 	// Pool is the name of the storage pool from which to provision the
 	// storage instance.
 	Pool string `json:"pool,omitempty"`
@@ -872,8 +872,8 @@ type StorageAddParams struct {
 	// StorageName is the name of the storage as specified in the charm.
 	StorageName string `json:"name"`
 
-	// Constraints are specified storage constraints.
-	Constraints StorageConstraints `json:"storage"`
+	// Directives are specified storage directives.
+	Directives StorageDirectives `json:"storage"`
 }
 
 // StoragesAddParams holds storage details to add to units dynamically.

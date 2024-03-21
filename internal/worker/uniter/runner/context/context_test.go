@@ -562,59 +562,59 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 	c.Assert(priority, gc.Equals, jujuc.RebootNow)
 }
 
-func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
-	expected := map[string][]params.StorageConstraints{
+func (s *InterfaceSuite) TestStorageAddDirectives(c *gc.C) {
+	expected := map[string][]params.StorageDirectives{
 		"data": {
-			params.StorageConstraints{},
+			params.StorageDirectives{},
 		},
 	}
 
 	ctx := &context.HookContext{}
-	addStorageToContext(ctx, "data", params.StorageConstraints{})
+	addStorageToContext(ctx, "data", params.StorageDirectives{})
 	assertStorageAddInContext(c, ctx, expected)
 }
 
 var two = uint64(2)
 
-func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
-	expected := map[string][]params.StorageConstraints{
+func (s *InterfaceSuite) TestStorageAddDirectivesSameStorage(c *gc.C) {
+	expected := map[string][]params.StorageDirectives{
 		"data": {
-			params.StorageConstraints{},
-			params.StorageConstraints{Count: &two},
+			params.StorageDirectives{},
+			params.StorageDirectives{Count: &two},
 		},
 	}
 
 	ctx := &context.HookContext{}
-	addStorageToContext(ctx, "data", params.StorageConstraints{})
-	addStorageToContext(ctx, "data", params.StorageConstraints{Count: &two})
+	addStorageToContext(ctx, "data", params.StorageDirectives{})
+	addStorageToContext(ctx, "data", params.StorageDirectives{Count: &two})
 	assertStorageAddInContext(c, ctx, expected)
 }
 
-func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *gc.C) {
-	expected := map[string][]params.StorageConstraints{
-		"data": {params.StorageConstraints{}},
+func (s *InterfaceSuite) TestStorageAddDirectivesDifferentStorage(c *gc.C) {
+	expected := map[string][]params.StorageDirectives{
+		"data": {params.StorageDirectives{}},
 		"diff": {
-			params.StorageConstraints{Count: &two}},
+			params.StorageDirectives{Count: &two}},
 	}
 
 	ctx := &context.HookContext{}
-	addStorageToContext(ctx, "data", params.StorageConstraints{})
-	addStorageToContext(ctx, "diff", params.StorageConstraints{Count: &two})
+	addStorageToContext(ctx, "data", params.StorageDirectives{})
+	addStorageToContext(ctx, "diff", params.StorageDirectives{Count: &two})
 	assertStorageAddInContext(c, ctx, expected)
 }
 
 func addStorageToContext(ctx *context.HookContext,
 	name string,
-	cons params.StorageConstraints,
+	cons params.StorageDirectives,
 ) {
-	addOne := map[string]params.StorageConstraints{name: cons}
+	addOne := map[string]params.StorageDirectives{name: cons}
 	_ = ctx.AddUnitStorage(addOne)
 }
 
 func assertStorageAddInContext(c *gc.C,
-	ctx *context.HookContext, expected map[string][]params.StorageConstraints,
+	ctx *context.HookContext, expected map[string][]params.StorageDirectives,
 ) {
-	obtained := context.StorageAddConstraints(ctx)
+	obtained := context.StorageAddDirectives(ctx)
 	c.Assert(len(obtained), gc.Equals, len(expected))
 	for k, v := range obtained {
 		c.Assert(v, jc.SameContents, expected[k])

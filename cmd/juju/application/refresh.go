@@ -149,9 +149,9 @@ type refreshCommand struct {
 	// and/or specified files containing key values.
 	ConfigOptions common.ConfigFlag
 
-	// Storage is a map of storage constraints, keyed on the storage name
+	// Storage is a map of storage directives, keyed on the storage name
 	// defined in charm storage metadata, to add or update during upgrade.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive
 
 	// Trust signifies that the charm should have access to trusted credentials.
 	// That is, hooks run by the charm can access cloud credentials and other
@@ -186,10 +186,10 @@ repeated more than once to upload more than one resource.
 
 Where bar and baz are resources named in the metadata for the foo charm.
 
-Storage constraints may be added or updated at upgrade time by specifying
+Storage directives may be added or updated at upgrade time by specifying
 the --storage option, with the same format as specified in "juju deploy".
 If new required storage is added by the new charm revision, then you must
-specify constraints or the defaults will be applied.
+specify directives or the defaults will be applied.
 
   juju refresh foo --storage cache=ssd,10G
 
@@ -267,7 +267,7 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
-	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
+	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage directives")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 	f.Var(newOptBoolValue(&c.Trust), "trust", "Allows charm to run hooks that require access credentials")
@@ -504,7 +504,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		ForceBase:          c.ForceBase,
 		ForceUnits:         c.ForceUnits,
 		ResourceIDs:        resourceIDs,
-		StorageConstraints: c.Storage,
+		StorageDirectives:  c.Storage,
 		EndpointBindings:   c.Bindings,
 	}
 

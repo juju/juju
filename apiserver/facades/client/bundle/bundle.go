@@ -140,7 +140,7 @@ func (b *BundleAPI) GetChangesMapArgs(ctx context.Context, args params.BundleCha
 			return err
 		},
 		verifyStorage: func(s string) error {
-			_, err := storage.ParseConstraints(s)
+			_, err := storage.ParseDirective(s)
 			return err
 		},
 		verifyDevices: func(s string) error {
@@ -535,10 +535,10 @@ func (b *BundleAPI) bundleDataApplications(
 		if result := b.constraints(application.Constraints()); len(result) != 0 {
 			newApplication.Constraints = strings.Join(result, " ")
 		}
-		if cons := application.StorageConstraints(); len(cons) != 0 {
+		if cons := application.StorageDirectives(); len(cons) != 0 {
 			newApplication.Storage = make(map[string]string)
 			for name, constr := range cons {
-				if newApplication.Storage[name], err = storage.ToString(storage.Constraints{
+				if newApplication.Storage[name], err = storage.ToString(storage.Directive{
 					Pool:  constr.Pool(),
 					Size:  constr.Size(),
 					Count: constr.Count(),

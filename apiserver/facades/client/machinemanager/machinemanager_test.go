@@ -157,8 +157,8 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
-	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
+	apiParams[0].Disks = []storage.Directive{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
+	apiParams[1].Disks = []storage.Directive{{Size: 1, Count: 2, Pool: "three"}}
 
 	m1 := mocks.NewMockMachine(ctrl)
 	m1.EXPECT().Id().Return("666").AnyTimes()

@@ -818,14 +818,14 @@ func (b *CommitHookParamsBuilder) UpdateCharmState(state map[string]string) {
 }
 
 // AddStorage records a request for adding storage.
-func (b *CommitHookParamsBuilder) AddStorage(constraints map[string][]params.StorageConstraints) {
+func (b *CommitHookParamsBuilder) AddStorage(constraints map[string][]params.StorageDirectives) {
 	storageReqs := make([]params.StorageAddParams, 0, len(constraints))
 	for storage, cons := range constraints {
 		for _, one := range cons {
 			storageReqs = append(storageReqs, params.StorageAddParams{
 				UnitTag:     b.arg.Tag,
 				StorageName: storage,
-				Constraints: one,
+				Directives:  one,
 			})
 		}
 	}

@@ -2365,7 +2365,7 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 		storages["version"] = 2
 
 		app := applications["applications"].([]interface{})[0].(map[interface{}]interface{})
-		sc := app["storage-constraints"].(map[interface{}]interface{})
+		sc := app["storage-directives"].(map[interface{}]interface{})
 		delete(sc, "data")
 		sc["allecto"].(map[interface{}]interface{})["pool"] = "modelscoped-block"
 

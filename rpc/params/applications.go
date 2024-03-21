@@ -59,7 +59,7 @@ type ApplicationDeploy struct {
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Policy           string                         `json:"policy,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	Storage          map[string]storage.Directive   `json:"storage,omitempty"`
 	Devices          map[string]devices.Constraints `json:"devices,omitempty"`
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
@@ -84,8 +84,8 @@ type ApplicationUpdate struct {
 	Generation string `json:"generation"`
 }
 
-// ApplicationSetCharm sets the charm for a given application.
-type ApplicationSetCharm struct {
+// ApplicationSetCharmV2 sets the charm for a given application.
+type ApplicationSetCharmV2 struct {
 	// ApplicationName is the name of the application to set the charm on.
 	ApplicationName string `json:"application"`
 
@@ -127,15 +127,24 @@ type ApplicationSetCharm struct {
 	// the upgrade.
 	ResourceIDs map[string]string `json:"resource-ids,omitempty"`
 
-	// StorageConstraints is a map of storage names to storage constraints to
-	// update during the upgrade. This field is only understood by Application
-	// facade version 2 and greater.
-	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
+	// StorageDirectives is a map of storage names to storage directives to
+	// update during the upgrade.
+	StorageDirectives map[string]StorageDirectives `json:"storage-directives,omitempty"`
 
 	// EndpointBindings is a map of operator-defined endpoint names to
 	// space names to be merged with any existing endpoint bindings. This
 	// field is only understood by Application facade version 10 and greater.
 	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
+}
+
+// ApplicationSetCharmV1 sets the charm for a given application.
+type ApplicationSetCharmV1 struct {
+	ApplicationSetCharmV2 `json:",inline"`
+
+	// StorageDirectives is a map of storage names to storage directives to
+	// update during the upgrade. This field is only understood by Application
+	// facade version < 20. After that it is renamed to "storage-directives" on the wire.
+	StorageDirectives map[string]StorageDirectives `json:"storage-constraints,omitempty"`
 }
 
 // ApplicationExpose holds the parameters for making the application Expose call.
@@ -617,9 +626,9 @@ type DeployFromRepositoryArg struct {
 	// resource to use if default revision is not desired.
 	Resources map[string]string `json:"resources,omitempty"`
 
-	// Storage contains Constraints specifying how storage should be
+	// Storage contains Directives specifying how storage should be
 	// handled.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive `json:"storage"`
 
 	//  Trust allows charm to run hooks that require access credentials
 	Trust bool

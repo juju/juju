@@ -48,7 +48,7 @@ require (
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v4 v4.0.0
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v5 v5.0.1
+	github.com/juju/description/v5 v5.0.3
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0

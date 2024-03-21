@@ -59,7 +59,7 @@ To control which instance type is provisioned, use the --constraints and
 the OS, separated by @. For example, --base ubuntu@22.04.
 
 To add storage volumes to the instance, provide a whitespace-delimited
-list of storage constraints to the --disks option. 
+list of storage directives to the --disks option. 
 
 Add "placement directives" as an argument give Juju additional information 
 about how to allocate the machine in the cloud. For example, one can direct 
@@ -171,7 +171,7 @@ type addCommand struct {
 	// NumMachines is the number of machines to add.
 	NumMachines int
 	// Disks describes disks that are to be attached to the machine.
-	Disks []storage.Constraints
+	Disks []storage.Directive
 	// PrivateKey is the path for a file containing the private key required
 	// by the server
 	PrivateKey string
@@ -201,7 +201,7 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Base, "base", "", "The operating system base to install on the new machine(s)")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Machine constraints that overwrite those available from 'juju model-constraints' and provider's defaults")
-	f.Var(disksFlag{&c.Disks}, "disks", "Storage constraints for disks to attach to the machine(s)")
+	f.Var(disksFlag{&c.Disks}, "disks", "Storage directives for disks to attach to the machine(s)")
 	f.StringVar(&c.PrivateKey, "private-key", "", "Path to the private key to use during the connection")
 	f.StringVar(&c.PublicKey, "public-key", "", "Path to the public key to add to the remote authorized keys")
 }

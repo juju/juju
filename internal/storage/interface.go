@@ -221,7 +221,7 @@ type VolumeImporter interface {
 }
 
 // VolumeParams is a fully specified set of parameters for volume creation,
-// derived from one or more of user-specified storage constraints, a
+// derived from one or more of user-specified storage directives, a
 // storage pool definition, and charm storage metadata.
 type VolumeParams struct {
 	// Tag is a unique tag name assigned by Juju for the requested volume.
@@ -296,7 +296,7 @@ type AttachmentParams struct {
 }
 
 // FilesystemParams is a fully specified set of parameters for filesystem creation,
-// derived from one or more of user-specified storage constraints, a
+// derived from one or more of user-specified storage directives, a
 // storage pool definition, and charm storage metadata.
 type FilesystemParams struct {
 	// Tag is a unique tag assigned by Juju for the requested filesystem.

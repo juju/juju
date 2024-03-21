@@ -128,7 +128,7 @@ func (s *serviceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.C) {
 	}
 	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
 		Charm: s.charm,
-		Storage: map[string]storage.Constraints{
+		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
 	}, a)
@@ -194,14 +194,14 @@ func (s *serviceSuite) TestCreateWithStorageFilesystemDefaultSource(c *gc.C) {
 	}
 	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
 		Charm: s.charm,
-		Storage: map[string]storage.Constraints{
+		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCreateWithSharedStorageMissingConstraints(c *gc.C) {
+func (s *serviceSuite) TestCreateWithSharedStorageMissingDirectives(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -221,8 +221,8 @@ func (s *serviceSuite) TestCreateWithSharedStorageMissingConstraints(c *gc.C) {
 	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
 		Charm: s.charm,
 	}, a)
-	c.Assert(err, jc.ErrorIs, storageerrors.MissingSharedStorageConstraintError)
-	c.Assert(err, gc.ErrorMatches, `adding default storage constraints: no storage constraints specified for shared charm storage "data"`)
+	c.Assert(err, jc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
+	c.Assert(err, gc.ErrorMatches, `adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
 
 func (s *serviceSuite) TestCreateWithStorageValidates(c *gc.C) {
@@ -246,11 +246,11 @@ func (s *serviceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	}
 	err := s.service.CreateApplication(context.Background(), "666", AddApplicationParams{
 		Charm: s.charm,
-		Storage: map[string]storage.Constraints{
+		Storage: map[string]storage.Directive{
 			"logs": {Count: 2},
 		},
 	}, a)
-	c.Assert(err, gc.ErrorMatches, `invalid storage constraints: charm "mine" has no store called "logs"`)
+	c.Assert(err, gc.ErrorMatches, `invalid storage directives: charm "mine" has no store called "logs"`)
 }
 
 func (s *serviceSuite) TestCreateApplicationError(c *gc.C) {

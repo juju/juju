@@ -52,37 +52,37 @@ func (FlagSuite) TestStringMapDupVal(c *gc.C) {
 }
 
 func (FlagSuite) TestStorageFlag(c *gc.C) {
-	var stores map[string]storage.Constraints
+	var stores map[string]storage.Directive
 	flag := storageFlag{&stores, nil}
 	err := flag.Set("foo=bar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stores, jc.DeepEquals, map[string]storage.Constraints{
+	c.Assert(stores, jc.DeepEquals, map[string]storage.Directive{
 		"foo": {Pool: "bar", Count: 1},
 	})
 }
 
 func (FlagSuite) TestStorageFlagErrors(c *gc.C) {
-	flag := storageFlag{new(map[string]storage.Constraints), nil}
+	flag := storageFlag{new(map[string]storage.Directive), nil}
 	err := flag.Set("foo")
-	c.Assert(err, gc.ErrorMatches, `expected <store>=<constraints>`)
+	c.Assert(err, gc.ErrorMatches, `expected <store>=<directive>`)
 	err = flag.Set("foo:bar=baz")
-	c.Assert(err, gc.ErrorMatches, `expected <store>=<constraints>`)
+	c.Assert(err, gc.ErrorMatches, `expected <store>=<directive>`)
 	err = flag.Set("foo=")
-	c.Assert(err, gc.ErrorMatches, `cannot parse disk constraints: storage constraints require at least one field to be specified`)
+	c.Assert(err, gc.ErrorMatches, `cannot parse disk storage directive: storage directives require at least one field to be specified`)
 }
 
 func (FlagSuite) TestStorageFlagBundleStorage(c *gc.C) {
-	var stores map[string]storage.Constraints
-	var bundleStores map[string]map[string]storage.Constraints
+	var stores map[string]storage.Directive
+	var bundleStores map[string]map[string]storage.Directive
 	flag := storageFlag{&stores, &bundleStores}
 	err := flag.Set("foo=bar")
 	c.Assert(err, jc.ErrorIsNil)
 	err = flag.Set("app:baz=qux")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stores, jc.DeepEquals, map[string]storage.Constraints{
+	c.Assert(stores, jc.DeepEquals, map[string]storage.Directive{
 		"foo": {Pool: "bar", Count: 1},
 	})
-	c.Assert(bundleStores, jc.DeepEquals, map[string]map[string]storage.Constraints{
+	c.Assert(bundleStores, jc.DeepEquals, map[string]map[string]storage.Directive{
 		"app": {
 			"baz": {Pool: "qux", Count: 1},
 		},
@@ -90,9 +90,9 @@ func (FlagSuite) TestStorageFlagBundleStorage(c *gc.C) {
 }
 
 func (FlagSuite) TestStorageFlagBundleStorageErrors(c *gc.C) {
-	flag := storageFlag{new(map[string]storage.Constraints), new(map[string]map[string]storage.Constraints)}
+	flag := storageFlag{new(map[string]storage.Directive), new(map[string]map[string]storage.Directive)}
 	err := flag.Set("foo")
-	c.Assert(err, gc.ErrorMatches, `expected \[<application>\:]<store>=<constraints>`)
+	c.Assert(err, gc.ErrorMatches, `expected \[<application>\:]<store>=<directive>`)
 }
 
 func (FlagSuite) TestAttachStorageFlag(c *gc.C) {

@@ -410,7 +410,7 @@ type DeployerConfig struct {
 	BundleDevices        map[string]map[string]devices.Constraints
 	BundleMachines       map[string]string
 	BundleOverlayFile    []string
-	BundleStorage        map[string]map[string]storage.Constraints
+	BundleStorage        map[string]map[string]storage.Directive
 	Channel              charm.Channel
 	CharmOrBundle        string
 	DefaultCharmSchema   charm.Schema
@@ -430,7 +430,7 @@ type DeployerConfig struct {
 	Resources            map[string]string
 	Revision             int
 	Base                 corebase.Base
-	Storage              map[string]storage.Constraints
+	Storage              map[string]storage.Directive
 	Trust                bool
 	UseExisting          bool
 }
@@ -460,8 +460,8 @@ type factory struct {
 	configOptions      common.ConfigFlag
 	constraints        constraints.Value
 	modelConstraints   constraints.Value
-	storage            map[string]storage.Constraints
-	bundleStorage      map[string]map[string]storage.Constraints
+	storage            map[string]storage.Directive
+	bundleStorage      map[string]map[string]storage.Directive
 	devices            map[string]devices.Constraints
 	bundleDevices      map[string]map[string]devices.Constraints
 	resources          map[string]string

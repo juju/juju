@@ -18,8 +18,8 @@ type Charm interface {
 type AddApplicationParams struct {
 	// Charm is the application's charm.
 	Charm Charm
-	// Storage contains the application's storage constraints.
-	Storage map[string]storage.Constraints
+	// Storage contains the application's storage directives.
+	Storage map[string]storage.Directive
 }
 
 // AddUnitParams contains parameters for adding a unit to the model.
@@ -45,11 +45,11 @@ type UpdateCharmParams struct {
 	// upgraded to use it.
 	Charm Charm
 
-	// Storage contains the storage constraints to add or update when
+	// Storage contains the storage directives to add or update when
 	// upgrading the charm.
 	//
 	// Any existing storage instances for the named stores will be
-	// unaffected; the storage constraints will only be used for
+	// unaffected; the storage directives will only be used for
 	// provisioning new storage instances.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive
 }

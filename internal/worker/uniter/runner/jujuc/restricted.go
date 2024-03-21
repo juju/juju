@@ -144,7 +144,7 @@ func (*RestrictedContext) HookStorage() (ContextStorageAttachment, error) {
 }
 
 // AddUnitStorage implements hooks.Context.
-func (*RestrictedContext) AddUnitStorage(map[string]params.StorageConstraints) error {
+func (*RestrictedContext) AddUnitStorage(map[string]params.StorageDirectives) error {
 	return ErrRestrictedContext
 }
 

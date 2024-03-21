@@ -31,8 +31,8 @@ func makeStorageDefaults(b, f string) domainstorage.StorageDefaults {
 	return result
 }
 
-func (s *defaultsSuite) assertAddApplicationStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]storage.Constraints) {
-	err := domainstorage.StorageConstraintsWithDefaults(
+func (s *defaultsSuite) assertAddApplicationStorageDirectivesDefaults(c *gc.C, pool string, cons, expect map[string]storage.Directive) {
+	err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":    {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: -1},
 			"allecto": {Name: "allecto", Type: charm.StorageBlock, CountMin: 0, CountMax: -1},
@@ -45,81 +45,81 @@ func (s *defaultsSuite) assertAddApplicationStorageConstraintsDefaults(c *gc.C, 
 	c.Assert(cons, jc.DeepEquals, expect)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageConstraintsNoConstraintsUsed(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"data": makeStorageCons("", 0, 0),
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoConstraintsUsed(c *gc.C) {
+	storageCons := map[string]storage.Directive{
+		"data": makeStorageDirective("", 0, 0),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"data":    makeStorageCons("loop", 1024, 1),
-		"allecto": makeStorageCons("loop", 1024, 0),
+	expectedCons := map[string]storage.Directive{
+		"data":    makeStorageDirective("loop", 1024, 1),
+		"allecto": makeStorageDirective("loop", 1024, 0),
 	}
-	s.assertAddApplicationStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
+	s.assertAddApplicationStorageDirectivesDefaults(c, "loop-pool", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageConstraintsJustCount(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"data": makeStorageCons("", 0, 1),
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesJustCount(c *gc.C) {
+	storageCons := map[string]storage.Directive{
+		"data": makeStorageDirective("", 0, 1),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"data":    makeStorageCons("loop-pool", 1024, 1),
-		"allecto": makeStorageCons("loop", 1024, 0),
+	expectedCons := map[string]storage.Directive{
+		"data":    makeStorageDirective("loop-pool", 1024, 1),
+		"allecto": makeStorageDirective("loop", 1024, 0),
 	}
-	s.assertAddApplicationStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
+	s.assertAddApplicationStorageDirectivesDefaults(c, "loop-pool", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageConstraintsDefaultPool(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"data": makeStorageCons("", 2048, 1),
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultPool(c *gc.C) {
+	storageCons := map[string]storage.Directive{
+		"data": makeStorageDirective("", 2048, 1),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"data":    makeStorageCons("loop-pool", 2048, 1),
-		"allecto": makeStorageCons("loop", 1024, 0),
+	expectedCons := map[string]storage.Directive{
+		"data":    makeStorageDirective("loop-pool", 2048, 1),
+		"allecto": makeStorageDirective("loop", 1024, 0),
 	}
-	s.assertAddApplicationStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
+	s.assertAddApplicationStorageDirectivesDefaults(c, "loop-pool", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageConstraintsConstraintPool(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"data": makeStorageCons("loop-pool", 2048, 1),
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesConstraintPool(c *gc.C) {
+	storageCons := map[string]storage.Directive{
+		"data": makeStorageDirective("loop-pool", 2048, 1),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"data":    makeStorageCons("loop-pool", 2048, 1),
-		"allecto": makeStorageCons("loop", 1024, 0),
+	expectedCons := map[string]storage.Directive{
+		"data":    makeStorageDirective("loop-pool", 2048, 1),
+		"allecto": makeStorageDirective("loop", 1024, 0),
 	}
-	s.assertAddApplicationStorageConstraintsDefaults(c, "", storageCons, expectedCons)
+	s.assertAddApplicationStorageDirectivesDefaults(c, "", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageConstraintsNoUserDefaultPool(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"data": makeStorageCons("", 2048, 1),
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoUserDefaultPool(c *gc.C) {
+	storageCons := map[string]storage.Directive{
+		"data": makeStorageDirective("", 2048, 1),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"data":    makeStorageCons("loop", 2048, 1),
-		"allecto": makeStorageCons("loop", 1024, 0),
+	expectedCons := map[string]storage.Directive{
+		"data":    makeStorageDirective("loop", 2048, 1),
+		"allecto": makeStorageDirective("loop", 1024, 0),
 	}
-	s.assertAddApplicationStorageConstraintsDefaults(c, "", storageCons, expectedCons)
+	s.assertAddApplicationStorageDirectivesDefaults(c, "", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageConstraintsDefaultSizeFallback(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"data": makeStorageCons("loop-pool", 0, 1),
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFallback(c *gc.C) {
+	storageCons := map[string]storage.Directive{
+		"data": makeStorageDirective("loop-pool", 0, 1),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"data":    makeStorageCons("loop-pool", 1024, 1),
-		"allecto": makeStorageCons("loop", 1024, 0),
+	expectedCons := map[string]storage.Directive{
+		"data":    makeStorageDirective("loop-pool", 1024, 1),
+		"allecto": makeStorageDirective("loop", 1024, 0),
 	}
-	s.assertAddApplicationStorageConstraintsDefaults(c, "loop-pool", storageCons, expectedCons)
+	s.assertAddApplicationStorageDirectivesDefaults(c, "loop-pool", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageConstraintsDefaultSizeFromCharm(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"multi1to10": makeStorageCons("loop", 0, 3),
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFromCharm(c *gc.C) {
+	storageCons := map[string]storage.Directive{
+		"multi1to10": makeStorageDirective("loop", 0, 3),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"multi1to10": makeStorageCons("loop", 1024, 3),
-		"multi2up":   makeStorageCons("loop", 2048, 2),
+	expectedCons := map[string]storage.Directive{
+		"multi1to10": makeStorageDirective("loop", 1024, 3),
+		"multi2up":   makeStorageDirective("loop", 2048, 2),
 	}
-	err := domainstorage.StorageConstraintsWithDefaults(
+	err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"multi1to10": {Name: "multi1to10", Type: charm.StorageBlock, CountMin: 1, CountMax: 10},
 			"multi2up":   {Name: "multi2up", Type: charm.StorageBlock, CountMin: 2, CountMax: -1, MinimumSize: 2 * 1024},
@@ -133,12 +133,12 @@ func (s *defaultsSuite) TestAddApplicationStorageConstraintsDefaultSizeFromCharm
 }
 
 func (s *defaultsSuite) TestProviderFallbackToType(c *gc.C) {
-	storageCons := map[string]storage.Constraints{}
-	expectedCons := map[string]storage.Constraints{
-		"data":  makeStorageCons("loop", 1024, 1),
-		"files": makeStorageCons("rootfs", 1024, 1),
+	storageCons := map[string]storage.Directive{}
+	expectedCons := map[string]storage.Directive{
+		"data":  makeStorageDirective("loop", 1024, 1),
+		"files": makeStorageDirective("rootfs", 1024, 1),
 	}
-	err := domainstorage.StorageConstraintsWithDefaults(
+	err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":  {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: 1},
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 1},
@@ -152,11 +152,11 @@ func (s *defaultsSuite) TestProviderFallbackToType(c *gc.C) {
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *gc.C) {
-	storageCons := map[string]storage.Constraints{}
-	expectedCons := map[string]storage.Constraints{
-		"files": makeStorageCons("kubernetes", 1024, 1),
+	storageCons := map[string]storage.Directive{}
+	expectedCons := map[string]storage.Directive{
+		"files": makeStorageDirective("kubernetes", 1024, 1),
 	}
-	err := domainstorage.StorageConstraintsWithDefaults(
+	err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 1},
 		},
@@ -169,12 +169,12 @@ func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *gc.C) {
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *gc.C) {
-	storageCons := map[string]storage.Constraints{}
-	expectedCons := map[string]storage.Constraints{
-		"data":  makeStorageCons("loop", 1024, 1),
-		"files": makeStorageCons("rootfs", 1024, 1),
+	storageCons := map[string]storage.Directive{}
+	expectedCons := map[string]storage.Directive{
+		"data":  makeStorageDirective("loop", 1024, 1),
+		"files": makeStorageDirective("rootfs", 1024, 1),
 	}
-	err := domainstorage.StorageConstraintsWithDefaults(
+	err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":  {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: 1},
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 1},
@@ -188,11 +188,11 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *gc.C) {
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *gc.C) {
-	storageCons := map[string]storage.Constraints{}
-	expectedCons := map[string]storage.Constraints{
-		"files": makeStorageCons("kubernetes", 1024, 1),
+	storageCons := map[string]storage.Directive{}
+	expectedCons := map[string]storage.Directive{
+		"files": makeStorageDirective("kubernetes", 1024, 1),
 	}
-	err := domainstorage.StorageConstraintsWithDefaults(
+	err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 1},
 		},
@@ -205,15 +205,15 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *gc.C
 }
 
 func (s *defaultsSuite) TestProviderFallbackToDefaults(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"data":  makeStorageCons("", 2048, 1),
-		"files": makeStorageCons("", 4096, 2),
+	storageCons := map[string]storage.Directive{
+		"data":  makeStorageDirective("", 2048, 1),
+		"files": makeStorageDirective("", 4096, 2),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"data":  makeStorageCons("ebs", 2048, 1),
-		"files": makeStorageCons("tmpfs", 4096, 2),
+	expectedCons := map[string]storage.Directive{
+		"data":  makeStorageDirective("ebs", 2048, 1),
+		"files": makeStorageDirective("tmpfs", 4096, 2),
 	}
-	err := domainstorage.StorageConstraintsWithDefaults(
+	err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":  {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: 2},
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 2},
@@ -227,13 +227,13 @@ func (s *defaultsSuite) TestProviderFallbackToDefaults(c *gc.C) {
 }
 
 func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"files": makeStorageCons("", 4096, 2),
+	storageCons := map[string]storage.Directive{
+		"files": makeStorageDirective("", 4096, 2),
 	}
-	expectedCons := map[string]storage.Constraints{
-		"files": makeStorageCons("tmpfs", 4096, 2),
+	expectedCons := map[string]storage.Directive{
+		"files": makeStorageDirective("tmpfs", 4096, 2),
 	}
-	err := domainstorage.StorageConstraintsWithDefaults(
+	err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 2},
 		},

@@ -47,7 +47,7 @@ type deployCharm struct {
 	placementSpec    string
 	resources        map[string]string
 	baseFlag         corebase.Base
-	storage          map[string]storage.Constraints
+	storage          map[string]storage.Directive
 	trust            bool
 
 	validateCharmBaseWithName             func(base corebase.Base, name string, imageStream string) error
