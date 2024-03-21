@@ -141,6 +141,35 @@ func (m *stateSuite) TestGetModelNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
+// TestModelCloudNameAndCredential is asserting the happy path.
+func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
+	runner := m.TxnRunnerFactory()
+	modelSt := NewState(runner)
+
+	cloud, credentialKey, err := modelSt.ModelCloudNameAndCredential(
+		context.Background(), "my-test-model", m.userName,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloud, gc.Equals, "my-cloud")
+	c.Assert(credentialKey, gc.Equals, corecredential.ID{
+		Cloud: "my-cloud",
+		Owner: "test-user",
+		Name:  "foobar",
+	})
+}
+
+// TestModelCloudNameAndCredentialNotFound is asserting that for a model that
+// does not exists we get back an error that satisfies [modelerrors.NotFound]
+func (m *stateSuite) TestModelCloudNameAndCredentialNotFound(c *gc.C) {
+	runner := m.TxnRunnerFactory()
+	modelSt := NewState(runner)
+
+	_, _, err := modelSt.ModelCloudNameAndCredential(
+		context.Background(), "no-exist", m.userName,
+	)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
 // TestCreateModelAgentWithNoModel is asserting that if we attempt to make a
 // model agent record where no model already exists that we get back a
 // [modelerrors.NotFound] error.

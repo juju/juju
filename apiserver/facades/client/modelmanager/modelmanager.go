@@ -87,6 +87,7 @@ type CredentialService interface {
 	InvalidateCredential(ctx context.Context, id credential.ID, reason string) error
 }
 
+// UserService defines a interface for interacting the users of a controller.
 type UserService interface {
 	GetUserByName(context.Context, string) (coreuser.User, error)
 }
@@ -277,7 +278,7 @@ func (m *ModelManagerAPI) createModelNew(ctx context.Context, uuid string, args 
 		UUID:        coremodel.UUID(uuid),
 	}
 
-	// We need to get the controllers default cloud and credential. To help
+	// We need to get the controller's default cloud and credential. To help
 	// Juju users when creating their first models we allow them to omit this
 	// information from the model creation args. If they have done exactly this
 	// we will try and apply the defaults where authorisation allows us to.
@@ -1002,6 +1003,8 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// cause too much fallout. If we're unable to delete the model from the
 		// database, then we won't be able to create a new model with the same
 		// model uuid as there is a UNIQUE constraint on the model uuid column.
+		// TODO (tlm): The modelService nil check will go when the tests are
+		// moved from mongo.
 		if m.modelService != nil {
 			err = m.modelService.DeleteModel(ctx, coremodel.UUID(stModel.UUID()))
 			if err != nil && errors.Is(err, modelerrors.NotFound) {

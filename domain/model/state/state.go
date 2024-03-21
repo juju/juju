@@ -59,8 +59,8 @@ func (s *State) CloudType(
 	})
 }
 
-// CloudType is responsible for reporting the type for a given cloud name. If no
-// cloud exists for the provided name then an error of [clouderrors.NotFound]
+// CloudType returns a closure for reporting the type for a given cloud name. If
+// no cloud exists for the provided name then an error of [clouderrors.NotFound]
 // will be returned.
 func CloudType() func(context.Context, *sql.Tx, string) (string, error) {
 	stmt := `
@@ -480,7 +480,10 @@ func (s *State) ModelCloudNameAndCredential(
 	}
 
 	stmt := `
-SELECT cloud_name, cloud_credential_name, cloud_credential_owner_uuid
+SELECT cloud_name,
+       cloud_credential_name,
+       cloud_credential_owner_name,
+	   cloud_credential_cloud_name
 FROM v_model
 WHERE name = ?
 AND owner_name = ?
@@ -490,10 +493,11 @@ AND owner_name = ?
 		cloudName       string
 		credentialName  sql.NullString
 		credentialOwner sql.NullString
+		credentialCloud sql.NullString
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, stmt, modelName, modelOwnerName)
-		if err := row.Scan(&cloudName, &credentialName, &credentialOwner); err != nil {
+		if err := row.Scan(&cloudName, &credentialName, &credentialOwner, &credentialCloud); err != nil {
 			return err
 		}
 		return nil
@@ -515,7 +519,7 @@ AND owner_name = ?
 	}
 
 	credId := credential.ID{
-		Cloud: cloudName,
+		Cloud: credentialCloud.String,
 		Name:  credentialName.String,
 		Owner: credentialOwner.String,
 	}

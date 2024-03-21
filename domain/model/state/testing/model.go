@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// CreateTestModel is a testing utility function for creating a basic model for
+// a test to rely on. The created model will have it's uuid returned.
 func CreateTestModel(
 	c *gc.C,
 	txnRunner database.TxnRunnerFactory,

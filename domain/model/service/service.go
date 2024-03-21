@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model"
@@ -73,7 +74,7 @@ type AgentBinaryFinder interface {
 type agentBinaryFinderFn func(version.Number) (bool, error)
 
 var (
-	caasCloudTypes = []string{"kubernetes"}
+	caasCloudTypes = []string{cloud.CloudTypeKubernetes}
 )
 
 func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, error) {
@@ -113,9 +114,9 @@ func agentVersionSelector() version.Number {
 // either cloud or credential specified. If no default credential is available
 // the zero value of [credential.ID] will be returned.
 //
-// The defaults that are source come from the controllers default model. If
-// there is a reason finding the controllers default model a
-// [modelerrors.NotFound] error will be returned.
+// The defaults that are sourced come from the controller's default model. If
+// there is a no controller model a [modelerrors.NotFound] error will be
+// returned.
 func (s *Service) DefaultModelCloudNameAndCredential(
 	ctx context.Context,
 ) (string, credential.ID, error) {
@@ -131,9 +132,8 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 
 // CreateModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function will returned the created model's uuid.
-// If the ModelCreationArgs does not have a credential name set then the cloud
-// credential will be set to
-// credential will be associated with the model.
+// If the ModelCreationArgs does not have a credential name set then no cloud
+// credential will be associated with model.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.

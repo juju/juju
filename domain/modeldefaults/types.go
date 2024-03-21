@@ -43,8 +43,8 @@ type DefaultAttributeValue struct {
 type Defaults map[string]DefaultAttributeValue
 
 // PreferDefaultApplyStrategy is an [ApplyStrategy] implementation that will
-// always the value set in the model default value. If the value for the model
-// default is nil then the model config set value will be chosen.
+// always prefer the value set in the model default value. If the value for the
+// model default is nil then the model config set value will be chosen.
 type PreferDefaultApplyStrategy struct{}
 
 // PreferSetApplyStrategy is an [ApplyStrategy] implementation that will always
