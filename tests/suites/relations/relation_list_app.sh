@@ -1,3 +1,6 @@
+# Copyright 2024 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
+
 # Ensure that relation-list hook works correctly.
 run_relation_list_app() {
 	echo
