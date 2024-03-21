@@ -93,7 +93,7 @@ type SecretBackendProvider interface {
 
 // SupportAuthRefresh defines the methods to refresh auth tokens.
 type SupportAuthRefresh interface {
-	RefreshAuth(adminCfg *ModelBackendConfig, validFor time.Duration) (*BackendConfig, error)
+	RefreshAuth(adminCfg BackendConfig, validFor time.Duration) (*BackendConfig, error)
 }
 
 // HasAuthRefresh returns true if the provider supports token refresh.
