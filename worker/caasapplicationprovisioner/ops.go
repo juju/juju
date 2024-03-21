@@ -174,6 +174,8 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	for k, v := range ch.Meta().Containers {
 		container := caas.ContainerConfig{
 			Name: k,
+			Uid:  v.Uid,
+			Gid:  v.Gid,
 		}
 		if v.Resource == "" {
 			return errors.NotValidf("empty container resource reference")
@@ -209,6 +211,20 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 		Trust:                provisionInfo.Trust,
 		InitialScale:         provisionInfo.Scale,
+	}
+	switch ch.Meta().CharmUser {
+	case charm.RunAsDefault, charm.RunAsRoot:
+		config.CharmUser = caas.RunAsRoot
+	case charm.RunAsSudoer:
+		// TODO(pebble): once pebble supports auth, allow running as non-root.
+		//config.CharmUser = caas.RunAsSudoer
+		config.CharmUser = caas.RunAsRoot
+	case charm.RunAsNonRoot:
+		// TODO(pebble): once pebble supports auth, allow running as non-root.
+		//config.CharmUser = caas.RunAsNonRoot
+		config.CharmUser = caas.RunAsRoot
+	default:
+		return errors.NotValidf("unknown RunAs for CharmUser: %q", ch.Meta().CharmUser)
 	}
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
