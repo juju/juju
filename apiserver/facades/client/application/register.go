@@ -28,10 +28,21 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Application", 19, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV19(ctx) // Added new DeployFromRepository
 	}, reflect.TypeOf((*APIv19)(nil)))
+	registry.MustRegister("Application", 20, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV20(ctx) // Remove remote space
+	}, reflect.TypeOf((*APIv20)(nil)))
+}
+
+func newFacadeV20(ctx facade.Context) (*APIv20, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv20{api}, nil
 }
 
 func newFacadeV19(ctx facade.Context) (*APIv19, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := newFacadeV20(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -68,17 +68,22 @@ type OfferFilter struct {
 	AllowedConsumerTags    []string                   `json:"allowed-users"`
 }
 
-// ApplicationOfferDetails represents an application offering from an external model.
-type ApplicationOfferDetails struct {
+// ApplicationOfferDetailsV5 represents an application offering from an external model.
+type ApplicationOfferDetailsV5 struct {
 	SourceModelTag         string             `json:"source-model-tag"`
 	OfferUUID              string             `json:"offer-uuid"`
 	OfferURL               string             `json:"offer-url"`
 	OfferName              string             `json:"offer-name"`
 	ApplicationDescription string             `json:"application-description"`
 	Endpoints              []RemoteEndpoint   `json:"endpoints,omitempty"`
-	Spaces                 []RemoteSpace      `json:"spaces,omitempty"`
-	Bindings               map[string]string  `json:"bindings,omitempty"`
 	Users                  []OfferUserDetails `json:"users,omitempty"`
+}
+
+// ApplicationOfferDetailsV4 represents an application offering from an external model.
+type ApplicationOfferDetailsV4 struct {
+	ApplicationOfferDetailsV5
+	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
+	Bindings map[string]string `json:"bindings,omitempty"`
 }
 
 // OfferUserDetails represents an offer consumer and their permission on the offer.
@@ -88,13 +93,21 @@ type OfferUserDetails struct {
 	Access      string `json:"access"`
 }
 
-// ApplicationOfferAdminDetails represents an application offering,
+// ApplicationOfferAdminDetailsV5 represents an application offering,
 // including details about how it has been deployed.
-type ApplicationOfferAdminDetails struct {
-	ApplicationOfferDetails
+type ApplicationOfferAdminDetailsV5 struct {
+	ApplicationOfferDetailsV5
 	ApplicationName string            `json:"application-name"`
 	CharmURL        string            `json:"charm-url"`
 	Connections     []OfferConnection `json:"connections,omitempty"`
+}
+
+// ApplicationOfferAdminDetailsV4 represents an application offering,
+// including details about how it has been deployed.
+type ApplicationOfferAdminDetailsV4 struct {
+	ApplicationOfferAdminDetailsV5
+	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
+	Bindings map[string]string `json:"bindings,omitempty"`
 }
 
 // OfferConnection holds details about a connection to an offer.
@@ -107,10 +120,16 @@ type OfferConnection struct {
 	IngressSubnets []string     `json:"ingress-subnets"`
 }
 
-// QueryApplicationOffersResults is a result of searching application offers.
-type QueryApplicationOffersResults struct {
+// QueryApplicationOffersResultsV5 is a result of searching application offers.
+type QueryApplicationOffersResultsV5 struct {
 	// Results contains application offers matching each filter.
-	Results []ApplicationOfferAdminDetails `json:"results"`
+	Results []ApplicationOfferAdminDetailsV5 `json:"results"`
+}
+
+// QueryApplicationOffersResultsV4 is a result of searching application offers.
+type QueryApplicationOffersResultsV4 struct {
+	// Results contains application offers matching each filter.
+	Results []ApplicationOfferAdminDetailsV4 `json:"results"`
 }
 
 // AddApplicationOffers is used when adding offers to an application directory.
@@ -155,7 +174,7 @@ type RemoteSpace struct {
 // application offer based on its URL.
 type ApplicationOfferResult struct {
 	// Result contains application offer information.
-	Result *ApplicationOfferAdminDetails `json:"result,omitempty"`
+	Result *ApplicationOfferAdminDetailsV5 `json:"result,omitempty"`
 
 	// Error contains related error.
 	Error *Error `json:"error,omitempty"`
@@ -176,10 +195,10 @@ type OfferURLs struct {
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
-// ConsumeApplicationArg holds the arguments for consuming a remote application.
-type ConsumeApplicationArg struct {
+// ConsumeApplicationArgV5 holds the arguments for consuming a remote application.
+type ConsumeApplicationArgV5 struct {
 	// The offer to be consumed.
-	ApplicationOfferDetails
+	ApplicationOfferDetailsV5
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
@@ -192,9 +211,21 @@ type ConsumeApplicationArg struct {
 	ApplicationAlias string `json:"application-alias,omitempty"`
 }
 
-// ConsumeApplicationArgs is a collection of arg for consuming applications.
-type ConsumeApplicationArgs struct {
-	Args []ConsumeApplicationArg `json:"args,omitempty"`
+// ConsumeApplicationArgV4 holds the arguments for consuming a remote application.
+type ConsumeApplicationArgV4 struct {
+	ConsumeApplicationArgV5
+	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
+	Bindings map[string]string `json:"bindings,omitempty"`
+}
+
+// ConsumeApplicationArgsV5 is a collection of arg for consuming applications.
+type ConsumeApplicationArgsV5 struct {
+	Args []ConsumeApplicationArgV5 `json:"args,omitempty"`
+}
+
+// ConsumeApplicationArgsV4 is a collection of arg for consuming applications.
+type ConsumeApplicationArgsV4 struct {
+	Args []ConsumeApplicationArgV4 `json:"args,omitempty"`
 }
 
 // TokenResult holds a token and an error.
@@ -523,10 +554,6 @@ type RegisterRemoteRelationArg struct {
 	// RemoteEndpoint contains info about the endpoint in the remote model.
 	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
 
-	// RemoteSpace contains provider-level info about the space the
-	// endpoint is bound to in the remote model.
-	RemoteSpace RemoteSpace `json:"remote-space"`
-
 	// OfferUUID is the UUID of the offer.
 	OfferUUID string `json:"offer-uuid"`
 
@@ -544,9 +571,23 @@ type RegisterRemoteRelationArg struct {
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
+// RegisterRemoteRelationArg holds attributes used to register a remote relation.
+type RegisterRemoteRelationArgV2 struct {
+	RegisterRemoteRelationArg
+
+	// RemoteSpace contains provider-level info about the space the
+	// endpoint is bound to in the remote model.
+	RemoteSpace RemoteSpace `json:"remote-space"`
+}
+
 // RegisterRemoteRelationArgs holds args used to add remote relations.
 type RegisterRemoteRelationArgs struct {
 	Relations []RegisterRemoteRelationArg `json:"relations"`
+}
+
+// RegisterRemoteRelationArgsV2 holds args used to add remote relations.
+type RegisterRemoteRelationArgsV2 struct {
+	Relations []RegisterRemoteRelationArgV2 `json:"relations"`
 }
 
 // RegisterRemoteRelationResult holds a remote relation details and an error.
@@ -621,9 +662,9 @@ type RemoteApplicationInfoResults struct {
 // ConsumeOfferDetails contains the details necessary to
 // consume an application offer.
 type ConsumeOfferDetails struct {
-	Offer          *ApplicationOfferDetails `json:"offer,omitempty"`
-	Macaroon       *macaroon.Macaroon       `json:"macaroon,omitempty"`
-	ControllerInfo *ExternalControllerInfo  `json:"external-controller,omitempty"`
+	Offer          *ApplicationOfferDetailsV5 `json:"offer,omitempty"`
+	Macaroon       *macaroon.Macaroon         `json:"macaroon,omitempty"`
+	ControllerInfo *ExternalControllerInfo    `json:"external-controller,omitempty"`
 }
 
 // ConsumeOfferDetailsArg holds arguments for querying the

@@ -950,7 +950,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	s.fakeAPI.Call("GetConsumeDetails",
 		"admin/default.mysql",
 	).Returns(params.ConsumeOfferDetails{
-		Offer: &params.ApplicationOfferDetails{
+		Offer: &params.ApplicationOfferDetailsV5{
 			OfferName: "mysql",
 			OfferURL:  "admin/default.mysql",
 		},
@@ -965,7 +965,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 
 	s.fakeAPI.Call("Consume",
 		crossmodel.ConsumeApplicationArgs{
-			Offer: params.ApplicationOfferDetails{
+			Offer: params.ApplicationOfferDetailsV5{
 				OfferName: "mysql",
 				OfferURL:  "test:admin/default.mysql",
 			},

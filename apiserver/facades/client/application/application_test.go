@@ -962,7 +962,9 @@ func (s *applicationSuite) apiv16() *application.APIv16 {
 		APIv17: &application.APIv17{
 			APIv18: &application.APIv18{
 				APIv19: &application.APIv19{
-					APIBase: s.applicationAPI,
+					APIv20: &application.APIv20{
+						APIBase: s.applicationAPI,
+					},
 				},
 			},
 		},
@@ -1520,9 +1522,9 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 }
 
 func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
-			{ApplicationOfferDetails: params.ApplicationOfferDetails{
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{
+			{ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -1588,9 +1590,9 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
-			{ApplicationOfferDetails: params.ApplicationOfferDetails{
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{
+			{ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag: testing.ModelTag.String(),
 				OfferName:      "hosted-db2",
 				OfferUUID:      "hosted-db2-uuid",

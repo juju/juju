@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -61,9 +60,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv20 provides the Application API facade for version 20.
+type APIv20 struct {
+	*APIBase
+}
+
 // APIv19 provides the Application API facade for version 19.
 type APIv19 struct {
-	*APIBase
+	*APIv20
 }
 
 // APIv18 provides the Application API facade for version 18.
@@ -2112,7 +2116,7 @@ func (api *APIBase) SetRelationsSuspended(args params.RelationSuspendedArgs) (pa
 
 // Consume adds remote applications to the model without creating any
 // relations.
-func (api *APIBase) Consume(args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
+func (api *APIBase) Consume(args params.ConsumeApplicationArgsV5) (params.ErrorResults, error) {
 	var consumeResults params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return consumeResults, errors.Trace(err)
@@ -2130,7 +2134,7 @@ func (api *APIBase) Consume(args params.ConsumeApplicationArgs) (params.ErrorRes
 	return consumeResults, nil
 }
 
-func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
+func (api *APIBase) consumeOne(arg params.ConsumeApplicationArgV5) error {
 	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -2162,8 +2166,25 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetails, arg.Macaroon)
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetailsV5, arg.Macaroon)
 	return err
+}
+
+// Consume adds remote applications to the model without creating any
+// relations.
+func (api *APIv19) Consume(args params.ConsumeApplicationArgsV4) (params.ErrorResults, error) {
+	var consumeApplicationArgs []params.ConsumeApplicationArgV5
+	for _, arg := range args.Args {
+		consumeApplicationArgs = append(consumeApplicationArgs, params.ConsumeApplicationArgV5{
+			Macaroon:                  arg.Macaroon,
+			ControllerInfo:            arg.ControllerInfo,
+			ApplicationAlias:          arg.ApplicationAlias,
+			ApplicationOfferDetailsV5: arg.ApplicationOfferDetailsV5,
+		})
+	}
+	return api.APIv20.Consume(params.ConsumeApplicationArgsV5{
+		Args: consumeApplicationArgs,
+	})
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
@@ -2172,7 +2193,7 @@ func (api *APIBase) saveRemoteApplication(
 	sourceModelTag names.ModelTag,
 	applicationName string,
 	externalControllerUUID string,
-	offer params.ApplicationOfferDetails,
+	offer params.ApplicationOfferDetailsV5,
 	mac *macaroon.Macaroon,
 ) (RemoteApplication, error) {
 	remoteEps := make([]charm.Relation, len(offer.Endpoints))
@@ -2182,11 +2203,6 @@ func (api *APIBase) saveRemoteApplication(
 			Role:      ep.Role,
 			Interface: ep.Interface,
 		}
-	}
-
-	remoteSpaces := make([]*environs.ProviderSpaceInfo, len(offer.Spaces))
-	for i, space := range offer.Spaces {
-		remoteSpaces[i] = providerSpaceInfoFromParams(space)
 	}
 
 	// If a remote application with the same name and endpoints from the same
@@ -2217,35 +2233,8 @@ func (api *APIBase) saveRemoteApplication(
 		ExternalControllerUUID: externalControllerUUID,
 		SourceModel:            sourceModelTag,
 		Endpoints:              remoteEps,
-		Spaces:                 remoteSpaces,
-		Bindings:               offer.Bindings,
 		Macaroon:               mac,
 	})
-}
-
-// providerSpaceInfoFromParams converts a params.RemoteSpace to the
-// equivalent ProviderSpaceInfo.
-func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpaceInfo {
-	result := &environs.ProviderSpaceInfo{
-		CloudType:          space.CloudType,
-		ProviderAttributes: space.ProviderAttributes,
-		SpaceInfo: network.SpaceInfo{
-			Name:       network.SpaceName(space.Name),
-			ProviderId: network.Id(space.ProviderId),
-		},
-	}
-	for _, subnet := range space.Subnets {
-		resultSubnet := network.SubnetInfo{
-			CIDR:              subnet.CIDR,
-			ProviderId:        network.Id(subnet.ProviderId),
-			ProviderNetworkId: network.Id(subnet.ProviderNetworkId),
-			ProviderSpaceId:   network.Id(subnet.ProviderSpaceId),
-			VLANTag:           subnet.VLANTag,
-			AvailabilityZones: subnet.Zones,
-		}
-		result.Subnets = append(result.Subnets, resultSubnet)
-	}
-	return result
 }
 
 // maybeUpdateExistingApplicationEndpoints looks for a remote application with the

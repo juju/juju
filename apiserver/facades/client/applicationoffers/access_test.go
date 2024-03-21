@@ -25,7 +25,7 @@ import (
 
 type offerAccessSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPI
+	api *applicationoffers.OffersAPIv5
 }
 
 var _ = gc.Suite(&offerAccessSuite{})

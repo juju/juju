@@ -33,7 +33,7 @@ import (
 
 type applicationOffersSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPI
+	api *applicationoffers.OffersAPIv5
 }
 
 var _ = gc.Suite(&applicationOffersSuite{})
@@ -278,23 +278,15 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 	}
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedOfferDetails := []params.ApplicationOfferAdminDetails{
+	expectedOfferDetails := []params.ApplicationOfferAdminDetailsV5{
 		{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "admin", DisplayName: "", Access: "admin"},
 					{UserName: "mary", DisplayName: "mary", Access: "consume"},
@@ -312,11 +304,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 			}},
 		},
 	}
-	if s.mockState.model.modelType == state.ModelTypeCAAS {
-		expectedOfferDetails[0].Spaces = nil
-		expectedOfferDetails[0].Bindings = nil
-	}
-	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
+	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
 		expectedOfferDetails,
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
@@ -324,16 +312,6 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 		s.env.stub.CheckNoCalls(c)
 		return
 	}
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	})
 }
 
 func (s *applicationOffersSuite) TestList(c *gc.C) {
@@ -435,22 +413,14 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url, offerUUID string, expe
 func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	offerUUID := utils.MustNewUUID().String()
 	expected := []params.ApplicationOfferResult{{
-		Result: &params.ApplicationOfferAdminDetails{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+		Result: &params.ApplicationOfferAdminDetailsV5{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "fred@external", DisplayName: "", Access: "admin"},
 					{UserName: "mary", DisplayName: "mary", Access: "consume"},
@@ -498,22 +468,14 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
-		Result: &params.ApplicationOfferAdminDetails{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+		Result: &params.ApplicationOfferAdminDetailsV5{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "someone", DisplayName: "someone", Access: "read"},
 				},
@@ -679,34 +641,26 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	var results []params.ApplicationOfferAdminDetails
+	var results []params.ApplicationOfferAdminDetailsV5
 	for _, r := range found.Results {
 		c.Assert(r.Error, gc.IsNil)
 		results = append(results, *r.Result)
 	}
-	c.Assert(results, jc.DeepEquals, []params.ApplicationOfferAdminDetails{
+	c.Assert(results, jc.DeepEquals, []params.ApplicationOfferAdminDetailsV5{
 		{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-" + name,
 				OfferUUID:              "hosted-" + name + "-uuid",
 				OfferURL:               url,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "someone", DisplayName: "someone", Access: "read"},
 				},
 			},
 		}, {
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         "model-uuid2",
 				ApplicationDescription: "description2",
 				OfferName:              "hosted-" + name2,
@@ -721,7 +675,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall, listOffersBackendCall)
 }
 
-func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.ApplicationOfferAdminDetails) {
+func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.ApplicationOfferAdminDetailsV5) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
@@ -734,45 +688,27 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 	}
 	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
+	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
 		Results: expected,
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 	if len(expected) == 0 {
 		return
 	}
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	})
 }
 
 func (s *applicationOffersSuite) TestFind(c *gc.C) {
 	offerUUID := s.setupOffers(c, "", true)
 	s.authorizer.Tag = names.NewUserTag("admin")
-	expected := []params.ApplicationOfferAdminDetails{
+	expected := []params.ApplicationOfferAdminDetailsV5{
 		{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "admin", DisplayName: "", Access: "admin"},
 				}},
@@ -798,30 +734,22 @@ func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 
 	s.setupOffers(c, "", true)
 	s.authorizer.Tag = names.NewUserTag("someone")
-	s.assertFind(c, []params.ApplicationOfferAdminDetails{})
+	s.assertFind(c, []params.ApplicationOfferAdminDetailsV5{})
 }
 
 func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 	offerUUID := s.setupOffers(c, "", true)
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
-	expected := []params.ApplicationOfferAdminDetails{
+	expected := []params.ApplicationOfferAdminDetailsV5{
 		{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-					},
-				},
 				Users: []params.OfferUserDetails{
 					{UserName: "someone", DisplayName: "someone", Access: "read"},
 				}},
@@ -1034,10 +962,10 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	}
 	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
-		[]params.ApplicationOfferAdminDetails{
+	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
+		[]params.ApplicationOfferAdminDetailsV5{
 			{
-				ApplicationOfferDetails: params.ApplicationOfferDetails{
+				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 					SourceModelTag:         testing.ModelTag.String(),
 					ApplicationDescription: "db2 description",
 					OfferName:              "hosted-db2",
@@ -1046,23 +974,13 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					Endpoints: []params.RemoteEndpoint{
 						{Name: "db"},
 					},
-					Bindings: map[string]string{"db2": "myspace"},
-					Spaces: []params.RemoteSpace{
-						{
-							Name:       "myspace",
-							ProviderId: "juju-space-myspace",
-							Subnets: []params.Subnet{
-								{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}},
-							},
-						},
-					},
 					Users: []params.OfferUserDetails{
 						{UserName: "someone", DisplayName: "someone", Access: "consume"},
 					},
 				},
 			},
 			{
-				ApplicationOfferDetails: params.ApplicationOfferDetails{
+				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 					SourceModelTag:         "model-uuid2",
 					ApplicationDescription: "mysql description",
 					OfferName:              "hosted-mysql",
@@ -1077,7 +995,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 				},
 			},
 			{
-				ApplicationOfferDetails: params.ApplicationOfferDetails{
+				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 					SourceModelTag:         "model-uuid2",
 					ApplicationDescription: "postgresql description",
 					OfferName:              "hosted-postgresql",
@@ -1141,7 +1059,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 
 type consumeSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPI
+	api *applicationoffers.OffersAPIv5
 }
 
 var _ = gc.Suite(&consumeSuite{})
@@ -1259,21 +1177,13 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetails{
+	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetailsV5{
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		OfferUUID:              offerUUID,
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
-		Bindings:               map[string]string{"database": "myspace"},
-		Spaces: []params.RemoteSpace{
-			{
-				Name:       "myspace",
-				ProviderId: "juju-space-myspace",
-				Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
-			},
-		},
 		Users: []params.OfferUserDetails{
 			{UserName: "someone", DisplayName: "someone", Access: "consume"},
 		},
@@ -1340,14 +1250,13 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetails{
+	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetailsV5{
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		OfferUUID:              offerUUID,
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
-		Bindings:               map[string]string{"database": "default-endpoint"},
 		Users: []params.OfferUserDetails{
 			{UserName: "someone", DisplayName: "someone", Access: "consume"},
 		},
@@ -1443,16 +1352,6 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 		{
 			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
 		},
-	})
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
 	})
 }
 

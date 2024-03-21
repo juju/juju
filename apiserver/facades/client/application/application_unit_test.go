@@ -84,7 +84,7 @@ type ApplicationSuite struct {
 
 	deployParams               map[string]application.DeployApplicationParams
 	addRemoteApplicationParams state.AddRemoteApplicationParams
-	consumeApplicationArgs     params.ConsumeApplicationArgs
+	consumeApplicationArgs     params.ConsumeApplicationArgsV5
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -132,13 +132,12 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		URL:         "othermodel.hosted-mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints:   []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider"}},
-		Spaces:      []*environs.ProviderSpaceInfo{},
 		Macaroon:    testMac,
 	}
 
-	s.consumeApplicationArgs = params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+	s.consumeApplicationArgs = params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -2651,36 +2650,8 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.addRemoteApplicationParams.Name = "beirut"
-	s.addRemoteApplicationParams.Bindings = map[string]string{"server": "myspace"}
-	s.addRemoteApplicationParams.Spaces = []*environs.ProviderSpaceInfo{{
-		CloudType:          "grandaddy",
-		ProviderAttributes: map[string]interface{}{"thunderjaws": 1},
-		SpaceInfo: network.SpaceInfo{
-			Name:       network.SpaceName("myspace"),
-			ProviderId: network.Id("juju-space-myspace"),
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "5.6.7.0/24",
-				ProviderId:        network.Id("juju-subnet-1"),
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
-	}}
 
 	s.consumeApplicationArgs.Args[0].ApplicationAlias = "beirut"
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.Bindings = map[string]string{"server": "myspace"}
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.Spaces = []params.RemoteSpace{{
-		CloudType:  "grandaddy",
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		Subnets: []params.Subnet{{
-			CIDR:       "5.6.7.0/24",
-			ProviderId: "juju-subnet-1",
-			Zones:      []string{"az1"},
-		}},
-	}}
 
 	s.backend.EXPECT().RemoteApplication("beirut").Return(nil, errors.NotFoundf(`saas application "beirut"`))
 	s.backend.EXPECT().AddRemoteApplication(s.addRemoteApplicationParams).Return(nil, nil)
@@ -2696,11 +2667,11 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(s.expectRemoteApplication(ctrl, state.Alive, status.Active), nil)
 
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
+	s.consumeApplicationArgs.Args[0].ApplicationOfferDetailsV5.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
 
-	results, err := s.api.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+	results, err := s.api.Consume(params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         names.NewModelTag(utils.MustNewUUID().String()).String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",

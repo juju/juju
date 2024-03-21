@@ -109,7 +109,7 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"GetConsumeDetails", []interface{}{"bob/booster.uke"}},
 		{"Consume", []interface{}{crossmodel.ConsumeApplicationArgs{
-			Offer:            params.ApplicationOfferDetails{OfferName: "an offer", OfferURL: "ctrl:bob/booster.uke"},
+			Offer:            params.ApplicationOfferDetailsV5{OfferName: "an offer", OfferURL: "ctrl:bob/booster.uke"},
 			ApplicationAlias: alias,
 			Macaroon:         mac,
 			ControllerInfo: &crossmodel.ControllerInfo{
@@ -157,7 +157,7 @@ func (a *mockConsumeAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetai
 		return params.ConsumeOfferDetails{}, err
 	}
 	return params.ConsumeOfferDetails{
-		Offer:    &params.ApplicationOfferDetails{OfferName: "an offer", OfferURL: "bob/booster.uke"},
+		Offer:    &params.ApplicationOfferDetailsV5{OfferName: "an offer", OfferURL: "bob/booster.uke"},
 		Macaroon: mac,
 		ControllerInfo: &params.ExternalControllerInfo{
 			ControllerTag: coretesting.ControllerTag.String(),
