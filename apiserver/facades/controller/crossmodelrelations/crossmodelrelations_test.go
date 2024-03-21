@@ -47,7 +47,7 @@ type crossmodelRelationsSuite struct {
 	st          *mockState
 	bakery      *mockBakeryService
 	authContext *commoncrossmodel.AuthContext
-	api         *crossmodelrelations.CrossModelRelationsAPI
+	api         *crossmodelrelations.CrossModelRelationsAPIv3
 
 	watchedRelations       params.Entities
 	watchedOffers          []string

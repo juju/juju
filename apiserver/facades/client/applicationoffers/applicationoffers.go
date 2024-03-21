@@ -27,18 +27,18 @@ var logger = loggo.GetLogger("juju.apiserver.applicationoffers")
 
 type environFromModelFunc func(string) (environs.Environ, error)
 
-// OffersAPI implements the cross model interface and is the concrete
+// OffersAPIv5 implements the cross model interface and is the concrete
 // implementation of the api end point.
-type OffersAPI struct {
+type OffersAPIv5 struct {
 	BaseAPI
 	dataDir     string
 	authContext *commoncrossmodel.AuthContext
 }
 
-// OffersAPI implements the cross model interface and is the concrete
+// OffersAPIv4 implements the cross model interface and is the concrete
 // implementation of the api end point.
-type OffersAPIV4 struct {
-	OffersAPI
+type OffersAPIv4 struct {
+	OffersAPIv5
 }
 
 // createAPI returns a new application offers OffersAPI facade.
@@ -51,13 +51,13 @@ func createOffersAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	authContext *commoncrossmodel.AuthContext,
-) (*OffersAPI, error) {
+) (*OffersAPIv5, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	dataDir := resources.Get("dataDir").(common.StringResource)
-	api := &OffersAPI{
+	api := &OffersAPIv5{
 		dataDir:     dataDir.String(),
 		authContext: authContext,
 		BaseAPI: BaseAPI{
@@ -74,7 +74,7 @@ func createOffersAPI(
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.
-func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
+func (api *OffersAPIv5) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
 	result := make([]params.ErrorResult, len(all.Offers))
 
 	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
@@ -122,7 +122,7 @@ func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResult
 	return params.ErrorResults{Results: result}, nil
 }
 
-func (api *OffersAPI) makeAddOfferArgsFromParams(user names.UserTag, backend Backend, addOfferParams params.AddApplicationOffer) (jujucrossmodel.AddApplicationOfferArgs, error) {
+func (api *OffersAPIv5) makeAddOfferArgsFromParams(user names.UserTag, backend Backend, addOfferParams params.AddApplicationOffer) (jujucrossmodel.AddApplicationOfferArgs, error) {
 	result := jujucrossmodel.AddApplicationOfferArgs{
 		OfferName:              addOfferParams.OfferName,
 		ApplicationName:        addOfferParams.ApplicationName,
@@ -152,8 +152,8 @@ func (api *OffersAPI) makeAddOfferArgsFromParams(user names.UserTag, backend Bac
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
-func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
-	var result params.QueryApplicationOffersResults
+func (api *OffersAPIv5) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
+	var result params.QueryApplicationOffersResultsV5
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	offers, err := api.getApplicationOffersDetails(user, filters, permission.AdminAccess)
 	if err != nil {
@@ -165,23 +165,25 @@ func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
-func (api *OffersAPIV4) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResultsV4, error) {
-	res, err := api.OffersAPI.ListApplicationOffers(filters)
+func (api *OffersAPIv4) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResultsV4, error) {
+	res, err := api.OffersAPIv5.ListApplicationOffers(filters)
 	if err != nil {
 		return params.QueryApplicationOffersResultsV4{}, errors.Trace(err)
 	}
-	var resultsV4 []params.ApplicationOfferAdminDetailsV4
-	for _, result := range res.Results {
-		resultsV4 = append(resultsV4, params.ApplicationOfferAdminDetailsV4{
-			ApplicationOfferAdminDetails: result,
-		})
+	resultsV4 := make([]params.ApplicationOfferAdminDetailsV4, len(res.Results))
+	for i, result := range res.Results {
+		resultsV4[i] = params.ApplicationOfferAdminDetailsV4{
+			ApplicationOfferAdminDetailsV5: result,
+		}
 	}
 
-	return params.QueryApplicationOffersResultsV4{}, nil
+	return params.QueryApplicationOffersResultsV4{
+		Results: resultsV4,
+	}, nil
 }
 
 // ModifyOfferAccess changes the application offer access granted to users.
-func (api *OffersAPI) ModifyOfferAccess(args params.ModifyOfferAccessRequest) (result params.ErrorResults, _ error) {
+func (api *OffersAPIv5) ModifyOfferAccess(args params.ModifyOfferAccessRequest) (result params.ErrorResults, _ error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -216,7 +218,7 @@ func (api *OffersAPI) ModifyOfferAccess(args params.ModifyOfferAccessRequest) (r
 	return result, nil
 }
 
-func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string, isControllerAdmin bool, arg params.ModifyOfferAccess) error {
+func (api *OffersAPIv5) modifyOneOfferAccess(user names.UserTag, modelUUID string, isControllerAdmin bool, arg params.ModifyOfferAccess) error {
 	backend, releaser, err := api.StatePool.Get(modelUUID)
 	if err != nil {
 		return errors.Trace(err)
@@ -266,7 +268,7 @@ func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string,
 
 // changeOfferAccess performs the requested access grant or revoke action for the
 // specified user on the specified application offer.
-func (api *OffersAPI) changeOfferAccess(
+func (api *OffersAPIv5) changeOfferAccess(
 	backend Backend,
 	offerName string,
 	targetUserTag names.UserTag,
@@ -288,7 +290,7 @@ func (api *OffersAPI) changeOfferAccess(
 	}
 }
 
-func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
+func (api *OffersAPIv5) grantOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
 	err := backend.CreateOfferAccess(offerTag, targetUserTag, access)
 	if errors.IsAlreadyExists(err) {
 		offerAccess, err := backend.GetOfferAccess(offerTag.Id(), targetUserTag)
@@ -312,7 +314,7 @@ func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.Applicati
 	return errors.Annotate(err, "could not grant offer access")
 }
 
-func (api *OffersAPI) revokeOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
+func (api *OffersAPIv5) revokeOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
 	switch access {
 	case permission.ReadAccess:
 		// Revoking read access removes all access.
@@ -333,12 +335,12 @@ func (api *OffersAPI) revokeOfferAccess(backend Backend, offerTag names.Applicat
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
-func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.ApplicationOffersResults, error) {
+func (api *OffersAPIv5) ApplicationOffers(urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	return api.getApplicationOffers(user, urls)
 }
 
-func (api *OffersAPI) getApplicationOffers(user names.UserTag, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
+func (api *OffersAPIv5) getApplicationOffers(user names.UserTag, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	var results params.ApplicationOffersResults
 	results.Results = make([]params.ApplicationOfferResult, len(urls.OfferURLs))
 
@@ -378,7 +380,7 @@ func (api *OffersAPI) getApplicationOffers(user names.UserTag, urls params.Offer
 	if err != nil {
 		return results, apiservererrors.ServerError(err)
 	}
-	offersByURL := make(map[string]params.ApplicationOfferAdminDetails)
+	offersByURL := make(map[string]params.ApplicationOfferAdminDetailsV5)
 	for _, offer := range offers {
 		offersByURL[offer.OfferURL] = offer
 	}
@@ -396,8 +398,8 @@ func (api *OffersAPI) getApplicationOffers(user names.UserTag, urls params.Offer
 }
 
 // FindApplicationOffers gets details about remote applications that match given filter.
-func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
-	var result params.QueryApplicationOffersResults
+func (api *OffersAPIv5) FindApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
+	var result params.QueryApplicationOffersResultsV5
 	var filtersToUse params.OfferFilters
 
 	// If there is only one filter term, and no model is specified, add in
@@ -433,7 +435,7 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 
 // GetConsumeDetails returns the details necessary to pass to another model
 // to allow the specified args user to consume the offers represented by the args URLs.
-func (api *OffersAPI) GetConsumeDetails(args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
+func (api *OffersAPIv5) GetConsumeDetails(args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	// Prefer args user if provided.
 	if args.UserTag != "" {
@@ -452,7 +454,7 @@ func (api *OffersAPI) GetConsumeDetails(args params.ConsumeOfferDetailsArg) (par
 
 // getConsumeDetails returns the details necessary to pass to another model to
 // to allow the specified user to consume the specified offers represented by the urls.
-func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURLs) (params.ConsumeOfferDetailsResults, error) {
+func (api *OffersAPIv5) getConsumeDetails(user names.UserTag, urls params.OfferURLs) (params.ConsumeOfferDetailsResults, error) {
 	var consumeResults params.ConsumeOfferDetailsResults
 	results := make([]params.ConsumeOfferDetailsResult, len(urls.OfferURLs))
 
@@ -478,7 +480,7 @@ func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURL
 			continue
 		}
 		offer := result.Result
-		offerDetails := &offer.ApplicationOfferDetails
+		offerDetails := &offer.ApplicationOfferDetailsV5
 		results[i].Offer = offerDetails
 		results[i].ControllerInfo = controllerInfo
 
@@ -532,7 +534,7 @@ func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURL
 
 // RemoteApplicationInfo returns information about the requested remote application.
 // This call currently has no client side API, only there for the Dashboard at this stage.
-func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
+func (api *OffersAPIv5) RemoteApplicationInfo(args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
 	results := make([]params.RemoteApplicationInfoResult, len(args.OfferURLs))
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	for i, url := range args.OfferURLs {
@@ -543,7 +545,7 @@ func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.Remot
 	return params.RemoteApplicationInfoResults{results}, nil
 }
 
-func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFilter {
+func (api *OffersAPIv5) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFilter {
 	f := params.OfferFilter{
 		OwnerName: url.User,
 		ModelName: url.ModelName,
@@ -552,7 +554,7 @@ func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFi
 	return f
 }
 
-func (api *OffersAPI) oneRemoteApplicationInfo(user names.UserTag, urlStr string) (*params.RemoteApplicationInfo, error) {
+func (api *OffersAPIv5) oneRemoteApplicationInfo(user names.UserTag, urlStr string) (*params.RemoteApplicationInfo, error) {
 	url, err := jujucrossmodel.ParseOfferURL(urlStr)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -589,7 +591,7 @@ func (api *OffersAPI) oneRemoteApplicationInfo(user names.UserTag, urlStr string
 }
 
 // DestroyOffers removes the offers specified by the given URLs, forcing if necessary.
-func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
+func (api *OffersAPIv5) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
 	result := make([]params.ErrorResult, len(args.OfferURLs))
 
 	user := api.Authorizer.GetAuthTag().(names.UserTag)

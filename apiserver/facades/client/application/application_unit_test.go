@@ -84,7 +84,7 @@ type ApplicationSuite struct {
 
 	deployParams               map[string]application.DeployApplicationParams
 	addRemoteApplicationParams state.AddRemoteApplicationParams
-	consumeApplicationArgs     params.ConsumeApplicationArgs
+	consumeApplicationArgs     params.ConsumeApplicationArgsV5
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -135,9 +135,9 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		Macaroon:    testMac,
 	}
 
-	s.consumeApplicationArgs = params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+	s.consumeApplicationArgs = params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -2667,11 +2667,11 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(s.expectRemoteApplication(ctrl, state.Alive, status.Active), nil)
 
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
+	s.consumeApplicationArgs.Args[0].ApplicationOfferDetailsV5.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
 
-	results, err := s.api.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+	results, err := s.api.Consume(params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         names.NewModelTag(utils.MustNewUUID().String()).String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",

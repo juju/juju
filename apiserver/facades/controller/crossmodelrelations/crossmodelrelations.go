@@ -38,8 +38,8 @@ type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag)
 type offerStatusWatcherFunc func(CrossModelRelationsState, string) (OfferWatcher, error)
 type consumedSecretsWatcherFunc func(CrossModelRelationsState, string) (state.StringsWatcher, error)
 
-// CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
-type CrossModelRelationsAPI struct {
+// CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
+type CrossModelRelationsAPIv3 struct {
 	ctx        context.Context
 	st         CrossModelRelationsState
 	fw         firewall.State
@@ -56,8 +56,9 @@ type CrossModelRelationsAPI struct {
 	consumedSecretsWatcher consumedSecretsWatcherFunc
 }
 
-type CrossModelRelationsAPIV2 struct {
-	*CrossModelRelationsAPI
+// CrossModelRelationsAPIv2 provides access to the CrossModelRelations API facade.
+type CrossModelRelationsAPIv2 struct {
+	*CrossModelRelationsAPIv3
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -71,8 +72,8 @@ func NewCrossModelRelationsAPI(
 	relationStatusWatcher relationStatusWatcherFunc,
 	offerStatusWatcher offerStatusWatcherFunc,
 	consumedSecretsWatcher consumedSecretsWatcherFunc,
-) (*CrossModelRelationsAPI, error) {
-	return &CrossModelRelationsAPI{
+) (*CrossModelRelationsAPIv3, error) {
+	return &CrossModelRelationsAPIv3{
 		ctx:                    context.Background(),
 		st:                     st,
 		fw:                     fw,
@@ -87,7 +88,7 @@ func NewCrossModelRelationsAPI(
 	}, nil
 }
 
-func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
+func (api *CrossModelRelationsAPIv3) checkMacaroonsForRelation(relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
 	api.mu.Lock()
 	defer api.mu.Unlock()
 
@@ -105,7 +106,7 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.T
 
 // PublishRelationChanges publishes relation changes to the
 // model hosting the remote application involved in the relation.
-func (api *CrossModelRelationsAPI) PublishRelationChanges(
+func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
 	results := params.ErrorResults{
@@ -170,7 +171,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 
 // RegisterRemoteRelations sets up the model to participate
 // in the specified relations. This operation is idempotent.
-func (api *CrossModelRelationsAPIV2) RegisterRemoteRelations(
+func (api *CrossModelRelationsAPIv2) RegisterRemoteRelations(
 	relations params.RegisterRemoteRelationArgsV2,
 ) (params.RegisterRemoteRelationResults, error) {
 	results := params.RegisterRemoteRelationResults{
@@ -200,7 +201,7 @@ func (api *CrossModelRelationsAPIV2) RegisterRemoteRelations(
 
 // RegisterRemoteRelations sets up the model to participate
 // in the specified relations. This operation is idempotent.
-func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
+func (api *CrossModelRelationsAPIv3) RegisterRemoteRelations(
 	relations params.RegisterRemoteRelationArgs,
 ) (params.RegisterRemoteRelationResults, error) {
 	results := params.RegisterRemoteRelationResults{
@@ -214,7 +215,7 @@ func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
 	return results, nil
 }
 
-func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
+func (api *CrossModelRelationsAPIv3) registerRemoteRelation(relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
 	logger.Debugf("register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
@@ -372,7 +373,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 // WatchRelationChanges starts a RemoteRelationChangesWatcher for each
 // specified relation, returning the watcher IDs and initial values,
 // or an error if the remote relations couldn't be watched.
-func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs params.RemoteEntityArgs) (
+func (api *CrossModelRelationsAPIv3) WatchRelationChanges(remoteRelationArgs params.RemoteEntityArgs) (
 	params.RemoteRelationWatchResults, error,
 ) {
 	results := params.RemoteRelationWatchResults{
@@ -445,7 +446,7 @@ func watchRelationLifeSuspendedStatus(st CrossModelRelationsState, tag names.Rel
 
 // WatchRelationsSuspendedStatus starts a RelationStatusWatcher for
 // watching the life and suspended status of a relation.
-func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
+func (api *CrossModelRelationsAPIv3) WatchRelationsSuspendedStatus(
 	remoteRelationArgs params.RemoteEntityArgs,
 ) (params.RelationStatusWatchResults, error) {
 	results := params.RelationStatusWatchResults{
@@ -530,7 +531,7 @@ func watchConsumedSecrets(st CrossModelRelationsState, appName string) (state.St
 
 // WatchOfferStatus starts an OfferStatusWatcher for
 // watching the status of an offer.
-func (api *CrossModelRelationsAPI) WatchOfferStatus(
+func (api *CrossModelRelationsAPIv3) WatchOfferStatus(
 	offerArgs params.OfferArgs,
 ) (params.OfferStatusWatchResults, error) {
 	results := params.OfferStatusWatchResults{
@@ -570,7 +571,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 
 // WatchConsumedSecretsChanges returns a watcher which notifies of changes to any secrets
 // for the specified remote consumers.
-func (api *CrossModelRelationsAPI) WatchConsumedSecretsChanges(args params.WatchRemoteSecretChangesArgs) (params.SecretRevisionWatchResults, error) {
+func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(args params.WatchRemoteSecretChangesArgs) (params.SecretRevisionWatchResults, error) {
 	results := params.SecretRevisionWatchResults{
 		Results: make([]params.SecretRevisionWatchResult, len(args.Args)),
 	}
@@ -621,7 +622,7 @@ func (api *CrossModelRelationsAPI) WatchConsumedSecretsChanges(args params.Watch
 	return results, nil
 }
 
-func (api *CrossModelRelationsAPI) getSecretChanges(uris []string) ([]params.SecretRevisionChange, error) {
+func (api *CrossModelRelationsAPIv3) getSecretChanges(uris []string) ([]params.SecretRevisionChange, error) {
 	changes := make([]params.SecretRevisionChange, len(uris))
 	for i, uriStr := range uris {
 		uri, err := secrets.ParseURI(uriStr)
@@ -642,7 +643,7 @@ func (api *CrossModelRelationsAPI) getSecretChanges(uris []string) ([]params.Sec
 
 // PublishIngressNetworkChanges publishes changes to the required
 // ingress addresses to the model hosting the offer in the relation.
-func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
+func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 	changes params.IngressNetworksChanges,
 ) (params.ErrorResults, error) {
 	results := params.ErrorResults{
@@ -671,7 +672,7 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
-func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelationArgs params.RemoteEntityArgs) (params.StringsWatchResults, error) {
+func (api *CrossModelRelationsAPIv3) WatchEgressAddressesForRelations(remoteRelationArgs params.RemoteEntityArgs) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(remoteRelationArgs.Args)),
 	}

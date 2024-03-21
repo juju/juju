@@ -68,8 +68,8 @@ type OfferFilter struct {
 	AllowedConsumerTags    []string                   `json:"allowed-users"`
 }
 
-// ApplicationOfferDetails represents an application offering from an external model.
-type ApplicationOfferDetails struct {
+// ApplicationOfferDetailsV5 represents an application offering from an external model.
+type ApplicationOfferDetailsV5 struct {
 	SourceModelTag         string             `json:"source-model-tag"`
 	OfferUUID              string             `json:"offer-uuid"`
 	OfferURL               string             `json:"offer-url"`
@@ -79,9 +79,9 @@ type ApplicationOfferDetails struct {
 	Users                  []OfferUserDetails `json:"users,omitempty"`
 }
 
-// ApplicationOfferDetails represents an application offering from an external model.
+// ApplicationOfferDetailsV4 represents an application offering from an external model.
 type ApplicationOfferDetailsV4 struct {
-	ApplicationOfferDetails
+	ApplicationOfferDetailsV5
 	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
 	Bindings map[string]string `json:"bindings,omitempty"`
 }
@@ -93,19 +93,19 @@ type OfferUserDetails struct {
 	Access      string `json:"access"`
 }
 
-// ApplicationOfferAdminDetails represents an application offering,
+// ApplicationOfferAdminDetailsV5 represents an application offering,
 // including details about how it has been deployed.
-type ApplicationOfferAdminDetails struct {
-	ApplicationOfferDetails
+type ApplicationOfferAdminDetailsV5 struct {
+	ApplicationOfferDetailsV5
 	ApplicationName string            `json:"application-name"`
 	CharmURL        string            `json:"charm-url"`
 	Connections     []OfferConnection `json:"connections,omitempty"`
 }
 
-// ApplicationOfferAdminDetails represents an application offering,
+// ApplicationOfferAdminDetailsV4 represents an application offering,
 // including details about how it has been deployed.
 type ApplicationOfferAdminDetailsV4 struct {
-	ApplicationOfferAdminDetails
+	ApplicationOfferAdminDetailsV5
 	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
 	Bindings map[string]string `json:"bindings,omitempty"`
 }
@@ -120,13 +120,13 @@ type OfferConnection struct {
 	IngressSubnets []string     `json:"ingress-subnets"`
 }
 
-// QueryApplicationOffersResults is a result of searching application offers.
-type QueryApplicationOffersResults struct {
+// QueryApplicationOffersResultsV5 is a result of searching application offers.
+type QueryApplicationOffersResultsV5 struct {
 	// Results contains application offers matching each filter.
-	Results []ApplicationOfferAdminDetails `json:"results"`
+	Results []ApplicationOfferAdminDetailsV5 `json:"results"`
 }
 
-// QueryApplicationOffersResults is a result of searching application offers.
+// QueryApplicationOffersResultsV4 is a result of searching application offers.
 type QueryApplicationOffersResultsV4 struct {
 	// Results contains application offers matching each filter.
 	Results []ApplicationOfferAdminDetailsV4 `json:"results"`
@@ -174,7 +174,7 @@ type RemoteSpace struct {
 // application offer based on its URL.
 type ApplicationOfferResult struct {
 	// Result contains application offer information.
-	Result *ApplicationOfferAdminDetails `json:"result,omitempty"`
+	Result *ApplicationOfferAdminDetailsV5 `json:"result,omitempty"`
 
 	// Error contains related error.
 	Error *Error `json:"error,omitempty"`
@@ -195,10 +195,10 @@ type OfferURLs struct {
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
-// ConsumeApplicationArg holds the arguments for consuming a remote application.
-type ConsumeApplicationArg struct {
+// ConsumeApplicationArgV5 holds the arguments for consuming a remote application.
+type ConsumeApplicationArgV5 struct {
 	// The offer to be consumed.
-	ApplicationOfferDetails
+	ApplicationOfferDetailsV5
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
@@ -211,19 +211,19 @@ type ConsumeApplicationArg struct {
 	ApplicationAlias string `json:"application-alias,omitempty"`
 }
 
-// ConsumeApplicationArg holds the arguments for consuming a remote application.
+// ConsumeApplicationArgV4 holds the arguments for consuming a remote application.
 type ConsumeApplicationArgV4 struct {
-	ConsumeApplicationArg
+	ConsumeApplicationArgV5
 	Spaces   []RemoteSpace     `json:"spaces,omitempty"`
 	Bindings map[string]string `json:"bindings,omitempty"`
 }
 
-// ConsumeApplicationArgs is a collection of arg for consuming applications.
-type ConsumeApplicationArgs struct {
-	Args []ConsumeApplicationArg `json:"args,omitempty"`
+// ConsumeApplicationArgsV5 is a collection of arg for consuming applications.
+type ConsumeApplicationArgsV5 struct {
+	Args []ConsumeApplicationArgV5 `json:"args,omitempty"`
 }
 
-// ConsumeApplicationArgs is a collection of arg for consuming applications.
+// ConsumeApplicationArgsV4 is a collection of arg for consuming applications.
 type ConsumeApplicationArgsV4 struct {
 	Args []ConsumeApplicationArgV4 `json:"args,omitempty"`
 }
@@ -662,9 +662,9 @@ type RemoteApplicationInfoResults struct {
 // ConsumeOfferDetails contains the details necessary to
 // consume an application offer.
 type ConsumeOfferDetails struct {
-	Offer          *ApplicationOfferDetails `json:"offer,omitempty"`
-	Macaroon       *macaroon.Macaroon       `json:"macaroon,omitempty"`
-	ControllerInfo *ExternalControllerInfo  `json:"external-controller,omitempty"`
+	Offer          *ApplicationOfferDetailsV5 `json:"offer,omitempty"`
+	Macaroon       *macaroon.Macaroon         `json:"macaroon,omitempty"`
+	ControllerInfo *ExternalControllerInfo    `json:"external-controller,omitempty"`
 }
 
 // ConsumeOfferDetailsArg holds arguments for querying the

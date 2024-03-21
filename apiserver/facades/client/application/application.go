@@ -2116,7 +2116,7 @@ func (api *APIBase) SetRelationsSuspended(args params.RelationSuspendedArgs) (pa
 
 // Consume adds remote applications to the model without creating any
 // relations.
-func (api *APIBase) Consume(args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
+func (api *APIBase) Consume(args params.ConsumeApplicationArgsV5) (params.ErrorResults, error) {
 	var consumeResults params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return consumeResults, errors.Trace(err)
@@ -2134,7 +2134,7 @@ func (api *APIBase) Consume(args params.ConsumeApplicationArgs) (params.ErrorRes
 	return consumeResults, nil
 }
 
-func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
+func (api *APIBase) consumeOne(arg params.ConsumeApplicationArgV5) error {
 	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -2166,23 +2166,23 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetails, arg.Macaroon)
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetailsV5, arg.Macaroon)
 	return err
 }
 
 // Consume adds remote applications to the model without creating any
 // relations.
 func (api *APIv19) Consume(args params.ConsumeApplicationArgsV4) (params.ErrorResults, error) {
-	var consumeApplicationArgs []params.ConsumeApplicationArg
+	var consumeApplicationArgs []params.ConsumeApplicationArgV5
 	for _, arg := range args.Args {
-		consumeApplicationArgs = append(consumeApplicationArgs, params.ConsumeApplicationArg{
-			Macaroon:                arg.Macaroon,
-			ControllerInfo:          arg.ControllerInfo,
-			ApplicationAlias:        arg.ApplicationAlias,
-			ApplicationOfferDetails: arg.ApplicationOfferDetails,
+		consumeApplicationArgs = append(consumeApplicationArgs, params.ConsumeApplicationArgV5{
+			Macaroon:                  arg.Macaroon,
+			ControllerInfo:            arg.ControllerInfo,
+			ApplicationAlias:          arg.ApplicationAlias,
+			ApplicationOfferDetailsV5: arg.ApplicationOfferDetailsV5,
 		})
 	}
-	return api.APIv20.Consume(params.ConsumeApplicationArgs{
+	return api.APIv20.Consume(params.ConsumeApplicationArgsV5{
 		Args: consumeApplicationArgs,
 	})
 }
@@ -2193,7 +2193,7 @@ func (api *APIBase) saveRemoteApplication(
 	sourceModelTag names.ModelTag,
 	applicationName string,
 	externalControllerUUID string,
-	offer params.ApplicationOfferDetails,
+	offer params.ApplicationOfferDetailsV5,
 	mac *macaroon.Macaroon,
 ) (RemoteApplication, error) {
 	remoteEps := make([]charm.Relation, len(offer.Endpoints))

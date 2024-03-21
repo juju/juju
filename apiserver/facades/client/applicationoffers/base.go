@@ -89,7 +89,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	user names.UserTag,
 	requiredAccess permission.Access,
 	filters ...jujucrossmodel.ApplicationOfferFilter,
-) ([]params.ApplicationOfferAdminDetails, error) {
+) ([]params.ApplicationOfferAdminDetailsV5, error) {
 	// Get the relevant backend for the specified model.
 	backend, releaser, err := api.StatePool.Get(modelUUID)
 	if err != nil {
@@ -119,7 +119,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	var results []params.ApplicationOfferAdminDetails
+	var results []params.ApplicationOfferAdminDetailsV5
 	for _, appOffer := range offers {
 		userAccess := permission.AdminAccess
 		// If the user is not a model admin, they need at least read
@@ -145,8 +145,8 @@ func (api *BaseAPI) applicationOffersFromModel(
 			DisplayName: apiUserDisplayName,
 			Access:      string(userAccess),
 		}}
-		offer := params.ApplicationOfferAdminDetails{
-			ApplicationOfferDetails: *offerParams,
+		offer := params.ApplicationOfferAdminDetailsV5{
+			ApplicationOfferDetailsV5: *offerParams,
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
@@ -159,7 +159,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	return results, nil
 }
 
-func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
+func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetailsV5) error {
 	curl, _ := app.CharmURL()
 	conns, err := backend.OfferConnections(offer.OfferUUID)
 	if err != nil {
@@ -338,7 +338,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	user names.UserTag,
 	filters params.OfferFilters,
 	requiredPermission permission.Access,
-) ([]params.ApplicationOfferAdminDetails, error) {
+) ([]params.ApplicationOfferAdminDetailsV5, error) {
 
 	// If there are no filters specified, that's an error since the
 	// caller is expected to specify at the least one or more models
@@ -361,7 +361,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	sort.Strings(allUUIDs)
 
 	// Do the per model queries.
-	var result []params.ApplicationOfferAdminDetails
+	var result []params.ApplicationOfferAdminDetailsV5
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
 		offers, err := api.applicationOffersFromModel(modelUUID, user, requiredPermission, filters...)
@@ -413,13 +413,13 @@ func makeOfferFilterFromParams(filter params.OfferFilter) (jujucrossmodel.Applic
 
 func (api *BaseAPI) makeOfferParams(backend Backend,
 	offer *jujucrossmodel.ApplicationOffer,
-) (*params.ApplicationOfferDetails, crossmodel.Application, error) {
+) (*params.ApplicationOfferDetailsV5, crossmodel.Application, error) {
 	app, err := backend.Application(offer.ApplicationName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	result := params.ApplicationOfferDetails{
+	result := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         backend.ModelTag().String(),
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,

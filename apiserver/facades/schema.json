@@ -2065,7 +2065,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ConsumeApplicationArgs"
+                            "$ref": "#/definitions/ConsumeApplicationArgsV5"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -2821,7 +2821,7 @@
                         "creds"
                     ]
                 },
-                "ApplicationOfferDetails": {
+                "ApplicationOfferDetailsV5": {
                     "type": "object",
                     "properties": {
                         "application-description": {
@@ -3244,11 +3244,11 @@
                         "Count"
                     ]
                 },
-                "ConsumeApplicationArg": {
+                "ConsumeApplicationArgV5": {
                     "type": "object",
                     "properties": {
-                        "ApplicationOfferDetails": {
-                            "$ref": "#/definitions/ApplicationOfferDetails"
+                        "ApplicationOfferDetailsV5": {
+                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
                         },
                         "application-alias": {
                             "type": "string"
@@ -3294,16 +3294,16 @@
                         "offer-url",
                         "offer-name",
                         "application-description",
-                        "ApplicationOfferDetails"
+                        "ApplicationOfferDetailsV5"
                     ]
                 },
-                "ConsumeApplicationArgs": {
+                "ConsumeApplicationArgsV5": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ConsumeApplicationArg"
+                                "$ref": "#/definitions/ConsumeApplicationArgV5"
                             }
                         }
                     },
@@ -4334,7 +4334,7 @@
     },
     {
         "Name": "ApplicationOffers",
-        "Description": "OffersAPI implements the cross model interface and is the concrete\nimplementation of the api end point.",
+        "Description": "OffersAPIv5 implements the cross model interface and is the concrete\nimplementation of the api end point.",
         "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
@@ -4376,7 +4376,7 @@
                             "$ref": "#/definitions/OfferFilters"
                         },
                         "Result": {
-                            "$ref": "#/definitions/QueryApplicationOffersResults"
+                            "$ref": "#/definitions/QueryApplicationOffersResultsV5"
                         }
                     },
                     "description": "FindApplicationOffers gets details about remote applications that match given filter."
@@ -4400,7 +4400,7 @@
                             "$ref": "#/definitions/OfferFilters"
                         },
                         "Result": {
-                            "$ref": "#/definitions/QueryApplicationOffersResults"
+                            "$ref": "#/definitions/QueryApplicationOffersResultsV5"
                         }
                     },
                     "description": "ListApplicationOffers gets deployed details about application offers that match given filter.\nThe results contain details about the deployed applications such as connection count."
@@ -4494,11 +4494,11 @@
                         "Offers"
                     ]
                 },
-                "ApplicationOfferAdminDetails": {
+                "ApplicationOfferAdminDetailsV5": {
                     "type": "object",
                     "properties": {
-                        "ApplicationOfferDetails": {
-                            "$ref": "#/definitions/ApplicationOfferDetails"
+                        "ApplicationOfferDetailsV5": {
+                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
                         },
                         "application-description": {
                             "type": "string"
@@ -4547,12 +4547,12 @@
                         "offer-url",
                         "offer-name",
                         "application-description",
-                        "ApplicationOfferDetails",
+                        "ApplicationOfferDetailsV5",
                         "application-name",
                         "charm-url"
                     ]
                 },
-                "ApplicationOfferDetails": {
+                "ApplicationOfferDetailsV5": {
                     "type": "object",
                     "properties": {
                         "application-description": {
@@ -4599,7 +4599,7 @@
                             "$ref": "#/definitions/Error"
                         },
                         "result": {
-                            "$ref": "#/definitions/ApplicationOfferAdminDetails"
+                            "$ref": "#/definitions/ApplicationOfferAdminDetailsV5"
                         }
                     },
                     "additionalProperties": false
@@ -4626,7 +4626,7 @@
                             "$ref": "#/definitions/Macaroon"
                         },
                         "offer": {
-                            "$ref": "#/definitions/ApplicationOfferDetails"
+                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
                         }
                     },
                     "additionalProperties": false
@@ -4662,7 +4662,7 @@
                             "$ref": "#/definitions/Macaroon"
                         },
                         "offer": {
-                            "$ref": "#/definitions/ApplicationOfferDetails"
+                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
                         }
                     },
                     "additionalProperties": false,
@@ -5007,13 +5007,13 @@
                         "access"
                     ]
                 },
-                "QueryApplicationOffersResults": {
+                "QueryApplicationOffersResultsV5": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ApplicationOfferAdminDetails"
+                                "$ref": "#/definitions/ApplicationOfferAdminDetailsV5"
                             }
                         }
                     },
@@ -20274,7 +20274,7 @@
     },
     {
         "Name": "CrossModelRelations",
-        "Description": "CrossModelRelationsAPI provides access to the CrossModelRelations API facade.",
+        "Description": "CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.",
         "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",

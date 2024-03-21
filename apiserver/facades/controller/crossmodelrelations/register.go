@@ -18,25 +18,25 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CrossModelRelations", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newStateCrossModelRelationsAPIV2(ctx) // Adds WatchRelationChanges, removes WatchRelationUnits
-	}, reflect.TypeOf((*CrossModelRelationsAPIV2)(nil)))
+	}, reflect.TypeOf((*CrossModelRelationsAPIv2)(nil)))
 	registry.MustRegister("CrossModelRelations", 3, func(ctx facade.Context) (facade.Facade, error) {
-		return newStateCrossModelRelationsAPI(ctx) // Adds WatchRelationChanges, removes WatchRelationUnits
-	}, reflect.TypeOf((*CrossModelRelationsAPI)(nil)))
+		return newStateCrossModelRelationsAPI(ctx) // Removes remote spaces
+	}, reflect.TypeOf((*CrossModelRelationsAPIv3)(nil)))
 }
 
-// newStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
+// newStateCrossModelRelationsAPIV2 creates a new server-side CrossModelRelations API facade
 // backed by global state.
-func newStateCrossModelRelationsAPIV2(ctx facade.Context) (*CrossModelRelationsAPIV2, error) {
+func newStateCrossModelRelationsAPIV2(ctx facade.Context) (*CrossModelRelationsAPIv2, error) {
 	api, err := newStateCrossModelRelationsAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &CrossModelRelationsAPIV2{api}, nil
+	return &CrossModelRelationsAPIv2{api}, nil
 }
 
 // newStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
-func newStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
+func newStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPIv3, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
 	st := ctx.State()
 	model, err := st.Model()
