@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
