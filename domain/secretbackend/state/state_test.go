@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -39,22 +38,6 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
-}
-
-func (s *stateSuite) TestGetModel(c *gc.C) {
-	modelUUID := s.createModel(c)
-	model, err := s.state.GetModel(context.Background(), modelUUID)
-	c.Assert(err, gc.IsNil)
-	c.Assert(model, gc.DeepEquals, &coremodel.Model{
-		UUID:      modelUUID,
-		Name:      "my-model",
-		ModelType: coremodel.IAAS,
-	})
-
-	nonExistingModelUUID := coremodel.UUID(uuid.MustNewUUID().String())
-	_, err = s.state.GetModel(context.Background(), nonExistingModelUUID)
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: %q`, nonExistingModelUUID))
 }
 
 func (s *stateSuite) createModel(c *gc.C) coremodel.UUID {

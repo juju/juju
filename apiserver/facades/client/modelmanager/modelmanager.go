@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
@@ -30,6 +30,8 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -51,14 +53,20 @@ var (
 
 type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.Broker, error)
 
-// ModelManagerService defines a interface for interacting with the underlying
-// state.
-type ModelManagerService interface {
-	Create(context.Context, coremodel.UUID) error
+// ModelConfigServiceGetter provides a means to fetch the model config service
+// for a given model uuid.
+type ModelConfigServiceGetter func(coremodel.UUID) (ModelConfigService, error)
+
+// ModelConfigService describes the set of functions needed for working with a
+// models config.
+type ModelConfigService interface {
+	SetModelConfig(context.Context, map[string]any) error
 }
 
 // ModelService defines a interface for interacting with the underlying state.
 type ModelService interface {
+	CreateModel(context.Context, model.ModelCreationArgs) (coremodel.UUID, error)
+	DefaultModelCloudNameAndCredential(context.Context) (string, credential.ID, error)
 	DeleteModel(context.Context, coremodel.UUID) error
 }
 
@@ -79,6 +87,11 @@ type CredentialService interface {
 	InvalidateCredential(ctx context.Context, id credential.ID, reason string) error
 }
 
+// UserService defines a interface for interacting the users of a controller.
+type UserService interface {
+	GetUserByName(context.Context, string) (coreuser.User, error)
+}
+
 // StateBackend represents the mongo backend.
 type StateBackend interface {
 	common.ModelManagerBackend
@@ -89,22 +102,23 @@ type StateBackend interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	modelManagerService ModelManagerService
-	modelService        ModelService
-	state               StateBackend
-	modelExporter       ModelExporter
-	ctlrState           common.ModelManagerBackend
-	cloudService        CloudService
-	credentialService   CredentialService
-	store               objectstore.ObjectStore
-	configSchemaSource  config.ConfigSchemaSourceGetter
-	check               common.BlockCheckerInterface
-	authorizer          facade.Authorizer
-	toolsFinder         common.ToolsFinder
-	apiUser             names.UserTag
-	isAdmin             bool
-	model               common.Model
-	getBroker           newCaasBrokerFunc
+	modelService             ModelService
+	modelConfigServiceGetter ModelConfigServiceGetter
+	state                    StateBackend
+	modelExporter            ModelExporter
+	ctlrState                common.ModelManagerBackend
+	cloudService             CloudService
+	credentialService        CredentialService
+	store                    objectstore.ObjectStore
+	configSchemaSource       config.ConfigSchemaSourceGetter
+	check                    common.BlockCheckerInterface
+	authorizer               facade.Authorizer
+	toolsFinder              common.ToolsFinder
+	apiUser                  names.UserTag
+	isAdmin                  bool
+	model                    common.Model
+	getBroker                newCaasBrokerFunc
+	userService              UserService
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -115,8 +129,9 @@ func NewModelManagerAPI(
 	ctlrSt common.ModelManagerBackend,
 	cloudService CloudService,
 	credentialService CredentialService,
-	modelManagerService ModelManagerService,
 	modelService ModelService,
+	modelConfigServiceGetter ModelConfigServiceGetter,
+	userService UserService,
 	store objectstore.ObjectStore,
 	configSchemaSource config.ConfigSchemaSourceGetter,
 	toolsFinder common.ToolsFinder,
@@ -140,23 +155,24 @@ func NewModelManagerAPI(
 	isAdmin := err == nil
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:      common.NewModelStatusAPI(st, authorizer, apiUser),
-		state:               st,
-		modelExporter:       modelExporter,
-		ctlrState:           ctlrSt,
-		cloudService:        cloudService,
-		credentialService:   credentialService,
-		modelManagerService: modelManagerService,
-		configSchemaSource:  configSchemaSource,
-		store:               store,
-		getBroker:           getBroker,
-		check:               blockChecker,
-		authorizer:          authorizer,
-		toolsFinder:         toolsFinder,
-		apiUser:             apiUser,
-		isAdmin:             isAdmin,
-		model:               m,
-		modelService:        modelService,
+		ModelStatusAPI:           common.NewModelStatusAPI(st, authorizer, apiUser),
+		state:                    st,
+		modelExporter:            modelExporter,
+		ctlrState:                ctlrSt,
+		cloudService:             cloudService,
+		credentialService:        credentialService,
+		configSchemaSource:       configSchemaSource,
+		store:                    store,
+		getBroker:                getBroker,
+		check:                    blockChecker,
+		authorizer:               authorizer,
+		toolsFinder:              toolsFinder,
+		apiUser:                  apiUser,
+		isAdmin:                  isAdmin,
+		model:                    m,
+		modelService:             modelService,
+		modelConfigServiceGetter: modelConfigServiceGetter,
+		userService:              userService,
 	}, nil
 }
 
@@ -249,6 +265,86 @@ func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.Us
 		return false, nil
 	}
 	return true, nil
+}
+
+// createModelNew is the work in progress logic for moving this facade over to
+// the new services layer. It should be considered the new logic that will be
+// merged in place of state eventually. We have split it out as a temp work
+// around to get the DDL changes needed into Juju before finishing the rest.
+func (m *ModelManagerAPI) createModelNew(ctx context.Context, uuid string, args params.ModelCreateArgs) error {
+	creationArgs := model.ModelCreationArgs{
+		CloudRegion: args.CloudRegion,
+		Name:        args.Name,
+		UUID:        coremodel.UUID(uuid),
+	}
+
+	// We need to get the controller's default cloud and credential. To help
+	// Juju users when creating their first models we allow them to omit this
+	// information from the model creation args. If they have done exactly this
+	// we will try and apply the defaults where authorisation allows us to.
+	defaultCloudName, _, err := m.modelService.DefaultModelCloudNameAndCredential(ctx)
+	if errors.Is(err, modelerrors.NotFound) {
+		return errors.New("failed to find default model cloud and credential for controller")
+	}
+
+	var cloudTag names.CloudTag
+	if args.CloudTag != "" {
+		var err error
+		cloudTag, err = names.ParseCloudTag(args.CloudTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+	} else {
+		cloudTag = names.NewCloudTag(defaultCloudName)
+	}
+	creationArgs.Cloud = cloudTag.Id()
+
+	err = m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return errors.Trace(err)
+	}
+	if err != nil {
+		canAddModel, err := m.checkAddModelPermission(cloudTag.Id(), m.apiUser)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAddModel {
+			return apiservererrors.ErrPerm
+		}
+	}
+
+	ownerTag, err := names.ParseUserTag(args.OwnerTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
+	// create a model for another person, which is not yet supported.
+	if !m.isAdmin && ownerTag != m.apiUser {
+		return errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
+	}
+
+	user, err := m.userService.GetUserByName(ctx, ownerTag.Name())
+	if err != nil {
+		// TODO handle error properly
+		return errors.Trace(err)
+	}
+	creationArgs.Owner = user.UUID
+
+	var cloudCredentialTag names.CloudCredentialTag
+	if args.CloudCredentialTag != "" {
+		var err error
+		cloudCredentialTag, err = names.ParseCloudCredentialTag(args.CloudCredentialTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		creationArgs.Credential = credential.IdFromTag(cloudCredentialTag)
+	}
+
+	_, err = m.modelService.CreateModel(ctx, creationArgs)
+	return err
 }
 
 // CreateModel creates a new model using the account and
@@ -402,13 +498,21 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Trace(err)
 	}
 
-	// Ensure that we place the model in the known model list table on the
-	// controller.
-	if err := m.modelManagerService.Create(ctx, coremodel.UUID(createdModel.UUID())); err != nil {
-		return result, errors.Trace(err)
+	modelInfo, err := m.getModelInfo(ctx, createdModel.ModelTag(), false)
+	if err != nil {
+		return result, err
 	}
 
-	return m.getModelInfo(ctx, createdModel.ModelTag(), false)
+	// createModelNew represents the logic needed for moving to DQlite. It is in
+	// a half finished state at the moment for the purpose of removing the model
+	// manager service. This check will go in the very near future.
+	// We check here if the modelService is nil. If it is then we are in testing
+	// mode and don't make the calls so test can keep passing.
+	// THIS IS VERY TEMPORARY.
+	if m.modelService != nil {
+		return modelInfo, m.createModelNew(ctx, modelInfo.UUID, args)
+	}
+	return modelInfo, nil
 }
 
 func (m *ModelManagerAPI) newCAASModel(
@@ -899,11 +1003,16 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// cause too much fallout. If we're unable to delete the model from the
 		// database, then we won't be able to create a new model with the same
 		// model uuid as there is a UNIQUE constraint on the model uuid column.
-		err = m.modelService.DeleteModel(ctx, coremodel.UUID(stModel.UUID()))
-		if err != nil && errors.Is(err, modelerrors.NotFound) {
-			return nil
+		// TODO (tlm): The modelService nil check will go when the tests are
+		// moved from mongo.
+		if m.modelService != nil {
+			err = m.modelService.DeleteModel(ctx, coremodel.UUID(stModel.UUID()))
+			if err != nil && errors.Is(err, modelerrors.NotFound) {
+				return nil
+			}
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
+		return nil
 	}
 
 	for i, arg := range args.Models {

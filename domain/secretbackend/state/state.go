@@ -18,7 +18,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
-	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 )
@@ -43,43 +43,21 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 	}
 }
 
-// GetModel is responsible for returning the model with the provided uuid.
-func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (*coremodel.Model, error) {
+// GetModel is responsible for returning the model for the provided uuid. If no
+// model is found the given uuid then an error of
+// [github.com/juju/juju/domain/model/errors.NotFound] is returned.
+func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return coremodel.Model{}, errors.Trace(err)
 	}
 
-	stmt, err := sqlair.Prepare(`
-SELECT 
-    model_uuid AS &Model.uuid,
-    name       AS &Model.name,
-    type       AS &Model.type
-FROM v_model_metadata
-WHERE model_uuid = $M.uuid`, sqlair.M{}, Model{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var m Model
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
-		}
-		return errors.Trace(err)
+	var m coremodel.Model
+	return m, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		m, err = modelstate.Get(ctx, tx, uuid)
+		return err
 	})
-	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
-	}
-	if !m.Type.IsValid() {
-		// This should never happen.
-		return nil, fmt.Errorf("invalid model type for model %q", m.Name)
-	}
-	return &coremodel.Model{
-		UUID:      coremodel.UUID(m.ID),
-		Name:      m.Name,
-		ModelType: m.Type,
-	}, nil
 }
 
 // UpsertSecretBackend persists the input secret backend entity.

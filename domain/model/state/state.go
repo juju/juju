@@ -16,6 +16,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	usererrors "github.com/juju/juju/domain/user/errors"
@@ -36,6 +37,52 @@ func NewState(
 	}
 }
 
+// CloudType is responsible for reporting the type for a given cloud name. If no
+// cloud exists for the provided name then an error of [clouderrors.NotFound]
+// will be returned.
+func (s *State) CloudType(
+	ctx context.Context,
+	name string,
+) (string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	ctFunc := CloudType()
+
+	var cloudType string
+	return cloudType, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		cloudType, err = ctFunc(ctx, tx, name)
+		return err
+	})
+}
+
+// CloudType returns a closure for reporting the type for a given cloud name. If
+// no cloud exists for the provided name then an error of [clouderrors.NotFound]
+// will be returned.
+func CloudType() func(context.Context, *sql.Tx, string) (string, error) {
+	stmt := `
+SELECT ct.type
+FROM cloud_type ct
+INNER JOIN cloud c
+ON c.cloud_type_id = ct.id
+WHERE c.name = ?
+`
+
+	return func(ctx context.Context, tx *sql.Tx, name string) (string, error) {
+		var cloudType string
+		err := tx.QueryRowContext(ctx, stmt, name).Scan(&cloudType)
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("%w for name %q", clouderrors.NotFound, name)
+		} else if err != nil {
+			return "", fmt.Errorf("determining type for cloud %q: %w", name, domain.CoerceError(err))
+		}
+		return cloudType, nil
+	}
+}
+
 // Create is responsible for creating a new moddel from start to finish. It will
 // register the model existence and associate all of the model metadata.
 // If a model already exists with the same name and owner then an error
@@ -45,6 +92,7 @@ func NewState(
 func (s *State) Create(
 	ctx context.Context,
 	uuid coremodel.UUID,
+	modelType coremodel.ModelType,
 	input model.ModelCreationArgs,
 ) error {
 	db, err := s.DB()
@@ -53,12 +101,12 @@ func (s *State) Create(
 	}
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return Create(ctx, uuid, input, tx)
+		return Create(ctx, tx, uuid, modelType, input)
 	})
 }
 
 // Get returns the model associated with the provided uuid.
-// If the model does not exist then an error satisfying modelerrors.NotFound
+// If the model does not exist then an error satisfying [modelerrors.NotFound]
 // will be returned.
 func (s *State) Get(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
 	db, err := s.DB()
@@ -66,6 +114,22 @@ func (s *State) Get(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, 
 		return coremodel.Model{}, errors.Trace(err)
 	}
 
+	var model coremodel.Model
+	return model, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		model, err = Get(ctx, tx, uuid)
+		return err
+	})
+}
+
+// Get returns the model associated with the provided uuid.
+// If the model does not exist then an error satisfying [modelerrors.NotFound]
+// will be returned.
+func Get(
+	ctx context.Context,
+	tx *sql.Tx,
+	uuid coremodel.UUID,
+) (coremodel.Model, error) {
 	modelStmt := `
 SELECT md.name, cl.name, cr.name, mt.type, u.uuid, cc.cloud_uuid, cc.name, o.name, ccn.name
 FROM model_metadata AS md
@@ -80,43 +144,41 @@ LEFT JOIN cloud ccn ON ccn.uuid = cc.cloud_uuid
 WHERE md.model_uuid = ?
 `
 
-	var model coremodel.Model
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, modelStmt, uuid)
+	row := tx.QueryRowContext(ctx, modelStmt, uuid)
 
-		var (
-			modelType string
-			userUUID  string
-			cloudUUID string
-			credID    credential.ID
-		)
-		if err := row.Scan(
-			&model.Name,
-			&model.Cloud,
-			&model.CloudRegion,
-			&modelType,
-			&userUUID,
-			&cloudUUID,
-			&credID.Name,
-			&credID.Owner,
-			&credID.Cloud,
-		); err != nil {
-			return errors.Annotatef(err, "getting model %q", uuid)
-		}
-		if err := row.Err(); err != nil {
-			return errors.Trace(err)
-		}
+	var (
+		// cloudRegion could be null
+		cloudRegion sql.NullString
+		modelType   string
+		userUUID    string
+		cloudUUID   string
+		credID      credential.ID
+		model       coremodel.Model
+	)
+	err := row.Scan(
+		&model.Name,
+		&model.Cloud,
+		&cloudRegion,
+		&modelType,
+		&userUUID,
+		&cloudUUID,
+		&credID.Name,
+		&credID.Owner,
+		&credID.Cloud,
+	)
 
-		model.ModelType = coremodel.ModelType(modelType)
-		model.Owner = user.UUID(userUUID)
-		model.Credential = credID
-
-		return row.Err()
-	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return coremodel.Model{}, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+	} else if err != nil {
+		return coremodel.Model{}, fmt.Errorf("getting model %q: %w", uuid, domain.CoerceError(err))
 	}
-	return model, errors.Trace(err)
+
+	model.CloudRegion = cloudRegion.String
+	model.ModelType = coremodel.ModelType(modelType)
+	model.Owner = user.UUID(userUUID)
+	model.Credential = credID
+
+	return model, nil
 }
 
 // Create is responsible for creating a new model from start to finish. It will
@@ -127,19 +189,20 @@ WHERE md.model_uuid = ?
 // will be returned.
 func Create(
 	ctx context.Context,
-	uuid coremodel.UUID,
-	input model.ModelCreationArgs,
 	tx *sql.Tx,
+	uuid coremodel.UUID,
+	modelType coremodel.ModelType,
+	input model.ModelCreationArgs,
 ) error {
 	if err := createModel(ctx, uuid, tx); err != nil {
 		return err
 	}
 
-	if err := createModelAgent(ctx, uuid, input.AgentVersion, tx); err != nil {
+	if err := createModelAgent(ctx, tx, uuid, input.AgentVersion); err != nil {
 		return err
 	}
 
-	if err := createModelMetadata(ctx, uuid, input, tx); err != nil {
+	if err := createModelMetadata(ctx, tx, uuid, modelType, input); err != nil {
 		return err
 	}
 
@@ -172,9 +235,9 @@ func createModel(ctx context.Context, uuid coremodel.UUID, tx *sql.Tx) error {
 // model exists for the provided UUID then a [modelerrors.NotFound] is returned.
 func createModelAgent(
 	ctx context.Context,
+	tx *sql.Tx,
 	modelUUID coremodel.UUID,
 	agentVersion version.Number,
-	tx *sql.Tx,
 ) error {
 	stmt := `
 INSERT INTO model_agent (model_uuid, previous_version, target_version)
@@ -223,9 +286,10 @@ INSERT INTO model_agent (model_uuid, previous_version, target_version)
 // will be returned.
 func createModelMetadata(
 	ctx context.Context,
-	uuid coremodel.UUID,
-	input model.ModelCreationArgs,
 	tx *sql.Tx,
+	uuid coremodel.UUID,
+	modelType coremodel.ModelType,
+	input model.ModelCreationArgs,
 ) error {
 	cloudStmt := `
 SELECT uuid
@@ -266,7 +330,7 @@ WHERE model_type.type = ?
 `
 
 	res, err := tx.ExecContext(ctx, stmt,
-		uuid, cloudUUID, input.Name, input.Owner, input.Type,
+		uuid, cloudUUID, input.Name, input.Owner, modelType,
 	)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
 		return fmt.Errorf("%w for uuid %q", modelerrors.AlreadyExists, uuid)
@@ -400,6 +464,67 @@ func (s *State) List(ctx context.Context) ([]coremodel.UUID, error) {
 		return nil
 	})
 	return models, errors.Trace(err)
+}
+
+// ModelCloudNameAndCredential returns the cloud name and credential id for a
+// model identified by the model name and the owner. If no model exists for the
+// provided name and user a [modelerrors.NotFound] error is returned.
+func (s *State) ModelCloudNameAndCredential(
+	ctx context.Context,
+	modelName string,
+	modelOwnerName string,
+) (string, credential.ID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", credential.ID{}, errors.Trace(err)
+	}
+
+	stmt := `
+SELECT cloud_name,
+       cloud_credential_name,
+       cloud_credential_owner_name,
+	   cloud_credential_cloud_name
+FROM v_model
+WHERE name = ?
+AND owner_name = ?
+`
+
+	var (
+		cloudName       string
+		credentialName  sql.NullString
+		credentialOwner sql.NullString
+		credentialCloud sql.NullString
+	)
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, stmt, modelName, modelOwnerName)
+		if err := row.Scan(&cloudName, &credentialName, &credentialOwner, &credentialCloud); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", credential.ID{}, fmt.Errorf("%w for name %q and owner %q",
+			modelerrors.NotFound, modelName, modelOwnerName,
+		)
+	} else if err != nil {
+		return "", credential.ID{}, fmt.Errorf(
+			"getting cloud name and credential for model %q with owner %q: %w",
+			modelName, modelOwnerName, domain.CoerceError(err),
+		)
+	}
+
+	if !credentialName.Valid {
+		return cloudName, credential.ID{}, nil
+	}
+
+	credId := credential.ID{
+		Cloud: credentialCloud.String,
+		Name:  credentialName.String,
+		Owner: credentialOwner.String,
+	}
+
+	return cloudName, credId, nil
 }
 
 // setCloudRegion is responsible for setting a model's cloud region. This

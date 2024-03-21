@@ -6,6 +6,7 @@ package facadetest
 import (
 	"context"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
 )
@@ -19,9 +20,8 @@ type MultiModelContext struct {
 	ObjectStoreForModel_    objectstore.ObjectStore
 }
 
-// ServiceFactoryForModel returns the services factory for a given
-// model uuid.
-func (c MultiModelContext) ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+// ServiceFactoryForModel returns the services factory for a given model uuid.
+func (c MultiModelContext) ServiceFactoryForModel(uuid model.UUID) servicefactory.ServiceFactory {
 	return c.ServiceFactoryForModel_
 }
 

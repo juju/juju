@@ -123,7 +123,6 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		Credential:   credential,
 		Name:         modelName,
 		Owner:        user.UUID,
-		Type:         coremodel.ModelType(model.Type()),
 		UUID:         coremodel.UUID(uuid),
 	}
 

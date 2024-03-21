@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -178,8 +177,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 		},
 		apiservertesting.ConstCredentialGetter(&cred),
-		&mockModelManagerService{},
-		&mockModelService{},
+		nil, nil, nil,
 		&mockObjectStore{},
 		state.NoopConfigSchemaSource,
 		nil, nil, common.NewBlockChecker(s.st),
@@ -206,8 +204,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 		},
 		apiservertesting.ConstCredentialGetter(&cred),
-		&mockModelManagerService{},
-		&mockModelService{},
+		nil, nil, nil,
 		&mockObjectStore{},
 		state.NoopConfigSchemaSource,
 		nil, nil,
@@ -1293,22 +1290,6 @@ func (m *mockMigration) StartTime() time.Time {
 
 func (m *mockMigration) EndTime() time.Time {
 	return m.end
-}
-
-type mockModelManagerService struct{}
-
-func (mockModelManagerService) Create(_ stdcontext.Context, _ coremodel.UUID) error {
-	return nil
-}
-
-func (mockModelManagerService) Delete(_ stdcontext.Context, _ coremodel.UUID) error {
-	return nil
-}
-
-type mockModelService struct{}
-
-func (mockModelService) DeleteModel(_ stdcontext.Context, _ coremodel.UUID) error {
-	return nil
 }
 
 type mockCloudService struct {

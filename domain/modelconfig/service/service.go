@@ -179,32 +179,31 @@ func (s *Service) reconcileRemovedAttributes(
 // with any model default attributes that have not been set on the config.
 func (s *Service) SetModelConfig(
 	ctx context.Context,
-	cfg *config.Config,
+	cfg map[string]any,
 ) error {
-	attrs := cfg.AllAttrs()
 	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
 		return fmt.Errorf("getting model defaults: %w", err)
 	}
 
 	for k, v := range defaults {
-		applyVal := v.ApplyStrategy(attrs[k])
+		applyVal := v.ApplyStrategy(cfg[k])
 		if applyVal != nil {
-			attrs[k] = applyVal
+			cfg[k] = applyVal
 		}
 	}
 
-	cfg, err = config.New(config.NoDefaults, attrs)
+	setCfg, err := config.New(config.NoDefaults, cfg)
 	if err != nil {
 		return fmt.Errorf("constructing new model config with model defaults: %w", err)
 	}
 
-	_, err = config.ModelValidator().Validate(cfg, nil)
+	_, err = config.ModelValidator().Validate(setCfg, nil)
 	if err != nil {
 		return fmt.Errorf("validating model config to set for model: %w", err)
 	}
 
-	rawCfg, err := CoerceConfigForStorage(cfg.AllAttrs())
+	rawCfg, err := CoerceConfigForStorage(setCfg.AllAttrs())
 	if err != nil {
 		return fmt.Errorf("coercing model config for storage: %w", err)
 	}

@@ -185,8 +185,8 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 		// Credentials
 		"v_cloud_credential",
 
-		// Model
-		"v_model_metadata",
+		// Models
+		"v_model",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }

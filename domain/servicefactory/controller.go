@@ -25,8 +25,6 @@ import (
 	modelstate "github.com/juju/juju/domain/model/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
-	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
-	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -94,14 +92,6 @@ func (s *ControllerFactory) Model() *modelservice.Service {
 func (s *ControllerFactory) ModelDefaults() *modeldefaultsservice.Service {
 	return modeldefaultsservice.NewService(
 		modeldefaultsstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-	)
-}
-
-// ModelManager returns the model manager service.
-func (s *ControllerFactory) ModelManager() *modelmanagerservice.Service {
-	return modelmanagerservice.NewService(
-		modelmanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.dbDeleter,
 	)
 }
 

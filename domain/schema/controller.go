@@ -413,13 +413,32 @@ CREATE TABLE model_metadata (
 CREATE UNIQUE INDEX idx_model_metadata_name_owner
 ON model_metadata (name, owner_uuid);
 
-CREATE VIEW v_model_metadata AS
-SELECT 
-    m.model_uuid,
-    m.name,
-    t.type
-FROM model_metadata m
-INNER JOIN model_type t ON m.model_type_id = t.id;
+CREATE VIEW v_model AS
+SELECT m.uuid,
+       mm.cloud_uuid,
+       c.uuid        AS cloud_uuid,
+       c.name        AS cloud_name,
+       cr.uuid       AS cloud_region_uuid,
+       cr.name       AS cloud_region_name,
+       cc.uuid       AS cloud_credential_uuid,
+       cc.name       AS cloud_credential_name,
+       cc.owner_uuid AS cloud_credential_owner_uuid,
+       cco.name      AS cloud_credential_owner_name,
+       ccn.name      AS cloud_credential_cloud_name,
+       mm.model_type_id,
+       mt.type       AS model_type_type,
+       mm.name,
+       mm.owner_uuid,
+       u.name        AS owner_name
+FROM model_list m
+INNER JOIN model_metadata mm ON m.uuid = mm.model_uuid
+INNER JOIN cloud c ON mm.cloud_uuid = c.uuid
+LEFT JOIN cloud_region cr ON mm.cloud_region_uuid = cr.uuid
+LEFT JOIN cloud_credential cc ON mm.cloud_credential_uuid = cc.uuid
+INNER JOIN user cco ON cc.owner_uuid = cco.uuid
+LEFT JOIN cloud ccn ON cc.cloud_uuid = ccn.uuid
+INNER JOIN model_type mt ON mm.model_type_id = mt.id
+INNER JOIN user u ON mm.owner_uuid = u.uuid
 `)
 }
 

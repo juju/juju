@@ -14,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -26,7 +27,7 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // newFacadeV10 is used for API registration.
-func newFacadeV10(ctx facade.ModelContext) (*ModelManagerAPI, error) {
+func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt, err := pool.SystemState()
@@ -76,14 +77,21 @@ func newFacadeV10(ctx facade.ModelContext) (*ModelManagerAPI, error) {
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
 
+	modelConfigGetter := func(uuid coremodel.UUID) (ModelConfigService, error) {
+		sf := ctx.ServiceFactoryForModel(uuid)
+		configService := sf.Config(sf.ModelDefaults().ModelDefaultsProvider(uuid))
+		return configService, nil
+	}
+
 	return NewModelManagerAPI(
 		backend.(StateBackend),
 		ctx.ModelExporter(backend),
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
-		serviceFactory.ModelManager(),
 		serviceFactory.Model(),
+		modelConfigGetter,
+		serviceFactory.User(),
 		ctx.ObjectStore(),
 		configSchemaSource,
 		toolsFinder,

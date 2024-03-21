@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
@@ -980,8 +981,8 @@ func (ctx *facadeContext) migrationScope(modelUUID string) modelmigration.Scope 
 
 // ServiceFactoryForModel returns the services factory for a given
 // model uuid.
-func (ctx *facadeContext) ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory {
-	return ctx.r.serviceFactoryGetter.FactoryForModel(modelUUID)
+func (ctx *facadeContext) ServiceFactoryForModel(uuid model.UUID) servicefactory.ServiceFactory {
+	return ctx.r.serviceFactoryGetter.FactoryForModel(uuid.String())
 }
 
 // ObjectStoreForModel returns the object store for a given model uuid.
