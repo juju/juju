@@ -80,10 +80,10 @@ CREATE TABLE
         id INT PRIMARY KEY,
         policy TEXT NOT NULL,
         CONSTRAINT chk_empty_policy
-            CHECK(policy != ''),
-        CONSTRAINT uniq_secret_rotate_policy_policy
-            UNIQUE(policy)
+            CHECK(policy != '')
     );
+
+CREATE UNIQUE INDEX idx_secret_rotate_policy_policy ON secret_rotate_policy (policy);
 
 INSERT INTO secret_rotate_policy VALUES
     (0, 'never'),
