@@ -60,8 +60,8 @@ var allowedCalls = map[string]set.Strings{
 	"juju/commands/main.go": set.NewStrings("os.Stat"),
 	// plugins are not enabled for embedded CLI commands.
 	"juju/commands/plugin.go": set.NewStrings("exec.Command"),
-	// upgrade-model is not a whitelisted embedded CLI command.
-	"juju/commands/upgrademodel.go": set.NewStrings("os.Open", "os.RemoveAll"),
+	// upgrade-controller is not a whitelisted embedded CLI command.
+	"juju/commands/upgradecontroller.go": set.NewStrings("os.Open", "os.RemoveAll"),
 	// ssh is not a whitelisted embedded CLI command.
 	"juju/ssh/ssh_machine.go": set.NewStrings("os.Remove"),
 	// agree is not exposed to shell scripts because it uses PAGER to present terms
