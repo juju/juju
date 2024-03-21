@@ -18,7 +18,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
-	modelstate "github.com/juju/juju/domain/model/state"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 )
@@ -46,18 +46,42 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 // GetModel is responsible for returning the model for the provided uuid. If no
 // model is found the given uuid then an error of
 // [github.com/juju/juju/domain/model/errors.NotFound] is returned.
-func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
+func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (*secretbackend.Model, error) {
 	db, err := s.DB()
 	if err != nil {
-		return coremodel.Model{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	var m coremodel.Model
-	return m, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var err error
-		m, err = modelstate.Get(ctx, tx, uuid)
-		return err
+	stmt, err := sqlair.Prepare(`
+SELECT (
+	uuid, name, model_type_type, secret_backend_uuid
+) AS (&Model.*)
+FROM v_model
+WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var m Model
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
+		}
+		return errors.Trace(err)
 	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	if !m.Type.IsValid() {
+		// This should never happen.
+		return nil, fmt.Errorf("invalid model type for model %q", m.Name)
+	}
+	return &secretbackend.Model{
+		ID:              m.ID,
+		Name:            m.Name,
+		Type:            m.Type,
+		SecretBackendID: m.SecretBackendID,
+	}, nil
 }
 
 // UpsertSecretBackend persists the input secret backend entity.
@@ -153,7 +177,12 @@ ORDER BY b.name`, SecretBackendRow{})
 	var rows SecretBackendRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&rows)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
+			// We donnot want to return an error if there are no secret backends.
+			// We just return an empty list.
+			return nil
+		}
+		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)
 		}
 		return nil
@@ -188,6 +217,9 @@ WHERE b.%s = $M.identifier`, columName)
 	var rows SecretBackendRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, sqlair.M{"identifier": v}).GetAll(&rows)
+		if errors.Is(err, sql.ErrNoRows) || len(rows) == 0 {
+			return fmt.Errorf("%w: %q", backenderrors.NotFound, v)
+		}
 		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)
 		}
@@ -197,7 +229,7 @@ WHERE b.%s = $M.identifier`, columName)
 		return nil, fmt.Errorf("%w: %q", backenderrors.NotFound, v)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot list secret backends: %w", err)
+		return nil, errors.Trace(err)
 	}
 	return rows.toSecretBackends()[0], errors.Trace(err)
 }
@@ -290,7 +322,12 @@ WHERE b.uuid IN ($S[:])`,
 	args := sqlair.S(transform.Slice(backendIDs, func(s string) any { return any(s) }))
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, args).GetAll(&rows)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
+			// This can only happen if the backends were deleted immediately after the rotation gets updated.
+			// We donnot want to trigger anything in this case.
+			return nil
+		}
+		if err != nil {
 			return fmt.Errorf("querying secret backend rotation changes: %w", err)
 		}
 		return nil

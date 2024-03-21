@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
@@ -45,10 +44,7 @@ func (o *upsertOperation) build() (err error) {
 	}
 
 	o.getBackendStmt, err = sqlair.Prepare(`
-SELECT 
-    name                  AS &SecretBackend.name,
-    backend_type          AS &SecretBackend.backend_type,
-	token_rotate_interval AS &SecretBackend.token_rotate_interval
+SELECT &SecretBackend.*
 FROM secret_backend
 WHERE uuid = $M.uuid`, SecretBackend{}, sqlair.M{})
 	if err != nil {
@@ -125,11 +121,9 @@ func (o *upsertOperation) prepareData(ctx context.Context, tx *sqlair.TX) error 
 	}
 	// Update.
 	if existing.BackendType == "" {
-		// This should never happen, but just in case.
 		return errors.Errorf("backend type is empty for backend %q", o.ID)
 	}
 	if existing.Name == "" {
-		// This should never happen, but just in case.
 		return errors.Errorf("backend name is empty for backend %q", o.ID)
 	}
 	if o.BackendType != "" && o.BackendType != existing.BackendType {
@@ -164,7 +158,7 @@ func (o *upsertOperation) apply(ctx context.Context, tx *sqlair.TX) error {
 		BackendType: o.BackendType,
 	}
 	if o.TokenRotateInterval != nil {
-		sb.TokenRotateInterval = domain.NullableDuration{Duration: *o.TokenRotateInterval, Valid: true}
+		sb.TokenRotateInterval = database.NewNullDuration(*o.TokenRotateInterval)
 	}
 
 	err := tx.Query(ctx, o.upsertBackendStmt, sb).Run()

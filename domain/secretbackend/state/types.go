@@ -7,20 +7,22 @@ import (
 	"database/sql"
 	"sort"
 
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain"
+	"github.com/juju/juju/internal/database"
 )
 
 // Model represents a single subset of a row from the state database's model_metadata table.
 type Model struct {
 	// ID is the unique identifier for the model.
-	ID string `db:"uuid"`
+	ID coremodel.UUID `db:"uuid"`
 	// Name is the name of the model.
 	Name string `db:"name"`
 	// Type is the type of the model.
-	Type model.ModelType `db:"type"`
+	Type coremodel.ModelType `db:"model_type_type"`
+	// SecretBackendID is the unique identifier for the secret backend configured for the model.
+	SecretBackendID string `db:"secret_backend_uuid"`
 }
 
 // SecretBackend represents a single row from the state database's secret_backend table.
@@ -29,10 +31,10 @@ type SecretBackend struct {
 	ID string `db:"uuid"`
 	// Name is the name of the secret backend.
 	Name string `db:"name"`
-	// Type is the type of the secret backend.
+	// BackendType is the type of the secret backend.
 	BackendType string `db:"backend_type"`
 	// TokenRotateInterval is the interval at which the token for the secret backend should be rotated.
-	TokenRotateInterval domain.NullableDuration `db:"token_rotate_interval"`
+	TokenRotateInterval database.NullDuration `db:"token_rotate_interval"`
 }
 
 // SecretBackendRotation represents a single row from the state database's secret_backend_rotation table.
@@ -59,10 +61,10 @@ type SecretBackendRow struct {
 	ID string `db:"uuid"`
 	// Name is the name of the secret backend.
 	Name string `db:"name"`
-	// Type is the type of the secret backend.
+	// BackendType is the type of the secret backend.
 	BackendType string `db:"backend_type"`
 	// TokenRotateInterval is the interval at which the token for the secret backend should be rotated.
-	TokenRotateInterval domain.NullableDuration `db:"token_rotate_interval"`
+	TokenRotateInterval database.NullDuration `db:"token_rotate_interval"`
 	// ConfigName is the name of one record of the secret backend config.
 	ConfigName string `db:"config_name"`
 	// ConfigContent is the content of the secret backend config.

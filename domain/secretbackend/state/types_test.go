@@ -12,7 +12,7 @@ import (
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain"
+	"github.com/juju/juju/internal/database"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -32,7 +32,7 @@ func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 			ID:          "uuid1",
 			Name:        "name1",
 			BackendType: "vault",
-			TokenRotateInterval: domain.NullableDuration{
+			TokenRotateInterval: database.NullDuration{
 				Duration: 10 * time.Second,
 				Valid:    true,
 			},
@@ -43,7 +43,7 @@ func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 			ID:          "uuid1",
 			Name:        "name1",
 			BackendType: "vault",
-			TokenRotateInterval: domain.NullableDuration{
+			TokenRotateInterval: database.NullDuration{
 				Duration: 10 * time.Second,
 				Valid:    true,
 			},
@@ -54,7 +54,7 @@ func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 			ID:          "uuid2",
 			Name:        "name2",
 			BackendType: "vault",
-			TokenRotateInterval: domain.NullableDuration{
+			TokenRotateInterval: database.NullDuration{
 				Valid: false,
 			},
 			ConfigName:    "config21",
@@ -64,7 +64,7 @@ func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 			ID:          "uuid3",
 			Name:        "name3",
 			BackendType: "vault",
-			TokenRotateInterval: domain.NullableDuration{
+			TokenRotateInterval: database.NullDuration{
 				Duration: 30 * time.Second,
 				Valid:    true,
 			},
@@ -75,7 +75,7 @@ func (s *typesSuite) TestToSecretBackends(c *gc.C) {
 			ID:          "uuid1",
 			Name:        "name1",
 			BackendType: "vault",
-			TokenRotateInterval: domain.NullableDuration{
+			TokenRotateInterval: database.NullDuration{
 				Duration: 10 * time.Second,
 				Valid:    true,
 			},
