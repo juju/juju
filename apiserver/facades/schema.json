@@ -7284,6 +7284,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -7292,6 +7295,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -7406,6 +7412,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",
@@ -8888,6 +8897,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -8896,6 +8908,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -9010,6 +9025,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",
@@ -9822,6 +9840,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -9830,6 +9851,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -9944,6 +9968,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",
@@ -12005,6 +12032,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -12013,6 +12043,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -12127,6 +12160,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",
@@ -13506,6 +13542,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -13514,6 +13553,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -13628,6 +13670,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",
@@ -15323,6 +15368,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -15331,6 +15379,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -15445,6 +15496,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",

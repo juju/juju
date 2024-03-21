@@ -139,8 +139,8 @@ type ApplicationConfig struct {
 	// After the application is created, InitialScale has no effect.
 	InitialScale int
 
-	// Rootless is true if the application should be run without root priviledges.
-	Rootless bool
+	// CharmUser controls what user the charm/unit agent runs as.
+	CharmUser RunAs
 }
 
 // ContainerConfig describes a container that is deployed alonside the uniter/charm container.
@@ -153,6 +153,12 @@ type ContainerConfig struct {
 
 	// Mounts to storage that are to be provided within this container.
 	Mounts []MountConfig
+
+	// Uid to run as. Default to 0 or root.
+	Uid int
+
+	// Gid to run as. Default to 0 or root.
+	Gid int
 }
 
 // MountConfig describes a storage that should be mounted to a container.
@@ -163,3 +169,12 @@ type MountConfig struct {
 	// Path is the mount point inside the container.
 	Path string
 }
+
+// RunAs defines which user to run a certain process as.
+type RunAs string
+
+const (
+	RunAsRoot    RunAs = "root"
+	RunAsSudoer  RunAs = "sudoer"
+	RunAsNonRoot RunAs = "non-root"
+)

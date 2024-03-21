@@ -57,7 +57,7 @@ type applicationSuite struct {
 	applier      *resourcesmocks.MockApplier
 }
 
-const defaultAgentVersion = "2.9.37"
+const defaultAgentVersion = "3.5-beta1"
 
 var _ = gc.Suite(&applicationSuite{})
 
@@ -440,13 +440,24 @@ func getPodSpec() corev1.PodSpec {
 		AutomountServiceAccountToken:  pointer.BoolPtr(true),
 		ImagePullSecrets:              []corev1.LocalObjectReference{{Name: "gitlab-nginx-secret"}},
 		TerminationGracePeriodSeconds: pointer.Int64Ptr(30),
+		SecurityContext: &corev1.PodSecurityContext{
+			FSGroup:            int64Ptr(170),
+			SupplementalGroups: []int64{170},
+		},
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "operator/image-path:1.1.1",
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/opt/containeragent"},
-			Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "9001", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin"},
+			Args: []string{
+				"init",
+				"--containeragent-pebble-dir", "/containeragent/pebble",
+				"--charm-modified-version", "9001",
+				"--data-dir", "/var/lib/juju",
+				"--bin-dir", "/charm/bin",
+				"--profile-dir", "/containeragent/etc/profile.d",
+			},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",
@@ -498,6 +509,11 @@ func getPodSpec() corev1.PodSpec {
 					Name:      "charm-data",
 					MountPath: "/containeragent/pebble",
 					SubPath:   "containeragent/pebble",
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/containeragent/etc/profile.d",
+					SubPath:   "containeragent/etc/profile.d",
 				},
 			},
 		}},
@@ -588,6 +604,29 @@ func getPodSpec() corev1.PodSpec {
 					SubPath:   "containeragent/pebble",
 				},
 				{
+					Name:      "charm-data",
+					MountPath: "/var/log/juju",
+					SubPath:   "containeragent/var/log/juju",
+				},
+				{
+					Name:      "charm-data",
+					MountPath: paths.JujuIntrospect(paths.OSUnixLike),
+					SubPath:   "charm/bin/containeragent",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "charm-data",
+					MountPath: paths.JujuExec(paths.OSUnixLike),
+					SubPath:   "charm/bin/containeragent",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/etc/profile.d/juju-introspection.sh",
+					SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
+					ReadOnly:  true,
+				},
+				{
 					Name:      "gitlab-database-appuuid",
 					MountPath: "path/to/here",
 				},
@@ -606,6 +645,10 @@ func getPodSpec() corev1.PodSpec {
 				{
 					Name:  "PEBBLE_SOCKET",
 					Value: "/charm/container/pebble.socket",
+				},
+				{
+					Name:  "PEBBLE",
+					Value: "/charm/container/pebble",
 				},
 			},
 			LivenessProbe: &corev1.Probe{
@@ -669,6 +712,10 @@ func getPodSpec() corev1.PodSpec {
 				{
 					Name:  "PEBBLE_SOCKET",
 					Value: "/charm/container/pebble.socket",
+				},
+				{
+					Name:  "PEBBLE",
+					Value: "/charm/container/pebble",
 				},
 			},
 			LivenessProbe: &corev1.Probe{
@@ -741,7 +788,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version": "2.9.37",
+						"juju.is/version": "3.5-beta1",
 						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 					},
 				},
@@ -764,7 +811,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version":  "2.9.37",
+						"juju.is/version":  "3.5-beta1",
 						"app.juju.is/uuid": "appuuid",
 					},
 				},
@@ -778,7 +825,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "2.9.37"},
+							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
 						},
 						Spec: getPodSpec(),
 					},
@@ -853,7 +900,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version": "2.9.37",
+						"juju.is/version": "3.5-beta1",
 						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 					},
 				},
@@ -876,7 +923,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version":  "2.9.37",
+						"juju.is/version":  "3.5-beta1",
 						"app.juju.is/uuid": "appuuid",
 					},
 				},
@@ -890,7 +937,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "2.9.37"},
+							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
 						},
 						Spec: podSpec,
 					},
@@ -976,7 +1023,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version":  "2.9.37",
+						"juju.is/version":  "3.5-beta1",
 						"app.juju.is/uuid": "appuuid",
 					},
 				},
@@ -988,7 +1035,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "2.9.37"},
+							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
 						},
 						Spec: podSpec,
 					},
@@ -1049,7 +1096,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version":  "2.9.37",
+						"juju.is/version":  "3.5-beta1",
 						"app.juju.is/uuid": "appuuid",
 					},
 				},
@@ -1060,7 +1107,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "2.9.37"},
+							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
 						},
 						Spec: podSpec,
 					},
@@ -1197,7 +1244,6 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 
 // Test upgrades are performed by ensure. Regression bug for lp1997253
 func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
-
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.34", func() {
 		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
@@ -1222,6 +1268,21 @@ func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 			"--charm-modified-version", "9001",
 			"--data-dir", "/var/lib/juju",
 			"--bin-dir", "/charm/bin",
+		})
+	})
+
+	s.assertEnsure(c, app, false, constraints.Value{}, true, "3.5-beta1.1", func() {
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
+		c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
+			"init",
+			"--containeragent-pebble-dir", "/containeragent/pebble",
+			"--charm-modified-version", "9001",
+			"--data-dir", "/var/lib/juju",
+			"--bin-dir", "/charm/bin",
+			"--profile-dir", "/containeragent/etc/profile.d",
 		})
 	})
 }
@@ -2785,7 +2846,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version": "2.9.37",
+						"juju.is/version": "3.5-beta1",
 						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 					},
 				},
@@ -2821,7 +2882,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 						"app.kubernetes.io/managed-by": "juju",
 					},
 					Annotations: map[string]string{
-						"juju.is/version":  "2.9.37",
+						"juju.is/version":  "3.5-beta1",
 						"app.juju.is/uuid": "appuuid",
 					},
 				},
@@ -2835,7 +2896,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "2.9.37"},
+							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
 						},
 						Spec: ps,
 					},
@@ -2881,7 +2942,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
 				"app.kubernetes.io/name":       "gitlab",
 				"app.kubernetes.io/managed-by": "juju",
 			},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
+			Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
@@ -2902,7 +2963,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
 				"app.kubernetes.io/name":       "gitlab",
 				"app.kubernetes.io/managed-by": "juju",
 			},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
+			Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
