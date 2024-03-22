@@ -489,6 +489,43 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, backenderrors.NotValid)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend not valid: empty config key for %q`, backendID2))
 }
+func (s *stateSuite) TestUpdateSecretBackendFailedForInternalBackend(c *gc.C) {
+	backendID := uuid.MustNewUUID().String()
+	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+		ID:          backendID,
+		Name:        "my-backend",
+		BackendType: "internal",
+	})
+	c.Assert(err, gc.IsNil)
+
+	newName := "my-backend-new"
+	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+		ID:          backendID,
+		Name:        newName,
+		BackendType: "internal",
+	})
+	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend forbidden: %q is immutable`, backendID))
+}
+
+func (s *stateSuite) TestUpdateSecretBackendFailedForKubernetesBackend(c *gc.C) {
+	backendID := uuid.MustNewUUID().String()
+	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+		ID:          backendID,
+		Name:        "my-backend",
+		BackendType: "kubernetes",
+	})
+	c.Assert(err, gc.IsNil)
+
+	newName := "my-backend-new"
+	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+		ID:          backendID,
+		Name:        newName,
+		BackendType: "kubernetes",
+	})
+	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend forbidden: %q is immutable`, backendID))
+}
 
 func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
 	db := s.DB()
@@ -591,6 +628,34 @@ WHERE backend_uuid = ?`[1:], backendID)
 	err = row.Scan(&count)
 	c.Assert(err, gc.IsNil)
 	c.Assert(count, gc.Equals, 0)
+}
+
+func (s *stateSuite) TestDeleteSecretBackendFailedForInternalBackend(c *gc.C) {
+	backendID := uuid.MustNewUUID().String()
+	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+		ID:          backendID,
+		Name:        "my-backend",
+		BackendType: "internal",
+	})
+	c.Assert(err, gc.IsNil)
+
+	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend forbidden: %q is immutable`, backendID))
+}
+
+func (s *stateSuite) TestDeleteSecretBackendFailedForKubernetesBackend(c *gc.C) {
+	backendID := uuid.MustNewUUID().String()
+	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+		ID:          backendID,
+		Name:        "my-backend",
+		BackendType: "kubernetes",
+	})
+	c.Assert(err, gc.IsNil)
+
+	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend forbidden: %q is immutable`, backendID))
 }
 
 func (s *stateSuite) TestDeleteSecretBackendInUseFail(c *gc.C) {

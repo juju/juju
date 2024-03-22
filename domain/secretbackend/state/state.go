@@ -21,6 +21,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/database"
 )
 
 // Logger is the interface used by the state to log messages.
@@ -143,7 +144,11 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 		if err = tx.Query(ctx, modelMetadataStmt, arg).Run(); err != nil {
 			return fmt.Errorf("resetting secret backend %q to NULL for model metadata: %w", backendID, err)
 		}
-		if err = tx.Query(ctx, backendStmt, arg).Run(); err != nil {
+		err = tx.Query(ctx, backendStmt, arg).Run()
+		if database.IsErrConstraintTrigger(err) {
+			return fmt.Errorf("%w: %q is immutable", backenderrors.Forbidden, backendID)
+		}
+		if err != nil {
 			return fmt.Errorf("deleting secret backend for %q: %w", backendID, err)
 		}
 		return nil

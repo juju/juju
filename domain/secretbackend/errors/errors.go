@@ -16,4 +16,7 @@ const (
 
 	// NotValid describes an error that occurs when the secret backend being operated on is not valid.
 	NotValid = errors.ConstError("secret backend not valid")
+
+	// Forbidden describes an error that occurs when the operation is forbidden.
+	Forbidden = errors.ConstError("secret backend forbidden")
 )

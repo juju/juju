@@ -165,6 +165,9 @@ func (o *upsertOperation) apply(ctx context.Context, tx *sqlair.TX) error {
 	if database.IsErrConstraintUnique(err) {
 		return fmt.Errorf("%w: name %q", backenderrors.AlreadyExists, sb.Name)
 	}
+	if database.IsErrConstraintTrigger(err) {
+		return fmt.Errorf("%w: %q is immutable", backenderrors.Forbidden, sb.ID)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot upsert secret backend %q: %w", o.Name, err)
 	}

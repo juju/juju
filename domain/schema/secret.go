@@ -43,6 +43,26 @@ CREATE TABLE
 
 CREATE UNIQUE INDEX idx_secret_backend_name ON secret_backend (name);
 
+-- We need to ensure that the internal and kubernetes backends are immutable.
+-- They are created by the controller during bootstrap time.
+-- The reason why we need these triggers is because we want to ensure that they
+-- should never ever be deleted or updated.
+CREATE TRIGGER trg_secret_backend_immutable_backends_update
+    BEFORE UPDATE ON secret_backend
+    FOR EACH ROW
+    WHEN OLD.backend_type IN ('internal', 'kubernetes')
+    BEGIN
+        SELECT RAISE(FAIL, 'secret backends with type internal or kubernetes are immutable');
+    END;
+
+CREATE TRIGGER trg_secret_backend_immutable_backends_delete
+    BEFORE DELETE ON secret_backend
+    FOR EACH ROW
+    WHEN OLD.backend_type IN ('internal', 'kubernetes')
+    BEGIN
+        SELECT RAISE(FAIL, 'secret backends with type internal or kubernetes are immutable');
+    END;
+
 CREATE TABLE
     secret_backend_config (
         backend_uuid TEXT NOT NULL,
