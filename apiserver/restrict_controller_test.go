@@ -33,7 +33,7 @@ func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
 	s.assertMethod(c, "Pinger", pingerFacadeVersion, "Ping")
 	s.assertMethod(c, "Bundle", 8, "GetChangesMapArgs")
 	s.assertMethod(c, "HighAvailability", highAvailabilityFacadeVersion, "EnableHA")
-	s.assertMethod(c, "ApplicationOffers", 4, "ApplicationOffers")
+	s.assertMethod(c, "ApplicationOffers", 5, "ApplicationOffers")
 }
 
 func (s *restrictControllerSuite) TestNotAllowed(c *gc.C) {
