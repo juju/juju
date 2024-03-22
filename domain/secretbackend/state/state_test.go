@@ -137,7 +137,7 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 
 	credSt := credentialstate.NewState(s.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(), corecredential.ID{
+		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: "test-user",
 			Name:  "foobar",
@@ -156,7 +156,7 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
-			Credential: corecredential.ID{
+			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: "test-user",
 				Name:  "foobar",
