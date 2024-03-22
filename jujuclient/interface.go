@@ -86,8 +86,24 @@ type ModelDetails struct {
 	ActiveBranch string `yaml:"branch"`
 }
 
+// AccountDetailsType defines the authentication method to be used for the account.
+type AccountDetailsType string
+
+const (
+	// UserPassAccountDetailsType means that username and password (or macaroons) are used
+	// to authenticate with the controller
+	UserPassAccountDetailsType AccountDetailsType = "userpass"
+
+	// OAuth2DeviceFlowAccountDetailsType means that the stored session token is to be used
+	// to authenticate with the controller or, if expired, initiate oauth2 device flow to
+	// obtain a valid session token.
+	OAuth2DeviceFlowAccountDetailsType AccountDetailsType = "oauth2-device"
+)
+
 // AccountDetails holds details of an account.
 type AccountDetails struct {
+	Type AccountDetailsType `yaml:"type,omitempty"`
+
 	// User is the username for the account.
 	User string `yaml:"user"`
 
@@ -101,6 +117,9 @@ type AccountDetails struct {
 	// They are only set when using the MemStore implementation,
 	// and are used by embedded commands. The are not written to disk.
 	Macaroons []macaroon.Slice `yaml:"-"`
+
+	// SessionToken, if set, is used for login.
+	SessionToken string `yaml:"access-token,omitempty"`
 }
 
 // BootstrapConfig holds the configuration used to bootstrap a controller.

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
+var _ ClientStore = (*MemStore)(nil)
+
 // MemStore is an in-memory implementation of ClientStore.
 type MemStore struct {
 	mu sync.Mutex

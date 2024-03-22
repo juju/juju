@@ -725,7 +725,7 @@ func (s *store) UpdateAccount(controllerName string, details AccountDetails) err
 	return errors.Trace(WriteAccountsFile(accounts))
 }
 
-// AccountByName implements AccountGetter.
+// AccountDetails implements AccountGetter.
 func (s *store) AccountDetails(controllerName string) (*AccountDetails, error) {
 	if err := ValidateControllerName(controllerName); err != nil {
 		return nil, errors.Trace(err)
