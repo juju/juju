@@ -46,20 +46,18 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 // GetModel is responsible for returning the model for the provided uuid. If no
 // model is found the given uuid then an error of
 // [github.com/juju/juju/domain/model/errors.NotFound] is returned.
-func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (*secretbackend.Model, error) {
+func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (secretbackend.Model, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return secretbackend.Model{}, errors.Trace(err)
 	}
 
 	stmt, err := sqlair.Prepare(`
-SELECT (
-	uuid, name, model_type_type, secret_backend_uuid
-) AS (&Model.*)
+SELECT &Model.*
 FROM v_model
 WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return secretbackend.Model{}, errors.Trace(err)
 	}
 	var m Model
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -70,13 +68,13 @@ WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return secretbackend.Model{}, errors.Trace(domain.CoerceError(err))
 	}
 	if !m.Type.IsValid() {
 		// This should never happen.
-		return nil, fmt.Errorf("invalid model type for model %q", m.Name)
+		return secretbackend.Model{}, fmt.Errorf("invalid model type for model %q", m.Name)
 	}
-	return &secretbackend.Model{
+	return secretbackend.Model{
 		ID:              m.ID,
 		Name:            m.Name,
 		Type:            m.Type,

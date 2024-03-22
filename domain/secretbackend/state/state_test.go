@@ -53,7 +53,7 @@ func (s *stateSuite) TestGetModel(c *gc.C) {
 	modelUUID, backendUUID := s.createModel(c)
 	model, err := s.state.GetModel(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
-	c.Assert(model, gc.DeepEquals, &secretbackend.Model{
+	c.Assert(model, gc.DeepEquals, secretbackend.Model{
 		ID:              modelUUID,
 		Name:            "my-model",
 		Type:            coremodel.IAAS,
