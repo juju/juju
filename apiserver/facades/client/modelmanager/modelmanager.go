@@ -347,7 +347,7 @@ func (m *ModelManagerAPI) createModelNew(
 	modelDefaults := m.modelDefaultsService.ModelDefaultsProvider(modelUUID)
 	modelConfigService := modelServiceFactory.Config(modelDefaults)
 
-	if err := modelConfigService.SetModelConfig(ctx, config.AllAttrs()); err != nil {
+	if err := modelConfigService.SetModelConfig(ctx, config.SafeModelAttrs()); err != nil {
 		return errors.Annotatef(err, "failed to set model config for model %q", modelUUID)
 	}
 

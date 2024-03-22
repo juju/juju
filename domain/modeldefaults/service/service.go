@@ -107,7 +107,7 @@ func (s *Service) ModelDefaults(
 
 	cloudDefaults, err := s.st.ModelCloudDefaults(ctx, uuid)
 	if err != nil {
-		return modeldefaults.Defaults{}, fmt.Errorf("getting model %q defaults: %w", uuid, err)
+		return modeldefaults.Defaults{}, fmt.Errorf("getting model %q cloud defaults: %w", uuid, err)
 	}
 
 	for k, v := range cloudDefaults {
@@ -119,7 +119,7 @@ func (s *Service) ModelDefaults(
 
 	cloudRegionDefaults, err := s.st.ModelCloudRegionDefaults(ctx, uuid)
 	if err != nil {
-		return modeldefaults.Defaults{}, fmt.Errorf("getting model %q defaults: %w", uuid, err)
+		return modeldefaults.Defaults{}, fmt.Errorf("getting model %q cloud region defaults: %w", uuid, err)
 	}
 
 	for k, v := range cloudRegionDefaults {

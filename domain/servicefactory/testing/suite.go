@@ -127,6 +127,8 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	ctx := context.Background()
 
+	controllerUUID := coremodel.UUID(jujutesting.ControllerTag.Id())
+
 	controllerArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
@@ -140,6 +142,9 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	err := fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.ControllerModelUUID = uuid
+
+	err = modelbootstrap.CreateReadOnlyModel(controllerArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	c.Assert(err, jc.ErrorIsNil)
 
 	modelArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
@@ -155,7 +160,6 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.DefaultModelUUID = uuid
 
-	controllerUUID := coremodel.UUID(jujutesting.ControllerTag.Id())
 	err = modelbootstrap.CreateReadOnlyModel(modelArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
 	c.Assert(err, jc.ErrorIsNil)
 }
