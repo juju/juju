@@ -40,20 +40,6 @@ func (m *MockMigrationRemoteApplication) EXPECT() *MockMigrationRemoteApplicatio
 	return m.recorder
 }
 
-// Bindings mocks base method.
-func (m *MockMigrationRemoteApplication) Bindings() map[string]string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bindings")
-	ret0, _ := ret[0].(map[string]string)
-	return ret0
-}
-
-// Bindings indicates an expected call of Bindings.
-func (mr *MockMigrationRemoteApplicationMockRecorder) Bindings() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bindings", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).Bindings))
-}
-
 // ConsumeVersion mocks base method.
 func (m *MockMigrationRemoteApplication) ConsumeVersion() int {
 	m.ctrl.T.Helper()
@@ -151,20 +137,6 @@ func (m *MockMigrationRemoteApplication) SourceModel() names.ModelTag {
 func (mr *MockMigrationRemoteApplicationMockRecorder) SourceModel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SourceModel", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).SourceModel))
-}
-
-// Spaces mocks base method.
-func (m *MockMigrationRemoteApplication) Spaces() []MigrationRemoteSpace {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Spaces")
-	ret0, _ := ret[0].([]MigrationRemoteSpace)
-	return ret0
-}
-
-// Spaces indicates an expected call of Spaces.
-func (mr *MockMigrationRemoteApplicationMockRecorder) Spaces() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Spaces", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).Spaces))
 }
 
 // Tag mocks base method.

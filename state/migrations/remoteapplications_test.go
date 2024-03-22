@@ -29,9 +29,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
 			expect.ConsumeVersion().Return(1)
-			expect.Bindings().Return(map[string]string{
-				"binding-key": "binding-value",
-			})
 			// Return the endpoint mocks
 			expect.Endpoints().Return([]MigrationRemoteEndpoint{
 				{
@@ -40,41 +37,10 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 					Interface: "db",
 				},
 			}, nil)
-			// Return the spaces mocks
-			expect.Spaces().Return([]MigrationRemoteSpace{
-				{
-					Name:       "app-uuid-1-spaces-1",
-					CloudType:  "aws",
-					ProviderId: "provider-id-1",
-					ProviderAttributes: map[string]interface{}{
-						"attr-1": "value-1",
-					},
-					Subnets: []MigrationRemoteSubnet{
-						{
-							CIDR:              "10.0.0.1/24",
-							ProviderId:        "provider-id-2",
-							VLANTag:           1,
-							AvailabilityZones: []string{"eu-west-1"},
-							ProviderSpaceId:   "provider-space-id",
-							ProviderNetworkId: "provider-network-id",
-						},
-					},
-				},
-			})
 
 			expect.GlobalKey().Return("c#app-uuid-1")
 		}),
 	}
-
-	remoteSpace := NewMockRemoteSpace(ctrl)
-	remoteSpace.EXPECT().AddSubnet(description.SubnetArgs{
-		CIDR:              "10.0.0.1/24",
-		ProviderId:        "provider-id-2",
-		VLANTag:           1,
-		AvailabilityZones: []string{"eu-west-1"},
-		ProviderSpaceId:   "provider-space-id",
-		ProviderNetworkId: "provider-network-id",
-	})
 
 	remoteApplication := NewMockRemoteApplication(ctrl)
 	remoteApplication.EXPECT().SetStatus(description.StatusArgs{
@@ -85,14 +51,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 		Role:      "role",
 		Interface: "db",
 	})
-	remoteApplication.EXPECT().AddSpace(description.RemoteSpaceArgs{
-		Name:       "app-uuid-1-spaces-1",
-		CloudType:  "aws",
-		ProviderId: "provider-id-1",
-		ProviderAttributes: map[string]interface{}{
-			"attr-1": "value-1",
-		},
-	}).Return(remoteSpace)
 
 	source := NewMockRemoteApplicationSource(ctrl)
 	source.EXPECT().AllRemoteApplications().Return(entities, nil)
@@ -109,9 +67,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
 		ConsumeVersion:  1,
-		Bindings: map[string]string{
-			"binding-key": "binding-value",
-		},
 	}).Return(remoteApplication)
 
 	migration := ExportRemoteApplications{}
@@ -146,9 +101,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpoints
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
 			expect.ConsumeVersion().Return(1)
-			expect.Bindings().Return(map[string]string{
-				"binding-key": "binding-value",
-			})
 			// Return the endpoint mocks
 			expect.Endpoints().Return(nil, errors.New("fail"))
 			expect.GlobalKey().Return("c#app-uuid-1")
@@ -175,9 +127,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpoints
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
 		ConsumeVersion:  1,
-		Bindings: map[string]string{
-			"binding-key": "binding-value",
-		},
 	}).Return(remoteApplication)
 
 	migration := ExportRemoteApplications{}
@@ -198,10 +147,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
 			expect.ConsumeVersion().Return(1)
-			expect.Bindings().Return(map[string]string{
-				"binding-key": "binding-value",
-			})
-
 			expect.GlobalKey().Return("c#app-uuid-1")
 		}),
 	}
@@ -223,9 +168,6 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
 		ConsumeVersion:  1,
-		Bindings: map[string]string{
-			"binding-key": "binding-value",
-		},
 	}).Return(remoteApplication)
 
 	migration := ExportRemoteApplications{}

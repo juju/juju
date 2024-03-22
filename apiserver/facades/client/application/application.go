@@ -2071,23 +2071,6 @@ func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicatio
 	return err
 }
 
-// Consume adds remote applications to the model without creating any
-// relations.
-func (api *APIv19) Consume(ctx context.Context, args params.ConsumeApplicationArgsV4) (params.ErrorResults, error) {
-	var consumeApplicationArgs []params.ConsumeApplicationArgV5
-	for _, arg := range args.Args {
-		consumeApplicationArgs = append(consumeApplicationArgs, params.ConsumeApplicationArgV5{
-			Macaroon:                  arg.Macaroon,
-			ControllerInfo:            arg.ControllerInfo,
-			ApplicationAlias:          arg.ApplicationAlias,
-			ApplicationOfferDetailsV5: arg.ApplicationOfferDetailsV5,
-		})
-	}
-	return api.APIv20.Consume(ctx, params.ConsumeApplicationArgsV5{
-		Args: consumeApplicationArgs,
-	})
-}
-
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
 // to the state model so relations to the remote application can be created.
 func (api *APIBase) saveRemoteApplication(

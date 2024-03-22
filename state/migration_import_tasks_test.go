@@ -213,9 +213,6 @@ func (s *MigrationImportTasksSuite) TestImportRemoteApplications(c *gc.C) {
 			{Name: "db", Interface: "mysql"},
 			{Name: "db-admin", Interface: "mysql-root"},
 		},
-		Spaces: []remoteSpaceDoc{
-			{CloudType: "ec2"},
-		},
 	}
 	statusDoc := statusDoc{}
 	statusOp := txn.Op{}
@@ -270,9 +267,6 @@ func (s *MigrationImportTasksSuite) TestImportRemoteApplicationsWithMissingStatu
 		Endpoints: []remoteEndpointDoc{
 			{Name: "db", Interface: "mysql"},
 			{Name: "db-admin", Interface: "mysql-root"},
-		},
-		Spaces: []remoteSpaceDoc{
-			{CloudType: "ec2"},
 		},
 	}
 

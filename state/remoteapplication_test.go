@@ -14,10 +14,8 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -61,48 +59,6 @@ func (s *remoteApplicationSuite) makeRemoteApplication(c *gc.C, name, url string
 		},
 	}
 
-	spaces := []*environs.ProviderSpaceInfo{{
-		CloudType: "ec2",
-		ProviderAttributes: map[string]interface{}{
-			"thing1":  23,
-			"thing2":  "halberd",
-			"network": "network-1",
-		},
-		SpaceInfo: network.SpaceInfo{
-			Name:       "public",
-			ProviderId: "juju-space-public",
-			Subnets: []network.SubnetInfo{{
-				ProviderId:        "juju-subnet-12",
-				CIDR:              "1.2.3.0/24",
-				AvailabilityZones: []string{"az1", "az2"},
-				ProviderSpaceId:   "juju-space-public",
-				ProviderNetworkId: "network-1",
-			}},
-		},
-	}, {
-		CloudType: "ec2",
-		ProviderAttributes: map[string]interface{}{
-			"thing1":  24,
-			"thing2":  "bardiche",
-			"network": "network-1",
-		},
-		SpaceInfo: network.SpaceInfo{
-			Name:       "private",
-			ProviderId: "juju-space-private",
-			Subnets: []network.SubnetInfo{{
-				ProviderId:        "juju-subnet-24",
-				CIDR:              "1.2.4.0/24",
-				AvailabilityZones: []string{"az1", "az2"},
-				ProviderSpaceId:   "juju-space-private",
-				ProviderNetworkId: "network-1",
-			}},
-		},
-	}}
-	bindings := map[string]string{
-		"db":       "private",
-		"db-admin": "private",
-		"logging":  "public",
-	}
 	mac, err := newMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
@@ -112,8 +68,6 @@ func (s *remoteApplicationSuite) makeRemoteApplication(c *gc.C, name, url string
 		SourceModel:            s.Model.ModelTag(),
 		Token:                  "app-token",
 		Endpoints:              eps,
-		Spaces:                 spaces,
-		Bindings:               bindings,
 		Macaroon:               mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,62 +211,6 @@ func (s *remoteApplicationSuite) TestURL(c *gc.C) {
 	c.Assert(url, gc.Equals, "")
 }
 
-func (s *remoteApplicationSuite) TestSpaces(c *gc.C) {
-	spaces := s.application.Spaces()
-	c.Assert(spaces, gc.DeepEquals, []state.RemoteSpace{{
-		CloudType:  "ec2",
-		Name:       "public",
-		ProviderId: "juju-space-public",
-		ProviderAttributes: map[string]interface{}{
-			"thing1":  23,
-			"thing2":  "halberd",
-			"network": "network-1",
-		},
-		Subnets: []state.RemoteSubnet{{
-			ProviderId:        "juju-subnet-12",
-			CIDR:              "1.2.3.0/24",
-			AvailabilityZones: []string{"az1", "az2"},
-			ProviderSpaceId:   "juju-space-public",
-			ProviderNetworkId: "network-1",
-		}},
-	}, {
-		CloudType:  "ec2",
-		Name:       "private",
-		ProviderId: "juju-space-private",
-		ProviderAttributes: map[string]interface{}{
-			"thing1":  24,
-			"thing2":  "bardiche",
-			"network": "network-1",
-		},
-		Subnets: []state.RemoteSubnet{{
-			ProviderId:        "juju-subnet-24",
-			CIDR:              "1.2.4.0/24",
-			AvailabilityZones: []string{"az1", "az2"},
-			ProviderSpaceId:   "juju-space-private",
-			ProviderNetworkId: "network-1",
-		}},
-	}})
-}
-
-func (s *remoteApplicationSuite) TestSpaceForEndpoint(c *gc.C) {
-	space, ok := s.application.SpaceForEndpoint("db")
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(space.Name, gc.Equals, "private")
-	space, ok = s.application.SpaceForEndpoint("logging")
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(space.Name, gc.Equals, "public")
-	space, ok = s.application.SpaceForEndpoint("something else")
-	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *remoteApplicationSuite) TestBindings(c *gc.C) {
-	c.Assert(s.application.Bindings(), gc.DeepEquals, map[string]string{
-		"db":       "private",
-		"db-admin": "private",
-		"logging":  "public",
-	})
-}
-
 func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 	_, err := s.application.Endpoint("foo")
 	c.Assert(err, gc.ErrorMatches, `saas application "mysql" has no "foo" relation`)
@@ -410,42 +308,6 @@ func (s *remoteApplicationSuite) TestAddRemoteApplicationErrors(c *gc.C) {
 	)
 	_, err = s.State.RemoteApplication("borken")
 	c.Assert(err, gc.ErrorMatches, `saas application "borken" not found`)
-}
-
-func (s *remoteApplicationSuite) TestParamsValidateChecksBindings(c *gc.C) {
-	eps := []charm.Relation{
-		{
-			Interface: "mysql",
-			Name:      "db",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		},
-	}
-
-	spaces := []*environs.ProviderSpaceInfo{{
-		SpaceInfo: network.SpaceInfo{
-			Name: "public",
-		},
-	}}
-	bindings := map[string]string{
-		"db": "private",
-	}
-	args := state.AddRemoteApplicationParams{
-		Name:        "mysql",
-		URL:         "me/model.mysql",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "app-token",
-		Endpoints:   eps,
-		Spaces:      spaces,
-		Bindings:    bindings,
-	}
-	err := args.Validate()
-	c.Assert(err, gc.ErrorMatches, `endpoint "db" bound to missing space "private" not valid`)
-	bindings["db"] = "public"
-	// Tolerates bindings for non-existent endpoints.
-	bindings["gidget"] = "public"
-	err = args.Validate()
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteApplication(c *gc.C) {

@@ -54,11 +54,6 @@ type CrossModelRelationsAPIv3 struct {
 	logger                 loggo.Logger
 }
 
-// CrossModelRelationsAPIv2 provides access to the CrossModelRelations API facade.
-type CrossModelRelationsAPIv2 struct {
-	*CrossModelRelationsAPIv3
-}
-
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
 func NewCrossModelRelationsAPI(
 	st CrossModelRelationsState,
@@ -165,37 +160,6 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 		if change.Life != life.Alive {
 			delete(api.relationToOffer, relationTag.Id())
 		}
-	}
-	return results, nil
-}
-
-// RegisterRemoteRelations sets up the model to participate
-// in the specified relations. This operation is idempotent.
-func (api *CrossModelRelationsAPIv2) RegisterRemoteRelations(
-	ctx context.Context,
-	relations params.RegisterRemoteRelationArgsV2,
-) (params.RegisterRemoteRelationResults, error) {
-	results := params.RegisterRemoteRelationResults{
-		Results: make([]params.RegisterRemoteRelationResult, len(relations.Relations)),
-	}
-	for i, relation := range relations.Relations {
-		id, err := api.registerRemoteRelation(ctx,
-			params.RegisterRemoteRelationArg{
-				ApplicationToken: relation.ApplicationToken,
-				SourceModelTag:   relation.SourceModelTag,
-				RelationToken:    relation.RelationToken,
-				RemoteEndpoint:   relation.RemoteEndpoint,
-				// RemoteSpace isn't used so we can simply
-				// ignore it.
-				OfferUUID:         relation.OfferUUID,
-				LocalEndpointName: relation.LocalEndpointName,
-				ConsumeVersion:    relation.ConsumeVersion,
-				Macaroons:         relation.Macaroons,
-				BakeryVersion:     relation.BakeryVersion,
-			},
-		)
-		results.Results[i].Result = id
-		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }

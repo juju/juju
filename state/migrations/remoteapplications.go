@@ -19,8 +19,6 @@ type MigrationRemoteApplication interface {
 	SourceModel() names.ModelTag
 	IsConsumerProxy() bool
 	Endpoints() ([]MigrationRemoteEndpoint, error)
-	Bindings() map[string]string
-	Spaces() []MigrationRemoteSpace
 	GlobalKey() string
 	Macaroon() string
 	ConsumeVersion() int
@@ -31,15 +29,6 @@ type MigrationRemoteEndpoint struct {
 	Name      string
 	Role      charm.RelationRole
 	Interface string
-}
-
-// MigrationRemoteSpace is an in-place representation of the state.RemoteSpace
-type MigrationRemoteSpace struct {
-	CloudType          string
-	Name               string
-	ProviderId         string
-	ProviderAttributes map[string]interface{}
-	Subnets            []MigrationRemoteSubnet
 }
 
 // MigrationRemoteSubnet is an in-place representation of the state.RemoteSubnet
@@ -110,7 +99,6 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 		URL:             url,
 		SourceModel:     app.SourceModel(),
 		IsConsumerProxy: app.IsConsumerProxy(),
-		Bindings:        app.Bindings(),
 		Macaroon:        app.Macaroon(),
 		ConsumeVersion:  app.ConsumeVersion(),
 	}
@@ -136,27 +124,5 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 			Interface: ep.Interface,
 		})
 	}
-	for _, space := range app.Spaces() {
-		m.addRemoteSpace(descApp, space)
-	}
 	return nil
-}
-
-func (m ExportRemoteApplications) addRemoteSpace(descApp description.RemoteApplication, space MigrationRemoteSpace) {
-	descSpace := descApp.AddSpace(description.RemoteSpaceArgs{
-		CloudType:          space.CloudType,
-		Name:               space.Name,
-		ProviderId:         space.ProviderId,
-		ProviderAttributes: space.ProviderAttributes,
-	})
-	for _, subnet := range space.Subnets {
-		descSpace.AddSubnet(description.SubnetArgs{
-			CIDR:              subnet.CIDR,
-			ProviderId:        subnet.ProviderId,
-			VLANTag:           subnet.VLANTag,
-			AvailabilityZones: subnet.AvailabilityZones,
-			ProviderSpaceId:   subnet.ProviderSpaceId,
-			ProviderNetworkId: subnet.ProviderNetworkId,
-		})
-	}
 }

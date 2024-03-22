@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
@@ -2468,17 +2467,6 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
 		}},
-		Spaces: []*environs.ProviderSpaceInfo{{
-			SpaceInfo: network.SpaceInfo{
-				Name:       "unicorns",
-				ProviderId: "space-provider-id",
-				Subnets: []network.SubnetInfo{{
-					CIDR:              "10.0.1.0/24",
-					ProviderId:        "subnet-provider-id",
-					AvailabilityZones: []string{"eu-west-1"},
-				}},
-			},
-		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
@@ -2514,7 +2502,6 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	c.Assert(token, gc.Equals, "charisma")
 
 	s.assertRemoteApplicationEndpoints(c, remoteApp, remoteApplication)
-	s.assertRemoteApplicationSpaces(c, remoteApp, remoteApplication)
 }
 
 func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
@@ -2541,17 +2528,6 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 			Name:      "logging",
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
-		}},
-		Spaces: []*environs.ProviderSpaceInfo{{
-			SpaceInfo: network.SpaceInfo{
-				Name:       "unicorns",
-				ProviderId: "space-provider-id",
-				Subnets: []network.SubnetInfo{{
-					CIDR:              "10.0.1.0/24",
-					ProviderId:        "subnet-provider-id",
-					AvailabilityZones: []string{"eu-west-1"},
-				}},
-			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2586,7 +2562,6 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 	c.Assert(token, gc.Equals, "charisma")
 
 	s.assertRemoteApplicationEndpoints(c, remoteApp, remoteApplication)
-	s.assertRemoteApplicationSpaces(c, remoteApp, remoteApplication)
 }
 
 func (s *MigrationImportSuite) assertRemoteApplicationEndpoints(c *gc.C, expected, received *state.RemoteApplication) {
@@ -2602,29 +2577,6 @@ func (s *MigrationImportSuite) assertRemoteApplicationEndpoints(c *gc.C, expecte
 		receivedEndpoint := receivedEndpoints[k]
 		c.Assert(receivedEndpoint.Interface, gc.Equals, expectedEndpoint.Interface)
 		c.Assert(receivedEndpoint.Name, gc.Equals, expectedEndpoint.Name)
-	}
-}
-
-func (s *MigrationImportSuite) assertRemoteApplicationSpaces(c *gc.C, expected, received *state.RemoteApplication) {
-	receivedSpaces := received.Spaces()
-	c.Assert(receivedSpaces, gc.HasLen, 1)
-
-	expectedSpaces := expected.Spaces()
-	c.Assert(expectedSpaces, gc.HasLen, 1)
-	for k, expectedSpace := range expectedSpaces {
-		receivedSpace := receivedSpaces[k]
-		c.Assert(receivedSpace.Name, gc.Equals, expectedSpace.Name)
-		c.Assert(receivedSpace.ProviderId, gc.Equals, expectedSpace.ProviderId)
-
-		c.Assert(receivedSpace.Subnets, gc.HasLen, 1)
-		receivedSubnet := receivedSpace.Subnets[0]
-
-		c.Assert(expectedSpace.Subnets, gc.HasLen, 1)
-		expectedSubnet := expectedSpace.Subnets[0]
-
-		c.Assert(receivedSubnet.CIDR, gc.Equals, expectedSubnet.CIDR)
-		c.Assert(receivedSubnet.ProviderId, gc.Equals, expectedSubnet.ProviderId)
-		c.Assert(receivedSubnet.AvailabilityZones, gc.DeepEquals, expectedSubnet.AvailabilityZones)
 	}
 }
 

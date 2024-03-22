@@ -1490,20 +1490,6 @@ func (mr *MockRemoteApplicationMockRecorder) AddEndpoints(arg0 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddEndpoints", reflect.TypeOf((*MockRemoteApplication)(nil).AddEndpoints), arg0)
 }
 
-// Bindings mocks base method.
-func (m *MockRemoteApplication) Bindings() map[string]string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bindings")
-	ret0, _ := ret[0].(map[string]string)
-	return ret0
-}
-
-// Bindings indicates an expected call of Bindings.
-func (mr *MockRemoteApplicationMockRecorder) Bindings() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bindings", reflect.TypeOf((*MockRemoteApplication)(nil).Bindings))
-}
-
 // Destroy mocks base method.
 func (m *MockRemoteApplication) Destroy() error {
 	m.ctrl.T.Helper()
@@ -1587,20 +1573,6 @@ func (m *MockRemoteApplication) SourceModel() names.ModelTag {
 func (mr *MockRemoteApplicationMockRecorder) SourceModel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SourceModel", reflect.TypeOf((*MockRemoteApplication)(nil).SourceModel))
-}
-
-// Spaces mocks base method.
-func (m *MockRemoteApplication) Spaces() []state.RemoteSpace {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Spaces")
-	ret0, _ := ret[0].([]state.RemoteSpace)
-	return ret0
-}
-
-// Spaces indicates an expected call of Spaces.
-func (mr *MockRemoteApplicationMockRecorder) Spaces() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Spaces", reflect.TypeOf((*MockRemoteApplication)(nil).Spaces))
 }
 
 // Status mocks base method.

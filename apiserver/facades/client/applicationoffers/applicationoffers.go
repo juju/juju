@@ -34,12 +34,6 @@ type OffersAPIv5 struct {
 	authContext *commoncrossmodel.AuthContext
 }
 
-// OffersAPIv4 implements the cross model interface and is the concrete
-// implementation of the api end point.
-type OffersAPIv4 struct {
-	OffersAPIv5
-}
-
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
@@ -162,25 +156,6 @@ func (api *OffersAPIv5) ListApplicationOffers(ctx context.Context, filters param
 	}
 	result.Results = offers
 	return result, nil
-}
-
-// ListApplicationOffers gets deployed details about application offers that match given filter.
-// The results contain details about the deployed applications such as connection count.
-func (api *OffersAPIv4) ListApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV4, error) {
-	res, err := api.OffersAPIv5.ListApplicationOffers(ctx, filters)
-	if err != nil {
-		return params.QueryApplicationOffersResultsV4{}, errors.Trace(err)
-	}
-	resultsV4 := make([]params.ApplicationOfferAdminDetailsV4, len(res.Results))
-	for i, result := range res.Results {
-		resultsV4[i] = params.ApplicationOfferAdminDetailsV4{
-			ApplicationOfferAdminDetailsV5: result,
-		}
-	}
-
-	return params.QueryApplicationOffersResultsV4{
-		Results: resultsV4,
-	}, nil
 }
 
 // ModifyOfferAccess changes the application offer access granted to users.
