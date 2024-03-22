@@ -37,7 +37,7 @@ func (st *State) GetAnnotations(ctx context.Context, id annotations.ID) (map[str
 		return nil, errors.Trace(err)
 	}
 
-	getAnnotationsStmt, err := sqlair.Prepare(getAnnotationsQuery, Annotation{}, sqlair.M{})
+	getAnnotationsStmt, err := st.Prepare(getAnnotationsQuery, Annotation{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing get annotations query for ID: %q", id.Name)
 	}
@@ -63,7 +63,6 @@ func (st *State) getAnnotationsForModel(ctx context.Context, id annotations.ID, 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, getAnnotationsStmt).GetAll(&annotationsResults)
 	})
-
 	if err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// No errors, we return empty map if no annotation is found
@@ -95,7 +94,7 @@ func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID, get
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing get annotations query for ID: %q", id.Name)
 	}
-	kindQueryStmt, err := sqlair.Prepare(kindQuery, sqlair.M{})
+	kindQueryStmt, err := st.Prepare(kindQuery, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing get annotations query for ID: %q", id.Name)
 	}
@@ -123,7 +122,6 @@ func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID, get
 			"uuid": uuid,
 		}).GetAll(&annotationsResults)
 	})
-
 	if err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// No errors, we return empty map if no annotation is found
@@ -170,11 +168,11 @@ func (st *State) SetAnnotations(ctx context.Context, id annotations.ID,
 	}
 
 	// Prepare sqlair statements
-	setAnnotationsStmt, err := sqlair.Prepare(setAnnotationsQuery, Annotation{}, sqlair.M{})
+	setAnnotationsStmt, err := st.Prepare(setAnnotationsQuery, Annotation{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing set annotations query for ID: %q", id.Name)
 	}
-	deleteAnnotationsStmt, err := sqlair.Prepare(deleteAnnotationsQuery, Annotation{}, sqlair.M{})
+	deleteAnnotationsStmt, err := st.Prepare(deleteAnnotationsQuery, Annotation{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing set annotations query for ID: %q", id.Name)
 	}
@@ -204,7 +202,7 @@ func (st *State) setAnnotationsForID(ctx context.Context, id annotations.ID,
 	if err != nil {
 		return errors.Annotatef(err, "preparing uuid retrieval query for ID: %q", id.Name)
 	}
-	kindQueryStmt, err := sqlair.Prepare(kindQuery, sqlair.M{})
+	kindQueryStmt, err := st.Prepare(kindQuery, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing uuid retrieval query for ID: %q", id.Name)
 	}

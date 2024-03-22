@@ -84,7 +84,7 @@ FROM    upgrade_info_controller_node
 WHERE   upgrade_info_uuid = $M.info_uuid
 AND     controller_node_id = $M.controller_id;
 `
-	lookForReadyNodeStmt, err := sqlair.Prepare(lookForReadyNodeQuery, infoControllerNode{}, sqlair.M{})
+	lookForReadyNodeStmt, err := st.Prepare(lookForReadyNodeQuery, infoControllerNode{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", lookForReadyNodeQuery)
 	}
@@ -93,7 +93,7 @@ AND     controller_node_id = $M.controller_id;
 INSERT INTO upgrade_info_controller_node (uuid, controller_node_id, upgrade_info_uuid)
 VALUES ($M.uuid, $M.controller_id, $M.info_uuid);
 `
-	insertUpgradeNodeStmt, err := sqlair.Prepare(insertUpgradeNodeQuery, sqlair.M{})
+	insertUpgradeNodeStmt, err := st.Prepare(insertUpgradeNodeQuery, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", insertUpgradeNodeQuery)
 	}
@@ -225,7 +225,7 @@ UPDATE upgrade_info
 SET state_type_id = $M.to_state 
 WHERE uuid = $M.info_uuid
 AND state_type_id = $M.from_state;`
-	completedDBUpgradeStmt, err := sqlair.Prepare(q, sqlair.M{})
+	completedDBUpgradeStmt, err := st.Prepare(q, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", q)
 	}
@@ -260,7 +260,7 @@ UPDATE upgrade_info
 SET state_type_id = $M.to_state 
 WHERE uuid = $M.info_uuid
 AND state_type_id = $M.from_state;`
-	completedDBUpgradeStmt, err := sqlair.Prepare(q, sqlair.M{})
+	completedDBUpgradeStmt, err := st.Prepare(q, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", q)
 	}
@@ -300,7 +300,7 @@ SELECT (controller_node_id, node_upgrade_completed_at) AS (&infoControllerNode.*
 FROM   upgrade_info_controller_node
 WHERE  upgrade_info_uuid = $M.info_uuid
 AND    controller_node_id = $M.controller_id;`
-	lookForDoneNodesStmt, err := sqlair.Prepare(lookForDoneNodesQuery, infoControllerNode{}, sqlair.M{})
+	lookForDoneNodesStmt, err := st.Prepare(lookForDoneNodesQuery, infoControllerNode{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing select done query")
 	}
@@ -312,7 +312,7 @@ WHERE   upgrade_info_uuid = $M.info_uuid
 AND     controller_node_id = $M.controller_id
 AND     node_upgrade_completed_at IS NULL;
 `
-	setNodeToDoneStmt, err := sqlair.Prepare(setNodeToDoneQuery, sqlair.M{})
+	setNodeToDoneStmt, err := st.Prepare(setNodeToDoneQuery, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing update node query")
 	}
@@ -332,7 +332,7 @@ AND (
     WHERE  upgrade_info_uuid = $M.info_uuid
 );
 `
-	completeUpgradeStmt, err := sqlair.Prepare(completeUpgradeQuery, sqlair.M{})
+	completeUpgradeStmt, err := st.Prepare(completeUpgradeQuery, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing complete upgrade query")
 	}

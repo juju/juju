@@ -46,13 +46,13 @@ func (st *State) BlockDevices(ctx context.Context, machineId string) ([]blockdev
 	var result []blockdevice.BlockDevice
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		result, err = loadBlockDevices(ctx, tx, machineId)
+		result, err = st.loadBlockDevices(ctx, tx, machineId)
 		return errors.Trace(err)
 	})
 	return result, errors.Trace(err)
 }
 
-func loadBlockDevices(ctx context.Context, tx *sqlair.TX, machineId string) ([]blockdevice.BlockDevice, error) {
+func (st *State) loadBlockDevices(ctx context.Context, tx *sqlair.TX, machineId string) ([]blockdevice.BlockDevice, error) {
 	query := `
 SELECT bd.* AS &BlockDevice.*,
        bdl.* AS &DeviceLink.*,
@@ -71,7 +71,7 @@ WHERE  machine.machine_id = $M.machine_id
 		sqlair.M{},
 	}
 
-	stmt, err := sqlair.Prepare(query, types...)
+	stmt, err := st.Prepare(query, types...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -84,19 +84,22 @@ WHERE  machine.machine_id = $M.machine_id
 	machineParam := sqlair.M{"machine_id": machineId}
 	err = tx.Query(ctx, stmt, machineParam).GetAll(&dbRows, &dbDeviceLinks, &dbFilesystemTypes)
 	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, errors.Annotatef(err, "loading block devices for machine %q", machineId)
 	}
 	result, _, err := dbRows.toBlockDevicesAndMachines(dbDeviceLinks, dbFilesystemTypes, nil)
 	return result, errors.Trace(err)
 }
 
-func getMachineInfo(ctx context.Context, tx *sqlair.TX, machineId string) (string, life.Life, error) {
+func (st *State) getMachineInfo(ctx context.Context, tx *sqlair.TX, machineId string) (string, life.Life, error) {
 	q := `
 SELECT machine.life_id AS &M.life_id, machine.uuid AS &M.machine_uuid
 FROM   machine
 WHERE  machine.machine_id = $M.machine_id
 `
-	stmt, err := sqlair.Prepare(q, sqlair.M{})
+	stmt, err := st.Prepare(q, sqlair.M{})
 	if err != nil {
 		return "", 0, errors.Trace(err)
 	}
@@ -127,14 +130,14 @@ func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, d
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineUUID, machineLife, err := getMachineInfo(ctx, tx, machineId)
+		machineUUID, machineLife, err := st.getMachineInfo(ctx, tx, machineId)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if machineLife == life.Dead {
 			return errors.Errorf("cannot update block devices on dead machine %q", machineId)
 		}
-		existing, err := loadBlockDevices(ctx, tx, machineId)
+		existing, err := st.loadBlockDevices(ctx, tx, machineId)
 		if err != nil {
 			return errors.Annotatef(err, "loading block devices for machine %q", machineId)
 		}
@@ -142,7 +145,7 @@ func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, d
 			return nil
 		}
 
-		if err := updateBlockDevices(ctx, tx, machineUUID, devices...); err != nil {
+		if err := st.updateBlockDevices(ctx, tx, machineUUID, devices...); err != nil {
 			return errors.Annotatef(err, "updating block devices on machine %q (%s)", machineId, machineUUID)
 		}
 		return nil
@@ -151,7 +154,7 @@ func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, d
 	return errors.Trace(err)
 }
 
-func updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string, devices ...blockdevice.BlockDevice) error {
+func (st *State) updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string, devices ...blockdevice.BlockDevice) error {
 	if err := RemoveMachineBlockDevices(ctx, tx, machineUUID); err != nil {
 		return errors.Annotatef(err, "removing existing block devices for machine %q", machineUUID)
 	}
@@ -161,12 +164,12 @@ func updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string, 
 	}
 
 	fsTypeQuery := `SELECT * AS &FilesystemType.* FROM filesystem_type`
-	fsTypeStmt, err := sqlair.Prepare(fsTypeQuery, FilesystemType{})
+	fsTypeStmt, err := st.Prepare(fsTypeQuery, FilesystemType{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var fsTypes []FilesystemType
-	if err := tx.Query(ctx, fsTypeStmt).GetAll(&fsTypes); err != nil {
+	if err := tx.Query(ctx, fsTypeStmt).GetAll(&fsTypes); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Trace(err)
 	}
 	fsTypeByName := make(map[string]int)
@@ -192,7 +195,7 @@ VALUES (
     $BlockDevice.in_use
 )
 `
-	insertStmt, err := sqlair.Prepare(insertQuery, BlockDevice{})
+	insertStmt, err := st.Prepare(insertQuery, BlockDevice{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -204,7 +207,7 @@ VALUES (
     $DeviceLink.name
 )
 `
-	insertLinkStmt, err := sqlair.Prepare(insertLinkQuery, DeviceLink{})
+	insertLinkStmt, err := st.Prepare(insertLinkQuery, DeviceLink{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -297,7 +300,7 @@ FROM   block_device bd
 		BlockDeviceMachine{},
 	}
 
-	stmt, err := sqlair.Prepare(query, types...)
+	stmt, err := st.Prepare(query, types...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -313,7 +316,7 @@ FROM   block_device bd
 			dbFilesystemTypes []FilesystemType
 			dbMachines        []BlockDeviceMachine
 		)
-		if err := tx.Query(ctx, stmt).GetAll(&dbRows, &dbDeviceLinks, &dbFilesystemTypes, &dbMachines); err != nil {
+		if err := tx.Query(ctx, stmt).GetAll(&dbRows, &dbDeviceLinks, &dbFilesystemTypes, &dbMachines); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotate(err, "loading block devices")
 		}
 		blockDevices, machines, err = dbRows.toBlockDevicesAndMachines(dbDeviceLinks, dbFilesystemTypes, dbMachines)
@@ -399,7 +402,7 @@ func (st *State) WatchBlockDevices(
 		machineLife life.Life
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineUUID, machineLife, err = getMachineInfo(ctx, tx, machineId)
+		machineUUID, machineLife, err = st.getMachineInfo(ctx, tx, machineId)
 		return errors.Trace(err)
 	})
 

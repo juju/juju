@@ -73,7 +73,7 @@ func (st *State) Get(ctx context.Context, name string) ([]byte, error) {
 SELECT (name, data) AS (&Autocert.*)
 FROM   autocert_cache 
 WHERE  name = $M.name`
-	s, err := sqlair.Prepare(q, Autocert{}, sqlair.M{})
+	s, err := st.Prepare(q, Autocert{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}

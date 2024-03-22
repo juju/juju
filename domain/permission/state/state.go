@@ -50,16 +50,16 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 // usererrors.AuthenticationDisabled is returned.
 // If a permission for the user and target key already exists,
 // permissionerrors.AlreadyExists is returned.
-func (s *State) CreatePermission(ctx context.Context, newPermissionUUID uuid.UUID, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error) {
+func (st *State) CreatePermission(ctx context.Context, newPermissionUUID uuid.UUID, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error) {
 	var userAccess corepermission.UserAccess
 
-	db, err := s.DB()
+	db, err := st.DB()
 	if err != nil {
 		return userAccess, errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		user, err := findUser(ctx, tx, spec.User)
+		user, err := st.findUser(ctx, tx, spec.User)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -225,7 +225,7 @@ func (s *State) ReadAllAccessTypeForUser(ctx context.Context, subject string, ac
 
 // findUser finds the user provided exists, hasn't been removed and is not
 // disabled. Return data needed to fill in corePermission.UserAccess.
-func findUser(
+func (st *State) findUser(
 	ctx context.Context,
 	tx *sqlair.TX,
 	userName string,
@@ -240,7 +240,7 @@ FROM   v_user_auth u
     ON        u.created_by_uuid = creator.uuid
 WHERE  u.removed = false AND u.name = $M.name`
 
-	selectUserStmt, err := sqlair.Prepare(getUserQuery, User{}, sqlair.M{})
+	selectUserStmt, err := st.Prepare(getUserQuery, User{}, sqlair.M{})
 	if err != nil {
 		return result, errors.Annotate(err, "preparing select getUser query")
 	}
@@ -354,7 +354,7 @@ SELECT &M.found_it FROM (
 	// ErrNoRows.
 	var foundIt = []sqlair.M{}
 	err = tx.Query(ctx, targetExistsStmt, sqlair.M{"grant_on": targetKey}).GetAll(&foundIt)
-	if err != nil {
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Annotatef(err, "verifying %q target exists", targetKey)
 	}
 

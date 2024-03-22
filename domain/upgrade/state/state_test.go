@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
@@ -452,6 +453,9 @@ WHERE upgrade_info_uuid = $M.info_uuid`
 	)
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, nodeInfosS, sqlair.M{"info_uuid": upgradeUUID}).GetAll(&nodeInfos)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
 		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	})

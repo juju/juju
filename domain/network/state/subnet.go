@@ -30,7 +30,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, subnet := range subnets {
-			err := updateSubnetSpaceID(
+			err := st.updateSubnetSpaceID(
 				ctx,
 				tx,
 				string(subnet.ID),
@@ -41,7 +41,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 			}
 			// If the subnet doesn't exist yet we need to create it.
 			if errors.Is(err, errors.NotFound) {
-				if err := addSubnet(
+				if err := st.addSubnet(
 					ctx,
 					tx,
 					subnet.ID.String(),
@@ -55,7 +55,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 	})
 }
 
-func addSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnetInfo network.SubnetInfo) error {
+func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnetInfo network.SubnetInfo) error {
 	var subnetType int
 	if subnetInfo.FanInfo != nil {
 		subnetType = subnetTypeFanOverlaySegment
@@ -69,38 +69,38 @@ func addSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnetInfo
 		return errors.Trace(err)
 	}
 
-	insertSubnetStmt, err := sqlair.Prepare(`
+	insertSubnetStmt, err := st.Prepare(`
 INSERT INTO subnet (uuid, cidr, vlan_tag, space_uuid, subnet_type_id)
 VALUES ($Subnet.uuid, $Subnet.cidr, $Subnet.vlan_tag, $Subnet.space_uuid, $Subnet.subnet_type_id)`, Subnet{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	insertSubnetAssociationStmt, err := sqlair.Prepare(`
+	insertSubnetAssociationStmt, err := st.Prepare(`
 INSERT INTO subnet_association (subject_subnet_uuid, associated_subnet_uuid, association_type_id)
 VALUES ($M.subject_subnet_uuid, $M.associated_subnet_uuid, 0)`, sqlair.M{}) // For the moment the only allowed association is 'overlay_of' and therefore its ID is hard-coded here.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	retrieveUnderlaySubnetUUIDStmt, err := sqlair.Prepare(`
+	retrieveUnderlaySubnetUUIDStmt, err := st.Prepare(`
 SELECT &Subnet.uuid
 FROM   subnet
 WHERE  cidr = $Subnet.cidr`, Subnet{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	insertSubnetProviderIDStmt, err := sqlair.Prepare(`
+	insertSubnetProviderIDStmt, err := st.Prepare(`
 INSERT INTO provider_subnet (provider_id, subnet_uuid)
 VALUES ($ProviderSubnet.provider_id, $ProviderSubnet.subnet_uuid)`, ProviderSubnet{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	insertSubnetProviderNetworkIDStmt, err := sqlair.Prepare(`
+	insertSubnetProviderNetworkIDStmt, err := st.Prepare(`
 INSERT INTO provider_network (uuid, provider_network_id)
 VALUES ($ProviderNetwork.uuid, $ProviderNetwork.provider_network_id)`, ProviderNetwork{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	insertSubnetProviderNetworkSubnetStmt, err := sqlair.Prepare(`
+	insertSubnetProviderNetworkSubnetStmt, err := st.Prepare(`
 INSERT INTO provider_network_subnet (provider_network_uuid, subnet_uuid)
 VALUES ($ProviderNetworkSubnet.provider_network_uuid, $ProviderNetworkSubnet.subnet_uuid)`, ProviderNetworkSubnet{})
 	if err != nil {
@@ -165,26 +165,26 @@ VALUES ($ProviderNetworkSubnet.provider_network_uuid, $ProviderNetworkSubnet.sub
 		return errors.Annotatef(err, "inserting association between provider network id %q and subnet %q", subnetInfo.ProviderNetworkId, subnetUUID)
 	}
 
-	return addAvailabilityZones(ctx, tx, subnetUUID, subnetInfo)
+	return st.addAvailabilityZones(ctx, tx, subnetUUID, subnetInfo)
 }
 
 // addAvailabilityZones adds the availability zones of a subnet if they don't exist, and
 // update the availability_zone_subnet table with the subnet's id.
-func addAvailabilityZones(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnet network.SubnetInfo) error {
-	retrieveAvailabilityZoneStmt, err := sqlair.Prepare(`
+func (st *State) addAvailabilityZones(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnet network.SubnetInfo) error {
+	retrieveAvailabilityZoneStmt, err := st.Prepare(`
 SELECT &M.uuid
 FROM   availability_zone
 WHERE  name = $M.name`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	insertAvailabilityZoneStmt, err := sqlair.Prepare(`
+	insertAvailabilityZoneStmt, err := st.Prepare(`
 INSERT INTO availability_zone (uuid, name)
 VALUES ($M.uuid, $M.name)`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	insertAvailabilityZoneSubnetStmt, err := sqlair.Prepare(`
+	insertAvailabilityZoneSubnetStmt, err := st.Prepare(`
 INSERT INTO availability_zone_subnet (availability_zone_uuid, subnet_uuid)
 VALUES ($M.availability_zone_uuid, $M.subnet_uuid)`, sqlair.M{})
 	if err != nil {
@@ -240,7 +240,7 @@ func (st *State) AddSubnet(
 
 	return errors.Trace(
 		db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return addSubnet(ctx, tx, subnet.ID.String(), subnet)
+			return st.addSubnet(ctx, tx, subnet.ID.String(), subnet)
 		}),
 	)
 }
@@ -295,7 +295,7 @@ func (st *State) GetAllSubnets(
 	// Append the space uuid condition to the query only if it's passed to the function.
 	q := retrieveSubnetsStmt + ";"
 
-	s, err := sqlair.Prepare(q, SpaceSubnetRow{})
+	s, err := st.Prepare(q, SpaceSubnetRow{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
@@ -303,7 +303,9 @@ func (st *State) GetAllSubnets(
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s).GetAll(&rows))
-	}); err != nil {
+	}); errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
 		return nil, errors.Annotate(err, "querying subnets")
 	}
 
@@ -323,7 +325,7 @@ func (st *State) GetSubnet(
 	// Append the space uuid condition to the query only if it's passed to the function.
 	q := retrieveSubnetsStmt + " WHERE subnet.uuid = $M.id;"
 
-	stmt, err := sqlair.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
+	stmt, err := st.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
@@ -331,12 +333,10 @@ func (st *State) GetSubnet(
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, stmt, sqlair.M{"id": uuid}).GetAll(&rows))
-	}); err != nil {
-		return nil, errors.Annotate(err, "querying subnets")
-	}
-
-	if len(rows) == 0 {
+	}); errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.NotFoundf("subnet %q", uuid)
+	} else if err != nil {
+		return nil, errors.Annotate(err, "querying subnets")
 	}
 
 	return &rows.ToSubnetInfos()[0], nil
@@ -357,7 +357,7 @@ func (st *State) GetSubnetsByCIDR(
 	// Append the where clause to the query.
 	q := retrieveSubnetsStmt + " WHERE subnet.cidr = $M.cidr;"
 
-	s, err := sqlair.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
+	s, err := st.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
@@ -372,20 +372,20 @@ func (st *State) GetSubnetsByCIDR(
 			resultSubnets = append(resultSubnets, rows...)
 		}
 		return nil
-	}); err != nil {
+	}); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Annotate(err, "querying subnets")
 	}
 
 	return resultSubnets.ToSubnetInfos(), nil
 }
 
-func updateSubnetSpaceID(
+func (st *State) updateSubnetSpaceID(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid string,
 	spaceID string,
 ) error {
-	updateSubnetSpaceIDStmt, err := sqlair.Prepare(`
+	updateSubnetSpaceIDStmt, err := st.Prepare(`
 UPDATE subnet
 SET    space_uuid = $M.space_uuid
 WHERE  uuid = $M.uuid;`, sqlair.M{})
@@ -421,7 +421,7 @@ func (st *State) UpdateSubnet(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return updateSubnetSpaceID(ctx, tx, uuid, spaceID)
+		return st.updateSubnetSpaceID(ctx, tx, uuid, spaceID)
 	})
 }
 

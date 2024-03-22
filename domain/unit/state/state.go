@@ -33,8 +33,8 @@ func NewState(factory coredb.TxnRunnerFactory, logger Logger) *State {
 }
 
 // DeleteUnit deletes the specified unit.
-func (s *State) DeleteUnit(ctx context.Context, unitName string) error {
-	db, err := s.DB()
+func (st *State) DeleteUnit(ctx context.Context, unitName string) error {
+	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -42,13 +42,13 @@ func (s *State) DeleteUnit(ctx context.Context, unitName string) error {
 	unitIDParam := sqlair.M{"unit_id": unitName}
 
 	queryUnit := `SELECT uuid as &M.uuid FROM unit WHERE unit_id = $M.unit_id`
-	queryUnitStmt, err := sqlair.Prepare(queryUnit, sqlair.M{})
+	queryUnitStmt, err := st.Prepare(queryUnit, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	deleteUnit := `DELETE FROM unit WHERE unit_id = $M.unit_id`
-	deleteUnitStmt, err := sqlair.Prepare(deleteUnit, sqlair.M{})
+	deleteUnitStmt, err := st.Prepare(deleteUnit, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -57,7 +57,7 @@ func (s *State) DeleteUnit(ctx context.Context, unitName string) error {
 DELETE FROM net_node WHERE uuid IN
 (SELECT net_node_uuid FROM unit WHERE unit_id = $M.unit_id) 
 `
-	deleteNodeStmt, err := sqlair.Prepare(deleteNode, sqlair.M{})
+	deleteNodeStmt, err := st.Prepare(deleteNode, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}

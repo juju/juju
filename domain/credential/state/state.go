@@ -53,7 +53,7 @@ AND owner_name = $M.owner
 AND cloud_name = $M.cloud_name
 `
 
-	selectStmt, err := sqlair.Prepare(selectQ, sqlair.M{})
+	selectStmt, err := st.Prepare(selectQ, sqlair.M{})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -87,7 +87,7 @@ WHERE cloud_name = $M.cloud_name
 AND name = $M.credential_name
 AND owner_name = $M.owner
 `
-	stmt, err := sqlair.Prepare(q, sqlair.M{})
+	stmt, err := st.Prepare(q, sqlair.M{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -266,6 +266,9 @@ func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUU
 	if err != nil {
 		return nil, errors.Annotate(err, "loading cloud auth types")
 	}
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Annotate(err, "no valid cloud auth types")
+	}
 	var validAuthTypeNames []string
 	for _, at := range validAuthTypes {
 		if at.Type == credential.AuthType {
@@ -321,7 +324,7 @@ AND    cloud_credential.cloud_uuid = (
     SELECT uuid FROM cloud
     WHERE name = $M.cloud_name
 )`
-	stmt, err := sqlair.Prepare(q, sqlair.M{})
+	stmt, err := st.Prepare(q, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -383,11 +386,11 @@ func (st *State) CloudCredential(ctx context.Context, key corecredential.Key) (c
 		creds, err = st.loadCloudCredentials(ctx, tx, key.Name, key.Cloud, key.Owner)
 		return errors.Trace(err)
 	})
-	if err != nil {
-		return credential.CloudCredentialResult{}, errors.Trace(err)
-	}
 	if len(creds) == 0 {
 		return credential.CloudCredentialResult{}, fmt.Errorf("credential %q for cloud %q owned by %q %w", key.Name, key.Cloud, key.Owner, errors.NotFound)
+	}
+	if err != nil {
+		return credential.CloudCredentialResult{}, errors.Trace(err)
 	}
 	if len(creds) > 1 {
 		return credential.CloudCredentialResult{}, errors.Errorf("expected 1 credential, got %d", len(creds))
@@ -432,7 +435,7 @@ FROM   cloud_credential cc
 		queryArgs = []any{args}
 	}
 
-	credStmt, err := sqlair.Prepare(credQuery, types...)
+	credStmt, err := st.Prepare(credQuery, types...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -445,6 +448,9 @@ FROM   cloud_credential cc
 	)
 	err = tx.Query(ctx, credStmt, queryArgs...).GetAll(&dbRows, &dbAuthTypes, &dbclouds, &keyValues)
 	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, errors.Annotate(err, "loading cloud credentials")
 	}
 	return dbRows.toCloudCredentials(dbAuthTypes, dbclouds, keyValues)
@@ -496,11 +502,11 @@ DELETE FROM cloud_credential
 WHERE  cloud_credential.uuid = $M.uuid
 `
 
-	credAttrDeleteStmt, err := sqlair.Prepare(credAttrDeleteQ, sqlair.M{})
+	credAttrDeleteStmt, err := st.Prepare(credAttrDeleteQ, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	credDeleteStmt, err := sqlair.Prepare(credDeleteQ, sqlair.M{})
+	credDeleteStmt, err := st.Prepare(credDeleteQ, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -569,19 +575,22 @@ JOIN user ON cc.owner_uuid = user.uuid
 	})
 	query = query + "WHERE " + condition
 
-	stmt, err := sqlair.Prepare(query, types...)
+	stmt, err := st.Prepare(query, types...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var info []sqlair.M
+	result := make(map[coremodel.UUID]string)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, args).GetAll(&info)
 	})
 	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return result, nil
+		}
 		return nil, errors.Trace(err)
 	}
-	result := make(map[coremodel.UUID]string)
 	for _, m := range info {
 		name, _ := m["name"].(string)
 		uuid, _ := m["model_uuid"].(string)
