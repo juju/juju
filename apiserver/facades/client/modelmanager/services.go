@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/model"
+	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
@@ -23,6 +24,7 @@ import (
 // ServiceFactory is a factory for creating model info services.
 type ServiceFactory interface {
 	ModelInfo() ModelInfoService
+	Config(modeldefaultsservice.ModelDefaultsProviderFunc) ModelConfigService
 }
 
 // ServiceFactoryGetter is a factory for creating model services.
@@ -46,6 +48,20 @@ type ModelService interface {
 	DefaultModelCloudNameAndCredential(context.Context) (string, credential.Key, error)
 	ModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 	DeleteModel(context.Context, coremodel.UUID) error
+}
+
+// ModelDefaultsService defines a interface for interacting with the model
+// defaults.
+type ModelDefaultsService interface {
+	// ModelDefaultsProvider provides a [ModelDefaultsProviderFunc] scoped to the
+	// supplied model. This can be used in the construction of
+	// [github.com/juju/juju/domain/modelconfig/service.Service]. If no model exists
+	// for the specified UUID then the [ModelDefaultsProviderFunc] will return a
+	// error that satisfies
+	// [github.com/juju/juju/domain/model/errors.NotFound].
+	ModelDefaultsProvider(
+		uuid coremodel.UUID,
+	) modeldefaultsservice.ModelDefaultsProviderFunc
 }
 
 // ModelInfoService defines a interface for interacting with the underlying
@@ -78,13 +94,13 @@ type UserService interface {
 
 // Services holds the services needed by the model manager api.
 type Services struct {
-	ServiceFactoryGetter     ServiceFactoryGetter
-	CloudService             CloudService
-	CredentialService        CredentialService
-	ModelService             ModelService
-	ModelConfigServiceGetter ModelConfigServiceGetter
-	UserService              UserService
-	ObjectStore              objectstore.ObjectStore
+	ServiceFactoryGetter ServiceFactoryGetter
+	CloudService         CloudService
+	CredentialService    CredentialService
+	ModelService         ModelService
+	ModelDefaultsService ModelDefaultsService
+	UserService          UserService
+	ObjectStore          objectstore.ObjectStore
 }
 
 type serviceFactoryGetter struct {
@@ -101,4 +117,8 @@ type serviceFactory struct {
 
 func (s serviceFactory) ModelInfo() ModelInfoService {
 	return s.serviceFactory.ModelInfo()
+}
+
+func (s serviceFactory) Config(defaults modeldefaultsservice.ModelDefaultsProviderFunc) ModelConfigService {
+	return s.serviceFactory.Config(defaults)
 }

@@ -62,25 +62,25 @@ type StateBackend interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	serviceFactoryGetter     ServiceFactoryGetter
-	modelService             ModelService
-	modelConfigServiceGetter ModelConfigServiceGetter
-	state                    StateBackend
-	modelExporter            ModelExporter
-	ctlrState                common.ModelManagerBackend
-	cloudService             CloudService
-	credentialService        CredentialService
-	store                    objectstore.ObjectStore
-	configSchemaSource       config.ConfigSchemaSourceGetter
-	check                    common.BlockCheckerInterface
-	authorizer               facade.Authorizer
-	toolsFinder              common.ToolsFinder
-	apiUser                  names.UserTag
-	isAdmin                  bool
-	model                    common.Model
-	getBroker                newCaasBrokerFunc
-	userService              UserService
-	controllerUUID           coremodel.UUID
+	serviceFactoryGetter ServiceFactoryGetter
+	modelService         ModelService
+	modelDefaultsService ModelDefaultsService
+	state                StateBackend
+	modelExporter        ModelExporter
+	ctlrState            common.ModelManagerBackend
+	cloudService         CloudService
+	credentialService    CredentialService
+	store                objectstore.ObjectStore
+	configSchemaSource   config.ConfigSchemaSourceGetter
+	check                common.BlockCheckerInterface
+	authorizer           facade.Authorizer
+	toolsFinder          common.ToolsFinder
+	apiUser              names.UserTag
+	isAdmin              bool
+	model                common.Model
+	getBroker            newCaasBrokerFunc
+	userService          UserService
+	controllerUUID       coremodel.UUID
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -113,26 +113,26 @@ func NewModelManagerAPI(
 	isAdmin := err == nil
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:           common.NewModelStatusAPI(st, authorizer, apiUser),
-		state:                    st,
-		serviceFactoryGetter:     services.ServiceFactoryGetter,
-		modelExporter:            modelExporter,
-		ctlrState:                ctlrSt,
-		cloudService:             services.CloudService,
-		credentialService:        services.CredentialService,
-		configSchemaSource:       configSchemaSource,
-		store:                    services.ObjectStore,
-		getBroker:                getBroker,
-		check:                    blockChecker,
-		authorizer:               authorizer,
-		toolsFinder:              toolsFinder,
-		apiUser:                  apiUser,
-		isAdmin:                  isAdmin,
-		model:                    m,
-		modelService:             services.ModelService,
-		modelConfigServiceGetter: services.ModelConfigServiceGetter,
-		userService:              services.UserService,
-		controllerUUID:           controllerUUID,
+		ModelStatusAPI:       common.NewModelStatusAPI(st, authorizer, apiUser),
+		state:                st,
+		serviceFactoryGetter: services.ServiceFactoryGetter,
+		modelExporter:        modelExporter,
+		ctlrState:            ctlrSt,
+		cloudService:         services.CloudService,
+		credentialService:    services.CredentialService,
+		configSchemaSource:   configSchemaSource,
+		store:                services.ObjectStore,
+		getBroker:            getBroker,
+		check:                blockChecker,
+		authorizer:           authorizer,
+		toolsFinder:          toolsFinder,
+		apiUser:              apiUser,
+		isAdmin:              isAdmin,
+		model:                m,
+		modelService:         services.ModelService,
+		modelDefaultsService: services.ModelDefaultsService,
+		userService:          services.UserService,
+		controllerUUID:       controllerUUID,
 	}, nil
 }
 
@@ -231,7 +231,12 @@ func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.Us
 // the new services layer. It should be considered the new logic that will be
 // merged in place of state eventually. We have split it out as a temp work
 // around to get the DDL changes needed into Juju before finishing the rest.
-func (m *ModelManagerAPI) createModelNew(ctx context.Context, uuid string, args params.ModelCreateArgs) error {
+func (m *ModelManagerAPI) createModelNew(
+	ctx context.Context,
+	uuid string,
+	args params.ModelCreateArgs,
+	config *config.Config,
+) error {
 	// TODO (stickupkid): We need to create a saga (pattern) coordinator here,
 	// to ensure that anything written to both databases are at least rollback
 	// if there was an error. If a failure to rollback occurs, then the endpoint
@@ -337,6 +342,13 @@ func (m *ModelManagerAPI) createModelNew(ctx context.Context, uuid string, args 
 	// to query the controller database.
 	if err := modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, modelType)); err != nil {
 		return errors.Annotatef(err, "failed to create model info for model %q", modelUUID)
+	}
+
+	modelDefaults := m.modelDefaultsService.ModelDefaultsProvider(modelUUID)
+	modelConfigService := modelServiceFactory.Config(modelDefaults)
+
+	if err := modelConfigService.SetModelConfig(ctx, config.AllAttrs()); err != nil {
+		return errors.Annotatef(err, "failed to set model config for model %q", modelUUID)
 	}
 
 	return err
@@ -465,6 +477,11 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Trace(err)
 	}
 
+	newConfig, err := m.newModelConfig(ctx, cloudSpec, args, controllerModel)
+	if err != nil {
+		return result, errors.Annotate(err, "failed to create config")
+	}
+
 	var createdModel common.Model
 	if jujucloud.CloudIsCAAS(*cloud) {
 		createdModel, err = m.newCAASModel(
@@ -476,6 +493,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			cloudRegionName,
 			cloudCredentialTag,
 			ownerTag,
+			newConfig,
 		)
 	} else {
 		createdModel, err = m.newModel(
@@ -487,6 +505,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			cloudRegionName,
 			cloudCredentialTag,
 			ownerTag,
+			newConfig,
 		)
 	}
 	if err != nil {
@@ -505,7 +524,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// mode and don't make the calls so test can keep passing.
 	// THIS IS VERY TEMPORARY.
 	if m.modelService != nil {
-		return modelInfo, m.createModelNew(ctx, modelInfo.UUID, args)
+		return modelInfo, m.createModelNew(ctx, modelInfo.UUID, args, newConfig)
 	}
 	return modelInfo, nil
 }
@@ -519,11 +538,8 @@ func (m *ModelManagerAPI) newCAASModel(
 	cloudRegionName string,
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
+	newConfig *config.Config,
 ) (_ common.Model, err error) {
-	newConfig, err := m.newModelConfig(ctx, cloudSpec, createArgs, controllerModel)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to create config")
-	}
 	controllerConfig, err := m.state.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
@@ -587,12 +603,8 @@ func (m *ModelManagerAPI) newModel(
 	cloudRegionName string,
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
+	newConfig *config.Config,
 ) (common.Model, error) {
-	newConfig, err := m.newModelConfig(ctx, cloudSpec, createArgs, controllerModel)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to create config")
-	}
-
 	controllerCfg, err := m.state.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)

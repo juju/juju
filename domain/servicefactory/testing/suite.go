@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/servicefactory"
+	jujutesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -154,11 +155,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.DefaultModelUUID = uuid
 
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerUUID := coremodel.UUID(controllerConfig.ControllerUUID())
+	controllerUUID := coremodel.UUID(jujutesting.ControllerTag.Id())
 	err = modelbootstrap.CreateReadOnlyModel(modelArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
 	c.Assert(err, jc.ErrorIsNil)
 }

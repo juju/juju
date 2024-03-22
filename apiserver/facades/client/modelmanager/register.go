@@ -82,25 +82,19 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
 
-	modelConfigGetter := func(uuid coremodel.UUID) (ModelConfigService, error) {
-		sf := ctx.ServiceFactoryForModel(uuid)
-		configService := sf.Config(sf.ModelDefaults().ModelDefaultsProvider(uuid))
-		return configService, nil
-	}
-
 	return NewModelManagerAPI(
 		backend.(StateBackend),
 		ctx.ModelExporter(backend),
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
 		controllerUUID,
 		Services{
-			ServiceFactoryGetter:     serviceFactoryGetter{ctx: ctx},
-			CloudService:             serviceFactory.Cloud(),
-			CredentialService:        serviceFactory.Credential(),
-			ModelService:             serviceFactory.Model(),
-			ModelConfigServiceGetter: modelConfigGetter,
-			UserService:              serviceFactory.Access(),
-			ObjectStore:              ctx.ObjectStore(),
+			ServiceFactoryGetter: serviceFactoryGetter{ctx: ctx},
+			CloudService:         serviceFactory.Cloud(),
+			CredentialService:    serviceFactory.Credential(),
+			ModelService:         serviceFactory.Model(),
+			ModelDefaultsService: serviceFactory.ModelDefaults(),
+			UserService:          serviceFactory.Access(),
+			ObjectStore:          ctx.ObjectStore(),
 		},
 		configSchemaSource,
 		toolsFinder,
