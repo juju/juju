@@ -482,6 +482,11 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 						Location: "/data",
 					}},
 				},
+				"rootless": {
+					Resource: "rootless-image",
+					Uid:      5000,
+					Gid:      5001,
+				},
 			},
 		},
 	}
@@ -492,6 +497,9 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 	oci := map[string]resources.DockerImageDetails{
 		"mysql-image": {
 			RegistryPath: "mysql/ubuntu:latest-22.04",
+		},
+		"rootless-image": {
+			RegistryPath: "rootless:foo-bar",
 		},
 	}
 	ensureParams := caas.ApplicationConfig{
@@ -510,6 +518,14 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 					Path:        "/data",
 				}},
 			},
+			"rootless": {
+				Name: "rootless",
+				Image: resources.DockerImageDetails{
+					RegistryPath: "rootless:foo-bar",
+				},
+				Uid: 5000,
+				Gid: 5001,
+			},
 		},
 		IntroductionSecret:   "123456789",
 		ControllerAddresses:  "1.2.3.1,1.2.3.2,1.2.3.3",
@@ -525,6 +541,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		Devices:      []devices.KubernetesDeviceParams{},
 		Trust:        true,
 		InitialScale: 10,
+		CharmUser:    caas.RunAsRoot,
 	}
 	gomock.InOrder(
 		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),

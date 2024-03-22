@@ -131,6 +131,7 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		MinJujuVersion: minVersion,
 		Containers:     containers,
 		Assumes:        meta.AssumesExpr,
+		CharmUser:      charm.RunAs(meta.CharmUser),
 	}
 	return result, nil
 }
@@ -373,6 +374,8 @@ func convertCharmContainers(input map[string]params.CharmContainer) (map[string]
 		containers[k] = charm.Container{
 			Resource: v.Resource,
 			Mounts:   convertCharmMounts(v.Mounts),
+			Uid:      v.Uid,
+			Gid:      v.Gid,
 		}
 	}
 	if len(containers) == 0 {

@@ -69,6 +69,8 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 							Location: "/cockroach/cockroach-data",
 						},
 					},
+					Uid: 5000,
+					Gid: 5001,
 				},
 			},
 			Storage: map[string]params.CharmStorage{
@@ -76,6 +78,7 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 					Type: "filesystem",
 				},
 			},
+			CharmUser: "root",
 		},
 		Manifest: &params.CharmManifest{
 			Bases: []params.CharmBase{
@@ -133,6 +136,8 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 							Location: "/cockroach/cockroach-data",
 						},
 					},
+					Uid: 5000,
+					Gid: 5001,
 				},
 			},
 			Storage: map[string]charm.Storage{
@@ -140,6 +145,7 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 					Type: "filesystem",
 				},
 			},
+			CharmUser: charm.RunAsRoot,
 		},
 		Manifest: &charm.Manifest{
 			Bases: []charm.Base{

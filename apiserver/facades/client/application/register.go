@@ -17,6 +17,7 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Application", 19, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV19(stdCtx, ctx) // Added new DeployFromRepository
 	}, reflect.TypeOf((*APIv19)(nil)))
+
 	registry.MustRegister("Application", 20, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV20(stdCtx, ctx) // Remove remote space, rename storage constraint to storage directive
 	}, reflect.TypeOf((*APIv20)(nil)))

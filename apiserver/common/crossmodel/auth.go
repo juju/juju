@@ -202,7 +202,7 @@ func hasAccess(userAccess func(names.UserTag, names.Tag) (permission.Access, err
 
 // CreateConsumeOfferMacaroon creates a macaroon that authorises access to the specified offer.
 func (a *AuthContext) CreateConsumeOfferMacaroon(
-	ctx context.Context, offer *params.ApplicationOfferDetails, username string, version bakery.Version,
+	ctx context.Context, offer *params.ApplicationOfferDetailsV5, username string, version bakery.Version,
 ) (*bakery.Macaroon, error) {
 	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
 	if err != nil {

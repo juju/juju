@@ -61,7 +61,7 @@ type AddApplicationOfferArgs struct {
 // ConsumeApplicationArgs contains parameters used to consume an offer.
 type ConsumeApplicationArgs struct {
 	// Offer is the offer to be consumed.
-	Offer params.ApplicationOfferDetails
+	Offer params.ApplicationOfferDetailsV5
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon

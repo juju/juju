@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/storage"
@@ -90,7 +90,7 @@ type ApplicationSuite struct {
 
 	deployParams               map[string]application.DeployApplicationParams
 	addRemoteApplicationParams state.AddRemoteApplicationParams
-	consumeApplicationArgs     params.ConsumeApplicationArgs
+	consumeApplicationArgs     params.ConsumeApplicationArgsV5
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -138,13 +138,12 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		URL:         "othermodel.hosted-mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints:   []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider"}},
-		Spaces:      []*environs.ProviderSpaceInfo{},
 		Macaroon:    testMac,
 	}
 
-	s.consumeApplicationArgs = params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
+	s.consumeApplicationArgs = params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -1340,6 +1339,7 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1376,6 +1376,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(2)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	track := "latest"
 	args := params.ApplicationsDeploy{
@@ -1450,6 +1451,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	}}, nil, &charm.Config{})
 	curl := "ch:utopic/storage-block-10"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	storageDirectives := map[string]storage.Directive{
 		"data": {
@@ -1485,6 +1487,7 @@ func (s *ApplicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 	}}, nil, &charm.Config{})
 	curl := "ch:utopic/storage-filesystem-1"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationDeploy{
 		ApplicationName: "my-app",
@@ -1513,6 +1516,7 @@ func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
 	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 	machine.EXPECT().IsParentLockedForSeriesUpgrade().Return(false, nil)
 	s.backend.EXPECT().Machine("valid").Return(machine, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	placement := []*instance.Placement{
 		{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
@@ -1538,6 +1542,37 @@ func validCharmOriginForTest(revision *int) *params.CharmOrigin {
 	return &params.CharmOrigin{Source: "charm-hub", Revision: revision}
 }
 
+func (s *ApplicationSuite) TestApplicationDeployPlacementModelUUIDSubstitute(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := "ch:precise/dummy-42"
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("deadbeef-0bad-400d-8000-4b1d0d06f00d")
+
+	placement := []*instance.Placement{
+		{Scope: "model-uuid", Directive: "0"},
+	}
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl,
+		CharmOrigin:     createCharmOriginFromURL(curl),
+		NumUnits:        1,
+		Placement:       placement,
+	}
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["my-app"].Placement, gc.DeepEquals, []*instance.Placement{
+		{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "0"},
+	})
+}
+
 func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -1549,6 +1584,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C
 	containerMachine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil).MinTimes(1)
 	containerMachine.EXPECT().IsParentLockedForSeriesUpgrade().Return(true, nil).MinTimes(1)
 	s.backend.EXPECT().Machine("0/lxd/0").Return(containerMachine, nil).MinTimes(1)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	curl := "ch:precise/dummy-42"
 	args := []params.ApplicationDeploy{{
@@ -1632,6 +1668,7 @@ func (s *ApplicationSuite) TestApplicationDeploymentTrust(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	curl := "ch:precise/dummy-42"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
+	s.model.EXPECT().UUID().Return("")
 
 	withTrust := map[string]string{"trust": "true"}
 	args := params.ApplicationDeploy{
@@ -1660,6 +1697,7 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	curl := "ch:focal/riak-42"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	args := []params.ApplicationDeploy{{
 		ApplicationName: "old",
@@ -1726,6 +1764,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),
 	)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1763,7 +1802,9 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			},
 		},
 	)
+
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 	s.expectDefaultK8sModelConfig()
 
 	args := params.ApplicationsDeploy{
@@ -1803,6 +1844,7 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 		Storage: map[string]charm.Storage{"block": {Name: "block", Type: charm.StorageBlock}},
 	}, &charm.Manifest{}, &charm.Config{})
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1835,7 +1877,9 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
 	})
+
 	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1875,6 +1919,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 		"workload-storage": "k8s-storage",
 	})
 	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1901,7 +1946,9 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
 	})
+
 	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().UUID().Return("").AnyTimes()
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1928,6 +1975,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
 	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(nil, fmt.Errorf("storage pool not found%w", errors.Hide(storageerrors.PoolNotFoundError)))
 	s.registry.EXPECT().StorageProvider(storage.ProviderType("k8s-operator-storage")).Return(nil, errors.NotFoundf(`provider type "k8s-operator-storage"`))
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1956,6 +2004,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 		provider.RootfsProviderType,
 		map[string]interface{}{"foo": "bar"}),
 	)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1986,6 +2035,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 		map[string]interface{}{"foo": "bar"}),
 	)
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(errors.NotFoundf("storage class"))
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2023,6 +2073,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 		map[string]interface{}{"foo": "bar"}),
 	)
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
+	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2544,36 +2595,8 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.addRemoteApplicationParams.Name = "beirut"
-	s.addRemoteApplicationParams.Bindings = map[string]string{"server": "myspace"}
-	s.addRemoteApplicationParams.Spaces = []*environs.ProviderSpaceInfo{{
-		CloudType:          "grandaddy",
-		ProviderAttributes: map[string]interface{}{"thunderjaws": 1},
-		SpaceInfo: network.SpaceInfo{
-			Name:       network.SpaceName("myspace"),
-			ProviderId: network.Id("juju-space-myspace"),
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "5.6.7.0/24",
-				ProviderId:        network.Id("juju-subnet-1"),
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
-	}}
 
 	s.consumeApplicationArgs.Args[0].ApplicationAlias = "beirut"
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.Bindings = map[string]string{"server": "myspace"}
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.Spaces = []params.RemoteSpace{{
-		CloudType:  "grandaddy",
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		Subnets: []params.Subnet{{
-			CIDR:       "5.6.7.0/24",
-			ProviderId: "juju-subnet-1",
-			Zones:      []string{"az1"},
-		}},
-	}}
 
 	s.backend.EXPECT().RemoteApplication("beirut").Return(nil, errors.NotFoundf(`saas application "beirut"`))
 	s.backend.EXPECT().AddRemoteApplication(s.addRemoteApplicationParams).Return(nil, nil)
@@ -2589,12 +2612,12 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(s.expectRemoteApplication(ctrl, state.Alive, status.Active), nil)
 
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.SourceModelTag = names.NewModelTag(uuid.MustNewUUID().String()).String()
+	s.consumeApplicationArgs.Args[0].ApplicationOfferDetailsV5.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
 
-	results, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationOfferDetails: params.ApplicationOfferDetails{
-				SourceModelTag:         names.NewModelTag(uuid.MustNewUUID().String()).String(),
+	results, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag:         names.NewModelTag(utils.MustNewUUID().String()).String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "a database",

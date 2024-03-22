@@ -1010,12 +1010,13 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 			base corebase.Base
 			err  error
 		)
-		track, err := corecharm.ChannelTrack(release.Base.Channel)
+
+		channel, err := corebase.ParseChannel(release.Base.Channel)
 		if err != nil {
 			c.logger.Errorf("invalid base channel %v: %s", release.Base.Channel, err)
 			continue
 		}
-		if track == "all" || release.Base.Name == "all" {
+		if channel.Track == "all" || release.Base.Name == "all" {
 			base, err = corebase.ParseBase(origin.Platform.OS, origin.Platform.Channel)
 		} else {
 			base, err = corebase.ParseBase(release.Base.Name, release.Base.Channel)

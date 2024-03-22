@@ -516,7 +516,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	offer := params.ApplicationOfferDetails{
+	offer := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
 		OfferUUID:              "offer-uuid",
@@ -535,13 +535,13 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 
 	result := new(params.ErrorResults)
 	results := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	args := params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
+	args := params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{
 			{
-				ApplicationAlias:        "alias",
-				ApplicationOfferDetails: offer,
-				Macaroon:                mac,
-				ControllerInfo:          controllerInfo,
+				ApplicationAlias:          "alias",
+				ApplicationOfferDetailsV5: offer,
+				Macaroon:                  mac,
+				ControllerInfo:            controllerInfo,
 			},
 		},
 	}

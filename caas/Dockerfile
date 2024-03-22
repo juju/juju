@@ -4,14 +4,18 @@ ARG TARGETARCH
 
 # Add the syslog user for audit logging.
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin syslog
-# Add the juju user for rootless agents.
-# 170 uid/gid must be updated here and in caas/kubernetes/provider/constants/constants.go
+# Add the juju and sjuju user for rootless agents.
+# 170 and 171 uid/gid must be updated here and in caas/kubernetes/provider/constants/constants.go
 RUN groupadd --gid 170 juju
 RUN useradd --uid 170 --gid 170 --no-create-home --shell /usr/bin/bash juju
+RUN groupadd --gid 171 sjuju
+RUN useradd --uid 171 --gid 171 --no-create-home --shell /usr/bin/bash sjuju
+RUN mkdir -p /etc/sudoers.d && echo "sjuju ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/sjuju
 
 # Some Python dependencies.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+    sudo \
     python3-yaml \
     python3-pip \
     python3-distutils \

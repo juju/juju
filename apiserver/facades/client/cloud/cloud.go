@@ -477,7 +477,6 @@ func (api *CloudAPI) UpdateCredentialsCheckModels(ctx context.Context, args para
 	}
 	return params.UpdateCredentialResults{Results: results}, nil
 }
-
 func modelResultsToParams(modelResults []service.UpdateCredentialModelResult) []params.UpdateCredentialModelResult {
 	result := make([]params.UpdateCredentialModelResult, len(modelResults))
 	for i, modelResult := range modelResults {

@@ -707,7 +707,6 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 		attrs: map[string]string{}})
 
 	cred := jujucloud.Credential{}
-
 	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.KeyFromTag(tag), cred, false).Return(
 		[]credentialservice.UpdateCredentialModelResult{{
 			ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",

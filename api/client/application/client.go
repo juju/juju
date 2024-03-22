@@ -782,11 +782,11 @@ func (c *Client) SetRelationSuspended(relationIds []int, suspended bool, message
 // Consume adds a remote application to the model.
 func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
 	var consumeRes params.ErrorResults
-	args := params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationOfferDetails: arg.Offer,
-			ApplicationAlias:        arg.ApplicationAlias,
-			Macaroon:                arg.Macaroon,
+	args := params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: arg.Offer,
+			ApplicationAlias:          arg.ApplicationAlias,
+			Macaroon:                  arg.Macaroon,
 		}},
 	}
 	if arg.ControllerInfo != nil {

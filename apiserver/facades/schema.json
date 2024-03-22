@@ -2065,7 +2065,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ConsumeApplicationArgs"
+                            "$ref": "#/definitions/ConsumeApplicationArgsV5"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -2775,19 +2775,11 @@
                         "args"
                     ]
                 },
-                "ApplicationOfferDetails": {
+                "ApplicationOfferDetailsV5": {
                     "type": "object",
                     "properties": {
                         "application-description": {
                             "type": "string"
-                        },
-                        "bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
                         },
                         "endpoints": {
                             "type": "array",
@@ -2806,12 +2798,6 @@
                         },
                         "source-model-tag": {
                             "type": "string"
-                        },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteSpace"
-                            }
                         },
                         "users": {
                             "type": "array",
@@ -3217,25 +3203,17 @@
                         "Attributes"
                     ]
                 },
-                "ConsumeApplicationArg": {
+                "ConsumeApplicationArgV5": {
                     "type": "object",
                     "properties": {
-                        "ApplicationOfferDetails": {
-                            "$ref": "#/definitions/ApplicationOfferDetails"
+                        "ApplicationOfferDetailsV5": {
+                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
                         },
                         "application-alias": {
                             "type": "string"
                         },
                         "application-description": {
                             "type": "string"
-                        },
-                        "bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
                         },
                         "endpoints": {
                             "type": "array",
@@ -3261,12 +3239,6 @@
                         "source-model-tag": {
                             "type": "string"
                         },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteSpace"
-                            }
-                        },
                         "users": {
                             "type": "array",
                             "items": {
@@ -3281,16 +3253,16 @@
                         "offer-url",
                         "offer-name",
                         "application-description",
-                        "ApplicationOfferDetails"
+                        "ApplicationOfferDetailsV5"
                     ]
                 },
-                "ConsumeApplicationArgs": {
+                "ConsumeApplicationArgsV5": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ConsumeApplicationArg"
+                                "$ref": "#/definitions/ConsumeApplicationArgV5"
                             }
                         }
                     },
@@ -4028,43 +4000,6 @@
                         "limit"
                     ]
                 },
-                "RemoteSpace": {
-                    "type": "object",
-                    "properties": {
-                        "cloud-type": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "provider-attributes": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "subnets": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Subnet"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cloud-type",
-                        "name",
-                        "provider-id",
-                        "provider-attributes",
-                        "subnets"
-                    ]
-                },
                 "ScaleApplicationInfo": {
                     "type": "object",
                     "properties": {
@@ -4183,49 +4118,6 @@
                     "additionalProperties": false,
                     "required": [
                         "result"
-                    ]
-                },
-                "Subnet": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "provider-network-id": {
-                            "type": "string"
-                        },
-                        "provider-space-id": {
-                            "type": "string"
-                        },
-                        "space-tag": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "vlan-tag": {
-                            "type": "integer"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cidr",
-                        "vlan-tag",
-                        "life",
-                        "space-tag",
-                        "zones"
                     ]
                 },
                 "UnitInfoResult": {
@@ -4421,8 +4313,8 @@
     },
     {
         "Name": "ApplicationOffers",
-        "Description": "OffersAPI implements the cross model interface and is the concrete\nimplementation of the api end point.",
-        "Version": 4,
+        "Description": "OffersAPIv5 implements the cross model interface and is the concrete\nimplementation of the api end point.",
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -4463,7 +4355,7 @@
                             "$ref": "#/definitions/OfferFilters"
                         },
                         "Result": {
-                            "$ref": "#/definitions/QueryApplicationOffersResults"
+                            "$ref": "#/definitions/QueryApplicationOffersResultsV5"
                         }
                     },
                     "description": "FindApplicationOffers gets details about remote applications that match given filter."
@@ -4487,7 +4379,7 @@
                             "$ref": "#/definitions/OfferFilters"
                         },
                         "Result": {
-                            "$ref": "#/definitions/QueryApplicationOffersResults"
+                            "$ref": "#/definitions/QueryApplicationOffersResultsV5"
                         }
                     },
                     "description": "ListApplicationOffers gets deployed details about application offers that match given filter.\nThe results contain details about the deployed applications such as connection count."
@@ -4581,25 +4473,17 @@
                         "Offers"
                     ]
                 },
-                "ApplicationOfferAdminDetails": {
+                "ApplicationOfferAdminDetailsV5": {
                     "type": "object",
                     "properties": {
-                        "ApplicationOfferDetails": {
-                            "$ref": "#/definitions/ApplicationOfferDetails"
+                        "ApplicationOfferDetailsV5": {
+                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
                         },
                         "application-description": {
                             "type": "string"
                         },
                         "application-name": {
                             "type": "string"
-                        },
-                        "bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
                         },
                         "charm-url": {
                             "type": "string"
@@ -4628,12 +4512,6 @@
                         "source-model-tag": {
                             "type": "string"
                         },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteSpace"
-                            }
-                        },
                         "users": {
                             "type": "array",
                             "items": {
@@ -4648,24 +4526,16 @@
                         "offer-url",
                         "offer-name",
                         "application-description",
-                        "ApplicationOfferDetails",
+                        "ApplicationOfferDetailsV5",
                         "application-name",
                         "charm-url"
                     ]
                 },
-                "ApplicationOfferDetails": {
+                "ApplicationOfferDetailsV5": {
                     "type": "object",
                     "properties": {
                         "application-description": {
                             "type": "string"
-                        },
-                        "bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
                         },
                         "endpoints": {
                             "type": "array",
@@ -4684,12 +4554,6 @@
                         },
                         "source-model-tag": {
                             "type": "string"
-                        },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteSpace"
-                            }
                         },
                         "users": {
                             "type": "array",
@@ -4714,7 +4578,7 @@
                             "$ref": "#/definitions/Error"
                         },
                         "result": {
-                            "$ref": "#/definitions/ApplicationOfferAdminDetails"
+                            "$ref": "#/definitions/ApplicationOfferAdminDetailsV5"
                         }
                     },
                     "additionalProperties": false
@@ -4741,7 +4605,7 @@
                             "$ref": "#/definitions/Macaroon"
                         },
                         "offer": {
-                            "$ref": "#/definitions/ApplicationOfferDetails"
+                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
                         }
                     },
                     "additionalProperties": false
@@ -4777,7 +4641,7 @@
                             "$ref": "#/definitions/Macaroon"
                         },
                         "offer": {
-                            "$ref": "#/definitions/ApplicationOfferDetails"
+                            "$ref": "#/definitions/ApplicationOfferDetailsV5"
                         }
                     },
                     "additionalProperties": false,
@@ -5122,13 +4986,13 @@
                         "access"
                     ]
                 },
-                "QueryApplicationOffersResults": {
+                "QueryApplicationOffersResultsV5": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ApplicationOfferAdminDetails"
+                                "$ref": "#/definitions/ApplicationOfferAdminDetailsV5"
                             }
                         }
                     },
@@ -5224,86 +5088,6 @@
                         "role",
                         "interface",
                         "limit"
-                    ]
-                },
-                "RemoteSpace": {
-                    "type": "object",
-                    "properties": {
-                        "cloud-type": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "provider-attributes": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "subnets": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Subnet"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cloud-type",
-                        "name",
-                        "provider-id",
-                        "provider-attributes",
-                        "subnets"
-                    ]
-                },
-                "Subnet": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "provider-network-id": {
-                            "type": "string"
-                        },
-                        "provider-space-id": {
-                            "type": "string"
-                        },
-                        "space-tag": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "vlan-tag": {
-                            "type": "integer"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cidr",
-                        "vlan-tag",
-                        "life",
-                        "space-tag",
-                        "zones"
                     ]
                 }
             }
@@ -7199,6 +6983,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -7207,6 +6994,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -7321,6 +7111,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",
@@ -8827,6 +8620,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -8835,6 +8631,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -8949,6 +8748,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",
@@ -10840,6 +10642,9 @@
                 "CharmContainer": {
                     "type": "object",
                     "properties": {
+                        "gid": {
+                            "type": "integer"
+                        },
                         "mounts": {
                             "type": "array",
                             "items": {
@@ -10848,6 +10653,9 @@
                         },
                         "resource": {
                             "type": "string"
+                        },
+                        "uid": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false
@@ -10962,6 +10770,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-user": {
+                            "type": "string"
                         },
                         "containers": {
                             "type": "object",
@@ -15721,8 +15532,8 @@
     },
     {
         "Name": "CrossModelRelations",
-        "Description": "CrossModelRelationsAPI provides access to the CrossModelRelations API facade.",
-        "Version": 2,
+        "Description": "CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -16075,9 +15886,6 @@
                         "remote-endpoint": {
                             "$ref": "#/definitions/RemoteEndpoint"
                         },
-                        "remote-space": {
-                            "$ref": "#/definitions/RemoteSpace"
-                        },
                         "source-model-tag": {
                             "type": "string"
                         }
@@ -16088,7 +15896,6 @@
                         "source-model-tag",
                         "relation-token",
                         "remote-endpoint",
-                        "remote-space",
                         "offer-uuid",
                         "local-endpoint-name"
                     ]
@@ -16401,43 +16208,6 @@
                     },
                     "additionalProperties": false
                 },
-                "RemoteSpace": {
-                    "type": "object",
-                    "properties": {
-                        "cloud-type": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "provider-attributes": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "subnets": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Subnet"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cloud-type",
-                        "name",
-                        "provider-id",
-                        "provider-attributes",
-                        "subnets"
-                    ]
-                },
                 "SecretRevisionChange": {
                     "type": "object",
                     "properties": {
@@ -16525,49 +16295,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "Subnet": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "provider-network-id": {
-                            "type": "string"
-                        },
-                        "provider-space-id": {
-                            "type": "string"
-                        },
-                        "space-tag": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "vlan-tag": {
-                            "type": "integer"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cidr",
-                        "vlan-tag",
-                        "life",
-                        "space-tag",
-                        "zones"
                     ]
                 },
                 "WatchRemoteSecretChangesArg": {

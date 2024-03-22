@@ -214,7 +214,7 @@ permission: consume
 }
 
 func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
-	offer := &params.ApplicationOfferDetails{
+	offer := &params.ApplicationOfferDetailsV5{
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferUUID:      "mysql-uuid",
 	}
@@ -330,7 +330,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	authContext.SetClock(clock)
 	authContext, err = authContext.WithDischargeURL("http://thirdparty")
 	c.Assert(err, jc.ErrorIsNil)
-	offer := &params.ApplicationOfferDetails{
+	offer := &params.ApplicationOfferDetailsV5{
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferUUID:      "mysql-uuid",
 	}
