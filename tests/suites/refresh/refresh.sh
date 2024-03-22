@@ -104,7 +104,7 @@ run_refresh_channel_no_new_revision() {
 
 	juju refresh juju-qa-fixed-rev --channel edge
 
-	wait_for "juju-qa-fixed-rev" "$(charm_channel "juju-qa-fixed-rev" "edge")"
+	wait_for "juju-qa-fixed-rev" "$(charm_channel "juju-qa-fixed-rev" "latest/edge")"
 	wait_for "juju-qa-fixed-rev" "$(charm_rev "juju-qa-fixed-rev" "${cs_revision}")"
 	wait_for "juju-qa-fixed-rev" "$(idle_condition "juju-qa-fixed-rev")"
 
@@ -126,7 +126,7 @@ run_refresh_revision() {
 	# refresh to a revision not at the tip of the stable channel
 	juju refresh juju-qa-test --revision 23
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "23")"
-	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "stable")"
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	# do a generic refresh, should pick up revision from latest stable
@@ -138,7 +138,7 @@ run_refresh_revision() {
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "${revision}")"
-	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "stable")"
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	destroy_model "${model_name}"
