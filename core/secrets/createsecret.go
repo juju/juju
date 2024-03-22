@@ -23,7 +23,7 @@ type SecretData map[string]string
 
 const (
 	fileSuffix          = "#file"
-	maxValueSizeBytes   = 5 * 1024
+	maxValueSizeBytes   = 8 * 1024
 	maxContentSizeBytes = 64 * 1024
 )
 

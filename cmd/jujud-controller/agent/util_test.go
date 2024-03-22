@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -93,7 +92,7 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]blockdevice.BlockDevice, error) {
 		return nil, nil
 	})
-	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ network.ConfigSource) (network.InterfaceInfos, error) {
 		return nil, nil
 	})
 }

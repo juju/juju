@@ -169,7 +169,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 		Config:        cfg,
 		MachineLock:   s.machineLock,
 		CredentialAPI: &credentialAPIForTest{},
-		GetNetConfig: func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
+		GetNetConfig: func(_ network.ConfigSource) (network.InterfaceInfos, error) {
 			return nil, nil
 		},
 	}

@@ -71,7 +71,9 @@ const (
 	mongoDBContainerName   = "mongodb"
 	apiServerContainerName = "api-server"
 
-	startupGraceTime = 300
+	// startupGraceTime is the number of seconds afforded to startup probes to
+	// become successful before considering them a failure.
+	startupGraceTime = 600
 
 	apiServerStartupProbeInitialDelay = 3
 	apiServerStartupProbeTimeout      = 3
@@ -84,6 +86,12 @@ const (
 	apiServerLivenessProbePeriod       = 5
 	apiServerLivenessProbeSuccess      = 1
 	apiServerLivenessProbeFailure      = 2
+
+	mongoDBStartupProbeInitialDelay = 1
+	mongoDBStartupProbeTimeout      = 1
+	mongoDBStartupProbePeriod       = 5
+	mongoDBStartupProbeSuccess      = 1
+	mongoDBStartupProbeFailure      = startupGraceTime / mongoDBStartupProbePeriod
 )
 
 type controllerServiceSpec struct {
@@ -1321,11 +1329,11 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			ProbeHandler: core.ProbeHandler{
 				Exec: probeCmds,
 			},
-			FailureThreshold:    startupGraceTime / 5,
-			InitialDelaySeconds: 1,
-			PeriodSeconds:       5,
-			SuccessThreshold:    1,
-			TimeoutSeconds:      1,
+			FailureThreshold:    mongoDBStartupProbeFailure,
+			InitialDelaySeconds: mongoDBStartupProbeInitialDelay,
+			PeriodSeconds:       mongoDBStartupProbePeriod,
+			SuccessThreshold:    mongoDBStartupProbeSuccess,
+			TimeoutSeconds:      mongoDBStartupProbeTimeout,
 		},
 		VolumeMounts: []core.VolumeMount{
 			{

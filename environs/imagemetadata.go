@@ -109,12 +109,17 @@ func ImageMetadataSources(env BootstrapEnviron, dataSourceFactory simplestreams.
 	}
 	sources = append(sources, envDataSources...)
 
-	// Add the official image metadata datasources.
-	officialDataSources, err := imagemetadata.OfficialDataSources(dataSourceFactory, config.ImageStream())
-	if err != nil {
-		return nil, err
+	if config.ImageMetadataDefaultsDisabled() {
+		logger.Debugf("default image metadata sources are disabled")
+	} else {
+		// Add the official image metadata datasources.
+		officialDataSources, err := imagemetadata.OfficialDataSources(dataSourceFactory, config.ImageStream())
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, officialDataSources...)
 	}
-	sources = append(sources, officialDataSources...)
+
 	for _, ds := range sources {
 		logger.Debugf("obtained image datasource %q", ds.Description())
 	}
