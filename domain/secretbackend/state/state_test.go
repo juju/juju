@@ -168,10 +168,10 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	q := `
-UPDATE model_metadata
-SET secret_backend_uuid = ?
-WHERE model_uuid=?;`[1:]
-	_, err = s.DB().ExecContext(context.Background(), q, backendID, modelUUID)
+INSERT INTO model_secret_backend
+	(model_uuid, secret_backend_uuid)
+VALUES (?, ?);`[1:]
+	_, err = s.DB().ExecContext(context.Background(), q, modelUUID, backendID)
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUUID, backendID
 }
@@ -530,18 +530,13 @@ func (s *stateSuite) TestUpdateSecretBackendFailedForKubernetesBackend(c *gc.C) 
 func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
 	db := s.DB()
 	modelUUID, backendID := s.createModel(c)
-	_, err := db.Exec(`
-UPDATE model_metadata
-SET secret_backend_uuid = ?
-WHERE model_uuid = ?`, backendID, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
 
 	row := db.QueryRow(`
 SELECT secret_backend_uuid
-FROM model_metadata
+FROM model_secret_backend
 WHERE model_uuid = ?`[1:], modelUUID)
 	var configuredBackendUUID sql.NullString
-	err = row.Scan(&configuredBackendUUID)
+	err := row.Scan(&configuredBackendUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(configuredBackendUUID.Valid, jc.IsTrue)
 	c.Assert(configuredBackendUUID.String, gc.Equals, backendID)
@@ -576,7 +571,7 @@ WHERE backend_uuid = ?`[1:], backendID)
 
 	row = db.QueryRow(`
 SELECT secret_backend_uuid
-FROM model_metadata
+FROM model_secret_backend
 WHERE model_uuid = ?`[1:], modelUUID)
 	err = row.Scan(&configuredBackendUUID)
 	c.Assert(err, jc.ErrorIsNil)

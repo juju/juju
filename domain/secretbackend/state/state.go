@@ -55,7 +55,7 @@ func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (secretbacken
 
 	stmt, err := sqlair.Prepare(`
 SELECT &Model.*
-FROM v_model
+FROM v_model_secret_backend
 WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
 	if err != nil {
 		return secretbackend.Model{}, errors.Trace(err)
@@ -75,11 +75,15 @@ WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
 		// This should never happen.
 		return secretbackend.Model{}, fmt.Errorf("invalid model type for model %q", m.Name)
 	}
+	// If the backend ID is NULL, it means that the model does not have a secret backend configured.
+	// We return an empty string in this case.
+	// TODO: we should return the `default` backend once we start to include the
+	// `internal` and `k8s` backends in the database. And obviously, this field will become non-nullable.
 	return secretbackend.Model{
 		ID:              m.ID,
 		Name:            m.Name,
 		Type:            m.Type,
-		SecretBackendID: m.SecretBackendID,
+		SecretBackendID: m.SecretBackendID.String,
 	}, nil
 }
 
@@ -121,8 +125,8 @@ DELETE FROM secret_backend_rotation WHERE backend_uuid = $M.uuid`, sqlair.M{})
 	// TODO: we should set it to the `default` backend once we start to include the
 	// `internal` and `k8s` backends in the database.
 	// For now, we reset it to NULL. JUJU-5708
-	modelMetadataStmt, err := sqlair.Prepare(`
-UPDATE model_metadata
+	modelSecretBackendStmt, err := sqlair.Prepare(`
+UPDATE model_secret_backend
 SET secret_backend_uuid = NULL
 WHERE secret_backend_uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
@@ -141,8 +145,8 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 		if err := tx.Query(ctx, rotationStmt, arg).Run(); err != nil {
 			return fmt.Errorf("deleting secret backend rotation for %q: %w", backendID, err)
 		}
-		if err = tx.Query(ctx, modelMetadataStmt, arg).Run(); err != nil {
-			return fmt.Errorf("resetting secret backend %q to NULL for model metadata: %w", backendID, err)
+		if err = tx.Query(ctx, modelSecretBackendStmt, arg).Run(); err != nil {
+			return fmt.Errorf("resetting secret backend %q to NULL for models: %w", backendID, err)
 		}
 		err = tx.Query(ctx, backendStmt, arg).Run()
 		if database.IsErrConstraintTrigger(err) {

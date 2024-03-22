@@ -187,6 +187,9 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 
 		// Models
 		"v_model",
+
+		// Secret backends
+		"v_model_secret_backend",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }

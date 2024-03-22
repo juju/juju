@@ -20,9 +20,10 @@ type Model struct {
 	// Name is the name of the model.
 	Name string `db:"name"`
 	// Type is the type of the model.
-	Type coremodel.ModelType `db:"model_type_type"`
+	Type coremodel.ModelType `db:"type"`
 	// SecretBackendID is the unique identifier for the secret backend configured for the model.
-	SecretBackendID string `db:"secret_backend_uuid"`
+	// TODO: change to string once we changed the `model_secret_backend.secret_backend_uuid` column to be not null.
+	SecretBackendID sql.NullString `db:"secret_backend_uuid"`
 }
 
 // SecretBackend represents a single row from the state database's secret_backend table.

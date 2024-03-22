@@ -192,7 +192,7 @@ func (o *upsertOperation) apply(ctx context.Context, tx *sqlair.TX) error {
 		return fmt.Errorf("cannot clear secret backend config for %q: %w", o.Name, err)
 	}
 	for k, v := range o.Config {
-		// TODO: this needs to be fix once the sqlair supports bulk insert.
+		// TODO: this needs to be fixed once the sqlair supports bulk insert.
 		err = tx.Query(ctx, o.upsertConfigStmt, SecretBackendConfig{
 			ID:      o.ID,
 			Name:    k,

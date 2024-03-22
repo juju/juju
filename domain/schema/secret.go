@@ -87,6 +87,30 @@ CREATE TABLE
             FOREIGN KEY (backend_uuid)
             REFERENCES secret_backend (uuid)
     );
+
+CREATE TABLE
+    model_secret_backend (
+        model_uuid TEXT PRIMARY KEY,
+        -- TODO: change the secret_backend_uuid to NOT NULL once we start to insert the
+        -- internal and kubernetes secret backends into the secret_backend table.
+        secret_backend_uuid TEXT,
+        CONSTRAINT fk_model_secret_backend_model_uuid
+            FOREIGN KEY (model_uuid)
+            REFERENCES model_list (uuid),
+        CONSTRAINT fk_model_secret_backend_secret_backend_uuid
+            FOREIGN KEY (secret_backend_uuid)
+            REFERENCES secret_backend (uuid)
+    );
+
+CREATE VIEW v_model_secret_backend AS
+    SELECT
+        msb.model_uuid AS uuid,
+        mm.name,
+        mt.type,
+        msb.secret_backend_uuid
+    FROM model_secret_backend msb
+    INNER JOIN model_metadata mm ON msb.model_uuid = mm.model_uuid
+    INNER JOIN model_type mt ON mm.model_type_id = mt.id;
 `)
 }
 
