@@ -971,6 +971,57 @@ func (s *stateSuite) TestSecretBackendRotated(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+nonExistBackendID+`"`)
 }
 
+func (s *stateSuite) TestSetModelSecretBackend(c *gc.C) {
+	modelUUID, backendID := s.createModel(c)
+
+	var configuredBackendUUID string
+	qBackend := `
+SELECT secret_backend_uuid
+FROM model_metadata
+WHERE model_uuid = ?`
+	db := s.DB()
+	row := db.QueryRow(qBackend, modelUUID)
+	err := row.Scan(&configuredBackendUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(configuredBackendUUID, gc.Equals, backendID)
+
+	newBackendID := uuid.MustNewUUID().String()
+	result, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+		ID:          newBackendID,
+		Name:        "my-new-backend",
+		BackendType: "vault",
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, newBackendID)
+
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-new-backend")
+	c.Assert(err, gc.IsNil)
+
+	row = db.QueryRow(qBackend, modelUUID)
+	err = row.Scan(&configuredBackendUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(configuredBackendUUID, gc.Equals, newBackendID)
+}
+
+func (s *stateSuite) TestSetModelSecretBackendNotFound(c *gc.C) {
+	modelUUID := coremodel.UUID(uuid.MustNewUUID().String())
+	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: %q`, modelUUID))
+
+	modelUUID, _ = s.createModel(c)
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "non-existing-backend")
+	c.Assert(err, jc.ErrorIs, backenderrors.NotFound)
+	c.Assert(err, gc.ErrorMatches, `secret backend not found: "non-existing-backend"`)
+}
+
+func (s *stateSuite) TestGetModelSecretBackend(c *gc.C) {
+	modelUUID, backendID := s.createModel(c)
+	backendIDConfigured, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(backendIDConfigured, gc.Equals, backendID)
+}
+
 func (s *stateSuite) TestGetSecretBackendRotateChanges(c *gc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal1 := 24 * time.Hour

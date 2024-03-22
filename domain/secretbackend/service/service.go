@@ -480,6 +480,16 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	return errors.Trace(err)
 }
 
+// GetModelSecretBackend returns the secret backend for the given model UUID.
+func (s *Service) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
+	return s.st.GetModelSecretBackend(ctx, modelUUID)
+}
+
+// SetModelSecretBackend sets the secret backend for the given model UUID.
+func (s *Service) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
+	return s.st.SetModelSecretBackend(ctx, modelUUID, backendName)
+}
+
 // WatchableService defines a service that can be watched for changes.
 type WatchableService struct {
 	Service

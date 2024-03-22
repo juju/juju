@@ -404,6 +404,60 @@ WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
 	return domain.CoerceError(err)
 }
 
+// SetModelSecretBackend sets the secret backend for the given model.
+func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, _, err := s.GetModel(ctx, modelUUID); err != nil {
+		// Check if the model exists.
+		// We have to do this is because the sqlair Run() does not give us the
+		// number of rows affected by the UPDATE/INSERT.
+		return errors.Trace(err)
+	}
+
+	backendStmt, err := sqlair.Prepare(`
+SELECT uuid AS &SecretBackendRow.uuid
+FROM secret_backend
+WHERE name = $M.backend_name`, sqlair.M{}, SecretBackendRow{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelStmt, err := sqlair.Prepare(`
+UPDATE model_metadata
+SET secret_backend_uuid = $M.backend_uuid
+WHERE model_uuid = $M.model_uuid`, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var sb SecretBackendRow
+		err := tx.Query(ctx, backendStmt, sqlair.M{"backend_name": backendName}).Get(&sb)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", backenderrors.NotFound, backendName)
+		}
+		if err != nil {
+			return fmt.Errorf("getting secret backend ID for %q: %w", backendName, err)
+		}
+		err = tx.Query(ctx, modelStmt, sqlair.M{"model_uuid": modelUUID, "backend_uuid": sb.ID}).Run()
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
+		}
+		if err != nil {
+			return fmt.Errorf("setting secret backend %q for model %q: %w", backendName, modelUUID, err)
+		}
+		return nil
+	})
+	return domain.CoerceError(err)
+}
+
+// GetModelSecretBackend returns the configured secret backend for the given model.
+func (s *State) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
+	_, backendID, err := s.GetModel(ctx, modelUUID)
+	return backendID, errors.Trace(err)
+}
+
 // InitialWatchStatement returns the initial watch statement and the table name to watch.
 func (s *State) InitialWatchStatement() (string, string) {
 	return "secret_backend_rotation", "SELECT backend_uuid FROM secret_backend_rotation"
