@@ -159,10 +159,15 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 				accountDetails.LastKnownAccess = st.ControllerAccess()
 			}
 		}
-		if ok && !user.IsLocal() && apiInfo.Tag == nil {
+		accountType := jujuclient.UserPassAccountDetailsType
+		if accountDetails != nil {
+			accountType = accountDetails.Type
+		}
+		if ok && !user.IsLocal() && apiInfo.Tag == nil && accountType != jujuclient.OAuth2DeviceFlowAccountDetailsType {
 			// We used macaroon auth to login; save the username
 			// that we've logged in as.
 			accountDetails = &jujuclient.AccountDetails{
+				Type:            jujuclient.UserPassAccountDetailsType,
 				User:            user.Id(),
 				LastKnownAccess: st.ControllerAccess(),
 			}
