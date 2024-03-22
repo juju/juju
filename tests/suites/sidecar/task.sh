@@ -6,10 +6,11 @@ test_sidecar() {
 
 	set_verbosity
 
-	case "${BOOTSTRAP_PROVIDER:-}" in
+	case "${BOOTSTRAP_PROVIDER-}" in
 	"k8s")
 		test_deploy_and_remove_application
 		test_deploy_and_force_remove_application
+		test_pebble_notices
 		;;
 	*)
 		echo "==> TEST SKIPPED: sidecar charm tests, not a k8s provider"

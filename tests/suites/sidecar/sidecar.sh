@@ -64,3 +64,9 @@ check_snappass() {
 		sleep 5
 	done
 }
+
+# This is a stub test, as pebble notices support were added only at 3.4 branch and above.
+# But we need to keep the test here to avoid breaking the test suite in jenkins.
+test_pebble_notices() {
+	echo "==> TEST SKIPPED: pebble notices"
+}
