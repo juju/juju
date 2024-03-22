@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -18,9 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -97,7 +93,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	user names.UserTag,
 	requiredAccess permission.Access,
 	filters ...jujucrossmodel.ApplicationOfferFilter,
-) ([]params.ApplicationOfferAdminDetails, error) {
+) ([]params.ApplicationOfferAdminDetailsV5, error) {
 	// Get the relevant backend for the specified model.
 	backend, releaser, err := api.StatePool.Get(modelUUID)
 	if err != nil {
@@ -127,7 +123,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	var results []params.ApplicationOfferAdminDetails
+	var results []params.ApplicationOfferAdminDetailsV5
 	for _, appOffer := range offers {
 		userAccess := permission.AdminAccess
 		// If the user is not a model admin, they need at least read
@@ -153,8 +149,8 @@ func (api *BaseAPI) applicationOffersFromModel(
 			DisplayName: apiUserDisplayName,
 			Access:      string(userAccess),
 		}}
-		offer := params.ApplicationOfferAdminDetails{
-			ApplicationOfferDetails: *offerParams,
+		offer := params.ApplicationOfferAdminDetailsV5{
+			ApplicationOfferDetailsV5: *offerParams,
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
@@ -167,7 +163,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	return results, nil
 }
 
-func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
+func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetailsV5) error {
 	curl, _ := app.CharmURL()
 	conns, err := backend.OfferConnections(offer.OfferUUID)
 	if err != nil {
@@ -347,7 +343,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	user names.UserTag,
 	filters params.OfferFilters,
 	requiredPermission permission.Access,
-) ([]params.ApplicationOfferAdminDetails, error) {
+) ([]params.ApplicationOfferAdminDetailsV5, error) {
 
 	// If there are no filters specified, that's an error since the
 	// caller is expected to specify at the least one or more models
@@ -370,7 +366,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	sort.Strings(allUUIDs)
 
 	// Do the per model queries.
-	var result []params.ApplicationOfferAdminDetails
+	var result []params.ApplicationOfferAdminDetailsV5
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
 		offers, err := api.applicationOffersFromModel(ctx, modelUUID, user, requiredPermission, filters...)
@@ -424,13 +420,13 @@ func (api *BaseAPI) makeOfferParams(
 	ctx context.Context,
 	backend Backend,
 	offer *jujucrossmodel.ApplicationOffer,
-) (*params.ApplicationOfferDetails, crossmodel.Application, error) {
+) (*params.ApplicationOfferDetailsV5, crossmodel.Application, error) {
 	app, err := backend.Application(offer.ApplicationName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	result := params.ApplicationOfferDetails{
+	result := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         backend.ModelTag().String(),
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,
@@ -456,142 +452,5 @@ func (api *BaseAPI) makeOfferParams(
 		return &result, app, nil
 	}
 
-	// We could lift this much higher in the function call, but we need to be
-	// sure that CAAS can handle the fact that this API call is called.
-	allSpaceInfosLookup, err := backend.AllSpaceInfos()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// Get spaces and bindings for IAAS models.
-	result.Spaces, result.Bindings, err = api.spacesAndBindingParams(ctx, backend, app, offer.Endpoints, allSpaceInfosLookup)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return &result, app, nil
-}
-
-func (api *BaseAPI) spacesAndBindingParams(
-	ctx context.Context,
-	backend Backend,
-	app crossmodel.Application,
-	offerEndpoints map[string]charm.Relation,
-	allSpaceInfosLookup network.SpaceInfos,
-) ([]params.RemoteSpace, map[string]string, error) {
-	appBindings, err := app.EndpointBindings()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	// We want space names, because space ids are not
-	// persistent outside of the current model.
-	appBindingsMap, err := appBindings.MapWithSpaceNames(allSpaceInfosLookup)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// It's okay if this fails, we'll have an empty string.
-	// Filtered out when used by collectRemoteSpaces
-	defaultBindingValue, _ := appBindingsMap[""]
-	var bindings map[string]string
-
-	spaceNames := set.NewStrings()
-	for _, ep := range offerEndpoints {
-		name, haveID := appBindingsMap[ep.Name]
-		if haveID {
-			spaceNames.Add(name)
-			continue
-		}
-		// The offer application may have endpoints the local
-		// application does not.  Add and assume the default
-		// binding for the application.
-		if bindings == nil {
-			bindings = make(map[string]string)
-		}
-		bindings[ep.Name] = defaultBindingValue
-		api.logger.Warningf("no local binding for %q endpoint on application %q, assume default binding", ep.Name, app.Name())
-	}
-
-	// Get provider space info based on space ids.
-	remoteSpaces, err := api.collectRemoteSpaces(ctx, backend, spaceNames.SortedValues())
-	if errors.Is(err, errors.NotSupported) {
-		// Provider doesn't support ProviderSpaceInfo; continue
-		// without any space information, we shouldn't short-circuit
-		// cross-model connections.
-		return nil, nil, nil
-	}
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// Ensure bindings only contain entries for which we have remoteSpaces.
-	spaces := make([]params.RemoteSpace, 0)
-
-	for epName, name := range appBindingsMap {
-		space, haveSpace := remoteSpaces[name]
-		if !haveSpace {
-			continue
-		}
-		if bindings == nil {
-			bindings = make(map[string]string)
-		}
-		bindings[epName] = space.Name
-		spaces = append(spaces, space)
-	}
-	return spaces, bindings, nil
-}
-
-// collectRemoteSpaces gets provider information about the spaces from
-// the state passed in. (This state will be for a different model than
-// this API instance, which is why the results are *remote* spaces.)
-// These can be used by the provider later on to decide whether a
-// connection can be made via cloud-local addresses. If the provider
-// doesn't support getting ProviderSpaceInfo the NotSupported error
-// will be returned.
-func (api *BaseAPI) collectRemoteSpaces(ctx context.Context, backend Backend, spaceNames []string) (map[string]params.RemoteSpace, error) {
-	env, err := api.getEnviron(ctx, backend.ModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	netEnv, ok := environs.SupportsNetworking(env)
-	if !ok {
-		api.logger.Debugf("cloud provider doesn't support networking, not getting space info")
-		return nil, nil
-	}
-
-	invalidatorFunc, err := api.credentialInvalidatorGetter()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-
-	results := make(map[string]params.RemoteSpace)
-	for _, name := range spaceNames {
-		space := environs.DefaultSpaceInfo
-		if name != "" {
-			dbSpace, err := backend.SpaceByName(name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			dbSpaceInfo, err := dbSpace.NetworkSpace()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			space = &dbSpaceInfo
-		}
-		providerSpace, err := netEnv.ProviderSpaceInfo(callCtx, space)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(err)
-		}
-		if providerSpace == nil {
-			api.logger.Warningf("no provider space info for %q", name)
-			continue
-		}
-		remoteSpace := paramsFromProviderSpaceInfo(providerSpace)
-		// Use the name from state in case provider and state disagree.
-		remoteSpace.Name = string(space.Name)
-		results[name] = remoteSpace
-	}
-	return results, nil
 }

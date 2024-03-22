@@ -880,10 +880,21 @@ func (s stubLookup) AllSpaceInfos() (network.SpaceInfos, error) {
 	return network.SpaceInfos{
 		{ID: "1", Name: "space-one", ProviderId: "p1"},
 		{ID: "2", Name: "space-two"},
+		{
+			ID:   "6",
+			Name: "space-six",
+			Subnets: network.SubnetInfos{
+				{
+					ID:         "666",
+					CIDR:       "10.0.0.0/24",
+					ProviderId: "61",
+				},
+			},
+		},
 	}, nil
 }
 
-func (s *AddressSuite) TestProviderAddressesToSpaceAddresses(c *gc.C) {
+func (s *AddressSuite) TestProviderAddressesToSpaceAddressesByName(c *gc.C) {
 	// Check success.
 	addrs := network.ProviderAddresses{
 		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
@@ -903,6 +914,21 @@ func (s *AddressSuite) TestProviderAddressesToSpaceAddresses(c *gc.C) {
 	addrs = append(addrs, network.NewMachineAddress("4.5.6.7").AsProviderAddress(network.WithSpaceName("space-denied")))
 	_, err = addrs.ToSpaceAddresses(stubLookup{})
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *AddressSuite) TestProviderAddressesToSpaceAddressesBySubnet(c *gc.C) {
+	// Check success.
+	addrs := network.ProviderAddresses{
+		network.NewMachineAddress(
+			"10.0.0.6",
+			network.WithCIDR("10.0.0.0/24"),
+		).AsProviderAddress(network.WithProviderSubnetID("61")),
+	}
+
+	res, err := addrs.ToSpaceAddresses(stubLookup{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.HasLen, 1)
+	c.Check(res[0].SpaceID, gc.Equals, "6")
 }
 
 func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {

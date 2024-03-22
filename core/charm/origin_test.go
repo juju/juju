@@ -139,35 +139,3 @@ func (s platformSuite) TestString(c *gc.C) {
 		c.Assert(platform.String(), gc.DeepEquals, test.Expected)
 	}
 }
-
-type channelTrackSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&channelTrackSuite{})
-
-func (*channelTrackSuite) TestChannelTrack(c *gc.C) {
-	tests := []struct {
-		channel string
-		result  string
-	}{{
-		channel: "20.10",
-		result:  "20.10",
-	}, {
-		channel: "focal",
-		result:  "focal",
-	}, {
-		channel: "20.10/stable",
-		result:  "20.10",
-	}, {
-		channel: "focal/stable",
-		result:  "focal",
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d - %s", i, test.channel)
-		got, err := charm.ChannelTrack(test.channel)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(got, gc.Equals, test.result)
-	}
-}

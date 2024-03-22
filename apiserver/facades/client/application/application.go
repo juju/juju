@@ -72,6 +72,7 @@ type APIv20 struct {
 	*APIBase
 }
 
+// APIv19 provides the Application API facade for version 19.
 type APIv19 struct {
 	*APIv20
 }
@@ -505,7 +506,7 @@ func (api *APIBase) deployApplication(
 
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
-	if err := checkMachinePlacement(api.backend, args.ApplicationName, args.Placement); err != nil {
+	if err := checkMachinePlacement(api.backend, api.model.UUID(), args.ApplicationName, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -755,13 +756,20 @@ type MachinePlacementBackend interface {
 // If the placement scope is for a machine, ensure that the machine exists.
 // If the placement is for a machine or a container on an existing machine,
 // check that the machine is not locked for series upgrade.
-func checkMachinePlacement(backend MachinePlacementBackend, app string, placement []*instance.Placement) error {
+// If the placement scope is model-uuid, replace it with the actual model uuid.
+func checkMachinePlacement(backend MachinePlacementBackend, modelUUID string, app string, placement []*instance.Placement) error {
 	errTemplate := "cannot deploy %q to machine %s"
 
 	for _, p := range placement {
 		if p == nil {
 			continue
 		}
+		// Substitute the placeholder with the actual model uuid.
+		if p.Scope == "model-uuid" {
+			p.Scope = modelUUID
+			continue
+		}
+
 		dir := p.Directive
 
 		toProvisionedMachine := p.Scope == instance.MachineScope
@@ -2008,7 +2016,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 
 // Consume adds remote applications to the model without creating any
 // relations.
-func (api *APIBase) Consume(ctx context.Context, args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
+func (api *APIBase) Consume(ctx context.Context, args params.ConsumeApplicationArgsV5) (params.ErrorResults, error) {
 	var consumeResults params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return consumeResults, errors.Trace(err)
@@ -2026,7 +2034,7 @@ func (api *APIBase) Consume(ctx context.Context, args params.ConsumeApplicationA
 	return consumeResults, nil
 }
 
-func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicationArg) error {
+func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicationArgV5) error {
 	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -2059,8 +2067,25 @@ func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicatio
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetails, arg.Macaroon)
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetailsV5, arg.Macaroon)
 	return err
+}
+
+// Consume adds remote applications to the model without creating any
+// relations.
+func (api *APIv19) Consume(ctx context.Context, args params.ConsumeApplicationArgsV4) (params.ErrorResults, error) {
+	var consumeApplicationArgs []params.ConsumeApplicationArgV5
+	for _, arg := range args.Args {
+		consumeApplicationArgs = append(consumeApplicationArgs, params.ConsumeApplicationArgV5{
+			Macaroon:                  arg.Macaroon,
+			ControllerInfo:            arg.ControllerInfo,
+			ApplicationAlias:          arg.ApplicationAlias,
+			ApplicationOfferDetailsV5: arg.ApplicationOfferDetailsV5,
+		})
+	}
+	return api.APIv20.Consume(ctx, params.ConsumeApplicationArgsV5{
+		Args: consumeApplicationArgs,
+	})
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
@@ -2069,7 +2094,7 @@ func (api *APIBase) saveRemoteApplication(
 	sourceModelTag names.ModelTag,
 	applicationName string,
 	externalControllerUUID string,
-	offer params.ApplicationOfferDetails,
+	offer params.ApplicationOfferDetailsV5,
 	mac *macaroon.Macaroon,
 ) (RemoteApplication, error) {
 	remoteEps := make([]charm.Relation, len(offer.Endpoints))
@@ -2079,11 +2104,6 @@ func (api *APIBase) saveRemoteApplication(
 			Role:      ep.Role,
 			Interface: ep.Interface,
 		}
-	}
-
-	remoteSpaces := make([]*environs.ProviderSpaceInfo, len(offer.Spaces))
-	for i, space := range offer.Spaces {
-		remoteSpaces[i] = providerSpaceInfoFromParams(space)
 	}
 
 	// If a remote application with the same name and endpoints from the same
@@ -2114,35 +2134,8 @@ func (api *APIBase) saveRemoteApplication(
 		ExternalControllerUUID: externalControllerUUID,
 		SourceModel:            sourceModelTag,
 		Endpoints:              remoteEps,
-		Spaces:                 remoteSpaces,
-		Bindings:               offer.Bindings,
 		Macaroon:               mac,
 	})
-}
-
-// providerSpaceInfoFromParams converts a params.RemoteSpace to the
-// equivalent ProviderSpaceInfo.
-func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpaceInfo {
-	result := &environs.ProviderSpaceInfo{
-		CloudType:          space.CloudType,
-		ProviderAttributes: space.ProviderAttributes,
-		SpaceInfo: network.SpaceInfo{
-			Name:       network.SpaceName(space.Name),
-			ProviderId: network.Id(space.ProviderId),
-		},
-	}
-	for _, subnet := range space.Subnets {
-		resultSubnet := network.SubnetInfo{
-			CIDR:              subnet.CIDR,
-			ProviderId:        network.Id(subnet.ProviderId),
-			ProviderNetworkId: network.Id(subnet.ProviderNetworkId),
-			ProviderSpaceId:   network.Id(subnet.ProviderSpaceId),
-			VLANTag:           subnet.VLANTag,
-			AvailabilityZones: subnet.Zones,
-		}
-		result.Subnets = append(result.Subnets, resultSubnet)
-	}
-	return result
 }
 
 // maybeUpdateExistingApplicationEndpoints looks for a remote application with the

@@ -1306,9 +1306,9 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 }
 
 func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
-	results, err := s.applicationAPI.Consume(context.Background(), params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
-			{ApplicationOfferDetails: params.ApplicationOfferDetails{
+	results, err := s.applicationAPI.Consume(context.Background(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{
+			{ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -1379,9 +1379,9 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
-	results, err := s.applicationAPI.Consume(context.Background(), params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
-			{ApplicationOfferDetails: params.ApplicationOfferDetails{
+	results, err := s.applicationAPI.Consume(context.Background(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{
+			{ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag: testing.ModelTag.String(),
 				OfferName:      "hosted-db2",
 				OfferUUID:      "hosted-db2-uuid",

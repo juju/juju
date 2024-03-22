@@ -441,6 +441,63 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 	c.Check(ops, gc.HasLen, 8)
 }
 
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// A machine with one link-layer dev.
+	s.expectMachine()
+	mExp := s.machine.EXPECT()
+
+	// Device eth0 exists with no addresses and will have one added to it.
+	ethMAC := "aa:bb:cc:dd:ee:ff"
+	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
+	ethExp := ethDev.EXPECT()
+	ethExp.Name().Return("eth0").MinTimes(1)
+	ethExp.UpdateOps(state.LinkLayerDeviceArgs{
+		Name:        "eth0",
+		Type:        "ethernet",
+		MACAddress:  ethMAC,
+		IsAutoStart: true,
+		IsUp:        true,
+	}).Return(nil)
+	ethExp.AddAddressOps(state.LinkLayerDeviceAddress{
+		DeviceName:       "eth0",
+		ConfigMethod:     "static",
+		CIDRAddress:      "0.10.0.2/24",
+		GatewayAddress:   "0.10.0.1",
+		IsDefaultGateway: true,
+	}).Return([]txn.Op{{}}, nil)
+
+	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{ethDev}, nil)
+	mExp.AllDeviceAddresses().Return(nil, nil)
+
+	// Since there is a new address, then we process (and therefore add)
+	// subnets.
+	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "0.10.0.0/24"}).Return([]txn.Op{{}}, nil)
+
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+		{
+			InterfaceName: "eth0",
+			InterfaceType: "ethernet",
+			MACAddress:    ethMAC,
+			Addresses: network.ProviderAddresses{
+				network.NewMachineAddress("0.10.0.2", network.WithCIDR("0.10.0.0/24")).AsProviderAddress(),
+			},
+			GatewayAddress:   network.NewMachineAddress("0.10.0.1").AsProviderAddress(),
+			IsDefaultGateway: true,
+		},
+	}, true, s.state)
+
+	ops, err := op.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Expected ops are:
+	// - One for the new device address.
+	// - One for the new subnet.
+	c.Check(ops, gc.HasLen, 2)
+}
+
 func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddress(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

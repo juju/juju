@@ -134,8 +134,8 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 		}},
 	}
 
-	res := new(params.QueryApplicationOffersResults)
-	offer := params.ApplicationOfferDetails{
+	res := new(params.QueryApplicationOffersResultsV5)
+	offer := params.ApplicationOfferDetailsV5{
 		OfferURL:  url,
 		OfferName: offerName,
 		OfferUUID: offerName + "-uuid",
@@ -144,11 +144,11 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 		},
 	}
-	ress := params.QueryApplicationOffersResults{
-		Results: []params.ApplicationOfferAdminDetails{{
-			ApplicationOfferDetails: offer,
-			ApplicationName:         "db2-app",
-			CharmURL:                "ch:db2-5",
+	ress := params.QueryApplicationOffersResultsV5{
+		Results: []params.ApplicationOfferAdminDetailsV5{{
+			ApplicationOfferDetailsV5: offer,
+			ApplicationName:           "db2-app",
+			CharmURL:                  "ch:db2-5",
 			Connections: []params.OfferConnection{
 				{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
 					Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
@@ -202,7 +202,7 @@ func (s *crossmodelMockSuite) TestListError(c *gc.C) {
 		}},
 	}
 
-	res := new(params.QueryApplicationOffersResults)
+	res := new(params.QueryApplicationOffersResultsV5)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListApplicationOffers", args, res).Return(errors.New(msg))
@@ -233,8 +233,8 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	res := new(params.ApplicationOffersResults)
 	ress := params.ApplicationOffersResults{
 		Results: []params.ApplicationOfferResult{
-			{Result: &params.ApplicationOfferAdminDetails{
-				ApplicationOfferDetails: params.ApplicationOfferDetails{
+			{Result: &params.ApplicationOfferAdminDetailsV5{
+				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 					ApplicationDescription: desc,
 					Endpoints:              endpoints,
 					OfferURL:               url,
@@ -323,16 +323,16 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 	res := new(params.ApplicationOffersResults)
 	ress := params.ApplicationOffersResults{
 		Results: []params.ApplicationOfferResult{
-			{Result: &params.ApplicationOfferAdminDetails{
-				ApplicationOfferDetails: params.ApplicationOfferDetails{
+			{Result: &params.ApplicationOfferAdminDetailsV5{
+				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 					ApplicationDescription: desc,
 					Endpoints:              endpoints,
 					OfferURL:               url,
 					OfferName:              offerName,
 				},
 			}},
-			{Result: &params.ApplicationOfferAdminDetails{
-				ApplicationOfferDetails: params.ApplicationOfferDetails{
+			{Result: &params.ApplicationOfferAdminDetailsV5{
+				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 					ApplicationDescription: desc,
 					Endpoints:              endpoints,
 					OfferURL:               url,
@@ -397,8 +397,8 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 		}},
 	}
 
-	res := new(params.QueryApplicationOffersResults)
-	offer := params.ApplicationOfferDetails{
+	res := new(params.QueryApplicationOffersResultsV5)
+	offer := params.ApplicationOfferDetailsV5{
 		OfferURL:  url,
 		OfferName: offerName,
 		Endpoints: endpoints,
@@ -406,9 +406,9 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 		},
 	}
-	ress := params.QueryApplicationOffersResults{
-		Results: []params.ApplicationOfferAdminDetails{{
-			ApplicationOfferDetails: offer,
+	ress := params.QueryApplicationOffersResultsV5{
+		Results: []params.ApplicationOfferAdminDetailsV5{{
+			ApplicationOfferDetailsV5: offer,
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
@@ -455,7 +455,7 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 		}},
 	}
 
-	res := new(params.QueryApplicationOffersResults)
+	res := new(params.QueryApplicationOffersResultsV5)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "FindApplicationOffers", args, res).Return(errors.New(msg))
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
@@ -468,7 +468,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	offer := params.ApplicationOfferDetails{
+	offer := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
 		OfferURL:               "offer url",

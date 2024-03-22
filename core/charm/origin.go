@@ -192,17 +192,3 @@ func (p Platform) String() string {
 
 	return path
 }
-
-func ChannelTrack(channel string) (string, error) {
-	// Base channel can be found as either just the version `20.04` (focal)
-	// or as `20.04/latest` (focal latest). We should future proof ourself
-	// for now and just drop the risk on the floor.
-	ch, err := charm.ParseChannel(channel)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if ch.Track == "" {
-		return "", errors.NotValidf("channel track")
-	}
-	return ch.Track, nil
-}

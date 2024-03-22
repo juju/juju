@@ -44,5 +44,5 @@ pyaml>=17.12.1
 dnspython==1.16.0
 google-api-python-client==1.7.8
 google-cloud-container==0.2.1
-cryptography==42.0.0
+cryptography==42.0.4
 six>=1.15.0

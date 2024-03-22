@@ -441,7 +441,10 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 		if err == nil {
 			channel = potential
 		} else {
-			channel = base.Channel
+			channel, err = sanitiseChannel(base.Channel)
+			if err != nil {
+				return transport.Base{}, logAndReturnError(errors.Trace(err))
+			}
 		}
 	}
 
@@ -450,6 +453,21 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 		Name:         name,
 		Channel:      channel,
 	}, nil
+}
+
+// sanitiseChannel returns a channel, sanitised for charmhub
+//
+// Sometimes channels we receive include a risk, which charmhub
+// cannot understand. So ensure any risk is dropped.
+func sanitiseChannel(channel string) (string, error) {
+	if channel == "" {
+		return channel, nil
+	}
+	ch, err := corebase.ParseChannel(channel)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return ch.Track, nil
 }
 
 // validateBase ensures that we do not pass "all" as part of base.
