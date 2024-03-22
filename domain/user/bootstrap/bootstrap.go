@@ -39,6 +39,8 @@ func AddUser(name string, access permission.AccessSpec) (user.UUID, internaldata
 			fmt.Errorf("generating bootstrap user %q uuid: %w", name, err))
 	}
 
+	state := state.NewSharedState(internaldatabase.DefaultStatementBase{})
+
 	return uuid, func(ctx context.Context, controller, model database.TxnRunner) error {
 		err := controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			return state.AddUser(ctx, tx, uuid, name, "", uuid, access)
@@ -86,6 +88,8 @@ func AddUserWithPassword(name string, password auth.Password, access permission.
 			"generating password hash for bootstrap add user %q with password: %w",
 			name, err))
 	}
+
+	state := state.NewSharedState(internaldatabase.DefaultStatementBase{})
 
 	return uuid, func(ctx context.Context, controller, model database.TxnRunner) error {
 		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {

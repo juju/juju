@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/domain/permission"
 	permissionerrors "github.com/juju/juju/domain/permission/errors"
 	usererrors "github.com/juju/juju/domain/user/errors"
-	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -30,14 +29,17 @@ type Logger interface {
 // State describes retrieval and persistence methods for storage.
 type State struct {
 	*domain.StateBase
-	logger Logger
+	sharedState *SharedState
+	logger      Logger
 }
 
 // NewState returns a new state reference.
 func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
+	base := domain.NewStateBase(factory)
 	return &State{
-		StateBase: domain.NewStateBase(factory),
-		logger:    logger,
+		StateBase:   base,
+		sharedState: NewSharedState(base),
+		logger:      logger,
 	}
 }
 
@@ -64,7 +66,7 @@ func (st *State) CreatePermission(ctx context.Context, newPermissionUUID uuid.UU
 			return errors.Trace(err)
 		}
 
-		if err := AddUserPermission(ctx, tx, AddUserPermissionArgs{
+		if err := st.sharedState.AddUserPermission(ctx, tx, AddUserPermissionArgs{
 			PermissionUUID: newPermissionUUID.String(),
 			UserUUID:       user.UUID,
 			Access:         spec.Access,
@@ -85,59 +87,6 @@ func (st *State) CreatePermission(ctx context.Context, newPermissionUUID uuid.UU
 	userAccess.PermissionID = newPermissionUUID.String()
 	userAccess.Object = objectTag(spec.Target)
 	return userAccess, nil
-}
-
-// AddUserPermissionArgs is a specification for adding a user permission.
-type AddUserPermissionArgs struct {
-	PermissionUUID string
-	UserUUID       string
-	Access         corepermission.Access
-	Target         corepermission.ID
-}
-
-// AddUserPermission adds a permission for the given user on the given target.
-// TODO (stickupkid): Work out if there is a better location for common
-// state functions.
-func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissionArgs) error {
-	// Insert a permission doc with
-	// * permissionObjectAccess as permission_type_id
-	// * uuid of the user (spec.User) as grant_to
-	// * spec.Target.Key as grant_on
-	newPermission := `
-INSERT INTO permission (uuid, permission_type_id, grant_on, grant_to)
-VALUES ($addUserPermission.uuid, $addUserPermission.permission_type_id, $addUserPermission.grant_on, $addUserPermission.grant_to)
-`
-	insertPermissionStmt, err := sqlair.Prepare(newPermission, addUserPermission{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	perm := addUserPermission{
-		UUID:    spec.PermissionUUID,
-		GrantOn: spec.Target.Key,
-		GrantTo: spec.UserUUID,
-	}
-
-	accessTypeID, err := objectAccessID(ctx, tx, spec.Access, spec.Target.ObjectType)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	perm.PermissionType = accessTypeID
-
-	if err = validateTargetExists(ctx, tx, spec.Target.Key); err != nil {
-		return errors.Trace(err)
-	}
-
-	// No IsErrConstraintForeignKey should be seen as both foreign keys
-	// have been checked.
-	err = tx.Query(ctx, insertPermissionStmt, perm).Run()
-	if internaldatabase.IsErrConstraintUnique(err) {
-		return errors.Annotatef(permissionerrors.AlreadyExists, "%q on %q", spec.UserUUID, spec.Target.Key)
-	} else if err != nil {
-		return errors.Annotatef(err, "adding permission %q for %q on %q", spec.Access, spec.UserUUID, spec.Target.Key)
-	}
-
-	return nil
 }
 
 // DeletePermission removes the given subject's (user) access to the

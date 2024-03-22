@@ -110,3 +110,17 @@ func SqlairClauseAnd(columnValues map[string]any) (string, sqlair.M) {
 	}
 	return strings.Join(terms, " AND "), args
 }
+
+// Prepare prepares a SQLair query. If the query has been prepared previously it
+// is retrieved from the statement cache.
+type StatementBase interface {
+	Prepare(query string, typeSamples ...any) (*sqlair.Statement, error)
+}
+
+// DefaultStatementBase is a default implementation of the StatementBase
+// interface.
+type DefaultStatementBase struct{}
+
+func (DefaultStatementBase) Prepare(query string, typeSamples ...interface{}) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, typeSamples...)
+}

@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -16,16 +15,15 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
-	permissionstate "github.com/juju/juju/domain/permission/state"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	"github.com/juju/juju/internal/auth"
 	internaldatabase "github.com/juju/juju/internal/database"
-	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // State represents a type for interacting with the underlying state.
 type State struct {
 	*domain.StateBase
+	sharedState *SharedState
 
 	// userUUIDStmt is a SQLair statement for getting a *non-removed* user
 	// with the input name. It is used frequently enough to avoid repeated
@@ -35,8 +33,10 @@ type State struct {
 
 // NewState returns a new State for interacting with the underlying state.
 func NewState(factory database.TxnRunnerFactory) *State {
+	base := domain.NewStateBase(factory)
 	return &State{
-		StateBase: domain.NewStateBase(factory),
+		StateBase:   base,
+		sharedState: NewSharedState(base),
 	}
 }
 
@@ -58,7 +58,7 @@ func (st *State) AddUser(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission))
+		return errors.Trace(st.sharedState.AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission))
 	})
 }
 
@@ -82,7 +82,7 @@ func (st *State) AddUserWithPasswordHash(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, permission, passwordHash, salt))
+		return errors.Trace(st.sharedState.AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, permission, passwordHash, salt))
 	})
 }
 
@@ -106,7 +106,7 @@ func (st *State) AddUserWithActivationKey(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
+		err = st.sharedState.AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -602,29 +602,6 @@ UPDATE SET disabled = true`
 	}))
 }
 
-// AddUserWithPassword adds a new user to the database with the
-// provided password hash and salt. If the user already exists an error that
-// satisfies usererrors.AlreadyExists will be returned. if the creator does
-// not exist that satisfies usererrors.CreatorUUIDNotFound will be returned.
-func AddUserWithPassword(
-	ctx context.Context,
-	tx *sqlair.TX,
-	uuid user.UUID,
-	name string,
-	displayName string,
-	creatorUUID user.UUID,
-	permission permission.AccessSpec,
-	passwordHash string,
-	salt []byte,
-) error {
-	err := AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
-	if err != nil {
-		return errors.Annotatef(err, "adding user with uuid %q", uuid)
-	}
-
-	return errors.Trace(setPasswordHash(ctx, tx, name, passwordHash, salt))
-}
-
 // UpdateLastLogin updates the last login time for the user with the supplied
 // uuid. If the user does not exist an error that satisfies
 // usererrors.NotFound will be returned.
@@ -664,61 +641,6 @@ WHERE  user_uuid = $M.uuid`
 
 		return nil
 	}))
-}
-
-// AddUser adds a new user to the database. If the user already exists an error
-// that satisfies usererrors.AlreadyExists will be returned. If the creator does
-// not exist an error that satisfies usererrors.UserCreatorUUIDNotFound will be
-// returned.
-func AddUser(
-	ctx context.Context,
-	tx *sqlair.TX,
-	uuid user.UUID,
-	name string,
-	displayName string,
-	creatorUuid user.UUID,
-	access permission.AccessSpec,
-) error {
-	permissionUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return errors.Annotate(err, "generating permission UUID")
-	}
-
-	addUserQuery := `
-INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
-VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)`
-
-	insertAddUserStmt, err := sqlair.Prepare(addUserQuery, sqlair.M{})
-	if err != nil {
-		return errors.Annotate(err, "preparing add user query")
-	}
-
-	err = tx.Query(ctx, insertAddUserStmt, sqlair.M{
-		"uuid":            uuid.String(),
-		"name":            name,
-		"display_name":    displayName,
-		"created_by_uuid": creatorUuid.String(),
-		"created_at":      time.Now(),
-	}).Run()
-	if internaldatabase.IsErrConstraintUnique(err) {
-		return errors.Annotatef(usererrors.AlreadyExists, "adding user %q", name)
-	} else if internaldatabase.IsErrConstraintForeignKey(err) {
-		return errors.Annotatef(usererrors.CreatorUUIDNotFound, "adding user %q", name)
-	} else if err != nil {
-		return errors.Annotatef(err, "adding user %q", name)
-	}
-
-	err = permissionstate.AddUserPermission(ctx, tx, permissionstate.AddUserPermissionArgs{
-		PermissionUUID: permissionUUID.String(),
-		UserUUID:       uuid.String(),
-		Access:         access.Access,
-		Target:         access.Target,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "adding permission for user %q", name)
-	}
-
-	return nil
 }
 
 // ensureUserAuthentication ensures that the user for uuid has their

@@ -110,9 +110,11 @@ func (s *stateSuite) TestBootstrapAddUserWithPassword(c *gc.C) {
 	salt, err := auth.NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
 
+	state := NewSharedState(database.DefaultStatementBase{})
+
 	// Add user with no password authorization.
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		err = AddUserWithPassword(
+		err = state.AddUserWithPassword(
 			context.Background(), tx, adminUUID,
 			"admin", "admin",
 			adminUUID, controllerLoginAccess(), "passwordHash", salt,
