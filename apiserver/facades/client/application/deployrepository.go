@@ -158,7 +158,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		NumUnits:          dt.numUnits,
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
-		Storage:           stateStorageConstraints(dt.storage),
+		Storage:           stateStorageDirectives(dt.storage),
 	}, api.store)
 
 	if addApplicationErr == nil {
@@ -275,7 +275,7 @@ type deployTemplate struct {
 	origin                 corecharm.Origin
 	placement              []*instance.Placement
 	resources              map[string]string
-	storage                map[string]storage.Constraints
+	storage                map[string]storage.Directive
 	pendingResourceUploads []*params.PendingResourceUpload
 	resolvedResources      []resource.Resource
 }

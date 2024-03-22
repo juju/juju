@@ -429,22 +429,22 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	size := uint64(42)
-	cons := params.StorageConstraints{
+	directives := params.StorageDirectives{
 		Pool: "value",
 		Size: &size,
 	}
 
 	errOut := "error"
 	unitStorages := []params.StorageAddParams{
-		{UnitTag: "u-a", StorageName: "one", Constraints: cons},
-		{UnitTag: "u-b", StorageName: errOut, Constraints: cons},
+		{UnitTag: "u-a", StorageName: "one", Directives: directives},
+		{UnitTag: "u-b", StorageName: errOut, Directives: directives},
 		{UnitTag: "u-b", StorageName: "nil-constraints"},
 	}
 
 	storageN := 3
 	expectedError := apiservererrors.ServerError(errors.NotValidf("storage directive"))
 	expectedDetails := &params.AddStorageDetails{[]string{"a/0", "b/1"}}
-	one := func(u, s string, attrs params.StorageConstraints) params.AddStorageResult {
+	one := func(u, s string, attrs params.StorageDirectives) params.AddStorageResult {
 		result := params.AddStorageResult{}
 		if s == errOut {
 			result.Error = expectedError
@@ -459,9 +459,9 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 	result := new(params.AddStorageResults)
 	results := params.AddStorageResults{
 		Results: []params.AddStorageResult{
-			one(unitStorages[0].UnitTag, unitStorages[0].StorageName, unitStorages[0].Constraints),
-			one(unitStorages[1].UnitTag, unitStorages[1].StorageName, unitStorages[1].Constraints),
-			one(unitStorages[2].UnitTag, unitStorages[2].StorageName, unitStorages[2].Constraints),
+			one(unitStorages[0].UnitTag, unitStorages[0].StorageName, unitStorages[0].Directives),
+			one(unitStorages[1].UnitTag, unitStorages[1].StorageName, unitStorages[1].Directives),
+			one(unitStorages[2].UnitTag, unitStorages[2].StorageName, unitStorages[2].Directives),
 		},
 	}
 

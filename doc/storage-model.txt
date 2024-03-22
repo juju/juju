@@ -79,7 +79,7 @@ namespace juju.juju.state <<Database>> {
 		FilesystemType : string
 	}
 
-	class StorageConstraints {
+	class StorageDirectives {
 		StorageName : string
 		Size : int
 		Count : int
@@ -108,10 +108,10 @@ namespace juju.juju.state <<Database>> {
 
 	Unit "1" *-- "*" StorageInstance : owns (non-shared) >
 	Unit "1" *-- "*" StorageAttachment : has
-	Unit "1" *-- "*" StorageConstraints : records >
+	Unit "1" *-- "*" StorageDirectives : records >
 
 	application "1" *-- "*" StorageInstance : owns (shared) >
-	application "1" *-- "*" StorageConstraints : records >
+	application "1" *-- "*" StorageDirectives : records >
 	application "1" -- "1" juju.charm.Charm
 
 	StorageInstance --* StoragePool

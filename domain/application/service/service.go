@@ -68,15 +68,15 @@ func NewService(st State, logger Logger, registry storage.ProviderRegistry) *Ser
 
 // CreateApplication creates the specified application and units if required.
 func (s *Service) CreateApplication(ctx context.Context, name string, params AddApplicationParams, units ...AddUnitParams) error {
-	cons := make(map[string]storage.Constraints)
+	cons := make(map[string]storage.Directive)
 	for n, sc := range params.Storage {
 		cons[n] = sc
 	}
-	if err := s.addDefaultStorageConstraints(ctx, s.modelType, cons, params.Charm.Meta()); err != nil {
-		return errors.Annotate(err, "adding default storage constraints")
+	if err := s.addDefaultStorageDirectives(ctx, s.modelType, cons, params.Charm.Meta()); err != nil {
+		return errors.Annotate(err, "adding default storage directives")
 	}
-	if err := s.validateStorageConstraints(ctx, s.modelType, cons, params.Charm); err != nil {
-		return errors.Annotate(err, "invalid storage constraints")
+	if err := s.validateStorageDirectives(ctx, s.modelType, cons, params.Charm); err != nil {
+		return errors.Annotate(err, "invalid storage directives")
 	}
 	args := make([]application.AddUnitParams, len(units))
 	for i, u := range units {
@@ -84,7 +84,7 @@ func (s *Service) CreateApplication(ctx context.Context, name string, params Add
 			UnitName: u.UnitName,
 		}
 	}
-	//TODO(storage) - insert storage cons for app
+	//TODO(storage) - insert storage directive for app
 
 	err := s.st.UpsertApplication(ctx, name, args...)
 	return errors.Annotatef(err, "saving application %q", name)
@@ -120,34 +120,34 @@ func (s *Service) DeleteApplication(ctx context.Context, name string) error {
 // UpdateApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm.
 func (s *Service) UpdateApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
-	//TODO(storage) - update charm and storage cons for app
+	//TODO(storage) - update charm and storage directive for app
 	return nil
 }
 
-// addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
-// in the specified constraints.
-func (s *Service) addDefaultStorageConstraints(ctx context.Context, modelType coremodel.ModelType, allCons map[string]storage.Constraints, charmMeta *charm.Meta) error {
+// addDefaultStorageDirectives fills in default values, replacing any empty/missing values
+// in the specified directives.
+func (s *Service) addDefaultStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charmMeta *charm.Meta) error {
 	defaults, err := s.st.StorageDefaults(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting storage defaults")
 	}
-	return domainstorage.StorageConstraintsWithDefaults(charmMeta.Storage, modelType, defaults, allCons)
+	return domainstorage.StorageDirectivesWithDefaults(charmMeta.Storage, modelType, defaults, allDirectives)
 }
 
-func (s *Service) validateStorageConstraints(ctx context.Context, modelType coremodel.ModelType, allCons map[string]storage.Constraints, charm Charm) error {
-	validator, err := domainstorage.NewStorageConstraintsValidator(modelType, s.registry, s.st)
+func (s *Service) validateStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charm Charm) error {
+	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, s.registry, s.st)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = validator.ValidateStorageConstraintsAgainstCharm(ctx, allCons, charm)
+	err = validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, charm)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Ensure all stores have constraints specified. Defaults should have
-	// been set by this point, if the user didn't specify constraints.
+	// Ensure all stores have directives specified. Defaults should have
+	// been set by this point, if the user didn't specify any.
 	for name, charmStorage := range charm.Meta().Storage {
-		if _, ok := allCons[name]; !ok && charmStorage.CountMin > 0 {
-			return fmt.Errorf("%w for store %q", applicationerrors.MissingStorageConstraints, name)
+		if _, ok := allDirectives[name]; !ok && charmStorage.CountMin > 0 {
+			return fmt.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
 		}
 	}
 	return nil

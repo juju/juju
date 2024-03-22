@@ -11,90 +11,90 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type ConstraintsSuite struct {
+type DirectiveSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ConstraintsSuite{})
+var _ = gc.Suite(&DirectiveSuite{})
 
-func (s *ConstraintsSuite) TestParseConstraintsStoragePool(c *gc.C) {
-	s.testParse(c, "pool,1M", storage.Constraints{
+func (s *DirectiveSuite) TestParseConstraintsStoragePool(c *gc.C) {
+	s.testParse(c, "pool,1M", storage.Directive{
 		Pool:  "pool",
 		Count: 1,
 		Size:  1,
 	})
-	s.testParse(c, "pool,", storage.Constraints{
+	s.testParse(c, "pool,", storage.Directive{
 		Pool:  "pool",
 		Count: 1,
 	})
-	s.testParse(c, "1M", storage.Constraints{
+	s.testParse(c, "1M", storage.Directive{
 		Size:  1,
 		Count: 1,
 	})
 }
 
-func (s *ConstraintsSuite) TestParseConstraintsCountSize(c *gc.C) {
-	s.testParse(c, "p,1G", storage.Constraints{
+func (s *DirectiveSuite) TestParseConstraintsCountSize(c *gc.C) {
+	s.testParse(c, "p,1G", storage.Directive{
 		Pool:  "p",
 		Count: 1,
 		Size:  1024,
 	})
-	s.testParse(c, "p,1,0.5T", storage.Constraints{
+	s.testParse(c, "p,1,0.5T", storage.Directive{
 		Pool:  "p",
 		Count: 1,
 		Size:  1024 * 512,
 	})
-	s.testParse(c, "p,0.125P,3", storage.Constraints{
+	s.testParse(c, "p,0.125P,3", storage.Directive{
 		Pool:  "p",
 		Count: 3,
 		Size:  1024 * 1024 * 128,
 	})
 }
 
-func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
-	s.testParse(c, "p,1M,", storage.Constraints{
+func (s *DirectiveSuite) TestParseConstraintsOptions(c *gc.C) {
+	s.testParse(c, "p,1M,", storage.Directive{
 		Pool:  "p",
 		Count: 1,
 		Size:  1,
 	})
 }
 
-func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
+func (s *DirectiveSuite) TestParseConstraintsCountRange(c *gc.C) {
 	s.testParseError(c, "p,0,100M", `cannot parse count: count must be greater than zero, got "0"`)
 	s.testParseError(c, "p,00,100M", `cannot parse count: count must be greater than zero, got "00"`)
 	s.testParseError(c, "p,-1,100M", `cannot parse count: count must be greater than zero, got "-1"`)
-	s.testParseError(c, "", `storage constraints require at least one field to be specified`)
-	s.testParseError(c, ",", `storage constraints require at least one field to be specified`)
+	s.testParseError(c, "", `storage directives require at least one field to be specified`)
+	s.testParseError(c, ",", `storage directives require at least one field to be specified`)
 }
 
-func (s *ConstraintsSuite) TestParseConstraintsSizeRange(c *gc.C) {
+func (s *DirectiveSuite) TestParseConstraintsSizeRange(c *gc.C) {
 	s.testParseError(c, "p,-100M", `cannot parse size: expected a non-negative number, got "-100M"`)
 }
 
-func (s *ConstraintsSuite) TestParseMultiplePoolNames(c *gc.C) {
+func (s *DirectiveSuite) TestParseMultiplePoolNames(c *gc.C) {
 	s.testParseError(c, "pool1,anyoldjunk", `pool name is already set to "pool1", new value "anyoldjunk" not valid`)
 	s.testParseError(c, "pool1,pool2", `pool name is already set to "pool1", new value "pool2" not valid`)
 	s.testParseError(c, "pool1,pool2,pool3", `pool name is already set to "pool1", new value "pool2" not valid`)
 }
 
-func (s *ConstraintsSuite) TestParseConstraintsUnknown(c *gc.C) {
+func (s *DirectiveSuite) TestParseConstraintsUnknown(c *gc.C) {
 	// Regression test for #1855181
-	s.testParseError(c, "p,100M database-b", `unrecognized storage constraint "100M database-b" not valid`)
-	s.testParseError(c, "p,$1234", `unrecognized storage constraint "\$1234" not valid`)
+	s.testParseError(c, "p,100M database-b", `unrecognized storage directive "100M database-b" not valid`)
+	s.testParseError(c, "p,$1234", `unrecognized storage directive "\$1234" not valid`)
 }
 
-func (*ConstraintsSuite) testParse(c *gc.C, s string, expect storage.Constraints) {
-	cons, err := storage.ParseConstraints(s)
+func (*DirectiveSuite) testParse(c *gc.C, s string, expect storage.Directive) {
+	cons, err := storage.ParseDirective(s)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cons, gc.DeepEquals, expect)
 }
 
-func (*ConstraintsSuite) testParseError(c *gc.C, s, expectErr string) {
-	_, err := storage.ParseConstraints(s)
+func (*DirectiveSuite) testParseError(c *gc.C, s, expectErr string) {
+	_, err := storage.ParseDirective(s)
 	c.Check(err, gc.ErrorMatches, expectErr)
 }
 
-func (s *ConstraintsSuite) TestValidPoolName(c *gc.C) {
+func (s *DirectiveSuite) TestValidPoolName(c *gc.C) {
 	c.Assert(storage.IsValidPoolName("pool"), jc.IsTrue)
 	c.Assert(storage.IsValidPoolName("p-ool"), jc.IsTrue)
 	c.Assert(storage.IsValidPoolName("p-00l"), jc.IsTrue)
@@ -105,29 +105,29 @@ func (s *ConstraintsSuite) TestValidPoolName(c *gc.C) {
 	c.Assert(storage.IsValidPoolName("p?0?l"), jc.IsTrue)
 }
 
-func (s *ConstraintsSuite) TestInvalidPoolName(c *gc.C) {
+func (s *DirectiveSuite) TestInvalidPoolName(c *gc.C) {
 	c.Assert(storage.IsValidPoolName("7ool"), jc.IsFalse)
 	c.Assert(storage.IsValidPoolName("/ool"), jc.IsFalse)
 	c.Assert(storage.IsValidPoolName("-00l"), jc.IsFalse)
 	c.Assert(storage.IsValidPoolName("*00l"), jc.IsFalse)
 }
 
-func (s *ConstraintsSuite) TestParseStorageConstraints(c *gc.C) {
-	s.testParseStorageConstraints(c,
+func (s *DirectiveSuite) TestParseStorageDirectives(c *gc.C) {
+	s.testParseStorageDirectives(c,
 		[]string{"data=p,1M,"}, true,
-		map[string]storage.Constraints{"data": {
+		map[string]storage.Directive{"data": {
 			Pool:  "p",
 			Count: 1,
 			Size:  1,
 		}})
-	s.testParseStorageConstraints(c,
+	s.testParseStorageDirectives(c,
 		[]string{"data"}, false,
-		map[string]storage.Constraints{"data": {
+		map[string]storage.Directive{"data": {
 			Count: 1,
 		}})
-	s.testParseStorageConstraints(c,
+	s.testParseStorageDirectives(c,
 		[]string{"data=3", "cache"}, false,
-		map[string]storage.Constraints{
+		map[string]storage.Directive{
 			"data": {
 				Count: 3,
 			},
@@ -137,30 +137,30 @@ func (s *ConstraintsSuite) TestParseStorageConstraints(c *gc.C) {
 		})
 }
 
-func (s *ConstraintsSuite) TestParseStorageConstraintsErrors(c *gc.C) {
-	s.testStorageConstraintsError(c,
+func (s *DirectiveSuite) TestParseStorageDirectivesErrors(c *gc.C) {
+	s.testStorageDirectivesError(c,
 		[]string{"data"}, true,
-		`.*where "constraints" must be specified.*`)
-	s.testStorageConstraintsError(c,
+		`.*where "directive" must be specified.*`)
+	s.testStorageDirectivesError(c,
 		[]string{"data=p,=1M,"}, false,
-		`.*expected "name=constraints" or "name", got .*`)
-	s.testStorageConstraintsError(c,
+		`.*expected "name=directive" or "name", got .*`)
+	s.testStorageDirectivesError(c,
 		[]string{"data", "data"}, false,
 		`storage "data" specified more than once`)
-	s.testStorageConstraintsError(c,
+	s.testStorageDirectivesError(c,
 		[]string{"data=-1"}, false,
-		`.*cannot parse constraints for storage "data".*`)
-	s.testStorageConstraintsError(c,
+		`.*cannot parse directive for storage "data".*`)
+	s.testStorageDirectivesError(c,
 		[]string{"data="}, false,
-		`.*cannot parse constraints for storage "data".*`)
+		`.*cannot parse directive for storage "data".*`)
 }
 
-func (*ConstraintsSuite) testParseStorageConstraints(c *gc.C,
+func (*DirectiveSuite) testParseStorageDirectives(c *gc.C,
 	s []string,
 	mustHave bool,
-	expect map[string]storage.Constraints,
+	expect map[string]storage.Directive,
 ) {
-	cons, err := storage.ParseConstraintsMap(s, mustHave)
+	cons, err := storage.ParseDirectivesMap(s, mustHave)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(cons), gc.Equals, len(expect))
 	for k, v := range expect {
@@ -168,13 +168,13 @@ func (*ConstraintsSuite) testParseStorageConstraints(c *gc.C,
 	}
 }
 
-func (*ConstraintsSuite) testStorageConstraintsError(c *gc.C, s []string, mustHave bool, e string) {
-	_, err := storage.ParseConstraintsMap(s, mustHave)
+func (*DirectiveSuite) testStorageDirectivesError(c *gc.C, s []string, mustHave bool, e string) {
+	_, err := storage.ParseDirectivesMap(s, mustHave)
 	c.Check(err, gc.ErrorMatches, e)
 }
 
-func (s *ConstraintsSuite) TestToString(c *gc.C) {
-	_, err := storage.ToString(storage.Constraints{})
+func (s *DirectiveSuite) TestToString(c *gc.C) {
+	_, err := storage.ToString(storage.Directive{})
 	c.Assert(err, gc.ErrorMatches, "must provide one of pool or size or count")
 
 	for _, t := range []struct {
@@ -191,7 +191,7 @@ func (s *ConstraintsSuite) TestToString(c *gc.C) {
 		{"", 1, 0, "1"},
 		{"", 1, 1024, "1,1024M"},
 	} {
-		str, err := storage.ToString(storage.Constraints{
+		str, err := storage.ToString(storage.Directive{
 			Pool:  t.pool,
 			Size:  t.size,
 			Count: t.count,
@@ -203,7 +203,7 @@ func (s *ConstraintsSuite) TestToString(c *gc.C) {
 		if t.count == 0 {
 			t.count = 1
 		}
-		s.testParse(c, str, storage.Constraints{
+		s.testParse(c, str, storage.Directive{
 			Pool:  t.pool,
 			Size:  t.size,
 			Count: t.count,

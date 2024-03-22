@@ -64,7 +64,7 @@ func (mr *MockContextMockRecorder) ActionParams() *gomock.Call {
 }
 
 // AddUnitStorage mocks base method.
-func (m *MockContext) AddUnitStorage(arg0 map[string]params.StorageConstraints) error {
+func (m *MockContext) AddUnitStorage(arg0 map[string]params.StorageDirectives) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUnitStorage", arg0)
 	ret0, _ := ret[0].(error)

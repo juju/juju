@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/v4"
 )
 
-// Constraints describes a set of storage constraints.
-type Constraints struct {
+// Directive describes a set of storage directives.
+type Directive struct {
 	// Pool is the name of the storage pool (ebs, ceph, custompool, ...)
 	// that must provide the storage, or "" if the default pool should be
 	// used.
@@ -33,10 +33,9 @@ var (
 	sizeRE  = regexp.MustCompile("^-?[0-9]+(?:\\.[0-9]+)?[MGTPEZY](?:i?B)?$")
 )
 
-// ParseConstraints parses the specified string and creates a
-// Constraints structure.
+// ParseDirective parses the specified string and creates a Directive structure.
 //
-// The acceptable format for storage constraints is a comma separated
+// The acceptable format for storage directive is a comma separated
 // sequence of: POOL, COUNT, and SIZE, where
 //
 //	POOL identifies the storage pool. POOL can be a string
@@ -51,44 +50,44 @@ var (
 //	create. SIZE is a floating point number and multiplier from
 //	the set (M, G, T, P, E, Z, Y), which are all treated as
 //	powers of 1024.
-func ParseConstraints(s string) (Constraints, error) {
-	var cons Constraints
+func ParseDirective(s string) (Directive, error) {
+	var directive Directive
 	fields := strings.Split(s, ",")
 	for _, field := range fields {
 		if field == "" {
 			continue
 		}
 		if IsValidPoolName(field) {
-			if cons.Pool != "" {
-				return cons, errors.NotValidf("pool name is already set to %q, new value %q", cons.Pool, field)
+			if directive.Pool != "" {
+				return directive, errors.NotValidf("pool name is already set to %q, new value %q", directive.Pool, field)
 			} else {
-				cons.Pool = field
+				directive.Pool = field
 			}
 			continue
 		}
 		if count, ok, err := parseCount(field); ok {
 			if err != nil {
-				return cons, errors.Annotate(err, "cannot parse count")
+				return directive, errors.Annotate(err, "cannot parse count")
 			}
-			cons.Count = count
+			directive.Count = count
 			continue
 		}
 		if size, ok, err := parseSize(field); ok {
 			if err != nil {
-				return cons, errors.Annotate(err, "cannot parse size")
+				return directive, errors.Annotate(err, "cannot parse size")
 			}
-			cons.Size = size
+			directive.Size = size
 			continue
 		}
-		return cons, errors.NotValidf("unrecognized storage constraint %q", field)
+		return directive, errors.NotValidf("unrecognized storage directive %q", field)
 	}
-	if cons.Count == 0 && cons.Size == 0 && cons.Pool == "" {
-		return Constraints{}, errors.New("storage constraints require at least one field to be specified")
+	if directive.Count == 0 && directive.Size == 0 && directive.Pool == "" {
+		return Directive{}, errors.New("storage directives require at least one field to be specified")
 	}
-	if cons.Count == 0 {
-		cons.Count = 1
+	if directive.Count == 0 {
+		directive.Count = 1
 	}
-	return cons, nil
+	return directive, nil
 }
 
 // IsValidPoolName checks if given string is a valid pool name.
@@ -96,13 +95,13 @@ func IsValidPoolName(s string) bool {
 	return poolRE.MatchString(s)
 }
 
-// ParseConstraintsMap parses string representation of
-// storage constraints into a map keyed on storage names
-// with constraints as values.
+// ParseDirectivesMap parses string representation of
+// storage directives into a map keyed on storage names
+// with directives as values.
 //
-// Storage constraints may be specified as
+// Storage directives may be specified as
 //
-//	<name>=<constraints>
+//	<name>=<directive>
 //
 // or as
 //
@@ -111,18 +110,18 @@ func IsValidPoolName(s string) bool {
 // where latter is equivalent to <name>=1.
 //
 // Duplicate storage names cause an error to be returned.
-// Constraints presence can be enforced.
-func ParseConstraintsMap(args []string, mustHaveConstraints bool) (map[string]Constraints, error) {
-	results := make(map[string]Constraints, len(args))
+// Directive presence can be enforced.
+func ParseDirectivesMap(args []string, mustHaveDirectives bool) (map[string]Directive, error) {
+	results := make(map[string]Directive, len(args))
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", -1)
 		name := parts[0]
 		if len(parts) > 2 || len(name) == 0 {
-			return nil, errors.Errorf(`expected "name=constraints" or "name", got %q`, kv)
+			return nil, errors.Errorf(`expected "name=directive" or "name", got %q`, kv)
 		}
 
-		if mustHaveConstraints && len(parts) == 1 {
-			return nil, errors.Errorf(`expected "name=constraints" where "constraints" must be specified, got %q`, kv)
+		if mustHaveDirectives && len(parts) == 1 {
+			return nil, errors.Errorf(`expected "name=directive" where "directive" must be specified, got %q`, kv)
 		}
 
 		if _, exists := results[name]; exists {
@@ -132,9 +131,9 @@ func ParseConstraintsMap(args []string, mustHaveConstraints bool) (map[string]Co
 		if len(parts) > 1 {
 			consString = parts[1]
 		}
-		cons, err := ParseConstraints(consString)
+		cons, err := ParseDirective(consString)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot parse constraints for storage %q", name)
+			return nil, errors.Annotatef(err, "cannot parse directive for storage %q", name)
 		}
 
 		results[name] = cons
@@ -173,8 +172,8 @@ func parseSize(s string) (uint64, bool, error) {
 	return size, true, nil
 }
 
-// ToString returns a parsable string representation of the storage constraints.
-func ToString(c Constraints) (string, error) {
+// ToString returns a parsable string representation of the storage directives.
+func ToString(c Directive) (string, error) {
 	if c.Pool == "" && c.Size <= 0 && c.Count <= 0 {
 		return "", errors.Errorf("must provide one of pool or size or count")
 	}

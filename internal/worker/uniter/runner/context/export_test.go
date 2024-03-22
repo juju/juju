@@ -217,8 +217,8 @@ func WithActionContext(ctx *HookContext, in map[string]interface{}, cancel <-cha
 	}
 }
 
-func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstraints {
-	return ctx.storageAddConstraints
+func StorageAddDirectives(ctx *HookContext) map[string][]params.StorageDirectives {
+	return ctx.storageAddDirectives
 }
 
 // ModelHookContextParams encapsulates the parameters for a NewModelHookContext call.

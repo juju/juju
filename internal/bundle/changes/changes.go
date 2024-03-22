@@ -544,7 +544,7 @@ type AddApplicationParams struct {
 	Options map[string]interface{} `json:"options,omitempty"`
 	// Constraints holds the optional application constraints.
 	Constraints string `json:"constraints,omitempty"`
-	// Storage holds the optional storage constraints.
+	// Storage holds the optional storage directives.
 	Storage map[string]string `json:"storage,omitempty"`
 	// Devices holds the optional devices constraints.
 	Devices map[string]string `json:"devices,omitempty"`

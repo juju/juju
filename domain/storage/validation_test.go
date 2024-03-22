@@ -51,8 +51,8 @@ func (s *validationSuite) SetUpTest(_ *gc.C) {
 	}
 }
 
-func makeStorageCons(pool string, size, count uint64) storage.Constraints {
-	return storage.Constraints{
+func makeStorageDirective(pool string, size, count uint64) storage.Directive {
+	return storage.Directive{
 		Pool:  pool,
 		Size:  size,
 		Count: count,
@@ -81,12 +81,12 @@ func (m mockCharm) Meta() *charm.Meta {
 	return m.meta
 }
 
-func (s *validationSuite) validateStorageConstraints(storage map[string]storage.Constraints) error {
-	validator, err := domainstorage.NewStorageConstraintsValidator(s.modelType, provider.CommonStorageProviders(), mockStoragePoolGetter{})
+func (s *validationSuite) validateStorageDirectives(storage map[string]storage.Directive) error {
+	validator, err := domainstorage.NewStorageDirectivesValidator(s.modelType, provider.CommonStorageProviders(), mockStoragePoolGetter{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return validator.ValidateStorageConstraintsAgainstCharm(
+	return validator.ValidateStorageDirectivesAgainstCharm(
 		context.Background(),
 		storage,
 		s.charm,
@@ -94,63 +94,63 @@ func (s *validationSuite) validateStorageConstraints(storage map[string]storage.
 }
 
 func (s *validationSuite) TestNilRegistry(c *gc.C) {
-	_, err := domainstorage.NewStorageConstraintsValidator(s.modelType, nil, mockStoragePoolGetter{})
-	c.Assert(err, gc.ErrorMatches, "cannot create storage constraints validator with nil registry")
+	_, err := domainstorage.NewStorageDirectivesValidator(s.modelType, nil, mockStoragePoolGetter{})
+	c.Assert(err, gc.ErrorMatches, "cannot create storage directives validator with nil registry")
 }
 
-func (s *validationSuite) TestValidateStorageConstraintsAgainstCharmSuccess(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"multi1to10": makeStorageCons("loop-pool", 1024, 10),
-		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmSuccess(c *gc.C) {
+	storageDirectives := map[string]storage.Directive{
+		"multi1to10": makeStorageDirective("loop-pool", 1024, 10),
+		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
-	err := s.validateStorageConstraints(storageCons)
+	err := s.validateStorageDirectives(storageDirectives)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *validationSuite) TestValidateStorageConstraintsAgainstCharmStoragePoolNotFound(c *gc.C) {
-	storageCons := map[string]storage.Constraints{
-		"multi1to10": makeStorageCons("ebs-fast", 1024, 10),
-		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmStoragePoolNotFound(c *gc.C) {
+	storageDirectives := map[string]storage.Directive{
+		"multi1to10": makeStorageDirective("ebs-fast", 1024, 10),
+		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
-	err := s.validateStorageConstraints(storageCons)
+	err := s.validateStorageDirectives(storageDirectives)
 	c.Assert(err, gc.ErrorMatches, `storage pool "ebs-fast" not found`)
 	c.Assert(err, jc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
-func (s *validationSuite) TestValidateStorageConstraintsAgainstCharmErrors(c *gc.C) {
-	assertErr := func(storage map[string]storage.Constraints, expect string) {
-		err := s.validateStorageConstraints(storage)
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmErrors(c *gc.C) {
+	assertErr := func(storage map[string]storage.Directive, expect string) {
+		err := s.validateStorageDirectives(storage)
 		c.Assert(err, gc.ErrorMatches, expect)
 	}
 
-	storageCons := map[string]storage.Constraints{
-		"multi1to10": makeStorageCons("loop-pool", 1024, 1),
-		"multi2up":   makeStorageCons("loop-pool", 2048, 1),
+	storageDirectives := map[string]storage.Directive{
+		"multi1to10": makeStorageDirective("loop-pool", 1024, 1),
+		"multi2up":   makeStorageDirective("loop-pool", 2048, 1),
 	}
-	assertErr(storageCons, `charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
+	assertErr(storageDirectives, `charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
 
-	storageCons["multi2up"] = makeStorageCons("loop-pool", 1024, 2)
-	assertErr(storageCons, `charm "storage-block2" store "multi2up": minimum storage size is 2.0 GB, 1.0 GB specified`)
+	storageDirectives["multi2up"] = makeStorageDirective("loop-pool", 1024, 2)
+	assertErr(storageDirectives, `charm "storage-block2" store "multi2up": minimum storage size is 2.0 GB, 1.0 GB specified`)
 
-	storageCons["multi2up"] = makeStorageCons("loop-pool", 2048, 2)
-	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 11)
-	assertErr(storageCons, `charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
+	storageDirectives["multi2up"] = makeStorageDirective("loop-pool", 2048, 2)
+	storageDirectives["multi1to10"] = makeStorageDirective("loop-pool", 1024, 11)
+	assertErr(storageDirectives, `charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
 
-	storageCons["multi1to10"] = makeStorageCons("rootfs", 1024, 1)
-	assertErr(storageCons, `"rootfs" provider does not support "block" storage`)
+	storageDirectives["multi1to10"] = makeStorageDirective("rootfs", 1024, 1)
+	assertErr(storageDirectives, `"rootfs" provider does not support "block" storage`)
 }
 
-func (s *validationSuite) TestValidateStorageConstraintsAgainstCharmCaasBlockNotSupported(c *gc.C) {
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaasBlockNotSupported(c *gc.C) {
 	s.modelType = coremodel.CAAS
-	storageCons := map[string]storage.Constraints{
-		"multi1to10": makeStorageCons("loop-pool", 1024, 1),
-		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
+	storageDirectives := map[string]storage.Directive{
+		"multi1to10": makeStorageDirective("loop-pool", 1024, 1),
+		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
-	err := s.validateStorageConstraints(storageCons)
+	err := s.validateStorageDirectives(storageDirectives)
 	c.Assert(err, gc.ErrorMatches, `block storage on a container model not supported`)
 }
 
-func (s *validationSuite) TestValidateStorageConstraintsAgainstCharmCaas(c *gc.C) {
+func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaas(c *gc.C) {
 	s.modelType = coremodel.CAAS
 	s.charm.meta = &charm.Meta{
 		Name: "storage-block2",
@@ -164,9 +164,9 @@ func (s *validationSuite) TestValidateStorageConstraintsAgainstCharmCaas(c *gc.C
 		},
 	}
 
-	storageCons := map[string]storage.Constraints{
-		"files": makeStorageCons("tmp", 2048, 1),
+	storageDirectives := map[string]storage.Directive{
+		"files": makeStorageDirective("tmp", 2048, 1),
 	}
-	err := s.validateStorageConstraints(storageCons)
+	err := s.validateStorageDirectives(storageDirectives)
 	c.Assert(err, gc.ErrorMatches, `invalid storage config: storage medium "foo" not valid`)
 }

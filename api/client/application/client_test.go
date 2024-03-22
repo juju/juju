@@ -52,7 +52,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				Constraints:      constraints.MustParse("mem=4G"),
 				Placement:        []*instance.Placement{{"scope", "directive"}},
 				EndpointBindings: map[string]string{"foo": "bar"},
-				Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
+				Storage:          map[string]storage.Directive{"data": {Pool: "pool"}},
 				AttachStorage:    []string{"storage-data-0"},
 				Resources:        map[string]string{"foo": "bar"},
 			},
@@ -75,7 +75,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 		Config:           map[string]string{"foo": "bar"},
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
-		Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
+		Storage:          map[string]storage.Directive{"data": {Pool: "pool"}},
 		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
@@ -105,7 +105,7 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 				Constraints:      constraints.MustParse("mem=4G"),
 				Placement:        []*instance.Placement{{"scope", "directive"}},
 				EndpointBindings: map[string]string{"foo": "bar"},
-				Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
+				Storage:          map[string]storage.Directive{"data": {Pool: "pool"}},
 				AttachStorage:    []string{"storage-data-0"},
 				Resources:        map[string]string{"foo": "bar"},
 			},
@@ -128,7 +128,7 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 		Config:           map[string]string{"foo": "bar"},
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
-		Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
+		Storage:          map[string]storage.Directive{"data": {Pool: "pool"}},
 		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
@@ -229,7 +229,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		return &v
 	}
 
-	args := params.ApplicationSetCharm{
+	args := params.ApplicationSetCharmV2{
 		ApplicationName: "application",
 		CharmURL:        "ch:application-1",
 		CharmOrigin: &params.CharmOrigin{
@@ -245,7 +245,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		Force:              true,
 		ForceBase:          true,
 		ForceUnits:         true,
-		StorageConstraints: map[string]params.StorageConstraints{
+		StorageDirectives: map[string]params.StorageDirectives{
 			"a": {Pool: "radiant"},
 			"b": {Count: toUint64Ptr(123)},
 			"c": {Size: toUint64Ptr(123)},
@@ -257,7 +257,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(args.Force, gc.Equals, true)
 	c.Assert(args.ForceBase, gc.Equals, true)
 	c.Assert(args.ForceUnits, gc.Equals, true)
-	c.Assert(args.StorageConstraints, jc.DeepEquals, map[string]params.StorageConstraints{
+	c.Assert(args.StorageDirectives, jc.DeepEquals, map[string]params.StorageDirectives{
 		"a": {Pool: "radiant"},
 		"b": {Count: toUint64Ptr(123)},
 		"c": {Size: toUint64Ptr(123)},
@@ -280,7 +280,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		Force:              true,
 		ForceBase:          true,
 		ForceUnits:         true,
-		StorageConstraints: map[string]storage.Constraints{
+		StorageDirectives: map[string]storage.Directive{
 			"a": {Pool: "radiant"},
 			"b": {Count: 123},
 			"c": {Size: 123},

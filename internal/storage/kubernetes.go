@@ -4,7 +4,7 @@
 package storage
 
 // KubernetesFilesystemParams is a fully specified set of parameters for filesystem creation,
-// derived from one or more of user-specified storage constraints, a
+// derived from one or more of user-specified storage directives, a
 // storage pool definition, and charm storage metadata.
 type KubernetesFilesystemParams struct {
 	// StorageName is the name of the storage as specified in the charm.

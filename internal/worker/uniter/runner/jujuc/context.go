@@ -308,8 +308,8 @@ type ContextStorage interface {
 	// was not found or is not available.
 	HookStorage() (ContextStorageAttachment, error)
 
-	// AddUnitStorage saves storage constraints in the context.
-	AddUnitStorage(map[string]params.StorageConstraints) error
+	// AddUnitStorage saves storage directives in the context.
+	AddUnitStorage(map[string]params.StorageDirectives) error
 }
 
 // ContextResources exposes the functionality needed by the

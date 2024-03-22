@@ -575,9 +575,9 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	if factory.applicationService != nil {
-		cons := make(map[string]storage.Constraints)
+		directives := make(map[string]storage.Directive)
 		for name, sc := range params.Storage {
-			cons[name] = storage.Constraints{
+			directives[name] = storage.Directive{
 				Pool:  sc.Pool,
 				Size:  sc.Size,
 				Count: sc.Count,
@@ -585,7 +585,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		}
 		err = factory.applicationService.CreateApplication(context.Background(), params.Name, applicationservice.AddApplicationParams{
 			Charm:   params.Charm,
-			Storage: cons,
+			Storage: directives,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}

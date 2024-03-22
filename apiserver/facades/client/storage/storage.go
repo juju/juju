@@ -456,7 +456,7 @@ func (a *StorageAPI) addToUnit(ctx stdcontext.Context, args params.StoragesAddPa
 		return params.AddStorageResults{}, errors.Trace(err)
 	}
 
-	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
+	paramsToState := func(p params.StorageDirectives) state.StorageConstraints {
 		s := state.StorageConstraints{Pool: p.Pool}
 		if p.Size != nil {
 			s.Size = *p.Size
@@ -476,7 +476,7 @@ func (a *StorageAPI) addToUnit(ctx stdcontext.Context, args params.StoragesAddPa
 		}
 
 		storageTags, err := a.storageAccess.AddStorageForUnit(
-			u, one.StorageName, paramsToState(one.Constraints),
+			u, one.StorageName, paramsToState(one.Directives),
 		)
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)

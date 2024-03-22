@@ -35,7 +35,7 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 
 	machines := []params.AddMachineParams{{
 		Base:  &params.Base{Name: "ubuntu", Channel: "22.04"},
-		Disks: []storage.Constraints{{Pool: "loop", Size: 1}},
+		Disks: []storage.Directive{{Pool: "loop", Size: 1}},
 	}, {
 		Base: &params.Base{Name: "ubuntu", Channel: "20.04"},
 	}}

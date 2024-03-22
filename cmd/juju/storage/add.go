@@ -43,11 +43,11 @@ deployment process).
 <storage-directive> describes to the charm how to refer to the storage, 
 and where to provision it from. <storage-directive> takes the following form:
 	
-    <storage-name>[=<storage-constraint>]
+    <storage-name>[=<storage-directive>]
 
 <storage-name> is defined in the charm's metadata.yaml file.   
 
-<storage-constraint> is a description of how Juju should provision storage 
+<storage-directive> is a description of how Juju should provision storage 
 instances for the unit. The following three forms are accepted:
 
     <storage-pool>[,<count>][,<size>]
@@ -96,10 +96,10 @@ type addCommand struct {
 	modelcmd.IAASOnlyCommand
 	unitTag names.UnitTag
 
-	// storageCons is a map of storage constraints, keyed on the storage name
+	// storageDirectives is a map of storage directives, keyed on the storage name
 	// defined in charm storage metadata.
-	storageCons map[string]storage.Constraints
-	newAPIFunc  func() (StorageAddAPI, error)
+	storageDirectives map[string]storage.Directive
+	newAPIFunc        func() (StorageAddAPI, error)
 }
 
 // Init implements Command.Init.
@@ -114,7 +114,7 @@ func (c *addCommand) Init(args []string) (err error) {
 	}
 	c.unitTag = names.NewUnitTag(u)
 
-	c.storageCons, err = storage.ParseConstraintsMap(args[1:], false)
+	c.storageDirectives, err = storage.ParseDirectivesMap(args[1:], false)
 	return
 }
 
@@ -200,16 +200,16 @@ type StorageAddAPI interface {
 }
 
 func (c *addCommand) createStorageAddParams() []params.StorageAddParams {
-	all := make([]params.StorageAddParams, 0, len(c.storageCons))
-	for one, sc := range c.storageCons {
-		cons := sc
+	all := make([]params.StorageAddParams, 0, len(c.storageDirectives))
+	for one, directive := range c.storageDirectives {
+		d := directive
 		all = append(all, params.StorageAddParams{
 			UnitTag:     c.unitTag.String(),
 			StorageName: one,
-			Constraints: params.StorageConstraints{
-				Pool:  cons.Pool,
-				Size:  &cons.Size,
-				Count: &cons.Count,
+			Directives: params.StorageDirectives{
+				Pool:  d.Pool,
+				Size:  &d.Size,
+				Count: &d.Count,
 			},
 		})
 	}

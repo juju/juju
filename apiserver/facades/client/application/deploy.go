@@ -45,7 +45,7 @@ type DeployApplicationParams struct {
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
 	Placement        []*instance.Placement
-	Storage          map[string]storage.Constraints
+	Storage          map[string]storage.Directive
 	Devices          map[string]devices.Constraints
 	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
@@ -132,7 +132,7 @@ func DeployApplication(
 		Name:              args.ApplicationName,
 		Charm:             args.Charm,
 		CharmOrigin:       origin,
-		Storage:           stateStorageConstraints(args.Storage),
+		Storage:           stateStorageDirectives(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),
 		AttachStorage:     args.AttachStorage,
 		ApplicationConfig: args.ApplicationConfig,
@@ -161,7 +161,7 @@ func DeployApplication(
 	}
 	app, err := st.AddApplication(asa, store)
 
-	// Dual write storage constraints to dqlite.
+	// Dual write storage directives to dqlite.
 	if err == nil {
 		err = applicationService.CreateApplication(ctx, args.ApplicationName, applicationservice.AddApplicationParams{
 			Charm:   args.Charm,
@@ -239,7 +239,7 @@ func saveMachineInfo(ctx context.Context, machineService MachineService, machine
 	return nil
 }
 
-func stateStorageConstraints(cons map[string]storage.Constraints) map[string]state.StorageConstraints {
+func stateStorageDirectives(cons map[string]storage.Directive) map[string]state.StorageConstraints {
 	result := make(map[string]state.StorageConstraints)
 	for name, cons := range cons {
 		result[name] = state.StorageConstraints{

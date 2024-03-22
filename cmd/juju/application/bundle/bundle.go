@@ -322,7 +322,7 @@ func verifyBaseBundle(base BundleDataSource) error {
 
 func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints func(string) error) error {
 	verifyStorage := func(s string) error {
-		_, err := storage.ParseConstraints(s)
+		_, err := storage.ParseDirective(s)
 		return err
 	}
 	verifyDevices := func(s string) error {

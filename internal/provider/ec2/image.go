@@ -20,7 +20,7 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 		imagesByStorage[image.Storage] = append(imagesByStorage[image.Storage], image)
 	}
 	logger.Debugf("images by storage type %+v", imagesByStorage)
-	// If a storage constraint has been specified, use that or else default to ssd.
+	// If a storage directive has been specified, use that or else default to ssd.
 	storageTypes := []string{ssdStorage}
 	if ic != nil && len(ic.Storage) > 0 {
 		storageTypes = ic.Storage

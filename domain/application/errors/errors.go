@@ -14,6 +14,6 @@ const (
 	// ApplicationHasUnits describes an error that occurs when the application being deleted still
 	// has associated units.
 	ApplicationHasUnits = errors.ConstError("application has units")
-	// MissingStorageConstraints describes an error that occurs when expected storage constraints are missing.
-	MissingStorageConstraints = errors.ConstError("no storage constraints specified")
+	// MissingStorageDirective describes an error that occurs when expected storage directives are missing.
+	MissingStorageDirective = errors.ConstError("no storage directive specified")
 )

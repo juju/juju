@@ -271,11 +271,11 @@ type HookContext struct {
 	// a charm's workload status, or if the charm has already taken care of it.
 	hasRunStatusSet bool
 
-	// storageAddConstraints is a collection of storage constraints
+	// storageAddDirectives is a collection of storage directives
 	// keyed on storage name as specified in the charm.
 	// This collection will be added to the unit on successful
 	// hook run, so the actual add will happen in a flush.
-	storageAddConstraints map[string][]params.StorageConstraints
+	storageAddDirectives map[string][]params.StorageDirectives
 
 	// clock is used for any time operations.
 	clock Clock
@@ -719,19 +719,19 @@ func (c *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachm
 	return ctxStorageAttachment, nil
 }
 
-// AddUnitStorage saves storage constraints in the context.
+// AddUnitStorage saves storage directives in the context.
 // Implements jujuc.HookContext.ContextStorage, part of runner.Context.
-func (c *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) error {
-	// All storage constraints are accumulated before context is flushed.
-	if c.storageAddConstraints == nil {
-		c.storageAddConstraints = make(
-			map[string][]params.StorageConstraints,
+func (c *HookContext) AddUnitStorage(cons map[string]params.StorageDirectives) error {
+	// All storage directives are accumulated before context is flushed.
+	if c.storageAddDirectives == nil {
+		c.storageAddDirectives = make(
+			map[string][]params.StorageDirectives,
 			len(cons))
 	}
 	for storage, newConstraints := range cons {
 		// Multiple calls for the same storage are accumulated as well.
-		c.storageAddConstraints[storage] = append(
-			c.storageAddConstraints[storage],
+		c.storageAddDirectives[storage] = append(
+			c.storageAddDirectives[storage],
 			newConstraints)
 	}
 	return nil
@@ -1497,8 +1497,8 @@ func (c *HookContext) doFlush(process string) error {
 		}
 	}
 
-	if len(c.storageAddConstraints) > 0 {
-		b.AddStorage(c.storageAddConstraints)
+	if len(c.storageAddDirectives) > 0 {
+		b.AddStorage(c.storageAddDirectives)
 	}
 
 	// Before saving the secret metadata to Juju, save the content to an external

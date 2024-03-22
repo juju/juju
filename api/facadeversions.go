@@ -29,7 +29,7 @@ var facadeVersions = facades.FacadeVersions{
 	"AllModelWatcher":              {4},
 	"AllWatcher":                   {3},
 	"Annotations":                  {2},
-	"Application":                  {19},
+	"Application":                  {19, 20},
 	"ApplicationOffers":            {4},
 	"ApplicationScaler":            {1},
 	"Backups":                      {3},

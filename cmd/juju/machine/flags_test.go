@@ -19,21 +19,21 @@ type FlagsSuite struct {
 var _ = gc.Suite(&FlagsSuite{})
 
 func (*FlagsSuite) TestDisksFlagErrors(c *gc.C) {
-	var disks []storage.Constraints
+	var disks []storage.Directive
 	f := machine.NewDisksFlag(&disks)
 	err := f.Set("-1")
-	c.Assert(err, gc.ErrorMatches, `cannot parse disk constraints: cannot parse count: count must be greater than zero, got "-1"`)
+	c.Assert(err, gc.ErrorMatches, `cannot parse disk storage directives: cannot parse count: count must be greater than zero, got "-1"`)
 	c.Assert(disks, gc.HasLen, 0)
 }
 
 func (*FlagsSuite) TestDisksFlag(c *gc.C) {
-	var disks []storage.Constraints
+	var disks []storage.Directive
 	f := machine.NewDisksFlag(&disks)
 	err := f.Set("crystal,1G")
 	c.Assert(err, jc.ErrorIsNil)
 	err = f.Set("2,2G")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(disks, gc.DeepEquals, []storage.Constraints{
+	c.Assert(disks, gc.DeepEquals, []storage.Directive{
 		{Pool: "crystal", Size: 1024, Count: 1},
 		{Size: 2048, Count: 2},
 	})

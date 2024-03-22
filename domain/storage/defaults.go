@@ -33,48 +33,48 @@ func storageKind(storageType charm.StorageType) storage.StorageKind {
 	return kind
 }
 
-// StorageConstraintsWithDefaults returns a constraints
-// derived from cons, with any defaults filled in.
-func StorageConstraintsWithDefaults(
+// StorageDirectivesWithDefaults takes a storage directives
+// map and fills in any defaults as required.
+func StorageDirectivesWithDefaults(
 	charmStorage map[string]charm.Storage,
 	modelType coremodel.ModelType,
 	defaults StorageDefaults,
-	allCons map[string]storage.Constraints,
+	allDirectives map[string]storage.Directive,
 ) error {
 	for name, storage := range charmStorage {
-		cons, ok := allCons[name]
+		cons, ok := allDirectives[name]
 		if !ok {
 			if storage.Shared {
 				// TODO(axw) get the model's default shared storage pool, and create constraints here.
 				return fmt.Errorf(
 					"%w for shared charm storage %q",
-					storageerrors.MissingSharedStorageConstraintError,
+					storageerrors.MissingSharedStorageDirectiveError,
 					name,
 				)
 			}
 		}
-		cons, err := storageConstraintsWithDefaults(storage, modelType, defaults, cons)
+		cons, err := storageDirectivesWithDefaults(storage, modelType, defaults, cons)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		// Replace in case pool or size were updated.
-		allCons[name] = cons
+		allDirectives[name] = cons
 	}
 	return nil
 }
 
-func storageConstraintsWithDefaults(
+func storageDirectivesWithDefaults(
 	charmStorage charm.Storage,
 	modelType coremodel.ModelType,
 	defaults StorageDefaults,
-	cons storage.Constraints,
-) (storage.Constraints, error) {
-	withDefaults := cons
+	directive storage.Directive,
+) (storage.Directive, error) {
+	withDefaults := directive
 
 	// If no pool is specified, determine the pool from the env config and other constraints.
-	if cons.Pool == "" {
+	if directive.Pool == "" {
 		kind := storageKind(charmStorage.Type)
-		poolName, err := defaultStoragePool(defaults, modelType, kind, cons)
+		poolName, err := defaultStoragePool(defaults, modelType, kind, directive)
 		if err != nil {
 			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", charmStorage.Name)
 		}
@@ -83,14 +83,14 @@ func storageConstraintsWithDefaults(
 
 	// If no size is specified, we default to the min size specified by the
 	// charm, or 1GiB.
-	if cons.Size == 0 {
+	if directive.Size == 0 {
 		if charmStorage.MinimumSize > 0 {
 			withDefaults.Size = charmStorage.MinimumSize
 		} else {
 			withDefaults.Size = 1024
 		}
 	}
-	if cons.Count == 0 {
+	if directive.Count == 0 {
 		withDefaults.Count = uint64(charmStorage.CountMin)
 	}
 	return withDefaults, nil
@@ -115,8 +115,10 @@ func defaultStoragePool(
 	defaults StorageDefaults,
 	modelType coremodel.ModelType,
 	kind storage.StorageKind,
-	cons storage.Constraints,
+	directive storage.Directive,
 ) (string, error) {
+	empty := storage.Directive{}
+
 	switch kind {
 	case storage.StorageKindBlock:
 		fallbackPool := string(provider.LoopProviderType)
@@ -124,9 +126,8 @@ func defaultStoragePool(
 			fallbackPool = string(k8sconstants.StorageProviderType)
 		}
 
-		emptyConstraints := storage.Constraints{}
-		if cons == emptyConstraints {
-			// No constraints at all: use fallback.
+		if directive == empty {
+			// No directive: use fallback.
 			return fallbackPool, nil
 		}
 		// Either size or count specified, use env default.
@@ -137,8 +138,7 @@ func defaultStoragePool(
 		if modelType == coremodel.CAAS {
 			fallbackPool = string(k8sconstants.StorageProviderType)
 		}
-		emptyConstraints := storage.Constraints{}
-		if cons == emptyConstraints {
+		if directive == empty {
 			return fallbackPool, nil
 		}
 

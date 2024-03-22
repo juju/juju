@@ -26,37 +26,37 @@ type Charm interface {
 	Meta() *charm.Meta
 }
 
-// StorageConstraintsValidator instances can be used to check storage
-// constraints are compatible with a given charm.
-type StorageConstraintsValidator interface {
-	ValidateStorageConstraintsAgainstCharm(ctx context.Context, allCons map[string]storage.Constraints, charm Charm) error
+// StorageDirectivesValidator instances can be used to check storage
+// directives are compatible with a given charm.
+type StorageDirectivesValidator interface {
+	ValidateStorageDirectivesAgainstCharm(ctx context.Context, allDirectives map[string]storage.Directive, charm Charm) error
 }
 
-// NewStorageConstraintsValidator creates a validator that can be used to check storage
-// constraints are compatible with a given charm.
-func NewStorageConstraintsValidator(modelType coremodel.ModelType, registry storage.ProviderRegistry, storagePoolGetter StoragePoolGetter) (*storageConstraintsValidator, error) {
+// NewStorageDirectivesValidator creates a validator that can be used to check storage
+// directives are compatible with a given charm.
+func NewStorageDirectivesValidator(modelType coremodel.ModelType, registry storage.ProviderRegistry, storagePoolGetter StoragePoolGetter) (*storageDirectivesValidator, error) {
 	// This should never happen, but we'll be defensive.
 	if registry == nil {
-		return nil, errors.New("cannot create storage constraints validator with nil registry")
+		return nil, errors.New("cannot create storage directives validator with nil registry")
 	}
-	return &storageConstraintsValidator{
+	return &storageDirectivesValidator{
 		registry:          registry,
 		storagePoolGetter: storagePoolGetter,
 		modelType:         modelType,
 	}, nil
 }
 
-type storageConstraintsValidator struct {
+type storageDirectivesValidator struct {
 	registry          storage.ProviderRegistry
 	storagePoolGetter StoragePoolGetter
 	modelType         coremodel.ModelType
 }
 
-// ValidateStorageConstraintsAgainstCharm validations storage constraints
+// ValidateStorageDirectivesAgainstCharm validations storage directives
 // against a given charm and its storage metadata.
-func (v storageConstraintsValidator) ValidateStorageConstraintsAgainstCharm(
+func (v storageDirectivesValidator) ValidateStorageDirectivesAgainstCharm(
 	ctx context.Context,
-	allCons map[string]storage.Constraints,
+	allDirectives map[string]storage.Directive,
 	charm Charm,
 ) error {
 	charmMeta := charm.Meta()
@@ -67,7 +67,7 @@ func (v storageConstraintsValidator) ValidateStorageConstraintsAgainstCharm(
 				continue
 			}
 			var count uint64
-			if arg, ok := allCons[name]; ok {
+			if arg, ok := allDirectives[name]; ok {
 				count = arg.Count
 			}
 			if charmStorage.CountMin > 0 || count > 0 {
@@ -76,7 +76,7 @@ func (v storageConstraintsValidator) ValidateStorageConstraintsAgainstCharm(
 		}
 	}
 
-	for name, cons := range allCons {
+	for name, directive := range allDirectives {
 		charmStorage, ok := charmMeta.Storage[name]
 		if !ok {
 			return errors.Errorf("charm %q has no store called %q", charmMeta.Name, name)
@@ -88,26 +88,26 @@ func (v storageConstraintsValidator) ValidateStorageConstraintsAgainstCharm(
 				charmMeta.Name, name,
 			)
 		}
-		if err := v.validateCharmStorageCount(charmStorage, cons.Count); err != nil {
+		if err := v.validateCharmStorageCount(charmStorage, directive.Count); err != nil {
 			return errors.Annotatef(err, "charm %q store %q", charmMeta.Name, name)
 		}
-		if charmStorage.MinimumSize > 0 && cons.Size < charmStorage.MinimumSize {
+		if charmStorage.MinimumSize > 0 && directive.Size < charmStorage.MinimumSize {
 			return errors.Errorf(
 				"charm %q store %q: minimum storage size is %s, %s specified",
 				charmMeta.Name, name,
 				humanize.Bytes(charmStorage.MinimumSize*humanize.MByte),
-				humanize.Bytes(cons.Size*humanize.MByte),
+				humanize.Bytes(directive.Size*humanize.MByte),
 			)
 		}
 		kind := storageKind(charmStorage.Type)
-		if err := v.validateStoragePool(ctx, cons.Pool, kind); err != nil {
+		if err := v.validateStoragePool(ctx, directive.Pool, kind); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (v storageConstraintsValidator) validateCharmStorageCount(charmStorage charm.Storage, count uint64) error {
+func (v storageDirectivesValidator) validateCharmStorageCount(charmStorage charm.Storage, count uint64) error {
 	if charmStorage.CountMin == 1 && charmStorage.CountMax == 1 && count != 1 {
 		return errors.Errorf("storage is singular, %d specified", count)
 	}
@@ -127,7 +127,7 @@ func (v storageConstraintsValidator) validateCharmStorageCount(charmStorage char
 }
 
 // validateStoragePool validates the storage pool for the model.
-func (v storageConstraintsValidator) validateStoragePool(
+func (v storageDirectivesValidator) validateStoragePool(
 	ctx context.Context,
 	poolName string, kind storage.StorageKind,
 ) error {
@@ -159,7 +159,7 @@ func (v storageConstraintsValidator) validateStoragePool(
 	return nil
 }
 
-func (v storageConstraintsValidator) poolStorageProvider(
+func (v storageDirectivesValidator) poolStorageProvider(
 	ctx context.Context,
 	poolName string,
 ) (storage.ProviderType, storage.Provider, storage.Attrs, error) {

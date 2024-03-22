@@ -67,9 +67,13 @@ type ECService interface {
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 }
 
-// APIv19 provides the Application API facade for version 19.
-type APIv19 struct {
+// APIv20 provides the Application API facade for version 20.
+type APIv20 struct {
 	*APIBase
+}
+
+type APIv19 struct {
+	*APIv20
 }
 
 // APIBase implements the shared application interface and is the concrete
@@ -405,7 +409,7 @@ type caasDeployParams struct {
 	charm           CharmMeta
 	config          map[string]string
 	placement       []*instance.Placement
-	storage         map[string]storage.Constraints
+	storage         map[string]storage.Directive
 }
 
 // precheck, checks the deploy config based on caas specific
@@ -833,7 +837,7 @@ type setCharmParams struct {
 	ConfigSettingsStrings map[string]string
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
-	StorageConstraints    map[string]params.StorageConstraints
+	StorageDirectives     map[string]params.StorageDirectives
 	EndpointBindings      map[string]string
 	Force                 forceParams
 }
@@ -928,7 +932,15 @@ func (api *APIBase) updateOneApplicationBase(ctx context.Context, arg params.Upd
 }
 
 // SetCharm sets the charm for a given for the application.
-func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetCharm) error {
+// The v1 args use "storage-constraints" as the storage directive attr tag.
+func (api *APIv19) SetCharm(ctx context.Context, argsV1 params.ApplicationSetCharmV1) error {
+	args := argsV1.ApplicationSetCharmV2
+	args.StorageDirectives = argsV1.StorageDirectives
+	return api.APIBase.SetCharm(ctx, args)
+}
+
+// SetCharm sets the charm for a given for the application.
+func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetCharmV2) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -956,7 +968,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
-			StorageConstraints:    args.StorageConstraints,
+			StorageDirectives:     args.StorageDirectives,
 			EndpointBindings:      args.EndpointBindings,
 			Force: forceParams{
 				ForceBase:  args.ForceBase,
@@ -1080,9 +1092,9 @@ func (api *APIBase) applicationSetCharm(
 		return errors.Annotate(err, "validating config settings")
 	}
 	var stateStorageConstraints map[string]state.StorageConstraints
-	if len(params.StorageConstraints) > 0 {
+	if len(params.StorageDirectives) > 0 {
 		stateStorageConstraints = make(map[string]state.StorageConstraints)
-		for name, cons := range params.StorageConstraints {
+		for name, cons := range params.StorageDirectives {
 			stateCons := state.StorageConstraints{Pool: cons.Pool}
 			if cons.Size != nil {
 				stateCons.Size = *cons.Size
@@ -1137,23 +1149,23 @@ func (api *APIBase) applicationSetCharm(
 		return errors.Annotate(err, "updating charm config")
 	}
 
-	var storageConstraints map[string]storage.Constraints
-	if len(params.StorageConstraints) > 0 {
-		storageConstraints = make(map[string]storage.Constraints)
-		for name, cons := range params.StorageConstraints {
-			sc := storage.Constraints{Pool: cons.Pool}
+	var storageDirectives map[string]storage.Directive
+	if len(params.StorageDirectives) > 0 {
+		storageDirectives = make(map[string]storage.Directive)
+		for name, cons := range params.StorageDirectives {
+			sc := storage.Directive{Pool: cons.Pool}
 			if cons.Size != nil {
 				sc.Size = *cons.Size
 			}
 			if cons.Count != nil {
 				sc.Count = *cons.Count
 			}
-			storageConstraints[name] = sc
+			storageDirectives[name] = sc
 		}
 	}
 	if err := api.applicationService.UpdateApplicationCharm(ctx, params.AppName, applicationservice.UpdateCharmParams{
 		Charm:   newCharm,
-		Storage: storageConstraints,
+		Storage: storageDirectives,
 	}); err != nil {
 		return errors.Annotatef(err, "updating charm for application %q", params.AppName)
 	}

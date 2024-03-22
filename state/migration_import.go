@@ -899,7 +899,7 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		applicationDoc:     appDoc,
 		statusDoc:          appStatusDoc,
 		constraints:        i.constraints(a.Constraints()),
-		storage:            i.storageConstraints(a.StorageConstraints()),
+		storage:            i.storageConstraints(a.StorageDirectives()),
 		charmConfig:        a.CharmConfig(),
 		applicationConfig:  a.ApplicationConfig(),
 		leadershipSettings: a.LeadershipSettings(),
@@ -1084,7 +1084,7 @@ func (i *importer) appResourceOps(app description.Application) []txn.Op {
 	return result
 }
 
-func (i *importer) storageConstraints(cons map[string]description.StorageConstraint) map[string]StorageConstraints {
+func (i *importer) storageConstraints(cons map[string]description.StorageDirective) map[string]StorageConstraints {
 	if len(cons) == 0 {
 		return nil
 	}
@@ -2341,7 +2341,7 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 					continue
 				}
 				storageName, _ := names.StorageName(storage.Tag().Id())
-				appStorageCons, ok := app.StorageConstraints()[storageName]
+				appStorageCons, ok := app.StorageDirectives()[storageName]
 				if ok {
 					cons.Pool = appStorageCons.Pool()
 					cons.Size = appStorageCons.Size()

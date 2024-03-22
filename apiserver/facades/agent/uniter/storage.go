@@ -382,16 +382,16 @@ func validConstraints(
 		return emptyCons, errors.NotFoundf("storage %q", p.StorageName)
 	}
 
-	onlyCount := params.StorageConstraints{Count: p.Constraints.Count}
-	if p.Constraints != onlyCount {
+	onlyCount := params.StorageDirectives{Count: p.Directives.Count}
+	if p.Directives != onlyCount {
 		return emptyCons, errors.New("only count can be specified")
 	}
 
-	if p.Constraints.Count == nil || *p.Constraints.Count == 0 {
+	if p.Directives.Count == nil || *p.Directives.Count == 0 {
 		return emptyCons, errors.New("count must be specified")
 	}
 
-	result.Count = *p.Constraints.Count
+	result.Count = *p.Directives.Count
 	return result, nil
 }
 

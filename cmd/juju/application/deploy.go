@@ -279,13 +279,13 @@ type DeployCommand struct {
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
 	//
-	// Storage is a map of storage constraints, keyed on the storage name
+	// Storage is a map of storage directives, keyed on the storage name
 	// defined in charm storage metadata.
-	Storage map[string]storage.Constraints
+	Storage map[string]storage.Directive
 
-	// BundleStorage maps application names to maps of storage constraints keyed on
+	// BundleStorage maps application names to maps of storage directives keyed on
 	// the storage name defined in that application's charm storage metadata.
-	BundleStorage map[string]map[string]storage.Constraints
+	BundleStorage map[string]map[string]storage.Directive
 
 	// Devices is a mapping of device constraints, keyed on the device name
 	// defined in charm devices metadata.
@@ -645,7 +645,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list")
-	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
+	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage directives")
 	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
