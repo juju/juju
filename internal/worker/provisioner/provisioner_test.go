@@ -158,9 +158,9 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 		config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String(),
 	})
 	if container {
-		attrs[config.NumContainerProvisionWorkersKey] = 42
+		attrs[config.NumContainerProvisionWorkersKey] = 20
 	} else {
-		attrs[config.NumProvisionWorkersKey] = 42
+		attrs[config.NumProvisionWorkersKey] = 20
 	}
 	modelCfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,12 +181,12 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 		select {
 		case newCfg := <-cfgObserver:
 			if container {
-				if newCfg.NumContainerProvisionWorkers() == 42 {
+				if newCfg.NumContainerProvisionWorkers() == 20 {
 					return
 				}
 				received = append(received, newCfg.NumContainerProvisionWorkers())
 			} else {
-				if newCfg.NumProvisionWorkers() == 42 {
+				if newCfg.NumProvisionWorkers() == 20 {
 					return
 				}
 				received = append(received, newCfg.NumProvisionWorkers())
@@ -196,7 +196,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 				c.Fatalf("PA did not action config change")
 			} else {
 				c.Fatalf("timed out waiting for config to change to '%v', received %+v",
-					42, received)
+					20, received)
 			}
 		}
 	}

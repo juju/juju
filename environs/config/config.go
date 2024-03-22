@@ -92,6 +92,18 @@ const (
 	// container provisioner workers per machine setting.
 	NumContainerProvisionWorkersKey = "num-container-provision-workers"
 
+	// ImageStreamKey is the key used to specify the stream
+	// for OS images.
+	ImageStreamKey = "image-stream"
+
+	// ImageMetadataURLKey is the key used to specify the location
+	// of OS image metadata.
+	ImageMetadataURLKey = "image-metadata-url"
+
+	// ImageMetadataDefaultsDisabledKey is the key used to disable image
+	// metadata default sources.
+	ImageMetadataDefaultsDisabledKey = "image-metadata-defaults-disabled"
+
 	// AgentStreamKey stores the key for this setting.
 	AgentStreamKey = "agent-stream"
 
@@ -99,12 +111,16 @@ const (
 	AgentMetadataURLKey = "agent-metadata-url"
 
 	// ContainerImageStreamKey is the key used to specify the stream
-	// to for container OS images.
+	// for container OS images.
 	ContainerImageStreamKey = "container-image-stream"
 
 	// ContainerImageMetadataURLKey is the key used to specify the location
 	// of OS image metadata for containers.
 	ContainerImageMetadataURLKey = "container-image-metadata-url"
+
+	// ContainerImageMetadataDefaultsDisabledKey is the key used to disable image
+	// metadata default sources for containers.
+	ContainerImageMetadataDefaultsDisabledKey = "container-image-metadata-defaults-disabled"
 
 	// Proxy behaviour has become something of an annoying thing to define
 	// well. These following four proxy variables are being kept to continue
@@ -556,12 +572,14 @@ var defaultConfigValues = map[string]interface{}{
 	CharmHubURLKey: charmhub.DefaultServerURL,
 
 	// Image and agent streams and URLs.
-	"image-stream":               "released",
-	"image-metadata-url":         "",
-	AgentStreamKey:               "released",
-	AgentMetadataURLKey:          "",
-	ContainerImageStreamKey:      "released",
-	ContainerImageMetadataURLKey: "",
+	ImageStreamKey:                            "released",
+	ImageMetadataURLKey:                       "",
+	ImageMetadataDefaultsDisabledKey:          false,
+	AgentStreamKey:                            "released",
+	AgentMetadataURLKey:                       "",
+	ContainerImageStreamKey:                   "released",
+	ContainerImageMetadataURLKey:              "",
+	ContainerImageMetadataDefaultsDisabledKey: false,
 
 	// Proxy settings.
 	HTTPProxyKey:      "",
@@ -837,6 +855,14 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if err := cfg.validateCIDRs(cfg.SAASIngressAllow(), false); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateNumProvisionWorkers(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateNumContainerProvisionWorkers(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1257,10 +1283,21 @@ func (c *Config) AgentMetadataURL() (string, bool) {
 // ImageMetadataURL returns the URL at which the metadata used to locate image
 // ids is located, and whether it has been set.
 func (c *Config) ImageMetadataURL() (string, bool) {
-	if url, ok := c.defined["image-metadata-url"]; ok && url != "" {
+	if url, ok := c.defined[ImageMetadataURLKey]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
+}
+
+// ImageMetadataDefaultsDisabled returns whether or not default image metadata
+// sources are disabled. Useful for airgapped installations.
+func (c *Config) ImageMetadataDefaultsDisabled() bool {
+	val, ok := c.defined[ImageMetadataDefaultsDisabledKey].(bool)
+	if !ok {
+		// defaults to false.
+		return false
+	}
+	return val
 }
 
 // ContainerImageMetadataURL returns the URL at which the metadata used to
@@ -1270,6 +1307,17 @@ func (c *Config) ContainerImageMetadataURL() (string, bool) {
 		return url.(string), true
 	}
 	return "", false
+}
+
+// ContainerImageMetadataDefaultsDisabled returns whether or not default image metadata
+// sources are disabled for containers. Useful for airgapped installations.
+func (c *Config) ContainerImageMetadataDefaultsDisabled() bool {
+	val, ok := c.defined[ContainerImageMetadataDefaultsDisabledKey].(bool)
+	if !ok {
+		// defaults to false.
+		return false
+	}
+	return val
 }
 
 // Development returns whether the environment is in development mode.
@@ -1357,11 +1405,42 @@ func (c *Config) NumProvisionWorkers() int {
 	return value
 }
 
+const (
+	MaxNumProvisionWorkers          = 100
+	MaxNumContainerProvisionWorkers = 25
+)
+
+// validateNumProvisionWorkers ensures the number cannot be set to
+// more than 100.
+// TODO: (hml) 26-Feb-2024
+// Once we can better link the controller config and the model config,
+// allow the max value to be set in the controller config.
+func (c *Config) validateNumProvisionWorkers() error {
+	value, ok := c.defined[NumProvisionWorkersKey].(int)
+	if ok && value > MaxNumProvisionWorkers {
+		return errors.Errorf("%s: must be less than %d", NumProvisionWorkersKey, MaxNumProvisionWorkers)
+	}
+	return nil
+}
+
 // NumContainerProvisionWorkers returns the number of container provisioner
 // workers to use.
 func (c *Config) NumContainerProvisionWorkers() int {
 	value, _ := c.defined[NumContainerProvisionWorkersKey].(int)
 	return value
+}
+
+// validateNumContainerProvisionWorkers ensures the number cannot be set to
+// more than 25.
+// TODO: (hml) 26-Feb-2024
+// Once we can better link the controller config and the model config,
+// allow the max value to be set in the controller config.
+func (c *Config) validateNumContainerProvisionWorkers() error {
+	value, ok := c.defined[NumContainerProvisionWorkersKey].(int)
+	if ok && value > MaxNumContainerProvisionWorkers {
+		return errors.Errorf("%s: must be less than %d", NumContainerProvisionWorkersKey, MaxNumContainerProvisionWorkers)
+	}
+	return nil
 }
 
 // ImageStream returns the simplestreams stream
@@ -1377,7 +1456,7 @@ func (c *Config) ImageStream() string {
 
 // AgentStream returns the simplestreams stream
 // used to identify which tools to use when
-// when bootstrapping or upgrading an environment.
+// bootstrapping or upgrading an environment.
 func (c *Config) AgentStream() string {
 	v, _ := c.defined[AgentStreamKey].(string)
 	if v != "" {
@@ -1740,11 +1819,6 @@ var alwaysOptional = schema.Defaults{
 	"cloudimg-base-url":             schema.Omit,
 	"enable-os-refresh-update":      schema.Omit,
 	"enable-os-upgrade":             schema.Omit,
-	"image-stream":                  schema.Omit,
-	"image-metadata-url":            schema.Omit,
-	AgentMetadataURLKey:             schema.Omit,
-	ContainerImageStreamKey:         schema.Omit,
-	ContainerImageMetadataURLKey:    schema.Omit,
 	DefaultBaseKey:                  schema.Omit,
 	"development":                   schema.Omit,
 	"ssl-hostname-verification":     schema.Omit,
@@ -1771,6 +1845,14 @@ var alwaysOptional = schema.Defaults{
 	DefaultSpaceKey:                 schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,
+
+	AgentMetadataURLKey:                       schema.Omit,
+	ImageStreamKey:                            schema.Omit,
+	ImageMetadataURLKey:                       schema.Omit,
+	ImageMetadataDefaultsDisabledKey:          schema.Omit,
+	ContainerImageStreamKey:                   schema.Omit,
+	ContainerImageMetadataURLKey:              schema.Omit,
+	ContainerImageMetadataDefaultsDisabledKey: schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -2087,12 +2169,12 @@ global or per instance security groups.`,
 		Group:       environschema.EnvironGroup,
 	},
 	SnapHTTPProxyKey: {
-		Description: "The HTTP proxy value to for installing snaps",
+		Description: "The HTTP proxy value for installing snaps",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	SnapHTTPSProxyKey: {
-		Description: "The HTTPS proxy value to for installing snaps",
+		Description: "The HTTPS proxy value for installing snaps",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -2111,14 +2193,19 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"image-metadata-url": {
+	ImageMetadataURLKey: {
 		Description: "The URL at which the metadata used to locate OS image ids is located",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"image-stream": {
+	ImageStreamKey: {
 		Description: `The simplestreams stream used to identify which image ids to search when starting an instance.`,
 		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ImageMetadataDefaultsDisabledKey: {
+		Description: `Whether default simplestreams sources are used for image metadata.`,
+		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	ContainerImageMetadataURLKey: {
@@ -2129,6 +2216,11 @@ global or per instance security groups.`,
 	ContainerImageStreamKey: {
 		Description: `The simplestreams stream used to identify which image ids to search when starting a container.`,
 		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ContainerImageMetadataDefaultsDisabledKey: {
+		Description: `Whether default simplestreams sources are used for image metadata with containers.`,
+		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	"logging-config": {

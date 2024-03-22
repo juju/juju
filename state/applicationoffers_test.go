@@ -168,6 +168,22 @@ func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *applicationOffersSuite) TestFaillAddApplicationOfferNonGlobalEndpoint(c *gc.C) {
+	s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
+	// logging-dir is a container scoped relation.
+	eps := map[string]string{"logging-dir": "logging-dir"}
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	args := crossmodel.AddApplicationOfferArgs{
+		OfferName:       "offer-name",
+		ApplicationName: "local-wordpress",
+		Endpoints:       eps,
+		Owner:           owner.Name(),
+	}
+	_, err := sd.AddOffer(args)
+	c.Assert(err, gc.ErrorMatches, `.*can only offer endpoints with global scope, provided scope "container".*`)
+}
+
 func (s *applicationOffersSuite) TestListOffersNone(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offers, err := sd.ListOffers()

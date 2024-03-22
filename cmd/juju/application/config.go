@@ -253,23 +253,6 @@ func (c *configCommand) setConfig(client ApplicationAPI, ctx *cmd.Context) error
 		return errors.Trace(err)
 	}
 
-	result, err := client.Get(c.branchName, c.applicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for k, v := range settings {
-		configValue := result.CharmConfig[k]
-
-		configValueMap, ok := configValue.(map[string]interface{})
-		if ok {
-			// convert the value to string and compare
-			if fmt.Sprintf("%v", configValueMap["value"]) == v {
-				logger.Warningf("the configuration setting %q already has the value %q", k, v)
-			}
-		}
-	}
-
 	err = client.SetConfig(c.branchName, c.applicationName, "", settings)
 	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
 }

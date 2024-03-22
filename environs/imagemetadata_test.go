@@ -27,7 +27,7 @@ type ImageMetadataSuite struct {
 
 var _ = gc.Suite(&ImageMetadataSuite{})
 
-func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) environs.Environ {
+func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string, defaultsDisabled bool) environs.Environ {
 	attrs := coretesting.FakeConfig()
 	if stream != "" {
 		attrs = attrs.Merge(testing.Attrs{
@@ -37,6 +37,11 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 	if imageMetadataURL != "" {
 		attrs = attrs.Merge(testing.Attrs{
 			"image-metadata-url": imageMetadataURL,
+		})
+	}
+	if defaultsDisabled {
+		attrs = attrs.Merge(testing.Attrs{
+			"image-metadata-defaults-disabled": true,
 		})
 	}
 	env, err := bootstrap.PrepareController(
@@ -56,7 +61,7 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
-	env := s.env(c, "", "")
+	env := s.env(c, "", "", false)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
@@ -65,13 +70,29 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
-	env := s.env(c, "config-image-metadata-url", "")
+	env := s.env(c, "config-image-metadata-url", "", false)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-image-metadata-url/", "", false},
 		{"http://cloud-images.ubuntu.com/releases/", imagemetadata.SimplestreamsImagesPublicKey, true},
 	})
+}
+
+func (s *ImageMetadataSuite) TestImageMetadataURLsNoDefaults(c *gc.C) {
+	env := s.env(c, "https://custom.meta.data/", "", true)
+	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
+	c.Assert(err, jc.ErrorIsNil)
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
+		{"https://custom.meta.data/", "", false},
+	})
+}
+
+func (s *ImageMetadataSuite) TestImageMetadataURLsNoDefaultsNoConfigURL(c *gc.C) {
+	env := s.env(c, "", "", true)
+	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
+	c.Assert(err, jc.ErrorIsNil)
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{})
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
@@ -105,7 +126,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 	defer environs.UnregisterImageDataSourceFunc("id1")
 	defer environs.UnregisterImageDataSourceFunc("id2")
 
-	env := s.env(c, "config-image-metadata-url", "")
+	env := s.env(c, "config-image-metadata-url", "", false)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
@@ -116,19 +137,59 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 	})
 }
 
+func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncsNoDefaultsNoConfigURL(c *gc.C) {
+	factory := sstesting.TestDataSourceFactory()
+	environs.RegisterImageDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
+		return factory.NewDataSource(simplestreams.Config{
+			Description:          "id0",
+			BaseURL:              "betwixt/releases",
+			HostnameVerification: false,
+			Priority:             simplestreams.DEFAULT_CLOUD_DATA}), nil
+	})
+	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
+		return factory.NewDataSource(simplestreams.Config{
+			Description:          "id1",
+			BaseURL:              "yoink",
+			HostnameVerification: false,
+			Priority:             simplestreams.SPECIFIC_CLOUD_DATA}), nil
+	})
+	// overwrite the one previously registered against id1
+	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
+		return nil, errors.NewNotSupported(nil, "oyvey")
+	})
+	environs.RegisterUserImageDataSourceFunc("id2", func(environs.Environ) (simplestreams.DataSource, error) {
+		return factory.NewDataSource(simplestreams.Config{
+			Description:          "id2",
+			BaseURL:              "foobar",
+			HostnameVerification: false,
+			Priority:             simplestreams.CUSTOM_CLOUD_DATA}), nil
+	})
+	defer environs.UnregisterImageDataSourceFunc("id0")
+	defer environs.UnregisterImageDataSourceFunc("id1")
+	defer environs.UnregisterImageDataSourceFunc("id2")
+
+	env := s.env(c, "", "", true)
+	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
+	c.Assert(err, jc.ErrorIsNil)
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
+		{"foobar/", "", false},
+		{"betwixt/releases/", "", false},
+	})
+}
+
 func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncsError(c *gc.C) {
 	environs.RegisterImageDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
 		return nil, errors.New("oyvey!")
 	})
 	defer environs.UnregisterImageDataSourceFunc("id0")
 
-	env := s.env(c, "config-image-metadata-url", "")
+	env := s.env(c, "config-image-metadata-url", "", false)
 	_, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
 	c.Assert(err, gc.ErrorMatches, "oyvey!")
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsNonReleaseStream(c *gc.C) {
-	env := s.env(c, "", "daily")
+	env := s.env(c, "", "daily", false)
 	sources, err := environs.ImageMetadataSources(env, sstesting.TestDataSourceFactory())
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{

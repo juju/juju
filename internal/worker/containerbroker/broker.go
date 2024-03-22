@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
@@ -149,7 +149,7 @@ func NewTracker(ctx context.Context, config Config) (*Tracker, error) {
 		AgentConfig:   config.AgentConfig,
 		MachineTag:    machineTag,
 		MachineLock:   config.MachineLock,
-		GetNetConfig:  common.GetObservedNetworkConfig,
+		GetNetConfig:  network.GetObservedNetworkConfig,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create instance broker")

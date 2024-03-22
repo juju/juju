@@ -1319,10 +1319,10 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 // makeCharmOrigin returns the charm origin for an application
 //
 // Previous versions of the Juju server and clients have treated applications charm
-// origins very loosely, particularly during `refresh -- switch`s. The server performed
+// origins very loosely, particularly during `refresh --switch`s. The server performed
 // no validation on origins received from the client, and client often mutated them
 // incorrectly. For instance, when switching from a ch charm to local, pylibjuju simply
-// send back a copy of the ch charm origin, whereas the CLI only set the source to local.
+// sent back a copy of the ch charm origin, whereas the CLI only set the source to local.
 // Both resulted in incorrect/invalidate origins.
 //
 // Calculate the origin Source and Revision from the charm url. Ensure ID, Hash and Channel
@@ -1336,6 +1336,10 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 //
 // https://bugs.launchpad.net/juju/+bug/2039267
 // https://github.com/juju/python-libjuju/issues/962
+//
+// Due to LP:1986547: where the track is missing from the effective channel it implicitly
+// resolves to 'latest' if the charm does not have a default channel defined. So if the
+// received channel has no track, we can be confident it should be 'latest'
 //
 // TODO: Once we have confidence in charm origins, do not parse charm url and simplify
 // into a translation layer
@@ -1405,7 +1409,7 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 	}
 
 	if !reflect.DeepEqual(sourceOrigin, origin) {
-		i.logger.Warningf("Source origin for application %q does not match charm url. Normalising", a.Name())
+		i.logger.Warningf("Source origin for application %q is invalid. Normalising", a.Name())
 	}
 
 	i.charmOrigins[curl.String()] = origin

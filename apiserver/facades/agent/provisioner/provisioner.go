@@ -385,6 +385,9 @@ func (api *ProvisionerAPI) ContainerManagerConfig(ctx stdcontext.Context, args p
 	if url, set := mConfig.ContainerImageMetadataURL(); set {
 		cfg[config.ContainerImageMetadataURLKey] = url
 	}
+	if mConfig.ContainerImageMetadataDefaultsDisabled() {
+		cfg[config.ContainerImageMetadataDefaultsDisabledKey] = "true"
+	}
 	cfg[config.ContainerImageStreamKey] = mConfig.ContainerImageStream()
 	cfg[config.ContainerNetworkingMethod] = mConfig.ContainerNetworkingMethod()
 

@@ -107,6 +107,13 @@ var configTests = []configTest{
 			"container-image-metadata-url": "container-image-metadata-url-value",
 		}),
 	}, {
+		about:       "Metadata Defaults Disabled",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"image-metadata-defaults-disabled":           true,
+			"container-image-metadata-defaults-disabled": true,
+		}),
+	}, {
 		about:       "Explicit base",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -364,15 +371,31 @@ var configTests = []configTest{
 		}),
 		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
-		about: fmt.Sprintf(
-			"%s: %d",
-			"num-provision-workers",
-			42,
-		),
+		about:       fmt.Sprintf("num-provision-workers: 42"),
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"num-provision-workers": "42",
+			"num-provision-workers": 42,
 		}),
+	}, {
+		about:       fmt.Sprintf("num-provision-workers: over max"),
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"num-provision-workers": 101,
+		}),
+		err: `num-provision-workers: must be less than 100`,
+	}, {
+		about:       fmt.Sprintf("num-container-provision-workers: 17"),
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"num-container-provision-workers": 17,
+		}),
+	}, {
+		about:       fmt.Sprintf("num-container-provision-workers: over max"),
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"num-container-provision-workers": 26,
+		}),
+		err: `num-container-provision-workers: must be less than 25`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
@@ -618,10 +641,14 @@ func (test configTest) check(c *gc.C) {
 	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
 		c.Check(cfg, gc.IsNil)
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Check(err, gc.ErrorMatches, test.err)
 		return
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	if !c.Check(err, jc.ErrorIsNil, gc.Commentf("config.New failed")) {
+		// As we have a Check not an Assert so the test should not
+		// continue from here as it will result in a nil pointer panic.
+		return
+	}
 
 	typ, _ := test.attrs["type"].(string)
 	// "null" has been deprecated in favour of "manual",
@@ -630,23 +657,23 @@ func (test configTest) check(c *gc.C) {
 		typ = "manual"
 	}
 	name, _ := test.attrs["name"].(string)
-	c.Assert(cfg.Type(), gc.Equals, typ)
-	c.Assert(cfg.Name(), gc.Equals, name)
+	c.Check(cfg.Type(), gc.Equals, typ)
+	c.Check(cfg.Name(), gc.Equals, name)
 	agentVersion, ok := cfg.AgentVersion()
 	if s := test.attrs["agent-version"]; s != nil {
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(agentVersion, gc.Equals, version.MustParse(s.(string)))
+		c.Check(ok, jc.IsTrue)
+		c.Check(agentVersion, gc.Equals, version.MustParse(s.(string)))
 	} else {
-		c.Assert(ok, jc.IsFalse)
-		c.Assert(agentVersion, gc.Equals, version.Zero)
+		c.Check(ok, jc.IsFalse)
+		c.Check(agentVersion, gc.Equals, version.Zero)
 	}
 
 	if expected, ok := test.attrs["uuid"]; ok {
-		c.Assert(cfg.UUID(), gc.Equals, expected)
+		c.Check(cfg.UUID(), gc.Equals, expected)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
-	c.Assert(cfg.Development(), gc.Equals, dev)
+	c.Check(cfg.Development(), gc.Equals, dev)
 
 	baseAttr, _ := test.attrs["default-base"].(string)
 	defaultBase, ok := cfg.DefaultBase()
@@ -659,48 +686,55 @@ func (test configTest) check(c *gc.C) {
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
-		c.Assert(cfg.FirewallMode(), gc.Equals, m)
+		c.Check(cfg.FirewallMode(), gc.Equals, m)
 	}
 
 	if m, _ := test.attrs["default-space"].(string); m != "" {
-		c.Assert(cfg.DefaultSpace(), gc.Equals, m)
+		c.Check(cfg.DefaultSpace(), gc.Equals, m)
 	}
 
 	keys, _ := test.attrs["authorized-keys"].(string)
-	c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
+	c.Check(cfg.AuthorizedKeys(), gc.Equals, keys)
 
 	if v, ok := test.attrs["ssl-hostname-verification"]; ok {
-		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
+		c.Check(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
 	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
 		harvestMeth, err := config.ParseHarvestMode(v.(string))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, harvestMeth)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(cfg.ProvisionerHarvestMode(), gc.Equals, harvestMeth)
 	} else {
-		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
+		c.Check(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 	}
 
 	if v, ok := test.attrs["image-stream"]; ok {
-		c.Assert(cfg.ImageStream(), gc.Equals, v)
+		c.Check(cfg.ImageStream(), gc.Equals, v)
 	} else {
-		c.Assert(cfg.ImageStream(), gc.Equals, "released")
+		c.Check(cfg.ImageStream(), gc.Equals, "released")
 	}
 
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
-		c.Assert(url, gc.Equals, v)
-		c.Assert(urlPresent, jc.IsTrue)
+		c.Check(url, gc.Equals, v)
+		c.Check(urlPresent, jc.IsTrue)
 	} else {
-		c.Assert(urlPresent, jc.IsFalse)
+		c.Check(urlPresent, jc.IsFalse)
+	}
+
+	imageMetadataDefaultsDisabled := cfg.ImageMetadataDefaultsDisabled()
+	if v, ok := test.attrs["image-metadata-defaults-disabled"].(bool); ok {
+		c.Assert(imageMetadataDefaultsDisabled, gc.Equals, v)
+	} else {
+		c.Assert(imageMetadataDefaultsDisabled, jc.IsFalse)
 	}
 
 	agentURL, urlPresent := cfg.AgentMetadataURL()
 	expectedToolsURLValue := test.attrs["agent-metadata-url"]
 	if urlPresent {
-		c.Assert(agentURL, gc.Equals, expectedToolsURLValue)
+		c.Check(agentURL, gc.Equals, expectedToolsURLValue)
 	} else {
-		c.Assert(agentURL, gc.Equals, "")
+		c.Check(agentURL, gc.Equals, "")
 	}
 
 	// assertions for deprecated tools-stream attribute used with new agent-stream
@@ -721,33 +755,40 @@ func (test configTest) check(c *gc.C) {
 
 	containerURL, urlPresent := cfg.ContainerImageMetadataURL()
 	if v, _ := test.attrs["container-image-metadata-url"].(string); v != "" {
-		c.Assert(containerURL, gc.Equals, v)
-		c.Assert(urlPresent, jc.IsTrue)
+		c.Check(containerURL, gc.Equals, v)
+		c.Check(urlPresent, jc.IsTrue)
 	} else {
-		c.Assert(urlPresent, jc.IsFalse)
+		c.Check(urlPresent, jc.IsFalse)
 	}
 
 	if v, ok := test.attrs["container-image-stream"]; ok {
-		c.Assert(cfg.ContainerImageStream(), gc.Equals, v)
+		c.Check(cfg.ContainerImageStream(), gc.Equals, v)
 	} else {
-		c.Assert(cfg.ContainerImageStream(), gc.Equals, "released")
+		c.Check(cfg.ContainerImageStream(), gc.Equals, "released")
+	}
+
+	containerImageMetadataDefaultsDisabled := cfg.ContainerImageMetadataDefaultsDisabled()
+	if v, ok := test.attrs["container-image-metadata-defaults-disabled"].(bool); ok {
+		c.Assert(containerImageMetadataDefaultsDisabled, gc.Equals, v)
+	} else {
+		c.Assert(containerImageMetadataDefaultsDisabled, jc.IsFalse)
 	}
 
 	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
-	c.Assert(cfgHasResourceTags, jc.IsTrue)
+	c.Check(cfgHasResourceTags, jc.IsTrue)
 	if tags, ok := test.attrs["resource-tags"]; ok {
 		switch tags := tags.(type) {
 		case []string:
 			if len(tags) > 0 {
-				c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+				c.Check(resourceTags, jc.DeepEquals, testResourceTagsMap)
 			}
 		case string:
 			if tags != "" {
-				c.Assert(resourceTags, jc.DeepEquals, testResourceTagsMap)
+				c.Check(resourceTags, jc.DeepEquals, testResourceTagsMap)
 			}
 		}
 	} else {
-		c.Assert(resourceTags, gc.HasLen, 0)
+		c.Check(resourceTags, gc.HasLen, 0)
 	}
 
 	xmit := cfg.TransmitVendorMetrics()

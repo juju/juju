@@ -1484,6 +1484,22 @@ func (s *withoutControllerSuite) TestContainerManagerConfigDefaults(c *gc.C) {
 	})
 }
 
+func (s *withoutControllerSuite) TestContainerManagerConfigDefaultMetadataDisabled(c *gc.C) {
+	attrs := map[string]interface{}{
+		"container-image-metadata-defaults-disabled": true,
+	}
+	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := s.getManagerConfig(c, instance.LXD)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigModelUUID:                        coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey:                   "released",
+		config.ContainerImageMetadataDefaultsDisabledKey: "true",
+		config.ContainerNetworkingMethod:                 config.ConfigDefaults()[config.ContainerNetworkingMethod].(string),
+		config.LXDSnapChannel:                            "5.0/stable",
+	})
+}
+
 func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
