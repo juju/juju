@@ -10,11 +10,9 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -143,30 +141,19 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 	})
 }
 
-func (s *builtinSuite) assertDecideKubeConfigDir(c *gc.C, isOfficial bool, clientConfigPath string) {
-	s.PatchValue(&provider.CheckJujuOfficial, func(string) (version.Binary, bool, error) {
-		return version.Binary{}, isOfficial, nil
-	})
-	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
+func (s *builtinSuite) assertDecideKubeConfigDir(c *gc.C, isInSnap bool, clientConfigPath string) {
+	if isInSnap {
+		s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
+	}
 	p, err := provider.DecideKubeConfigDir()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, gc.DeepEquals, clientConfigPath)
 }
 
-func (s *builtinSuite) TestDecideKubeConfigDirOfficial(c *gc.C) {
+func (s *builtinSuite) TestDecideKubeConfigDirInSnap(c *gc.C) {
 	s.assertDecideKubeConfigDir(c, true, `snap-data-dir/microk8s/credentials/client.config`)
 }
 
 func (s *builtinSuite) TestDecideKubeConfigDirLocalBuild(c *gc.C) {
 	s.assertDecideKubeConfigDir(c, false, `/var/snap/microk8s/current/credentials/client.config`)
-}
-
-func (s *builtinSuite) TestDecideKubeConfigDirNoJujud(c *gc.C) {
-	s.PatchValue(&provider.CheckJujuOfficial, func(string) (version.Binary, bool, error) {
-		return version.Binary{}, false, errors.NotFoundf("jujud")
-	})
-	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
-	p, err := provider.DecideKubeConfigDir()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.DeepEquals, `/var/snap/microk8s/current/credentials/client.config`)
 }

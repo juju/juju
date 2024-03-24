@@ -261,6 +261,26 @@ define run_cgo_build
 			-v ${PACKAGE}
 endef
 
+
+PATCH_ELF_WITH_VERSION_FUNC=bash -c '. "${PROJECT_DIR}/make_functions.sh"; patch_elf_with_version "$$@"' patch_elf_with_version
+define patch_elf_with_version
+	$(eval BINARY = $(shell go build -n -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} ${PACKAGE} 2>&1 | awk '$$1 == "mv" && $$2 ~ /.out$$/ {print $$3}'))
+	$(eval JUJU_VERSION_FILE = $(shell mktemp))
+	@GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) CGO_ENABLED=0 go run -ldflags "-X $(PROJECT)/version.build=${JUJU_BUILD_NUMBER}" version/elfnote/main.go ${JUJU_VERSION_FILE} ${GOARCH}
+	@$(PATCH_ELF_WITH_VERSION_FUNC) ${JUJU_VERSION_FILE} ${BINARY}
+	@rm ${JUJU_VERSION_FILE}
+endef
+
+define run_go_build_with_elf_patch
+	$(run_go_build)
+	$(patch_elf_with_version)
+endef
+
+define run_cgo_build_with_elf_patch
+	$(run_cgo_build)
+	$(patch_elf_with_version)
+endef
+
 define run_go_install
 	@echo "Installing ${PACKAGE}"
 	@go install \
@@ -341,7 +361,7 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 ${BUILD_DIR}/%/bin/jujud: phony_explicit
 # build for jujud
-	$(run_go_build)
+	$(run_go_build_with_elf_patch)
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
@@ -350,7 +370,7 @@ ${BUILD_DIR}/%/bin/jujud: phony_explicit
 ${BUILD_DIR}/%/bin/jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
 ${BUILD_DIR}/%/bin/jujud-controller: phony_explicit musl-install-if-missing dqlite-install-if-missing
 # build for jujud-controller
-	$(run_cgo_build)
+	$(run_cgo_build_with_elf_patch)
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
@@ -396,7 +416,7 @@ go-client-build: $(BUILD_CLIENT_TARGETS)
 
 .PHONY: go-build
 go-build: go-agent-build go-client-build
-## build: builds all the targets withouth rebuilding a new schema.
+## go-build: builds all the targets without rebuilding a new schema.
 
 .PHONY: release-build
 release-build: go-agent-build

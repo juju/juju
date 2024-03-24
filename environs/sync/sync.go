@@ -255,7 +255,11 @@ type BuildAgentTarballFunc func(devSrcDir string, stream string, arch arch.Arch)
 
 // BuildAgentTarball bundles an agent tarball and places it in a temp directory in
 // the expected agent path.
-func BuildAgentTarball(devSrcDir string, stream string, arch arch.Arch) (_ *BuiltAgent, err error) {
+var BuildAgentTarball BuildAgentTarballFunc = buildAgentTarball
+
+// buildAgentTarball bundles an agent tarball and places it in a temp directory in
+// the expected agent path.
+func buildAgentTarball(devSrcDir string, stream string, arch arch.Arch) (_ *BuiltAgent, err error) {
 	logger.Debugf("Making agent binary tarball")
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived

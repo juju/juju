@@ -248,61 +248,6 @@ started upgrade to 3.9.99
 `[1:])
 }
 
-func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficial(c *gc.C) {
-	s.reset(c)
-
-	s.PatchValue(&jujuversion.Current, func() version.Number {
-		v := jujuversion.Current
-		v.Build = 0
-		return v
-	}())
-
-	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return true },
-	)
-
-	ctrl, cmd := s.upgradeControllerCommand(c, false)
-	defer ctrl.Finish()
-
-	agentVersion := coretesting.FakeVersionNumber
-	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": agentVersion.String(),
-	})
-
-	c.Assert(agentVersion.Build, gc.Equals, 0)
-	builtVersion := coretesting.CurrentVersion()
-	targetVersion := builtVersion.Number
-	builtVersion.Build++
-	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
-		s.modelUpgrader.EXPECT().UpgradeModel(
-			coretesting.ModelTag.Id(), targetVersion,
-			"", false, false,
-		).Return(
-			version.Zero,
-			errors.NotFoundf("available agent tool, upload required"),
-		),
-		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), builtVersion).Return(nil, nil),
-		s.modelUpgrader.EXPECT().UpgradeModel(
-			coretesting.ModelTag.Id(), builtVersion.Number,
-			"", false, false,
-		).Return(builtVersion.Number, nil),
-	)
-
-	ctx, err := cmdtesting.RunCommand(c, cmd,
-		"--agent-version", targetVersion.String(),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
-best version:
-    %s
-`, builtVersion.Number)[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, fmt.Sprintf(`
-no prepackaged agent binaries available, using the local snap jujud %s
-started upgrade to %s
-`, builtVersion.Number, builtVersion.Number)[1:])
-}
-
 func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *gc.C) {
 	s.reset(c)
 

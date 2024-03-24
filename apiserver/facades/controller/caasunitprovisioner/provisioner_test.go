@@ -102,7 +102,6 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 	s.clock = testclock.NewClock(time.Now())
-	s.PatchValue(&jujuversion.OfficialBuild, 0)
 
 	facade, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices,

@@ -162,3 +162,44 @@ wait_for_dpkg() {
         sleep 10
     done
 }
+
+patch_elf_with_version() {
+    JUJU_VERSION_OBJ=${1-""}
+    BINARY=${2-""}
+
+    if [[ "$(go env GOOS)" == "$(go env GOHOSTOS)" && "$(go env GOARCH)" == "$(go env GOHOSTARCH)" ]]; then
+        objcopy --add-section=.note.juju.version=${JUJU_VERSION_OBJ} --set-section-alignment=.note.juju.version=4 --set-section-flags=.note.juju.version=contents,noload,readonly ${BINARY} ${BINARY}
+        exit $?
+    fi
+
+    case $(go env GOARCH) in
+
+    amd64)
+        gcc_arch=x86_64
+        ;;
+
+    arm64)
+        gcc_arch=aarch64
+        ;;
+
+    ppc64le)
+        gcc_arch=powerpc64le
+        ;;
+
+    s390x)
+        gcc_arch=s390x
+        ;;
+
+    *)
+        echo "Bad arch $(go env GOARCH)"
+        ;;
+    esac
+
+    "$DOCKER_BIN" run -it --rm --userns=keep-id -u $(id -u):$(id -g) \
+        --volume ${PROJECT_DIR}:${PROJECT_DIR} -w ${PROJECT_DIR} \
+        --volume ${BUILD_DIR}:${BUILD_DIR} \
+        --volume ${JUJU_VERSION_OBJ}:${JUJU_VERSION_OBJ} \
+        --volume ${BINARY}:${BINARY} \
+        ghcr.io/juju/cross-dev:ubuntu-22.04-go-1.21-dqlite \
+        ${gcc_arch}-linux-gnu-objcopy --add-section=.note.juju.version=${JUJU_VERSION_OBJ} --set-section-alignment=.note.juju.version=4 --set-section-flags=.note.juju.version=contents,noload,readonly ${BINARY} ${BINARY}
+}

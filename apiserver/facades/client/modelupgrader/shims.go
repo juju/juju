@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 )
 
 // StatePool represents a point of use interface for getting the state from the
@@ -34,6 +35,7 @@ type State interface {
 	AbortCurrentUpgrade() error
 	ControllerConfig() (controller.Config, error)
 	AllCharmURLs() ([]*string, error)
+	AllMachines() ([]Machine, error)
 }
 
 type SystemState interface {
@@ -49,6 +51,11 @@ type Model interface {
 	MigrationMode() state.MigrationMode
 	Type() state.ModelType
 	Life() state.Life
+}
+
+// Machine defines a point of use interface for a machine from state.
+type Machine interface {
+	AgentTools() (*tools.Tools, error)
 }
 
 type statePoolShim struct {
@@ -137,6 +144,19 @@ func (s stateShim) AllCharmURLs() ([]*string, error) {
 	return s.PooledState.AllCharmURLs()
 }
 
+func (s stateShim) AllMachines() ([]Machine, error) {
+	machines, err := s.PooledState.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	shimMachines := make([]Machine, 0, len(machines))
+	for _, m := range machines {
+		shimMachines = append(shimMachines, machineShim{m})
+	}
+	return shimMachines, nil
+}
+
 type modelShim struct {
 	*state.Model
 }
@@ -147,4 +167,12 @@ func (s modelShim) IsControllerModel() bool {
 
 func (s modelShim) MigrationMode() state.MigrationMode {
 	return s.Model.MigrationMode()
+}
+
+type machineShim struct {
+	*state.Machine
+}
+
+func (s machineShim) AgentTools() (*tools.Tools, error) {
+	return s.Machine.AgentTools()
 }

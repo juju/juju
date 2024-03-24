@@ -271,45 +271,6 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionFailedExpectUploadBu
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
 }
 
-func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueToNotAllowed(c *gc.C) {
-	s.reset(c)
-
-	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return false },
-	)
-
-	ctrl, cmd := s.upgradeModelCommand(c, false)
-	defer ctrl.Finish()
-
-	agentVersion := coretesting.FakeVersionNumber
-	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": agentVersion.String(),
-	})
-	controllerCfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": agentVersion.String(),
-		"uuid":          testControllerModelUUID,
-	})
-
-	targetVersion := coretesting.CurrentVersion().Number
-	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
-		s.controllerAPI.EXPECT().ModelConfig().Return(controllerCfg, nil),
-		s.modelUpgrader.EXPECT().UpgradeModel(
-			coretesting.ModelTag.Id(), targetVersion,
-			"", false, false,
-		).Return(
-			version.Zero,
-			errors.NotFoundf("available agent tool, upload required"),
-		),
-	)
-
-	ctx, err := cmdtesting.RunCommand(c, cmd,
-		"--agent-version", targetVersion.String(),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
-}
-
 func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailed(c *gc.C) {
 	s.reset(c)
 
@@ -612,57 +573,4 @@ func (s *upgradeModelSuite) TestResetPreviousUpgrade(c *gc.C) {
 	s.assertResetPreviousUpgrade(c, "N", false)
 	s.assertResetPreviousUpgrade(c, "no", false)
 	s.assertResetPreviousUpgrade(c, "foo", false)
-}
-
-func (s *upgradeModelSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	// Not IAAS model.
-	canImplicitUpload := checkCanImplicitUpload(
-		model.CAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.9.99.1"),
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// not official client.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, false,
-		version.MustParse("3.9.99"),
-		version.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// non newer client.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		version.MustParse("2.9.99"),
-		version.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// client version with build number.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		version.MustParse("3.0.0.1"),
-		version.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, jc.IsTrue)
-
-	// agent version with build number.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0.1"),
-	)
-	c.Check(canImplicitUpload, jc.IsTrue)
-
-	// both client and agent version with build number == 0.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
 }
