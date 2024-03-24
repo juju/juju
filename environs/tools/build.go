@@ -18,8 +18,8 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/internal/devtools"
 	"github.com/juju/juju/juju/names"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // Archive writes the executable files found in the given directory in
@@ -220,9 +220,15 @@ func copyBins(srcDir string, targetDir string) error {
 	return nil
 }
 
+type BundleToolsFunc func(devSrcDir string, toolsArch arch.Arch, w io.Writer) (toolsVersion version.Binary, sha256hash string, err error)
+
 // BundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
-func BundleTools(devSrcDir string, toolsArch arch.Arch, w io.Writer) (_ version.Binary, sha256hash string, _ error) {
+var BundleTools BundleToolsFunc = bundleTools
+
+// bundleTools bundles all the current juju tools in gzipped tar
+// format to the given writer.
+func bundleTools(devSrcDir string, toolsArch arch.Arch, w io.Writer) (_ version.Binary, sha256hash string, _ error) {
 	dir, err := os.MkdirTemp("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, "", err
@@ -230,21 +236,23 @@ func BundleTools(devSrcDir string, toolsArch arch.Arch, w io.Writer) (_ version.
 	defer os.RemoveAll(dir)
 
 	binDir := path.Join(devSrcDir, "_build", "linux_"+arch.ToGoArch(toolsArch), "bin")
-
-	// TODO: validate version to prevent version mismatch.
 	err = copyBins(binDir, dir)
 	if err != nil {
 		return version.Binary{}, "", errors.New("no prepackaged agent available and no jujud binary can be found")
 	}
-	sha256hash, err = archiveAndSHA256(w, dir)
+
+	jujudBin := filepath.Join(dir, names.Jujud)
+	toolsVersion, err := devtools.ELFExtractVersion(jujudBin)
 	if err != nil {
 		return version.Binary{}, "", err
 	}
+	if toolsVersion.Arch != toolsArch {
+		return version.Binary{}, "", fmt.Errorf("invalid architecture %q for %s: expected %q", toolsVersion.Arch, jujudBin, toolsArch)
+	}
 
-	toolsVersion := version.Binary{
-		Number:  jujuversion.Current,
-		Release: "ubuntu",
-		Arch:    toolsArch,
+	sha256hash, err = archiveAndSHA256(w, dir)
+	if err != nil {
+		return version.Binary{}, "", err
 	}
 	return toolsVersion, sha256hash, nil
 }

@@ -13,9 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/juju/errors"
 	exttest "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -24,7 +22,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/testing"
 )
 
@@ -137,107 +134,6 @@ func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
 	c.Assert(err, gc.Equals, io.EOF)
 }
 
-func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
-	ver := version.Binary{
-		Number: version.Number{
-			Major: 1,
-			Minor: 2,
-			Tag:   "beta",
-			Patch: 1,
-		},
-		Release: "ubuntu",
-		Arch:    "amd64",
-	}
-
-	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
-		Stderr: "hey, here's some logging you should ignore",
-		Stdout: ver.String(),
-		Args:   argsCh,
-	})
-
-	b.PatchValue(&tools.ExecCommand, execCommand)
-
-	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
-	err := os.WriteFile(cmd, []byte{}, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	v, err := tools.GetVersionFromJujud(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, gc.Equals, ver)
-
-	select {
-	case args := <-argsCh:
-		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
-	default:
-		c.Fatalf("Failed to get args sent to executable.")
-	}
-}
-
-func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *gc.C) {
-	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
-		Stderr: "hey, here's some logging",
-		Stdout: "oops, not a valid version",
-		Args:   argsCh,
-	})
-
-	b.PatchValue(&tools.ExecCommand, execCommand)
-
-	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
-	err := os.WriteFile(cmd, []byte{}, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = tools.GetVersionFromJujud(dir)
-	c.Assert(err, gc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujud`)
-
-	select {
-	case args := <-argsCh:
-		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
-	default:
-		c.Fatalf("Failed to get args sent to executable.")
-	}
-}
-
-func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
-	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
-		Stderr:   "the stderr",
-		Stdout:   "the stdout",
-		ExitCode: 1,
-		Args:     argsCh,
-	})
-
-	b.PatchValue(&tools.ExecCommand, execCommand)
-
-	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
-	err := os.WriteFile(cmd, []byte{}, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = tools.GetVersionFromJujud(dir)
-
-	msg := fmt.Sprintf("cannot get version from %q: exit status 1; the stderr\nthe stdout\n", cmd)
-
-	c.Assert(err.Error(), gc.Equals, msg)
-
-	select {
-	case args := <-argsCh:
-		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
-	default:
-		c.Fatalf("Failed to get args sent to executable.")
-	}
-}
-
-func (b *buildSuite) TestGetVersionFromJujudNoJujud(c *gc.C) {
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
-		ExitCode: 1,
-	})
-	b.PatchValue(&tools.ExecCommand, execCommand)
-
-	_, err := tools.GetVersionFromJujud("foo")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 	dir := c.MkDir()
 	err := os.WriteFile(filepath.Join(dir, "juju"), []byte("some data"), 0755)
@@ -328,75 +224,6 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) 
 		jujudVersion)
 	c.Assert(err, gc.ErrorMatches, `cannot build agent for official build`)
 	c.Assert(official, jc.IsTrue)
-}
-
-func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
-	b.patchExecCommand(c, "", "")
-	dir := b.setUpFakeBinaries(c, "")
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	jujudVersion := func(dir string) (version.Binary, bool, error) {
-		return version.Binary{}, true, nil
-	}
-
-	_, forceVersion, official, _, err := tools.BundleToolsForTest(false, bundleFile,
-		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
-		jujudVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
-	c.Assert(official, jc.IsTrue)
-
-	bundleFile, err = os.Open(bundleFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	gzr, err := gzip.NewReader(bundleFile)
-	c.Assert(err, jc.ErrorIsNil)
-	tarReader := tar.NewReader(gzr)
-
-	timeout := time.After(testing.ShortWait)
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("ForceVersion File is not written as expected")
-		default:
-		}
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			c.Fatalf("ForceVersion File is not written as expected")
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		if header.Typeflag == tar.TypeReg && header.Name == "FORCE-VERSION" {
-			forceVersionFile, err := io.ReadAll(tarReader)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(string(forceVersionFile), gc.Equals, `1.2.3.1`)
-			break
-		}
-	}
-}
-
-func (b *buildSuite) patchExecCommand(c *gc.C, release, arch string) {
-	// Patch so that getting the version from our fake binary in the
-	// absence of a version file works.
-	if release == "" {
-		release = "ubuntu"
-	}
-	if arch == "" {
-		arch = "amd64"
-	}
-	ver := version.Binary{
-		Number: version.Number{
-			Major: 1,
-			Minor: 2,
-			Patch: 3,
-		},
-		Release: release,
-		Arch:    arch,
-	}
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
-		Stdout: ver.String(),
-		Args:   make(chan []string, 2),
-	})
-	b.PatchValue(&tools.ExecCommand, execCommand)
 }
 
 const (

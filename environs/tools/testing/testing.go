@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -35,30 +35,27 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-func GetMockBundleTools(expectedForceVersion version.Number) tools.BundleToolsFunc {
-	return func(
-		build bool, w io.Writer,
-		getForceVersion func(version.Number) version.Number,
-	) (version.Binary, version.Number, bool, string, error) {
+func GetMockBundleTools(expectedVersion version.Number) tools.BundleToolsFunc {
+	return func(devSrcDir string, toolsArch arch.Arch, w io.Writer) (version.Binary, string, error) {
 		vers := coretesting.CurrentVersion()
-		forceVersion := getForceVersion(vers.Number)
-		if forceVersion.Compare(expectedForceVersion) != 0 {
-			return version.Binary{}, version.Number{}, false, "", errors.Errorf("%#v != expected %#v", forceVersion, expectedForceVersion)
+		if expectedVersion.Compare(version.Zero) != 0 {
+			vers.Number = expectedVersion
 		}
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
-		return vers, forceVersion, false, sha256Hash, nil
+		return vers, sha256Hash, nil
 	}
 }
 
 // GetMockBuildTools returns a sync.BuildAgentTarballFunc implementation which generates
 // a fake tools tarball.
-func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
+func GetMockBuildTools(c *gc.C, getForceVersion func(version.Number) version.Number) sync.BuildAgentTarballFunc {
 	return func(
-		build bool, stream string,
-		getForceVersion func(version.Number) version.Number,
+		devSrcDir string, stream string, arch arch.Arch,
 	) (*sync.BuiltAgent, error) {
 		vers := coretesting.CurrentVersion()
-		vers.Number = getForceVersion(vers.Number)
+		if getForceVersion != nil {
+			vers.Number = getForceVersion(vers.Number)
+		}
 
 		tgz, checksum := coretesting.TarGz(
 			coretesting.NewTarFile(names.Jujud, 0777, "jujud contents "+vers.String()))

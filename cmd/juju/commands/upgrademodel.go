@@ -142,6 +142,7 @@ type ModelUpgraderAPI interface {
 	) (version.Number, error)
 	AbortModelUpgrade(modelUUID string) error
 	UploadTools(r io.ReadSeeker, vers version.Binary) (coretools.List, error)
+	RequiredArchitectures(modelUUID string) ([]string, error)
 
 	Close() error
 }

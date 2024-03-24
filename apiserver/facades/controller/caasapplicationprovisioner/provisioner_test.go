@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&CAASApplicationProvisionerSuite{})
@@ -50,7 +49,6 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-	s.PatchValue(&jujuversion.OfficialBuild, 0)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),

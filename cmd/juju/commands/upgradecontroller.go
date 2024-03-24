@@ -251,31 +251,49 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *upgradeControllerCommand) uploadTools(modelUpgrader ModelUpgraderAPI, dryRun bool) (version.Number, error) {
-	// TODO(jujud-controller-snap): arch handling here
-	builtTools, err := sync.BuildAgentTarball(c.devSrcDir, "upgrade", arch.AMD64)
+	modelTag := names.NewModelTag(c.controllerModelDetails.ModelUUID)
+	requiredArches, err := modelUpgrader.RequiredArchitectures(modelTag.Id())
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
-	defer os.RemoveAll(builtTools.Dir)
-
-	if dryRun {
-		logger.Debugf("dryrun, skipping upload agent binary")
-		return version.Zero, nil
+	if len(requiredArches) == 0 {
+		requiredArches = []string{arch.HostArch()}
 	}
 
-	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
-	logger.Infof("uploading agent binary %v (%dkB) to Juju controller", builtTools.Version, (builtTools.Size+512)/1024)
-	f, err := os.Open(toolsPath)
-	if err != nil {
-		return version.Zero, errors.Trace(err)
-	}
-	defer f.Close()
+	ver := version.Zero
+	for _, v := range requiredArches {
+		builtTools, err := sync.BuildAgentTarball(c.devSrcDir, "upgrade", v)
+		if err != nil {
+			return version.Zero, errors.Trace(err)
+		}
+		defer os.RemoveAll(builtTools.Dir)
 
-	_, err = modelUpgrader.UploadTools(f, builtTools.Version)
-	if err != nil {
-		return version.Zero, errors.Trace(err)
+		if ver == version.Zero {
+			ver = builtTools.Version.Number
+		}
+		if ver.Compare(builtTools.Version.Number) != 0 {
+			return version.Zero, fmt.Errorf("dev tool versions for architectures %s do not all match", strings.Join(requiredArches, ", "))
+		}
+
+		if dryRun {
+			logger.Debugf("dryrun, skipping upload agent binary")
+			return version.Zero, nil
+		}
+
+		toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
+		logger.Infof("uploading agent binary %v (%dkB) to Juju controller", builtTools.Version, (builtTools.Size+512)/1024)
+		f, err := os.Open(toolsPath)
+		if err != nil {
+			return version.Zero, errors.Trace(err)
+		}
+		defer f.Close()
+
+		_, err = modelUpgrader.UploadTools(f, builtTools.Version)
+		if err != nil {
+			return version.Zero, errors.Trace(err)
+		}
 	}
-	return builtTools.Version.Number, nil
+	return ver, nil
 }
 
 func (c *upgradeControllerCommand) upgradeController(

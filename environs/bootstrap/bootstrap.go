@@ -452,7 +452,6 @@ func bootstrapIAAS(
 	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints(bootstrapConstraints) {
 		bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
 	}
-	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
 	var bootstrapArch string
 	if bootstrapConstraints.Arch != nil {
@@ -497,13 +496,14 @@ func bootstrapIAAS(
 		if err = validateUploadAllowed(environ, &bootstrapArch, &bootstrapBase, constraintsValidator); err != nil {
 			return err
 		}
-		ctx.Infof("Preparing local Juju agent binary")
 
 		builtTools, err := args.BuildAgentTarball(args.DevSrcDir, cfg.AgentStream(), bootstrapArch)
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		defer os.RemoveAll(builtTools.Dir)
+
+		ctx.Infof("Preparing local dev Juju agent binary %v", builtTools.Version)
 
 		filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
 		availableTools = append(availableTools, &coretools.Tools{
