@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -466,6 +465,10 @@ func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatch
 // WatchConsumedSecretsChanges returns a watcher which notifies of new secret revisions consumed by the
 // app with the specified token.
 func (c *Client) WatchConsumedSecretsChanges(applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
+	// TODO(wallyworld) - when juju 3.4 is no longer supported, we can change this to < 3.
+	if c.BestAPIVersion() < 2 {
+		return nil, errors.NotImplemented
+	}
 	var macs macaroon.Slice
 	if mac != nil {
 		macs = macaroon.Slice{mac}
@@ -489,7 +492,7 @@ func (c *Client) WatchConsumedSecretsChanges(applicationToken, relationToken str
 		// Reset the results struct before each api call.
 		results = params.SecretRevisionWatchResults{}
 		if err := c.facade.FacadeCall("WatchConsumedSecretsChanges", args, &results); err != nil {
-			return errors.Trace(err)
+			return params.TranslateWellKnownError(err)
 		}
 		if len(results.Results) != 1 {
 			return errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -519,7 +522,7 @@ func (c *Client) WatchConsumedSecretsChanges(applicationToken, relationToken str
 		result = results.Results[0]
 	}
 	if result.Error != nil {
-		return nil, apiservererrors.RestoreError(result.Error)
+		return nil, params.TranslateWellKnownError(result.Error)
 	}
 
 	w := apiwatcher.NewSecretsRevisionWatcher(c.facade.RawAPICaller(), result)

@@ -20491,7 +20491,7 @@
     {
         "Name": "CrossModelRelations",
         "Description": "CrossModelRelationsAPI provides access to the CrossModelRelations API facade.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
