@@ -34,7 +34,7 @@ type ReloadSpacesState interface {
 	ConstraintsBySpaceName(string) ([]Constraints, error)
 	// AllEndpointBindingsSpaceNames returns a set of spaces names for all the
 	// endpoint bindings.
-	AllEndpointBindingsSpaceNames() (set.Strings, error)
+	AllEndpointBindingsSpaceNames(network.SpaceInfos) (set.Strings, error)
 	// Remove removes a Dead space. If the space is not Dead or it is already
 	// removed, an error is returned.
 	Remove(spaceID string) error
@@ -65,7 +65,15 @@ func ReloadSpaces(ctx envcontext.ProviderCallContext, state ReloadSpacesState, e
 		if err := providerSpaces.SaveSpaces(spaces); err != nil {
 			return errors.Trace(err)
 		}
-		warnings, err := providerSpaces.DeleteSpaces()
+		// TODO(nvinuesa): This is only temporary since DeleteSpaces
+		// calls AllEndpointBindingsSpaceNames() which takes the
+		// complete list of spaces as inputs. This will go away once
+		// we finish migrating endpoint bindings to dqlite.
+		allSpaces, err := state.AllSpaces()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		warnings, err := providerSpaces.DeleteSpaces(allSpaces)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -168,7 +176,7 @@ func (s *ProviderSpaces) DeltaSpaces() network.IDSet {
 // DeleteSpaces will attempt to delete any unused spaces after a SaveSpaces has
 // been called.
 // If there are no spaces to be deleted, it will exit out early.
-func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
+func (s *ProviderSpaces) DeleteSpaces(allSpaces network.SpaceInfos) ([]string, error) {
 	// Exit early if there is nothing to do.
 	if len(s.modelSpaceMap) == 0 {
 		return nil, nil
@@ -187,7 +195,7 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 	// migrating this logic to Dqlite.
 	defaultEndpointBinding := network.AlphaSpaceId
 
-	allEndpointBindings, err := s.state.AllEndpointBindingsSpaceNames()
+	allEndpointBindings, err := s.state.AllEndpointBindingsSpaceNames(allSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

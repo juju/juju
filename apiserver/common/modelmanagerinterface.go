@@ -82,7 +82,7 @@ type ModelManagerBackend interface {
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	AllSpaces() ([]*state.Space, error)
 	AddSpace(string, network.Id, []string) (*state.Space, error)
-	AllEndpointBindingsSpaceNames() (set.Strings, error)
+	AllEndpointBindingsSpaceNames(network.SpaceInfos) (set.Strings, error)
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 	// TODO(nvinuesa): This method is necessary only until the spaces
 	// migration to dqlite is finished:

@@ -15,6 +15,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
@@ -97,7 +98,7 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch}, nil)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -147,7 +148,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 		Storage: map[string]state.StorageConstraints{
 			"data": {Count: 1, Size: 1024},
 		},
-	})
+	}, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 	})
@@ -220,7 +221,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 
 	f := factory.NewFactory(st2, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch}, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,7 +279,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	// add some applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab"})
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(otherSt, s.StatePool)
@@ -291,7 +292,19 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 		}},
 		Charm: ch,
 	}
-	application2, err := otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()))
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+			Subnets: network.SubnetInfos{
+				{
+					ID:   network.Id("0"),
+					CIDR: "10.0.0.0/24",
+				},
+			},
+		},
+	}
+	application2, err := otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -337,7 +350,7 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 		Name:   "gitlab-k8s",
 		Series: "focal",
 	})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch}, nil)
 
 	_, err := app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,7 +370,7 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
-	app := f.MakeApplication(c, nil)
+	app := f.MakeApplication(c, nil, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		Status: &status.StatusInfo{
@@ -380,7 +393,7 @@ func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 func (s *CAASModelSuite) TestCloudContainerStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
-	app := f.MakeApplication(c, nil)
+	app := f.MakeApplication(c, nil, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		Status: &status.StatusInfo{

@@ -236,7 +236,7 @@ type Application interface {
 	CharmURL() (curl *string, force bool)
 
 	// EndpointBindings returns the Bindings object for this application.
-	EndpointBindings() (Bindings, error)
+	EndpointBindings(network.SpaceInfos) (Bindings, error)
 
 	// Status returns the status of the application.
 	Status() (status.StatusInfo, error)

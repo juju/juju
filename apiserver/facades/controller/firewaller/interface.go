@@ -28,8 +28,13 @@ type State interface {
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 	WatchOpenedPorts() state.StringsWatcher
 	FindEntity(tag names.Tag) (state.Entity, error)
-	AllEndpointBindings() (map[string]map[string]string, error)
-	SpaceInfos() (network.SpaceInfos, error)
+	AllEndpointBindings(allSpaces network.SpaceInfos) (map[string]map[string]string, error)
+}
+
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
 // ControllerConfigAPI provides the subset of common.ControllerConfigAPI
@@ -77,12 +82,12 @@ func (st stateShim) WatchOpenedPorts() state.StringsWatcher {
 	return st.st.WatchOpenedPorts()
 }
 
-func (st stateShim) AllEndpointBindings() (map[string]map[string]string, error) {
+func (st stateShim) AllEndpointBindings(allSpaces network.SpaceInfos) (map[string]map[string]string, error) {
 	model, err := st.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	allEndpointBindings, err := model.AllEndpointBindings()
+	allEndpointBindings, err := model.AllEndpointBindings(allSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -92,8 +97,4 @@ func (st stateShim) AllEndpointBindings() (map[string]map[string]string, error) 
 		res[appName] = bindings.Map() // endpoint -> spaceID
 	}
 	return res, nil
-}
-
-func (st stateShim) SpaceInfos() (network.SpaceInfos, error) {
-	return st.st.AllSpaceInfos()
 }

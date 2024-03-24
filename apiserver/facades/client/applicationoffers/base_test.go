@@ -42,6 +42,7 @@ type baseSuite struct {
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
+
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = &testing.FakeAuthorizer{
 		Tag:      names.NewUserTag("read"),

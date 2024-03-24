@@ -23,4 +23,4 @@ func TestAll(t *stdtesting.T) {
 //go:generate go run go.uber.org/mock/mockgen -package application -destination updatebase_mocks_test.go github.com/juju/juju/apiserver/facades/client/application Application,Charm,UpdateBaseState,UpdateBaseValidator,CharmhubClient
 //go:generate go run go.uber.org/mock/mockgen -package application -destination deployrepository_mocks_test.go github.com/juju/juju/apiserver/facades/client/application Bindings,DeployFromRepositoryState,DeployFromRepositoryValidator,Model,Machine
 //go:generate go run go.uber.org/mock/mockgen -package application -destination repository_mocks_test.go github.com/juju/juju/core/charm Repository,RepositoryFactory
-//go:generate go run go.uber.org/mock/mockgen -package application -destination domain_mock.go github.com/juju/juju/apiserver/facades/client/application MachineService,ApplicationService,StoragePoolGetter
+//go:generate go run go.uber.org/mock/mockgen -package application -destination domain_mock.go github.com/juju/juju/apiserver/facades/client/application MachineService,ApplicationService,StoragePoolGetter,SpaceService

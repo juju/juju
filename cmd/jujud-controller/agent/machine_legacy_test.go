@@ -547,7 +547,7 @@ func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
 		app := f.MakeApplication(c, &factory.ApplicationParams{
 			Name:  "wordpress",
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-		})
+		}, nil)
 		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = app.Destroy(testing.NewObjectStore(c, s.ControllerModelUUID()))
@@ -587,7 +587,7 @@ func (s *MachineLegacySuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 		app := f.MakeApplication(c, &factory.ApplicationParams{
 			Name:  "wordpress",
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-		})
+		}, nil)
 		err := app.SetMinUnits(1)
 		c.Assert(err, jc.ErrorIsNil)
 		w := app.Watch()
@@ -699,7 +699,7 @@ func (s *MachineLegacySuite) TestManageModelRunsInstancePoller(c *gc.C) {
 				Channel:      "22.04",
 			}},
 		Constraints: constraints.MustParse("arch=" + arch),
-	})
+	}, nil)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerModel(c).State().AssignUnit(state.NoopInstancePrechecker{}, unit, state.AssignNew)

@@ -17,6 +17,7 @@ import (
 	base "github.com/juju/juju/core/base"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
+	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
@@ -258,18 +259,18 @@ func (mr *MockApplicationMockRecorder) DestroyOperation(arg0 any) *gomock.Call {
 }
 
 // EndpointBindings mocks base method.
-func (m *MockApplication) EndpointBindings() (Bindings, error) {
+func (m *MockApplication) EndpointBindings(arg0 network.SpaceInfos) (Bindings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EndpointBindings")
+	ret := m.ctrl.Call(m, "EndpointBindings", arg0)
 	ret0, _ := ret[0].(Bindings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EndpointBindings indicates an expected call of EndpointBindings.
-func (mr *MockApplicationMockRecorder) EndpointBindings() *gomock.Call {
+func (mr *MockApplicationMockRecorder) EndpointBindings(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointBindings", reflect.TypeOf((*MockApplication)(nil).EndpointBindings))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointBindings", reflect.TypeOf((*MockApplication)(nil).EndpointBindings), arg0)
 }
 
 // Endpoints mocks base method.
@@ -358,17 +359,17 @@ func (mr *MockApplicationMockRecorder) Life() *gomock.Call {
 }
 
 // MergeBindings mocks base method.
-func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool) error {
+func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool, arg2 network.SpaceInfos) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MergeBindings", arg0, arg1)
+	ret := m.ctrl.Call(m, "MergeBindings", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MergeBindings indicates an expected call of MergeBindings.
-func (mr *MockApplicationMockRecorder) MergeBindings(arg0, arg1 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) MergeBindings(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeBindings", reflect.TypeOf((*MockApplication)(nil).MergeBindings), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeBindings", reflect.TypeOf((*MockApplication)(nil).MergeBindings), arg0, arg1, arg2)
 }
 
 // MergeExposeSettings mocks base method.
@@ -415,17 +416,17 @@ func (mr *MockApplicationMockRecorder) Relations() *gomock.Call {
 }
 
 // SetCharm mocks base method.
-func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore) error {
+func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore, arg2 network.SpaceInfos) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharm indicates an expected call of SetCharm.
-func (mr *MockApplicationMockRecorder) SetCharm(arg0, arg1 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) SetCharm(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0, arg1, arg2)
 }
 
 // SetConstraints mocks base method.

@@ -120,7 +120,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 			"data":    {Count: 1, Pool: "modelscoped"},
 			"allecto": {Count: 1, Pool: "modelscoped"},
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
@@ -180,7 +180,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 			Directive: "whatever",
 		}},
 		AttachStorage: storageTags,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The volume corresponding to the provisioned storage volume (only)
@@ -208,7 +208,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 		}},
 		NumUnits:    1,
 		Constraints: constraints.MustParse("root-disk=20G"),
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
 		Base:        corebase.MakeDefaultBase("ubuntu", "12.10"),
@@ -238,7 +238,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C)
 			instance.MustParsePlacement(m1.Id()),
 			instance.MustParsePlacement(m2.Id()),
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -264,7 +264,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 			{Scope: instance.MachineScope, Directive: m1.Id()},
 			{Scope: s.State.ModelUUID(), Directive: "somewhere"},
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": hey now`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
 		Base:        corebase.MakeDefaultBase("ubuntu", "20.04"),

@@ -872,12 +872,42 @@ func (s *AddressSuite) TestSelectAddressesBySpaceNoneFound(c *gc.C) {
 	c.Check(filtered, jc.DeepEquals, addrs)
 }
 
-type stubLookup struct{}
+func (s *AddressSuite) TestProviderAddressesToSpaceAddressesByName(c *gc.C) {
+	// Check success.
+	addrs := network.ProviderAddresses{
+		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
+		network.NewMachineAddress("2.3.4.5").AsProviderAddress(network.WithSpaceName("space-two")),
+		network.NewMachineAddress("3.4.5.6").AsProviderAddress(),
+	}
 
-var _ network.SpaceLookup = stubLookup{}
+	allSpaces := network.SpaceInfos{
+		{ID: "1", Name: "space-one", ProviderId: "p1"},
+		{ID: "2", Name: "space-two"},
+	}
+	exp := network.NewSpaceAddresses("1.2.3.4", "2.3.4.5", "3.4.5.6")
+	exp[0].SpaceID = "1"
+	exp[1].SpaceID = "2"
 
-func (s stubLookup) AllSpaceInfos() (network.SpaceInfos, error) {
-	return network.SpaceInfos{
+	res, err := addrs.ToSpaceAddresses(allSpaces)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, jc.SameContents, exp)
+
+	// Add an address in a space that the lookup will not resolve.
+	addrs = append(addrs, network.NewMachineAddress("4.5.6.7").AsProviderAddress(network.WithSpaceName("space-denied")))
+	_, err = addrs.ToSpaceAddresses(allSpaces)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *AddressSuite) TestProviderAddressesToSpaceAddressesBySubnet(c *gc.C) {
+	// Check success.
+	addrs := network.ProviderAddresses{
+		network.NewMachineAddress(
+			"10.0.0.6",
+			network.WithCIDR("10.0.0.0/24"),
+		).AsProviderAddress(network.WithProviderSubnetID("61")),
+	}
+
+	allSpaces := network.SpaceInfos{
 		{ID: "1", Name: "space-one", ProviderId: "p1"},
 		{ID: "2", Name: "space-two"},
 		{
@@ -891,41 +921,8 @@ func (s stubLookup) AllSpaceInfos() (network.SpaceInfos, error) {
 				},
 			},
 		},
-	}, nil
-}
-
-func (s *AddressSuite) TestProviderAddressesToSpaceAddressesByName(c *gc.C) {
-	// Check success.
-	addrs := network.ProviderAddresses{
-		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
-		network.NewMachineAddress("2.3.4.5").AsProviderAddress(network.WithSpaceName("space-two")),
-		network.NewMachineAddress("3.4.5.6").AsProviderAddress(),
 	}
-
-	exp := network.NewSpaceAddresses("1.2.3.4", "2.3.4.5", "3.4.5.6")
-	exp[0].SpaceID = "1"
-	exp[1].SpaceID = "2"
-
-	res, err := addrs.ToSpaceAddresses(stubLookup{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.SameContents, exp)
-
-	// Add an address in a space that the lookup will not resolve.
-	addrs = append(addrs, network.NewMachineAddress("4.5.6.7").AsProviderAddress(network.WithSpaceName("space-denied")))
-	_, err = addrs.ToSpaceAddresses(stubLookup{})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *AddressSuite) TestProviderAddressesToSpaceAddressesBySubnet(c *gc.C) {
-	// Check success.
-	addrs := network.ProviderAddresses{
-		network.NewMachineAddress(
-			"10.0.0.6",
-			network.WithCIDR("10.0.0.0/24"),
-		).AsProviderAddress(network.WithProviderSubnetID("61")),
-	}
-
-	res, err := addrs.ToSpaceAddresses(stubLookup{})
+	res, err := addrs.ToSpaceAddresses(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	c.Check(res[0].SpaceID, gc.Equals, "6")
@@ -937,6 +934,10 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	addrs[0].SpaceID = "1"
 	addrs[1].SpaceID = "2"
 
+	allSpaces := network.SpaceInfos{
+		{ID: "1", Name: "space-one", ProviderId: "p1"},
+		{ID: "2", Name: "space-two"},
+	}
 	exp := network.ProviderAddresses{
 		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
 		network.NewMachineAddress("2.3.4.5").AsProviderAddress(network.WithSpaceName("space-two")),
@@ -945,14 +946,14 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	// Only the first address in the lookup has a provider ID.
 	exp[0].ProviderSpaceID = "p1"
 
-	res, err := addrs.ToProviderAddresses(stubLookup{})
+	res, err := addrs.ToProviderAddresses(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, jc.SameContents, exp)
 
 	// Add an address in a space that the lookup will not resolve.
 	addrs = append(addrs, network.NewSpaceAddress("4.5.6.7"))
 	addrs[3].SpaceID = "3"
-	_, err = addrs.ToProviderAddresses(stubLookup{})
+	_, err = addrs.ToProviderAddresses(allSpaces)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 

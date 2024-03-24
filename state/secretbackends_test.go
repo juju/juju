@@ -140,7 +140,7 @@ func (s *SecretBackendsSuite) TestRemoveWithRevisionsFails(c *gc.C) {
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
 
-	owner := s.Factory.MakeApplication(c, nil)
+	owner := s.Factory.MakeApplication(c, nil, nil)
 	uri := secrets.NewURI()
 	sp := state.CreateSecretParams{
 		Version: 1,
@@ -174,7 +174,7 @@ func (s *SecretBackendsSuite) TestRemoveWithRevisionsForce(c *gc.C) {
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
 
-	owner := s.Factory.MakeApplication(c, nil)
+	owner := s.Factory.MakeApplication(c, nil, nil)
 	uri := secrets.NewURI()
 	sp := state.CreateSecretParams{
 		Version: 1,
@@ -213,7 +213,7 @@ func (s *SecretBackendsSuite) TestDeleteSecretUpdatesRefCount(c *gc.C) {
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
 
-	owner := s.Factory.MakeApplication(c, nil)
+	owner := s.Factory.MakeApplication(c, nil, nil)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -262,7 +262,7 @@ func (s *SecretBackendsSuite) TestDeleteRevisionsUpdatesRefCount(c *gc.C) {
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
 
-	owner := s.Factory.MakeApplication(c, nil)
+	owner := s.Factory.MakeApplication(c, nil, nil)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -394,7 +394,7 @@ func (s *SecretBackendsSuite) TestUpdateNameForInUseBackend(c *gc.C) {
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
 
-	owner := s.Factory.MakeApplication(c, nil)
+	owner := s.Factory.MakeApplication(c, nil, nil)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,

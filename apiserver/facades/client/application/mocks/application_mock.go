@@ -61,18 +61,18 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddApplication mocks base method.
-func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore) (application.Application, error) {
+func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore, arg2 network.SpaceInfos) (application.Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1)
+	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(application.Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddApplication indicates an expected call of AddApplication.
-func (mr *MockBackendMockRecorder) AddApplication(arg0, arg1 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddApplication(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockBackend)(nil).AddApplication), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockBackend)(nil).AddApplication), arg0, arg1, arg2)
 }
 
 // AddCharmMetadata mocks base method.
@@ -152,21 +152,6 @@ func (m *MockBackend) AllModelUUIDs() ([]string, error) {
 func (mr *MockBackendMockRecorder) AllModelUUIDs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockBackend)(nil).AllModelUUIDs))
-}
-
-// AllSpaceInfos mocks base method.
-func (m *MockBackend) AllSpaceInfos() (network.SpaceInfos, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllSpaceInfos")
-	ret0, _ := ret[0].(network.SpaceInfos)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllSpaceInfos indicates an expected call of AllSpaceInfos.
-func (mr *MockBackendMockRecorder) AllSpaceInfos() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaceInfos", reflect.TypeOf((*MockBackend)(nil).AllSpaceInfos))
 }
 
 // Application mocks base method.
@@ -340,21 +325,6 @@ func (mr *MockBackendMockRecorder) Model() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockBackend)(nil).Model))
 }
 
-// ModelConstraints mocks base method.
-func (m *MockBackend) ModelConstraints() (constraints.Value, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConstraints")
-	ret0, _ := ret[0].(constraints.Value)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConstraints indicates an expected call of ModelConstraints.
-func (mr *MockBackendMockRecorder) ModelConstraints() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConstraints", reflect.TypeOf((*MockBackend)(nil).ModelConstraints))
-}
-
 // ModelUUID mocks base method.
 func (m *MockBackend) ModelUUID() string {
 	m.ctrl.T.Helper()
@@ -485,21 +455,6 @@ func (m *MockBackend) SaveEgressNetworks(arg0 string, arg1 []string) (state.Rela
 func (mr *MockBackendMockRecorder) SaveEgressNetworks(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveEgressNetworks", reflect.TypeOf((*MockBackend)(nil).SaveEgressNetworks), arg0, arg1)
-}
-
-// Space mocks base method.
-func (m *MockBackend) Space(arg0 string) (*state.Space, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Space", arg0)
-	ret0, _ := ret[0].(*state.Space)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Space indicates an expected call of Space.
-func (mr *MockBackendMockRecorder) Space(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockBackend)(nil).Space), arg0)
 }
 
 // Unit mocks base method.
@@ -1185,18 +1140,18 @@ func (mr *MockApplicationMockRecorder) DestroyOperation(arg0 any) *gomock.Call {
 }
 
 // EndpointBindings mocks base method.
-func (m *MockApplication) EndpointBindings() (application.Bindings, error) {
+func (m *MockApplication) EndpointBindings(arg0 network.SpaceInfos) (application.Bindings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EndpointBindings")
+	ret := m.ctrl.Call(m, "EndpointBindings", arg0)
 	ret0, _ := ret[0].(application.Bindings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EndpointBindings indicates an expected call of EndpointBindings.
-func (mr *MockApplicationMockRecorder) EndpointBindings() *gomock.Call {
+func (mr *MockApplicationMockRecorder) EndpointBindings(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointBindings", reflect.TypeOf((*MockApplication)(nil).EndpointBindings))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointBindings", reflect.TypeOf((*MockApplication)(nil).EndpointBindings), arg0)
 }
 
 // Endpoints mocks base method.
@@ -1285,17 +1240,17 @@ func (mr *MockApplicationMockRecorder) Life() *gomock.Call {
 }
 
 // MergeBindings mocks base method.
-func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool) error {
+func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool, arg2 network.SpaceInfos) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MergeBindings", arg0, arg1)
+	ret := m.ctrl.Call(m, "MergeBindings", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MergeBindings indicates an expected call of MergeBindings.
-func (mr *MockApplicationMockRecorder) MergeBindings(arg0, arg1 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) MergeBindings(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeBindings", reflect.TypeOf((*MockApplication)(nil).MergeBindings), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeBindings", reflect.TypeOf((*MockApplication)(nil).MergeBindings), arg0, arg1, arg2)
 }
 
 // MergeExposeSettings mocks base method.
@@ -1342,17 +1297,17 @@ func (mr *MockApplicationMockRecorder) Relations() *gomock.Call {
 }
 
 // SetCharm mocks base method.
-func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore) error {
+func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore, arg2 network.SpaceInfos) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharm indicates an expected call of SetCharm.
-func (mr *MockApplicationMockRecorder) SetCharm(arg0, arg1 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) SetCharm(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0, arg1, arg2)
 }
 
 // SetConstraints mocks base method.
@@ -1975,17 +1930,17 @@ func (mr *MockUnitMockRecorder) ApplicationName() *gomock.Call {
 }
 
 // AssignWithPlacement mocks base method.
-func (m *MockUnit) AssignWithPlacement(arg0 *instance.Placement) error {
+func (m *MockUnit) AssignWithPlacement(arg0 *instance.Placement, arg1 network.SpaceInfos) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignWithPlacement", arg0)
+	ret := m.ctrl.Call(m, "AssignWithPlacement", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AssignWithPlacement indicates an expected call of AssignWithPlacement.
-func (mr *MockUnitMockRecorder) AssignWithPlacement(arg0 any) *gomock.Call {
+func (mr *MockUnitMockRecorder) AssignWithPlacement(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignWithPlacement", reflect.TypeOf((*MockUnit)(nil).AssignWithPlacement), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignWithPlacement", reflect.TypeOf((*MockUnit)(nil).AssignWithPlacement), arg0, arg1)
 }
 
 // AssignWithPolicy mocks base method.

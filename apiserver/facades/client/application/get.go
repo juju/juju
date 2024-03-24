@@ -4,6 +4,8 @@
 package application
 
 import (
+	"context"
+
 	"github.com/juju/charm/v13"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -18,12 +20,13 @@ import (
 )
 
 // Get returns the charm configuration for an application.
-func (api *APIBase) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	return api.getConfig(args, describe)
+func (api *APIBase) Get(ctx context.Context, args params.ApplicationGet) (params.ApplicationGetResults, error) {
+	return api.getConfig(ctx, args, describe)
 }
 
 // Get returns the charm configuration for an application.
 func (api *APIBase) getConfig(
+	ctx context.Context,
 	args params.ApplicationGet,
 	describe func(settings charm.Settings, config *charm.Config) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
@@ -68,17 +71,15 @@ func (api *APIBase) getConfig(
 			return params.ApplicationGetResults{}, err
 		}
 	}
-	endpoints, err := app.EndpointBindings()
-	if err != nil {
-		return params.ApplicationGetResults{}, err
-	}
-
-	allSpaceInfosLookup, err := api.backend.AllSpaceInfos()
+	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
 	if err != nil {
 		return params.ApplicationGetResults{}, apiservererrors.ServerError(err)
 	}
-
-	bindingMap, err := endpoints.MapWithSpaceNames(allSpaceInfosLookup)
+	endpoints, err := app.EndpointBindings(allSpaces)
+	if err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+	bindingMap, err := endpoints.MapWithSpaceNames(allSpaces)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

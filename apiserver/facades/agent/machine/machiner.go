@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -23,6 +24,12 @@ import (
 // that are needed by the machiner API.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
 // MachinerAPI implements the API used by the machiner worker.
@@ -34,6 +41,7 @@ type MachinerAPI struct {
 	*common.APIAddresser
 	*networkingcommon.NetworkConfigAPI
 
+	spaceService            SpaceService
 	st                      *state.State
 	controllerConfigService ControllerConfigService
 	auth                    facade.Authorizer
@@ -49,6 +57,7 @@ func NewMachinerAPIForState(
 	cloudService common.CloudService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	spaceService SpaceService,
 ) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -70,6 +79,7 @@ func NewMachinerAPIForState(
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, resources, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
 		NetworkConfigAPI:        netConfigAPI,
+		spaceService:            spaceService,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
 		auth:                    authorizer,
@@ -111,7 +121,17 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		addresses, err := params.ToProviderAddresses(arg.Addresses...).ToSpaceAddresses(api.st)
+
+		var allSpaces network.SpaceInfos
+		pas := params.ToProviderAddresses(arg.Addresses...)
+		if len(pas) > 0 {
+			allSpaces, err = api.spaceService.GetAllSpaces(ctx)
+			if err != nil {
+				results.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+		addresses, err := pas.ToSpaceAddresses(allSpaces)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

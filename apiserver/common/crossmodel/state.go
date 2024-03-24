@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -61,8 +62,8 @@ func (a applicationShim) Charm() (ch Charm, force bool, err error) {
 	return a.Application.Charm()
 }
 
-func (a applicationShim) EndpointBindings() (Bindings, error) {
-	return a.Application.EndpointBindings()
+func (a applicationShim) EndpointBindings(allSpaces network.SpaceInfos) (Bindings, error) {
+	return a.Application.EndpointBindings(allSpaces)
 }
 
 func (a applicationShim) AllUnits() ([]Unit, error) {

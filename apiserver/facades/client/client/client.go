@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	stdcontext "context"
 
 	"github.com/juju/collections/set"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -35,6 +37,12 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.client")
 
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 type API struct {
 	stateAccessor     Backend
 	pool              Pool
@@ -43,6 +51,7 @@ type API struct {
 	auth              facade.Authorizer
 	resources         facade.Resources
 	presence          facade.Presence
+	spaceService      SpaceService
 
 	multiwatcherFactory multiwatcher.Factory
 
@@ -174,6 +183,7 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 		blockChecker,
 		leadershipReader,
 		factory,
+		ctx.ServiceFactory().Space(),
 		registry.New,
 	)
 }
@@ -192,6 +202,7 @@ func NewClient(
 	blockChecker *common.BlockChecker,
 	leadershipReader leadership.Reader,
 	factory multiwatcher.Factory,
+	spaceService SpaceService,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
@@ -209,6 +220,7 @@ func NewClient(
 			toolsFinder:         toolsFinder,
 			leadershipReader:    leadershipReader,
 			multiwatcherFactory: factory,
+			spaceService:        spaceService,
 		},
 		newEnviron:      newEnviron,
 		check:           blockChecker,

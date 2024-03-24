@@ -39,7 +39,7 @@ type Backend interface {
 	Application(string) (Application, error)
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore, network.SpaceInfos) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -60,8 +60,6 @@ type Backend interface {
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 	Branch(string) (Generation, error)
-	state.EndpointBinding
-	ModelConstraints() (constraints.Value, error)
 	services.StateBackend
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
@@ -95,14 +93,14 @@ type Application interface {
 	Constraints() (constraints.Value, error)
 	Destroy(objectstore.ObjectStore) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
-	EndpointBindings() (Bindings, error)
+	EndpointBindings(network.SpaceInfos) (Bindings, error)
 	ExposedEndpoints() map[string]state.ExposedEndpoint
 	Endpoints() ([]state.Endpoint, error)
 	IsExposed() bool
 	IsPrincipal() bool
 	IsRemote() bool
 	Life() state.Life
-	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
+	SetCharm(state.SetCharmConfig, objectstore.ObjectStore, network.SpaceInfos) error
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
@@ -113,7 +111,7 @@ type Application interface {
 	SetScale(int, int64, bool) error
 	ChangeScale(int) (int, error)
 	AgentTools() (*tools.Tools, error)
-	MergeBindings(*state.Bindings, bool) error
+	MergeBindings(*state.Bindings, bool, network.SpaceInfos) error
 	Relations() ([]Relation, error)
 }
 
@@ -202,7 +200,7 @@ type Unit interface {
 	AssignedMachineId() (string, error)
 	WorkloadVersion() (string, error)
 	AssignWithPolicy(state.AssignmentPolicy) error
-	AssignWithPlacement(*instance.Placement) error
+	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
 	ContainerInfo() (state.CloudContainer, error)
 }
 
@@ -323,8 +321,8 @@ func (s stateShim) ReadSequence(name string) (int, error) {
 	return state.ReadSequence(s.State, name)
 }
 
-func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(s.prechecker, args, store)
+func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore, allSpaces network.SpaceInfos) (Application, error) {
+	a, err := s.State.AddApplication(s.prechecker, args, store, allSpaces)
 	if err != nil {
 		return nil, err
 	}
@@ -553,8 +551,8 @@ func (a stateApplicationShim) Relations() ([]Relation, error) {
 	return out, nil
 }
 
-func (a stateApplicationShim) EndpointBindings() (Bindings, error) {
-	return a.Application.EndpointBindings()
+func (a stateApplicationShim) EndpointBindings(allSpaces network.SpaceInfos) (Bindings, error) {
+	return a.Application.EndpointBindings(allSpaces)
 }
 
 type stateCharmShim struct {
@@ -616,8 +614,8 @@ func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
 	return u.st.AssignUnit(u.prechecker, u.Unit, policy)
 }
 
-func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement) error {
-	return u.st.AssignUnitWithPlacement(u.prechecker, u.Unit, placement)
+func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement, allSpaces network.SpaceInfos) error {
+	return u.st.AssignUnitWithPlacement(u.prechecker, u.Unit, placement, allSpaces)
 }
 
 type Subnet interface {

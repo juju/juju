@@ -92,7 +92,7 @@ func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *gc.C) {
 func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
-	}})
+	}}, nil)
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: app.Tag().String(),
 	}}})

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/client"
-	"github.com/juju/juju/apiserver/facades/client/client/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -405,12 +404,13 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	backend := mocks.NewMockBackend(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	backend := NewMockBackend(ctrl)
+	model := NewMockModel(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
-	toolsFinder := mocks.NewMockToolsFinder(ctrl)
-	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
+	toolsFinder := NewMockToolsFinder(ctrl)
+	blockDeviceGetter := NewMockBlockDeviceGetter(ctrl)
+	spaceService := NewMockSpaceService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
@@ -434,6 +434,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		nil, blockDeviceGetter, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
+		spaceService,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return registryProvider, nil
 		},
@@ -459,12 +460,13 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	backend := mocks.NewMockBackend(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	backend := NewMockBackend(ctrl)
+	model := NewMockModel(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
-	toolsFinder := mocks.NewMockToolsFinder(ctrl)
-	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
+	toolsFinder := NewMockToolsFinder(ctrl)
+	blockDeviceGetter := NewMockBlockDeviceGetter(ctrl)
+	spaceService := NewMockSpaceService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -514,6 +516,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		nil, blockDeviceGetter, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
+		spaceService,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",
@@ -540,12 +543,13 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	backend := mocks.NewMockBackend(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	backend := NewMockBackend(ctrl)
+	model := NewMockModel(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
-	toolsFinder := mocks.NewMockToolsFinder(ctrl)
-	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
+	toolsFinder := NewMockToolsFinder(ctrl)
+	blockDeviceGetter := NewMockBlockDeviceGetter(ctrl)
+	spaceService := NewMockSpaceService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -600,6 +604,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		nil, blockDeviceGetter, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
+		spaceService,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",

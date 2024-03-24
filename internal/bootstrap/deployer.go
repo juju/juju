@@ -153,7 +153,7 @@ type Unit interface {
 // StateBackend is the interface that is used to get information about the
 // state.
 type StateBackend interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(context.Context, state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	Charm(string) (Charm, error)
 	Model() (Model, error)
 	Unit(string) (Unit, error)
@@ -395,15 +395,18 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		return nil, errors.Trace(err)
 	}
 
-	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{
-		Name:              bootstrap.ControllerApplicationName,
-		Charm:             ch,
-		CharmOrigin:       stateOrigin,
-		CharmConfig:       cfg,
-		Constraints:       b.constraints,
-		ApplicationConfig: appCfg,
-		NumUnits:          1,
-	}, b.objectStore)
+	app, err := b.stateBackend.AddApplication(
+		ctx,
+		state.AddApplicationArgs{
+			Name:              bootstrap.ControllerApplicationName,
+			Charm:             ch,
+			CharmOrigin:       stateOrigin,
+			CharmConfig:       cfg,
+			Constraints:       b.constraints,
+			ApplicationConfig: appCfg,
+			NumUnits:          1,
+		},
+		b.objectStore)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

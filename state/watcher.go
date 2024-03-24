@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/mongo"
@@ -4024,7 +4025,7 @@ func (w *hashWatcher) loop() error {
 // is recalculated when any of the following events occurs:
 // - the machine addresses for the unit change.
 // - the endpoint bindings for the unit's application change.
-func (u *Unit) WatchMachineAndEndpointAddressesHash() (StringsWatcher, error) {
+func (u *Unit) WatchMachineAndEndpointAddressesHash(allSpaces network.SpaceInfos) (StringsWatcher, error) {
 	app, err := u.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -4053,7 +4054,7 @@ func (u *Unit) WatchMachineAndEndpointAddressesHash() (StringsWatcher, error) {
 			machinesC:         machine.doc.DocID,
 		},
 		hash: func() (string, error) {
-			bindings, err := app.EndpointBindings()
+			bindings, err := app.EndpointBindings(allSpaces)
 			if err != nil {
 				return "", err
 			}

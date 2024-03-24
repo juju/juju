@@ -164,6 +164,22 @@ type ApiServerSuite struct {
 	ConfigSchemaSourceGetter func(*gc.C) environsconfig.ConfigSchemaSourceGetter
 }
 
+// DefaultSpacesWithAlpha returns a list of space infos containing appended
+// to the passed spaces, used for testing.
+func DefaultSpacesWithAlpha(spaces ...network.SpaceInfo) network.SpaceInfos {
+	return append(network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+			Subnets: network.SubnetInfos{
+				{
+					CIDR: "10.0.0.0/24",
+				},
+			},
+		},
+	}, spaces...)
+}
+
 type noopRegisterer struct {
 	prometheus.Registerer
 }

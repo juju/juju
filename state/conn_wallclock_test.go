@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -73,15 +74,15 @@ func (s *ConnWithWallClockSuite) AddTestingCharm(c *gc.C, name string) *state.Ch
 }
 
 func (s *ConnWithWallClockSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplication(c, s.State, s.objectStore, name, ch)
+	return state.AddTestingApplication(c, s.State, s.objectStore, name, ch, nil)
 }
 
 func (s *ConnWithWallClockSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.State, s.objectStore, name, ch, storage)
+	return state.AddTestingApplicationWithStorage(c, s.State, s.objectStore, name, ch, storage, nil)
 }
 
-func (s *ConnWithWallClockSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, name, ch, bindings)
+func (s *ConnWithWallClockSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string, allSpaces network.SpaceInfos) *state.Application {
+	return state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, name, ch, bindings, allSpaces)
 }
 
 func (s *ConnWithWallClockSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {

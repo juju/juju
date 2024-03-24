@@ -23,6 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	migrations "github.com/juju/juju/domain/modelmigration"
@@ -115,7 +116,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config, config.ConfigSchemaSourceGetter) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config, config.ConfigSchemaSourceGetter, network.SpaceInfos) (*state.Model, *state.State, error)
 }
 
 // ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based
@@ -174,7 +175,12 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	// only need the cloud type to get the config schema source.
 	serviceFactory := i.serviceFactoryGetter.FactoryForModel(model.Tag().Id())
 	configSchemaSource := i.configSchemaSourceProvider(serviceFactory.Cloud())
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, configSchemaSource)
+	spaceService := serviceFactory.Space()
+	allSpaces, err := spaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "retrieving all spaces")
+	}
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, configSchemaSource, allSpaces)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

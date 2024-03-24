@@ -184,18 +184,18 @@ func (m *MockSystemState) EXPECT() *MockSystemStateMockRecorder {
 }
 
 // AddApplication mocks base method.
-func (m *MockSystemState) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore) (bootstrap.Application, error) {
+func (m *MockSystemState) AddApplication(arg0 context.Context, arg1 state.AddApplicationArgs, arg2 objectstore.ObjectStore) (bootstrap.Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1)
+	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(bootstrap.Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddApplication indicates an expected call of AddApplication.
-func (mr *MockSystemStateMockRecorder) AddApplication(arg0, arg1 any) *gomock.Call {
+func (mr *MockSystemStateMockRecorder) AddApplication(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockSystemState)(nil).AddApplication), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockSystemState)(nil).AddApplication), arg0, arg1, arg2)
 }
 
 // ApplyOperation mocks base method.

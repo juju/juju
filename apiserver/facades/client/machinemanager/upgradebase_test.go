@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
-	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
@@ -34,30 +33,30 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	applications := []machinemanager.Application{application}
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("foo/0"))
 	units := []machinemanager.Unit{unit}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
-	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	validator := NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(nil)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 	validator.EXPECT().ValidateUnits(units).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []machinemanager.ValidationEntity{
@@ -76,19 +75,19 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateBase(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 
-	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	validator := NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(errors.New("boom"))
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []machinemanager.ValidationEntity{
@@ -105,24 +104,24 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	applications := []machinemanager.Application{application}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
-	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	validator := NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(errors.New("boom"))
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []machinemanager.ValidationEntity{
@@ -145,32 +144,32 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	applications := []machinemanager.Application{application}
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("app/0"))
 
 	units := []machinemanager.Unit{unit}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, state.Base{OS: "ubuntu", Channel: "20.04"})
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade from "ubuntu@18.04" to "ubuntu@20.04"`)
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
-	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	validator := NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0")
 	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare(context.Background(), "machine-0", "20.04", false)
@@ -181,15 +180,15 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	applications := []machinemanager.Application{application}
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("app/0"))
 
 	units := []machinemanager.Unit{unit}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, state.Base{OS: "ubuntu", Channel: "20.04"})
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
@@ -197,17 +196,17 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade from "ubuntu@18.04" to "ubuntu@20.04"`).Return(errors.New("bad"))
 	machine.EXPECT().RemoveUpgradeSeriesLock().Return(nil)
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
-	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	validator := NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare(context.Background(), "machine-0", "20.04", false)
@@ -218,15 +217,15 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	applications := []machinemanager.Application{application}
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("app/0"))
 
 	units := []machinemanager.Unit{unit}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, state.Base{OS: "ubuntu", Channel: "20.04"})
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
@@ -234,17 +233,17 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade from "ubuntu@18.04" to "ubuntu@20.04"`).Return(errors.New("bad"))
 	machine.EXPECT().RemoveUpgradeSeriesLock().Return(errors.New("boom"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
-	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	validator := NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare(context.Background(), "machine-0", "20.04", false)
@@ -255,16 +254,16 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Base().Return(state.UbuntuBase("20.04"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 
-	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	validator := NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateMachine(machine).Return(errors.New("bad"))
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare(context.Background(), "machine-0", "20.04", false)
@@ -281,11 +280,11 @@ func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	localApp := mocks.NewMockApplication(ctrl)
+	localApp := NewMockApplication(ctrl)
 	localApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source: corecharm.Local.String(),
 	})
-	charmhubApp := mocks.NewMockApplication(ctrl)
+	charmhubApp := NewMockApplication(ctrl)
 	charmhubApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source: corecharm.CharmHub.String(),
 	})
@@ -294,9 +293,9 @@ func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
 		charmhubApp,
 	}
 
-	localValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	localValidator := NewMockUpgradeBaseValidator(ctrl)
 	localValidator.EXPECT().ValidateApplications(gomock.Any(), []machinemanager.Application{localApp}, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	remoteValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	remoteValidator := NewMockUpgradeBaseValidator(ctrl)
 	remoteValidator.EXPECT().ValidateApplications(gomock.Any(), []machinemanager.Application{charmhubApp}, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 
 	validator := machinemanager.NewTestUpgradeSeriesValidator(localValidator, remoteValidator)
@@ -309,13 +308,13 @@ func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(nil)
 	applications := []machinemanager.Application{application}
 
-	localValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	localValidator := NewMockUpgradeBaseValidator(ctrl)
 	localValidator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	remoteValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
+	remoteValidator := NewMockUpgradeBaseValidator(ctrl)
 	remoteValidator.EXPECT().ValidateApplications(gomock.Any(), []machinemanager.Application(nil), corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 
 	validator := machinemanager.NewTestUpgradeSeriesValidator(localValidator, remoteValidator)
@@ -328,7 +327,7 @@ func (s ValidatorSuite) TestValidateMachine(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().IsManager().Return(false)
 	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 
@@ -342,7 +341,7 @@ func (s ValidatorSuite) TestValidateMachineIsManager(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().IsManager().Return(true)
 
@@ -356,7 +355,7 @@ func (s ValidatorSuite) TestValidateMachineIsLockedForSeriesUpgrade(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Id().Return("0")
 	machine.EXPECT().IsManager().Return(false)
 	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil)
@@ -372,7 +371,7 @@ func (s ValidatorSuite) TestValidateUnits(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Idle}, nil)
 	unit.EXPECT().Status().Return(status.StatusInfo{Status: status.Active}, nil)
 	units := []machinemanager.Unit{unit}
@@ -387,7 +386,7 @@ func (s ValidatorSuite) TestValidateUnitsNotIdle(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().Name().Return("foo/0")
 	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Blocked}, nil)
 	units := []machinemanager.Unit{unit}
@@ -402,7 +401,7 @@ func (s ValidatorSuite) TestValidateUnitsInErrorState(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().Name().Return("foo/0")
 	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Idle}, nil)
 	unit.EXPECT().Status().Return(status.StatusInfo{Status: status.Error}, nil)
@@ -424,11 +423,11 @@ func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := mocks.NewMockCharm(ctrl)
+	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal", "bionic"}}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	applications := []machinemanager.Application{application}
@@ -442,13 +441,13 @@ func (s StateValidatorSuite) TestValidateApplicationsWithNoBases(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := mocks.NewMockCharm(ctrl)
+	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Name: "my-charm",
 	}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	applications := []machinemanager.Application{application}
@@ -462,14 +461,14 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := mocks.NewMockCharm(ctrl)
+	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Name:   "my-charm",
 		Series: []string{"xenial", "bionic"},
 	}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	applications := []machinemanager.Application{application}
@@ -483,11 +482,11 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithFo
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := mocks.NewMockCharm(ctrl)
+	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	applications := []machinemanager.Application{application}
@@ -507,7 +506,7 @@ func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
 		{Entity: transport.RefreshEntity{
 			Bases: []transport.Base{{Channel: "18.04"}, {Channel: "20.04"}},
@@ -516,7 +515,7 @@ func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 
 	revision := 1
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		ID:       "mycharmhubid",
 		Revision: &revision,
@@ -538,9 +537,9 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithNoRevision(c *gc.C) 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{})
 	application.EXPECT().Name().Return("foo")
 
@@ -555,14 +554,14 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
 		{},
 	}, errors.Errorf("bad"))
 
 	revision := 1
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		ID:       "mycharmhubid",
 		Revision: &revision,
@@ -584,7 +583,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
 		{Error: &transport.APIError{
 			Message: "bad",
@@ -593,7 +592,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 
 	revision := 1
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		ID:       "mycharmhubid",
 		Revision: &revision,
@@ -615,7 +614,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{{
 		Entity: transport.RefreshEntity{
 			Bases: []transport.Base{{Channel: "18.04"}, {Channel: "20.04"}},
@@ -627,7 +626,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce
 
 	revision := 1
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		ID:       "mycharmhubid",
 		Revision: &revision,

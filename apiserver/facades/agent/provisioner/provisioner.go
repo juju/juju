@@ -57,6 +57,7 @@ type StoragePoolGetter interface {
 // network spaces.
 type SpaceService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -200,7 +201,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 			serviceFactory.ExternalController(),
 		),
 		NetworkConfigAPI:            netConfigAPI,
-		spaceService:                ctx.ServiceFactory().Space(),
+		spaceService:                serviceFactory.Space(),
 		st:                          st,
 		m:                           model,
 		controllerConfigService:     serviceFactory.ControllerConfig(),

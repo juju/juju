@@ -21,8 +21,6 @@ import (
 // charms with lxd profiles is completely different from the approach in
 // NewLXDProfileAPI.
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
-
 type LXDProfileBackend interface {
 	Machine(string) (LXDProfileMachine, error)
 	Unit(string) (LXDProfileUnit, error)

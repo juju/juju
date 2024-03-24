@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -46,9 +47,18 @@ type RemoteProReqRelation struct {
 
 type networkInfoSuite struct {
 	testing.ApiServerSuite
+
+	spaceService *MockSpaceService
 }
 
 var _ = gc.Suite(&networkInfoSuite{})
+
+func (s *networkInfoSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.spaceService = NewMockSpaceService(ctrl)
+	return ctrl
+}
 
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
@@ -137,7 +147,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	}
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,
-	})
+	}, nil)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,7 +207,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 	}
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,
-	})
+	}, nil)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -308,6 +318,8 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 }
 
 func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -320,7 +332,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	defer release()
 
 	ch := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	app := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
+	app := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch}, nil)
 	u := f2.MakeUnit(c, &factory.UnitParams{Application: app})
 
 	// The only address is a host-name, resolvable to the IP below.
@@ -339,8 +351,9 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, u.UnitTag(), nil, lookup, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, u.UnitTag(), nil, lookup, loggo.GetLogger("juju.apiserver.uniter"), s.spaceService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
@@ -362,10 +375,10 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	_ = s.setupSpace(c, "space-1", "1.2.0.0/16")
-	_ = s.setupSpace(c, "space-2", "2.2.0.0/16")
-	spaceID3 := s.setupSpace(c, "space-3", "10.2.0.0/16")
-	_ = s.setupSpace(c, "public-4", "4.2.0.0/16")
+	sp1 := s.setupSpace(c, "space-1", "1.2.0.0/16")
+	sp2 := s.setupSpace(c, "space-2", "2.2.0.0/16")
+	sp3 := s.setupSpace(c, "space-3", "10.2.0.0/16")
+	sp4 := s.setupSpace(c, "public-4", "4.2.0.0/16")
 
 	// We want to have all bindings set so that no actual binding is
 	// really set to the default.
@@ -377,7 +390,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 
-	prr := s.newProReqRelationWithBindings(c, charm.ScopeGlobal, bindings, nil)
+	prr := s.newProReqRelationWithBindings(c, charm.ScopeGlobal, bindings, nil, testing.DefaultSpacesWithAlpha(sp1, sp2, sp3, sp4))
 	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
@@ -404,7 +417,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, spaceID3)
+	c.Assert(boundSpace, gc.Equals, sp3.ID)
 
 	exp := network.SpaceAddresses{network.NewSpaceAddress(
 		"10.2.3.4",
@@ -580,6 +593,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -593,13 +608,14 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	gitlabch := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	mysqlch := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	gitlab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch})
-	mysql := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
+	gitlab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch}, nil)
+	mysql := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch}, nil)
 
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"), s.spaceService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
@@ -617,9 +633,10 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	err = prr.pu0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"), s.spaceService)
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -631,6 +648,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -644,13 +663,14 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 	gitLabCh := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	mySqlCh := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	gitLab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
-	mySql := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mySqlCh})
+	gitLab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh}, nil)
+	mySql := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mySqlCh}, nil)
 
 	prr := newProReqRelationForApps(c, st, mySql, gitLab)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"), s.spaceService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel)
@@ -658,6 +678,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -670,7 +692,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	defer release()
 
 	gitLabCh := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	gitLab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
+	gitLab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh}, nil)
 
 	// Add a local-machine address.
 	// Adding it to the service instead of the container is OK here,
@@ -721,7 +743,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 		}
 	}
 
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"), s.spaceService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// At this point we only have a container (local-machine) address.
@@ -740,9 +763,10 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	err = prr.ru0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"), s.spaceService)
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -754,8 +778,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 }
 
 func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
-	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24")
-	spaceIDPublic := s.setupSpace(c, "public", "10.10.0.0/24")
+	spaceDefault := s.setupSpace(c, "default", "10.0.0.0/24")
+	spacePublic := s.setupSpace(c, "public", "10.10.0.0/24")
 	_ = s.setupSpace(c, "private", "10.20.0.0/24")
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -767,7 +791,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	}
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,
-	})
+	}, testing.DefaultSpacesWithAlpha(spaceDefault, spacePublic))
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -805,14 +829,14 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 3)
 
-	resDefault, ok := res[spaceIDDefault]
+	resDefault, ok := res[spaceDefault.ID]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(resDefault, gc.HasLen, 1)
 	c.Check(resDefault[0].DeviceName(), gc.Equals, "br-eth0")
 	c.Check(resDefault[0].Host(), gc.Equals, "10.0.0.20")
 	c.Check(resDefault[0].AddressCIDR(), gc.Equals, "10.0.0.0/24")
 
-	resPublic, ok := res[spaceIDPublic]
+	resPublic, ok := res[spacePublic.ID]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(resPublic, gc.HasLen, 1)
 	c.Check(resPublic[0].DeviceName(), gc.Equals, "eth1")
@@ -839,7 +863,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -885,7 +909,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	c.Check(resEmpty[0].AddressCIDR(), gc.Equals, "10.20.0.0/24")
 }
 
-func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
+func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) network.SpaceInfo {
 	st := s.ControllerModel(c).State()
 	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -896,7 +920,9 @@ func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return space.Id()
+	spInfo, err := space.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	return spInfo
 }
 
 // createNICAndBridgeWithIP creates a network interface and a bridge on the
@@ -942,6 +968,8 @@ func (s *networkInfoSuite) createNICWithIP(
 func (s *networkInfoSuite) newNetworkInfo(
 	c *gc.C, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
 ) uniter.NetworkInfo {
+	defer s.setUpMocks(c).Finish()
+
 	// Allow the caller to supply nil if this is not important.
 	// We fill it with an optimistic default.
 	if retryFactory == nil {
@@ -954,33 +982,35 @@ func (s *networkInfoSuite) newNetworkInfo(
 		}
 	}
 
-	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), tag, retryFactory, lookupHost, loggo.GetLogger("juju.apiserver.uniter"))
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
+	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), tag, retryFactory, lookupHost, loggo.GetLogger("juju.apiserver.uniter"), s.spaceService)
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }
 
 func (s *networkInfoSuite) newProReqRelationWithBindings(
 	c *gc.C, scope charm.RelationScope, pBindings, rBindings map[string]string,
+	allSpaces network.SpaceInfos,
 ) *ProReqRelation {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	papp := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: pBindings,
-	})
+	}, allSpaces)
 	var rapp *state.Application
 	if scope == charm.ScopeGlobal {
 		rapp = f.MakeApplication(c, &factory.ApplicationParams{
 			Name:             "wordpress",
 			Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 			EndpointBindings: rBindings,
-		})
+		}, allSpaces)
 	} else {
 		rapp = f.MakeApplication(c, &factory.ApplicationParams{
 			Name:             "logging",
 			Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
 			EndpointBindings: rBindings,
-		})
+		}, allSpaces)
 	}
 	return newProReqRelationForApps(c, s.ControllerModel(c).State(), papp, rapp)
 }
@@ -989,19 +1019,19 @@ func (s *networkInfoSuite) newProReqRelation(c *gc.C, scope charm.RelationScope)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	pApp := f.MakeApplication(c, nil)
+	pApp := f.MakeApplication(c, nil, nil)
 
 	var rApp *state.Application
 	if scope == charm.ScopeGlobal {
 		rApp = f.MakeApplication(c, &factory.ApplicationParams{
 			Name:  "wordpress",
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-		})
+		}, nil)
 	} else {
 		rApp = f.MakeApplication(c, &factory.ApplicationParams{
 			Name:  "wordpress",
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-		})
+		}, nil)
 	}
 
 	return newProReqRelationForApps(c, s.ControllerModel(c).State(), pApp, rApp)
@@ -1026,7 +1056,7 @@ func (s *networkInfoSuite) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelatio
 	rapp := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 
 	eps, err := st.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)

@@ -55,7 +55,7 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.logging = f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
-	})
+	}, nil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming the MySQL unit has logged in.
@@ -385,7 +385,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 	wordpress2 := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress2",
 		Charm: s.wpCharm,
-	})
+	}, nil)
 	wordpressUnit2 := f.MakeUnit(c, &factory.UnitParams{
 		Application: wordpress2,
 		Machine:     s.machine1,
@@ -397,7 +397,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 	mysql1 := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql1",
 		Charm: mysqlCharm1,
-	})
+	}, nil)
 
 	mysqlUnit1 := f.MakeUnit(c, &factory.UnitParams{
 		Application: mysql1,

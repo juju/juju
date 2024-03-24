@@ -27,7 +27,7 @@ func (s *StagedResourceSuite) assertActivate(c *gc.C, inc state.IncrementCharmMo
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "starsay",
 		Charm: ch,
-	})
+	}, nil)
 
 	res := s.State.Resources(state.NewObjectStore(c, s.State.ModelUUID()))
 	spam := newResourceFromCharm(ch, "store-resource")

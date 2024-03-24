@@ -56,13 +56,18 @@ var _ = gc.Suite(&CAASDevicesStateSuite{})
 func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "bitcoin-miner")
 	addApplication := func(devices map[string]state.DeviceConstraints) (*state.Application, error) {
-		return s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{Name: "bitcoin-miner", Charm: ch,
-			Devices: devices,
-			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-				OS:      "ubuntu",
-				Channel: "20.04/stable",
-			}},
-		}, state.NewObjectStore(c, s.st.ModelUUID()))
+		return s.st.AddApplication(
+			defaultInstancePrechecker,
+			state.AddApplicationArgs{Name: "bitcoin-miner", Charm: ch,
+				Devices: devices,
+				CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+					OS:      "ubuntu",
+					Channel: "20.04/stable",
+				}},
+			},
+			state.NewObjectStore(c, s.st.ModelUUID()),
+			state.DefaultSpacesWithAlpha(),
+		)
 	}
 	assertErr := func(devices map[string]state.DeviceConstraints, expect string) {
 		_, err := addApplication(devices)

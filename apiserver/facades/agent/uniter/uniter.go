@@ -62,6 +62,13 @@ type UnitRemover interface {
 	DeleteUnit(context.Context, string) error
 }
 
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+}
+
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
@@ -82,6 +89,7 @@ type UniterAPI struct {
 	cloudService            CloudService
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
+	spaceService            SpaceService
 	unitRemover             UnitRemover
 	clock                   clock.Clock
 	auth                    facade.Authorizer
@@ -1127,7 +1135,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 			return nil
 		}
 
-		netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger, u.spaceService)
 		if err != nil {
 			return err
 		}
@@ -1889,7 +1897,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
+	netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger, u.spaceService)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -2228,7 +2236,11 @@ func (u *UniterAPI) WatchUnitAddressesHash(ctx context.Context, args params.Enti
 			}
 			return app.WatchServiceAddressesHash(), nil
 		}
-		return unit.WatchMachineAndEndpointAddressesHash()
+		allSpaces, err := u.spaceService.GetAllSpaces(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return unit.WatchMachineAndEndpointAddressesHash(allSpaces)
 	}
 	result, err := u.watchHashes(args, getWatcher)
 	if err != nil {
@@ -2358,7 +2370,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(ctx context.Context, unitTag 
 			return nil, errors.Trace(err)
 		}
 
-		netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger, u.spaceService)
 		if err != nil {
 			return nil, err
 		}

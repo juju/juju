@@ -195,7 +195,7 @@ func (s *providerSpacesSuite) TestDeleteSpacesWithNoDeltas(c *gc.C) {
 	mockState := NewMockReloadSpacesState(ctrl)
 
 	provider := NewProviderSpaces(mockState)
-	warnings, err := provider.DeleteSpaces()
+	warnings, err := provider.DeleteSpaces(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string(nil))
 }
@@ -204,21 +204,24 @@ func (s *providerSpacesSuite) TestDeleteSpaces(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	spaceOne := network.SpaceInfo{
+		ID:         "1",
+		Name:       "1",
+		ProviderId: network.Id("1"),
+	}
+	allSpaces := network.SpaceInfos{spaceOne}
+
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
+	mockState.EXPECT().AllEndpointBindingsSpaceNames(allSpaces).Return(set.NewStrings(), nil)
 	mockState.EXPECT().ConstraintsBySpaceName("1").Return(nil, nil)
 	mockState.EXPECT().Remove("1").Return(nil)
 
 	provider := NewProviderSpaces(mockState)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
-		network.Id("1"): {
-			ID:         "1",
-			Name:       "1",
-			ProviderId: network.Id("1"),
-		},
+		network.Id("1"): spaceOne,
 	}
 
-	warnings, err := provider.DeleteSpaces()
+	warnings, err := provider.DeleteSpaces(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string(nil))
 }
@@ -227,18 +230,21 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesAlphaSpace(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	spaceAlpha := network.SpaceInfo{
+		ID:   "1",
+		Name: "alpha",
+	}
+	allSpaces := network.SpaceInfos{spaceAlpha}
+
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
+	mockState.EXPECT().AllEndpointBindingsSpaceNames(allSpaces).Return(set.NewStrings(), nil)
 
 	provider := NewProviderSpaces(mockState)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
-		network.Id("1"): {
-			ID:   "1",
-			Name: "alpha",
-		},
+		network.Id("1"): spaceAlpha,
 	}
 
-	warnings, err := provider.DeleteSpaces()
+	warnings, err := provider.DeleteSpaces(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string{
 		`Unable to delete space "alpha". Space is used as the default space.`,
@@ -251,18 +257,21 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesDefaultBindingSpace(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	spaceOne := network.SpaceInfo{
+		ID:   "1",
+		Name: "1",
+	}
+	allSpaces := network.SpaceInfos{spaceOne}
+
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
+	mockState.EXPECT().AllEndpointBindingsSpaceNames(allSpaces).Return(set.NewStrings(), nil)
 
 	provider := NewProviderSpaces(mockState)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
-		network.Id("1"): {
-			ID:   "1",
-			Name: "1",
-		},
+		network.Id("1"): spaceOne,
 	}
 
-	warnings, err := provider.DeleteSpaces()
+	warnings, err := provider.DeleteSpaces(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string{
 		`Unable to delete space "1". Space is used as the default space.`,
@@ -273,18 +282,21 @@ func (s *providerSpacesSuite) TestDeleteSpacesContainedInAllEndpointBindings(c *
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	spaceOne := network.SpaceInfo{
+		ID:   "1",
+		Name: "1",
+	}
+	allSpaces := network.SpaceInfos{spaceOne}
+
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings("1"), nil)
+	mockState.EXPECT().AllEndpointBindingsSpaceNames(allSpaces).Return(set.NewStrings("1"), nil)
 
 	provider := NewProviderSpaces(mockState)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
-		network.Id("1"): {
-			ID:   "1",
-			Name: "1",
-		},
+		network.Id("1"): spaceOne,
 	}
 
-	warnings, err := provider.DeleteSpaces()
+	warnings, err := provider.DeleteSpaces(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string{
 		`Unable to delete space "1". Space is used as a endpoint binding.`,
@@ -295,19 +307,22 @@ func (s *providerSpacesSuite) TestDeleteSpacesContainsConstraintsSpace(c *gc.C) 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	spaceOne := network.SpaceInfo{
+		ID:   "1",
+		Name: "1",
+	}
+	allSpaces := network.SpaceInfos{spaceOne}
+
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
+	mockState.EXPECT().AllEndpointBindingsSpaceNames(allSpaces).Return(set.NewStrings(), nil)
 	mockState.EXPECT().ConstraintsBySpaceName("1").Return([]Constraints{struct{}{}}, nil)
 
 	provider := NewProviderSpaces(mockState)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
-		network.Id("1"): {
-			ID:   "1",
-			Name: "1",
-		},
+		network.Id("1"): spaceOne,
 	}
 
-	warnings, err := provider.DeleteSpaces()
+	warnings, err := provider.DeleteSpaces(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string{
 		`Unable to delete space "1". Space is used in a constraint.`,
@@ -355,10 +370,10 @@ func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
 		},
 	})
 
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
+	mockState.EXPECT().AllEndpointBindingsSpaceNames(res).Return(set.NewStrings(), nil)
 	mockState.EXPECT().ConstraintsBySpaceName("space1").Return(nil, nil)
 
-	warnings, err := provider.DeleteSpaces()
+	warnings, err := provider.DeleteSpaces(res)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string(nil))
 }

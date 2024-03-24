@@ -35,7 +35,7 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.charm = s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: s.charm})
+	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: s.charm}, nil)
 	s.machine = s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("12.10")})
 	s.unit1 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
 	s.unit2 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})

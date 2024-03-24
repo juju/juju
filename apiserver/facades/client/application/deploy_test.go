@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -37,10 +38,18 @@ import (
 // and that is the simplest way to get one in there.
 type DeployLocalSuite struct {
 	testing.ApiServerSuite
-	charm *state.Charm
+	charm        *state.Charm
+	spaceService *application.MockSpaceService
 }
 
 var _ = gc.Suite(&DeployLocalSuite{})
+
+func (s *DeployLocalSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.spaceService = application.NewMockSpaceService(ctrl)
+	return ctrl
+}
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.ApiServerSuite.SetUpSuite(c)
@@ -57,6 +66,8 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -76,13 +87,18 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 			Charm:           ch,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, gc.ErrorMatches, "manual deploy of the controller charm not supported")
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
@@ -96,6 +112,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 			Charm:           s.charm,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, app, s.charm.URL())
@@ -106,9 +123,13 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
@@ -122,6 +143,7 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 			Charm:           s.charm,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -132,9 +154,14 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 
 	app, err := application.DeployApplication(
 		context.Background(),
@@ -150,6 +177,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 			EndpointBindings: nil,
 			CharmOrigin:      corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -188,26 +216,34 @@ func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL
 
 func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, expected map[string]string) {
 	type withEndpointBindings interface {
-		EndpointBindings() (application.Bindings, error)
+		EndpointBindings(network.SpaceInfos) (application.Bindings, error)
 	}
-	bindings, err := app.(withEndpointBindings).EndpointBindings()
+	bindings, err := app.(withEndpointBindings).EndpointBindings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings.Map(), jc.DeepEquals, expected)
 }
 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
-	dbSpace, err := st.AddSpace("db", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := st.AddSpace("public", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	dbSpace := network.SpaceInfo{
+		ID:   "0",
+		Name: "db",
+	}
+	publicSpace := network.SpaceInfo{
+		ID:   "1",
+		Name: "public",
+	}
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{dbSpace, publicSpace}, nil)
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: st},
@@ -220,42 +256,52 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
-				"":   publicSpace.Id(),
-				"db": dbSpace.Id(),
+				"":   publicSpace.ID,
+				"db": dbSpace.ID,
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
 		// default binding
-		"": publicSpace.Id(),
+		"": publicSpace.ID,
 		// relation names
-		"url":             publicSpace.Id(),
-		"logging-dir":     publicSpace.Id(),
-		"monitoring-port": publicSpace.Id(),
-		"db":              dbSpace.Id(),
-		"cache":           publicSpace.Id(),
+		"url":             publicSpace.ID,
+		"logging-dir":     publicSpace.ID,
+		"monitoring-port": publicSpace.ID,
+		"db":              dbSpace.ID,
+		"cache":           publicSpace.ID,
 		// extra-bindings names
-		"db-client": publicSpace.Id(),
-		"admin-api": publicSpace.Id(),
-		"foo-bar":   publicSpace.Id(),
+		"db-client": publicSpace.ID,
+		"admin-api": publicSpace.ID,
+		"foo-bar":   publicSpace.ID,
 	})
 }
 
 func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 	st := s.ControllerModel(c).State()
-	dbSpace, err := st.AddSpace("db", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := st.AddSpace("public", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	internalSpace, err := st.AddSpace("internal", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
+	dbSpace := network.SpaceInfo{
+		ID:   "0",
+		Name: "db",
+	}
+	publicSpace := network.SpaceInfo{
+		ID:   "1",
+		Name: "public",
+	}
+	internalSpace := network.SpaceInfo{
+		ID:   "2",
+		Name: "internal",
+	}
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{dbSpace, publicSpace, internalSpace}, nil)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -271,32 +317,35 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
-				"":          publicSpace.Id(),
-				"db":        dbSpace.Id(),
-				"db-client": dbSpace.Id(),
-				"admin-api": internalSpace.Id(),
+				"":          publicSpace.ID,
+				"db":        dbSpace.ID,
+				"db-client": dbSpace.ID,
+				"admin-api": internalSpace.ID,
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
-		"":                publicSpace.Id(),
-		"url":             publicSpace.Id(),
-		"logging-dir":     publicSpace.Id(),
-		"monitoring-port": publicSpace.Id(),
-		"db":              dbSpace.Id(),
-		"cache":           publicSpace.Id(),
-		"db-client":       dbSpace.Id(),
-		"admin-api":       internalSpace.Id(),
-		"cluster":         publicSpace.Id(),
-		"foo-bar":         publicSpace.Id(), // like for relations, uses the application-default.
+		"":                publicSpace.ID,
+		"url":             publicSpace.ID,
+		"logging-dir":     publicSpace.ID,
+		"monitoring-port": publicSpace.ID,
+		"db":              dbSpace.ID,
+		"cache":           publicSpace.ID,
+		"db-client":       dbSpace.ID,
+		"admin-api":       internalSpace.ID,
+		"cluster":         publicSpace.ID,
+		"foo-bar":         publicSpace.ID, // like for relations, uses the application-default.
 	})
 
 }
 
 func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	wordpressCharm := s.addWordpressCharm(c)
@@ -309,6 +358,8 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: st},
@@ -326,6 +377,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": space not found`)
 	c.Check(app, gc.IsNil)
@@ -355,6 +407,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 			Resources:   map[string]string{"foo": "bar"},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -364,8 +417,12 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
@@ -383,6 +440,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSettings(c, app, charm.Settings{
@@ -392,6 +450,8 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
@@ -411,6 +471,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
 	_, err = st.Application("bob")
@@ -428,6 +489,8 @@ func sampleApplicationConfigSchema() environschema.Fields {
 }
 
 func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	cfg, err := coreconfig.NewConfig(map[string]interface{}{
@@ -436,6 +499,8 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 	}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
@@ -450,6 +515,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 			ApplicationConfig: cfg,
 			CharmOrigin:       corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes{
@@ -459,6 +525,8 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
@@ -466,6 +534,8 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	applicationCons := constraints.MustParse("cores=2")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: st},
@@ -480,16 +550,22 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 			Constraints:     applicationCons,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConstraints(c, app, constraints.MustParse("cores=2 arch=amd64"))
 }
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
@@ -505,6 +581,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 			NumUnits:        2,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -515,10 +592,15 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
@@ -535,6 +617,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -547,10 +630,15 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
@@ -567,6 +655,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
@@ -578,6 +667,8 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
@@ -588,6 +679,9 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		{Scope: "lxd", Directive: "1"},
 		{Scope: "lxd", Directive: ""},
 	}
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil)
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
@@ -604,6 +698,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 			Placement:       placement,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -615,6 +710,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
@@ -643,11 +740,14 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 			NumUnits:        1,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, gc.ErrorMatches, "(?m).*Charm feature requirements cannot be met.*")
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
@@ -662,6 +762,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	_, err = application.DeployApplication(
 		context.Background(),
 		&f,
@@ -677,13 +778,17 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 			Force:           true, // bypass assumes checks
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{{Scope: s.ControllerModelUUID(), Directive: "valid"}}
@@ -703,6 +808,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 			Placement:       placement,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
@@ -752,7 +858,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 	st := s.ControllerModel(c).State()
 	for _, unit := range units {
 		id := unit.UnitTag().Id()
-		res, err := st.AssignStagedUnits(state.NoopInstancePrechecker{}, []string{id})
+		res, err := st.AssignStagedUnits(state.NoopInstancePrechecker{}, []string{id}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(res[0].Error, jc.ErrorIsNil)
 		c.Assert(res[0].Unit, gc.Equals, id)
@@ -784,8 +890,8 @@ func (d stateDeployer) ReadSequence(name string) (int, error) {
 	return state.ReadSequence(d.State, name)
 }
 
-func (d stateDeployer) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (application.Application, error) {
-	app, err := d.State.AddApplication(state.NoopInstancePrechecker{}, args, store)
+func (d stateDeployer) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore, allSpaces network.SpaceInfos) (application.Application, error) {
+	app, err := d.State.AddApplication(state.NoopInstancePrechecker{}, args, store, allSpaces)
 	if err != nil {
 		return nil, err
 	}
@@ -808,7 +914,7 @@ func (f *fakeDeployer) ControllerConfig() (controller.Config, error) {
 	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 
-func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ objectstore.ObjectStore) (application.Application, error) {
+func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ objectstore.ObjectStore, _ network.SpaceInfos) (application.Application, error) {
 	f.args = args
 	return nil, nil
 }

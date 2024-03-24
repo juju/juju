@@ -103,7 +103,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = s.mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -131,7 +131,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 		Charm:       sch,
 		CharmOrigin: origin,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,14 +154,14 @@ func (s *ApplicationSuite) TestSetCharmUpdateChannelURLNoChange(c *gc.C) {
 		Charm:       sch,
 		CharmOrigin: origin,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	mOrigin := s.mysql.CharmOrigin()
 	c.Assert(mOrigin.Channel, gc.NotNil)
 	c.Assert(mOrigin.Channel.Risk, gc.DeepEquals, "stable")
 
 	cfg.CharmOrigin.Channel.Risk = "candidate"
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "candidate")
 }
@@ -189,7 +189,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(ch.URL()),
 		ForceUnits:  true,
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,7 +224,7 @@ func (s *ApplicationSuite) TestLXDProfileFailSetCharm(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(ch.URL()),
 		ForceUnits:  true,
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, ".*validating lxd profile: invalid lxd-profile\\.yaml.*")
 }
 
@@ -252,7 +252,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 		Force:       true,
 		ForceUnits:  true,
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,7 +271,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"}, nil)
 
 	// Add a compatible charm and force it.
 	sch := state.AddCustomCharm(c, st, "mysql-k8s", "metadata.yaml", metaBaseCAAS, "focal", 2)
@@ -281,7 +281,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -297,7 +297,7 @@ func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch}, nil)
 
 	// Create a charm with new deployment info in metadata.
 	metaYaml := `
@@ -322,12 +322,13 @@ deployment:
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		ForceUnits:  true,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:focal/focal-gitlab-k8s-2": cannot change a charm's deployment info`)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
-	sp := s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+	sp := s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql)
+
 	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
 
 	// Assign new charm endpoint to "isolated" space
@@ -336,10 +337,11 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 		EndpointBindings: map[string]string{
-			"events": sp.Name(),
+			"events": string(sp.Name),
 		},
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	allSpaces := append(state.DefaultSpacesWithAlpha(), *sp)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
@@ -347,16 +349,23 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 		"server":  network.AlphaSpaceId,
 		"client":  network.AlphaSpaceId,
 		"cluster": network.AlphaSpaceId,
-		"events":  sp.Id(),
+		"events":  sp.ID,
 	}
 
-	updatedBindings, err := s.mysql.EndpointBindings()
+	updatedBindings, err := s.mysql.EndpointBindings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings.Map(), gc.DeepEquals, expBindings)
 }
 
 func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
-	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+	isolatedSpace := s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql)
+	allSpaces := network.SpaceInfos{
+		*isolatedSpace,
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+	}
 
 	expBindings := map[string]string{
 		"":               network.AlphaSpaceName,
@@ -364,40 +373,38 @@ func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
 		"server":         network.AlphaSpaceName,
 		"server-admin":   network.AlphaSpaceName,
 	}
-	b, err := s.mysql.EndpointBindings()
+	b, err := s.mysql.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
-	allSpaceInfosLookup, err := s.State.AllSpaceInfos()
-	c.Assert(err, jc.ErrorIsNil)
-
-	curBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
+	curBindings, err := b.MapWithSpaceNames(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curBindings, gc.DeepEquals, expBindings)
 
 	// Use MergeBindings to bind "server" -> "isolated"
-	b, err = state.NewBindings(s.State, map[string]string{
+	b, err = state.NewBindings(allSpaces, map[string]string{
 		"server": "isolated",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.MergeBindings(b, false)
+	err = s.mysql.MergeBindings(b, false, allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the bindings have been updated
 	expBindings["server"] = "isolated"
-	b, err = s.mysql.EndpointBindings()
+	b, err = s.mysql.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
-	updatedBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
+	updatedBindings, err := b.MapWithSpaceNames(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
 }
 
 func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
-	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
-
+	isolatedSpace := s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql)
 	sn, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.99.99.0/24"})
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddSpace("far", "", []string{sn.ID()})
+	farSpace, err := s.State.AddSpace("far", "", []string{sn.ID()})
+	c.Assert(err, gc.IsNil)
+	farSpaceInfo, err := farSpace.NetworkSpace()
 	c.Assert(err, gc.IsNil)
 
 	expBindings := map[string]string{
@@ -406,36 +413,47 @@ func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
 		"server":         network.AlphaSpaceName,
 		"server-admin":   network.AlphaSpaceName,
 	}
-	b, err := s.mysql.EndpointBindings()
+
+	allSpaces := network.SpaceInfos{
+		*isolatedSpace,
+		farSpaceInfo,
+	}
+	allSpaces = append(allSpaces, state.DefaultSpacesWithAlpha()...)
+
+	b, err := s.mysql.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
-	allSpaceInfosLookup, err := s.State.AllSpaceInfos()
-	c.Assert(err, jc.ErrorIsNil)
-
-	curBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
+	curBindings, err := b.MapWithSpaceNames(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curBindings, gc.DeepEquals, expBindings)
 
 	// Use MergeBindings to force-bind "server" -> "far"
-	b, err = state.NewBindings(s.State, map[string]string{
+	b, err = state.NewBindings(allSpaces, map[string]string{
 		"server": "far",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.MergeBindings(b, true)
+	err = s.mysql.MergeBindings(b, true, allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the bindings have been updated
 	expBindings["server"] = "far"
-	b, err = s.mysql.EndpointBindings()
+	b, err = s.mysql.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
-	updatedBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
+	updatedBindings, err := b.MapWithSpaceNames(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *gc.C) {
-	_ = s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+	isolatedSpace := s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql)
+	allSpaces := network.SpaceInfos{
+		*isolatedSpace,
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+	}
 	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
 
 	// New charm endpoint should be auto-assigned to default space if not
@@ -445,7 +463,7 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *g
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
@@ -456,16 +474,16 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *g
 		"events":  network.AlphaSpaceId,
 	}
 
-	updatedBindings, err := s.mysql.EndpointBindings()
+	updatedBindings, err := s.mysql.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings.Map(), gc.DeepEquals, expBindings)
 }
 
-func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a *state.Application, spaceName string) *state.Space {
+func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a *state.Application) *network.SpaceInfo {
 	sn1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.254.0/24"})
 	c.Assert(err, gc.IsNil)
 
-	sp, err := s.State.AddSpace(spaceName, "", []string{sn1.ID()})
+	sp, err := s.State.AddSpace("isolated", "", []string{sn1.ID()})
 	c.Assert(err, gc.IsNil)
 
 	m1, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
@@ -491,7 +509,9 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 	err = u1.AssignToMachine(m1)
 	c.Assert(err, gc.IsNil)
 
-	return sp
+	spInfo, err := sp.NetworkSpace()
+	c.Assert(err, gc.IsNil)
+	return &spInfo
 }
 
 func (s *ApplicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
@@ -508,7 +528,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 		Charm:          newCh,
 		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": "value"},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
@@ -520,7 +540,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 		Charm:          newCh,
 		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"other": "one"},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err = s.mysql.CharmConfig(model.GenerationMaster)
@@ -539,7 +559,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsForBranch(c *gc.C) {
 		Charm:          newCh,
 		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": "value"},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
@@ -570,26 +590,26 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
 		Charm:          newCh,
 		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": 123.45},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-2": validating config settings: option "key" expected string, got 123.45`)
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch, nil)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
 		Charm:       chDifferentSeries,
 		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": base "ubuntu@12.04" not supported by charm, the charm supported bases are: ubuntu@14.04, ubuntu@15.10`)
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch, nil)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -597,7 +617,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
 		ForceBase:   true,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	app, err = s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -608,7 +628,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch, nil)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-centos")
 	cfg := state.SetCharmConfig{
@@ -616,7 +636,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
 		ForceBase:   true,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "ubuntu" not supported by charm.*`)
 }
 
@@ -626,15 +646,24 @@ func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 		Charm:       logging,
 		CharmOrigin: defaultCharmOrigin(logging.URL()),
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-logging-1": cannot change an application's subordinacy`)
 }
 
 func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	dbSpaceInfo, err := dbSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 	clientSpace, err := s.State.AddSpace("client", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	clientSpaceInfo, err := clientSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	allSpaces := network.SpaceInfos{
+		dbSpaceInfo,
+		clientSpaceInfo,
+	}
+
 	oldCharm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 
 	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
@@ -648,7 +677,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 			"":       dbSpace.Id(),
 			"server": dbSpace.Id(),
 			"client": clientSpace.Id(),
-		}}, state.NewObjectStore(c, s.State.ModelUUID()))
+		}}, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
@@ -656,9 +685,9 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		Charm:       newCharm,
 		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
 	}
-	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
-	updatedBindings, err := application.EndpointBindings()
+	updatedBindings, err := application.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings.Map(), jc.DeepEquals, map[string]string{
 		// Existing bindings are preserved.
@@ -832,7 +861,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 		Charm:       ms,
 		CharmOrigin: defaultCharmOrigin(ms.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range setCharmEndpointsTests {
@@ -843,7 +872,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 			Charm:       newCh,
 			CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		}
-		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -864,14 +893,14 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 		Charm:       providerCharm,
 		CharmOrigin: defaultCharmOrigin(providerCharm.URL()),
 	}
-	err := providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	revno++
 	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	requirerApp := s.AddTestingApplication(c, "myrequirer", requirerCharm)
 	cfg = state.SetCharmConfig{Charm: requirerCharm, CharmOrigin: defaultCharmOrigin(requirerCharm.URL())}
-	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("myprovider:kludge", "myrequirer:kludge")
@@ -885,9 +914,9 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 		Charm:       baseCharm,
 		CharmOrigin: defaultCharmOrigin(baseCharm.URL()),
 	}
-	err = providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
-	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
@@ -987,7 +1016,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 			Charm:       newCh,
 			CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		}
-		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 		var expectVals charm.Settings
 		var expectCh *state.Charm
 		if t.err != "" {
@@ -1031,7 +1060,7 @@ func (s *ApplicationSuite) TestSetCharmWithDyingApplication(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1094,7 +1123,7 @@ resources:
     type: oci-image
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch}, nil)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "cockroachdb/0")
@@ -1113,7 +1142,7 @@ resources:
 	c.Assert(len(unitAssignments), gc.Equals, 0)
 
 	ch = state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
-	app = f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+	app = f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch}, nil)
 	unit, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "cockroachdb/0")
@@ -1170,7 +1199,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIs, stateerrors.ErrDead)
 }
 
@@ -1187,7 +1216,7 @@ func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 		ForceUnits:  true,
 	}
 
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1205,7 +1234,7 @@ func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1225,7 +1254,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 }
@@ -1245,7 +1274,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 					Charm:       sch,
 					CharmOrigin: defaultCharmOrigin(sch.URL()),
 				}
-				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -1275,7 +1304,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1287,7 +1316,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 		Charm:       oldCh,
 		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State,
@@ -1303,7 +1332,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1327,7 +1356,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 					Charm:       newCh,
 					CharmOrigin: defaultCharmOrigin(newCh.URL()),
 				}
-				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
@@ -1344,7 +1373,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 					CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 				}
 
-				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
@@ -1377,7 +1406,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 					CharmOrigin: defaultCharmOrigin(newCh.URL()),
 				}
 
-				err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
@@ -1388,7 +1417,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 					Charm:       oldCh,
 					CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 				}
-				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
@@ -1428,7 +1457,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1442,10 +1471,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 		Charm:       oldCharm,
 		CharmOrigin: defaultCharmOrigin(oldCharm.URL()),
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
-	oldBindings, err := s.mysql.EndpointBindings()
+	oldBindings, err := s.mysql.EndpointBindings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(oldBindings.Map(), jc.DeepEquals, map[string]string{
 		"":        network.AlphaSpaceId,
@@ -1455,8 +1484,13 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	})
 	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	dbSpaceInfo, err := dbSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 	adminSpace, err := s.State.AddSpace("admin", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	adminSpaceInfo, err := adminSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	allSpaces := append(state.DefaultSpacesWithAlpha(), adminSpaceInfo, dbSpaceInfo)
 
 	updateBindings := func(updatesMap bson.M) {
 		ops := []txn.Op{{
@@ -1487,7 +1521,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 			Before: nil, // Ensure there will be a (final) retry.
 			After: func() {
 				// Verify final bindings.
-				newBindings, err := s.mysql.EndpointBindings()
+				newBindings, err := s.mysql.EndpointBindings(allSpaces)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(newBindings.Map(), jc.DeepEquals, map[string]string{
 					"":        network.AlphaSpaceId,
@@ -1507,7 +1541,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1552,12 +1586,12 @@ requires:
 		Charm:       wpCharmWithRelLimit,
 		CharmOrigin: defaultCharmOrigin(wpCharmWithRelLimit.URL()),
 	}
-	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, gc.Commentf("expected quota limit error due to max relation mismatch"))
 
 	// Try again with --force
 	cfg.Force = true
-	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1606,7 +1640,7 @@ func (s *ApplicationSuite) setupSetDownloadedIDAndHash(c *gc.C, origin *state.Ch
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:       chOne,
 		CharmOrigin: origin,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1690,7 +1724,7 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 
 func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name string) *state.Application {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, name)
-	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("20.04"), name, ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("20.04"), name, ch, nil)
 
 	rev := ch.Revision()
 	origin := &state.CharmOrigin{
@@ -1705,7 +1739,7 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name 
 		Charm:       ch,
 		CharmOrigin: origin,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1767,7 +1801,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 					Charm:       v2,
 					CharmOrigin: defaultCharmOrigin(v2.URL()),
 				}
-				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1794,7 +1828,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 					Charm:       v2,
 					CharmOrigin: origin,
 				}
-				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1985,7 +2019,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 		Charm:       oldCh,
 		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -1998,7 +2032,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, appName, oldCh)
 	assertSettingsRef(c, s.State, appName, newCh, 1)
@@ -2008,7 +2042,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 		Charm:       oldCh,
 		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -2082,7 +2116,7 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 			Charm:       newCh,
 			CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		}
-		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, dropSettings).Check()
@@ -2112,7 +2146,7 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check refs to both settings exist
@@ -2287,12 +2321,12 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	s.assertApplicationRelations(c, s.mysql)
 
 	cfg := state.SetCharmConfig{Charm: oldCh, CharmOrigin: defaultCharmOrigin(oldCh.URL())}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
 
 	cfg = state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
@@ -2319,7 +2353,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 	s.assertApplicationRelations(c, s.mysql)
 
 	cfg := state.SetCharmConfig{Charm: oldCh, CharmOrigin: defaultCharmOrigin(oldCh.URL())}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
 
@@ -2332,7 +2366,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:minion")
@@ -2551,7 +2585,7 @@ func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 		ForceUnits:  true,
 	}
 
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	testch, force, err := s1.Charm()
@@ -2832,7 +2866,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch}, nil)
 
 	unitZero, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2874,7 +2908,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch}, nil)
 	agentTools := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
@@ -2891,7 +2925,7 @@ func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch}, nil)
 
 	agentVersion := version.MustParseBinary("2.0.1-ubuntu-and64")
 	err := app.SetAgentVersion(agentVersion)
@@ -3393,7 +3427,7 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesSecretPermissions(c *gc.C
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "logging",
 		}),
-	})
+	}, nil)
 	endpoint2, err := application2.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
@@ -3999,7 +4033,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(s.charm.URL()),
 		ForceUnits:  true,
 	}
-	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -4124,7 +4158,7 @@ func (s *ApplicationSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) er
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	return app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	return app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 }
 
 func (s *ApplicationSuite) TestSetCharmOptionalUnusedStorageRemoved(c *gc.C) {
@@ -4149,7 +4183,7 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 			"data0": {Count: 1},
 			"data1": {Count: 1},
 		},
-	})
+	}, nil)
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Adding a unit will cause the storage to be in-use.
 		_, err := app.AddUnit(state.AddUnitParams{})
@@ -4159,7 +4193,7 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": in-use storage "data1" removed`)
 }
 
@@ -4182,7 +4216,7 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the new required storage was added for the unit.
@@ -4207,7 +4241,7 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 			"data1": {Count: 3},
 		},
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that new storage was added for the unit, based on the
@@ -4311,7 +4345,7 @@ func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, appl
 
 func (s *ApplicationSuite) TestEndpointBindingsReturnsDefaultsWhenNotFound(c *gc.C) {
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil)
+	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil, nil)
 	state.RemoveEndpointBindingsForApplication(c, application)
 
 	s.assertApplicationHasOnlyDefaultEndpointBindings(c, application)
@@ -4322,13 +4356,19 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	knownEndpoints := set.NewStrings("")
-	allBindings, err := state.DefaultEndpointBindingsForCharm(s.State, charm.Meta())
+	allBindings, err := state.DefaultEndpointBindingsForCharm(charm.Meta())
 	c.Assert(err, jc.ErrorIsNil)
 	for endpoint := range allBindings {
 		knownEndpoints.Add(endpoint)
 	}
 
-	setBindings, err := application.EndpointBindings()
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+	}
+	setBindings, err := application.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings.Map(), gc.NotNil)
 
@@ -4342,7 +4382,7 @@ func (s *ApplicationSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 	// With unspecified bindings, all endpoints are explicitly bound to the
 	// default space when saved in state.
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil)
+	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil, nil)
 
 	s.assertApplicationHasOnlyDefaultEndpointBindings(c, application)
 	s.assertApplicationRemovedWithItsBindings(c, application)
@@ -4351,7 +4391,11 @@ func (s *ApplicationSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	dbSpaceInfo, err := dbSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 	haSpace, err := s.State.AddSpace("ha", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	haSpaceInfo, err := haSpace.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
 
 	bindings := map[string]string{
@@ -4359,9 +4403,18 @@ func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 		"cluster": haSpace.Id(),
 	}
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, bindings)
 
-	setBindings, err := application.EndpointBindings()
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+		dbSpaceInfo,
+		haSpaceInfo,
+	}
+	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, bindings, allSpaces)
+
+	setBindings, err := application.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings.Map(), jc.DeepEquals, map[string]string{
 		"":        network.AlphaSpaceId,
@@ -4376,6 +4429,8 @@ func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	dbSpaceInfo, err := dbSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)
 	oldBindings := map[string]string{
@@ -4383,8 +4438,16 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 		"kludge": dbSpace.Id(),
 		"client": dbSpace.Id(),
 	}
-	application := s.AddTestingApplicationWithBindings(c, "yoursql", oldCharm, oldBindings)
-	setBindings, err := application.EndpointBindings()
+
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+		dbSpaceInfo,
+	}
+	application := s.AddTestingApplicationWithBindings(c, "yoursql", oldCharm, oldBindings, allSpaces)
+	setBindings, err := application.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveOld := map[string]string{
 		"":        network.AlphaSpaceId,
@@ -4401,9 +4464,9 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 		Charm:       newCharm,
 		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
 	}
-	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
-	setBindings, err = application.EndpointBindings()
+	setBindings, err = application.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		"": network.AlphaSpaceId,
@@ -4424,18 +4487,25 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 69)
-	app := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil)
+	app := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil, nil)
 	state.RemoveEndpointBindingsForApplication(c, app)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)
+
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+	}
 
 	cfg := state.SetCharmConfig{
 		Charm:       newCharm,
 		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
-	setBindings, err := app.EndpointBindings()
+	setBindings, err := app.EndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		// The following two exist for both oldCharm and newCharm.
@@ -4461,7 +4531,7 @@ peers:
 `
 	originalCharm := s.AddMetaCharm(c, "mysql", originalCharmMeta, 2)
 	cfg := state.SetCharmConfig{Charm: originalCharm, CharmOrigin: defaultCharmOrigin(originalCharm.URL())}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:replication")
 	deployedV = s.mysql.CharmModifiedVersion()
@@ -4480,7 +4550,7 @@ peers:
 	updatedCharm := s.AddMetaCharm(c, "mysql", updatedCharmMeta, 3)
 
 	cfg = state.SetCharmConfig{Charm: updatedCharm, CharmOrigin: defaultCharmOrigin(updatedCharm.URL())}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	return
 }
 
@@ -4534,7 +4604,7 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 
 	// Change application's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", stringConfig, 123)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -4733,7 +4803,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 
 	f := factory.NewFactory(s.caasSt, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch}, nil)
 	// Consume the initial construction events from the watchers.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
@@ -5154,7 +5224,7 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch}, nil)
 
 	history, err := app.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
@@ -5311,7 +5381,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 
 func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "focal", "mysql-k8s")
-	mysql := state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "mysql", ch)
+	mysql := state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "mysql", ch, nil)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.caasSt.AddRelation(eps...)
@@ -5340,14 +5410,14 @@ func (s *CAASApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc
 
 func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "focal", "mysql-k8s")
-	mysql := state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "mysql", ch)
+	mysql := state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "mysql", ch, nil)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.caasSt.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch = state.AddTestingCharmForSeries(c, s.caasSt, "focal", "proxy-k8s")
-	state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "proxy", ch)
+	state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "proxy", ch, nil)
 	eps, err = s.caasSt.InferEndpoints("proxy", "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.caasSt.AddRelation(eps...)
@@ -5441,7 +5511,7 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch}, nil)
 
 	now := coretesting.ZeroTime()
 	sInfo := status.StatusInfo{
@@ -5479,13 +5549,13 @@ func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
 				Channel: "22.04/stable",
 			},
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), nil)
 	c.Assert(err, gc.ErrorMatches, `.*charm does not define any bases`)
 }
 
 func (s *ApplicationSuite) TestDeployedMachines(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "riak"})
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm}, nil)
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: app})
 	machines, err := app.DeployedMachines()
 
@@ -5499,7 +5569,7 @@ func (s *ApplicationSuite) TestDeployedMachines(c *gc.C) {
 
 func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "riak"})
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm}, nil)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -5545,7 +5615,7 @@ provides:
     scope: container
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
-	return st, f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+	return st, f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch}, nil)
 }
 
 func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
@@ -5568,7 +5638,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:       ch2,
 		CharmOrigin: twoOrigin,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.mysql.Name())
 
@@ -5584,7 +5654,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:       ch3,
 		CharmOrigin: threeOrigin,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	origin := &state.CharmOrigin{
@@ -5600,7 +5670,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 		Name:        "mysql-testing",
 		Charm:       ch3,
 		CharmOrigin: origin,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(appSameCharm.Name())
 	origin.ID = "charm-hub-id"
@@ -5608,7 +5678,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	_ = appSameCharm.SetCharm(state.SetCharmConfig{
 		Charm:       ch3,
 		CharmOrigin: origin,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -5739,7 +5809,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 			Size:  100,
 			Count: 0,
 		},
-	})
+	}, nil)
 
 	unitName := "cockroachdb/0"
 	providerId := "cockroachdb-0"

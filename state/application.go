@@ -1437,9 +1437,9 @@ func (a *Application) changeCharmOps(
 
 // bindingsForOps returns a Bindings object intended for createOps and updateOps
 // only.
-func (a *Application) bindingsForOps(bindings map[string]string) (*Bindings, error) {
+func (a *Application) bindingsForOps(bindings map[string]string, allSpaces network.SpaceInfos) (*Bindings, error) {
 	// Call NewBindings first to ensure this map contains space ids
-	b, err := NewBindings(a.st, bindings)
+	b, err := NewBindings(allSpaces, bindings)
 	if err != nil {
 		return nil, err
 	}
@@ -1708,7 +1708,7 @@ func (a *Application) validateSetCharmConfig(cfg SetCharmConfig) error {
 }
 
 // SetCharm changes the charm for the application.
-func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore) (err error) {
+func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore, allSpaces network.SpaceInfos) (err error) {
 	defer errors.DeferredAnnotatef(
 		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm.URL(),
 	)
@@ -1824,7 +1824,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return ops, errors.Trace(err)
 		}
-		b, err := a.bindingsForOps(currentMap)
+		b, err := a.bindingsForOps(currentMap, allSpaces)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1978,7 +1978,7 @@ func establishedRelationCount(existingRelList []*Relation, appName string, rel c
 
 // MergeBindings merges the provided bindings map with the existing application
 // bindings.
-func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) error {
+func (a *Application) MergeBindings(operatorBindings *Bindings, force bool, allSpaces network.SpaceInfos) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := a.Refresh(); err != nil {
@@ -1995,7 +1995,7 @@ func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) erro
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
-		b, err := a.bindingsForOps(currentMap)
+		b, err := a.bindingsForOps(currentMap, allSpaces)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -3413,7 +3413,7 @@ func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
 // EndpointBindings returns the mapping for each endpoint name and the space
 // ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
-func (a *Application) EndpointBindings() (*Bindings, error) {
+func (a *Application) EndpointBindings(allSpaces network.SpaceInfos) (*Bindings, error) {
 	// We don't need the TxnRevno below.
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil && !errors.Is(err, errors.NotFound) {
@@ -3425,7 +3425,7 @@ func (a *Application) EndpointBindings() (*Bindings, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	return &Bindings{st: a.st, bindingsMap: bindings}, nil
+	return &Bindings{allSpaces: allSpaces, bindingsMap: bindings}, nil
 }
 
 // defaultEndpointBindings returns a map with each endpoint from the current
@@ -3441,7 +3441,7 @@ func (a *Application) defaultEndpointBindings() (map[string]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return DefaultEndpointBindingsForCharm(a.st, appCharm.Meta())
+	return DefaultEndpointBindingsForCharm(appCharm.Meta())
 }
 
 // StorageConstraints returns the storage constraints for the application.

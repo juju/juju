@@ -4,6 +4,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"regexp"
@@ -26,7 +27,7 @@ const (
 // SpaceLookup describes the ability to get a complete
 // network topology, as understood by Juju.
 type SpaceLookup interface {
-	AllSpaceInfos() (SpaceInfos, error)
+	GetAllSpaces(ctx context.Context) (SpaceInfos, error)
 }
 
 // SubnetLookup describes retrieving all subnets within a known set of spaces.

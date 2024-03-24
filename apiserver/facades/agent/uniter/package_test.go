@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/newlxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackendV2,LXDProfileMachineV2,LXDProfileUnitV2,LXDProfileCharmV2,LXDProfileModelV2
+//go:generate go run go.uber.org/mock/mockgen -package uniter_test -destination package_mocks_test.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit,LXDProfileBackendV2,LXDProfileMachineV2,LXDProfileUnitV2,LXDProfileCharmV2,LXDProfileModelV2,SpaceService
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -114,7 +114,7 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	s.wordpress = f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: s.wpCharm,
-	})
+	}, nil)
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
@@ -126,7 +126,7 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: s.mysqlCharm,
-	})
+	}, nil)
 	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
@@ -193,7 +193,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 		c, &factory.ApplicationParams{
 			Name:  "gitlab",
 			Charm: f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"}),
-		})
+		}, nil)
 	unit := f2.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		SetCharmURL: true,

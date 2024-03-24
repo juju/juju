@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
@@ -31,11 +30,11 @@ type newLxdProfileSuite struct {
 	machineTag1 names.MachineTag
 	unitTag1    names.UnitTag
 
-	backend *mocks.MockLXDProfileBackendV2
-	charm   *mocks.MockLXDProfileCharmV2
-	machine *mocks.MockLXDProfileMachineV2
-	model   *mocks.MockLXDProfileModelV2
-	unit    *mocks.MockLXDProfileUnitV2
+	backend *MockLXDProfileBackendV2
+	charm   *MockLXDProfileCharmV2
+	machine *MockLXDProfileMachineV2
+	model   *MockLXDProfileModelV2
+	unit    *MockLXDProfileUnitV2
 }
 
 var _ = gc.Suite(&newLxdProfileSuite{})
@@ -233,11 +232,11 @@ func (s *newLxdProfileSuite) newAPI() *uniter.LXDProfileAPIv2 {
 
 func (s *newLxdProfileSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.backend = mocks.NewMockLXDProfileBackendV2(ctrl)
-	s.charm = mocks.NewMockLXDProfileCharmV2(ctrl)
-	s.machine = mocks.NewMockLXDProfileMachineV2(ctrl)
-	s.model = mocks.NewMockLXDProfileModelV2(ctrl)
-	s.unit = mocks.NewMockLXDProfileUnitV2(ctrl)
+	s.backend = NewMockLXDProfileBackendV2(ctrl)
+	s.charm = NewMockLXDProfileCharmV2(ctrl)
+	s.machine = NewMockLXDProfileMachineV2(ctrl)
+	s.model = NewMockLXDProfileModelV2(ctrl)
+	s.unit = NewMockLXDProfileUnitV2(ctrl)
 	return ctrl
 }
 

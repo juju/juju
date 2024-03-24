@@ -169,7 +169,7 @@ func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	return m.endpoints, nil
 }
 
-func (m *mockApplication) EndpointBindings() (crossmodel.Bindings, error) {
+func (m *mockApplication) EndpointBindings(allSpaces network.SpaceInfos) (crossmodel.Bindings, error) {
 	return &mockBindings{bMap: m.bindings}, nil
 }
 

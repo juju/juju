@@ -412,10 +412,10 @@ func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
 func (s *ModelSuite) TestAllUnits(c *gc.C) {
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "wordpress",
-	})
+	}, nil)
 	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "mysql",
-	})
+	}, nil)
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
@@ -441,10 +441,10 @@ func (s *ModelSuite) TestAllUnits(c *gc.C) {
 func (s *ModelSuite) TestMetrics(c *gc.C) {
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "wordpress",
-	})
+	}, nil)
 	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "mysql",
-	})
+	}, nil)
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
@@ -456,7 +456,7 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	one := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "one",
-	})
+	}, nil)
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 	err = one.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -485,14 +485,17 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider")})
+	oneSpaceInfo, err := oneSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	allSpaces := state.DefaultSpacesWithAlpha(oneSpaceInfo)
 	app := state.AddTestingApplicationWithBindings(
 		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
-		map[string]string{"db": oneSpace.Id()})
+		map[string]string{"db": oneSpace.Id()}, allSpaces)
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	listBindings, err := model.AllEndpointBindings()
+	listBindings, err := model.AllEndpointBindings(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listBindings, gc.HasLen, 1)
 
@@ -513,18 +516,21 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 func (s *ModelSuite) TestAllEndpointBindingsSpaceNames(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider")})
+	oneSpaceInfo, err := oneSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	allSpaces := state.DefaultSpacesWithAlpha(oneSpaceInfo)
 	state.AddTestingApplicationWithBindings(
 		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
-		map[string]string{"db": oneSpace.Id()})
+		map[string]string{"db": oneSpace.Id()}, allSpaces)
 
-	spaceNames, err := s.State.AllEndpointBindingsSpaceNames()
+	spaceNames, err := s.State.AllEndpointBindingsSpaceNames(allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaceNames.Size(), gc.Equals, 2)
 	c.Assert(spaceNames.SortedValues(), gc.DeepEquals, []string{"alpha", "one"})
 }
 
 func (s *ModelSuite) TestAllEndpointBindingsSpaceNamesWithoutAnySpaces(c *gc.C) {
-	spaceNames, err := s.State.AllEndpointBindingsSpaceNames()
+	spaceNames, err := s.State.AllEndpointBindingsSpaceNames(state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaceNames.Size(), gc.Equals, 0)
 }
@@ -598,7 +604,7 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelWithForceFails(c *gc.C) {
 func (s *ModelSuite) assertDestroyControllerNonEmptyModelFails(c *gc.C, force *bool) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2, s.StatePool).MakeApplication(c, nil)
+	factory.NewFactory(st2, s.StatePool).MakeApplication(c, nil, nil)
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -635,7 +641,7 @@ func (s *ModelSuite) TestDestroyControllerWithEmptyModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2, s.StatePool).MakeApplication(c, nil)
+	factory.NewFactory(st2, s.StatePool).MakeApplication(c, nil, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -692,7 +698,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherSt.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, state.DefaultSpacesWithAlpha())
 
 	ch := state.AddTestingCharm(c, otherSt, "dummy")
 	args := state.AddApplicationArgs{
@@ -703,7 +709,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()))
+	_, err = otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -753,7 +759,7 @@ func (s *ModelSuite) assertDestroyControllerAndHostedModelsWithPersistentStorage
 			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped"},
 			},
-		}),
+		}, nil),
 	})
 
 	controllerModel, err := s.State.Model()
@@ -807,7 +813,7 @@ func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
 		// the controller from being destroyed.
 		st3 := s.Factory.MakeModel(c, nil)
 		defer st3.Close()
-		factory.NewFactory(st3, s.StatePool).MakeApplication(c, nil)
+		factory.NewFactory(st3, s.StatePool).MakeApplication(c, nil, nil)
 	}).Check()
 
 	model, err := s.State.Model()
@@ -821,7 +827,7 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		st := s.Factory.MakeModel(c, nil)
 		defer st.Close()
-		factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
+		factory.NewFactory(st, s.StatePool).MakeApplication(c, nil, nil)
 	}).Check()
 
 	model, err := s.State.Model()
@@ -855,7 +861,7 @@ func (s *ModelSuite) TestDestroyModelNonEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a application to prevent the model from transitioning directly to Dead.
-	s.Factory.MakeApplication(c, nil)
+	s.Factory.MakeApplication(c, nil, nil)
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
@@ -877,7 +883,7 @@ func (s *ModelSuite) assertDestroyModelPersistentStorage(c *gc.C, force *bool) {
 			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped"},
 			},
-		}),
+		}, nil),
 	})
 
 	err = m.Destroy(state.DestroyModelParams{Force: force})
@@ -907,7 +913,7 @@ func (s *ModelSuite) TestDestroyModelNonPersistentStorage(c *gc.C) {
 			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "loop"},
 			},
-		}),
+		}, nil),
 	})
 
 	err = m.Destroy(state.DestroyModelParams{})
@@ -931,7 +937,7 @@ func (s *ModelSuite) testDestroyModelDestroyStorage(c *gc.C, destroyStorage bool
 			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped"},
 			},
-		}),
+		}, nil),
 	})
 
 	err := s.Model.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage})
@@ -959,7 +965,7 @@ func (s *ModelSuite) assertDestroyModelReleaseStorageUnreleasable(c *gc.C, force
 			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped-unreleasable"},
 			},
-		}),
+		}, nil),
 	})
 
 	destroyStorage := false
@@ -988,7 +994,7 @@ func (s *ModelSuite) TestDestroyModelAddApplicationConcurrently(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, st, func() {
-		factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
+		factory.NewFactory(st, s.StatePool).MakeApplication(c, nil, nil)
 	}).Check()
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -1133,7 +1139,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 	// Add a application to prevent the model from transitioning directly to Dead.
 	// Add the application before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
-	app := factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
+	app := factory.NewFactory(st, s.StatePool).MakeApplication(c, nil, nil)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1171,7 +1177,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, state.DefaultSpacesWithAlpha())
 
 	ch := state.AddTestingCharm(c, st, "dummy")
 	args := state.AddApplicationArgs{
@@ -1182,7 +1188,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, st.ModelUUID()))
+	_, err = st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
@@ -1314,7 +1320,7 @@ func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C
 	// Add a non-empty model to the controller.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
+	factory.NewFactory(st, s.StatePool).MakeApplication(c, nil, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1569,7 +1575,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress := state.AddTestingApplication(c, ms, s.objectStore, "wordpress", state.AddTestingCharm(c, ms, "wordpress"))
+	wordpress := state.AddTestingApplication(c, ms, s.objectStore, "wordpress", state.AddTestingCharm(c, ms, "wordpress"), nil)
 	eps, err := ms.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ms.AddRelation(eps...)

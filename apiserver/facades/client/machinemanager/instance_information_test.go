@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
-	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
@@ -28,15 +27,16 @@ var over9kCPUCores uint64 = 9001
 
 type instanceTypesSuite struct {
 	authorizer   *apiservertesting.FakeAuthorizer
-	st           *mocks.MockBackend
-	leadership   *mocks.MockLeadership
-	store        *mocks.MockObjectStore
+	st           *MockBackend
+	leadership   *MockLeadership
+	store        *MockObjectStore
 	cloudService *commonmocks.MockCloudService
 	credService  *commonmocks.MockCredentialService
+	spaceService *MockSpaceService
 	api          *machinemanager.MachineManagerAPI
 
-	controllerConfigService *mocks.MockControllerConfigService
-	machineService          *mocks.MockMachineService
+	controllerConfigService *MockControllerConfigService
+	machineService          *MockMachineService
 }
 
 var _ = gc.Suite(&instanceTypesSuite{})
@@ -48,13 +48,14 @@ func (s *instanceTypesSuite) SetUpTest(c *gc.C) {
 func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.st = mocks.NewMockBackend(ctrl)
-	s.leadership = mocks.NewMockLeadership(ctrl)
+	s.st = NewMockBackend(ctrl)
+	s.leadership = NewMockLeadership(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
-	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
-	s.machineService = mocks.NewMockMachineService(ctrl)
-	s.store = mocks.NewMockObjectStore(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+	s.store = NewMockObjectStore(ctrl)
+	s.spaceService = NewMockSpaceService(ctrl)
 
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(
@@ -76,6 +77,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -86,13 +88,13 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	model := mocks.NewMockModel(ctrl)
+	model := NewMockModel(ctrl)
 	s.st.EXPECT().Model().Return(model, nil)
 
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
 	failureCons := constraints.Value{}
 
-	env := mocks.NewMockEnviron(ctrl)
+	env := NewMockEnviron(ctrl)
 	env.EXPECT().InstanceTypes(gomock.Any(), itCons).Return(instances.InstanceTypesWithCostMetadata{
 		CostUnit:     "USD/h",
 		CostCurrency: "USD",

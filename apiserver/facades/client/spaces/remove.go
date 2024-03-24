@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -16,39 +15,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// RemoveSpace describes a space that can be removed.
-type RemoveSpace interface {
-	Refresh() error
-	RemoveSpaceOps() ([]txn.Op, error)
-}
-
-type spaceRemoveModelOp struct {
-	space RemoveSpace
-}
-
-func (o *spaceRemoveModelOp) Done(err error) error {
-	return err
-}
-
-func NewRemoveSpaceOp(space RemoveSpace) *spaceRemoveModelOp {
-	return &spaceRemoveModelOp{
-		space: space,
-	}
-}
-
-func (o *spaceRemoveModelOp) Build(attempt int) ([]txn.Op, error) {
-	if attempt > 0 {
-		if err := o.space.Refresh(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	removeOps, err := o.space.RemoveSpaceOps()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return removeOps, nil
-}
 
 // RemoveSpace removes a space.
 // Returns SpaceResults if entities/settings are found which makes the deletion not possible.
@@ -67,13 +33,7 @@ func (api *API) RemoveSpace(ctx context.Context, spaceParams params.RemoveSpaceP
 			continue
 		}
 
-		if !api.checkSpaceIsRemovable(i, spacesTag, &result, spaceParam.Force) {
-			continue
-		}
-
-		operation, err := api.opFactory.NewRemoveSpaceOp(spacesTag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
+		if !api.checkSpaceIsRemovable(ctx, i, spacesTag, &result, spaceParam.Force) {
 			continue
 		}
 
@@ -81,7 +41,12 @@ func (api *API) RemoveSpace(ctx context.Context, spaceParams params.RemoveSpaceP
 			continue
 		}
 
-		if err = api.backing.ApplyOperation(operation); err != nil {
+		space, err := api.spaceService.SpaceByName(ctx, spacesTag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
+			continue
+		}
+		if err := api.spaceService.Remove(ctx, space.ID); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
@@ -90,7 +55,11 @@ func (api *API) RemoveSpace(ctx context.Context, spaceParams params.RemoveSpaceP
 }
 
 func (api *API) checkSpaceIsRemovable(
-	index int, spacesTag names.Tag, results *params.RemoveSpaceResults, force bool,
+	ctx context.Context,
+	index int,
+	spacesTag names.Tag,
+	results *params.RemoveSpaceResults,
+	force bool,
 ) bool {
 	removable := true
 
@@ -99,22 +68,22 @@ func (api *API) checkSpaceIsRemovable(
 		results.Results[index].Error = apiservererrors.ServerError(newErr)
 		return false
 	}
-	space, err := api.backing.SpaceByName(spacesTag.Id())
+	space, err := api.spaceService.SpaceByName(ctx, spacesTag.Id())
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
-	bindingTags, err := api.applicationTagsForSpace(space.Id())
+	bindingTags, err := api.applicationTagsForSpace(ctx, space.ID)
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
-	constraintTags, err := api.entityTagsForSpaceConstraintsBlockingRemove(space.Name())
+	constraintTags, err := api.entityTagsForSpaceConstraintsBlockingRemove(string(space.Name))
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
-	settingMatches, err := api.getSpaceControllerSettings(space.Name())
+	settingMatches, err := api.getSpaceControllerSettings(string(space.Name))
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
@@ -141,10 +110,14 @@ func (api *API) checkSpaceIsRemovable(
 
 // applicationTagsForSpace returns the tags for all applications with an
 // endpoint bound to a space with the input name.
-func (api *API) applicationTagsForSpace(spaceID string) ([]names.Tag, error) {
-	applications, err := api.applicationsBoundToSpace(spaceID)
+func (api *API) applicationTagsForSpace(ctx context.Context, spaceID string) ([]names.Tag, error) {
+	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
 	if err != nil {
-		return nil, errors.Trace(nil)
+		return nil, errors.Trace(err)
+	}
+	applications, err := api.applicationsBoundToSpace(spaceID, allSpaces)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	tags := make([]names.Tag, len(applications))
 	for i, app := range applications {

@@ -175,7 +175,7 @@ func (s *ApplicationOfferUserSuite) TestUpdateOfferAccessSetsRelationSuspendedRa
 }
 
 func (s *ApplicationOfferUserSuite) TestCreateOfferAccessNoUserFails(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
+	app := s.Factory.MakeApplication(c, nil, nil)
 	offers := state.NewApplicationOffers(s.State)
 	_, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "someoffer",

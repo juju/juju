@@ -53,7 +53,7 @@ func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 
 	newFactory, release := s.NewFactory(c, s.importingModel.UUID())
 	defer release()
-	app := newFactory.MakeApplication(c, nil)
+	app := newFactory.MakeApplication(c, nil, nil)
 	s.appName = app.Name()
 
 	s.unit = newFactory.MakeUnit(c, &factory.UnitParams{

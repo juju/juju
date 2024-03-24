@@ -105,7 +105,7 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
-	}})
+	}}, nil)
 	result, err := s.getter.Status(context.Background(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: app.Tag().String(),

@@ -46,13 +46,20 @@ type APIv8 struct {
 	*BundleAPI
 }
 
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
-	backend    Backend
-	store      objectstore.ObjectStore
-	authorizer facade.Authorizer
-	modelTag   names.ModelTag
+	backend      Backend
+	store        objectstore.ObjectStore
+	authorizer   facade.Authorizer
+	modelTag     names.ModelTag
+	spaceService SpaceService
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -65,6 +72,7 @@ func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 		ctx.ObjectStore(),
 		authorizer,
 		names.NewModelTag(st.ModelUUID()),
+		ctx.ServiceFactory().Space(),
 	)
 }
 
@@ -74,16 +82,18 @@ func NewBundleAPI(
 	store objectstore.ObjectStore,
 	auth facade.Authorizer,
 	tag names.ModelTag,
+	spaceService SpaceService,
 ) (*BundleAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &BundleAPI{
-		backend:    st,
-		store:      store,
-		authorizer: auth,
-		modelTag:   tag,
+		backend:      st,
+		store:        store,
+		authorizer:   auth,
+		modelTag:     tag,
+		spaceService: spaceService,
 	}, nil
 }
 
@@ -206,7 +216,7 @@ func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundlePar
 	}
 
 	// Fill it in charm.BundleData data structure.
-	bundleData, err := b.fillBundleData(model, arg.IncludeCharmDefaults, b.backend)
+	bundleData, err := b.fillBundleData(ctx, model, arg.IncludeCharmDefaults, b.backend)
 	if err != nil {
 		return fail(err)
 	}
@@ -281,7 +291,7 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 	}
 }
 
-func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults bool, backend Backend) (*charm.BundleData, error) {
+func (b *BundleAPI) fillBundleData(ctx context.Context, model description.Model, includeCharmDefaults bool, backend Backend) (*charm.BundleData, error) {
 	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -316,7 +326,7 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 		usedBases  set.Strings
 		machineIds set.Strings
 	)
-	data.Applications, machineIds, usedBases, err = b.bundleDataApplications(model.Applications(), defaultBase, isCAAS, includeCharmDefaults, backend)
+	data.Applications, machineIds, usedBases, err = b.bundleDataApplications(ctx, model.Applications(), defaultBase, isCAAS, includeCharmDefaults, backend)
 	if err != nil {
 		return nil, err
 	}
@@ -368,13 +378,14 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 }
 
 func (b *BundleAPI) bundleDataApplications(
+	ctx context.Context,
 	apps []description.Application,
 	defaultBase corebase.Base,
 	isCAAS, includeCharmDefaults bool,
 	backend Backend,
 ) (map[string]*charm.ApplicationSpec, set.Strings, set.Strings, error) {
 
-	allSpacesInfoLookup, err := b.backend.AllSpaceInfos()
+	allSpacesInfoLookup, err := b.spaceService.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "unable to retrieve all space information")
 	}
@@ -731,7 +742,7 @@ func (b *BundleAPI) endpointBindings(bindings map[string]string, spaceLookup net
 	if !printValue {
 		return nil, nil
 	}
-	endpointBindings, err := state.NewBindings(b.backend, bindings)
+	endpointBindings, err := state.NewBindings(spaceLookup, bindings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

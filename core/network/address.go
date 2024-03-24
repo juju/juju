@@ -516,17 +516,9 @@ func (pas ProviderAddresses) Values() []string {
 
 // ToSpaceAddresses transforms the ProviderAddresses to SpaceAddresses by using
 // the input lookup to get a space ID from the name or the CIDR.
-func (pas ProviderAddresses) ToSpaceAddresses(lookup SpaceLookup) (SpaceAddresses, error) {
+func (pas ProviderAddresses) ToSpaceAddresses(spaceInfos SpaceInfos) (SpaceAddresses, error) {
 	if pas == nil {
 		return nil, nil
-	}
-
-	var spaceInfos SpaceInfos
-	if len(pas) > 0 {
-		var err error
-		if spaceInfos, err = lookup.AllSpaceInfos(); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	sas := make(SpaceAddresses, len(pas))
@@ -626,24 +618,16 @@ func (sas SpaceAddresses) Values() []string {
 
 // ToProviderAddresses transforms the SpaceAddresses to ProviderAddresses by using
 // the input lookup for conversion of space ID to space info.
-func (sas SpaceAddresses) ToProviderAddresses(lookup SpaceLookup) (ProviderAddresses, error) {
+func (sas SpaceAddresses) ToProviderAddresses(spaceInfos SpaceInfos) (ProviderAddresses, error) {
 	if sas == nil {
 		return nil, nil
-	}
-
-	var spaces SpaceInfos
-	if len(sas) > 0 {
-		var err error
-		if spaces, err = lookup.AllSpaceInfos(); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	pas := make(ProviderAddresses, len(sas))
 	for i, sa := range sas {
 		pas[i] = ProviderAddress{MachineAddress: sa.MachineAddress}
 		if sa.SpaceID != "" {
-			info := spaces.GetByID(sa.SpaceID)
+			info := spaceInfos.GetByID(sa.SpaceID)
 			if info == nil {
 				return nil, errors.NotFoundf("space with ID %q", sa.SpaceID)
 			}

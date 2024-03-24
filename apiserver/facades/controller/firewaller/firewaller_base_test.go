@@ -64,7 +64,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: s.charm,
-	})
+	}, nil)
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
 		unit, err := s.application.AddUnit(state.AddUnitParams{})
@@ -75,7 +75,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	}
 
 	// Create a relation.
-	f.MakeApplication(c, nil)
+	f.MakeApplication(c, nil, nil)
 	eps, err := st.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 

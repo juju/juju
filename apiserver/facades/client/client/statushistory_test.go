@@ -44,6 +44,7 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil, // blockChecker
 		nil,
 		nil, // multiwatcher.Factory
+		nil, // spaceService
 		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)

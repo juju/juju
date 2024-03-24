@@ -10,7 +10,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
@@ -71,29 +70,8 @@ type Backing interface {
 	// ModelTag returns the tag of this model.
 	ModelTag() names.ModelTag
 
-	// SubnetByCIDR returns a unique subnet based on the input CIDR.
-	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
-
-	// MovingSubnet returns the subnet for the input ID,
-	// suitable for moving to a new space.
-	MovingSubnet(id string) (MovingSubnet, error)
-
-	// AddSpace creates a space.
-	AddSpace(name string, providerID network.Id, subnets []string) (networkingcommon.BackingSpace, error)
-
-	// AllSpaces returns all known Juju network spaces.
-	// TODO (manadart 2020-04-14): This should be removed in favour of
-	// AllSpaceInfos below, reducing the reliance on networkingcommon.
-	AllSpaces() ([]networkingcommon.BackingSpace, error)
-
-	// AllSpaceInfos returns SpaceInfos for all spaces in the model.
-	AllSpaceInfos() (network.SpaceInfos, error)
-
-	// SpaceByName returns the Juju network space given by name.
-	SpaceByName(name string) (networkingcommon.BackingSpace, error)
-
 	// AllEndpointBindings loads all endpointBindings.
-	AllEndpointBindings() (map[string]Bindings, error)
+	AllEndpointBindings(network.SpaceInfos) (map[string]Bindings, error)
 
 	// AllMachines loads all machines.
 	AllMachines() ([]Machine, error)

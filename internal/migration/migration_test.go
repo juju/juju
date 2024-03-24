@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/environs"
@@ -310,7 +311,7 @@ type fakeImporter struct {
 	controllerConfig controller.Config
 }
 
-func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config, _ config.ConfigSchemaSourceGetter) (*state.Model, *state.State, error) {
+func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config, _ config.ConfigSchemaSourceGetter, _ network.SpaceInfos) (*state.Model, *state.State, error) {
 	i.model = model
 	i.controllerConfig = controllerConfig
 	return i.m, i.st, nil

@@ -55,6 +55,7 @@ type ApplicationService interface {
 func (ctrl *Controller) Import(
 	model description.Model, controllerConfig controller.Config,
 	configSchemaSourceGetter config.ConfigSchemaSourceGetter,
+	allSpaces network.SpaceInfos,
 ) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
@@ -179,7 +180,7 @@ func (ctrl *Controller) Import(
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
 	}
-	if err := restore.applications(controllerConfig); err != nil {
+	if err := restore.applications(controllerConfig, allSpaces); err != nil {
 		return nil, nil, errors.Annotate(err, "applications")
 	}
 	if err := restore.remoteApplications(); err != nil {
@@ -790,7 +791,7 @@ func (i *importer) makeAddresses(addrs []description.Address) []address {
 	return result
 }
 
-func (i *importer) applications(controllerConfig controller.Config) error {
+func (i *importer) applications(controllerConfig controller.Config, allSpaces network.SpaceInfos) error {
 	i.logger.Debugf("importing applications")
 
 	// Ensure we import principal applications first, so that
@@ -807,7 +808,7 @@ func (i *importer) applications(controllerConfig controller.Config) error {
 	i.charmOrigins = make(map[string]*CharmOrigin, len(principals)+len(subordinates))
 
 	for _, s := range append(principals, subordinates...) {
-		if err := i.application(s, controllerConfig); err != nil {
+		if err := i.application(s, controllerConfig, allSpaces); err != nil {
 			i.logger.Errorf("error importing application %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}
@@ -864,7 +865,7 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 	return doc
 }
 
-func (i *importer) application(a description.Application, ctrlCfg controller.Config) error {
+func (i *importer) application(a description.Application, ctrlCfg controller.Config, allSpaces network.SpaceInfos) error {
 	// Import this application, then its units.
 	i.logger.Debugf("importing application %s", a.Name())
 
@@ -909,7 +910,7 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		return errors.Trace(err)
 	}
 
-	bindings, err := i.parseBindings(a.EndpointBindings())
+	bindings, err := i.parseBindings(a.EndpointBindings(), allSpaces)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1001,7 +1002,7 @@ func (i *importer) applicationOffers(app ApplicationDescription) error {
 // On the other hand, migration exports from 2.7+ are using space IDs instead
 // of space names as the map values and can safely be passed to the NewBindings
 // c-tor.
-func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, error) {
+func (i *importer) parseBindings(bindingsMap map[string]string, allSpaces network.SpaceInfos) (*Bindings, error) {
 	defaultMappingsAreIds := true
 	for epName, spNameOrID := range bindingsMap {
 		if spNameOrID == "" {
@@ -1029,7 +1030,7 @@ func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, erro
 		}
 	}
 
-	return NewBindings(i.st, bindingsMap)
+	return NewBindings(allSpaces, bindingsMap)
 }
 
 func (i *importer) appResourceOps(app description.Application) []txn.Op {

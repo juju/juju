@@ -69,7 +69,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := password.RandomPassword()
@@ -318,10 +318,10 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := f.MakeApplication(c, nil)
+	mysql := f.MakeApplication(c, nil, nil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.ControllerModel(c).State().AddRelation(wordpressEP, mysqlEP)

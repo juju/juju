@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -28,7 +29,7 @@ func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.
 			Channel: "22.04/stable",
 		}},
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,7 +57,7 @@ func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
 
 	results, err := s.State.AssignStagedUnits(defaultInstancePrechecker, []string{
 		"dummy/0", "dummy/1",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.SameContents, []state.UnitAssignmentResult{
 		{Unit: "dummy/0"},
@@ -92,14 +93,14 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()
@@ -115,6 +116,15 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraints(c *gc.C) {
 	specialSpace, err := s.State.AddSpace("special-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	specialSpaceInfo, err := specialSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+		specialSpaceInfo,
+	}
 
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
@@ -130,7 +140,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		EndpointBindings: map[string]string{
 			"": specialSpace.Id(),
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := app.AllUnits()
@@ -138,7 +148,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement, allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	guestID, err := unit.AssignedMachineId()
@@ -161,10 +171,22 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraintsMerged(c *gc.C) {
 	boundSpace, err := s.State.AddSpace("bound-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	boundSpaceInfo, err := boundSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 
 	constrainedSpace, err := s.State.AddSpace("constrained-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	constrainedSpaceInfo, err := constrainedSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+		boundSpaceInfo,
+		constrainedSpaceInfo,
+	}
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
 	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
@@ -181,7 +203,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		EndpointBindings: map[string]string{
 			"": boundSpace.Id(),
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := app.AllUnits()
@@ -189,7 +211,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement, allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	guestID, err := unit.AssignedMachineId()
@@ -224,14 +246,14 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()
@@ -271,14 +293,14 @@ func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, place
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{placement},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 
 	unit := units[0]
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement, nil)
 	c.Assert(err, gc.ErrorMatches, ".* is locked for series upgrade")
 }
 

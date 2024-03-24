@@ -233,7 +233,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	}
 	context.providerType = cfg.Type()
 
-	if context.spaceInfos, err = c.api.stateAccessor.AllSpaceInfos(); err != nil {
+	if context.spaceInfos, err = c.api.spaceService.GetAllSpaces(ctx); err != nil {
 		return noStatus, errors.Annotate(err, "cannot obtain space information")
 	}
 	if context.model, err = c.api.state().Model(); err != nil {
@@ -910,7 +910,7 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 		allUnits[unit.Name()] = unit
 	}
 
-	endpointBindings, err := model.AllEndpointBindings()
+	endpointBindings, err := model.AllEndpointBindings(spaceInfos)
 	if err != nil {
 		return applicationStatusInfo{}, err
 	}

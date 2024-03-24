@@ -492,8 +492,8 @@ func (factory *Factory) MakeCharmV2(c *gc.C, params *CharmParams) *state.Charm {
 // MakeApplication creates an application with the specified parameters, substituting
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
-func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *state.Application {
-	app, _ := factory.MakeApplicationReturningPassword(c, params)
+func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams, allSpaces network.SpaceInfos) *state.Application {
+	app, _ := factory.MakeApplicationReturningPassword(c, params, allSpaces)
 	return app
 }
 
@@ -501,7 +501,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
 // It returns the application and its password.
-func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *ApplicationParams) (*state.Application, string) {
+func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *ApplicationParams, allSpaces network.SpaceInfos) (*state.Application, string) {
 	if params == nil {
 		params = &ApplicationParams{}
 	}
@@ -557,6 +557,18 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		resourceMap[name] = pendingID
 	}
 
+	// Always append the alpha space
+	allSpaces = append(allSpaces, network.SpaceInfo{
+		ID:   network.AlphaSpaceId,
+		Name: network.AlphaSpaceName,
+		Subnets: network.SubnetInfos{
+			{
+				ID:   network.Id("0"),
+				CIDR: "10.0.0.0/24",
+			},
+		},
+	})
+
 	appConfig, err := coreconfig.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := factory.st.AddApplication(factory.prechecker, state.AddApplicationArgs{
@@ -570,7 +582,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
 		Placement:         params.Placement,
-	}, objectStore)
+	}, objectStore, allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -668,7 +680,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
 			Charm:       ch,
-		})
+		}, nil)
 	}
 	if params.Password == "" {
 		var err error
@@ -728,7 +740,7 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 			Charm: factory.MakeCharm(c, &CharmParams{
 				Name: "mysql",
 			}),
-		})
+		}, nil)
 		e1, err := s1.Endpoint("server")
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -736,7 +748,7 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 			Charm: factory.MakeCharm(c, &CharmParams{
 				Name: "wordpress",
 			}),
-		})
+		}, nil)
 		e2, err := s2.Endpoint("db")
 		c.Assert(err, jc.ErrorIsNil)
 

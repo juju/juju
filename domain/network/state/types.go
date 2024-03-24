@@ -139,29 +139,33 @@ func (sp SpaceSubnetRows) ToSpaceInfos() network.SpaceInfos {
 			Name: network.SpaceName(space.Name),
 		}
 
-		if _, ok := uniqueSubnets[space.UUID]; !ok {
-			uniqueSubnets[space.UUID] = make(map[string]network.SubnetInfo)
-		}
-
-		snInfo := space.ToSubnetInfo()
-		snInfo.SpaceID = space.UUID
-		snInfo.SpaceName = space.Name
-
 		if space.ProviderID.Valid {
 			spInfo.ProviderId = network.Id(space.ProviderID.String)
-			snInfo.ProviderSpaceId = network.Id(space.ProviderID.String)
 		}
-
 		uniqueSpaces[space.UUID] = spInfo
-		uniqueSubnets[space.UUID][space.SubnetUUID] = snInfo
 
-		if _, ok := uniqueAZs[space.UUID]; !ok {
-			uniqueAZs[space.UUID] = make(map[string]map[string]string)
+		snInfo := space.ToSubnetInfo()
+		if snInfo != nil {
+			if _, ok := uniqueSubnets[space.UUID]; !ok {
+				uniqueSubnets[space.UUID] = make(map[string]network.SubnetInfo)
+			}
+
+			snInfo.SpaceID = space.UUID
+			snInfo.SpaceName = space.Name
+
+			if space.ProviderID.Valid {
+				snInfo.ProviderSpaceId = network.Id(space.ProviderID.String)
+			}
+			uniqueSubnets[space.UUID][space.SubnetUUID] = *snInfo
+
+			if _, ok := uniqueAZs[space.UUID]; !ok {
+				uniqueAZs[space.UUID] = make(map[string]map[string]string)
+			}
+			if _, ok := uniqueAZs[space.UUID][space.SubnetUUID]; !ok {
+				uniqueAZs[space.UUID][space.SubnetUUID] = make(map[string]string)
+			}
+			uniqueAZs[space.UUID][space.SubnetUUID][space.SubnetAZ] = space.SubnetAZ
 		}
-		if _, ok := uniqueAZs[space.UUID][space.SubnetUUID]; !ok {
-			uniqueAZs[space.UUID][space.SubnetUUID] = make(map[string]string)
-		}
-		uniqueAZs[space.UUID][space.SubnetUUID][space.SubnetAZ] = space.SubnetAZ
 	}
 
 	// Iterate through every space and flatten its subnets.
@@ -176,7 +180,11 @@ func (sp SpaceSubnetRows) ToSpaceInfos() network.SpaceInfos {
 
 // ToSubnetInfo deserializes a row containing subnet fields to a SubnetInfo
 // struct.
-func (s SpaceSubnetRow) ToSubnetInfo() network.SubnetInfo {
+func (s SpaceSubnetRow) ToSubnetInfo() *network.SubnetInfo {
+	// Make sure we don't add empty rows as empty subnets.
+	if s.SubnetUUID == "" {
+		return nil
+	}
 	sInfo := network.SubnetInfo{
 		ID:                network.Id(s.SubnetUUID),
 		CIDR:              s.SubnetCIDR,
@@ -201,7 +209,7 @@ func (s SpaceSubnetRow) ToSubnetInfo() network.SubnetInfo {
 		sInfo.SpaceName = s.SubnetSpaceName.String
 	}
 
-	return sInfo
+	return &sInfo
 }
 
 // ToSubnetInfos converts Subnets to a slice of network.SubnetInfo structs.
@@ -214,12 +222,15 @@ func (sn SpaceSubnetRows) ToSubnetInfos() network.SubnetInfos {
 	uniqueSubnets := make(map[string]network.SubnetInfo)
 
 	for _, subnet := range sn {
-		uniqueSubnets[subnet.SubnetUUID] = subnet.ToSubnetInfo()
+		subnetInfo := subnet.ToSubnetInfo()
+		if subnetInfo != nil {
+			uniqueSubnets[subnet.SubnetUUID] = *subnetInfo
 
-		if _, ok := uniqueAZs[subnet.SubnetUUID]; !ok {
-			uniqueAZs[subnet.SubnetUUID] = make(map[string]string)
+			if _, ok := uniqueAZs[subnet.SubnetUUID]; !ok {
+				uniqueAZs[subnet.SubnetUUID] = make(map[string]string)
+			}
+			uniqueAZs[subnet.SubnetUUID][subnet.SubnetAZ] = subnet.SubnetAZ
 		}
-		uniqueAZs[subnet.SubnetUUID][subnet.SubnetAZ] = subnet.SubnetAZ
 	}
 
 	return flattenAZs(uniqueSubnets, uniqueAZs)

@@ -36,5 +36,6 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 		res:            ctx.Resources(),
 		statusSetter:   setter,
 		machineService: serviceFactory.Machine(),
+		spaceService:   serviceFactory.Space(),
 	}, nil
 }

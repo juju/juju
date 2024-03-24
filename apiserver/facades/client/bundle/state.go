@@ -15,7 +15,6 @@ type Backend interface {
 	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 	GetExportConfig() state.ExportConfig
 	Charm(url string) (charm.Charm, error)
-	state.EndpointBinding
 }
 
 type stateShim struct {

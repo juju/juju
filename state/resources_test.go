@@ -41,7 +41,7 @@ func (s *ResourcesSuite) SetUpTest(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "starsay",
 		Charm: s.ch,
-	})
+	}, nil)
 }
 
 func newResource(c *gc.C, name, data string) resources.Resource {

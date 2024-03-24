@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -791,7 +792,7 @@ func (m *Model) unitCount() (int, error) {
 
 // AllEndpointBindings returns all endpoint->space bindings
 // keyed by application name.
-func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
+func (m *Model) AllEndpointBindings(allSpaces network.SpaceInfos) (map[string]*Bindings, error) {
 	endpointBindings, closer := m.st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
@@ -811,7 +812,7 @@ func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
 			return nil, errors.NotValidf("application key %v", applicationKey)
 		}
 
-		bindings, err := NewBindings(m.st, doc.Bindings)
+		bindings, err := NewBindings(allSpaces, doc.Bindings)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot make bindings")
 		}
@@ -823,24 +824,19 @@ func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
 
 // AllEndpointBindingsSpaceNames returns a set of spaces names for all the
 // endpoint bindings.
-func (st *State) AllEndpointBindingsSpaceNames() (set.Strings, error) {
+func (st *State) AllEndpointBindingsSpaceNames(allSpaces network.SpaceInfos) (set.Strings, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	allEndpointBindings, err := model.AllEndpointBindings()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	lookup, err := st.AllSpaceInfos()
+	allEndpointBindings, err := model.AllEndpointBindings(allSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	allEndpointBindingsSpaces := set.NewStrings()
 	for _, bindings := range allEndpointBindings {
-		bindingSpaceNames, err := bindings.MapWithSpaceNames(lookup)
+		bindingSpaceNames, err := bindings.MapWithSpaceNames(allSpaces)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

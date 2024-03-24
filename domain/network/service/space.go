@@ -68,6 +68,11 @@ func (s *SpaceService) GetAllSpaces(ctx context.Context) (network.SpaceInfos, er
 	return s.st.GetAllSpaces(ctx)
 }
 
+// UpdateSpace updates the space identified by the passed uuid.
+func (s *SpaceService) UpdateSpace(ctx context.Context, uuid string, name string) error {
+	return s.st.UpdateSpace(ctx, uuid, name)
+}
+
 // Remove deletes a space identified by its uuid.
 func (s *SpaceService) Remove(ctx context.Context, uuid string) error {
 	return s.st.DeleteSpace(ctx, uuid)

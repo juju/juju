@@ -54,7 +54,7 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Charm: ch,
-	})
+	}, nil)
 	f2.MakeUnit(c, &factory.UnitParams{Application: s.app})
 }
 

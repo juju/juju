@@ -363,6 +363,20 @@ func (mr *MockModelServiceFactoryMockRecorder) Storage(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Storage", reflect.TypeOf((*MockModelServiceFactory)(nil).Storage), arg0)
 }
 
+// Subnet mocks base method.
+func (m *MockModelServiceFactory) Subnet() *service13.SubnetService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Subnet")
+	ret0, _ := ret[0].(*service13.SubnetService)
+	return ret0
+}
+
+// Subnet indicates an expected call of Subnet.
+func (mr *MockModelServiceFactoryMockRecorder) Subnet() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnet", reflect.TypeOf((*MockModelServiceFactory)(nil).Subnet))
+}
+
 // Unit mocks base method.
 func (m *MockModelServiceFactory) Unit() *service16.Service {
 	m.ctrl.T.Helper()
@@ -650,6 +664,20 @@ func (m *MockServiceFactory) Storage(arg0 storage.ProviderRegistry) *service15.S
 func (mr *MockServiceFactoryMockRecorder) Storage(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Storage", reflect.TypeOf((*MockServiceFactory)(nil).Storage), arg0)
+}
+
+// Subnet mocks base method.
+func (m *MockServiceFactory) Subnet() *service13.SubnetService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Subnet")
+	ret0, _ := ret[0].(*service13.SubnetService)
+	return ret0
+}
+
+// Subnet indicates an expected call of Subnet.
+func (mr *MockServiceFactoryMockRecorder) Subnet() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnet", reflect.TypeOf((*MockServiceFactory)(nil).Subnet))
 }
 
 // Unit mocks base method.
