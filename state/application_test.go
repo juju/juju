@@ -326,114 +326,6 @@ deployment:
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:focal/focal-gitlab-k8s-2": cannot change a charm's deployment info`)
 }
 
-func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
-	sp := s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
-	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
-
-	// Assign new charm endpoint to "isolated" space
-	cfg := state.SetCharmConfig{
-		Charm:       sch,
-		CharmOrigin: defaultCharmOrigin(sch.URL()),
-		ForceUnits:  true,
-		EndpointBindings: map[string]string{
-			"events": sp.Name(),
-		},
-	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	expBindings := map[string]string{
-		"":        network.AlphaSpaceId,
-		"server":  network.AlphaSpaceId,
-		"client":  network.AlphaSpaceId,
-		"cluster": network.AlphaSpaceId,
-		"events":  sp.Id(),
-	}
-
-	updatedBindings, err := s.mysql.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updatedBindings.Map(), gc.DeepEquals, expBindings)
-}
-
-func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
-	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
-
-	expBindings := map[string]string{
-		"":               network.AlphaSpaceName,
-		"metrics-client": network.AlphaSpaceName,
-		"server":         network.AlphaSpaceName,
-		"server-admin":   network.AlphaSpaceName,
-	}
-	b, err := s.mysql.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-
-	allSpaceInfosLookup, err := s.State.AllSpaceInfos()
-	c.Assert(err, jc.ErrorIsNil)
-
-	curBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curBindings, gc.DeepEquals, expBindings)
-
-	// Use MergeBindings to bind "server" -> "isolated"
-	b, err = state.NewBindings(s.State, map[string]string{
-		"server": "isolated",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.mysql.MergeBindings(b, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that the bindings have been updated
-	expBindings["server"] = "isolated"
-	b, err = s.mysql.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	updatedBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
-}
-
-func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
-	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
-
-	sn, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.99.99.0/24"})
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddSpace("far", "", []string{sn.ID()})
-	c.Assert(err, gc.IsNil)
-
-	expBindings := map[string]string{
-		"":               network.AlphaSpaceName,
-		"metrics-client": network.AlphaSpaceName,
-		"server":         network.AlphaSpaceName,
-		"server-admin":   network.AlphaSpaceName,
-	}
-	b, err := s.mysql.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-
-	allSpaceInfosLookup, err := s.State.AllSpaceInfos()
-	c.Assert(err, jc.ErrorIsNil)
-
-	curBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curBindings, gc.DeepEquals, expBindings)
-
-	// Use MergeBindings to force-bind "server" -> "far"
-	b, err = state.NewBindings(s.State, map[string]string{
-		"server": "far",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.mysql.MergeBindings(b, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that the bindings have been updated
-	expBindings["server"] = "far"
-	b, err = s.mysql.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	updatedBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
-}
-
 func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *gc.C) {
 	_ = s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
 	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
@@ -2638,7 +2530,7 @@ func (s *ApplicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	err = s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"server": {ExposeToSpaceIDs: []string{"bogus-space-id"}},
 	})
-	c.Assert(err, gc.ErrorMatches, `.*space with ID "bogus-space-id" not found`)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"server": {ExposeToCIDRs: []string{"not-a-cidr"}},
 	})

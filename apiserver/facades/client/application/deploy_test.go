@@ -296,44 +296,6 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 
 }
 
-func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
-	serviceFactory := s.DefaultModelServiceFactory(c)
-
-	wordpressCharm := s.addWordpressCharm(c)
-	st := s.ControllerModel(c).State()
-	_, err := st.AddSpace("db", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := st.AddSpace("public", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := application.DeployApplication(
-		context.Background(),
-		stateDeployer{State: st},
-		model,
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Application(provider.CommonStorageProviders()),
-		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
-		application.DeployApplicationParams{
-			ApplicationName: "bob",
-			Charm:           wordpressCharm,
-			EndpointBindings: map[string]string{
-				"":   publicSpace.Id(),
-				"db": "42", // unknown space id
-			},
-			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
-		},
-	)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": space not found`)
-	c.Check(app, gc.IsNil)
-	// The application should not have been added
-	_, err = st.Application("bob")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 	serviceFactory := s.DefaultModelServiceFactory(c)
 

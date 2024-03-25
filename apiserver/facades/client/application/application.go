@@ -2518,7 +2518,12 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 			continue
 		}
 
-		bindings, err := state.NewBindings(api.backend, arg.Bindings)
+		newBindings, err := api.convertSpacesToIDInBindings(arg.Bindings)
+		if err != nil {
+			res[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		bindings, err := state.NewBindings(api.backend, newBindings)
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2529,6 +2534,26 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 		}
 	}
 	return params.ErrorResults{Results: res}, nil
+}
+
+// convertSpacesToIDInBindings takes the input bindings (which contain space
+// names) and converts them to spaceIDs.
+// TODO(nvinuesa): this method should not be needed once we migrate endpoint
+// bindings to dqlite.
+func (api *APIBase) convertSpacesToIDInBindings(bindings map[string]string) (map[string]string, error) {
+	newMap := make(map[string]string)
+	for endpoint, spaceName := range bindings {
+		space, err := api.backend.SpaceByName(spaceName)
+		if errors.Is(err, errors.NotFound) {
+			return nil, errors.Annotatef(err, "space with name %q not found for endpoint %q", spaceName, endpoint)
+		}
+		if err != nil {
+			return nil, err
+		}
+		newMap[endpoint] = space.Id()
+	}
+
+	return newMap, nil
 }
 
 // lxdCharmProfiler massages a *state.Charm into a LXDProfiler
