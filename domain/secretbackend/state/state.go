@@ -53,7 +53,7 @@ func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (secretbacken
 		return secretbackend.Model{}, errors.Trace(err)
 	}
 
-	stmt, err := sqlair.Prepare(`
+	stmt, err := s.Prepare(`
 SELECT &Model.*
 FROM v_model_secret_backend
 WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
@@ -89,18 +89,179 @@ WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
 
 // UpsertSecretBackend persists the input secret backend entity.
 func (s *State) UpsertSecretBackend(ctx context.Context, params secretbackend.UpsertSecretBackendParams) (string, error) {
+	if err := params.Validate(); err != nil {
+		return "", errors.Trace(err)
+	}
+
 	db, err := s.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	operation := upsertOperation{UpsertSecretBackendParams: params}
-	if err := operation.build(); err != nil {
+
+	getBackendStmt, err := s.Prepare(`
+SELECT &SecretBackend.*
+FROM secret_backend
+WHERE uuid = $M.uuid`, SecretBackend{}, sqlair.M{})
+	if err != nil {
 		return "", errors.Trace(err)
 	}
+
+	upsertBackendStmt, err := s.Prepare(`
+INSERT INTO secret_backend
+    (uuid, name, backend_type, token_rotate_interval)
+VALUES (
+    $SecretBackend.uuid,
+    $SecretBackend.name,
+    $SecretBackend.backend_type,
+    $SecretBackend.token_rotate_interval
+)
+ON CONFLICT (uuid) DO UPDATE SET
+    name=EXCLUDED.name,
+    token_rotate_interval=EXCLUDED.token_rotate_interval;`, SecretBackend{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	upsertRotationStmt, err := s.Prepare(`
+INSERT INTO secret_backend_rotation
+    (backend_uuid, next_rotation_time)
+VALUES (
+    $SecretBackendRotation.backend_uuid,
+    $SecretBackendRotation.next_rotation_time
+)
+ON CONFLICT (backend_uuid) DO UPDATE SET
+    next_rotation_time=EXCLUDED.next_rotation_time;`,
+		SecretBackendRotation{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	clearConfigStmt, err := s.Prepare(`
+DELETE FROM secret_backend_config
+WHERE backend_uuid = $M.uuid AND name NOT IN ($S[:]);`,
+		sqlair.M{}, sqlair.S{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	upsertConfigStmt, err := s.Prepare(`
+INSERT INTO secret_backend_config
+    (backend_uuid, name, content)
+VALUES (
+    $SecretBackendConfig.backend_uuid,
+    $SecretBackendConfig.name,
+    $SecretBackendConfig.content
+)
+ON CONFLICT (backend_uuid, name) DO UPDATE SET
+    content = EXCLUDED.content`,
+		SecretBackendConfig{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(operation.apply(ctx, tx))
+		if err := prepareDataForUpsertSecretBackend(ctx, tx, getBackendStmt, &params); err != nil {
+			return errors.Trace(err)
+		}
+		sb := SecretBackend{
+			ID:          params.ID,
+			Name:        params.Name,
+			BackendType: params.BackendType,
+		}
+		if params.TokenRotateInterval != nil {
+			sb.TokenRotateInterval = database.NewNullDuration(*params.TokenRotateInterval)
+		}
+
+		err := tx.Query(ctx, upsertBackendStmt, sb).Run()
+		if database.IsErrConstraintUnique(err) {
+			return fmt.Errorf("%w: name %q", backenderrors.AlreadyExists, sb.Name)
+		}
+		if database.IsErrConstraintTrigger(err) {
+			return fmt.Errorf("%w: %q is immutable", backenderrors.Forbidden, sb.ID)
+		}
+		if err != nil {
+			return fmt.Errorf("cannot upsert secret backend %q: %w", params.Name, err)
+		}
+		if params.NextRotateTime != nil && !params.NextRotateTime.IsZero() {
+			err = tx.Query(ctx, upsertRotationStmt, SecretBackendRotation{
+				ID:               params.ID,
+				NextRotationTime: sql.NullTime{Time: *params.NextRotateTime, Valid: true},
+			}).Run()
+			if err != nil {
+				return fmt.Errorf("cannot upsert secret backend rotation time for %q: %w", params.Name, err)
+			}
+		}
+		if len(params.Config) == 0 {
+			return nil
+		}
+		namesToKeep := make(sqlair.S, 0, len(params.Config))
+		for k := range params.Config {
+			namesToKeep = append(namesToKeep, k)
+		}
+		err = tx.Query(ctx, clearConfigStmt, sqlair.M{"uuid": params.ID}, namesToKeep).Run()
+		if err != nil {
+			return fmt.Errorf("cannot clear secret backend config for %q: %w", params.Name, err)
+		}
+		for k, v := range params.Config {
+			// TODO: this needs to be fixed once the sqlair supports bulk insert.
+			err = tx.Query(ctx, upsertConfigStmt, SecretBackendConfig{
+				ID:      params.ID,
+				Name:    k,
+				Content: v.(string),
+			}).Run()
+			if err != nil {
+				return fmt.Errorf("cannot upsert secret backend config for %q: %w", params.Name, err)
+			}
+		}
+		return nil
 	})
 	return params.ID, domain.CoerceError(err)
+}
+
+func prepareDataForUpsertSecretBackend(
+	ctx context.Context, tx *sqlair.TX,
+	getStmt *sqlair.Statement,
+	params *secretbackend.UpsertSecretBackendParams,
+) error {
+	var existing SecretBackend
+	err := tx.Query(ctx, getStmt, sqlair.M{"uuid": params.ID}).Get(&existing)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// New insert.
+		if params.Name == "" {
+			return fmt.Errorf("%w: name is missing", backenderrors.NotValid)
+		}
+		if params.BackendType == "" {
+			return fmt.Errorf("%w: type is missing", backenderrors.NotValid)
+		}
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	// Update.
+	if existing.BackendType == "" {
+		return fmt.Errorf("backend type is empty for backend %q", params.ID)
+	}
+	if existing.Name == "" {
+		return fmt.Errorf("backend name is empty for backend %q", params.ID)
+	}
+	if params.BackendType != "" && params.BackendType != existing.BackendType {
+		// The secret backend type is immutable.
+		return fmt.Errorf(
+			"%w: cannot change backend type from %q to %q because backend type is immutable",
+			backenderrors.NotValid, existing.BackendType, params.BackendType,
+		)
+	}
+	// Fill in the existing backend type.
+	params.BackendType = existing.BackendType
+	if params.Name == "" {
+		// Fill in the existing name.
+		params.Name = existing.Name
+	}
+	if params.TokenRotateInterval == nil && existing.TokenRotateInterval.Valid {
+		// Fill in the existing token rotate interval.
+		params.TokenRotateInterval = &existing.TokenRotateInterval.Duration
+	}
+	return nil
 }
 
 // DeleteSecretBackend deletes the secret backend for the given backend ID.
@@ -112,12 +273,12 @@ func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force
 	// TODO: check if the backend is in use. JUJU-5707
 	// if !force {
 	// }
-	cfgStmt, err := sqlair.Prepare(`
+	cfgStmt, err := s.Prepare(`
 DELETE FROM secret_backend_config WHERE backend_uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	rotationStmt, err := sqlair.Prepare(`
+	rotationStmt, err := s.Prepare(`
 DELETE FROM secret_backend_rotation WHERE backend_uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
@@ -125,14 +286,14 @@ DELETE FROM secret_backend_rotation WHERE backend_uuid = $M.uuid`, sqlair.M{})
 	// TODO: we should set it to the `default` backend once we start to include the
 	// `internal` and `k8s` backends in the database.
 	// For now, we reset it to NULL. JUJU-5708
-	modelSecretBackendStmt, err := sqlair.Prepare(`
+	modelSecretBackendStmt, err := s.Prepare(`
 UPDATE model_secret_backend
 SET secret_backend_uuid = NULL
 WHERE secret_backend_uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	backendStmt, err := sqlair.Prepare(`
+	backendStmt, err := s.Prepare(`
 DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
@@ -166,7 +327,7 @@ func (s *State) ListSecretBackends(ctx context.Context) ([]*coresecrets.SecretBa
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	stmt, err := sqlair.Prepare(`
+	stmt, err := s.Prepare(`
 SELECT 
     b.uuid                  AS &SecretBackendRow.uuid,
     b.name                  AS &SecretBackendRow.name,
@@ -216,7 +377,7 @@ SELECT
 FROM secret_backend b
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
 WHERE b.%s = $M.identifier`, columName)
-	stmt, err := sqlair.Prepare(q, sqlair.M{}, SecretBackendRow{})
+	stmt, err := s.Prepare(q, sqlair.M{}, SecretBackendRow{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -257,7 +418,7 @@ func (s *State) SecretBackendRotated(ctx context.Context, backendID string, next
 	if err != nil {
 		return errors.Trace(err)
 	}
-	updateStmt, err := sqlair.Prepare(`
+	updateStmt, err := s.Prepare(`
 UPDATE secret_backend_rotation
 SET next_rotation_time = $SecretBackendRotation.next_rotation_time
 WHERE backend_uuid = $SecretBackendRotation.backend_uuid
@@ -265,7 +426,7 @@ WHERE backend_uuid = $SecretBackendRotation.backend_uuid
 	if err != nil {
 		return errors.Trace(err)
 	}
-	getStmt, err := sqlair.Prepare(`
+	getStmt, err := s.Prepare(`
 SELECT uuid AS &SecretBackendRotationRow.uuid
 FROM secret_backend
 WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
@@ -311,7 +472,7 @@ func (s *State) GetSecretBackendRotateChanges(ctx context.Context, backendIDs ..
 		return nil, errors.Trace(err)
 	}
 
-	stmt, err := sqlair.Prepare(`
+	stmt, err := s.Prepare(`
 SELECT 
     b.uuid               AS &SecretBackendRotationRow.uuid,
     b.name               AS &SecretBackendRotationRow.name,
