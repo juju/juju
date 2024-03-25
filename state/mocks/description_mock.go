@@ -610,18 +610,18 @@ func (mr *MockApplicationMockRecorder) StatusHistory() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatusHistory", reflect.TypeOf((*MockApplication)(nil).StatusHistory))
 }
 
-// StorageConstraints mocks base method.
-func (m *MockApplication) StorageConstraints() map[string]description.StorageConstraint {
+// StorageDirectives mocks base method.
+func (m *MockApplication) StorageDirectives() map[string]description.StorageDirective {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StorageConstraints")
-	ret0, _ := ret[0].(map[string]description.StorageConstraint)
+	ret := m.ctrl.Call(m, "StorageDirectives")
+	ret0, _ := ret[0].(map[string]description.StorageDirective)
 	return ret0
 }
 
-// StorageConstraints indicates an expected call of StorageConstraints.
-func (mr *MockApplicationMockRecorder) StorageConstraints() *gomock.Call {
+// StorageDirectives indicates an expected call of StorageDirectives.
+func (mr *MockApplicationMockRecorder) StorageDirectives() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageConstraints", reflect.TypeOf((*MockApplication)(nil).StorageConstraints))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageDirectives", reflect.TypeOf((*MockApplication)(nil).StorageDirectives))
 }
 
 // Subordinate mocks base method.
