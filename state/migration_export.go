@@ -779,10 +779,10 @@ func (e *exporter) readAllStorageConstraints() error {
 	return nil
 }
 
-func (e *exporter) storageConstraints(doc storageConstraintsDoc) map[string]description.StorageConstraintArgs {
-	result := make(map[string]description.StorageConstraintArgs)
+func (e *exporter) storageConstraints(doc storageConstraintsDoc) map[string]description.StorageDirectiveArgs {
+	result := make(map[string]description.StorageDirectiveArgs)
 	for key, value := range doc.Constraints {
-		result[key] = description.StorageConstraintArgs{
+		result[key] = description.StorageDirectiveArgs{
 			Pool:  value.Pool,
 			Size:  value.Size,
 			Count: value.Count,
@@ -887,7 +887,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		args.CloudService = e.cloudService(cloudService)
 	}
 	if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
-		args.StorageConstraints = e.storageConstraints(constraints)
+		args.StorageDirectives = e.storageConstraints(constraints)
 	}
 
 	if ps := application.ProvisioningState(); ps != nil {

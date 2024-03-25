@@ -663,11 +663,9 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 
 	if w.secretChangesWatcher == nil {
 		w.secretChangesWatcher, err = w.remoteModelFacade.WatchConsumedSecretsChanges(applicationToken, relationToken, w.offerMacaroon)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotImplemented) {
 			w.checkOfferPermissionDenied(err, "", "")
-			if !isNotFound(err) {
-				return errors.Annotate(err, "watching consumed secret changes")
-			}
+			return errors.Annotate(err, "watching consumed secret changes")
 		}
 		if err == nil {
 			if err := w.catacomb.Add(w.secretChangesWatcher); err != nil {

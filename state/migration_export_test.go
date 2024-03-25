@@ -2176,7 +2176,7 @@ func (s *MigrationExportSuite) TestStorage(c *gc.C) {
 
 	apps := model.Applications()
 	c.Assert(apps, gc.HasLen, 1)
-	constraints := apps[0].StorageConstraints()
+	constraints := apps[0].StorageDirectives()
 	c.Assert(constraints, gc.HasLen, 2)
 	cons, found := constraints["data"]
 	c.Assert(found, jc.IsTrue)

@@ -868,8 +868,8 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 		CloudRegion: "some-region"})
 
 	args := s.minimalApplicationArgs(description.IAAS)
-	// Add storage constraints to the app
-	args.StorageConstraints = map[string]description.StorageConstraintArgs{
+	// Add storage directives to the app
+	args.StorageDirectives = map[string]description.StorageDirectiveArgs{
 		"storage1": {
 			Pool:  "pool1",
 			Size:  1024,
