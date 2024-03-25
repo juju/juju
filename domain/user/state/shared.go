@@ -23,14 +23,14 @@ import (
 // This composes the permission state as it is shared between user and
 // permission domains.
 type SharedState struct {
-	internaldatabase.StatementBase
+	statementBase   internaldatabase.StatementBase
 	permissionState *permissionstate.SharedState
 }
 
 // NewSharedState creates a new SharedState.
 func NewSharedState(base internaldatabase.StatementBase) *SharedState {
 	return &SharedState{
-		StatementBase:   base,
+		statementBase:   base,
 		permissionState: permissionstate.NewSharedState(base),
 	}
 }
@@ -57,7 +57,7 @@ func (s *SharedState) AddUser(
 INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
 VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)`
 
-	insertAddUserStmt, err := s.Prepare(addUserQuery, sqlair.M{})
+	insertAddUserStmt, err := s.statementBase.Prepare(addUserQuery, sqlair.M{})
 	if err != nil {
 		return errors.Annotate(err, "preparing add user query")
 	}
