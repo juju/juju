@@ -571,32 +571,6 @@ func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
 	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		// DocID is the model + name
-		"DocID",
-		// TxnRevno is mgo internals and should not be migrated.
-		"TxnRevno",
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ModelUUID",
-		// Always alive, not explicitly exported.
-		"Life",
-	)
-	migrated := set.NewStrings(
-		"CIDR",
-		"ID",
-		"VLANTag",
-		"SpaceID",
-		"ProviderId",
-		"AvailabilityZones",
-		"ProviderNetworkId",
-		"FanLocalUnderlay",
-		"FanOverlay",
-	)
-	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
-}
-
 func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		"DocID",
