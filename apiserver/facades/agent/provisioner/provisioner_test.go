@@ -82,8 +82,15 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
 	st := s.ControllerModel(c).State()
+
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+
 	if withController {
-		s.machines = append(s.machines, testing.AddControllerMachine(c, st))
+		controllerConfigService := controllerServiceFactory.ControllerConfig()
+		controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+		c.Assert(err, jc.ErrorIsNil)
+
+		s.machines = append(s.machines, testing.AddControllerMachine(c, st, controllerConfig))
 	}
 	for i := 0; i < 5; i++ {
 		machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
@@ -107,7 +114,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		ServiceFactory_: controllerServiceFactory,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.provisioner = provisionerAPI
