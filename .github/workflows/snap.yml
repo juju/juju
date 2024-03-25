@@ -46,11 +46,24 @@ jobs:
         done
 
     - name: Set up Go
-      if: env.RUN_TEST == 'RUN'
       uses: actions/setup-go@v5
       with:
         go-version-file: 'go.mod'
         cache: true
+
+    - name: setup env
+      shell: bash
+      run: |
+        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+        echo "JUJU_METADATA_SOURCE=$GITHUB_WORKSPACE/_build/simplestreams" >> $GITHUB_ENV
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+    - name: Install local Juju
+      shell: bash
+      run: |
+        make simplestreams
+        rm $(which juju)
+        rm $(which juju-metadata)
 
     - name: Build snap
       shell: bash
