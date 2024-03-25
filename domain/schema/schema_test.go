@@ -651,11 +651,12 @@ func (s *schemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	modelUUID := utils.MustNewUUID().String()
+	controllerUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c,
 		`
-INSERT INTO model (uuid, name, type, cloud, cloud_region)
-VALUES (?, 'my-model', 'caas', 'cloud-1', 'cloud-region-1');`,
-		"", modelUUID)
+INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_region)
+VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'cloud-region-1');`,
+		"", modelUUID, controllerUUID)
 	s.assertExecSQL(c,
 		"UPDATE model SET name = 'new-name' WHERE uuid = ?",
 		"model table is immutable", modelUUID)
