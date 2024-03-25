@@ -38,6 +38,11 @@ type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag)
 type offerStatusWatcherFunc func(CrossModelRelationsState, string) (OfferWatcher, error)
 type consumedSecretsWatcherFunc func(CrossModelRelationsState, string) (state.StringsWatcher, error)
 
+// CrossModelRelationsAPIV2 provides access to the CrossModelRelations API V2 facade.
+type CrossModelRelationsAPIV2 struct {
+	*CrossModelRelationsAPI
+}
+
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
 	ctx        context.Context

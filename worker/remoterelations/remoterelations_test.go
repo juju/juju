@@ -1099,6 +1099,77 @@ func (s *remoteRelationsSuite) TestRemoteSecretChangedConsumes(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
+func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *gc.C) {
+	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
+	w := s.assertRemoteApplicationWorkers(c)
+	s.stub.ResetCalls()
+
+	s.stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, errors.NotImplemented)
+
+	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+		localApplicationName: "django",
+		localEndpoint: params.RemoteEndpoint{
+			Name:      "db2",
+			Role:      "requires",
+			Interface: "db2",
+		},
+		remoteEndpointName: "data",
+	}
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	mac, err := apitesting.NewMacaroon("test")
+	c.Assert(err, jc.ErrorIsNil)
+	apiMac, err := apitesting.NewMacaroon("apimac")
+	c.Assert(err, jc.ErrorIsNil)
+	relTag := names.NewRelationTag("db2:db django:db")
+	expected := []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"ExportEntities", []interface{}{
+			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
+		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
+			ApplicationToken: "token-django",
+			SourceModelTag:   "model-local-model-uuid",
+			RelationToken:    "token-db2:db django:db",
+			RemoteEndpoint: params.RemoteEndpoint{
+				Name:      "db2",
+				Role:      "requires",
+				Interface: "db2",
+			},
+			OfferUUID:         "offer-db2-uuid",
+			ConsumeVersion:    666,
+			LocalEndpointName: "data",
+			Macaroons:         macaroon.Slice{mac},
+			BakeryVersion:     bakery.LatestVersion,
+		}}}},
+		{"SaveMacaroon", []interface{}{relTag, apiMac}},
+		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
+		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+		{"WatchLocalRelationChanges", []interface{}{"db2:db django:db"}},
+		{"WatchRelationChanges", []interface{}{"token-db2:db django:db", "token-offer-db2-uuid", macaroon.Slice{apiMac}}},
+		{"WatchConsumedSecretsChanges", []interface{}{"token-django", "token-db2:db django:db", mac}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+
+	changeWatcher, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	c.Check(ok, jc.IsTrue)
+	waitForStubCalls(c, &changeWatcher.Stub, []jujutesting.StubCall{
+		{"Changes", nil},
+	})
+	changeWatcher, ok = s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
+	c.Check(ok, jc.IsTrue)
+	waitForStubCalls(c, &changeWatcher.Stub, []jujutesting.StubCall{
+		{"Changes", nil},
+	})
+	relationStatusWatcher, ok := s.remoteRelationsFacade.relationsStatusWatcher("token-db2:db django:db")
+	c.Check(ok, jc.IsTrue)
+	waitForStubCalls(c, &relationStatusWatcher.Stub, []jujutesting.StubCall{
+		{"Changes", nil},
+	})
+	workertest.CleanKill(c, w)
+}
+
 func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	db2app := newMockRemoteApplication("db2", "db2url")
