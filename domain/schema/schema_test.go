@@ -168,6 +168,7 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"secret_backend_config",
 		"secret_backend_rotation",
 		"secret_backend_type",
+		"model_secret_backend",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "table"), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
@@ -349,6 +350,8 @@ func (s *schemaSuite) TestControllerChangeLogTriggers(c *gc.C) {
 		"trg_log_secret_backend_rotation_next_rotation_time_insert",
 		"trg_log_secret_backend_rotation_next_rotation_time_update",
 		"trg_log_secret_backend_rotation_next_rotation_time_delete",
+		"trg_secret_backend_immutable_backends_update",
+		"trg_secret_backend_immutable_backends_delete",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.SortedValues())
 }
