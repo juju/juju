@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasmodeloperator_test
+package caasmodeloperator
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
@@ -28,7 +27,6 @@ type mockState struct {
 	common.APIAddressAccessor
 	operatorRepo                 string
 	model                        *mockModel
-	controllerConfigWatcher      state.NotifyWatcher
 	apiHostPortsForAgentsWatcher state.NotifyWatcher
 }
 
@@ -61,12 +59,8 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return nil, errors.NotFoundf("entity %v", tag)
 }
 
-func (st *mockState) Model() (caasmodeloperator.Model, error) {
+func (st *mockState) Model() (Model, error) {
 	return st.model, nil
-}
-
-func (m *mockState) WatchControllerConfig() state.NotifyWatcher {
-	return m.controllerConfigWatcher
 }
 
 func (m *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {

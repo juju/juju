@@ -14,6 +14,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -191,4 +192,62 @@ func (w *MultiNotifyWatcher) Err() error {
 
 func (w *MultiNotifyWatcher) Changes() <-chan struct{} {
 	return w.changes
+}
+
+// StringsNotifyWatcher wraps a corewatcher.StringsWatcher and
+// provides a NotifyWatcher interface.
+type StringsNotifyWatcher struct {
+	tomb    tomb.Tomb
+	out     chan struct{}
+	watcher corewatcher.StringsWatcher
+}
+
+// NewStringsNotifyWatcher creates a new StringsNotifyWatcher.
+func NewStringsNotifyWatcher(watcher corewatcher.StringsWatcher) *StringsNotifyWatcher {
+	w := &StringsNotifyWatcher{
+		watcher: watcher,
+	}
+	w.tomb.Go(w.loop)
+	return w
+}
+
+func (w *StringsNotifyWatcher) loop() error {
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case _, ok := <-w.watcher.Changes():
+			if !ok {
+				return nil
+			}
+
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case w.out <- struct{}{}:
+			}
+		}
+	}
+}
+
+func (w *StringsNotifyWatcher) Kill() {
+	w.tomb.Kill(nil)
+	w.watcher.Kill()
+}
+
+func (w *StringsNotifyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *StringsNotifyWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *StringsNotifyWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *StringsNotifyWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
 }

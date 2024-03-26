@@ -486,7 +486,7 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st, s.StatePool)
+	fact := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "eriatarka",
 	})
@@ -518,7 +518,7 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st, s.StatePool)
+	fact := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	m := fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "birds",
 	})
@@ -544,7 +544,7 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st, s.StatePool)
+	fact := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "birds",
 	})
@@ -592,7 +592,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	})
 	defer st.Close()
 
-	fact := factory.NewFactory(st, s.StatePool)
+	fact := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	fact.MakeMachine(c, &factory.MachineParams{
 		Nonce: "manual:birds",
 	})

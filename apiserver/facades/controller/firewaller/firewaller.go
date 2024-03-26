@@ -18,12 +18,19 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
+
+// ControllerConfigService is an interface that provides access to the
+// controller configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
@@ -48,6 +55,8 @@ type FirewallerAPI struct {
 	// Fetched on demand and memoized
 	spaceInfos          network.SpaceInfos
 	appEndpointBindings map[string]map[string]string
+
+	controllerConfigService ControllerConfigService
 }
 
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
@@ -57,6 +66,7 @@ func NewStateFirewallerAPI(
 	authorizer facade.Authorizer,
 	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
+	controllerConfigService ControllerConfigService,
 	logger loggo.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -107,22 +117,23 @@ func NewStateFirewallerAPI(
 	)
 
 	return &FirewallerAPI{
-		LifeGetter:           lifeGetter,
-		ModelWatcher:         modelWatcher,
-		AgentEntityWatcher:   entityWatcher,
-		UnitsWatcher:         unitsWatcher,
-		ModelMachinesWatcher: machinesWatcher,
-		InstanceIdGetter:     instanceIdGetter,
-		CloudSpecer:          cloudSpecAPI,
-		ControllerConfigAPI:  controllerConfigAPI,
-		st:                   st,
-		resources:            resources,
-		authorizer:           authorizer,
-		accessUnit:           accessUnit,
-		accessApplication:    accessApplication,
-		accessMachine:        accessMachine,
-		accessModel:          accessModel,
-		logger:               logger,
+		LifeGetter:              lifeGetter,
+		ModelWatcher:            modelWatcher,
+		AgentEntityWatcher:      entityWatcher,
+		UnitsWatcher:            unitsWatcher,
+		ModelMachinesWatcher:    machinesWatcher,
+		InstanceIdGetter:        instanceIdGetter,
+		CloudSpecer:             cloudSpecAPI,
+		ControllerConfigAPI:     controllerConfigAPI,
+		st:                      st,
+		resources:               resources,
+		authorizer:              authorizer,
+		accessUnit:              accessUnit,
+		accessApplication:       accessApplication,
+		accessMachine:           accessMachine,
+		accessModel:             accessModel,
+		controllerConfigService: controllerConfigService,
+		logger:                  logger,
 	}, nil
 }
 
@@ -178,7 +189,7 @@ func (f *FirewallerAPI) ModelFirewallRules(ctx context.Context) (params.IngressR
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-	ctrlCfg, err := f.st.ControllerConfig()
+	ctrlCfg, err := f.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
 	}

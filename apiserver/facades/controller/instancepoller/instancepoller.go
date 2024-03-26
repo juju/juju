@@ -14,11 +14,18 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+// ControllerConfigService is an interface that provides access to the
+// controller configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
@@ -28,12 +35,13 @@ type InstancePollerAPI struct {
 	*common.InstanceIdGetter
 	*common.StatusGetter
 
-	st            StateInterface
-	resources     facade.Resources
-	authorizer    facade.Authorizer
-	accessMachine common.GetAuthFunc
-	clock         clock.Clock
-	logger        loggo.Logger
+	st                      StateInterface
+	resources               facade.Resources
+	authorizer              facade.Authorizer
+	accessMachine           common.GetAuthFunc
+	controllerConfigService ControllerConfigService
+	clock                   clock.Clock
+	logger                  loggo.Logger
 }
 
 // NewInstancePollerAPI creates a new server-side InstancePoller API
@@ -43,6 +51,7 @@ func NewInstancePollerAPI(
 	m *state.Model,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	controllerConfigService ControllerConfigService,
 	clock clock.Clock,
 	logger loggo.Logger,
 ) (*InstancePollerAPI, error) {
@@ -84,17 +93,18 @@ func NewInstancePollerAPI(
 	)
 
 	return &InstancePollerAPI{
-		LifeGetter:           lifeGetter,
-		ModelWatcher:         modelWatcher,
-		ModelMachinesWatcher: machinesWatcher,
-		InstanceIdGetter:     instanceIdGetter,
-		StatusGetter:         statusGetter,
-		st:                   sti,
-		resources:            resources,
-		authorizer:           authorizer,
-		accessMachine:        accessMachine,
-		clock:                clock,
-		logger:               logger,
+		LifeGetter:              lifeGetter,
+		ModelWatcher:            modelWatcher,
+		ModelMachinesWatcher:    machinesWatcher,
+		InstanceIdGetter:        instanceIdGetter,
+		StatusGetter:            statusGetter,
+		st:                      sti,
+		resources:               resources,
+		authorizer:              authorizer,
+		accessMachine:           accessMachine,
+		controllerConfigService: controllerConfigService,
+		clock:                   clock,
+		logger:                  logger,
 	}, nil
 }
 
@@ -164,7 +174,7 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 			continue
 		}
 
-		modified, err := maybeUpdateMachineProviderAddresses(a.st, machine, newSpaceAddrs)
+		modified, err := maybeUpdateMachineProviderAddresses(ctx, a.controllerConfigService, machine, newSpaceAddrs)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -184,13 +194,17 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 	return result, nil
 }
 
-func maybeUpdateMachineProviderAddresses(st StateInterface, m StateMachine, newSpaceAddrs network.SpaceAddresses) (bool, error) {
+func maybeUpdateMachineProviderAddresses(
+	ctx context.Context,
+	controllerConfigService ControllerConfigService,
+	m StateMachine,
+	newSpaceAddrs network.SpaceAddresses) (bool, error) {
 	curSpaceAddrs := m.ProviderAddresses()
 	if curSpaceAddrs.EqualTo(newSpaceAddrs) {
 		return false, nil
 	}
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -316,7 +330,7 @@ func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args param
 		return result, err
 	}
 
-	controllerConfig, err := a.st.ControllerConfig()
+	controllerConfig, err := a.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, err
 	}

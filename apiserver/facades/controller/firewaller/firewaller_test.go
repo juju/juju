@@ -62,6 +62,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 	s.ctrl = gomock.NewController(c)
 	controllerConfigAPI := mocks.NewMockControllerConfigAPI(s.ctrl)
+	controllerConfigService := mocks.NewMockControllerConfigService(s.ctrl)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
 		firewaller.StateShim(st, s.ControllerModel(c)),
@@ -69,6 +70,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		cloudSpecAPI,
 		controllerConfigAPI,
+		controllerConfigService,
 		loggo.GetLogger("juju.apiserver.firewaller"),
 	)
 	c.Assert(err, jc.ErrorIsNil)

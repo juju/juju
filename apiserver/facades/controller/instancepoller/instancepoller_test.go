@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -65,7 +66,8 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.clock = testclock.NewClock(time.Now())
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+	controllerConfigService := controllerConfigService{}
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -108,7 +110,10 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
-	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+
+	controllerConfigService := controllerConfigService{}
+
+	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -1220,4 +1225,10 @@ func makeSpaceAddress(ip string, scope network.Scope, spaceID string) network.Sp
 
 func statusInfo(st string) status.StatusInfo {
 	return status.StatusInfo{Status: status.Status(st)}
+}
+
+type controllerConfigService struct{}
+
+func (controllerConfigService) ControllerConfig(context.Context) (controller.Config, error) {
+	return jujutesting.FakeControllerConfig(), nil
 }
