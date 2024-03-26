@@ -4,9 +4,12 @@
 package gce
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -192,6 +195,67 @@ func (env *environ) newRawInstance(
 		allocatePublicIP = *args.Constraints.AllocatePublicIP
 	}
 
+	networks, err := env.gce.Networks()
+	if err != nil {
+		return nil, environs.ZoneIndependentError(err)
+	}
+
+	netSpec := google.NetworkSpec{
+		Name:        env.ecfg.vpcID(),
+		NetworkTier: google.NetworkTierStandard,
+	}
+	if netSpec.Name == "" {
+		netSpec.Name = "default"
+	}
+	legacyNetwork := false
+	var selectedSubnet *compute.Subnetwork
+	for _, network := range networks {
+		if network.Name != netSpec.Name {
+			continue
+		}
+		if !network.AutoCreateSubnetworks && slices.Contains[[]string](network.NullFields, "autoCreateSubnetworks") {
+			legacyNetwork = true
+			break
+		}
+
+		if network.RoutingConfig != nil && network.RoutingConfig.RoutingMode == "GLOBAL" {
+			netSpec.NetworkTier = google.NetworkTierPremium
+		}
+
+		allSubnets, err := env.gce.Subnetworks(env.cloud.Region)
+		if err != nil {
+			return nil, environs.ZoneIndependentError(err)
+		}
+
+		for _, subnet := range allSubnets {
+			if subnet.Network != network.SelfLink {
+				continue
+			}
+			if selectedSubnet == nil {
+				selectedSubnet = subnet
+			}
+			if subnet.StackType == "IPV4_IPV6" && selectedSubnet.StackType == "IPV4_ONLY" {
+				selectedSubnet = subnet
+			}
+			if subnet.StackType == "IPV4_IPV6" && selectedSubnet.StackType == "IPV4_IPV6" &&
+				subnet.Ipv6AccessType == "EXTERNAL" && selectedSubnet.Ipv6AccessType == "INTERNAL" {
+				selectedSubnet = subnet
+			}
+		}
+	}
+	if !legacyNetwork && selectedSubnet == nil {
+		return nil, environs.ZoneIndependentError(fmt.Errorf("no suitable subnet for region %s and network %s", env.cloud.Region, netSpec.Name))
+	}
+
+	if selectedSubnet != nil {
+		netSpec.SubnetLink = selectedSubnet.SelfLink
+		if selectedSubnet.StackType == "IPV4_IPV6" {
+			netSpec.DualStack = true
+		}
+	}
+
+	logger.Errorf("got %#v", netSpec)
+
 	inst, err := env.gce.AddInstance(google.InstanceSpec{
 		ID:                hostname,
 		Type:              spec.InstanceType.Name,
@@ -201,6 +265,7 @@ func (env *environ) newRawInstance(
 		Tags:              tags,
 		AvailabilityZone:  args.AvailabilityZone,
 		AllocatePublicIP:  allocatePublicIP,
+		Network:           netSpec,
 	})
 	if err != nil {
 		// We currently treat all AddInstance failures

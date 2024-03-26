@@ -19,6 +19,13 @@ const (
 // The different kinds of network access.
 const (
 	NetworkAccessOneToOneNAT = "ONE_TO_ONE_NAT" // the default
+	NetworkAccessDirectIPv6  = "DIRECT_IPV6"
+
+	NetworkTierStandard = "STANDARD"
+	NetworkTierPremium  = "PREMIUM"
+
+	NetworkStackTypeIPv4 = "IPV4_ONLY"
+	NetworkStackTypeDual = "IPV4_IPV6"
 )
 
 // NetworkSpec holds all the information needed to identify and create
@@ -26,7 +33,10 @@ const (
 type NetworkSpec struct {
 	// Name is the unqualified name of the network.
 	Name string
-	// TODO(ericsnow) support a CIDR for internal IP addr range?
+
+	NetworkTier string
+	SubnetLink  string
+	DualStack   bool
 }
 
 // Path returns the qualified name of the network.
@@ -46,14 +56,29 @@ func (ns *NetworkSpec) Path() string {
 // See: https://cloud.google.com/nat/docs/using-nat#gcloud_11
 func (ns *NetworkSpec) newInterface(name string, allocatePublicIP bool) *compute.NetworkInterface {
 	nic := &compute.NetworkInterface{
-		Network: ns.Path(),
+		Network:    ns.Path(),
+		Subnetwork: ns.SubnetLink,
+	}
+
+	if ns.DualStack {
+		nic.StackType = NetworkStackTypeDual
+	} else {
+		nic.StackType = NetworkStackTypeIPv4
 	}
 
 	if allocatePublicIP {
 		nic.AccessConfigs = []*compute.AccessConfig{{
-			Name: name,
-			Type: NetworkAccessOneToOneNAT,
+			Name:        name,
+			Type:        NetworkAccessOneToOneNAT,
+			NetworkTier: ns.NetworkTier,
 		}}
+		if ns.DualStack {
+			nic.Ipv6AccessConfigs = []*compute.AccessConfig{{
+				Name:        "external-ipv6",
+				Type:        NetworkAccessDirectIPv6,
+				NetworkTier: ns.NetworkTier,
+			}}
+		}
 	}
 
 	return nic

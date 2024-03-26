@@ -195,12 +195,28 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 			for _, accessConf := range iface.AccessConfigs {
 				// According to the gce docs only ONE_TO_ONE_NAT
 				// is currently supported for external IPs
-				if accessConf.Type != "ONE_TO_ONE_NAT" {
+				if accessConf.Type != google.NetworkAccessOneToOneNAT {
 					continue
 				}
 
 				shadowAddrs = append(shadowAddrs,
 					corenetwork.NewMachineAddress(accessConf.NatIP, corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+				)
+			}
+			for _, accessConf := range iface.Ipv6AccessConfigs {
+				// According to the gce docs only DIRECT_IPV6
+				// is currently supported for external IPs
+				if accessConf.Type != google.NetworkAccessDirectIPv6 {
+					continue
+				}
+
+				shadowAddrs = append(shadowAddrs,
+					corenetwork.NewMachineAddress(accessConf.ExternalIpv6, corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+				)
+			}
+			if iface.Ipv6Address != "" {
+				shadowAddrs = append(shadowAddrs,
+					corenetwork.NewMachineAddress(iface.Ipv6Address, corenetwork.WithScope(corenetwork.ScopeCloudLocal)).AsProviderAddress(),
 				)
 			}
 
