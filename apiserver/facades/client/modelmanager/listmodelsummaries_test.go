@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -64,6 +65,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.cred = jujucloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
+		coretesting.ControllerTag.Id(),
 		&mockCloudService{
 			clouds: map[string]jujucloud.Cloud{"dummy": jtesting.DefaultCloud},
 		},
@@ -94,6 +96,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
+		coretesting.ControllerTag.Id(),
 		&mockCloudService{
 			clouds: map[string]jujucloud.Cloud{"dummy": jtesting.DefaultCloud},
 		},

@@ -63,9 +63,9 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 		nodeService:    serviceFactory.ControllerNode(),
 		machineService: serviceFactory.Machine(),
 		// For adding additional controller units, we don't need a storage registry.
-		applicationService: serviceFactory.Application(nil),
-		controllerConfig:   serviceFactory.ControllerConfig(),
-		authorizer:         authorizer,
-		logger:             ctx.Logger().Child("highavailability"),
+		applicationService:      serviceFactory.Application(nil),
+		controllerConfigService: serviceFactory.ControllerConfig(),
+		authorizer:              authorizer,
+		logger:                  ctx.Logger().Child("highavailability"),
 	}, nil
 }

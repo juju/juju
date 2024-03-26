@@ -133,7 +133,7 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:                   stateShim{st},
+		state:                   stateShim{State: st},
 		statePool:               pool,
 		authorizer:              authorizer,
 		apiUser:                 apiUser,
@@ -765,7 +765,7 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 		return errors.Trace(err)
 	}
 
-	currentCfg, err := c.state.ControllerConfig()
+	currentCfg, err := c.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -808,10 +808,6 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 		}
 	}
 
-	// Write Controller Config to Mongo.
-	if err := c.state.UpdateControllerConfig(args.Config, nil); err != nil {
-		return errors.Trace(err)
-	}
 	// Write Controller Config to DQLite.
 	if err := c.controllerConfigService.UpdateControllerConfig(ctx, args.Config, nil); err != nil {
 		return errors.Trace(err)

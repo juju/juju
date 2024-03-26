@@ -187,7 +187,11 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified(c *gc.C) {
-	f := factory.NewFactory(s.otherState, s.StatePool())
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := factory.NewFactory(s.otherState, s.StatePool(), controllerConfig)
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f.MakeCharm(c, &factory.CharmParams{
@@ -199,7 +203,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 		}),
 	})
 
-	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
+	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
 	c.Assert(err, jc.ErrorIs, stateerrors.PersistentStorageError)
@@ -208,7 +212,11 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c *gc.C) {
-	f := factory.NewFactory(s.otherState, s.StatePool())
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := factory.NewFactory(s.otherState, s.StatePool(), controllerConfig)
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f.MakeCharm(c, &factory.CharmParams{
@@ -221,7 +229,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 	})
 
 	destroyStorage := false
-	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
+	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels:  true,
 		DestroyStorage: &destroyStorage,
 	})

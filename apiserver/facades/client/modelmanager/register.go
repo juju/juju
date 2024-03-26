@@ -69,10 +69,14 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 
 	configSchemaSource := environs.ProviderConfigSchemaSource(serviceFactory.Cloud())
 
-	controllerConfigGetter := serviceFactory.ControllerConfig()
+	controllerConfigService := serviceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.TODO())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsFinder := common.NewToolsFinder(controllerConfigService, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
@@ -87,6 +91,7 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 		backend.(StateBackend),
 		ctx.ModelExporter(backend),
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
+		controllerConfig.ControllerUUID(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Model(),

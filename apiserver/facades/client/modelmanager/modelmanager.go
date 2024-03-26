@@ -102,6 +102,7 @@ type StateBackend interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
+	controllerUUID           string
 	modelService             ModelService
 	modelConfigServiceGetter ModelConfigServiceGetter
 	state                    StateBackend
@@ -127,6 +128,7 @@ func NewModelManagerAPI(
 	st StateBackend,
 	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
+	controllerUUID string,
 	cloudService CloudService,
 	credentialService CredentialService,
 	modelService ModelService,
@@ -156,6 +158,7 @@ func NewModelManagerAPI(
 
 	return &ModelManagerAPI{
 		ModelStatusAPI:           common.NewModelStatusAPI(st, authorizer, apiUser),
+		controllerUUID:           controllerUUID,
 		state:                    st,
 		modelExporter:            modelExporter,
 		ctlrState:                ctlrSt,
@@ -529,10 +532,6 @@ func (m *ModelManagerAPI) newCAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
 	}
-	controllerConfig, err := m.state.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting controller config")
-	}
 
 	defer func() {
 		// Retain the error stack but with a better message.
@@ -548,7 +547,7 @@ Please choose a different model name.
 	}()
 
 	broker, err := m.getBroker(ctx, environs.OpenParams{
-		ControllerUUID: controllerConfig.ControllerUUID(),
+		ControllerUUID: m.controllerUUID,
 		Cloud:          cloudSpec,
 		Config:         newConfig,
 	})
@@ -559,7 +558,7 @@ Please choose a different model name.
 	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
 	if err = broker.Create(
 		callCtx,
-		environs.CreateParams{ControllerUUID: controllerConfig.ControllerUUID()},
+		environs.CreateParams{ControllerUUID: m.controllerUUID},
 	); err != nil {
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
@@ -598,14 +597,9 @@ func (m *ModelManagerAPI) newModel(
 		return nil, errors.Annotate(err, "failed to create config")
 	}
 
-	controllerCfg, err := m.state.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Create the Environ.
 	env, err := environs.New(ctx, environs.OpenParams{
-		ControllerUUID: controllerCfg.ControllerUUID(),
+		ControllerUUID: m.controllerUUID,
 		Cloud:          cloudSpec,
 		Config:         newConfig,
 	})
@@ -617,7 +611,7 @@ func (m *ModelManagerAPI) newModel(
 	err = env.Create(
 		callCtx,
 		environs.CreateParams{
-			ControllerUUID: controllerCfg.ControllerUUID(),
+			ControllerUUID: m.controllerUUID,
 		},
 	)
 	if err != nil {

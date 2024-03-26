@@ -61,10 +61,10 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 
-	controllerConfigGetter := serviceFactory.ControllerConfig()
+	controllerConfigService := serviceFactory.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsFinder := common.NewToolsFinder(controllerConfigService, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService)
 
 	configSchemaSource := environs.ProviderConfigSchemaSource(cloudService)
@@ -81,6 +81,7 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 		credentialcommon.CredentialInvalidatorGetter(ctx),
 		registry.New,
 		environscloudspecGetter,
+		controllerConfigService,
 		serviceFactory.Upgrade(),
 		ctx.Logger().Child("modelupgrader"),
 	)

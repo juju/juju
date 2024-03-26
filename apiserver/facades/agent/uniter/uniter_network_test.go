@@ -170,9 +170,12 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 	for i, addr := range machineAddrs {
 		netAddrs[i] = network.NewSpaceAddress(addr.Value())
 	}
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = machine.SetProviderAddresses(controllerConfig, netAddrs...)
 	c.Assert(err, jc.ErrorIsNil)
 

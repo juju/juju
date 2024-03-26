@@ -341,7 +341,10 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	cfg, err := s.controller.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	cfgFromDB, err := s.State.ControllerConfig()
+
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+
+	cfgFromDB, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
@@ -365,7 +368,10 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	cfgFromDB, err := s.State.ControllerConfig()
+
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+
+	cfgFromDB, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
@@ -973,7 +979,9 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 }
 
 func (s *controllerSuite) TestConfigSet(c *gc.C) {
-	config, err := s.State.ControllerConfig()
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+
+	config, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// Sanity check.
 	c.Assert(config.AuditingEnabled(), gc.Equals, false)
@@ -983,7 +991,7 @@ func (s *controllerSuite) TestConfigSet(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config, err = s.State.ControllerConfig()
+	config, err = controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.AuditingEnabled(), gc.Equals, true)
 }
@@ -1037,7 +1045,9 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 
 func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 	// TODO(dqlite): move this test when ConfigSet CAASImageRepo logic moves.
-	config, err := s.State.ControllerConfig()
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+
+	config, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.CAASImageRepo(), gc.Equals, "")
 
@@ -1046,9 +1056,11 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 	}})
 	c.Assert(err, gc.ErrorMatches, `cannot change caas-image-repo as it is not currently set`)
 
-	err = s.State.UpdateControllerConfig(map[string]interface{}{
-		"caas-image-repo": "jujusolutions",
-	}, nil)
+	err = controllerConfigService.UpdateControllerConfig(
+		context.Background(),
+		map[string]interface{}{
+			"caas-image-repo": "jujusolutions",
+		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
@@ -1061,9 +1073,11 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 	}})
 	c.Assert(err, gc.ErrorMatches, `cannot change caas-image-repo: unable to add authentication details`)
 
-	err = s.State.UpdateControllerConfig(map[string]interface{}{
-		"caas-image-repo": `{"repository":"jujusolutions","username":"bar","password":"foo"}`,
-	}, nil)
+	err = controllerConfigService.UpdateControllerConfig(
+		context.Background(),
+		map[string]interface{}{
+			"caas-image-repo": `{"repository":"jujusolutions","username":"bar","password":"foo"}`,
+		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
@@ -1071,7 +1085,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config, err = s.State.ControllerConfig()
+	config, err = controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	repoDetails, err := docker.NewImageRepoDetails(config.CAASImageRepo())
 	c.Assert(err, jc.ErrorIsNil)

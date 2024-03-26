@@ -16,7 +16,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/controller"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -55,7 +54,6 @@ type Backend interface {
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	ControllerTag() names.ControllerTag
-	ControllerConfig() (controller.Config, error)
 	Resources(objectstore.ObjectStore) Resources
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)

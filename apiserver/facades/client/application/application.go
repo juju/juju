@@ -1123,7 +1123,7 @@ func (api *APIBase) applicationSetCharm(
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")
 	}
-	if err := assertCharmAssumptions(ctx, newCharm.Meta().Assumes, model, api.cloudService, api.credentialService, api.backend.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(ctx, newCharm.Meta().Assumes, model, api.cloudService, api.credentialService); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !params.Force.Force {
 			return errors.Trace(err)
 		}

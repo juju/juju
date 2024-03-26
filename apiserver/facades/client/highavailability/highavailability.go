@@ -47,22 +47,22 @@ type ApplicationService interface {
 	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
 }
 
-// ControllerConfigGetter instances read the controller config.
-type ControllerConfigGetter interface {
+// ControllerConfigService instances read the controller config.
+type ControllerConfigService interface {
 	ControllerConfig(ctx context.Context) (controller.Config, error)
 }
 
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	st                 *state.State
-	prechecker         environs.InstancePrechecker
-	nodeService        NodeService
-	machineService     MachineService
-	applicationService ApplicationService
-	controllerConfig   ControllerConfigGetter
-	authorizer         facade.Authorizer
-	logger             loggo.Logger
+	st                      *state.State
+	prechecker              environs.InstancePrechecker
+	nodeService             NodeService
+	machineService          MachineService
+	applicationService      ApplicationService
+	controllerConfigService ControllerConfigService
+	authorizer              facade.Authorizer
+	logger                  loggo.Logger
 }
 
 // HighAvailabilityAPIV2 implements v2 of the high availability facade.
@@ -133,7 +133,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 
 	// Retrieve the controller configuration and merge any implied space
 	// constraints into the spec constraints.
-	cfg, err := st.ControllerConfig()
+	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.ControllersChanges{}, errors.Annotate(err, "retrieving controller config")
 	}
@@ -344,7 +344,7 @@ func (api *HighAvailabilityAPI) ControllerDetails(
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	cfg, err := api.controllerConfig.ControllerConfig(ctx)
+	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return results, apiservererrors.ServerError(err)
 	}

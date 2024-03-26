@@ -29,9 +29,6 @@ type RenameSpace interface {
 // RenameSpaceState describes state operations required
 // to execute the renameSpace operation.
 type RenameSpaceState interface {
-	// ControllerConfig returns current ControllerConfig.
-	ControllerConfig() (controller.Config, error)
-
 	// ConstraintsBySpaceName returns all the constraints
 	// that refer to the input space name.
 	ConstraintsBySpaceName(spaceName string) ([]Constraints, error)
@@ -61,22 +58,29 @@ func (st renameSpaceState) ConstraintsBySpaceName(spaceName string) ([]Constrain
 }
 
 type spaceRenameModelOp struct {
-	st           RenameSpaceState
-	isController bool
-	space        RenameSpace
-	settings     Settings
-	toName       string
+	st                      RenameSpaceState
+	controllerConfigService ControllerConfigService
+	isController            bool
+	space                   RenameSpace
+	settings                Settings
+	toName                  string
 }
 
 func NewRenameSpaceOp(
-	isController bool, settings Settings, st RenameSpaceState, space RenameSpace, toName string,
+	isController bool,
+	settings Settings,
+	st RenameSpaceState,
+	controllerConfigService ControllerConfigService,
+	space RenameSpace,
+	toName string,
 ) *spaceRenameModelOp {
 	return &spaceRenameModelOp{
-		st:           st,
-		settings:     settings,
-		space:        space,
-		isController: isController,
-		toName:       toName,
+		st:                      st,
+		controllerConfigService: controllerConfigService,
+		settings:                settings,
+		space:                   space,
+		isController:            isController,
+		toName:                  toName,
 	}
 }
 
@@ -100,7 +104,7 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 	}
 
 	if o.isController {
-		settingsDelta, err := o.getSettingsChanges(o.space.Name(), o.toName)
+		settingsDelta, err := o.getSettingsChanges(context.TODO(), o.space.Name(), o.toName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "retrieving settings changes")
 		}
@@ -117,8 +121,8 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 }
 
 // getSettingsChanges get's skipped and returns nil if we are not in the controllerModel
-func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (settings.ItemChanges, error) {
-	currentControllerConfig, err := o.st.ControllerConfig()
+func (o *spaceRenameModelOp) getSettingsChanges(ctx context.Context, fromSpaceName, toName string) (settings.ItemChanges, error) {
+	currentControllerConfig, err := o.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

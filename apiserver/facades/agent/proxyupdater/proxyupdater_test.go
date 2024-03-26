@@ -53,7 +53,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.state.SetUp(c)
 	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
 
-	api, err := proxyupdater.NewAPIV2(s.state, s.state, s.resources, s.authorizer)
+	api, err := proxyupdater.NewAPIV2(s.state, s.state, &stubControllerConfigService{}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
 	s.facade = api
@@ -308,4 +308,10 @@ func (sb *stubBackend) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 func (sb *stubBackend) WatchForModelConfigChanges() state.NotifyWatcher {
 	sb.MethodCall(sb, "WatchForModelConfigChanges")
 	return sb.confWatcher
+}
+
+type stubControllerConfigService struct{}
+
+func (s *stubControllerConfigService) ControllerConfig(ctx context.Context) (controller.Config, error) {
+	return coretesting.FakeControllerConfig(), nil
 }

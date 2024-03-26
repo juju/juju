@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/clock"
@@ -116,7 +117,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, controll
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(st, jujutesting.NewCheckLogger(c))
 	authenticator, err := stateauthenticator.NewAuthenticator(pool, st, controllerConfigService, userService, agentAuthFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
-	offerAuthCtxt, err := newOfferAuthcontext(pool)
+	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, controllerConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},
