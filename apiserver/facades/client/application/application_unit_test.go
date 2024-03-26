@@ -1724,14 +1724,9 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*bindings map with empty space ID not valid.*")
 	c.Assert(results.Results[1].Error, gc.IsNil)
 
-	c.Assert(s.deployParams["old"].EndpointBindings, gc.DeepEquals, map[string]string{
-		"endpoint": "42",
-		"ring":     network.AlphaSpaceId,
-		"admin":    network.AlphaSpaceId,
-	})
 	c.Assert(s.deployParams["regular"].EndpointBindings, gc.DeepEquals, map[string]string{
 		"endpoint": "42",
 	})

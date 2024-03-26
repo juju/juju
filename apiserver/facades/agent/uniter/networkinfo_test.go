@@ -132,8 +132,8 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	defer release()
 
 	bindings := map[string]string{
-		"":             network.AlphaSpaceName,
-		"server-admin": network.AlphaSpaceName,
+		"":             network.AlphaSpaceId,
+		"server-admin": network.AlphaSpaceId,
 	}
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,
@@ -192,8 +192,8 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 	defer release()
 
 	bindings := map[string]string{
-		"":             network.AlphaSpaceName,
-		"server-admin": network.AlphaSpaceName,
+		"":             network.AlphaSpaceId,
+		"server-admin": network.AlphaSpaceId,
 	}
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,
@@ -362,17 +362,17 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	_ = s.setupSpace(c, "space-1", "1.2.0.0/16")
-	_ = s.setupSpace(c, "space-2", "2.2.0.0/16")
+	spaceID1 := s.setupSpace(c, "space-1", "1.2.0.0/16")
+	spaceID2 := s.setupSpace(c, "space-2", "2.2.0.0/16")
 	spaceID3 := s.setupSpace(c, "space-3", "10.2.0.0/16")
 	_ = s.setupSpace(c, "public-4", "4.2.0.0/16")
 
 	// We want to have all bindings set so that no actual binding is
 	// really set to the default.
 	bindings := map[string]string{
-		"":             "space-3",
-		"server-admin": "space-1",
-		"server":       "space-2",
+		"":             spaceID3,
+		"server-admin": spaceID1,
+		"server":       spaceID2,
 	}
 
 	st := s.ControllerModel(c).State()
@@ -762,8 +762,8 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	defer release()
 
 	bindings := map[string]string{
-		"":             "default",
-		"server-admin": "public",
+		"":             spaceIDDefault,
+		"server-admin": spaceIDPublic,
 	}
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,

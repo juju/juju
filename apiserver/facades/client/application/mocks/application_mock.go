@@ -502,6 +502,21 @@ func (mr *MockBackendMockRecorder) Space(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockBackend)(nil).Space), arg0)
 }
 
+// SpaceByName mocks base method.
+func (m *MockBackend) SpaceByName(arg0 string) (*state.Space, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SpaceByName", arg0)
+	ret0, _ := ret[0].(*state.Space)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SpaceByName indicates an expected call of SpaceByName.
+func (mr *MockBackendMockRecorder) SpaceByName(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceByName", reflect.TypeOf((*MockBackend)(nil).SpaceByName), arg0)
+}
+
 // Unit mocks base method.
 func (m *MockBackend) Unit(arg0 string) (application.Unit, error) {
 	m.ctrl.T.Helper()

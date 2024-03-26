@@ -1010,7 +1010,7 @@ func (s *validatorSuite) getValidator() *deployFromRepositoryValidator {
 		model:       s.model,
 		state:       s.state,
 		repoFactory: s.repoFactory,
-		newStateBindings: func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error) {
+		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return s.bindings, nil
 		},
 	}

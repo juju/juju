@@ -967,6 +967,10 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	if err != nil {
 		return errors.Trace(err)
 	}
+	bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(args.EndpointBindings)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return api.setCharmWithAgentValidation(
 		ctx,
 		setCharmParams{
@@ -977,7 +981,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
 			StorageDirectives:     args.StorageDirectives,
-			EndpointBindings:      args.EndpointBindings,
+			EndpointBindings:      bindingsWithSpaceIDs,
 			Force: forceParams{
 				ForceBase:  args.ForceBase,
 				ForceUnits: args.ForceUnits,
@@ -2518,7 +2522,12 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 			continue
 		}
 
-		bindings, err := state.NewBindings(api.backend, arg.Bindings)
+		bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(arg.Bindings)
+		if err != nil {
+			res[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		bindings, err := state.NewBindings(api.backend, bindingsWithSpaceIDs)
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2529,6 +2538,29 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 		}
 	}
 	return params.ErrorResults{Results: res}, nil
+}
+
+// convertSpacesToIDInBindings takes the input bindings (which contain space
+// names) and converts them to spaceIDs.
+// TODO(nvinuesa): this method should not be needed once we migrate endpoint
+// bindings to dqlite.
+func (api *APIBase) convertSpacesToIDInBindings(bindings map[string]string) (map[string]string, error) {
+	if bindings == nil {
+		return nil, nil
+	}
+	newMap := make(map[string]string)
+	for endpoint, spaceName := range bindings {
+		space, err := api.backend.SpaceByName(spaceName)
+		if errors.Is(err, errors.NotFound) {
+			return nil, errors.Annotatef(err, "space with name %q not found for endpoint %q", spaceName, endpoint)
+		}
+		if err != nil {
+			return nil, err
+		}
+		newMap[endpoint] = space.Id()
+	}
+
+	return newMap, nil
 }
 
 // lxdCharmProfiler massages a *state.Charm into a LXDProfiler

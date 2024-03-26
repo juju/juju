@@ -301,7 +301,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
 		},
-		newStateBindings: func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error) {
+		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return state.NewBindings(st, givenMap)
 		},
 	}
@@ -346,7 +346,7 @@ type deployFromRepositoryValidator struct {
 	charmhubHTTPClient facade.HTTPClient
 
 	// For testing using mocks.
-	newStateBindings func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error)
+	newStateBindings func(st any, givenMap map[string]string) (Bindings, error)
 }
 
 // Validating arguments to deploy a charm.
