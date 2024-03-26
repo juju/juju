@@ -34,6 +34,14 @@ func newStateCrossModelRelationsAPIV2(ctx facade.Context) (*CrossModelRelationsA
 	return &CrossModelRelationsAPIv2{api}, nil
 }
 
+func newStateCrossModelRelationsAPIV2(ctx facade.Context) (*CrossModelRelationsAPIV2, error) {
+	api, err := newStateCrossModelRelationsAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &CrossModelRelationsAPIV2{CrossModelRelationsAPI: api}, nil
+}
+
 // newStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func newStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPIv3, error) {
