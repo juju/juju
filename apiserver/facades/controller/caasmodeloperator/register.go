@@ -31,6 +31,7 @@ func newAPIFromContext(ctx facade.ModelContext) (*API, error) {
 	return NewAPI(authorizer, resources,
 		stateShim{systemState},
 		stateShim{ctx.State()},
+		ctx.ServiceFactory().ControllerConfig(),
 		ctx.Logger().Child("caasmodeloperator"),
 	)
 }

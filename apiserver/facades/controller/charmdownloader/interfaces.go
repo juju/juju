@@ -9,7 +9,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/worker/v4"
 
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -20,7 +19,6 @@ import (
 // StateBackend describes an API for accessing/mutating information in state.
 type StateBackend interface {
 	WatchApplicationsWithPendingCharms() state.StringsWatcher
-	ControllerConfig() (controller.Config, error)
 	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	ModelUUID() string

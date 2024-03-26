@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
@@ -25,15 +26,21 @@ import (
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
 
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+	Watch() (corewatcher.StringsWatcher, error)
+}
+
 // API represents the controller model operator facade.
 type API struct {
 	*common.APIAddresser
 	*common.PasswordChanger
 
-	auth      facade.Authorizer
-	ctrlState CAASControllerState
-	state     CAASModelOperatorState
-	logger    loggo.Logger
+	auth                    facade.Authorizer
+	ctrlState               CAASControllerState
+	state                   CAASModelOperatorState
+	controllerConfigService ControllerConfigService
+	logger                  loggo.Logger
 
 	resources facade.Resources
 }
@@ -44,6 +51,7 @@ func NewAPI(
 	resources facade.Resources,
 	ctrlSt CAASControllerState,
 	st CAASModelOperatorState,
+	controllerConfigService ControllerConfigService,
 	logger loggo.Logger,
 ) (*API, error) {
 
@@ -52,13 +60,14 @@ func NewAPI(
 	}
 
 	return &API{
-		auth:            authorizer,
-		APIAddresser:    common.NewAPIAddresser(ctrlSt, resources),
-		PasswordChanger: common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ModelTagKind)),
-		ctrlState:       ctrlSt,
-		state:           st,
-		logger:          logger,
-		resources:       resources,
+		auth:                    authorizer,
+		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
+		PasswordChanger:         common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ModelTagKind)),
+		ctrlState:               ctrlSt,
+		state:                   st,
+		controllerConfigService: controllerConfigService,
+		logger:                  logger,
+		resources:               resources,
 	}, nil
 }
 
@@ -72,12 +81,15 @@ func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.No
 		return result, errors.Trace(err)
 	}
 
-	controllerConfigWatcher := a.ctrlState.WatchControllerConfig()
+	controllerConfigWatcher, err := a.controllerConfigService.Watch()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	controllerAPIHostPortsWatcher := a.ctrlState.WatchAPIHostPortsForAgents()
 	modelConfigWatcher := model.WatchForModelConfigChanges()
 
 	multiWatcher, err := eventsource.NewMultiNotifyWatcher(ctx,
-		controllerConfigWatcher,
+		eventsource.NewStringsNotifyWatcher(controllerConfigWatcher),
 		controllerAPIHostPortsWatcher,
 		modelConfigWatcher,
 	)
@@ -98,7 +110,7 @@ func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.No
 // a new model operator into a caas cluster.
 func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOperatorInfo, error) {
 	var result params.ModelOperatorInfo
-	controllerConf, err := a.ctrlState.ControllerConfig()
+	controllerConfig, err := a.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -127,12 +139,12 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConf, vers)
+	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConfig, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	imageRepoDetails, err := docker.NewImageRepoDetails(controllerConf.CAASImageRepo())
+	imageRepoDetails, err := docker.NewImageRepoDetails(controllerConfig.CAASImageRepo())
 	if err != nil {
 		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
@@ -157,7 +169,7 @@ func (a *API) ModelUUID(ctx context.Context) params.StringResult {
 
 // APIHostPorts returns the API server addresses.
 func (u *API) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := u.ctrlState.ControllerConfig()
+	controllerConfig, err := u.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -167,7 +179,7 @@ func (u *API) APIHostPorts(ctx context.Context) (result params.APIHostPortsResul
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (u *API) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := u.ctrlState.ControllerConfig()
+	controllerConfig, err := u.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

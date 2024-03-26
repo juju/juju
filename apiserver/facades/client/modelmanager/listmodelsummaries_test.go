@@ -102,7 +102,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
-		coretesting.ControllerTag.Id(),
+		coremodel.UUID(coretesting.ControllerTag.Id()),
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{

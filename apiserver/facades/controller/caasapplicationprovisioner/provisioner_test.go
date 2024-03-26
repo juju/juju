@@ -39,14 +39,15 @@ type CAASApplicationProvisionerSuite struct {
 	coretesting.BaseSuite
 	clock clock.Clock
 
-	resources         *common.Resources
-	authorizer        *apiservertesting.FakeAuthorizer
-	api               *caasapplicationprovisioner.API
-	st                *mockState
-	storage           *mockStorage
-	storagePoolGetter *mockStoragePoolGetter
-	registry          *mockStorageRegistry
-	store             *mockObjectStore
+	resources               *common.Resources
+	authorizer              *apiservertesting.FakeAuthorizer
+	api                     *caasapplicationprovisioner.API
+	st                      *mockState
+	storage                 *mockStorage
+	storagePoolGetter       *mockStoragePoolGetter
+	controllerConfigService *mockControllerConfigService
+	registry                *mockStorageRegistry
+	store                   *mockObjectStore
 }
 
 func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
@@ -76,7 +77,16 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolGetter, s.registry, s.store, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
+		s.st, s.st,
+		s.resources, newResourceOpener,
+		s.authorizer,
+		s.storage,
+		s.storagePoolGetter,
+		s.controllerConfigService,
+		s.registry,
+		s.store,
+		s.clock,
+		loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -86,7 +96,16 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolGetter, s.registry, s.store, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
+		s.st, s.st,
+		s.resources, nil,
+		s.authorizer,
+		s.storage,
+		s.storagePoolGetter,
+		s.controllerConfigService,
+		s.registry,
+		s.store,
+		s.clock,
+		loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

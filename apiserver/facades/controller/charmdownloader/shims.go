@@ -8,7 +8,6 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm/services"
@@ -21,10 +20,6 @@ type stateShim struct {
 
 func (s stateShim) WatchApplicationsWithPendingCharms() state.StringsWatcher {
 	return s.st.WatchApplicationsWithPendingCharms()
-}
-
-func (s stateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
 }
 
 func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {

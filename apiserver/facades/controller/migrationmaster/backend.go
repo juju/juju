@@ -27,7 +27,6 @@ type Backend interface {
 	ModelOwner() (names.UserTag, error)
 	AgentVersion(ctx context.Context) (version.Number, error)
 	RemoveExportingModelDocs() error
-	ControllerConfig() (controller.Config, error)
 	AllLocalRelatedModels() ([]string, error)
 }
 
