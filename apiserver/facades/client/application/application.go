@@ -967,6 +967,10 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	if err != nil {
 		return errors.Trace(err)
 	}
+	bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(args.EndpointBindings)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return api.setCharmWithAgentValidation(
 		ctx,
 		setCharmParams{
@@ -977,7 +981,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
 			StorageDirectives:     args.StorageDirectives,
-			EndpointBindings:      args.EndpointBindings,
+			EndpointBindings:      bindingsWithSpaceIDs,
 			Force: forceParams{
 				ForceBase:  args.ForceBase,
 				ForceUnits: args.ForceUnits,
@@ -2518,12 +2522,12 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 			continue
 		}
 
-		newBindings, err := api.convertSpacesToIDInBindings(arg.Bindings)
+		bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(arg.Bindings)
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		bindings, err := state.NewBindings(api.backend, newBindings)
+		bindings, err := state.NewBindings(api.backend, bindingsWithSpaceIDs)
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue

@@ -7,7 +7,6 @@ import (
 	"net"
 	"sort"
 
-	"github.com/canonical/lxd/shared/logger"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -269,8 +268,6 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 	}
 	boundSpace := n.bindings[endpoint]
 
-	logger.Errorf("******************************** bindings %+v", n.bindings)
-	logger.Errorf("******************************** endpoint %+v", endpoint)
 	// If the endpoint for this relation is not bound to a space,
 	// or is bound to the default space, populate ingress addresses
 	// based on the input relation and pollPublic flag.
@@ -282,7 +279,6 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 		}
 		ingress = addrs
 	}
-	logger.Errorf("******************************** ingress %+v", ingress)
 
 	// We don't yet have any ingress addresses,
 	// so pick one from the space to which the endpoint is bound.
@@ -292,8 +288,6 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 			ingress[i] = addr.SpaceAddr()
 		}
 	}
-	logger.Errorf("******************************** ingress %+v", ingress)
-	logger.Errorf("******************************** machineAddresses %+v", n.machineAddresses)
 
 	egress, err := n.getEgressForRelation(rel, ingress)
 	if err != nil {
