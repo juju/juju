@@ -413,29 +413,3 @@ func hostsPortsEqual(a, b []network.SpaceHostPorts) bool {
 	bPrime := dupeAndSort(b)
 	return reflect.DeepEqual(aPrime, bPrime)
 }
-
-func (st *State) ConvertSpaceHostPorts(sHPs network.SpaceHostPorts) (network.ProviderHostPorts, error) {
-	addrs := make(network.ProviderHostPorts, len(sHPs))
-	for i, sAddr := range sHPs {
-		var err error
-		if addrs[i], err = st.ConvertSpaceHostPort(sAddr); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return addrs, nil
-}
-
-func (st *State) ConvertSpaceHostPort(sHP network.SpaceHostPort) (network.ProviderHostPort, error) {
-	hp := network.ProviderHostPort{
-		ProviderAddress: network.ProviderAddress{MachineAddress: sHP.MachineAddress},
-		NetPort:         sHP.NetPort,
-	}
-	if sHP.SpaceID != "" {
-		space, err := st.Space(sHP.SpaceID)
-		if err != nil {
-			return hp, errors.Trace(err)
-		}
-		hp.SpaceName = network.SpaceName(space.Name())
-	}
-	return hp, nil
-}
