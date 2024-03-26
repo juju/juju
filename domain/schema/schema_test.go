@@ -486,9 +486,9 @@ func (s *schemaSuite) assertExecSQL(c *gc.C, q string, errMsg string, args ...an
 	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, args...)
 		if errMsg != "" {
-			c.Assert(err, gc.ErrorMatches, errMsg)
+			c.Check(err, gc.ErrorMatches, errMsg)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 		return nil
 	})
