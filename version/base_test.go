@@ -14,7 +14,7 @@ type seriesSuite struct {
 
 var _ = gc.Suite(&seriesSuite{})
 
-func (s *seriesSuite) TestDefaultSupportedLTS(c *gc.C) {
-	name := DefaultSupportedLTS()
-	c.Assert(name, gc.Equals, "jammy")
+func (s *seriesSuite) TestDefaultSupportedLTSBase(c *gc.C) {
+	b := DefaultSupportedLTSBase()
+	c.Assert(b.String(), gc.Equals, "ubuntu@22.04/stable")
 }

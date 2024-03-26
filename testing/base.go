@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/juju/osenv"
@@ -279,4 +280,12 @@ func HostSeries(c *gc.C) string {
 	hostSeries, err := series.HostSeries()
 	c.Assert(err, jc.ErrorIsNil)
 	return hostSeries
+}
+
+func HostBase(c *gc.C) base.Base {
+	hostSeries, err := series.HostSeries()
+	c.Assert(err, jc.ErrorIsNil)
+	base, err := base.GetBaseFromSeries(hostSeries)
+	c.Assert(err, jc.ErrorIsNil)
+	return base
 }

@@ -4,7 +4,6 @@
 package testing
 
 import (
-	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -36,10 +35,6 @@ func init() {
 }
 
 var (
-	// FakeSupportedJujuSeries is used to provide a series of canned results
-	// of series to test bootstrap code against.
-	FakeSupportedJujuSeries = set.NewStrings("focal", "jammy", jujuversion.DefaultSupportedLTS())
-
 	// FakeSupportedJujuBases is used to provide a list of canned results
 	// of a base to test bootstrap code against.
 	FakeSupportedJujuBases = []corebase.Base{
