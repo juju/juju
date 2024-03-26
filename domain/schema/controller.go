@@ -59,6 +59,12 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		changeLogTriggersForTableOnColumn("secret_backend_rotation", "backend_uuid", "next_rotation_time", tableSecretBackendRotation),
+
+		// We need to ensure that the internal and kubernetes backends are immutable after
+		// they are created by the controller during bootstrap time.
+		triggersForImmutableTable("secret_backend",
+			"OLD.backend_type IN ('internal', 'kubernetes')",
+			"secret backends with type internal or kubernetes are immutable"),
 	)
 
 	ctrlSchema := schema.New()
