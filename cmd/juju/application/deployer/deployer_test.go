@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
@@ -82,7 +83,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	ch := "local:jammy/multi-series-1"
+	ch := "local:multi-series-1"
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local charm: %s", ch))
 }
 
@@ -101,7 +102,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmPathWithSchema(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	ch := "local:jammy/multi-series-1"
+	ch := "local:multi-series-1"
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local charm: %s", ch))
 }
 
@@ -474,7 +475,7 @@ func (s *deployerSuite) expectData() {
 // tests.
 type fsCharmReader struct{}
 
-// ReadCharm attempts to read a charm from a path on the filesystem.
-func (fsCharmReader) ReadCharm(path string) (charm.Charm, error) {
-	return charm.ReadCharm(path)
+// NewCharmAtPath attempts to read a charm from a path on the filesystem.
+func (fsCharmReader) NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
+	return corecharm.NewCharmAtPath(path)
 }

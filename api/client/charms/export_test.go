@@ -21,10 +21,6 @@ func NewLocalCharmClientWithFacade(facade base.FacadeCaller, clientFacade base.C
 	return &LocalCharmClient{facade: facade, ClientFacade: clientFacade, charmPutter: charmPutter}
 }
 
-func NewHTTPPutterWithHTTPClient(httpClient *httprequest.Client) *httpPutter {
-	return &httpPutter{httpClient: httpClient}
-}
-
 func NewS3PutterWithHTTPClient(httpClient *httprequest.Client) *s3Putter {
 	return &s3Putter{httpClient: httpClient}
 }

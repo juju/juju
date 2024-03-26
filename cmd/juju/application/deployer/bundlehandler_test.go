@@ -50,6 +50,7 @@ type BundleDeployRepositorySuite struct {
 
 	allWatcher     *mocks.MockAllWatch
 	bundleResolver *mocks.MockResolver
+	charmReader    *mocks.MockCharmReader
 	deployerAPI    *mocks.MockDeployerAPI
 	stdOut         *mocks.MockWriter
 	stdErr         *mocks.MockWriter
@@ -1893,9 +1894,13 @@ relations:
     - ["wordpress:db", "mysql:server"]
 `
 	charmsPath := c.MkDir()
-	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
-	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
-	bundle := fmt.Sprintf(content, wordpressPath, mysqlPath)
+	mysql := testcharms.RepoWithSeries("focal").ClonedDir(charmsPath, "mysql")
+	s.expectLocalCharm(mysql, mysqlCurl, nil)
+
+	wordpress := testcharms.RepoWithSeries("focal").ClonedDir(charmsPath, "wordpress")
+	s.expectLocalCharm(wordpress, wordpressCurl, nil)
+
+	bundle := fmt.Sprintf(content, wordpress.Path, mysql.Path)
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1915,7 +1920,7 @@ relations:
 		"- add unit wordpress/0 to new machine 2\n" +
 		"Deploy of bundle completed.\n"
 
-	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
+	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysql.Path, wordpress.Path))
 }
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
@@ -1961,9 +1966,13 @@ relations:
     - ["wordpress:db", "mysql:server"]
 `
 	charmsPath := c.MkDir()
-	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
-	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
-	bundle := fmt.Sprintf(content, wordpressPath, mysqlPath)
+	mysql := testcharms.RepoWithSeries("focal").ClonedDir(charmsPath, "mysql")
+	s.expectLocalCharm(mysql, mysqlCurl, nil)
+
+	wordpress := testcharms.RepoWithSeries("focal").ClonedDir(charmsPath, "wordpress")
+	s.expectLocalCharm(wordpress, wordpressCurl, nil)
+
+	bundle := fmt.Sprintf(content, wordpress.Path, mysql.Path)
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1983,7 +1992,7 @@ relations:
 		"- add unit wordpress/0 to new machine 2\n" +
 		"Deploy of bundle completed.\n"
 
-	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
+	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysql.Path, wordpress.Path))
 
 }
 
@@ -2111,6 +2120,7 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons const
 		},
 		bundleResolver:   s.bundleResolver,
 		deployResources:  deployResourcesFunc,
+		charmReader:      s.charmReader,
 		modelConstraints: cons,
 	}
 }
@@ -2195,6 +2205,7 @@ func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.deployerAPI.EXPECT().BestFacadeVersion("Charms").Return(666).AnyTimes()
 	s.deployerAPI.EXPECT().HTTPClient().Return(&httprequest.Client{}, nil).AnyTimes()
 	s.bundleResolver = mocks.NewMockResolver(ctrl)
+	s.charmReader = mocks.NewMockCharmReader(ctrl)
 	s.allWatcher = mocks.NewMockAllWatch(ctrl)
 	s.stdOut = mocks.NewMockWriter(ctrl)
 	s.stdErr = mocks.NewMockWriter(ctrl)
@@ -2478,6 +2489,10 @@ func (s *BundleDeployRepositorySuite) expectAddContainer(parent, machine, channe
 
 func (s *BundleDeployRepositorySuite) expectAddRelation(endpoints []string) {
 	s.deployerAPI.EXPECT().AddRelation(endpoints, nil).Return(nil, nil)
+}
+
+func (s *BundleDeployRepositorySuite) expectLocalCharm(ch *charm.CharmDir, curl *charm.URL, err error) {
+	s.charmReader.EXPECT().NewCharmAtPath(ch.Path).Return(ch, curl, err)
 }
 
 func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit string) {
