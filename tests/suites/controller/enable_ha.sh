@@ -32,7 +32,7 @@ wait_for_ha() {
 	# shellcheck disable=SC2143
 	until [[ "$(juju show-controller --format=json | jq -r '.[] | .["controller-machines"] | .[] | select(.["ha-status"] == "ha-enabled") | .["instance-id"]' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling ha"
-		juju show-controller 2>&1 | sed 's/^/    | /g'
+		juju show-controller 2>&1 | yq '.[]["controller-machines"]' | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
