@@ -164,9 +164,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	var addresses []network.ProviderAddress
 	for _, addr := range m.Addresses() {
 		addresses = append(addresses, network.ProviderAddress{
-			MachineAddress:  addr.MachineAddress,
-			SpaceName:       network.SpaceName(space.Name()),
-			ProviderSpaceID: space.ProviderId(),
+			MachineAddress: addr.MachineAddress,
 		})
 	}
 
