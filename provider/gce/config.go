@@ -4,6 +4,8 @@
 package gce
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -13,12 +15,20 @@ import (
 
 const (
 	cfgBaseImagePath = "base-image-path"
+	cfgVpcId         = "vpc-id"
 )
 
 var configSchema = environschema.Fields{
 	cfgBaseImagePath: {
 		Description: "Base path to look for machine disk images.",
 		Type:        environschema.Tstring,
+	},
+	cfgVpcId: {
+		Description: "Use a specific VPC network name (optional). When not specified, Juju requires the default VPC network.",
+		Example:     "default",
+		Type:        environschema.Tstring,
+		Group:       environschema.AccountGroup,
+		Immutable:   true,
 	},
 }
 
@@ -31,10 +41,9 @@ var configFields = func() schema.Fields {
 	return fs
 }()
 
-var configImmutableFields = []string{}
-
 var configDefaults = schema.Defaults{
 	cfgBaseImagePath: schema.Omit,
+	cfgVpcId:         schema.Omit,
 }
 
 type environConfig struct {
@@ -55,33 +64,25 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if old != nil {
-		// There's an old configuration. Validate it so that any
-		// default values are correctly coerced for when we check
-		// the old values later.
-		oldEcfg, err := newConfig(old, nil)
-		if err != nil {
-			return nil, errors.Annotatef(err, "invalid base config")
-		}
-		for _, attr := range configImmutableFields {
-			oldv, newv := oldEcfg.attrs[attr], attrs[attr]
-			if oldv != newv {
-				return nil, errors.Errorf(
-					"%s: cannot change from %v to %v",
-					attr, oldv, newv,
-				)
-			}
-		}
-	}
-
 	ecfg := &environConfig{
 		config: cfg,
 		attrs:  attrs,
 	}
+	if old != nil {
+		attrs := old.UnknownAttrs()
+		if vpcID, _ := attrs["vpc-id"].(string); vpcID != ecfg.vpcID() {
+			return nil, fmt.Errorf("cannot change vpc-id from %q to %q", vpcID, ecfg.vpcID())
+		}
+	}
+
 	return ecfg, nil
 }
 
 func (c *environConfig) baseImagePath() (string, bool) {
 	path, ok := c.attrs[cfgBaseImagePath].(string)
 	return path, ok
+}
+
+func (c *environConfig) vpcID() string {
+	return c.attrs["vpc-id"].(string)
 }
