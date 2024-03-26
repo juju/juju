@@ -12,7 +12,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -46,10 +45,6 @@ func (s UnitStateState) ApplyOperation(op state.ModelOperation) error {
 
 func (s UnitStateState) Unit(name string) (UnitStateUnit, error) {
 	return s.St.Unit(name)
-}
-
-func (s UnitStateState) ControllerConfig() (controller.Config, error) {
-	return s.St.ControllerConfig()
 }
 
 type UnitStateAPI struct {

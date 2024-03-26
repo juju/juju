@@ -158,7 +158,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
-	otherFactory := factory.NewFactory(otherSt, s.StatePool)
+	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig())
 	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
 	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
@@ -235,7 +235,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	})
 	defer otherSt.Close()
 
-	otherFactory := factory.NewFactory(otherSt, s.StatePool)
+	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig())
 	app := otherFactory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"}),
 	})

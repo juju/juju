@@ -17,6 +17,12 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 )
 
+const (
+	// States which report the state of the worker.
+	stateStarted = "started"
+	stateChanged = "changed"
+)
+
 // ControllerConfigService is an interface for getting the controller config.
 type ControllerConfigService interface {
 	// ControllerConfig returns the config values for the controller.
@@ -32,6 +38,7 @@ type ControllerConfigService interface {
 type AuditLogFactory func(auditlog.Config) auditlog.AuditLog
 
 type updater struct {
+	internalStates          chan string
 	catacomb                catacomb.Catacomb
 	controllerConfigService ControllerConfigService
 
@@ -40,9 +47,19 @@ type updater struct {
 	logFactory AuditLogFactory
 }
 
-// New returns a worker that will keep an up-to-date audit log config.
-func New(controllerConfigService ControllerConfigService, initial auditlog.Config, logFactory AuditLogFactory) (worker.Worker, error) {
+// NewWorker returns a worker that will keep an up-to-date audit log config.
+func NewWorker(controllerConfigService ControllerConfigService, initial auditlog.Config, logFactory AuditLogFactory) (worker.Worker, error) {
+	return newWorker(controllerConfigService, initial, logFactory, nil)
+}
+
+func newWorker(
+	controllerConfigService ControllerConfigService,
+	initial auditlog.Config,
+	logFactory AuditLogFactory,
+	internalStates chan string,
+) (*updater, error) {
 	u := &updater{
+		internalStates:          internalStates,
 		controllerConfigService: controllerConfigService,
 		current:                 initial,
 		logFactory:              logFactory,
@@ -76,10 +93,14 @@ func (u *updater) loop() error {
 		return errors.Trace(err)
 	}
 
+	// Report the initial started state.
+	u.reportInternalState(stateStarted)
+
 	for {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
+
 		case _, ok := <-changes:
 			if !ok {
 				return errors.Errorf("watcher channel closed")
@@ -105,6 +126,7 @@ func (u *updater) newConfig(ctx context.Context) (auditlog.Config, error) {
 		MaxBackups:     cfg.AuditLogMaxBackups(),
 		ExcludeMethods: cfg.AuditLogExcludeMethods(),
 	}
+
 	if result.Enabled && u.current.Target == nil {
 		result.Target = u.logFactory(result)
 	} else {
@@ -120,6 +142,9 @@ func (u *updater) update(newConfig auditlog.Config) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.current = newConfig
+
+	// Report the initial started state.
+	u.reportInternalState(stateChanged)
 }
 
 // CurrentConfig returns the updater's up-to-date audit config.
@@ -152,4 +177,12 @@ func (u *updater) watchForConfigChanges(ctx context.Context) (<-chan []string, e
 
 func (u *updater) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(u.catacomb.Context(context.Background()))
+}
+
+func (u *updater) reportInternalState(state string) {
+	select {
+	case <-u.catacomb.Dying():
+	case u.internalStates <- state:
+	default:
+	}
 }
