@@ -13,7 +13,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/internal/secrets/provider"
-	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -78,8 +77,7 @@ func newSecretsAPI(context facade.ModelContext) (*SecretsAPI, error) {
 		controllerUUID:                         context.State().ControllerUUID(),
 		modelUUID:                              context.State().ModelUUID(),
 		modelName:                              model.Name(),
-		secretsState:                           state.NewSecrets(context.State()),
-		secretsConsumer:                        context.State(),
+		secretService:                          context.ServiceFactory().Secret(adminBackendConfigGetter),
 		backends:                               make(map[string]provider.SecretsBackend),
 		adminBackendConfigGetter:               adminBackendConfigGetter,
 		backendConfigGetterForUserSecretsWrite: backendConfigGetterForUserSecretsWrite,

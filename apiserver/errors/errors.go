@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/upgrade"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -102,7 +103,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusUnauthorized
 	case params.CodeNotFound,
 		params.CodeUserNotFound,
-		params.CodeModelNotFound:
+		params.CodeModelNotFound,
+		params.CodeSecretNotFound:
 		status = http.StatusNotFound
 	case params.CodeBadRequest:
 		status = http.StatusBadRequest
@@ -166,6 +168,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotFound
 	case errors.Is(err, errors.UserNotFound):
 		code = params.CodeUserNotFound
+	case errors.Is(err, secreterrors.SecretNotFound):
+		code = params.CodeSecretNotFound
 	case errors.Is(err, errors.AlreadyExists):
 		code = params.CodeAlreadyExists
 	case errors.Is(err, errors.NotAssigned):

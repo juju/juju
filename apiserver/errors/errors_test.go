@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
@@ -47,6 +48,11 @@ var errorTransformTests = []struct {
 	code:       params.CodeUserNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeUserNotFound,
+}, {
+	err:        secreterrors.SecretNotFound,
+	code:       params.CodeSecretNotFound,
+	status:     http.StatusNotFound,
+	helperFunc: params.IsCodeSecretNotFound,
 }, {
 	err:        errors.Unauthorized,
 	code:       params.CodeUnauthorized,
