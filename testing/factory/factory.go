@@ -19,7 +19,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/arch"
-	corebase "github.com/juju/juju/core/base"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -518,9 +517,6 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	}
 	if params.CharmOrigin == nil {
 		curl := charm.MustParseURL(params.Charm.URL())
-		chSeries := curl.Series
-		base, err := corebase.GetBaseFromSeries(chSeries)
-		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
 		var source string
 		// local charms cannot have a channel
@@ -535,8 +531,8 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			Source:  source,
 			Platform: &state.Platform{
 				Architecture: curl.Architecture,
-				OS:           base.OS,
-				Channel:      base.Channel.String(),
+				OS:           "ubuntu",
+				Channel:      "12.10",
 			}}
 	}
 
