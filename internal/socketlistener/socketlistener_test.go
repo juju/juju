@@ -17,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/tomb.v2"
 
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/internal/socketlistener"
@@ -86,52 +87,56 @@ func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
 	}
 }
 
-// TestEnsureShutdown checks that a slow handler does not return an error if the
-// socket listener is shutdown as it handles.
+// TestEnsureShutdown checks that a slow handler will not prevent a clean
+// shutdown. An example of this, would be running a db query, that isn't letting
+// the handler return immediately.
 func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
-	tmpDir := c.MkDir()
-	socket := path.Join(tmpDir, "test.socket")
+	for i := 0; i < 100; i++ {
+		tmpDir := c.MkDir()
+		socket := path.Join(tmpDir, "test.socket")
 
-	start := make(chan struct{})
-	sl, err := socketlistener.NewSocketListener(socketlistener.Config{
-		Logger:     s.logger,
-		SocketName: socket,
-		RegisterHandlers: func(r *mux.Router) {
-			r.HandleFunc("/slow-handler", func(resp http.ResponseWriter, req *http.Request) {
-				// Signal that the handler has started.
-				close(start)
-				time.Sleep(time.Second)
-				resp.WriteHeader(http.StatusOK)
-			}).Methods(http.MethodGet)
-		},
-		ShutdownTimeout: coretesting.LongWait,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, sl)
-	done := make(chan struct{})
-	go func() {
-		// Send request to slow handler and ensure it does not return error,
-		// even though server is shut down as soon as it starts.
-		cl := client(socket)
-		_, err := cl.Get("http://localhost:8080/slow-handler")
+		start := make(chan struct{})
+		sl, err := socketlistener.NewSocketListener(socketlistener.Config{
+			Logger:     s.logger,
+			SocketName: socket,
+			RegisterHandlers: func(r *mux.Router) {
+				r.HandleFunc("/slow-handler", func(resp http.ResponseWriter, req *http.Request) {
+					// Signal that the handler has started.
+					close(start)
+					time.Sleep(time.Second)
+				}).Methods(http.MethodGet)
+			},
+			ShutdownTimeout: coretesting.LongWait,
+		})
 		c.Assert(err, jc.ErrorIsNil)
-	}()
+		defer workertest.DirtyKill(c, sl)
+		var tomb tomb.Tomb
+		tomb.Go(func() error {
+			cl := client(socket)
+			// Ignore error, as we're only interested in the fact that the request
+			// was made.
+			cl.Get("http://localhost:8080/slow-handler")
+			return nil
+		})
 
-	go func() {
-		// Kill socket listener once handler has started.
+		tomb.Go(func() error {
+			// Kill socket listener once handler has started.
+			select {
+			case <-start:
+			case <-time.After(coretesting.ShortWait):
+				return fmt.Errorf("took too long to start")
+			}
+			workertest.CleanKill(c, sl)
+			return nil
+		})
+		// Wait for server to cleanly shutdown
 		select {
-		case <-start:
-		case <-time.After(coretesting.ShortWait):
-			c.Errorf("took too long to start")
+		case <-tomb.Dead():
+			c.Assert(tomb.Err(), gc.IsNil)
+		case <-time.After(coretesting.LongWait):
+			tomb.Kill(fmt.Errorf("took too long to finish"))
+			c.Errorf("took too long to finish")
 		}
-		workertest.CleanKill(c, sl)
-		close(done)
-	}()
-	// Wait for server to cleanly shutdown
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Errorf("took too long to finish")
 	}
 }
 

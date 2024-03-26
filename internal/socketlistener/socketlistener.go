@@ -58,10 +58,9 @@ func (config Config) Validate() error {
 
 // SocketListener is a socketlistener worker.
 type SocketListener struct {
-	config          Config
-	tomb            tomb.Tomb
-	listener        net.Listener
-	shutdownTimeout time.Duration
+	config   Config
+	tomb     tomb.Tomb
+	listener net.Listener
 }
 
 // NewSocketListener returns a socketlistener with the given config.
@@ -113,7 +112,7 @@ func (sl *SocketListener) run() error {
 	sl.tomb.Go(func() error {
 		// Wait for the tomb to start dying and then shut the server down.
 		<-sl.tomb.Dying()
-		ctx, cancel := context.WithTimeout(context.Background(), sl.shutdownTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), sl.config.ShutdownTimeout)
 		defer cancel()
 		return srv.Shutdown(ctx)
 	})
