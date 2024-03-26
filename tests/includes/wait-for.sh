@@ -351,7 +351,7 @@ wait_for_aws_ingress_cidrs_for_port_range() {
 	secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
 	# print the security group rules
 	# shellcheck disable=SC2086
-	got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
+	got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
@@ -360,7 +360,7 @@ wait_for_aws_ingress_cidrs_for_port_range() {
 		# shellcheck disable=SC2086
 		secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
 		# shellcheck disable=SC2086
-		got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
+		got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
 		sleep "${SHORT_TIMEOUT}"
 
 		if [ "$got_cidrs" == "$exp_cidrs" ]; then
