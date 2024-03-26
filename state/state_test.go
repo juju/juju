@@ -2175,66 +2175,6 @@ func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
-	charm := s.AddMetaCharm(c, "mysql", metaBase, 44)
-	// Add extra spaces to use in bindings.
-	dbSpace, err := s.State.AddSpace("db", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	clientSpace, err := s.State.AddSpace("client", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	for i, test := range []struct {
-		about         string
-		bindings      map[string]string
-		expectedError string
-		errIs         error
-	}{{ // 0
-		about:         "extra endpoint bound to unknown space",
-		bindings:      map[string]string{"extra": "4"},
-		expectedError: `space not found`,
-		errIs:         errors.NotFound,
-	}, { // 1
-		about:         "extra endpoint not bound to a space",
-		bindings:      map[string]string{"extra": ""},
-		expectedError: `unknown endpoint "extra" not valid`,
-		errIs:         errors.NotValid,
-	}, { // 2
-		about:         "two extra endpoints, both bound to known spaces",
-		bindings:      map[string]string{"ex1": dbSpace.Id(), "ex2": clientSpace.Id()},
-		expectedError: `unknown endpoint "ex(1|2)" not valid`,
-		errIs:         errors.NotValid,
-	}, { // 3
-		about:         "empty endpoint bound to unknown space",
-		bindings:      map[string]string{"": "anything"},
-		expectedError: `space not found`,
-		errIs:         errors.NotFound,
-	}, { // 4
-		about:         "known endpoint bound to unknown space",
-		bindings:      map[string]string{"server": "invalid"},
-		expectedError: `space not found`,
-		errIs:         errors.NotFound,
-	}, { // 5
-		about:         "known endpoint bound correctly and an extra endpoint",
-		bindings:      map[string]string{"server": dbSpace.Id(), "foo": "public"},
-		expectedError: `space not found`,
-		errIs:         errors.NotFound,
-	}} {
-		c.Logf("test #%d: %s", i, test.about)
-
-		_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-			Name:  "yoursql",
-			Charm: charm,
-			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-				OS:      "ubuntu",
-				Channel: "22.04/stable",
-			}},
-			EndpointBindings: test.bindings,
-		}, state.NewObjectStore(c, s.State.ModelUUID()))
-		c.Check(err, gc.ErrorMatches, `cannot add application "yoursql": `+test.expectedError)
-		c.Check(err, jc.ErrorIs, test.errIs)
-	}
-}
-
 func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
 	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

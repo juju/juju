@@ -253,8 +253,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
-		"url": "space1", // has both name and provider ID
-		"db":  "space2", // has only name, no provider ID
+		"url": "1", // has both name and provider ID
+		"db":  "2", // has only name, no provider ID
 	}
 	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -337,8 +337,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
-		"url": "space1", // has both name and provider ID
-		"db":  "space2", // has only name, no provider ID
+		"url": "1", // has both name and provider ID
+		"db":  "2", // has only name, no provider ID
 	}
 	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -393,8 +393,8 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
-		"url": "space1", // has both name and provider ID
-		"db":  "space2", // has only name, no provider ID
+		"url": "1", // has both name and provider ID
+		"db":  "2", // has only name, no provider ID
 	}
 	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
