@@ -160,16 +160,18 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 		if accountDetails != nil {
 			accountType = accountDetails.Type
 		}
-		if ok && !user.IsLocal() && apiInfo.Tag == nil && accountType != jujuclient.OAuth2DeviceFlowAccountDetailsType {
-			// We used macaroon auth to login; save the username
-			// that we've logged in as.
-			accountDetails = &jujuclient.AccountDetails{
-				Type:            jujuclient.UserPassAccountDetailsType,
-				User:            user.Id(),
-				LastKnownAccess: st.ControllerAccess(),
+		if accountType == "" || accountType == jujuclient.UserPassAccountDetailsType {
+			if ok && !user.IsLocal() && apiInfo.Tag == nil {
+				// We used macaroon auth to login; save the username
+				// that we've logged in as.
+				accountDetails = &jujuclient.AccountDetails{
+					Type:            jujuclient.UserPassAccountDetailsType,
+					User:            user.Id(),
+					LastKnownAccess: st.ControllerAccess(),
+				}
+			} else if apiInfo.Tag == nil {
+				logger.Errorf("unexpected logged-in username %v", st.AuthTag())
 			}
-		} else if apiInfo.Tag == nil {
-			logger.Errorf("unexpected logged-in username %v", st.AuthTag())
 		}
 	}
 	if accountDetails != nil {
