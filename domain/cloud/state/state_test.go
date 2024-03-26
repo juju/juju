@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -26,6 +27,8 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	"github.com/juju/juju/domain/credential"
+	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	userstate "github.com/juju/juju/domain/user/state"
@@ -598,6 +601,26 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 		c.Assert(cloud.IsControllerCloud, gc.Equals, false)
 	}
 
+	cred := credential.CloudCredentialInfo{
+		Label:    "foobar",
+		AuthType: string(cloud.AccessKeyAuthType),
+		Attributes: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
+	}
+	credKey := corecredential.Key{
+		Cloud: testCloud.Name,
+		Owner: coremodel.ControllerModelOwnerUsername,
+		Name:  "foobar",
+	}
+
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+	_, err = credSt.UpsertCloudCredential(
+		context.Background(), credKey, cred,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewState(s.TxnRunnerFactory())
 	err = modelSt.Create(
@@ -605,9 +628,10 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 		modelUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
-			Cloud: testCloud.Name,
-			Name:  coremodel.ControllerModelName,
-			Owner: userUUID,
+			Cloud:      testCloud.Name,
+			Credential: credKey,
+			Name:       coremodel.ControllerModelName,
+			Owner:      userUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

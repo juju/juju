@@ -7,10 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
+	modelcoretesting "github.com/juju/juju/core/model/testing"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -73,18 +76,17 @@ func (s *stateSuite) TestUpdateDqliteNode(c *gc.C) {
 }
 
 func (s *stateSuite) TestSelectModelUUID(c *gc.C) {
-	db := s.DB()
+	testModelUUID := modelstatetesting.CreateTestModel(c, s.TxnRunnerFactory(), "some-test-model")
 
-	_, err := db.Exec("INSERT INTO model_list (uuid) VALUES ('some-uuid')")
-	c.Assert(err, jc.ErrorIsNil)
+	fakeModelUUID := modelcoretesting.GenModelUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
 
-	uuid, err := st.SelectModelUUID(context.Background(), "not-there")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Check(uuid, gc.Equals, "")
+	uuid, err := st.SelectModelUUID(context.Background(), fakeModelUUID)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(uuid, gc.Equals, coremodel.UUID(""))
 
-	uuid, err = st.SelectModelUUID(context.Background(), "some-uuid")
+	uuid, err = st.SelectModelUUID(context.Background(), testModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid, gc.Equals, "some-uuid")
+	c.Check(uuid, gc.Equals, testModelUUID)
 }

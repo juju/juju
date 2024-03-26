@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
 	"github.com/juju/juju/internal/database/app"
@@ -946,7 +947,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	known, err := w.nodeService().IsModelKnownToController(ctx, namespace)
+	known, err := w.nodeService().IsModelKnownToController(ctx, model.UUID(namespace))
 	if err != nil {
 		return errors.Trace(err)
 	}

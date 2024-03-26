@@ -44,19 +44,19 @@ func (s *State) ModelCloudDefaults(
 
 	cloudDefaultsStmt := `
 SELECT cloud_defaults.key,
-       cloud_defaults.value,
+       cloud_defaults.value
 FROM cloud_defaults
-     INNER JOIN cloud
-         ON cloud.uuid = cloud_defaults.cloud_uuid
-     INNER JOIN model_metadata
-         ON model_metadata.cloud_uuid = cloud.uuid
-WHERE model_metadata.model_uuid = ?
+INNER JOIN cloud
+ON cloud.uuid = cloud_defaults.cloud_uuid
+INNER JOIN model m
+ON m.cloud_uuid = cloud.uuid
+WHERE m.uuid = ?
 `
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, cloudDefaultsStmt, uuid)
 		if err != nil {
-			return fmt.Errorf("fetching cloud defaults for model %q", uuid)
+			return fmt.Errorf("fetching cloud defaults for model %q: %w", uuid, err)
 		}
 		defer rows.Close()
 
@@ -65,7 +65,7 @@ WHERE model_metadata.model_uuid = ?
 		)
 		for rows.Next() {
 			if err := rows.Scan(&key, &val); err != nil {
-				return fmt.Errorf("reading cloud defaults for model %q", uuid)
+				return fmt.Errorf("reading cloud defaults for model %q: %w", uuid, err)
 			}
 			rval[key] = val
 		}
@@ -94,19 +94,19 @@ func (s *State) ModelCloudRegionDefaults(
 
 	cloudDefaultsStmt := `
 SELECT cloud_region_defaults.key,
-       cloud_region_defaults.value,
+       cloud_region_defaults.value
 FROM cloud_region_defaults
-     INNER JOIN cloud_region
-         ON cloud_region.uuid = cloud_region_defaults.region_uuid
-     INNER JOIN model_metadata
-         ON model_metadata.cloud_region_uuid = cloud_region.uuid
-WHERE model_metadata.model_uuid = ?
+INNER JOIN cloud_region
+ON cloud_region.uuid = cloud_region_defaults.region_uuid
+INNER JOIN model m
+ON m.cloud_region_uuid = cloud_region.uuid
+WHERE m.uuid = ?
 `
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, cloudDefaultsStmt, uuid)
 		if err != nil {
-			return fmt.Errorf("fetching cloud region defaults for model %q", uuid)
+			return fmt.Errorf("fetching cloud region defaults for model %q: %w", uuid, err)
 		}
 		defer rows.Close()
 
@@ -115,7 +115,7 @@ WHERE model_metadata.model_uuid = ?
 		)
 		for rows.Next() {
 			if err := rows.Scan(&key, &val); err != nil {
-				return fmt.Errorf("reading cloud region defaults for model %q", uuid)
+				return fmt.Errorf("reading cloud region defaults for model %q: %w", uuid)
 			}
 			rval[key] = val
 		}
@@ -126,6 +126,49 @@ WHERE model_metadata.model_uuid = ?
 		return nil, err
 	}
 	return rval, nil
+}
+
+// ModelMetadataDefaults is responsible for returning model config values
+// related to the models metadata. If no model is found for the provided uuid an
+// error satisfying [modelerrors.NotFound] will be returned.
+func (s *State) ModelMetadataDefaults(
+	ctx context.Context,
+	uuid coremodel.UUID,
+) (map[string]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	stmt := `
+SELECT name, model_type_type
+FROM v_model
+WHERE uuid = ?
+`
+
+	var (
+		modelName string
+		modelType string
+	)
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, stmt, uuid).Scan(&modelName, &modelType)
+	})
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+	} else if err != nil {
+		return nil, fmt.Errorf(
+			"getting model metadata defaults for uuid %q: %w",
+			uuid,
+			domain.CoerceError(err),
+		)
+	}
+
+	return map[string]string{
+		config.NameKey: modelName,
+		config.UUIDKey: uuid.String(),
+		config.TypeKey: modelType,
+	}, nil
 }
 
 // ModelProviderConfigSchema returns the providers config schema source based on
@@ -144,11 +187,11 @@ func (s *State) ModelProviderConfigSchema(
 	cloudTypeStmt := `
 SELECT cloud_type.type
 FROM cloud_type
-     INNER JOIN cloud
-         ON cloud.cloud_type_id = cloud_type.id
-     INNER JOIN model_metadata
-         ON model_metadata.cloud_uuid = cloud.uuid
-WHERE model_metadata.model_uuid = ?
+INNER JOIN cloud
+ON cloud.cloud_type_id = cloud_type.id
+INNER JOIN model m
+ON m.cloud_uuid = cloud.uuid
+WHERE m.uuid = ?
 `
 
 	var cloudType string

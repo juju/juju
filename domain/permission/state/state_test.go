@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corepermission "github.com/juju/juju/core/permission"
+	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	permissionerrors "github.com/juju/juju/domain/permission/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	usererrors "github.com/juju/juju/domain/user/errors"
@@ -30,7 +31,7 @@ func (s *stateSuite) TestCreatePermissionModel(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user Bob on the model
-	s.ensureModel(c, "model-uuid")
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 	s.ensureCloud(c, "test-cloud")
@@ -49,20 +50,19 @@ func (s *stateSuite) TestCreatePermissionModel(c *gc.C) {
 
 	c.Check(userAccess.UserID, gc.Equals, "123")
 	c.Check(userAccess.UserTag, gc.Equals, names.NewUserTag("bob"))
-	c.Check(userAccess.Object.Id(), gc.Equals, "model-uuid")
+	c.Check(userAccess.Object.Id(), gc.Equals, modelUUID.String())
 	c.Check(userAccess.Access, gc.Equals, corepermission.WriteAccess)
 	c.Check(userAccess.DisplayName, gc.Equals, "Bob")
 	c.Check(userAccess.UserName, gc.Equals, "bob")
 	c.Check(userAccess.CreatedBy, gc.Equals, names.NewUserTag("admin"))
 
-	s.checkPermissionRow(c, corepermission.WriteAccess, "123", "model-uuid")
+	s.checkPermissionRow(c, corepermission.WriteAccess, "123", modelUUID.String())
 }
 
 func (s *stateSuite) TestCreatePermissionCloud(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user Bob on the model
-	s.ensureModel(c, "model-uuid")
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 	s.ensureCloud(c, "test-cloud")
@@ -212,7 +212,7 @@ func (s *stateSuite) TestCreatePermissionErrorDuplicate(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user Bob on the model
-	s.ensureModel(c, "model-uuid")
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 
@@ -220,7 +220,7 @@ func (s *stateSuite) TestCreatePermissionErrorDuplicate(c *gc.C) {
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
-				Key:        "model-uuid",
+				Key:        modelUUID.String(),
 				ObjectType: corepermission.Model,
 			},
 			Access: corepermission.ReadAccess,
@@ -264,12 +264,12 @@ func (s *stateSuite) TestDeletePermission(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user Bob on the model
-	s.ensureModel(c, "model-uuid")
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 
 	target := corepermission.ID{
-		Key:        "model-uuid",
+		Key:        modelUUID.String(),
 		ObjectType: corepermission.Model,
 	}
 	spec := corepermission.UserAccessSpec{
@@ -308,12 +308,12 @@ func (s *stateSuite) TestDeletePermissionDoesNotExist(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user Bob on the model
-	s.ensureModel(c, "model-uuid")
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 
 	target := corepermission.ID{
-		Key:        "model-uuid",
+		Key:        modelUUID.String(),
 		ObjectType: corepermission.Model,
 	}
 
@@ -328,17 +328,6 @@ func (s *stateSuite) ensureUser(c *gc.C, uuid, name, createdByUUID string) {
 			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?)
 		`, uuid, name, "Bob", false, createdByUUID, time.Now())
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *stateSuite) ensureModel(c *gc.C, uuid string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model_list (uuid)
-			VALUES (?)
-		`, uuid)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

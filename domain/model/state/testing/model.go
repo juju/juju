@@ -5,6 +5,8 @@ package testing
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,14 +16,12 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
-	userstate "github.com/juju/juju/domain/user/state"
 	"github.com/juju/juju/version"
 )
 
@@ -34,15 +34,16 @@ func CreateTestModel(
 ) coremodel.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userState := userstate.NewState(txnRunner)
-	err = userState.AddUser(
-		context.Background(),
-		userUUID,
-		"test-user",
-		"test-user",
-		userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess),
-	)
+
+	runner, err := txnRunner()
+	c.Assert(err, jc.ErrorIsNil)
+	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, userUUID, "bob", "Bob", false, userUUID, time.Now())
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSt := cloudstate.NewState(txnRunner)

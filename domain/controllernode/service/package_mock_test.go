@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	model "github.com/juju/juju/core/model"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -54,10 +55,10 @@ func (mr *MockStateMockRecorder) CurateNodes(arg0, arg1, arg2 any) *gomock.Call 
 }
 
 // SelectModelUUID mocks base method.
-func (m *MockState) SelectModelUUID(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockState) SelectModelUUID(arg0 context.Context, arg1 model.UUID) (model.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SelectModelUUID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(model.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -18,6 +18,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
@@ -59,6 +60,8 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We need to generate a cloud in the database so that we can set the model
+	// cloud.
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
 	err = cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
 		Name:      "my-cloud",
@@ -72,6 +75,8 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We need to generate a cloud credential in the database so that we can set
+	// the models cloud credential.
 	cred := credential.CloudCredentialInfo{
 		Label:    "foobar",
 		AuthType: string(cloud.AccessKeyAuthType),
@@ -112,6 +117,111 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelSt.Finalise(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestCloudType is testing the happy path of [CloudType] to make sure we get
+// back the correct type of a cloud.
+func (m *stateSuite) TestCloudType(c *gc.C) {
+	st := NewState(m.TxnRunnerFactory())
+	ctype, err := st.CloudType(context.Background(), "my-cloud")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ctype, gc.Equals, "ec2")
+}
+
+// TestCloudTypeMissing is testing that if we ask for a cloud type of a cloud
+// that does not exist we get back an error that satisfies
+// [clouderrors.NotFound].
+func (m *stateSuite) TestCloudTypeMissing(c *gc.C) {
+	st := NewState(m.TxnRunnerFactory())
+	ctype, err := st.CloudType(context.Background(), "no-exist-cloud")
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(ctype, gc.Equals, "")
+}
+
+// TestModelCloudNameAndCredential tests the happy path for getting a models
+// cloud name and credential.
+func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
+	st := NewState(m.TxnRunnerFactory())
+	// We are relying on the model setup as part of this suite.
+	cloudName, credentialID, err := st.ModelCloudNameAndCredential(context.Background(), "my-test-model", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cloudName, gc.Equals, "my-cloud")
+	c.Check(credentialID, gc.Equals, corecredential.Key{
+		Cloud: "my-cloud",
+		Owner: m.userName,
+		Name:  "foobar",
+	})
+}
+
+// TestModelCloudNameAndCredentialController is testing the cloud name and
+// credential id is returned for the controller model and owner. This is the
+// common pattern that this sate func will be used for so we have made a special
+// case to continuously test this.
+func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	userState := userstate.NewState(m.TxnRunnerFactory())
+	err = userState.AddUser(
+		context.Background(),
+		userUUID,
+		coremodel.ControllerModelOwnerUsername,
+		coremodel.ControllerModelOwnerUsername,
+		userUUID,
+		permission.ControllerForAccess(permission.SuperuserAccess),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(m.TxnRunnerFactory())
+	modelUUID := modeltesting.GenModelUUID(c)
+	// We need to first inject a model that does not have a cloud credential set
+	err = st.Create(
+		context.Background(),
+		modelUUID,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: m.userName,
+				Name:  "foobar",
+			},
+			Name:  coremodel.ControllerModelName,
+			Owner: userUUID,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.Finalise(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cloudName, credentialID, err := st.ModelCloudNameAndCredential(
+		context.Background(),
+		coremodel.ControllerModelName,
+		coremodel.ControllerModelOwnerUsername,
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cloudName, gc.Equals, "my-cloud")
+	c.Check(credentialID, gc.Equals, corecredential.Key{
+		Cloud: "my-cloud",
+		Owner: m.userName,
+		Name:  "foobar",
+	})
+}
+
+// TestModelCloudNameAndCredentialNotFound is testing that if we pass a model
+// that doesn't exist we get back a [modelerrors.NotFound] error.
+func (m *stateSuite) TestModelCloudNameAndCredentialNotFound(c *gc.C) {
+	st := NewState(m.TxnRunnerFactory())
+	// We are relying on the model setup as part of this suite.
+	cloudName, credentialID, err := st.ModelCloudNameAndCredential(context.Background(), "does-not-exist", "test-user")
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(cloudName, gc.Equals, "")
+	c.Check(credentialID.IsZero(), jc.IsTrue)
 }
 
 func (m *stateSuite) TestGetModel(c *gc.C) {
@@ -121,6 +231,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	modelInfo, err := modelSt.Get(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo, gc.Equals, coremodel.Model{
+		UUID:        m.uuid,
 		Cloud:       "my-cloud",
 		CloudRegion: "my-region",
 		Credential: corecredential.Key{
@@ -136,39 +247,8 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 
 func (m *stateSuite) TestGetModelNotFound(c *gc.C) {
 	runner := m.TxnRunnerFactory()
-
 	modelSt := NewState(runner)
-
 	_, err := modelSt.Get(context.Background(), modeltesting.GenModelUUID(c))
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-}
-
-// TestModelCloudNameAndCredential is asserting the happy path.
-func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
-	runner := m.TxnRunnerFactory()
-	modelSt := NewState(runner)
-
-	cloud, credentialKey, err := modelSt.ModelCloudNameAndCredential(
-		context.Background(), "my-test-model", m.userName,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, gc.Equals, "my-cloud")
-	c.Assert(credentialKey, gc.Equals, corecredential.Key{
-		Cloud: "my-cloud",
-		Owner: "test-user",
-		Name:  "foobar",
-	})
-}
-
-// TestModelCloudNameAndCredentialNotFound is asserting that for a model that
-// does not exists we get back an error that satisfies [modelerrors.NotFound]
-func (m *stateSuite) TestModelCloudNameAndCredentialNotFound(c *gc.C) {
-	runner := m.TxnRunnerFactory()
-	modelSt := NewState(runner)
-
-	_, _, err := modelSt.ModelCloudNameAndCredential(
-		context.Background(), "no-exist", m.userName,
-	)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -201,34 +281,15 @@ func (m *stateSuite) TestCreateModelAgentAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
-func (m *stateSuite) TestCreateModelMetadataWithNoModel(c *gc.C) {
-	runner, err := m.TxnRunnerFactory()()
-	c.Assert(err, jc.ErrorIsNil)
-
-	testUUID := modeltesting.GenModelUUID(c)
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return createModelMetadata(
-			ctx,
-			tx,
-			testUUID,
-			coremodel.IAAS,
-			model.ModelCreationArgs{
-				Cloud:       "my-cloud",
-				CloudRegion: "my-region",
-				Name:        "fantasticmodel",
-				Owner:       m.userUUID,
-			},
-		)
-	})
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-}
-
-func (m *stateSuite) TestCreateModelMetadataWithExistingMetadata(c *gc.C) {
+// TestCreateModelWithExisting is testing that if we attempt to make a new model
+// with the same uuid as one that already exists we get back a
+// [modelerrors.AlreadyExists] error.
+func (m *stateSuite) TestCreateModelWithExisting(c *gc.C) {
 	runner, err := m.TxnRunnerFactory()()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return createModelMetadata(
+		return createModel(
 			ctx,
 			tx,
 			m.uuid,
@@ -244,6 +305,9 @@ func (m *stateSuite) TestCreateModelMetadataWithExistingMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
+// TestCreateModelWithSameNameAndOwner is testing that we attempt to create a
+// new model with a different uuid but the same owner and name as one that
+// exists we get back a [modelerrors.AlreadyExists] error.
 func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	testUUID := modeltesting.GenModelUUID(c)
@@ -438,6 +502,9 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelSt.Finalise(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestDeleteModel tests that we can delete a model that is already created in
@@ -457,21 +524,12 @@ func (m *stateSuite) TestDeleteModel(c *gc.C) {
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(
 			context.Background(),
-			"SELECT model_uuid FROM model_metadata WHERE model_uuid = ?",
+			"SELECT uuid FROM model WHERE uuid = ?",
 			m.uuid,
 		)
 		var val string
 		err := row.Scan(&val)
 		c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
-
-		row = tx.QueryRowContext(
-			context.Background(),
-			"SELECT uuid FROM model_list WHERE uuid = ?",
-			m.uuid,
-		)
-		err = row.Scan(&val)
-		c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
-
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -511,6 +569,8 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	err = modelSt.Finalise(context.Background(), uuid1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	uuid2 := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
@@ -530,6 +590,8 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 			Owner: m.userUUID,
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = modelSt.Finalise(context.Background(), uuid2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuids, err := modelSt.List(context.Background())

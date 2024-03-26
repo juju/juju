@@ -153,7 +153,7 @@ func (w *Pruner) prune() (map[string]int64, error) {
 		return nil, errors.Trace(err)
 	}
 
-	query, err := sqlair.Prepare(`SELECT uuid AS &Model.uuid FROM model_list;`, Model{})
+	query, err := sqlair.Prepare(`SELECT uuid AS &Model.uuid FROM model;`, Model{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

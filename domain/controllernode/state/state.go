@@ -6,12 +6,15 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strconv"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
 // State represents database interactions dealing with controller nodes.
@@ -86,30 +89,25 @@ AND    (dqlite_node_id != ? OR bind_address != ?)`
 }
 
 // SelectModelUUID simply selects the input model UUID from the
-// model_list table, thereby verifying whether it exists.
-func (st *State) SelectModelUUID(ctx context.Context, modelUUID string) (string, error) {
+// model table, thereby verifying whether it exists. If no model is found
+// for the provided uuid then an error satisfying [modelerrors.NotFound] will
+// be returned.
+func (st *State) SelectModelUUID(ctx context.Context, uuid model.UUID) (model.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	var uuid string
 	err = db.StdTxn(ctx, func(ctx context.Context, db *sql.Tx) error {
-		row := db.QueryRowContext(ctx, "SELECT uuid FROM model_list WHERE uuid = ?", modelUUID)
+		row := db.QueryRowContext(ctx, "SELECT uuid FROM model WHERE uuid = ?", uuid.String())
 
-		if err := row.Scan(&uuid); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return errors.NotFoundf("model UUID %q", modelUUID)
-			}
-			return errors.Trace(err)
-		}
-
-		if err := row.Err(); err != nil {
-			return errors.Trace(err)
-		}
-
-		return nil
+		return row.Scan(&uuid)
 	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.UUID(""), fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+	} else if err != nil {
+		return model.UUID(""), fmt.Errorf("selecting model for uuid %q: %w", uuid, domain.CoerceError(err))
+	}
 
-	return uuid, errors.Trace(err)
+	return uuid, nil
 }

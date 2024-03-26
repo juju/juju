@@ -32,8 +32,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogControllerNamespacesSchema,
 		cloudSchema,
 		externalControllerSchema,
-		modelListSchema,
-		modelMetadataSchema,
+		modelSchema,
 		modelAgentSchema,
 		controllerConfigSchema,
 		controllerNodeTableSchema,
@@ -357,14 +356,7 @@ CREATE TABLE external_model (
 );`)
 }
 
-func modelListSchema() schema.Patch {
-	return schema.MakePatch(`
-CREATE TABLE model_list (
-    uuid    TEXT PRIMARY KEY
-);`)
-}
-
-func modelMetadataSchema() schema.Patch {
+func modelSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE model_type (
     id INT PRIMARY KEY,
@@ -378,8 +370,14 @@ INSERT INTO model_type VALUES
     (0, 'iaas'),
     (1, 'caas');
 
-CREATE TABLE model_metadata (
-    model_uuid            TEXT PRIMARY KEY,
+CREATE TABLE model (
+    uuid                  TEXT PRIMARY KEY,
+-- finalised tells us if the model creation process has been completed and
+-- we can use this model. The reason for this is model creation still happens
+-- over several transactions with anyone of them possibly failing. We write true
+-- to this field when we are happy that the model can safely be used after all
+-- operations have been completed.
+    finalised             BOOLEAN DEFAULT FALSE NOT NULL,
     cloud_uuid            TEXT NOT NULL,
     cloud_region_uuid     TEXT,
     cloud_credential_uuid TEXT,
@@ -387,58 +385,66 @@ CREATE TABLE model_metadata (
     model_type_id         INT NOT NULL,
     name                  TEXT NOT NULL,
     owner_uuid            TEXT NOT NULL,
-    CONSTRAINT            fk_model_metadata_model
-        FOREIGN KEY           (model_uuid)
-        REFERENCES            model_list(uuid),
-    CONSTRAINT            fk_model_metadata_cloud
+    CONSTRAINT            fk_model_cloud
         FOREIGN KEY           (cloud_uuid)
         REFERENCES            cloud(uuid),
-    CONSTRAINT            fk_model_metadata_cloud_region
+    CONSTRAINT            fk_model_cloud_region
         FOREIGN KEY           (cloud_region_uuid)
         REFERENCES            cloud_region(uuid),
-    CONSTRAINT            fk_model_metadata_cloud_credential
+    CONSTRAINT            fk_model_cloud_credential
         FOREIGN KEY           (cloud_credential_uuid)
         REFERENCES            cloud_credential(uuid),
     CONSTRAINT            fk_model_metadata_secret_backend
         FOREIGN KEY           (secret_backend_uuid)
         REFERENCES            secret_backend(uuid)
-    CONSTRAINT            fk_model_metadata_model_type_id
+    CONSTRAINT            fk_model_model_type_id
         FOREIGN KEY           (model_type_id)
-        REFERENCES            model_type(id),
-    CONSTRAINT            fk_model_metadata_owner_uuid
+        REFERENCES            model_type(id)
+    CONSTRAINT            fk_model_owner_uuid
         FOREIGN KEY           (owner_uuid)
         REFERENCES            user(uuid)
 );
 
-CREATE UNIQUE INDEX idx_model_metadata_name_owner
-ON model_metadata (name, owner_uuid);
+-- idx_model_name_owner established an index that stops models being created
+-- with the same name for a given owner.
+CREATE UNIQUE INDEX idx_model_name_owner ON model (name, owner_uuid);
+CREATE INDEX idx_model_finalised ON model (finalised);
 
+--- v_model purpose is to provide an easy access mechanism for models in the
+--- system. It will only show models that have been finalised so the caller does
+--- not have to worry about retrieving half complete models.
 CREATE VIEW v_model AS
 SELECT m.uuid,
-       mm.cloud_uuid,
-       c.uuid        AS cloud_uuid,
-       c.name        AS cloud_name,
-       cr.uuid       AS cloud_region_uuid,
-       cr.name       AS cloud_region_name,
-       cc.uuid       AS cloud_credential_uuid,
-       cc.name       AS cloud_credential_name,
-       cc.owner_uuid AS cloud_credential_owner_uuid,
-       cco.name      AS cloud_credential_owner_name,
-       ccn.name      AS cloud_credential_cloud_name,
-       mm.model_type_id,
-       mt.type       AS model_type_type,
-       mm.name,
-       mm.owner_uuid,
-       u.name        AS owner_name
-FROM model_list m
-INNER JOIN model_metadata mm ON m.uuid = mm.model_uuid
-INNER JOIN cloud c ON mm.cloud_uuid = c.uuid
-LEFT JOIN cloud_region cr ON mm.cloud_region_uuid = cr.uuid
-LEFT JOIN cloud_credential cc ON mm.cloud_credential_uuid = cc.uuid
-INNER JOIN user cco ON cc.owner_uuid = cco.uuid
-LEFT JOIN cloud ccn ON cc.cloud_uuid = ccn.uuid
-INNER JOIN model_type mt ON mm.model_type_id = mt.id
-INNER JOIN user u ON mm.owner_uuid = u.uuid
+       m.cloud_uuid,
+       c.name           AS cloud_name,
+       cr.uuid          AS cloud_region_uuid,
+       cr.name          AS cloud_region_name,
+       cc.uuid          AS cloud_credential_uuid,
+       cc.name          AS cloud_credential_name,
+       ccc.name         AS cloud_credential_cloud_name,
+       cco.uuid         AS cloud_credential_owner_uuid,
+       cco.name         AS cloud_credential_owner_name,
+       m.model_type_id,
+       mt.type          AS model_type_type,
+       m.name,
+       m.owner_uuid,
+       o.name           AS owner_name
+FROM model m
+INNER JOIN cloud c ON m.cloud_uuid = c.uuid
+LEFT JOIN cloud_region cr ON m.cloud_region_uuid = cr.uuid
+LEFT JOIN cloud_credential cc ON m.cloud_credential_uuid = cc.uuid
+LEFT JOIN cloud ccc ON cc.cloud_uuid = ccc.uuid
+LEFT JOIN user cco ON cc.owner_uuid = cco.uuid
+INNER JOIN model_type mt ON m.model_type_id = mt.id
+INNER JOIN user o ON m.owner_uuid = o.uuid
+WHERE m.finalised = true;
+
+--- v_model_list is a quick reference view to confirm the existence of a model
+-- for model database purposes. DO NOT add more columns to this view. It should
+-- be lightweight and simple.
+CREATE VIEW v_model_list AS
+SELECT m.uuid
+FROM model m
 `)
 }
 
@@ -458,7 +464,7 @@ CREATE TABLE model_agent (
     target_version TEXT NOT NULL,
     CONSTRAINT            fk_model_agent_model
         FOREIGN KEY           (model_uuid)
-        REFERENCES            model_list(uuid)
+        REFERENCES            model(uuid)
 );`)
 }
 

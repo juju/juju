@@ -16,6 +16,10 @@ const (
 	// AlreadyExists describes an error that occurs when a model already exists.
 	AlreadyExists = errors.ConstError("model already exists")
 
+	// AlreadyFinalised describes an error that occurs when an attempt is made
+	// to finalise a model that has already been finalised.
+	AlreadyFinalised = errors.ConstError("model already finalised")
+
 	// NotFound describes an error that occurs when the model being operated on
 	// does not exist.
 	NotFound = errors.ConstError("model not found")

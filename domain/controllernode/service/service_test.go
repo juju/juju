@@ -6,11 +6,14 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	model "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
 type serviceSuite struct {
@@ -42,17 +45,18 @@ func (s *serviceSuite) TestUpdateDqliteNode(c *gc.C) {
 func (s *serviceSuite) TestIsModelKnownToController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	knownID := "is-a-known-model"
+	knownID := modeltesting.GenModelUUID(c)
+	fakeID := modeltesting.GenModelUUID(c)
 
 	exp := s.state.EXPECT()
 	gomock.InOrder(
-		exp.SelectModelUUID(gomock.Any(), "is-not-there").Return("", errors.NotFound),
+		exp.SelectModelUUID(gomock.Any(), fakeID).Return(model.UUID(""), modelerrors.NotFound),
 		exp.SelectModelUUID(gomock.Any(), knownID).Return(knownID, nil),
 	)
 
 	svc := NewService(s.state)
 
-	known, err := svc.IsModelKnownToController(context.Background(), "is-not-there")
+	known, err := svc.IsModelKnownToController(context.Background(), fakeID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(known, jc.IsFalse)
 

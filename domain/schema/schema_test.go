@@ -121,8 +121,7 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"external_model",
 
 		// Model
-		"model_list",
-		"model_metadata",
+		"model",
 		"model_type",
 
 		// Controller config
@@ -187,6 +186,7 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 
 		// Models
 		"v_model",
+		"v_model_list",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }

@@ -5,8 +5,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
 // State describes retrieval and persistence
@@ -14,7 +18,7 @@ import (
 type State interface {
 	CurateNodes(context.Context, []string, []string) error
 	UpdateDqliteNode(context.Context, string, uint64, string) error
-	SelectModelUUID(context.Context, string) (string, error)
+	SelectModelUUID(context.Context, model.UUID) (model.UUID, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -43,10 +47,14 @@ func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nod
 
 // IsModelKnownToController returns true if the input
 // model UUID is one managed by this controller.
-func (s *Service) IsModelKnownToController(ctx context.Context, modelUUID string) (bool, error) {
+func (s *Service) IsModelKnownToController(ctx context.Context, modelUUID model.UUID) (bool, error) {
+	if err := modelUUID.Validate(); err != nil {
+		return false, fmt.Errorf("validating is known model uuid %q: %w", modelUUID, err)
+	}
+
 	uuid, err := s.st.SelectModelUUID(ctx, modelUUID)
 	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
+		if !errors.Is(err, modelerrors.NotFound) {
 			return false, errors.Annotatef(err, "determining model existence")
 		}
 	}

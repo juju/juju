@@ -8,6 +8,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 type typeSuite struct {
@@ -89,5 +91,36 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 		} else {
 			c.Assert(err, jc.ErrorIs, test.Err)
 		}
+	}
+}
+
+func (*typeSuite) TestIDValidate(c *gc.C) {
+	tests := []struct {
+		id  string
+		err error
+	}{
+		{
+			id:  "",
+			err: errors.NotValid,
+		},
+		{
+			id:  "invalid",
+			err: errors.NotValid,
+		},
+		{
+			id: uuid.MustNewUUID().String(),
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.id)
+		err := ID(test.id).Validate()
+
+		if test.err == nil {
+			c.Check(err, gc.IsNil)
+			continue
+		}
+
+		c.Check(err, jc.ErrorIs, test.err)
 	}
 }
