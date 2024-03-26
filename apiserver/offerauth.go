@@ -41,7 +41,7 @@ func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverh
 	_ = mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux)
 }
 
-func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error) {
+func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerConfigService ControllerConfigService) (*crossmodel.AuthContext, error) {
 	// Create a bakery service for discharging third-party caveats for
 	// local offer access authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
@@ -64,7 +64,7 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}

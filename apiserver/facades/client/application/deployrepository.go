@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -59,7 +58,6 @@ type DeployFromRepositoryState interface {
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	Charm(string) (Charm, error)
-	ControllerConfig() (controller.Config, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
 
@@ -499,7 +497,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(ctx, resolvedCharm.Meta().Assumes, v.model, v.cloudService, v.credentialService, v.state.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(ctx, resolvedCharm.Meta().Assumes, v.model, v.cloudService, v.credentialService); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}

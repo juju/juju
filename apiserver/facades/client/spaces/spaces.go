@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -22,9 +23,16 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// ControllerConfigService is an interface that provides controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
+
 // API provides the spaces API facade for version 6.
 type API struct {
-	reloadSpacesAPI ReloadSpaces
+	reloadSpacesAPI         ReloadSpaces
+	controllerConfigService ControllerConfigService
 
 	backing                     Backing
 	resources                   facade.Resources
@@ -38,6 +46,7 @@ type API struct {
 
 type apiConfig struct {
 	ReloadSpacesAPI             ReloadSpaces
+	ControllerConfigService     ControllerConfigService
 	Backing                     Backing
 	Check                       BlockChecker
 	CredentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
@@ -57,6 +66,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 
 	return &API{
 		reloadSpacesAPI:             cfg.ReloadSpacesAPI,
+		controllerConfigService:     cfg.ControllerConfigService,
 		backing:                     cfg.Backing,
 		resources:                   cfg.Resources,
 		auth:                        cfg.Authorizer,

@@ -7,7 +7,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/names/v5"
 
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
@@ -37,8 +36,6 @@ type Backend interface {
 	AllBlocksForController() ([]state.Block, error)
 	RemoveAllBlocksForController() error
 	ModelExists(uuid string) (bool, error)
-	ControllerConfig() (jujucontroller.Config, error)
-	UpdateControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error
 }
 
 type Application interface {

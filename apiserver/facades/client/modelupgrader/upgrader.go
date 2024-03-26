@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -35,6 +36,12 @@ type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
 }
 
+// ControllerConfigService is an interface that allows us to get the
+// controller config.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
@@ -46,6 +53,7 @@ type ModelUpgraderAPI struct {
 	apiUser                     names.UserTag
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	newEnviron                  common.NewEnvironFunc
+	controllerConfigService     ControllerConfigService
 	upgradeService              UpgradeService
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
@@ -65,6 +73,7 @@ func NewModelUpgraderAPI(
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
+	controllerConfigService ControllerConfigService,
 	upgradeService UpgradeService,
 	logger loggo.Logger,
 ) (*ModelUpgraderAPI, error) {
@@ -87,6 +96,7 @@ func NewModelUpgraderAPI(
 		registryAPIFunc:             registryAPIFunc,
 		environscloudspecGetter:     environscloudspecGetter,
 		upgradeService:              upgradeService,
+		controllerConfigService:     controllerConfigService,
 		logger:                      logger,
 	}, nil
 }
@@ -147,7 +157,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	}
 	defer st.Release()
 
-	controllerCfg, err := st.ControllerConfig()
+	controllerCfg, err := m.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

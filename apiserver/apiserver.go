@@ -331,7 +331,8 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*Server, error) {
 const readyTimeout = time.Second * 30
 
 func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
-	controllerConfigService := cfg.ServiceFactoryGetter.FactoryForModel(database.ControllerNS).ControllerConfig()
+	controllerServiceFactory := cfg.ServiceFactoryGetter.FactoryForModel(database.ControllerNS)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
@@ -418,7 +419,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	// The auth context for authenticating access to application offers.
-	srv.offerAuthCtxt, err = newOfferAuthcontext(cfg.StatePool)
+	srv.offerAuthCtxt, err = newOfferAuthContext(ctx, cfg.StatePool, controllerConfigService)
 	if err != nil {
 		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)

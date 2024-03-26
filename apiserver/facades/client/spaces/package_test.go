@@ -19,7 +19,7 @@ import (
 	environmocks "github.com/juju/juju/environs/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,MovingSubnet,MovingSubnetBacking,MoveSubnetsOp,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings
+//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,MovingSubnet,MovingSubnetBacking,MoveSubnetsOp,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings,ControllerConfigService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -39,11 +39,12 @@ type APISuite struct {
 
 	API *API
 
-	AuthorizerState     *MockAuthorizerState
-	EnvironSpaces       *MockEnvironSpaces
-	ReloadSpacesState   *MockReloadSpacesState
-	ReloadSpacesEnviron *MockReloadSpacesEnviron
-	ReloadSpacesAPI     *ReloadSpacesAPI
+	AuthorizerState         *MockAuthorizerState
+	EnvironSpaces           *MockEnvironSpaces
+	ReloadSpacesState       *MockReloadSpacesState
+	ReloadSpacesEnviron     *MockReloadSpacesEnviron
+	ReloadSpacesAPI         *ReloadSpacesAPI
+	ControllerConfigService *MockControllerConfigService
 }
 
 var _ = gc.Suite(&APISuite{})
@@ -104,6 +105,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 			s.AuthorizerState,
 		),
 	)
+	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
@@ -114,6 +116,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		Resources:                   s.resource,
 		Authorizer:                  s.authorizer,
 		Factory:                     s.OpFactory,
+		ControllerConfigService:     s.ControllerConfigService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

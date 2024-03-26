@@ -10,7 +10,6 @@ import (
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
 
@@ -31,7 +30,6 @@ type State interface {
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
 	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error
-	ControllerConfig() (controller.Config, error)
 }
 
 type SystemState interface {

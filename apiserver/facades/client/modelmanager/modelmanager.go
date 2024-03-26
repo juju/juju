@@ -507,7 +507,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			newConfig,
 		)
 	} else {
-		createdModel, err = m.newModel(
+		createdModel, err = m.newIAASModel(
 			ctx,
 			cloudSpec,
 			args,
@@ -551,11 +551,6 @@ func (m *ModelManagerAPI) newCAASModel(
 	ownerTag names.UserTag,
 	newConfig *config.Config,
 ) (_ common.Model, err error) {
-	controllerConfig, err := m.state.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting controller config")
-	}
-
 	defer func() {
 		// Retain the error stack but with a better message.
 		if errors.Is(err, errors.AlreadyExists) {
@@ -570,7 +565,7 @@ Please choose a different model name.
 	}()
 
 	broker, err := m.getBroker(ctx, environs.OpenParams{
-		ControllerUUID: controllerConfig.ControllerUUID(),
+		ControllerUUID: m.controllerUUID.String(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
 	})
@@ -581,7 +576,7 @@ Please choose a different model name.
 	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
 	if err = broker.Create(
 		callCtx,
-		environs.CreateParams{ControllerUUID: controllerConfig.ControllerUUID()},
+		environs.CreateParams{ControllerUUID: m.controllerUUID.String()},
 	); err != nil {
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
@@ -605,7 +600,7 @@ Please choose a different model name.
 	return model, nil
 }
 
-func (m *ModelManagerAPI) newModel(
+func (m *ModelManagerAPI) newIAASModel(
 	ctx context.Context,
 	cloudSpec environscloudspec.CloudSpec,
 	createArgs params.ModelCreateArgs,
@@ -616,14 +611,9 @@ func (m *ModelManagerAPI) newModel(
 	ownerTag names.UserTag,
 	newConfig *config.Config,
 ) (common.Model, error) {
-	controllerCfg, err := m.state.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Create the Environ.
 	env, err := environs.New(ctx, environs.OpenParams{
-		ControllerUUID: controllerCfg.ControllerUUID(),
+		ControllerUUID: m.controllerUUID.String(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
 	})
@@ -635,7 +625,7 @@ func (m *ModelManagerAPI) newModel(
 	err = env.Create(
 		callCtx,
 		environs.CreateParams{
-			ControllerUUID: controllerCfg.ControllerUUID(),
+			ControllerUUID: m.controllerUUID.String(),
 		},
 	)
 	if err != nil {

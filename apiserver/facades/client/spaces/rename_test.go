@@ -22,11 +22,12 @@ import (
 type SpaceRenameSuite struct {
 	spaceName string
 
-	state    *spaces.MockRenameSpaceState
-	space    *spaces.MockRenameSpace
-	settings *spaces.MockSettings
-	cons1    *spaces.MockConstraints
-	cons2    *spaces.MockConstraints
+	state                   *spaces.MockRenameSpaceState
+	space                   *spaces.MockRenameSpace
+	settings                *spaces.MockSettings
+	cons1                   *spaces.MockConstraints
+	cons2                   *spaces.MockConstraints
+	controllerConfigService *spaces.MockControllerConfigService
 }
 
 var _ = gc.Suite(&SpaceRenameSuite{})
@@ -39,8 +40,9 @@ func (s *SpaceRenameSuite) TestBuildSuccess(c *gc.C) {
 	currentConfig := s.getDefaultControllerConfig(
 		c, map[string]interface{}{controller.JujuHASpace: s.spaceName, controller.JujuManagementSpace: "nochange"})
 
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
+
 	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
-	s.state.EXPECT().ControllerConfig().Return(currentConfig, nil)
 	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return([]spaces.Constraints{s.cons1, s.cons2}, nil)
 	s.cons1.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 	s.cons2.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
@@ -53,7 +55,7 @@ func (s *SpaceRenameSuite) TestBuildSuccess(c *gc.C) {
 	}}
 	s.settings.EXPECT().DeltaOps(state.ControllerSettingsGlobalKey, expectedConfigDelta).Return([]txn.Op{{}}, nil)
 
-	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.controllerConfigService, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 4)
@@ -69,7 +71,7 @@ func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
 	s.cons1.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 	s.cons2.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 
-	op := spaces.NewRenameSpaceOp(false, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(false, s.settings, s.state, s.controllerConfigService, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 3)
@@ -84,9 +86,9 @@ func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *gc.C) {
 	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return(nil, nil)
 
 	bamErr := errors.New("bam")
-	s.state.EXPECT().ControllerConfig().Return(nil, bamErr)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(nil, bamErr)
 
-	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.controllerConfigService, s.space, toName)
 	_, err := op.Build(0)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("retrieving settings changes: %v", bamErr.Error()))
 }
@@ -100,7 +102,7 @@ func (s *SpaceRenameSuite) TestBuildConstraintsRetrievalError(c *gc.C) {
 	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
 	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return(nil, bamErr)
 
-	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.controllerConfigService, s.space, toName)
 	_, err := op.Build(0)
 	c.Assert(err, gc.ErrorMatches, bamErr.Error())
 }
@@ -117,6 +119,8 @@ func (s *SpaceRenameSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.spaceName = "db"
 	s.space = spaces.NewMockRenameSpace(ctrl)
 	s.space.EXPECT().Name().Return(s.spaceName).AnyTimes()
+
+	s.controllerConfigService = spaces.NewMockControllerConfigService(ctrl)
 
 	s.state = spaces.NewMockRenameSpaceState(ctrl)
 	s.settings = spaces.NewMockSettings(ctrl)
