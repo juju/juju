@@ -343,7 +343,7 @@ wait_for_aws_ingress_cidrs_for_port_range() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
-	while [ "$attempt" -gt "3" ]; do
+	while [ "$attempt" -lt "3" ]; do
 		echo "[+] (attempt ${attempt}) polling security group rules"
 		# shellcheck disable=SC2086
 		secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
