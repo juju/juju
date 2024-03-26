@@ -9,10 +9,12 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-// triggersForImmutableTable returns a function that creates triggers to prevent updates and deletes
-// on the given table. The condition is an optional SQL condition that must be met for the trigger to
-// be executed. The errMsg is the error message that will be returned if the trigger is fired.
-func triggersForImmutableTable(table, condition, errMsg string) func() schema.Patch {
+// triggersForImmutableTable returns a function that creates triggers to prevent updates and
+// deletes on the given table.
+// The tableName is the name of the table to create the triggers for.
+// The condition is an optional SQL condition that must be met for the trigger to be executed.
+// The errMsg is the error message that will be returned if the trigger is fired.
+func triggersForImmutableTable(tableName, condition, errMsg string) func() schema.Patch {
 	if condition != "" {
 		condition = fmt.Sprintf(`
     WHEN %s`[1:], condition)
@@ -33,7 +35,7 @@ CREATE TRIGGER trg_%[1]s_immutable_delete
 %[2]s
     BEGIN
         SELECT RAISE(FAIL, '%[3]s');
-    END;`[1:], table, condition, errMsg)
+    END;`[1:], tableName, condition, errMsg)
 		return schema.MakePatch(stmt)
 	}
 }

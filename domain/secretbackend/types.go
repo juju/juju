@@ -7,8 +7,8 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 )
 
-// Model represents a single subset of a row from the state database's model_metadata table.
-type Model struct {
+// ModelSecretBackend represents a set of data about a model and its secret backend config.
+type ModelSecretBackend struct {
 	// ID is the unique identifier for the model.
 	ID coremodel.UUID
 	// Name is the name of the model.

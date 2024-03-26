@@ -17,7 +17,7 @@ type UpsertSecretBackendParams struct {
 	BackendType         string
 	TokenRotateInterval *time.Duration
 	NextRotateTime      *time.Time
-	Config              map[string]interface{}
+	Config              map[string]string
 }
 
 // Validate checks that the parameters are valid.
@@ -30,10 +30,26 @@ func (p UpsertSecretBackendParams) Validate() error {
 			return fmt.Errorf(
 				"%w: empty config key for %q", backenderrors.NotValid, p.ID)
 		}
-		if v.(string) == "" {
+		if v == "" {
 			return fmt.Errorf(
 				"%w: empty config value for %q", backenderrors.NotValid, p.ID)
 		}
 	}
 	return nil
+}
+
+// SecretBackend represents a secret backend instance from state.
+type SecretBackend struct {
+	// ID is the unique identifier of the secret backend.
+	ID string
+	// Name is the human-readable name of the secret backend.
+	Name string
+	// BackendType is the type of the secret backend.
+	BackendType string
+	// TokenRotateInterval is the interval at which the token should be rotated.
+	TokenRotateInterval *time.Duration
+	// NextRotateTime is the time at which the next token rotation should occur.
+	NextRotateTime *time.Time
+	// Config is the configuration of the secret backend.
+	Config map[string]string
 }

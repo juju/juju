@@ -18,7 +18,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
@@ -53,7 +52,7 @@ func (s *stateSuite) TestGetModel(c *gc.C) {
 	modelUUID, backendUUID := s.createModel(c)
 	model, err := s.state.GetModel(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
-	c.Assert(model, gc.DeepEquals, secretbackend.Model{
+	c.Assert(model, gc.DeepEquals, secretbackend.ModelSecretBackend{
 		ID:              modelUUID,
 		Name:            "my-model",
 		Type:            coremodel.IAAS,
@@ -76,7 +75,7 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -84,12 +83,12 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, backendID)
 
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -177,7 +176,7 @@ VALUES (?, ?);`[1:]
 }
 
 func (s *stateSuite) assertSecretBackend(
-	c *gc.C, expectedSecretBackend coresecrets.SecretBackend, expectedNextRotationTime *time.Time,
+	c *gc.C, expectedSecretBackend secretbackend.SecretBackend, expectedNextRotationTime *time.Time,
 ) {
 	db := s.DB()
 	row := db.QueryRow(`
@@ -187,7 +186,7 @@ WHERE uuid = ?`[1:], expectedSecretBackend.ID)
 	c.Assert(row.Err(), gc.IsNil)
 
 	var (
-		actual              coresecrets.SecretBackend
+		actual              secretbackend.SecretBackend
 		tokenRotateInterval database.NullDuration
 	)
 	err := row.Scan(&actual.ID, &actual.Name, &actual.BackendType, &tokenRotateInterval)
@@ -219,7 +218,7 @@ WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 	}
 
 	if len(expectedSecretBackend.Config) > 0 {
-		actual.Config = map[string]interface{}{}
+		actual.Config = map[string]string{}
 		rows, err := db.Query(`
 SELECT name, content
 FROM secret_backend_config
@@ -256,7 +255,7 @@ func (s *stateSuite) TestCreateSecretBackendFailed(c *gc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "",
 		},
 	})
@@ -269,7 +268,7 @@ func (s *stateSuite) TestCreateSecretBackendFailed(c *gc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"": "value1",
 		},
 	})
@@ -287,7 +286,7 @@ func (s *stateSuite) TestCreateSecretBackend(c *gc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -295,12 +294,12 @@ func (s *stateSuite) TestCreateSecretBackend(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, backendID)
 
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -317,7 +316,7 @@ func (s *stateSuite) TestCreateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, backendID)
 
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
@@ -342,7 +341,7 @@ func (s *stateSuite) TestUpsertSecretBackendInvalidArg(c *gc.C) {
 
 	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
 		ID: backendID,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "",
 		},
 	})
@@ -351,7 +350,7 @@ func (s *stateSuite) TestUpsertSecretBackendInvalidArg(c *gc.C) {
 
 	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
 		ID: backendID,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"": "value1",
 		},
 	})
@@ -369,18 +368,18 @@ func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -394,19 +393,19 @@ func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 		Name:                nameChange,
 		TokenRotateInterval: &newRotateInternal,
 		NextRotateTime:      &newNextRotateTime,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1-updated",
 			"key3": "value3",
 		},
 	})
 	c.Assert(err, gc.IsNil)
 
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend-updated",
 		BackendType:         "vault",
 		TokenRotateInterval: &newRotateInternal,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1-updated",
 			"key3": "value3",
 		},
@@ -423,18 +422,18 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
 		NextRotateTime:      &nextRotateTime,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -446,12 +445,12 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 		Name: nameChange,
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend-updated",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -491,7 +490,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 
 	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
 		ID: backendID2,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "",
 		},
 	})
@@ -500,7 +499,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 
 	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
 		ID: backendID2,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"": "value1",
 		},
 	})
@@ -531,7 +530,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailedForInternalBackend(c *gc.C) {
 		BackendType: "internal",
 	})
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend forbidden: %q is immutable`, backendID))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
 }
 
 func (s *stateSuite) TestUpdateSecretBackendFailedForKubernetesBackend(c *gc.C) {
@@ -550,7 +549,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailedForKubernetesBackend(c *gc.C) 
 		BackendType: "kubernetes",
 	})
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend forbidden: %q is immutable`, backendID))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
 }
 
 func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
@@ -614,7 +613,7 @@ func (s *stateSuite) TestDeleteSecretBackendWithNoConfigNoNextRotationTime(c *gc
 		TokenRotateInterval: &rotateInternal,
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -662,7 +661,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForInternalBackend(c *gc.C) {
 
 	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend forbidden: %q is immutable`, backendID))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
 }
 
 func (s *stateSuite) TestDeleteSecretBackendFailedForKubernetesBackend(c *gc.C) {
@@ -676,7 +675,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForKubernetesBackend(c *gc.C) 
 
 	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend forbidden: %q is immutable`, backendID))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
 }
 
 func (s *stateSuite) TestDeleteSecretBackendInUseFail(c *gc.C) {
@@ -697,18 +696,18 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
 		NextRotateTime:      &nextRotateTime1,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID1,
 		Name:                "my-backend1",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal1,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -723,18 +722,18 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
 		NextRotateTime:      &nextRotateTime2,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key3": "value3",
 			"key4": "value4",
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID2,
 		Name:                "my-backend2",
 		BackendType:         "kubernetes",
 		TokenRotateInterval: &rotateInternal2,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key3": "value3",
 			"key4": "value4",
 		},
@@ -743,13 +742,13 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	backends, err := s.state.ListSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.HasLen, 2)
-	c.Assert(backends, gc.DeepEquals, []*coresecrets.SecretBackend{
+	c.Assert(backends, gc.DeepEquals, []*secretbackend.SecretBackend{
 		{
 			ID:                  backendID1,
 			Name:                "my-backend1",
 			BackendType:         "vault",
 			TokenRotateInterval: &rotateInternal1,
-			Config: map[string]interface{}{
+			Config: map[string]string{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -759,7 +758,7 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 			Name:                "my-backend2",
 			BackendType:         "kubernetes",
 			TokenRotateInterval: &rotateInternal2,
-			Config: map[string]interface{}{
+			Config: map[string]string{
 				"key3": "value3",
 				"key4": "value4",
 			},
@@ -782,7 +781,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 		BackendType: "vault",
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
@@ -790,7 +789,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 
 	backend, err := s.state.GetSecretBackendByName(context.Background(), "my-backend")
 	c.Assert(err, gc.IsNil)
-	c.Assert(backend, gc.DeepEquals, &coresecrets.SecretBackend{
+	c.Assert(backend, gc.DeepEquals, &secretbackend.SecretBackend{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
@@ -803,7 +802,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	backend, err = s.state.GetSecretBackendByName(context.Background(), "my-backend")
 	c.Assert(err, gc.IsNil)
-	c.Assert(backend, gc.DeepEquals, &coresecrets.SecretBackend{
+	c.Assert(backend, gc.DeepEquals, &secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -812,7 +811,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 
 	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
 		ID: backendID,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -820,12 +819,12 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	backend, err = s.state.GetSecretBackendByName(context.Background(), "my-backend")
 	c.Assert(err, gc.IsNil)
-	c.Assert(backend, gc.DeepEquals, &coresecrets.SecretBackend{
+	c.Assert(backend, gc.DeepEquals, &secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -848,7 +847,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 		BackendType: "vault",
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
@@ -856,7 +855,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 
 	backend, err := s.state.GetSecretBackend(context.Background(), backendID)
 	c.Assert(err, gc.IsNil)
-	c.Assert(backend, gc.DeepEquals, &coresecrets.SecretBackend{
+	c.Assert(backend, gc.DeepEquals, &secretbackend.SecretBackend{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
@@ -869,7 +868,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	backend, err = s.state.GetSecretBackend(context.Background(), backendID)
 	c.Assert(err, gc.IsNil)
-	c.Assert(backend, gc.DeepEquals, &coresecrets.SecretBackend{
+	c.Assert(backend, gc.DeepEquals, &secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -878,7 +877,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 
 	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
 		ID: backendID,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -886,12 +885,12 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	backend, err = s.state.GetSecretBackend(context.Background(), backendID)
 	c.Assert(err, gc.IsNil)
-	c.Assert(backend, gc.DeepEquals, &coresecrets.SecretBackend{
+	c.Assert(backend, gc.DeepEquals, &secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
 		TokenRotateInterval: &rotateInternal,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -918,7 +917,7 @@ func (s *stateSuite) TestSecretBackendRotated(c *gc.C) {
 		NextRotateTime:      &nextRotateTime,
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -928,7 +927,7 @@ func (s *stateSuite) TestSecretBackendRotated(c *gc.C) {
 	newNextRotateTime := time.Now().Add(2 * rotateInternal)
 	err = s.state.SecretBackendRotated(context.Background(), backendID, newNextRotateTime)
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -941,7 +940,7 @@ func (s *stateSuite) TestSecretBackendRotated(c *gc.C) {
 	newNextRotateTime = time.Now().Add(rotateInternal / 2)
 	err = s.state.SecretBackendRotated(context.Background(), backendID, newNextRotateTime)
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -970,7 +969,7 @@ func (s *stateSuite) TestGetSecretBackendRotateChanges(c *gc.C) {
 		NextRotateTime:      &nextRotateTime1,
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID1,
 		Name:                "my-backend1",
 		BackendType:         "vault",
@@ -988,7 +987,7 @@ func (s *stateSuite) TestGetSecretBackendRotateChanges(c *gc.C) {
 		NextRotateTime:      &nextRotateTime2,
 	})
 	c.Assert(err, gc.IsNil)
-	s.assertSecretBackend(c, coresecrets.SecretBackend{
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
 		ID:                  backendID2,
 		Name:                "my-backend2",
 		BackendType:         "vault",

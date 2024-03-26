@@ -22,7 +22,7 @@ func (s *paramsSuite) TestUpsertSecretBackendParamsValidate(c *gc.C) {
 
 	p = UpsertSecretBackendParams{
 		ID: "backend-id",
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"": "value",
 		},
 	}
@@ -32,7 +32,7 @@ func (s *paramsSuite) TestUpsertSecretBackendParamsValidate(c *gc.C) {
 
 	p = UpsertSecretBackendParams{
 		ID: "backend-id",
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key": "",
 		},
 	}

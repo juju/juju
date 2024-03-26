@@ -15,7 +15,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -47,20 +46,20 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 // GetModel is responsible for returning the model for the provided uuid. If no
 // model is found the given uuid then an error of
 // [github.com/juju/juju/domain/model/errors.NotFound] is returned.
-func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (secretbackend.Model, error) {
+func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
-		return secretbackend.Model{}, errors.Trace(err)
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
 
 	stmt, err := s.Prepare(`
-SELECT &Model.*
+SELECT &ModelSecretBackend.*
 FROM v_model_secret_backend
-WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
+WHERE uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 	if err != nil {
-		return secretbackend.Model{}, errors.Trace(err)
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
-	var m Model
+	var m ModelSecretBackend
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -69,17 +68,17 @@ WHERE uuid = $M.uuid`, sqlair.M{}, Model{})
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return secretbackend.Model{}, errors.Trace(domain.CoerceError(err))
+		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
 	}
 	if !m.Type.IsValid() {
 		// This should never happen.
-		return secretbackend.Model{}, fmt.Errorf("invalid model type for model %q", m.Name)
+		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.Name)
 	}
 	// If the backend ID is NULL, it means that the model does not have a secret backend configured.
 	// We return an empty string in this case.
 	// TODO: we should return the `default` backend once we start to include the
 	// `internal` and `k8s` backends in the database. And obviously, this field will become non-nullable.
-	return secretbackend.Model{
+	return secretbackend.ModelSecretBackend{
 		ID:              m.ID,
 		Name:            m.Name,
 		Type:            m.Type,
@@ -109,12 +108,7 @@ WHERE uuid = $M.uuid`, SecretBackend{}, sqlair.M{})
 	upsertBackendStmt, err := s.Prepare(`
 INSERT INTO secret_backend
     (uuid, name, backend_type, token_rotate_interval)
-VALUES (
-    $SecretBackend.uuid,
-    $SecretBackend.name,
-    $SecretBackend.backend_type,
-    $SecretBackend.token_rotate_interval
-)
+VALUES ($SecretBackend.*)
 ON CONFLICT (uuid) DO UPDATE SET
     name=EXCLUDED.name,
     token_rotate_interval=EXCLUDED.token_rotate_interval;`, SecretBackend{})
@@ -125,10 +119,7 @@ ON CONFLICT (uuid) DO UPDATE SET
 	upsertRotationStmt, err := s.Prepare(`
 INSERT INTO secret_backend_rotation
     (backend_uuid, next_rotation_time)
-VALUES (
-    $SecretBackendRotation.backend_uuid,
-    $SecretBackendRotation.next_rotation_time
-)
+VALUES ($SecretBackendRotation.*)
 ON CONFLICT (backend_uuid) DO UPDATE SET
     next_rotation_time=EXCLUDED.next_rotation_time;`,
 		SecretBackendRotation{})
@@ -147,11 +138,7 @@ WHERE backend_uuid = $M.uuid AND name NOT IN ($S[:]);`,
 	upsertConfigStmt, err := s.Prepare(`
 INSERT INTO secret_backend_config
     (backend_uuid, name, content)
-VALUES (
-    $SecretBackendConfig.backend_uuid,
-    $SecretBackendConfig.name,
-    $SecretBackendConfig.content
-)
+VALUES ($SecretBackendConfig.*)
 ON CONFLICT (backend_uuid, name) DO UPDATE SET
     content = EXCLUDED.content`,
 		SecretBackendConfig{})
@@ -207,7 +194,7 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET
 			err = tx.Query(ctx, upsertConfigStmt, SecretBackendConfig{
 				ID:      params.ID,
 				Name:    k,
-				Content: v.(string),
+				Content: v,
 			}).Run()
 			if err != nil {
 				return fmt.Errorf("cannot upsert secret backend config for %q: %w", params.Name, err)
@@ -220,11 +207,11 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET
 
 func prepareDataForUpsertSecretBackend(
 	ctx context.Context, tx *sqlair.TX,
-	getStmt *sqlair.Statement,
+	getBackendStmt *sqlair.Statement,
 	params *secretbackend.UpsertSecretBackendParams,
 ) error {
 	var existing SecretBackend
-	err := tx.Query(ctx, getStmt, sqlair.M{"uuid": params.ID}).Get(&existing)
+	err := tx.Query(ctx, getBackendStmt, sqlair.M{"uuid": params.ID}).Get(&existing)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// New insert.
 		if params.Name == "" {
@@ -322,7 +309,7 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 }
 
 // ListSecretBackends returns a list of all secret backends.
-func (s *State) ListSecretBackends(ctx context.Context) ([]*coresecrets.SecretBackend, error) {
+func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -346,8 +333,9 @@ ORDER BY b.name`, SecretBackendRow{})
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&rows)
 		if errors.Is(err, sql.ErrNoRows) {
-			// We donnot want to return an error if there are no secret backends.
+			// We do not want to return an error if there are no secret backends.
 			// We just return an empty list.
+			s.logger.Debugf("no secret backends found")
 			return nil
 		}
 		if err != nil {
@@ -361,7 +349,7 @@ ORDER BY b.name`, SecretBackendRow{})
 	return rows.toSecretBackends(), errors.Trace(err)
 }
 
-func (s *State) getSecretBackend(ctx context.Context, columName string, v string) (*coresecrets.SecretBackend, error) {
+func (s *State) getSecretBackend(ctx context.Context, columName string, v string) (*secretbackend.SecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -403,12 +391,12 @@ WHERE b.%s = $M.identifier`, columName)
 }
 
 // GetSecretBackendByName returns the secret backend for the given backend name.
-func (s *State) GetSecretBackendByName(ctx context.Context, backendName string) (*coresecrets.SecretBackend, error) {
+func (s *State) GetSecretBackendByName(ctx context.Context, backendName string) (*secretbackend.SecretBackend, error) {
 	return s.getSecretBackend(ctx, "name", backendName)
 }
 
 // GetSecretBackend returns the secret backend for the given backend ID.
-func (s *State) GetSecretBackend(ctx context.Context, backendID string) (*coresecrets.SecretBackend, error) {
+func (s *State) GetSecretBackend(ctx context.Context, backendID string) (*secretbackend.SecretBackend, error) {
 	return s.getSecretBackend(ctx, "uuid", backendID)
 }
 
@@ -492,7 +480,7 @@ WHERE b.uuid IN ($S[:])`,
 		err := tx.Query(ctx, stmt, args).GetAll(&rows)
 		if errors.Is(err, sql.ErrNoRows) {
 			// This can happen only if the backends were deleted immediately after the rotation gets updated.
-			// We donnot want to trigger anything in this case.
+			// We do not want to trigger anything in this case.
 			return nil
 		}
 		if err != nil {

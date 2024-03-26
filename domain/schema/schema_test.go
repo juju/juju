@@ -302,7 +302,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 	c.Assert(readEntityNames(c, s.DB(), "table"), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
 
-func (s *schemaSuite) TestControllerChangeLogTriggers(c *gc.C) {
+func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 	s.applyDDL(c, ControllerDDL())
 
 	// Ensure that each trigger is present.
@@ -361,7 +361,7 @@ func (s *schemaSuite) TestControllerChangeLogTriggers(c *gc.C) {
 	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.Union(additional).SortedValues())
 }
 
-func (s *schemaSuite) TestModelChangeLogTriggers(c *gc.C) {
+func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	// Ensure that each trigger is present.
@@ -621,7 +621,7 @@ INSERT INTO secret_application_consumer (uuid, secret_uuid, application_uuid, cu
 	s.assertChangeLogCount(c, 4, tableSecretRemoteUnitConsumerCurrentRevision, 1)
 }
 
-func (s *schemaSuite) TestControllerTriggersForImmutableTable(c *gc.C) {
+func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {
 	s.applyDDL(c, ControllerDDL())
 
 	backendUUID1 := utils.MustNewUUID().String()
@@ -647,7 +647,7 @@ func (s *schemaSuite) TestControllerTriggersForImmutableTable(c *gc.C) {
 		"secret backends with type internal or kubernetes are immutable", backendUUID2)
 }
 
-func (s *schemaSuite) TestModelTriggersForImmutableTable(c *gc.C) {
+func (s *schemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	modelUUID := utils.MustNewUUID().String()

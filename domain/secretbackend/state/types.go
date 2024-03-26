@@ -8,13 +8,13 @@ import (
 	"sort"
 
 	coremodel "github.com/juju/juju/core/model"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	secretbackend "github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/database"
 )
 
-// Model represents a single subset of a row from the state database's model_metadata table.
-type Model struct {
+// ModelSecretBackend represents a set of data about a model and its secret backend config.
+type ModelSecretBackend struct {
 	// ID is the unique identifier for the model.
 	ID coremodel.UUID `db:"uuid"`
 	// Name is the name of the model.
@@ -75,15 +75,15 @@ type SecretBackendRow struct {
 // SecretBackendRows represents a slice of SecretBackendRow.
 type SecretBackendRows []SecretBackendRow
 
-func (rows SecretBackendRows) toSecretBackends() []*coresecrets.SecretBackend {
+func (rows SecretBackendRows) toSecretBackends() []*secretbackend.SecretBackend {
 	// Sort the rows by backend name to ensure that we group the config.
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].Name < rows[j].Name
 	})
-	var result []*coresecrets.SecretBackend
-	var currentBackend *coresecrets.SecretBackend
+	var result []*secretbackend.SecretBackend
+	var currentBackend *secretbackend.SecretBackend
 	for _, row := range rows {
-		backend := coresecrets.SecretBackend{
+		backend := secretbackend.SecretBackend{
 			ID:          row.ID,
 			Name:        row.Name,
 			BackendType: row.BackendType,
@@ -104,7 +104,7 @@ func (rows SecretBackendRows) toSecretBackends() []*coresecrets.SecretBackend {
 		}
 
 		if currentBackend.Config == nil {
-			currentBackend.Config = make(map[string]interface{})
+			currentBackend.Config = make(map[string]string)
 		}
 		currentBackend.Config[row.ConfigName] = row.ConfigContent
 	}
