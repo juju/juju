@@ -54,50 +54,15 @@ assert_ingress_cidrs_for_exposed_app() {
 	juju expose ubuntu-lite --endpoints ubuntu # expose to the world
 	# overwrite previous command
 	juju expose ubuntu-lite --endpoints ubuntu --to-cidrs 10.42.0.0/16,2002:0:0:1234::/64
-	sleep 2 # wait for firewall worker to detect and apply the changes
 
+	echo "==> Waiting for the security group rules will be updated"
 	# Range 1337-1339 is opened for all endpoints. We expect it to be reachable
 	# by the expose-all CIDR list plus the CIDR for the ubuntu endpoint.
-	assert_ipv4_ingress_cidrs_for_port_range "1337" "1339" "10.0.0.0/24,10.42.0.0/16,192.168.0.0/24"
+	wait_for_aws_ingress_cidrs_for_port_range "1337" "1339" "10.0.0.0/24,10.42.0.0/16,192.168.0.0/24" "ipv4"
 
 	# Port 1234 should only be opened for the CIDR specified for the ubuntu endpoint
-	assert_ipv4_ingress_cidrs_for_port_range "1234" "1234" "10.42.0.0/16"
-	assert_ipv6_ingress_cidrs_for_port_range "1234" "1234" "2002:0:0:1234::/64"
-}
-
-# assert_ipv4_ingress_cidrs_for_port_range $from_port, $to_port $exp_cidrs
-assert_ipv4_ingress_cidrs_for_port_range() {
-	assert_ingress_cidrs_for_port_range "$1" "$2" "$3" "ipv4"
-}
-
-# assert_ipv6_ingress_cidrs_for_port_range $from_port, $to_port $exp_cidrs
-assert_ipv6_ingress_cidrs_for_port_range() {
-	assert_ingress_cidrs_for_port_range "$1" "$2" "$3" "ipv6"
-}
-
-assert_ingress_cidrs_for_port_range() {
-	local from_port to_port exp_cidrs cidr_type
-
-	from_port=${1}
-	to_port=${2}
-	exp_cidrs=${3}
-	cidr_type=${4}
-
-	# shellcheck disable=SC2086
-	secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
-	if [ "$cidr_type" = "ipv4" ]; then
-		# shellcheck disable=SC2086
-		got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .IpRanges | .[] | .CidrIp" | sort | paste -sd, -)
-	else
-		# shellcheck disable=SC2086
-		got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ipv6Ranges | .[] | .CidrIpv6" | sort | paste -sd, -)
-	fi
-
-	if [ "$got_cidrs" != "$exp_cidrs" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected generated EC2 ${cidr_type} ingress CIDRs for range [${from_port}, ${to_port}] to be:\n${exp_cidrs}\nGOT:\n${got_cidrs}")
-		exit 1
-	fi
+	wait_for_aws_ingress_cidrs_for_port_range "1234" "1234" "10.42.0.0/16" "ipv4"
+	wait_for_aws_ingress_cidrs_for_port_range "1234" "1234" "2002:0:0:1234::/64" "ipv6"
 }
 
 assert_export_bundle_output_includes_exposed_endpoints() {
