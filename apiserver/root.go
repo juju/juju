@@ -188,7 +188,8 @@ func newAPIHandler(
 		Path:   localOfferAccessLocationPath,
 	}
 
-	controllerConfig, err := st.ControllerConfig()
+	contollerConfigService := serviceFactory.ControllerConfig()
+	controllerConfig, err := contollerConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}

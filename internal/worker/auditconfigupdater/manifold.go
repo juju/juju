@@ -13,16 +13,22 @@ import (
 	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 )
 
+// GetControllerConfigServiceFunc is a helper function that gets a service from
+// the manifold.
+type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
+
 // ManifoldConfig holds the information needed to run an
 // auditconfigupdater in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName          string
-	ServiceFactoryName string
-	NewWorker          func(ControllerConfigService, auditlog.Config, AuditLogFactory) (worker.Worker, error)
+	AgentName                  string
+	ServiceFactoryName         string
+	NewWorker                  func(ControllerConfigService, auditlog.Config, AuditLogFactory) (worker.Worker, error)
+	GetControllerConfigService GetControllerConfigServiceFunc
 }
 
 // Validate validates the manifold configuration.
@@ -35,6 +41,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.GetControllerConfigService == nil {
+		return errors.NotValidf("nil GetControllerConfigService")
 	}
 	return nil
 }
@@ -62,12 +71,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var serviceFactory servicefactory.ControllerServiceFactory
-	if err := getter.Get(config.ServiceFactoryName, &serviceFactory); err != nil {
+	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	controllerConfigService := serviceFactory.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -122,4 +129,12 @@ func initialConfig(cfg controller.Config) (auditlog.Config, error) {
 		ExcludeMethods: cfg.AuditLogExcludeMethods(),
 	}
 	return result, nil
+}
+
+// GetControllerConfigService is a helper function that gets a service from the
+// manifold.
+func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+		return factory.ControllerConfig()
+	})
 }

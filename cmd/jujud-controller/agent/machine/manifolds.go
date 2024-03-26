@@ -778,9 +778,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
-			AgentName:          agentName,
-			ServiceFactoryName: serviceFactoryName,
-			NewWorker:          auditconfigupdater.New,
+			AgentName:                  agentName,
+			ServiceFactoryName:         serviceFactoryName,
+			NewWorker:                  auditconfigupdater.NewWorker,
+			GetControllerConfigService: auditconfigupdater.GetControllerConfigService,
 		})),
 
 		// The lease expiry worker constantly deletes

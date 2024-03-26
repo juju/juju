@@ -14,7 +14,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -55,7 +54,6 @@ type ModelManagerBackend interface {
 	ControllerModelUUID() string
 	ControllerModelTag() names.ModelTag
 	IsController() bool
-	ControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]ControllerNode, error)
 	ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error)
 	UpdateModelConfigDefaultValues(

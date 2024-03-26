@@ -21,6 +21,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -139,18 +140,15 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	systemState, err := config.StatePool.SystemState()
+	serviceFactory := config.ServiceFactoryGetter.FactoryForModel(database.ControllerNS)
+	controllerConfigService := serviceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerConfig, err := systemState.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot fetch the controller config")
+		return nil, errors.Annotate(err, "getting controller config")
 	}
 
 	observerFactory, err := newObserverFn(
 		config.AgentConfig,
-		controllerConfig,
 		config.Clock,
 		config.Hub,
 		config.MetricsCollector,
