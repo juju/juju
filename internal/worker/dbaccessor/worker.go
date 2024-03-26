@@ -946,7 +946,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	known, err := w.nodeService().IsModelKnownToController(ctx, namespace)
+	known, err := w.nodeService().IsKnownDatabaseNamespace(ctx, namespace)
 	if err != nil {
 		return errors.Trace(err)
 	}

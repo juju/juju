@@ -428,11 +428,11 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 func LoadClouds(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name string) ([]cloud.Cloud, error) {
 	// First load the basic cloud info and auth types.
 	q := `
-WITH controllers AS (SELECT model_metadata.cloud_uuid
-        FROM model_metadata
+WITH controllers AS (SELECT model.cloud_uuid
+        FROM model
 		INNER JOIN user
-        ON user.uuid = model_metadata.owner_uuid
-        AND model_metadata.name = $M.controller_name
+        ON user.uuid = model.owner_uuid
+        AND model.name = $M.controller_name
         AND user.name = $M.controller_user_name)
 SELECT (cloud.uuid, cloud.name, cloud_type_id, 
        cloud.endpoint, cloud.identity_endpoint, 

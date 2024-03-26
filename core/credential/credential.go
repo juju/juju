@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Key represents the natural key of a cloud credential.
@@ -72,6 +74,37 @@ func (k Key) Validate() error {
 	}
 	if k.Owner == "" {
 		return fmt.Errorf("%w owner cannot be empty", errors.NotValid)
+	}
+	return nil
+}
+
+// ID represents a unique id within the juju controller for a cloud credential.
+type ID string
+
+// NewID generates a new credential [ID]
+func NewID() (ID, error) {
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return ID(""), fmt.Errorf("creating new credential id: %w", err)
+	}
+	return ID(uuid.String()), nil
+}
+
+// String implements the stringer interface returning a string representation of
+// the credential ID.
+func (i ID) String() string {
+	return string(i)
+}
+
+// Validate ensures the consistency of the id. If the [ID] is invalid an error
+// satisfying [errors.NotValid] will be returned.
+func (i ID) Validate() error {
+	if i == "" {
+		return fmt.Errorf("credential id cannot be empty%w", errors.Hide(errors.NotValid))
+	}
+
+	if !uuid.IsValidUUIDString(string(i)) {
+		return fmt.Errorf("credential id %q %w", i, errors.NotValid)
 	}
 	return nil
 }

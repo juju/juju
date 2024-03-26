@@ -42,21 +42,22 @@ func (s *serviceSuite) TestUpdateDqliteNode(c *gc.C) {
 func (s *serviceSuite) TestIsModelKnownToController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	knownID := "is-a-known-model"
+	knownID := "known"
+	fakeID := "fake"
 
 	exp := s.state.EXPECT()
 	gomock.InOrder(
-		exp.SelectModelUUID(gomock.Any(), "is-not-there").Return("", errors.NotFound),
-		exp.SelectModelUUID(gomock.Any(), knownID).Return(knownID, nil),
+		exp.SelectDatabaseNamespace(gomock.Any(), fakeID).Return("", errors.NotFound),
+		exp.SelectDatabaseNamespace(gomock.Any(), knownID).Return(knownID, nil),
 	)
 
 	svc := NewService(s.state)
 
-	known, err := svc.IsModelKnownToController(context.Background(), "is-not-there")
+	known, err := svc.IsKnownDatabaseNamespace(context.Background(), fakeID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(known, jc.IsFalse)
 
-	known, err = svc.IsModelKnownToController(context.Background(), knownID)
+	known, err = svc.IsKnownDatabaseNamespace(context.Background(), knownID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(known, jc.IsTrue)
 }

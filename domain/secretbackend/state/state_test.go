@@ -170,6 +170,9 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = modelSt.Finalise(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
 	q := `
 INSERT INTO model_secret_backend
 	(model_uuid, secret_backend_uuid)

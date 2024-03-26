@@ -607,6 +607,9 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = modelSt.Finalise(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
 	clouds, err = st.ListClouds(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 2)

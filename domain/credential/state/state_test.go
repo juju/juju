@@ -504,7 +504,7 @@ func (s *credentialSuite) TestWatchCredentialNotFound(c *gc.C) {
 	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	_, err := st.WatchCredential(ctx, s.watcherFunc(c, ""), key)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, credentialerrors.NotFound)
 }
 
 func (s *credentialSuite) TestWatchCredential(c *gc.C) {
@@ -512,15 +512,15 @@ func (s *credentialSuite) TestWatchCredential(c *gc.C) {
 	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	s.createCloudCredential(c, st, key)
 
-	var uuid string
+	var id corecredential.ID
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		uuid, err = st.credentialUUID(ctx, tx, key)
+		id, err = st.credentialID(ctx, tx, key)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := st.WatchCredential(context.Background(), s.watcherFunc(c, uuid), key)
+	w, err := st.WatchCredential(context.Background(), s.watcherFunc(c, id.String()), key)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 
@@ -567,14 +567,9 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 	c.Assert(one.Invalid, jc.IsFalse)
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID, name string) error {
-		_, err := tx.ExecContext(ctx, fmt.Sprintf(`
-		INSERT INTO model_list (uuid) VALUES(%q)`, modelUUID))
-		if err != nil {
-			return err
-		}
 		result, err := tx.ExecContext(ctx, fmt.Sprintf(`
-		INSERT INTO model_metadata (model_uuid, name, owner_uuid, life_id, model_type_id, cloud_uuid, cloud_credential_uuid)
-		SELECT %q, %q, %q, 0, 0,
+		INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, finalised, cloud_uuid, cloud_credential_uuid)
+		SELECT %q, %q, %q, 0, 0, true,
 			(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`,
 			modelUUID, name, s.userUUID),

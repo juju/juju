@@ -143,7 +143,14 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		Owner: userUUID,
 		UUID:  modelUUID,
 	}
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
+
+	finalised := false
+	finaliser := func(_ context.Context) error {
+		finalised = true
+		return nil
+	}
+
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
 	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
 		coremodel.UUID(testing.ControllerTag.Id()),
@@ -178,6 +185,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(finalised, jc.IsTrue)
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
@@ -207,7 +215,14 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		Owner: userUUID,
 		UUID:  modelUUID,
 	}
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
+
+	finalised := false
+	finaliser := func(_ context.Context) error {
+		finalised = true
+		return nil
+	}
+
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
 	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
 		coremodel.UUID(testing.ControllerTag.Id()),
@@ -376,4 +391,5 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
 	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
+	c.Check(finalised, jc.IsFalse)
 }

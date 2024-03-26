@@ -153,14 +153,18 @@ func (w *Pruner) prune() (map[string]int64, error) {
 		return nil, errors.Trace(err)
 	}
 
-	query, err := sqlair.Prepare(`SELECT uuid AS &Model.uuid FROM model_list;`, Model{})
+	query, err := sqlair.Prepare(`
+		SELECT namespace AS &ModelNamespace.namespace,
+               model_uuid AS &ModelNamespace.uuid
+        FROM model_namespace;
+	`, ModelNamespace{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var models []Model
+	var modelNamespaces []ModelNamespace
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, query).GetAll(&models))
+		return errors.Trace(tx.Query(ctx, query).GetAll(&modelNamespaces))
 	})
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(err)
@@ -168,26 +172,26 @@ func (w *Pruner) prune() (map[string]int64, error) {
 
 	// To ensure we always prune the change log for the controller, we add it
 	// to the list of models to prune.
-	models = append([]Model{
-		{UUID: coredatabase.ControllerNS},
-	}, models...)
+	modelNamespaces = append([]ModelNamespace{
+		{Namespace: coredatabase.ControllerNS},
+	}, modelNamespaces...)
 
 	// Prune each and every model found in the model list. This
 	pruned := make(map[string]int64)
-	for _, model := range models {
-		p, err := w.pruneModel(ctx, model.UUID)
+	for _, mn := range modelNamespaces {
+		p, err := w.pruneModel(ctx, mn.Namespace)
 		if err != nil {
 			// If there is an error, continue on to the next model, as we don't
 			// want to kill the worker.
-			w.cfg.Logger.Infof("Error pruning model %q: %v", model.UUID, err)
+			w.cfg.Logger.Infof("Error pruning model %q: %v", mn.UUID, err)
 			continue
 		}
 
 		if traceEnabled {
-			w.cfg.Logger.Tracef("Pruned %d change logs for model %q", pruned, model.UUID)
+			w.cfg.Logger.Tracef("Pruned %d change logs for model %q", pruned, mn.UUID)
 		}
 
-		pruned[model.UUID] = p
+		pruned[mn.Namespace] = p
 	}
 
 	if traceEnabled {
@@ -339,8 +343,9 @@ func (w *Pruner) scopedContext() (context.Context, context.CancelFunc) {
 }
 
 // Model represents a model from the model_list table.
-type Model struct {
-	UUID string `db:"uuid"`
+type ModelNamespace struct {
+	UUID      string `db:"uuid"`
+	Namespace string `db:"namespace"`
 }
 
 // Watermark represents a row from the change_log_witness table.

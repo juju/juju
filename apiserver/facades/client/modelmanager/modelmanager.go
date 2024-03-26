@@ -328,7 +328,7 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// Create the model in the controller database.
-	modelUUID, err := m.modelService.CreateModel(ctx, creationArgs)
+	modelUUID, finaliser, err := m.modelService.CreateModel(ctx, creationArgs)
 	if err != nil {
 		return errors.Annotatef(err, "failed to create model %q", modelUUID)
 	}
@@ -363,6 +363,10 @@ func (m *ModelManagerAPI) createModelNew(
 
 	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
 		return errors.Annotatef(err, "failed to set model config for model %q", modelUUID)
+	}
+
+	if err := finaliser(ctx); err != nil {
+		return errors.Annotatef(err, "failed to finalise model %q", modelUUID)
 	}
 
 	return err

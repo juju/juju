@@ -31,7 +31,7 @@ func ModelDDL() *schema.Schema {
 		lifeSchema,
 		changeLogSchema,
 		changeLogModelNamespaceSchema,
-		modelSchema,
+		modelReadSchema,
 		modelConfigSchema,
 		objectStoreMetadataSchema,
 		applicationSchema,
@@ -138,7 +138,7 @@ INSERT INTO change_log_namespace VALUES
 `)
 }
 
-func modelSchema() schema.Patch {
+func modelReadSchema() schema.Patch {
 	return schema.MakePatch(`
 -- The model table represents a readonly denormalised model data. The intended
 -- use is to provide a read-only view of the model data for the purpose of
