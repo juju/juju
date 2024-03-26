@@ -132,7 +132,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Name:  "mysql",
 		Charm: s.mysqlCharm,
 		EndpointBindings: map[string]string{
-			"server": "database",
+			"server": databaseSpace.Id(),
 		},
 	})
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{

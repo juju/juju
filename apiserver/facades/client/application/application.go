@@ -2545,6 +2545,9 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 // TODO(nvinuesa): this method should not be needed once we migrate endpoint
 // bindings to dqlite.
 func (api *APIBase) convertSpacesToIDInBindings(bindings map[string]string) (map[string]string, error) {
+	if bindings == nil {
+		return nil, nil
+	}
 	newMap := make(map[string]string)
 	for endpoint, spaceName := range bindings {
 		space, err := api.backend.SpaceByName(spaceName)
