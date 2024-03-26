@@ -9,8 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/collections/set"
-
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -49,13 +47,13 @@ type BootstrapParams struct {
 	// in the controller model.
 	StoragePools map[string]storage.Attrs
 
-	// BootstrapSeries, if specified, is the series to use for the
+	// BootstrapBase, if specified, is the base to use for the
 	// initial bootstrap machine.
-	BootstrapSeries string
+	BootstrapBase corebase.Base
 
-	// SupportedBootstrapSeries is a supported set of series to use for
-	// validating against the bootstrap series.
-	SupportedBootstrapSeries set.Strings
+	// SupportedBootstrapBases is a list of supported bases to use for
+	// validating against the bootstrap base.
+	SupportedBootstrapBases []corebase.Base
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
