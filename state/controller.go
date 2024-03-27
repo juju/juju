@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -144,12 +143,9 @@ func (st *State) checkValidControllerConfig(updateAttrs map[string]interface{}, 
 			return errors.Trace(err)
 		}
 
-		if k == jujucontroller.JujuHASpace || k == jujucontroller.JujuManagementSpace {
-			cVal := updateAttrs[k].(string)
-			if err := st.checkSpaceIsAvailableToAllControllers(cVal); err != nil {
-				return errors.Annotatef(err, "invalid config %q=%q", k, cVal)
-			}
-		}
+		// TODO(nvinuesa): When we complete the migration to dqlite
+		// we must verify that the controller machines actually do have
+		// at least one address in the passed space controller config.
 	}
 	for _, r := range removeAttrs {
 		if err := checkUpdateControllerConfig(r); err != nil {
@@ -165,40 +161,6 @@ func checkUpdateControllerConfig(name string) error {
 	}
 	if !jujucontroller.AllowedUpdateConfigAttributes.Contains(name) {
 		return errors.Errorf("can't change %q after bootstrap", name)
-	}
-	return nil
-}
-
-// checkSpaceIsAvailableToAllControllers checks if each controller machine has
-// at least one address in the input space. If not, an error is returned.
-func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
-	controllerIds, err := st.ControllerIds()
-	if err != nil {
-		return errors.Annotate(err, "cannot get controller info")
-	}
-
-	space, err := st.SpaceByName(spaceName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	netSpace, err := space.NetworkSpace()
-	if err != nil {
-		return errors.Annotate(err, "getting network space")
-	}
-
-	var missing []string
-	for _, id := range controllerIds {
-		m, err := st.Machine(id)
-		if err != nil {
-			return errors.Annotate(err, "cannot get machine")
-		}
-		if _, ok := m.Addresses().InSpaces(netSpace); !ok {
-			missing = append(missing, id)
-		}
-	}
-
-	if len(missing) > 0 {
-		return errors.Errorf("machines with no addresses in this space: %s", strings.Join(missing, ", "))
 	}
 	return nil
 }
