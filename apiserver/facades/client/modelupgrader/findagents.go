@@ -30,7 +30,9 @@ func (m *ModelUpgraderAPI) decideVersion(
 		return version.Zero, errUpToDate
 	}
 
-	streamVersions, err := m.findAgents(args)
+	allowDevBuilds := currentVersion.Build > 0
+
+	streamVersions, err := m.findAgents(args, allowDevBuilds)
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
@@ -50,9 +52,6 @@ func (m *ModelUpgraderAPI) decideVersion(
 	// No explicitly specified version, so find the version to which we
 	// need to upgrade. We take the current version in use and find the
 	// highest minor version with the same major version number.
-	// CAAS models exclude agents with dev builds unless the current version
-	// is also a dev build.
-	allowDevBuilds := args.ModelType == state.ModelTypeIAAS || currentVersion.Build > 0
 	newestCurrent, found := streamVersions.NewestCompatible(currentVersion, allowDevBuilds)
 	if found {
 		if newestCurrent.Compare(currentVersion) == 0 {
@@ -70,6 +69,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 
 func (m *ModelUpgraderAPI) findAgents(
 	args common.FindAgentsParams,
+	allowDevBuilds bool,
 ) (coretools.Versions, error) {
 	list, err := m.toolsFinder.FindAgents(args)
 	if args.ModelType != state.ModelTypeCAAS {
@@ -79,7 +79,7 @@ func (m *ModelUpgraderAPI) findAgents(
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
-	return m.agentVersionsForCAAS(args, list)
+	return m.agentVersionsForCAAS(args, list, allowDevBuilds)
 }
 
 // The default available agents come directly from streams metadata.
@@ -94,6 +94,7 @@ func toolListToVersions(streamsVersions coretools.List) coretools.Versions {
 func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	args common.FindAgentsParams,
 	streamsAgents coretools.List,
+	allowDevBuilds bool,
 ) (coretools.Versions, error) {
 	result := coretools.Versions{}
 	imageRepoDetails, err := docker.NewImageRepoDetails(args.ControllerCfg.CAASImageRepo())
@@ -113,6 +114,11 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	defer func() { _ = reg.Close() }()
 	streamsVersions := set.NewStrings()
 	for _, a := range streamsAgents {
+		if allowDevBuilds && a.Version.Number.Build > 0 {
+			// If we are running a dev build and this is a dev build, assume it exists in the registry or available.
+			result = append(result, a)
+			continue
+		}
 		streamsVersions.Add(a.Version.Number.String())
 	}
 	logger.Tracef("versions from simplestreams %v", streamsVersions)
@@ -145,6 +151,7 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 				continue
 			}
 		}
+		// TODO: we don't even use architecture here, nor do we get all the architectures that the manifest list has.
 		arch, err := reg.GetArchitecture(imageName, number.String())
 		if errors.Is(err, errors.NotFound) {
 			continue

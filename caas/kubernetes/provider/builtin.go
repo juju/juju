@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	jujucloud "github.com/juju/juju/cloud"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -71,19 +70,8 @@ func attemptMicroK8sCredential(cmdRunner CommandRunner, getKubeConfigDir func() 
 	return k8scloud.CredentialFromKubeConfig(context.AuthInfo, conf)
 }
 
-// For testing.
-var CheckJujuOfficial = envtools.JujudVersion
-
 func decideKubeConfigDir() (string, error) {
-	jujuDir, err := envtools.ExistingJujuLocation()
-	if err != nil {
-		return "", errors.Annotate(err, "cannot find juju binary")
-	}
-	_, isOffical, err := CheckJujuOfficial(jujuDir)
-	if err != nil && !errors.IsNotFound(err) {
-		return "", errors.Trace(err)
-	}
-	if isOffical {
+	if os.Getenv("SNAP_DATA") != "" {
 		return filepath.Join(os.Getenv("SNAP_DATA"), "microk8s", "credentials", "client.config"), nil
 	}
 	return filepath.Join("/var/snap/microk8s/current/", "credentials", "client.config"), nil

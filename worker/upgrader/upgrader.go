@@ -159,20 +159,12 @@ func (u *Upgrader) loop() error {
 			}
 		}
 
+		haveVersion := jujuversion.Current
 		wantVersion, err := u.st.DesiredVersion(u.tag.String())
 		if err != nil {
 			return err
 		}
 		logger.Infof("desired agent binary version: %v", wantVersion)
-
-		// If we have a desired version of Juju without the build number,
-		// i.e. it is not a user compiled version, reset the build number of
-		// the current version to remove the Jenkins build number.
-		// We don't care about the build number when checking for upgrade.
-		haveVersion := jujuversion.Current
-		if wantVersion.Build == 0 {
-			haveVersion.Build = 0
-		}
 
 		if wantVersion == haveVersion {
 			u.config.InitialUpgradeCheckComplete.Unlock()

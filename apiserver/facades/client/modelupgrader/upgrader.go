@@ -122,6 +122,41 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
 	return st.AbortCurrentUpgrade()
 }
 
+// RequiredArchitectures returns all the architectures used by this model.
+func (m *ModelUpgraderAPI) RequiredArchitectures(arg params.ModelParam) (params.StringsResult, error) {
+	modelTag, err := names.ParseModelTag(arg.ModelTag)
+	if err != nil {
+		return params.StringsResult{}, errors.Trace(err)
+	}
+	st, err := m.statePool.Get(modelTag.Id())
+	if err != nil {
+		return params.StringsResult{}, errors.Trace(err)
+	}
+	defer st.Release()
+
+	machines, err := st.AllMachines()
+	if err != nil {
+		return params.StringsResult{}, errors.Trace(err)
+	}
+
+	archs := make(map[string]bool)
+	for _, m := range machines {
+		tools, err := m.AgentTools()
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return params.StringsResult{}, errors.Trace(err)
+		}
+		archs[tools.Version.Arch] = true
+	}
+
+	res := params.StringsResult{}
+	for k := range archs {
+		res.Result = append(res.Result, k)
+	}
+	return res, nil
+}
+
 // UpgradeModel upgrades a model.
 func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
 	logger.Tracef("UpgradeModel arg %#v", arg)

@@ -10,8 +10,6 @@ var (
 	WriteMetadataFiles            = &writeMetadataFiles
 	CurrentStreamsVersion         = currentStreamsVersion
 	MarshalToolsMetadataIndexJSON = marshalToolsMetadataIndexJSON
-	GetVersionFromJujud           = getVersionFromJujud
-	BundleToolsForTest            = bundleTools
 )
 
 func VersionsMatchingHash(v *Versions, h string) []string {

@@ -23,7 +23,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 func (m *ModelUpgraderAPI) FindAgents(args common.FindAgentsParams) (coretools.Versions, error) {
-	return m.findAgents(args)
+	return m.findAgents(args, false)
 }
 
 func (m *ModelUpgraderAPI) DecideVersion(

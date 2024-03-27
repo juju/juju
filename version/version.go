@@ -4,12 +4,8 @@
 package version
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	semversion "github.com/juju/version/v2"
@@ -39,12 +35,10 @@ var switchOverVersion = semversion.MustParse("1.19.9")
 // build is injected by Jenkins, it must be an integer or empty.
 var build string
 
-// OfficialBuild is a monotonic number injected by Jenkins.
-var OfficialBuild = mustParseBuildInt(build)
+// DevelopmentBuildNumber is a monotonic number injected by Makefile.
+var DevelopmentBuildNumber = mustParseBuildInt(build)
 
-// Current gives the current version of the system.  If the file
-// "FORCE-VERSION" is present in the same directory as the running
-// binary, it will override this.
+// Current gives the current version of the system.
 var Current = semversion.MustParse(version)
 
 // Compiler is the go compiler used to build the binary.
@@ -63,22 +57,7 @@ var GitTreeState string = TreeStateDirty
 var GoBuildTags string
 
 func init() {
-	defer func() {
-		if Current.Build == 0 {
-			// We set the Build to OfficialBuild if no build number provided in the FORCE-VERSION file.
-			Current.Build = OfficialBuild
-		}
-	}()
-
-	toolsDir := filepath.Dir(os.Args[0])
-	v, err := os.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
-	if err != nil {
-		if !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "WARNING: cannot read forced version: %v\n", err)
-		}
-		return
-	}
-	Current = semversion.MustParse(strings.TrimSpace(string(v)))
+	Current.Build = DevelopmentBuildNumber
 }
 
 func isOdd(x int) bool {
