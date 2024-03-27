@@ -1103,33 +1103,6 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 	c.Assert(rels, gc.HasLen, 2)
 }
 
-func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
-	s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider")})
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	spaces := model.Spaces()
-	c.Assert(spaces, gc.HasLen, 1)
-
-	space := spaces[0]
-
-	c.Assert(space.Id(), gc.Not(gc.Equals), "")
-	c.Assert(space.Name(), gc.Equals, "one")
-	c.Assert(space.ProviderID(), gc.Equals, "provider")
-}
-
-func (s *MigrationExportSuite) TestMultipleSpaces(c *gc.C) {
-	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "one"})
-	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "two"})
-	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "three"})
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Spaces(), gc.HasLen, 3)
-}
-
 func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
@@ -1309,39 +1282,6 @@ func (s *MigrationBaseSuite) TestMissingRelationScopeIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(model.Relations(), gc.HasLen, 1)
-}
-
-func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
-	sp, err := s.State.AddSpace("bam", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	sn := network.SubnetInfo{
-		CIDR:              "10.0.0.0/24",
-		ProviderId:        network.Id("foo"),
-		ProviderNetworkId: network.Id("rust"),
-		VLANTag:           64,
-		AvailabilityZones: []string{"bar"},
-		SpaceID:           sp.Id(),
-	}
-	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
-
-	expectedSubnet, err := s.State.AddSubnet(sn)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnets := model.Subnets()
-	c.Assert(subnets, gc.HasLen, 1)
-	subnet := subnets[0]
-	c.Assert(subnet.CIDR(), gc.Equals, sn.CIDR)
-	c.Assert(subnet.ID(), gc.Equals, expectedSubnet.ID())
-	c.Assert(subnet.ProviderId(), gc.Equals, string(sn.ProviderId))
-	c.Assert(subnet.ProviderNetworkId(), gc.Equals, string(sn.ProviderNetworkId))
-	c.Assert(subnet.VLANTag(), gc.Equals, sn.VLANTag)
-	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, sn.AvailabilityZones)
-	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
-	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
-	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }
 
 func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {

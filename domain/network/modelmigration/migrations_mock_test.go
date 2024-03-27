@@ -167,34 +167,19 @@ func (m *MockExportSpaceService) EXPECT() *MockExportSpaceServiceMockRecorder {
 	return m.recorder
 }
 
-// AddSpace mocks base method.
-func (m *MockExportSpaceService) AddSpace(arg0 context.Context, arg1 string, arg2 network.Id, arg3 []string) (network.Id, error) {
+// GetAllSpaces mocks base method.
+func (m *MockExportSpaceService) GetAllSpaces(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(network.Id)
+	ret := m.ctrl.Call(m, "GetAllSpaces", arg0)
+	ret0, _ := ret[0].(network.SpaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AddSpace indicates an expected call of AddSpace.
-func (mr *MockExportSpaceServiceMockRecorder) AddSpace(arg0, arg1, arg2, arg3 any) *gomock.Call {
+// GetAllSpaces indicates an expected call of GetAllSpaces.
+func (mr *MockExportSpaceServiceMockRecorder) GetAllSpaces(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockExportSpaceService)(nil).AddSpace), arg0, arg1, arg2, arg3)
-}
-
-// Space mocks base method.
-func (m *MockExportSpaceService) Space(arg0 context.Context, arg1 string) (*network.SpaceInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Space", arg0, arg1)
-	ret0, _ := ret[0].(*network.SpaceInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Space indicates an expected call of Space.
-func (mr *MockExportSpaceServiceMockRecorder) Space(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockExportSpaceService)(nil).Space), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSpaces", reflect.TypeOf((*MockExportSpaceService)(nil).GetAllSpaces), arg0)
 }
 
 // MockExportSubnetService is a mock of ExportSubnetService interface.
@@ -220,17 +205,17 @@ func (m *MockExportSubnetService) EXPECT() *MockExportSubnetServiceMockRecorder 
 	return m.recorder
 }
 
-// AddSubnet mocks base method.
-func (m *MockExportSubnetService) AddSubnet(arg0 context.Context, arg1 network.SubnetInfo) (network.Id, error) {
+// GetAllSubnets mocks base method.
+func (m *MockExportSubnetService) GetAllSubnets(arg0 context.Context) ([]network.SubnetInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSubnet", arg0, arg1)
-	ret0, _ := ret[0].(network.Id)
+	ret := m.ctrl.Call(m, "GetAllSubnets", arg0)
+	ret0, _ := ret[0].([]network.SubnetInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AddSubnet indicates an expected call of AddSubnet.
-func (mr *MockExportSubnetServiceMockRecorder) AddSubnet(arg0, arg1 any) *gomock.Call {
+// GetAllSubnets indicates an expected call of GetAllSubnets.
+func (mr *MockExportSubnetServiceMockRecorder) GetAllSubnets(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubnet", reflect.TypeOf((*MockExportSubnetService)(nil).AddSubnet), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSubnets", reflect.TypeOf((*MockExportSubnetService)(nil).GetAllSubnets), arg0)
 }

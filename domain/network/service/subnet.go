@@ -48,6 +48,12 @@ func (s *Service) SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network
 	return subnets, errors.Trace(err)
 }
 
+// GetAllSubnets returns all known subnets in the model.
+func (s *SubnetService) GetAllSubnets(ctx context.Context) ([]network.SubnetInfo, error) {
+	subnets, err := s.st.GetAllSubnets(ctx)
+	return subnets, errors.Trace(err)
+}
+
 // UpdateSubnet updates the spaceUUID of the subnet identified by the input
 // UUID.
 func (s *Service) UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error {
