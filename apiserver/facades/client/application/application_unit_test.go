@@ -1182,9 +1182,9 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
+	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[1].Error, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
+	c.Check(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
 }
 
 func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
@@ -1226,13 +1226,13 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[1].Error, gc.IsNil)
+	c.Check(results.Results[2].Error, gc.IsNil)
 
-	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
-	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
-	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
+	c.Check(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
+	c.Check(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
+	c.Check(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
 }
 
 // Some clients we need to support deploy applications without any OS data in the
@@ -1279,13 +1279,13 @@ func (s *ApplicationSuite) TestDeploySeriesInArgOnly(c *gc.C) {
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[1].Error, gc.IsNil)
+	c.Check(results.Results[2].Error, gc.IsNil)
 
-	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
-	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
-	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
+	c.Check(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
+	c.Check(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
+	c.Check(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
 }
 
 func (s *ApplicationSuite) TestDeployInconsistentSeries(c *gc.C) {
@@ -1407,17 +1407,17 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 4)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for container models")
-	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for container models, got 2")
+	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[1].Error, gc.IsNil)
+	c.Check(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for container models")
+	c.Check(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for container models, got 2")
 
-	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "loadbalancer")
+	c.Check(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "loadbalancer")
 	// Check parsing of k8s service annotations.
-	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
-	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "cluster")
-	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-ingress-ssl-redirect"], gc.Equals, true)
-	c.Assert(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
+	c.Check(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
+	c.Check(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "cluster")
+	c.Check(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-ingress-ssl-redirect"], gc.Equals, true)
+	c.Check(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
 }
 
 func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
@@ -1747,8 +1747,9 @@ func (s *ApplicationSuite) TestGetUnifiedSeries(c *gc.C) {
 		c.Logf("Test %d: %s", i, t.desc)
 		unified, err := application.GetUnifiedSeries(t.param)
 		if t.errMatch == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(unified, gc.Equals, t.unified)
+			if c.Check(err, jc.ErrorIsNil) {
+				c.Check(unified, gc.Equals, t.unified)
+			}
 		} else {
 			c.Check(err, gc.ErrorMatches, t.errMatch)
 		}
@@ -2829,7 +2830,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
-	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
+	c.Check(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
 		Series:      "quantal",
@@ -2842,8 +2843,8 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 			"juju-info": "myspace",
 		},
 	})
-	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
-	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
+	c.Check(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
+	c.Check(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 }
 
 func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
@@ -2938,33 +2939,34 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	result, err := s.api.UnitsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.UnitResult{
-		Tag:             "unit-postgresql-0",
-		WorkloadVersion: "666",
-		Machine:         "0",
-		OpenedPorts:     []string{"100-102/tcp"},
-		PublicAddress:   "10.0.0.1",
-		Charm:           "cs:postgresql-42",
-		Leader:          true,
-		Life:            state.Alive.String(),
-		RelationData: []params.EndpointRelationData{{
-			RelationId:      101,
-			Endpoint:        "db",
-			CrossModel:      true,
-			RelatedEndpoint: "server",
-			ApplicationData: map[string]interface{}{"app-gitlab": "setting"},
-			UnitRelationData: map[string]params.RelationData{
-				"gitlab/2": {
-					InScope:  true,
-					UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
+	if c.Check(result.Results[0].Error, gc.IsNil) {
+		c.Check(*result.Results[0].Result, gc.DeepEquals, params.UnitResult{
+			Tag:             "unit-postgresql-0",
+			WorkloadVersion: "666",
+			Machine:         "0",
+			OpenedPorts:     []string{"100-102/tcp"},
+			PublicAddress:   "10.0.0.1",
+			Charm:           "cs:postgresql-42",
+			Leader:          true,
+			Life:            state.Alive.String(),
+			RelationData: []params.EndpointRelationData{{
+				RelationId:      101,
+				Endpoint:        "db",
+				CrossModel:      true,
+				RelatedEndpoint: "server",
+				ApplicationData: map[string]interface{}{"app-gitlab": "setting"},
+				UnitRelationData: map[string]params.RelationData{
+					"gitlab/2": {
+						InScope:  true,
+						UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
+					},
 				},
-			},
-		}},
-		ProviderId: "provider-id",
-		Address:    "192.168.1.1",
-	})
-	c.Assert(result.Results[1].Error, jc.DeepEquals, &params.Error{
+			}},
+			ProviderId: "provider-id",
+			Address:    "192.168.1.1",
+		})
+	}
+	c.Check(result.Results[1].Error, jc.DeepEquals, &params.Error{
 		Code:    "not found",
 		Message: `unit "mysql/0" not found`,
 	})
@@ -3003,33 +3005,34 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 	result, err := s.api.UnitsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 2)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.UnitResult{
-		Tag:             "unit-postgresql-0",
-		WorkloadVersion: "666",
-		Machine:         "0",
-		OpenedPorts:     []string{"100-102/tcp"},
-		PublicAddress:   "10.0.0.1",
-		Charm:           "cs:postgresql-42",
-		Leader:          true,
-		Life:            state.Alive.String(),
-		RelationData: []params.EndpointRelationData{{
-			RelationId:      101,
-			Endpoint:        "db",
-			CrossModel:      true,
-			RelatedEndpoint: "server",
-			ApplicationData: map[string]interface{}{"app-gitlab": "setting"},
-			UnitRelationData: map[string]params.RelationData{
-				"gitlab/2": {
-					InScope:  true,
-					UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
+	if c.Check(result.Results[0].Error, gc.IsNil) {
+		c.Check(*result.Results[0].Result, gc.DeepEquals, params.UnitResult{
+			Tag:             "unit-postgresql-0",
+			WorkloadVersion: "666",
+			Machine:         "0",
+			OpenedPorts:     []string{"100-102/tcp"},
+			PublicAddress:   "10.0.0.1",
+			Charm:           "cs:postgresql-42",
+			Leader:          true,
+			Life:            state.Alive.String(),
+			RelationData: []params.EndpointRelationData{{
+				RelationId:      101,
+				Endpoint:        "db",
+				CrossModel:      true,
+				RelatedEndpoint: "server",
+				ApplicationData: map[string]interface{}{"app-gitlab": "setting"},
+				UnitRelationData: map[string]params.RelationData{
+					"gitlab/2": {
+						InScope:  true,
+						UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
+					},
 				},
-			},
-		}},
-		ProviderId: "provider-id",
-		Address:    "192.168.1.1",
-	})
-	c.Assert(*result.Results[1].Result, gc.DeepEquals, params.UnitResult{
+			}},
+			ProviderId: "provider-id",
+			Address:    "192.168.1.1",
+		})
+	}
+	c.Check(*result.Results[1].Result, gc.DeepEquals, params.UnitResult{
 		Tag:             "unit-postgresql-1",
 		WorkloadVersion: "666",
 		Machine:         "1",
@@ -3195,12 +3198,12 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.URL, gc.Equals, curl)
+	c.Check(result.URL, gc.Equals, curl)
 
 	latest := "latest"
 	branch := "foo"
 
-	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
+	c.Check(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
 		Risk:         "stable",
 		Revision:     &rev,
@@ -3237,9 +3240,9 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOriginMissingOS(c *gc.C) {
 	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.URL, gc.Equals, curl)
+	c.Check(result.URL, gc.Equals, curl)
 
-	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
+	c.Check(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
 		Architecture: "amd64",
 		OS:           "ubuntu",
