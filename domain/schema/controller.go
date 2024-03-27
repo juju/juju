@@ -59,6 +59,12 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		changeLogTriggersForTableOnColumn("secret_backend_rotation", "backend_uuid", "next_rotation_time", tableSecretBackendRotation),
+
+		// We need to ensure that the internal and kubernetes backends are immutable after
+		// they are created by the controller during bootstrap time.
+		triggersForImmutableTable("secret_backend",
+			"OLD.backend_type IN ('internal', 'kubernetes')",
+			"secret backends with type internal or kubernetes are immutable"),
 	)
 
 	ctrlSchema := schema.New()
@@ -383,7 +389,6 @@ CREATE TABLE model_metadata (
     cloud_uuid            TEXT NOT NULL,
     cloud_region_uuid     TEXT,
     cloud_credential_uuid TEXT,
-    secret_backend_uuid   TEXT,
     model_type_id         INT NOT NULL,
     name                  TEXT NOT NULL,
     owner_uuid            TEXT NOT NULL,
@@ -399,9 +404,6 @@ CREATE TABLE model_metadata (
     CONSTRAINT            fk_model_metadata_cloud_credential
         FOREIGN KEY           (cloud_credential_uuid)
         REFERENCES            cloud_credential(uuid),
-    CONSTRAINT            fk_model_metadata_secret_backend
-        FOREIGN KEY           (secret_backend_uuid)
-        REFERENCES            secret_backend(uuid)
     CONSTRAINT            fk_model_metadata_model_type_id
         FOREIGN KEY           (model_type_id)
         REFERENCES            model_type(id),
@@ -438,7 +440,7 @@ LEFT JOIN cloud_credential cc ON mm.cloud_credential_uuid = cc.uuid
 INNER JOIN user cco ON cc.owner_uuid = cco.uuid
 LEFT JOIN cloud ccn ON cc.cloud_uuid = ccn.uuid
 INNER JOIN model_type mt ON mm.model_type_id = mt.id
-INNER JOIN user u ON mm.owner_uuid = u.uuid
+INNER JOIN user u ON mm.owner_uuid = u.uuid;
 `)
 }
 

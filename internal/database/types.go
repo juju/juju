@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package domain
+package database
 
 import (
 	"database/sql/driver"
@@ -9,14 +9,19 @@ import (
 	"time"
 )
 
-// NullableDuration represents a nullable time.Duration.
-type NullableDuration struct {
+// NullDuration represents a nullable time.Duration.
+type NullDuration struct {
 	Duration time.Duration
 	Valid    bool
 }
 
+// NewNullDuration returns a new NullDuration with the given duration.
+func NewNullDuration(d time.Duration) NullDuration {
+	return NullDuration{Duration: d, Valid: true}
+}
+
 // Scan implements the sql.Scanner interface.
-func (nd *NullableDuration) Scan(value interface{}) error {
+func (nd *NullDuration) Scan(value interface{}) error {
 	if value == nil {
 		nd.Duration, nd.Valid = 0, false
 		return nil
@@ -26,13 +31,13 @@ func (nd *NullableDuration) Scan(value interface{}) error {
 		nd.Duration = time.Duration(v)
 		nd.Valid = true
 	default:
-		return fmt.Errorf("cannot scan type %T into NullableDuration", value)
+		return fmt.Errorf("cannot scan type %T into NullDuration", value)
 	}
 	return nil
 }
 
 // Value implements the driver.Valuer interface.
-func (nd NullableDuration) Value() (driver.Value, error) {
+func (nd NullDuration) Value() (driver.Value, error) {
 	if !nd.Valid {
 		return nil, nil
 	}

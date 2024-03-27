@@ -76,6 +76,8 @@ func ModelDDL() *schema.Schema {
 			"secret_remote_application_consumer", "uuid", "current_revision", tableSecretRemoteApplicationConsumerCurrentRevision),
 		changeLogTriggersForTableOnColumn(
 			"secret_remote_unit_consumer", "uuid", "current_revision", tableSecretRemoteUnitConsumerCurrentRevision),
+
+		triggersForImmutableTable("model", "", "model table is immutable"),
 	)
 
 	patches = append(patches,
@@ -175,18 +177,6 @@ CREATE TABLE model (
 -- A unique constraint over a constant index ensures only 1 entry matching the
 -- condition can exist.
 CREATE UNIQUE INDEX idx_singleton_model ON model ((1));
-
--- The model table is read-only, so we create a trigger to prevent updates.
-CREATE TRIGGER trg_readonly_model_update
-BEFORE UPDATE ON model
-BEGIN
-    SELECT RAISE(abort, 'model table is read-only');
-END;
-CREATE TRIGGER trg_readonly_model_delete
-BEFORE DELETE ON model
-BEGIN
-    SELECT RAISE(abort, 'model table is immutable');
-END;
 `)
 }
 

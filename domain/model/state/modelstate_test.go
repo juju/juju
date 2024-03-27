@@ -110,7 +110,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 
 	db := s.DB()
 	_, err = db.ExecContext(context.Background(), "UPDATE model SET name = 'new-name' WHERE uuid = $1", id)
-	c.Assert(err, gc.ErrorMatches, `model table is read-only`)
+	c.Assert(err, gc.ErrorMatches, `model table is immutable`)
 }
 
 func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
