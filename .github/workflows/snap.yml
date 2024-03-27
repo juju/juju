@@ -55,7 +55,7 @@ jobs:
       shell: bash
       run: |
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-        echo "JUJU_METADATA_SOURCE=$GITHUB_WORKSPACE/_build/simplestreams" >> $GITHUB_ENV
+        echo "JUJU_METADATA_SOURCE=$HOME/snap/juju/common/simplestreams" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
     - name: Install local Juju

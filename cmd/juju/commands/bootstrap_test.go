@@ -128,7 +128,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// NOTE(axw) we cannot patch BundleTools here, as the "gc.C" argument
 	// is invalidated once this method returns.
-	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, func(version.Number) version.Number) (version.Binary, version.Number, bool, string, error) {
+	s.PatchValue(&envtools.BundleTools, func(string, arch.Arch, io.Writer) (version.Binary, string, error) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
 	})
 
@@ -364,35 +364,35 @@ var bootstrapTests = []bootstrapTest{{
 	args:        []string{"--constraints", "mem=4G cores=4 cpu-power=10"},
 	constraints: constraints.MustParse("mem=4G cores=4 cpu-power=10"),
 }, {
-	info:        "--build-agent uses arch from constraint if it matches current version",
+	info:        "--dev uses arch from constraint if it matches current version",
 	version:     "1.3.3-ubuntu-ppc64el",
 	hostArch:    "ppc64el",
-	args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
+	args:        []string{"--dev", "--constraints", "arch=ppc64el"},
 	upload:      "1.3.3.1-ubuntu-ppc64el", // from jujuversion.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
-	info:      "--build-agent rejects mismatched arch",
+	info:      "--dev rejects mismatched arch",
 	version:   "1.3.3-ubuntu-amd64",
 	hostArch:  "amd64",
-	args:      []string{"--build-agent", "--constraints", "arch=ppc64el"},
+	args:      []string{"--dev", "--constraints", "arch=ppc64el"},
 	silentErr: true,
 	logs: []jc.SimpleMessage{{
 		loggo.ERROR, `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
 	}},
 }, {
-	info:      "--build-agent rejects non-supported arch",
+	info:      "--dev rejects non-supported arch",
 	version:   "1.3.3-ubuntu-mips64",
 	hostArch:  "mips64",
-	args:      []string{"--build-agent"},
+	args:      []string{"--dev"},
 	silentErr: true,
 	logs: []jc.SimpleMessage{{
 		loggo.ERROR, fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
 	}},
 }, {
-	info:     "--build-agent always bumps build number",
+	info:     "--dev always bumps build number",
 	version:  "1.2.3.4-ubuntu-amd64",
 	hostArch: "amd64",
-	args:     []string{"--build-agent"},
+	args:     []string{"--dev"},
 	upload:   "1.2.3.5-ubuntu-amd64",
 }, {
 	info:      "placement",
@@ -407,9 +407,9 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"anything", "else"},
 	err:  `unrecognized args: \["anything" "else"\]`,
 }, {
-	info: "--agent-version with --build-agent",
-	args: []string{"--agent-version", "1.1.0", "--build-agent"},
-	err:  `--agent-version and --build-agent can't be used together`,
+	info: "--agent-version with --dev",
+	args: []string{"--agent-version", "1.1.0", "--dev"},
+	err:  `--agent-version and --dev can't be used together`,
 }, {
 	info: "invalid --agent-version value",
 	args: []string{"--agent-version", "foo"},

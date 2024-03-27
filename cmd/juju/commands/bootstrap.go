@@ -6,13 +6,9 @@ package commands
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
-	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -54,6 +50,7 @@ import (
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/devtools"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -384,24 +381,11 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 
 	if c.Dev {
-		_, b, _, _ := runtime.Caller(0)
-		modCmd := exec.Command("go", "list", "-m", "-json")
-		modCmd.Dir = filepath.Dir(b)
-		modInfo, err := modCmd.Output()
+		devSrcDir, err := devtools.SourceDir()
 		if err != nil {
-			return fmt.Errorf("--dev requires juju binary to be built locally: %w", err)
+			return fmt.Errorf("--dev %w", err)
 		}
-		mod := struct {
-			Path string `json:"Path"`
-			Dir  string `json:"Dir"`
-		}{}
-		err = json.Unmarshal(modInfo, &mod)
-		if err != nil {
-			return fmt.Errorf("--dev requires juju binary to be built locally: %w", err)
-		}
-		if mod.Path != "github.com/juju/juju" {
-			return fmt.Errorf("cannot use juju binary built for --dev")
-		}
+		c.devSrcDir = devSrcDir
 	}
 
 	// fill in JujuDbSnapAssertionsPath from the same directory as JujuDbSnapPath
@@ -943,6 +927,7 @@ to create a new model to deploy %sworkloads.
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
 		Dev:                       c.Dev,
+		DevSrcDir:                 c.devSrcDir,
 		BuildAgentTarball:         sync.BuildAgentTarball,
 		AgentVersion:              c.AgentVersion,
 		Cloud:                     cloud,
