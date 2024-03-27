@@ -353,17 +353,6 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 			MachineAddress: addr.MachineAddress,
 		}
 
-		spaceID := addr.SpaceID
-		if spaceID != network.AlphaSpaceId && spaceID != "" {
-			// TODO: cache spaces
-			space, err := ctx.state.Space(spaceID)
-			if err != nil {
-				return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
-			}
-			mAddr.SpaceName = network.SpaceName(space.Name())
-			mAddr.ProviderSpaceID = space.ProviderId()
-		}
-
 		info.Addresses = append(info.Addresses, mAddr)
 	}
 
