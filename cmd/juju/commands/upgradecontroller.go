@@ -5,14 +5,10 @@ package commands
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -37,6 +33,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/internal/devtools"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
@@ -69,6 +66,8 @@ const usageUpgradeControllerExamples = `
 `
 
 const upgradeControllerMessage = "upgrade to this version by running\n    juju upgrade-controller"
+
+const errMissingTools errors.ConstError = "explicit agent version not available - try juju sync-agent-binary first"
 
 func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.Command {
 	command := &upgradeControllerCommand{}
@@ -147,25 +146,11 @@ func (c *upgradeControllerCommand) Init(args []string) error {
 	}
 
 	if c.Dev {
-		_, b, _, _ := runtime.Caller(0)
-		modCmd := exec.Command("go", "list", "-m", "-json")
-		modCmd.Dir = filepath.Dir(b)
-		modInfo, err := modCmd.Output()
+		devSrcDir, err := devtools.SourceDir()
 		if err != nil {
-			return fmt.Errorf("--dev requires juju binary to be built locally: %w", err)
+			return fmt.Errorf("--dev %w", err)
 		}
-		mod := struct {
-			Path string `json:"Path"`
-			Dir  string `json:"Dir"`
-		}{}
-		err = json.Unmarshal(modInfo, &mod)
-		if err != nil {
-			return fmt.Errorf("--dev requires juju binary to be built locally: %w", err)
-		}
-		if mod.Path != "github.com/juju/juju" {
-			return fmt.Errorf("cannot use juju binary built for --dev")
-		}
-		c.devSrcDir = mod.Dir
+		c.devSrcDir = devSrcDir
 	}
 	if c.AgentVersionParam != "" && c.Dev {
 		return errors.New("--agent-version and --dev can't be used together")
@@ -374,13 +359,18 @@ func (c *upgradeControllerCommand) upgradeController(
 		return err
 	}
 
+	wantedTargetVersion := targetVersion
 	targetVersion, err = c.notifyControllerUpgrade(
 		ctx, modelUpgrader,
-		version.Zero, // no target version provided, we figure it out on the server side.
+		targetVersion,
 		c.DryRun,
 	)
 	if errors.Is(err, errors.NotFound) {
-		return errUpToDate
+		if wantedTargetVersion == version.Zero {
+			return errUpToDate
+		} else {
+			return errMissingTools
+		}
 	} else if err != nil {
 		return err
 	}

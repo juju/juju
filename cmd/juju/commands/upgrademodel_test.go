@@ -386,7 +386,7 @@ cannot upgrade to "3.9.99" due to issues with these models:
 }
 
 func (s *upgradeModelSuite) reset(c *gc.C) {
-	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c))
+	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c, nil))
 }
 
 func (s *upgradeModelSuite) TestUpgradeModelUpToDate(c *gc.C) {
