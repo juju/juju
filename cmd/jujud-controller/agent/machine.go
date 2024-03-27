@@ -1002,7 +1002,6 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		CharmRevisionUpdateInterval: 24 * time.Hour,
 		StatusHistoryPrunerInterval: 5 * time.Minute,
 		ActionPrunerInterval:        24 * time.Hour,
-		Mux:                         cfg.Mux,
 		NewEnvironFunc:              newEnvirons,
 		NewContainerBrokerFunc:      newCAASBroker,
 		NewMigrationMaster:          migrationmaster.NewWorker,

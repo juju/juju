@@ -82,7 +82,6 @@ type NewModelConfig struct {
 	ModelType        state.ModelType
 	ModelLogger      ModelLogger
 	ModelMetrics     MetricSink
-	Mux              *apiserverhttp.Mux
 	ControllerConfig controller.Config
 }
 
@@ -225,7 +224,6 @@ func (m *modelWorkerManager) loop() error {
 			ModelUUID:    modelUUID,
 			ModelType:    model.Type(),
 			ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
-			Mux:          m.config.Mux,
 		}
 		return errors.Trace(m.ensure(cfg))
 	}
