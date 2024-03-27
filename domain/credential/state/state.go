@@ -17,9 +17,9 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
+	userstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
-	userstate "github.com/juju/juju/domain/user/state"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )

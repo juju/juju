@@ -13,9 +13,10 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	userstate "github.com/juju/juju/domain/access/state"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	userstate "github.com/juju/juju/domain/user/state"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type bootstrapSuite struct {
@@ -33,7 +34,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState := userstate.NewState(s.TxnRunnerFactory())
+	userState := userstate.NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 	err = userState.AddUser(
 		context.Background(), userUUID,
 		"fred",

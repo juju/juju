@@ -15,7 +15,7 @@ import (
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -39,7 +39,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestAccess(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
@@ -65,7 +65,7 @@ func (s *introspectionSuite) TestAccess(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestAccessDenied(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),

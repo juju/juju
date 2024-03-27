@@ -4,6 +4,7 @@
 package servicefactory
 
 import (
+	accessservice "github.com/juju/juju/domain/access/service"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
@@ -24,7 +25,6 @@ import (
 	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
-	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -55,8 +55,9 @@ type ControllerServiceFactory interface {
 	AgentObjectStore() *objectstoreservice.WatchableService
 	// Flag returns the flag service.
 	Flag() *flagservice.Service
-	// User returns the user service.
-	User() *userservice.Service
+	// Access returns the access service. This includes the user and permission
+	// controller.
+	Access() *accessservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the

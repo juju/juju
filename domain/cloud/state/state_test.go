@@ -25,10 +25,10 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	userstate "github.com/juju/juju/domain/access/state"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
-	userstate "github.com/juju/juju/domain/user/state"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
@@ -574,7 +574,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState := userstate.NewState(s.TxnRunnerFactory())
+	userState := userstate.NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 	err = userState.AddUser(
 		context.Background(), userUUID,
 		coremodel.ControllerModelOwnerUsername,
@@ -658,7 +658,7 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState := userstate.NewState(s.TxnRunnerFactory())
+	userState := userstate.NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 	err = userState.AddUser(
 		context.Background(), userUUID,
 		coremodel.ControllerModelOwnerUsername,

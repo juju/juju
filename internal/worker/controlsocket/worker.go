@@ -21,8 +21,8 @@ import (
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usererrors "github.com/juju/juju/domain/user/errors"
-	"github.com/juju/juju/domain/user/service"
+	usererrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/socketlistener"
@@ -236,7 +236,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 	cleanup := true
 	// Error handling here is a bit subtle.
 	switch {
-	case errors.Is(err, usererrors.AlreadyExists):
+	case errors.Is(err, usererrors.UserAlreadyExists):
 		// Retrieve existing user
 		user, err := w.userService.GetUserByAuth(ctx, username, password)
 		if err != nil {
@@ -306,7 +306,7 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 
 	// We shouldn't mess with users that weren't created by us.
 	user, err := w.userService.GetUserByName(ctx, username)
-	if errors.Is(err, usererrors.NotFound) {
+	if errors.Is(err, usererrors.UserNotFound) {
 		// succeed as no-op
 		return http.StatusOK, nil
 	} else if err != nil {

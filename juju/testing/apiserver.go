@@ -372,7 +372,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	c.Assert(err, jc.ErrorIsNil)
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
 
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, systemState, factory.ControllerConfig(), factory.User(), agentAuthFactory, cfg.Clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, systemState, factory.ControllerConfig(), factory.Access(), agentAuthFactory, cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)

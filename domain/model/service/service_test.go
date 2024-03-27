@@ -17,10 +17,10 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	usererrors "github.com/juju/juju/domain/user/errors"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -80,7 +80,7 @@ func (d *dummyState) Create(
 
 	_, exists = d.users[user.UUID(args.Owner.String())]
 	if !exists {
-		return fmt.Errorf("%w for owner %q", usererrors.NotFound, args.Owner)
+		return fmt.Errorf("%w for owner %q", usererrors.UserNotFound, args.Owner)
 	}
 
 	hasRegion := false
@@ -297,7 +297,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 		Name:        "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {

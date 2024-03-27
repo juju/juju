@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	domainuser "github.com/juju/juju/domain/user"
-	"github.com/juju/juju/domain/user/state"
+	domainuser "github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/internal/auth"
 	internaldatabase "github.com/juju/juju/internal/database"
 )
@@ -26,7 +26,7 @@ import (
 // owned by itself.
 //
 // If the username passed to this function is invalid an error satisfying
-// [github.com/juju/juju/domain/user/errors.UsernameNotValid] is returned.
+// [github.com/juju/juju/domain/access/errors.UsernameNotValid] is returned.
 func AddUser(name string, access permission.AccessSpec) (user.UUID, internaldatabase.BootstrapOpt) {
 	if err := domainuser.ValidateUserName(name); err != nil {
 		return user.UUID(""), bootstrapErr(
@@ -56,7 +56,7 @@ func AddUser(name string, access permission.AccessSpec) (user.UUID, internaldata
 // by this function is owned by itself.
 //
 // If the username passed to this function is invalid an error satisfying
-// [github.com/juju/juju/domain/user/errors.UsernameNotValid] is returned.
+// [github.com/juju/juju/domain/access/errors.UsernameNotValid] is returned.
 func AddUserWithPassword(name string, password auth.Password, access permission.AccessSpec) (user.UUID, internaldatabase.BootstrapOpt) {
 	defer password.Destroy()
 

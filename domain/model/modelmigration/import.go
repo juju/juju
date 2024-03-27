@@ -14,12 +14,12 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	coreuser "github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/access/errors"
+	userservice "github.com/juju/juju/domain/access/service"
+	userstate "github.com/juju/juju/domain/access/state"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
-	usererrors "github.com/juju/juju/domain/user/errors"
-	userservice "github.com/juju/juju/domain/user/service"
-	userstate "github.com/juju/juju/domain/user/state"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -31,8 +31,10 @@ type Coordinator interface {
 
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
-func RegisterImport(coordinator Coordinator) {
-	coordinator.Add(&importOperation{})
+func RegisterImport(coordinator Coordinator, logger Logger) {
+	coordinator.Add(&importOperation{
+		logger: logger,
+	})
 }
 
 // ModelService defines the model service used to import models from another
@@ -57,6 +59,11 @@ type UserService interface {
 	GetUserByName(context.Context, string) (coreuser.User, error)
 }
 
+// Logger is the interface used by the state to log messages.
+type Logger interface {
+	Debugf(string, ...interface{})
+}
+
 // importOperation implements the steps to import models from another controller
 // into the current controller. importOperation assumes that data related to the
 // model such as cloud credentials and users have already been imported or
@@ -67,6 +74,8 @@ type importOperation struct {
 	modelService         ModelService
 	readOnlyModelService ReadOnlyModelService
 	userService          UserService
+
+	logger Logger
 }
 
 // Setup is responsible for taking the model migration scope and creating the
@@ -79,7 +88,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.readOnlyModelService = modelservice.NewModelService(
 		modelstate.NewModelState(scope.ModelDB()),
 	)
-	i.userService = userservice.NewService(userstate.NewState(scope.ControllerDB()))
+	i.userService = userservice.NewService(userstate.NewState(scope.ControllerDB(), i.logger))
 	return nil
 }
 
@@ -97,9 +106,9 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	}
 
 	user, err := i.userService.GetUserByName(ctx, model.Owner().Name())
-	if errors.Is(err, usererrors.NotFound) {
+	if errors.Is(err, usererrors.UserNotFound) {
 		return fmt.Errorf("cannot import model %q with uuid %q, %w for name %q",
-			modelName, uuid, usererrors.NotFound, model.Owner().Name(),
+			modelName, uuid, usererrors.UserNotFound, model.Owner().Name(),
 		)
 	} else if err != nil {
 		return fmt.Errorf(

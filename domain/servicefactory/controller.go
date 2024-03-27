@@ -7,6 +7,8 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	accessservice "github.com/juju/juju/domain/access/service"
+	accessstate "github.com/juju/juju/domain/access/state"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	autocertcachestate "github.com/juju/juju/domain/autocert/state"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
@@ -29,8 +31,6 @@ import (
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
-	userservice "github.com/juju/juju/domain/user/service"
-	userstate "github.com/juju/juju/domain/user/state"
 )
 
 // Logger defines the logging interface used by the services.
@@ -166,9 +166,9 @@ func (s *ControllerFactory) Flag() *flagservice.Service {
 	)
 }
 
-// User returns the user service.
-func (s *ControllerFactory) User() *userservice.Service {
-	return userservice.NewService(
-		userstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+// Access returns the access service, this includes users and permissions.
+func (s *ControllerFactory) Access() *accessservice.Service {
+	return accessservice.NewService(
+		accessstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger.Child("access")),
 	)
 }

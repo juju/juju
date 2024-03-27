@@ -15,11 +15,11 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	"github.com/juju/juju/domain/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
 	jujuversion "github.com/juju/juju/version"
 )
 

@@ -14,21 +14,20 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corepermission "github.com/juju/juju/core/permission"
-	permissionerrors "github.com/juju/juju/domain/permission/errors"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	usererrors "github.com/juju/juju/domain/user/errors"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
-type stateSuite struct {
+type permissionStateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&permissionStateSuite{})
 
-func (s *stateSuite) TestCreatePermissionModel(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user bob on the model
 	s.ensureModel(c, "model-uuid")
@@ -59,8 +58,8 @@ func (s *stateSuite) TestCreatePermissionModel(c *gc.C) {
 	s.checkPermissionRow(c, corepermission.WriteAccess, "123", "model-uuid")
 }
 
-func (s *stateSuite) TestCreatePermissionCloud(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user bob on the model
 	s.ensureModel(c, "model-uuid")
@@ -91,8 +90,8 @@ func (s *stateSuite) TestCreatePermissionCloud(c *gc.C) {
 	s.checkPermissionRow(c, corepermission.AddModelAccess, "123", "test-cloud")
 }
 
-func (s *stateSuite) TestCreatePermissionController(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user bob on the model
 	s.ensureUser(c, "42", "admin", "42") // model owner
@@ -121,8 +120,8 @@ func (s *stateSuite) TestCreatePermissionController(c *gc.C) {
 	s.checkPermissionRow(c, corepermission.SuperuserAccess, "123", "controller")
 }
 
-func (s *stateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user Bob on the model
 	s.ensureUser(c, "42", "admin", "42") // model owner
@@ -138,11 +137,11 @@ func (s *stateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) {
 			Access: corepermission.ReadAccess,
 		},
 	})
-	c.Assert(err, jc.ErrorIs, permissionerrors.TargetInvalid)
+	c.Assert(err, jc.ErrorIs, accesserrors.PermissionTargetInvalid)
 }
 
-func (s *stateSuite) TestCreatePermissionForControllerWithBadInfo(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestCreatePermissionForControllerWithBadInfo(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user Bob on the model
 	s.ensureUser(c, "42", "admin", "42") // model owner
@@ -158,10 +157,10 @@ func (s *stateSuite) TestCreatePermissionForControllerWithBadInfo(c *gc.C) {
 			Access: corepermission.SuperuserAccess,
 		},
 	})
-	c.Assert(err, jc.ErrorIs, permissionerrors.TargetInvalid)
+	c.Assert(err, jc.ErrorIs, accesserrors.PermissionTargetInvalid)
 }
 
-func (s *stateSuite) checkPermissionRow(c *gc.C, access corepermission.Access, expectedGrantTo, expectedGrantON string) {
+func (s *permissionStateSuite) checkPermissionRow(c *gc.C, access corepermission.Access, expectedGrantTo, expectedGrantON string) {
 	db := s.DB()
 	// Find the id for access
 	accessRow := db.QueryRow(`
@@ -194,8 +193,8 @@ FROM permission
 	c.Check(grantOn, gc.Equals, expectedGrantON)
 }
 
-func (s *stateSuite) TestCreatePermissionErrorNoUser(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestCreatePermissionErrorNoUser(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
@@ -206,11 +205,11 @@ func (s *stateSuite) TestCreatePermissionErrorNoUser(c *gc.C) {
 			Access: corepermission.WriteAccess,
 		},
 	})
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
-func (s *stateSuite) TestCreatePermissionErrorDuplicate(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestCreatePermissionErrorDuplicate(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user bob on the model
 	s.ensureModel(c, "model-uuid")
@@ -249,7 +248,7 @@ WHERE permission_type_id = 0
 	// is unique
 	spec.Access = corepermission.WriteAccess
 	_, err = st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
-	c.Assert(err, jc.ErrorIs, permissionerrors.AlreadyExists)
+	c.Assert(err, jc.ErrorIs, accesserrors.PermissionAlreadyExists)
 	row2 := s.DB().QueryRow(`
 SELECT uuid, permission_type_id, grant_to, grant_on 
 FROM permission
@@ -260,8 +259,8 @@ WHERE permission_type_id = 1
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
-func (s *stateSuite) TestDeletePermission(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestDeletePermission(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user bob on the model
 	s.ensureModel(c, "model-uuid")
@@ -293,19 +292,19 @@ func (s *stateSuite) TestDeletePermission(c *gc.C) {
 	c.Assert(num, gc.Equals, 0)
 }
 
-func (s *stateSuite) TestDeletePermissionFailUserNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestDeletePermissionFailUserNotFound(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	target := corepermission.ID{
 		Key:        "model-uuid",
 		ObjectType: corepermission.Model,
 	}
 	err := st.DeletePermission(context.Background(), "bob", target)
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
-func (s *stateSuite) TestDeletePermissionDoesNotExist(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestDeletePermissionDoesNotExist(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user bob on the model
 	s.ensureModel(c, "model-uuid")
@@ -322,8 +321,8 @@ func (s *stateSuite) TestDeletePermissionDoesNotExist(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestReadUserAccessForTarget(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestReadUserAccessForTarget(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user bob on the model
 	s.ensureUser(c, "42", "admin", "42") // model owner
@@ -363,8 +362,8 @@ WHERE grant_to = 123
 	c.Assert(createUserAccess, gc.DeepEquals, readUserAccess)
 }
 
-func (s *stateSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	// Setup to add permissions for user bob on the model
 	s.ensureUser(c, "42", "admin", "42") // model owner
@@ -390,8 +389,8 @@ func (s *stateSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
 	c.Assert(readUserAccessType, gc.Equals, corepermission.AddModelAccess)
 }
 
-func (s *stateSuite) TestReadAllUserAccessForUser(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	modelUUID := utils.MustNewUUID().String()
 	_ = s.twoUsersACloudAndAModel(c, st, modelUUID)
@@ -409,8 +408,8 @@ func (s *stateSuite) TestReadAllUserAccessForUser(c *gc.C) {
 	c.Assert(accessOne.Access, gc.Equals, corepermission.AddModelAccess)
 }
 
-func (s *stateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	modelUUID := utils.MustNewUUID().String()
 	targetCloud := s.twoUsersACloudAndAModel(c, st, modelUUID)
@@ -429,7 +428,7 @@ func (s *stateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
 	c.Check(accessZero.UserID, gc.Not(gc.Equals), accessOne.UserID)
 }
 
-func (s *stateSuite) twoUsersACloudAndAModel(c *gc.C, st *State, modelUUID string) corepermission.ID {
+func (s *permissionStateSuite) twoUsersACloudAndAModel(c *gc.C, st *PermissionState, modelUUID string) corepermission.ID {
 	// Setup to add permissions for user bob and sue on the model and a cloud
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "456", "sue", "42")
@@ -472,7 +471,7 @@ func (s *stateSuite) twoUsersACloudAndAModel(c *gc.C, st *State, modelUUID strin
 	return targetCloud
 }
 
-func (s *stateSuite) ensureUser(c *gc.C, uuid, name, createdByUUID string) {
+func (s *permissionStateSuite) ensureUser(c *gc.C, uuid, name, createdByUUID string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
@@ -483,7 +482,7 @@ func (s *stateSuite) ensureUser(c *gc.C, uuid, name, createdByUUID string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) ensureModel(c *gc.C, uuid string) {
+func (s *permissionStateSuite) ensureModel(c *gc.C, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model_list (uuid)
@@ -494,7 +493,7 @@ func (s *stateSuite) ensureModel(c *gc.C, uuid string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) ensureCloud(c *gc.C, name string) {
+func (s *permissionStateSuite) ensureCloud(c *gc.C, name string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)

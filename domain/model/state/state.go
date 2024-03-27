@@ -16,10 +16,10 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
+	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	usererrors "github.com/juju/juju/domain/user/errors"
 	jujudb "github.com/juju/juju/internal/database"
 )
 
@@ -313,7 +313,7 @@ AND removed = false
 	var userUUID string
 	err = tx.QueryRowContext(ctx, userStmt, input.Owner).Scan(&userUUID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w for model owner %q", usererrors.NotFound, input.Owner)
+		return fmt.Errorf("%w for model owner %q", usererrors.UserNotFound, input.Owner)
 	} else if err != nil {
 		return fmt.Errorf("getting user uuid for setting model %q owner: %w", input.Name, err)
 	}

@@ -15,7 +15,7 @@ import (
 
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
-	service "github.com/juju/juju/domain/user/service"
+	service "github.com/juju/juju/domain/access/service"
 	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
 )

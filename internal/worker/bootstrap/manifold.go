@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
+	userservice "github.com/juju/juju/domain/access/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
-	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/bootstrap"
@@ -356,7 +356,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
 				CredentialService:       controllerServiceFactory.Credential(),
 				CloudService:            controllerServiceFactory.Cloud(),
-				UserService:             controllerServiceFactory.User(),
+				UserService:             controllerServiceFactory.Access(),
 				StorageService:          modelServiceFactory.Storage(registry),
 				ProviderRegistry:        registry,
 				ApplicationService:      modelServiceFactory.Application(registry),

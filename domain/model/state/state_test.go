@@ -18,14 +18,15 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/access/errors"
+	userstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	usererrors "github.com/juju/juju/domain/user/errors"
-	userstate "github.com/juju/juju/domain/user/state"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -48,7 +49,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	m.userUUID = userUUID
 	m.userName = "test-user"
 	c.Assert(err, jc.ErrorIsNil)
-	userState := userstate.NewState(m.TxnRunnerFactory())
+	userState := userstate.NewState(m.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 	err = userState.AddUser(
 		context.Background(),
 		m.userUUID,
@@ -295,14 +296,14 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 			Owner:       user.UUID("noexist"), // does not exist
 		},
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestCreateModelWithRemovedOwner is here to test that if we try and create a
 // new model with an owner that has been removed from the Juju user base that
 // the operation fails with a [usererrors.NotFound] error.
 func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
-	userState := userstate.NewState(m.TxnRunnerFactory())
+	userState := userstate.NewState(m.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 	err := userState.RemoveUser(context.Background(), m.userName)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -319,7 +320,7 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 			Owner:       m.userUUID,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {

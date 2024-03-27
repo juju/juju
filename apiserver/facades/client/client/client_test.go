@@ -31,7 +31,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/auth"
@@ -184,7 +184,7 @@ func (s *clientWatchSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("fred")
 	_, _, err = userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),

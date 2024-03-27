@@ -16,12 +16,13 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	userstate "github.com/juju/juju/domain/access/state"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
-	userstate "github.com/juju/juju/domain/user/state"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -34,7 +35,7 @@ func CreateTestModel(
 ) coremodel.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userState := userstate.NewState(txnRunner)
+	userState := userstate.NewState(txnRunner, jujutesting.NewCheckLogger(c))
 	err = userState.AddUser(
 		context.Background(),
 		userUUID,

@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	coremacaroon "github.com/juju/juju/core/macaroon"
-	usererrors "github.com/juju/juju/domain/user/errors"
+	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -56,7 +56,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		req,
 		st.State,
 		serviceFactory.ControllerConfig(),
-		serviceFactory.User(),
+		serviceFactory.Access(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 	)

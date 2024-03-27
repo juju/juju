@@ -142,7 +142,7 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use or a model
 // with the same name and owner already exists.
 // - [errors.NotFound]: When the cloud, cloud region, or credential do not exist.
-// - [github.com/juju/juju/domain/user/errors.NotFound]: When the owner of the
+// - [github.com/juju/juju/domain/access/errors.NotFound]: When the owner of the
 // model can not be found.
 // - [modelerrors.AgentVersionNotSupported]: When the prescribed agent version
 // cannot be used with this controller.

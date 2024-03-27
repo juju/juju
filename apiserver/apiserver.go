@@ -53,7 +53,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	coretrace "github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
-	userservice "github.com/juju/juju/domain/user/service"
+	userservice "github.com/juju/juju/domain/access/service"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/servicefactory"

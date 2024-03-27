@@ -22,7 +22,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	coreuser "github.com/juju/juju/core/user"
-	usererrors "github.com/juju/juju/domain/user/errors"
+	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
 )
@@ -133,7 +133,7 @@ func (u *LocalUserAuthenticator) Authenticate(
 	// This will check the user service for the user, ensuring that the user
 	// isn't disabled or deleted.
 	user, err := u.UserService.GetUserByAuth(ctx, userTag.Name(), auth.NewPassword(authParams.Credentials))
-	if errors.Is(err, usererrors.NotFound) || errors.Is(err, usererrors.Unauthorized) {
+	if errors.Is(err, usererrors.UserNotFound) || errors.Is(err, usererrors.UserUnauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
@@ -181,7 +181,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 
 	// We've got a valid macaroon, so we can return the user.
 	user, err := u.UserService.GetUserByName(ctx, userTag.Name())
-	if errors.Is(err, usererrors.NotFound) || errors.Is(err, usererrors.Unauthorized) {
+	if errors.Is(err, usererrors.UserNotFound) || errors.Is(err, usererrors.UserUnauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {

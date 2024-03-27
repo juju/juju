@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/juju/testing"
@@ -398,7 +398,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())

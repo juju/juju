@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	modelmigrationtesting "github.com/juju/juju/core/modelmigration/testing"
 	coreuser "github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
-	usererrors "github.com/juju/juju/domain/user/errors"
 	"github.com/juju/juju/environs/config"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -92,7 +92,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *gc.C) {
 // the owner does not exist we get back a [usererrors.NotFound] error.
 func (i *importSuite) TestModelOwnerNoExist(c *gc.C) {
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(coreuser.User{}, usererrors.NotFound)
+	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(coreuser.User{}, usererrors.UserNotFound)
 
 	importOp := importOperation{
 		modelService: i.modelService,
@@ -109,7 +109,7 @@ func (i *importSuite) TestModelOwnerNoExist(c *gc.C) {
 		Owner: names.NewUserTag("tlm"),
 	})
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 func (i *importSuite) TestModelCreate(c *gc.C) {
