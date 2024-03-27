@@ -12,7 +12,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	secrets "github.com/juju/juju/core/secrets"
 	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -114,30 +113,25 @@ func (m *MockSecretsFacade) EXPECT() *MockSecretsFacadeMockRecorder {
 	return m.recorder
 }
 
-// DeleteRevisions mocks base method.
-func (m *MockSecretsFacade) DeleteRevisions(arg0 *secrets.URI, arg1 ...int) error {
+// DeleteObsoleteUserSecrets mocks base method.
+func (m *MockSecretsFacade) DeleteObsoleteUserSecrets() error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "DeleteRevisions", varargs...)
+	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecrets")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteRevisions indicates an expected call of DeleteRevisions.
-func (mr *MockSecretsFacadeMockRecorder) DeleteRevisions(arg0 any, arg1 ...any) *gomock.Call {
+// DeleteObsoleteUserSecrets indicates an expected call of DeleteObsoleteUserSecrets.
+func (mr *MockSecretsFacadeMockRecorder) DeleteObsoleteUserSecrets() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRevisions", reflect.TypeOf((*MockSecretsFacade)(nil).DeleteRevisions), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObsoleteUserSecrets", reflect.TypeOf((*MockSecretsFacade)(nil).DeleteObsoleteUserSecrets))
 }
 
 // WatchRevisionsToPrune mocks base method.
-func (m *MockSecretsFacade) WatchRevisionsToPrune() (watcher.Watcher[[]string], error) {
+func (m *MockSecretsFacade) WatchRevisionsToPrune() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchRevisionsToPrune")
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

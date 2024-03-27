@@ -31,7 +31,7 @@ type SecretService interface {
 
 	// Delete secrets.
 
-	DeleteUserSecret(ctx context.Context, uri *secrets.URI, revisions []int, canDelete func(uri *secrets.URI) error) error
+	DeleteUserSecret(ctx context.Context, uri *secrets.URI, revisions []int) error
 
 	// Grant/revoke secret access.
 

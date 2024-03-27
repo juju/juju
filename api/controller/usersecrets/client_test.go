@@ -4,12 +4,11 @@
 package usersecrets_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/usersecrets"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -35,8 +34,8 @@ func (s *secretSuite) TestWatchRevisionsToPrune(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchRevisionsToPrune")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
-		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
 		return nil
@@ -46,30 +45,17 @@ func (s *secretSuite) TestWatchRevisionsToPrune(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *secretSuite) TestDeleteRevisions(c *gc.C) {
-	uri := coresecrets.NewURI()
+func (s *secretSuite) TestDeleteObsoleteUserSecrets(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "UserSecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "DeleteRevisions")
-		c.Check(arg, jc.DeepEquals, params.DeleteSecretArgs{
-			Args: []params.DeleteSecretArg{
-				{
-					URI:       uri.String(),
-					Revisions: []int{1, 2, 3},
-				},
-			},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{
-				Error: &params.Error{Message: "boom"},
-			}},
-		}
-		return nil
+		c.Check(request, gc.Equals, "DeleteObsoleteUserSecrets")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.IsNil)
+		return errors.New("boom")
 	})
 	client := usersecrets.NewClient(apiCaller)
-	err := client.DeleteRevisions(uri, 1, 2, 3)
+	err := client.DeleteObsoleteUserSecrets()
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

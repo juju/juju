@@ -512,15 +512,7 @@ func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
-	s.secretService.EXPECT().GetSecret(gomock.Any(), &expectURI).Return(&coresecrets.SecretMetadata{
-		URI:      uri,
-		OwnerTag: coretesting.ModelTag.String(),
-	}, nil)
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, revisions []int, canDelete func(uri *coresecrets.URI) error) error {
-			return canDelete(uri)
-		},
-	)
+	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}).Return(nil)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService,
 		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),
@@ -565,40 +557,6 @@ func (s *SecretsSuite) TestRemoveSecretsFailedNotModelAdmin(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *SecretsSuite) TestRemoveSecretsFailedNotModelOwned(c *gc.C) {
-	defer s.setup(c).Finish()
-	s.expectAuthClient()
-
-	uri := coresecrets.NewURI()
-	expectURI := *uri
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
-	s.secretService.EXPECT().GetSecret(gomock.Any(), &expectURI).Return(&coresecrets.SecretMetadata{
-		URI:      uri,
-		OwnerTag: "application-foo",
-	}, nil)
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, revisions []int, canDelete func(uri *coresecrets.URI) error) error {
-			return canDelete(uri)
-		},
-	)
-
-	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService,
-		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),
-		func(_ context.Context, cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
-			return s.secretsBackend, nil
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
-		Args: []params.DeleteSecretArg{{
-			URI:       expectURI.String(),
-			Revisions: []int{666},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error.Message, jc.DeepEquals, "permission denied")
-}
-
 func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAuthClient()
@@ -606,15 +564,7 @@ func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
-	s.secretService.EXPECT().GetSecret(gomock.Any(), &expectURI).Return(&coresecrets.SecretMetadata{
-		URI:      uri,
-		OwnerTag: coretesting.ModelTag.String(),
-	}, nil)
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, revisions []int, canDelete func(uri *coresecrets.URI) error) error {
-			return canDelete(uri)
-		},
-	)
+	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}).Return(nil)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService,
 		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),
@@ -642,7 +592,7 @@ func (s *SecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}, gomock.Any()).Return(secreterrors.SecretNotFound)
+	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}).Return(secreterrors.SecretNotFound)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService,
 		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),

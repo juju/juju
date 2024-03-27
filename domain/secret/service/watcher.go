@@ -11,10 +11,11 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 )
 
 func (s *SecretService) WatchConsumedSecretsChanges(ctx context.Context, consumer SecretConsumer) (watcher.StringsWatcher, error) {
-	panic("implement me")
+	return watchertest.NewMockStringsWatcher(make(chan []string)), nil
 }
 
 // WatchObsolete returns a watcher for notifying when:
@@ -25,7 +26,7 @@ func (s *SecretService) WatchConsumedSecretsChanges(ctx context.Context, consume
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
 func (s *SecretService) WatchObsolete(ctx context.Context, owner CharmSecretOwner) (watcher.StringsWatcher, error) {
-	panic("implement me")
+	return watchertest.NewMockStringsWatcher(make(chan []string)), nil
 }
 
 func (s *SecretService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owner CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
@@ -36,8 +37,10 @@ func (s *SecretService) WatchSecretsRotationChanges(ctx context.Context, owner C
 	panic("implement me")
 }
 
-func (s *SecretService) WatchUserSecretsRevisionsToPrune(ctx context.Context) (watcher.StringsWatcher, error) {
-	panic("implement me")
+func (s *SecretService) WatchObsoleteUserSecrets(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	return watchertest.NewMockNotifyWatcher(ch), nil
 }
 
 func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, originalRev int, skip bool) error {

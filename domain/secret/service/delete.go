@@ -17,15 +17,20 @@ func (s *SecretService) DeleteCharmSecret(ctx context.Context, uri *secrets.URI,
 	panic("implement me")
 }
 
+// DeleteObsoleteUserSecrets deletes any obsolete user secret revisions that are marked as auto-prune.
+func (s *SecretService) DeleteObsoleteUserSecrets(ctx context.Context) error {
+	panic("implement me")
+}
+
 // DeleteUserSecret removes the specified user supplied secret.
 // The secret is removed from state and backend.
-func (s *SecretService) DeleteUserSecret(ctx context.Context, uri *secrets.URI, revisions []int, canDelete func(uri *secrets.URI) error) error {
+func (s *SecretService) DeleteUserSecret(ctx context.Context, uri *secrets.URI, revisions []int) error {
 	// TODO(secrets) - get model uuid from state
 	var modelUUID string
 
 	return s.deleteSecret(
 		ctx,
-		uri, revisions, canDelete,
+		uri, revisions,
 		func(ctx context.Context, p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
 			backend, err := p.NewBackend(&cfg)
 			if err != nil {
@@ -50,7 +55,6 @@ func (s *SecretService) deleteSecret(
 	ctx context.Context,
 	uri *secrets.URI,
 	revisions []int,
-	canDelete func(uri *secrets.URI) error,
 	removeFromBackend func(context.Context, provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
 ) error {
 	cfgInfo, err := s.adminConfigGetter(ctx)
@@ -105,9 +109,6 @@ func (s *SecretService) deleteSecret(
 		return nil
 	}
 
-	if err := canDelete(uri); err != nil {
-		return errors.Trace(err)
-	}
 	// We remove the secret from the backend first.
 	if err := removeFromExternal(uri, revisions...); err != nil {
 		return errors.Trace(err)
