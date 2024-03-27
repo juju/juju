@@ -20,6 +20,7 @@ import (
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -79,6 +80,8 @@ type ModelServiceFactory interface {
 	Annotation() *annotationService.Service
 	// Storage returns the storage service.
 	Storage(registry storage.ProviderRegistry) *storageservice.Service
+	// Secret returns the secret service.
+	Secret(secretservice.BackendAdminConfigGetter) *secretservice.SecretService
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

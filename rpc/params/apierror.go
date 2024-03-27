@@ -13,6 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"gopkg.in/macaroon.v2"
+
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
 const (
@@ -149,6 +151,7 @@ const (
 	CodeNotFound                  = "not found"
 	CodeUserNotFound              = "user not found"
 	CodeModelNotFound             = "model not found"
+	CodeSecretNotFound            = "secret not found"
 	CodeUnauthorized              = "unauthorized access"
 	CodeLoginExpired              = "login expired"
 	CodeNoCreds                   = "no credentials provided"
@@ -207,6 +210,8 @@ func TranslateWellKnownError(err error) error {
 		return errors.NewNotFound(err, "")
 	case CodeUserNotFound:
 		return errors.NewUserNotFound(err, "")
+	case CodeSecretNotFound:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secreterrors.SecretNotFound))
 	case CodeUnauthorized:
 		return errors.NewUnauthorized(err, "")
 	case CodeNotImplemented:
@@ -264,6 +269,10 @@ func IsCodeUserNotFound(err error) bool {
 
 func IsCodeModelNotFound(err error) bool {
 	return ErrCode(err) == CodeModelNotFound
+}
+
+func IsCodeSecretNotFound(err error) bool {
+	return ErrCode(err) == CodeSecretNotFound
 }
 
 func IsCodeUnauthorized(err error) bool {

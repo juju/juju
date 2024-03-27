@@ -20,6 +20,7 @@ import (
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -131,6 +132,11 @@ func (s *TestingServiceFactory) Annotation() *annotationservice.Service {
 
 // Storage returns the storage service.
 func (s *TestingServiceFactory) Storage(storage.ProviderRegistry) *storageservice.Service {
+	return nil
+}
+
+// Secret returns the secret service.
+func (s *TestingServiceFactory) Secret(secretservice.BackendAdminConfigGetter) *secretservice.SecretService {
 	return nil
 }
 

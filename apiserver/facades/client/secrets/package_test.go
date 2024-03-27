@@ -16,7 +16,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/client/secrets SecretsState,SecretsConsumer
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/client/secrets SecretService
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/internal/secrets/provider SecretsBackend,SecretBackendProvider
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -25,8 +25,7 @@ func TestPackage(t *testing.T) {
 func NewTestAPI(
 	authTag names.Tag,
 	authorizer facade.Authorizer,
-	secretsState SecretsState,
-	secretsConsumer SecretsConsumer,
+	secretService SecretService,
 	adminBackendConfigGetter func(ctx context.Context) (*provider.ModelBackendConfigInfo, error),
 	backendConfigGetterForUserSecretsWrite func(ctx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error),
 	backendGetter func(context.Context, *provider.ModelBackendConfig) (provider.SecretsBackend, error),
@@ -40,8 +39,7 @@ func NewTestAPI(
 		authorizer:                             authorizer,
 		controllerUUID:                         coretesting.ControllerTag.Id(),
 		modelUUID:                              coretesting.ModelTag.Id(),
-		secretsState:                           secretsState,
-		secretsConsumer:                        secretsConsumer,
+		secretService:                          secretService,
 		backends:                               make(map[string]provider.SecretsBackend),
 		adminBackendConfigGetter:               adminBackendConfigGetter,
 		backendConfigGetterForUserSecretsWrite: backendConfigGetterForUserSecretsWrite,
