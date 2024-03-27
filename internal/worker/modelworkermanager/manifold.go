@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/apiserverhttp"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
@@ -35,7 +34,6 @@ type ManifoldConfig struct {
 	AuthorityName      string
 	StateName          string
 	ServiceFactoryName string
-	MuxName            string
 	LogSinkName        string
 
 	NewWorker      func(Config) (worker.Worker, error)
@@ -57,9 +55,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
-	}
-	if config.MuxName == "" {
-		return errors.NotValidf("empty MuxName")
 	}
 	if config.LogSinkName == "" {
 		return errors.NotValidf("empty LogSinkName")
@@ -85,7 +80,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.AuthorityName,
-			config.MuxName,
 			config.StateName,
 			config.LogSinkName,
 			config.ServiceFactoryName,
@@ -106,11 +100,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	var authority pki.Authority
 	if err := getter.Get(config.AuthorityName, &authority); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var mux *apiserverhttp.Mux
-	if err := getter.Get(config.MuxName, &mux); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -141,7 +130,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		MachineID:    machineID,
 		ModelWatcher: systemState,
 		ModelMetrics: config.ModelMetrics,
-		Mux:          mux,
 		Controller: StatePoolController{
 			StatePool: statePool,
 		},

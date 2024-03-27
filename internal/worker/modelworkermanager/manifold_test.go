@@ -18,7 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/apiserverhttp"
 	corelogger "github.com/juju/juju/core/logger"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/internal/pki"
@@ -40,7 +39,6 @@ type ManifoldSuite struct {
 	modelLogger            dummyModelLogger
 	serviceFactory         servicefactory.ServiceFactory
 	controllerConfigGetter *controllerconfigservice.WatchableService
-	mux                    *apiserverhttp.Mux
 
 	state *state.State
 	pool  *state.StatePool
@@ -64,7 +62,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.serviceFactory = stubServiceFactory{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
-	s.mux = apiserverhttp.NewMux()
 	s.stub.ResetCalls()
 
 	s.modelLogger = dummyModelLogger{}
@@ -74,7 +71,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:          "agent",
 		AuthorityName:      "authority",
 		StateName:          "state",
-		MuxName:            "mux",
 		LogSinkName:        "log-sink",
 		ServiceFactoryName: "service-factory",
 		NewWorker:          s.newWorker,
@@ -88,7 +84,6 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"agent":           &fakeAgent{},
 		"authority":       s.authority,
-		"mux":             s.mux,
 		"state":           &s.stateTracker,
 		"log-sink":        s.modelLogger,
 		"service-factory": s.serviceFactory,
@@ -115,7 +110,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "authority", "mux", "state", "log-sink", "service-factory"}
+var expectedInputs = []string{"agent", "authority", "state", "log-sink", "service-factory"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -160,7 +155,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Authority:    s.authority,
 		ModelWatcher: s.state,
 		ModelMetrics: dummyModelMetrics{},
-		Mux:          s.mux,
 		Controller: modelworkermanager.StatePoolController{
 			StatePool: s.pool,
 		},

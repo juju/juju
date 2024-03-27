@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api/base"
 	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
 	controllerlifeflag "github.com/juju/juju/api/controller/lifeflag"
-	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -92,9 +91,6 @@ type ManifoldsConfig struct {
 	// for the workers running on behalf of other models get their logs
 	// written into the model's logging collection rather than the controller's.
 	LoggingContext *loggo.Context
-
-	// HTTP server mux for registering caas admission controllers
-	Mux *apiserverhttp.Mux
 
 	// RunFlagDuration defines for how long this controller will ask
 	// for model administration rights; most of the workers controlled
