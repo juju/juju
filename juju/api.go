@@ -144,16 +144,30 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	}
 
 	// Process the account details obtained from login.
+	processAccountDetails(
+		st.AuthTag(),
+		apiInfo.Tag,
+		args.ControllerName,
+		st.ControllerAccess(),
+		args.Store, apiInfo.SkipLogin,
+	)
+
+	return st, nil
+}
+
+func processAccountDetails(authTag names.Tag, apiInfoTag names.Tag, controllerName string, controllerAccess string, store jujuclient.ClientStore, skipLogin bool) {
 	var accountDetails *jujuclient.AccountDetails
-	user, ok := st.AuthTag().(names.UserTag)
-	if !apiInfo.SkipLogin {
+	var err error
+
+	user, ok := authTag.(names.UserTag)
+	if !skipLogin {
 		if ok {
-			if accountDetails, err = args.Store.AccountDetails(args.ControllerName); err != nil {
+			if accountDetails, err = store.AccountDetails(controllerName); err != nil {
 				if !errors.Is(err, errors.NotFound) {
 					logger.Errorf("cannot load local account information: %v", err)
 				}
 			} else {
-				accountDetails.LastKnownAccess = st.ControllerAccess()
+				accountDetails.LastKnownAccess = controllerAccess
 			}
 		}
 		accountType := jujuclient.UserPassAccountDetailsType
@@ -161,25 +175,24 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 			accountType = accountDetails.Type
 		}
 		if accountType == "" || accountType == jujuclient.UserPassAccountDetailsType {
-			if ok && !user.IsLocal() && apiInfo.Tag == nil {
+			if ok && !user.IsLocal() && apiInfoTag == nil {
 				// We used macaroon auth to login; save the username
 				// that we've logged in as.
 				accountDetails = &jujuclient.AccountDetails{
 					Type:            jujuclient.UserPassAccountDetailsType,
 					User:            user.Id(),
-					LastKnownAccess: st.ControllerAccess(),
+					LastKnownAccess: controllerAccess,
 				}
-			} else if apiInfo.Tag == nil {
-				logger.Errorf("unexpected logged-in username %v", st.AuthTag())
+			} else if apiInfoTag == nil {
+				logger.Errorf("unexpected logged-in username %v", authTag)
 			}
 		}
 	}
 	if accountDetails != nil {
-		if err := args.Store.UpdateAccount(args.ControllerName, *accountDetails); err != nil {
+		if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
 			logger.Errorf("cannot update account information: %v", err)
 		}
 	}
-	return st, nil
 }
 
 // connectionInfo returns connection information suitable for

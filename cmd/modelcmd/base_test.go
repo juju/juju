@@ -7,13 +7,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -409,57 +409,64 @@ func addCookie(c *gc.C, jar http.CookieJar, mac *macaroon.Macaroon, url *url.URL
 	jar.SetCookies(url, []*http.Cookie{cookie})
 }
 
-func (s *BaseCommandSuite) TestNewAPIRootWithOAuthLoginProvider(c *gc.C) {
+func (s *BaseCommandSuite) TestProcessAccountDetails(c *gc.C) {
 
-	// the apiOpen function records the login provider to be used
-	var loginProvider api.LoginProvider
-	apiOpen := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
-		loginProvider = dialOpts.LoginProvider
-		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deadbeef2 not found"})
-	}
+	m, err := macaroon.New([]byte("test-root-key"), []byte("test-id"), "", macaroon.V2)
+	c.Assert(err, gc.IsNil)
 
-	// we create a store that contains a single oauth2 device flow account with a test session
-	// token
-	store := jujuclient.NewMemStore()
-	store.CurrentControllerName = "foo"
-	store.Controllers["foo"] = jujuclient.ControllerDetails{
-		APIEndpoints: []string{"testing.invalid:1234"},
-	}
-	store.Models["foo"] = &jujuclient.ControllerModels{
-		Models: map[string]jujuclient.ModelDetails{
-			"admin/badmodel":  {ModelUUID: "deadbeef", ModelType: model.IAAS},
-			"admin/goodmodel": {ModelUUID: "deadbeef2", ModelType: model.IAAS},
+	tests := []struct {
+		input          jujuclient.AccountDetails
+		expectedOutput jujuclient.AccountDetails
+	}{{
+		input: jujuclient.AccountDetails{
+			Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
+			SessionToken: "test-session-token",
 		},
-		CurrentModel: "admin/badmodel",
+		expectedOutput: jujuclient.AccountDetails{
+			Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
+			SessionToken: "test-session-token",
+		},
+	}, {
+		input: jujuclient.AccountDetails{
+			Type:     "",
+			User:     names.NewUserTag("alice").String(),
+			Password: "test-secret-password",
+		},
+		expectedOutput: jujuclient.AccountDetails{
+			Type:     "",
+			User:     names.NewUserTag("alice").String(),
+			Password: "test-secret-password",
+		},
+	}, {
+		input: jujuclient.AccountDetails{
+			Type:      jujuclient.UserPassAccountDetailsType,
+			User:      names.NewUserTag("alice").String(),
+			Macaroons: []macaroon.Slice{{m}},
+		},
+		expectedOutput: jujuclient.AccountDetails{
+			Type:      jujuclient.UserPassAccountDetailsType,
+			User:      names.NewUserTag("alice").String(),
+			Macaroons: []macaroon.Slice{{m}},
+		},
+	}, {
+		input: jujuclient.AccountDetails{
+			Type:      jujuclient.UserPassAccountDetailsType,
+			User:      names.NewUserTag("alice@wonderland.canonical.com").String(),
+			Macaroons: []macaroon.Slice{{m}},
+		},
+		expectedOutput: jujuclient.AccountDetails{
+			User:      names.NewUserTag("alice@wonderland.canonical.com").String(),
+			Macaroons: []macaroon.Slice{{m}},
+		},
+	}, {
+		input: jujuclient.AccountDetails{
+			User: names.NewUserTag("alice@wonderland.canonical.com").String(),
+		},
+		expectedOutput: jujuclient.AccountDetails{},
+	}}
+	for i, test := range tests {
+		c.Logf("running test case %d", i)
+		output := modelcmd.ProcessAccountDetails(&test.input)
+		c.Assert(output, gc.DeepEquals, &test.expectedOutput)
 	}
-	store.Accounts["foo"] = jujuclient.AccountDetails{
-		Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
-		SessionToken: "test-session-token",
-	}
-
-	baseCmd := new(modelcmd.ModelCommandBase)
-	baseCmd.SetClientStore(store)
-	baseCmd.SetAPIOpen(apiOpen)
-	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
-	modelcmd.SetRunStarted(baseCmd)
-
-	c.Assert(baseCmd.SetModelIdentifier("foo:admin/goodmodel", false), jc.ErrorIsNil)
-
-	// we call the NewAPIRoot method and expect it to return an error
-	_, err := baseCmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, `model \"admin/goodmodel\" has been removed from the controller, run 'juju models' and switch to one of them.`)
-
-	// then we inspect the login provider to be used
-	// - we expect it to be a sessionTokenLoginProvider, which is not exported from the api
-	//   package, so we have to resort to a bit of reflect magic - we inspect it's fields
-	//   and one of them is expected to be the sessionToken.
-	val := reflect.ValueOf(loginProvider).Elem()
-	sessionTokenFound := false
-	for i := 0; i < val.NumField(); i++ {
-		sessionTokenFound = (val.Type().Field(i).Name == "sessionToken")
-		if sessionTokenFound {
-			break
-		}
-	}
-	c.Assert(sessionTokenFound, gc.Equals, true)
 }

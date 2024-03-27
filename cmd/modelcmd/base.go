@@ -214,6 +214,34 @@ func (c *CommandBase) NewAPIRoot(
 	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil)
 }
 
+func processAccountDetails(accountDetails *jujuclient.AccountDetails) *jujuclient.AccountDetails {
+	if accountDetails != nil && accountDetails.Type != "" && accountDetails.Type != jujuclient.UserPassAccountDetailsType {
+		return accountDetails
+	}
+	// If there are no account details or there's no logged-in
+	// user or the user is external, then trigger macaroon authentication
+	// by using an empty AccountDetails.
+	if accountDetails == nil || accountDetails.User == "" {
+		accountDetails = &jujuclient.AccountDetails{}
+	} else {
+		u := names.NewUserTag(accountDetails.User)
+		if !u.IsLocal() {
+			if len(accountDetails.Macaroons) == 0 {
+				accountDetails = &jujuclient.AccountDetails{}
+			} else {
+				// If the account has macaroon set, use those to login
+				// to avoid an unnecessary auth round trip.
+				// Used for embedded commands.
+				accountDetails = &jujuclient.AccountDetails{
+					User:      u.Id(),
+					Macaroons: accountDetails.Macaroons,
+				}
+			}
+		}
+	}
+	return accountDetails
+}
+
 // NewAPIRootWithDialOpts returns a new connection to the API server for the
 // given model or controller (the default dial options will be overridden if
 // dialOpts is not nil).
@@ -224,32 +252,11 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 ) (api.Connection, error) {
 	c.assertRunStarted()
 	accountDetails, err := store.AccountDetails(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
-	// If there are no account details or there's no logged-in
-	// user or the user is external, then trigger macaroon authentication
-	// by using an empty AccountDetails.
-	if accountDetails.Type == "" || accountDetails.Type == jujuclient.UserPassAccountDetailsType {
-		if accountDetails == nil || accountDetails.User == "" {
-			accountDetails = &jujuclient.AccountDetails{}
-		} else {
-			u := names.NewUserTag(accountDetails.User)
-			if !u.IsLocal() {
-				if len(accountDetails.Macaroons) == 0 {
-					accountDetails = &jujuclient.AccountDetails{}
-				} else {
-					// If the account has macaroon set, use those to login
-					// to avoid an unnecessary auth round trip.
-					// Used for embedded commands.
-					accountDetails = &jujuclient.AccountDetails{
-						User:      u.Id(),
-						Macaroons: accountDetails.Macaroons,
-					}
-				}
-			}
-		}
-	}
+
+	accountDetails = processAccountDetails(accountDetails)
 
 	param, err := c.NewAPIConnectionParams(
 		store, controllerName, modelName, accountDetails,
