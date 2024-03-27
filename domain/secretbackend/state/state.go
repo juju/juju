@@ -86,8 +86,8 @@ WHERE uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 	}, nil
 }
 
-// UpsertSecretBackend persists the input secret backend entity.
-func (s *State) UpsertSecretBackend(ctx context.Context, params secretbackend.UpsertSecretBackendParams) (string, error) {
+// CreateSecretBackend creates a new secret backend.
+func (s *State) CreateSecretBackend(ctx context.Context, params secretbackend.CreateSecretBackendParams) (string, error) {
 	if err := params.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -96,94 +96,97 @@ func (s *State) UpsertSecretBackend(ctx context.Context, params secretbackend.Up
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-
-	getBackendStmt, err := s.Prepare(`
-SELECT &SecretBackend.*
-FROM secret_backend
-WHERE uuid = $M.uuid`, SecretBackend{}, sqlair.M{})
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := prepareDataForUpsertSecretBackend(ctx, tx, getBackendStmt, &params); err != nil {
-			return errors.Trace(err)
-		}
-		sb := SecretBackend{
-			ID:          params.ID,
-			Name:        params.Name,
-			BackendType: params.BackendType,
-		}
-		if params.TokenRotateInterval != nil {
-			sb.TokenRotateInterval = database.NewNullDuration(*params.TokenRotateInterval)
-		}
-
-		if err := s.upsertBackend(ctx, tx, sb); err != nil {
-			return errors.Trace(err)
-		}
-		if params.NextRotateTime != nil && !params.NextRotateTime.IsZero() {
-			if err = s.upsertBackendRotation(ctx, tx, SecretBackendRotation{
-				ID:               params.ID,
-				NextRotationTime: sql.NullTime{Time: *params.NextRotateTime, Valid: true},
-			}); err != nil {
-				return errors.Trace(err)
-			}
-		}
-		if len(params.Config) == 0 {
-			return nil
-		}
-		if err := s.upsertBackendConfig(ctx, tx, params.ID, params.Config); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+		_, err := s.upsertSecretBackend(ctx, tx, upsertSecretBackendParams{
+			ID:                  params.ID,
+			Name:                params.Name,
+			BackendType:         params.BackendType,
+			TokenRotateInterval: params.TokenRotateInterval,
+			NextRotateTime:      params.NextRotateTime,
+			Config:              params.Config,
+		})
+		return errors.Trace(err)
 	})
 	return params.ID, domain.CoerceError(err)
 }
 
-func prepareDataForUpsertSecretBackend(
-	ctx context.Context, tx *sqlair.TX,
-	getBackendStmt *sqlair.Statement,
-	params *secretbackend.UpsertSecretBackendParams,
-) error {
-	var existing SecretBackend
-	err := tx.Query(ctx, getBackendStmt, sqlair.M{"uuid": params.ID}).Get(&existing)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		// New insert.
-		if params.Name == "" {
-			return fmt.Errorf("%w: name is missing", backenderrors.NotValid)
+// UpdateSecretBackend updates the secret backend.
+func (s *State) UpdateSecretBackend(ctx context.Context, params secretbackend.UpdateSecretBackendParams) (string, error) {
+	if err := params.Validate(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var existing *secretbackend.SecretBackend
+		if params.Name != "" {
+			existing, err = s.getSecretBackend(ctx, tx, "name", params.Name)
+		} else {
+			existing, err = s.getSecretBackend(ctx, tx, "uuid", params.ID)
 		}
-		if params.BackendType == "" {
-			return fmt.Errorf("%w: type is missing", backenderrors.NotValid)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		return nil
-	} else if err != nil {
+		upsertParams := upsertSecretBackendParams{
+			// secret_backend table.
+			ID:                  existing.ID,
+			Name:                existing.Name,
+			BackendType:         existing.BackendType,
+			TokenRotateInterval: existing.TokenRotateInterval,
+
+			// secret_backend_rotation table.
+			NextRotateTime: params.NextRotateTime,
+
+			// secret_backend_config table.
+			Config: params.Config,
+		}
+		if params.NewName != nil {
+			upsertParams.Name = *params.NewName
+		}
+		if params.TokenRotateInterval != nil {
+			upsertParams.TokenRotateInterval = params.TokenRotateInterval
+		}
+		_, err := s.upsertSecretBackend(ctx, tx, upsertParams)
 		return errors.Trace(err)
+	})
+	return params.ID, domain.CoerceError(err)
+}
+
+func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params upsertSecretBackendParams) (string, error) {
+	if err := params.Validate(); err != nil {
+		return "", errors.Trace(err)
 	}
-	// Update.
-	if existing.BackendType == "" {
-		return fmt.Errorf("backend type is empty for backend %q", params.ID)
+
+	sb := SecretBackend{
+		ID:          params.ID,
+		Name:        params.Name,
+		BackendType: params.BackendType,
 	}
-	if existing.Name == "" {
-		return fmt.Errorf("backend name is empty for backend %q", params.ID)
+	if params.TokenRotateInterval != nil {
+		sb.TokenRotateInterval = database.NewNullDuration(*params.TokenRotateInterval)
 	}
-	if params.BackendType != "" && params.BackendType != existing.BackendType {
-		// The secret backend type is immutable.
-		return fmt.Errorf(
-			"%w: cannot change backend type from %q to %q because backend type is immutable",
-			backenderrors.NotValid, existing.BackendType, params.BackendType,
-		)
+
+	if err := s.upsertBackend(ctx, tx, sb); err != nil {
+		return params.ID, errors.Trace(err)
 	}
-	// Fill in the existing backend type.
-	params.BackendType = existing.BackendType
-	if params.Name == "" {
-		// Fill in the existing name.
-		params.Name = existing.Name
+	if params.NextRotateTime != nil && !params.NextRotateTime.IsZero() {
+		if err := s.upsertBackendRotation(ctx, tx, SecretBackendRotation{
+			ID:               params.ID,
+			NextRotationTime: sql.NullTime{Time: *params.NextRotateTime, Valid: true},
+		}); err != nil {
+			return params.ID, errors.Trace(err)
+		}
 	}
-	if params.TokenRotateInterval == nil && existing.TokenRotateInterval.Valid {
-		// Fill in the existing token rotate interval.
-		params.TokenRotateInterval = &existing.TokenRotateInterval.Duration
+	if len(params.Config) == 0 {
+		return params.ID, nil
 	}
-	return nil
+	if err := s.upsertBackendConfig(ctx, tx, params.ID, params.Config); err != nil {
+		return params.ID, errors.Trace(err)
+	}
+	return params.ID, nil
 }
 
 // DeleteSecretBackend deletes the secret backend for the given backend ID.
@@ -284,7 +287,7 @@ ORDER BY b.name`, SecretBackendRow{})
 	return rows.toSecretBackends(), errors.Trace(err)
 }
 
-func (s *State) getSecretBackend(ctx context.Context, columName string, v string) (*secretbackend.SecretBackend, error) {
+func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, columName string, v string) (*secretbackend.SecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -327,12 +330,31 @@ WHERE b.%s = $M.identifier`, columName)
 
 // GetSecretBackendByName returns the secret backend for the given backend name.
 func (s *State) GetSecretBackendByName(ctx context.Context, backendName string) (*secretbackend.SecretBackend, error) {
-	return s.getSecretBackend(ctx, "name", backendName)
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var sb *secretbackend.SecretBackend
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		sb, err = s.getSecretBackend(ctx, tx, "name", backendName)
+		return errors.Trace(err)
+	})
+	return sb, errors.Trace(err)
 }
 
 // GetSecretBackend returns the secret backend for the given backend ID.
 func (s *State) GetSecretBackend(ctx context.Context, backendID string) (*secretbackend.SecretBackend, error) {
-	return s.getSecretBackend(ctx, "uuid", backendID)
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var sb *secretbackend.SecretBackend
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		sb, err = s.getSecretBackend(ctx, tx, "uuid", backendID)
+		return errors.Trace(err)
+	})
+	return sb, errors.Trace(err)
 }
 
 // SecretBackendRotated updates the next rotation time for the secret backend.

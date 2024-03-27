@@ -5,11 +5,14 @@ package state
 
 import (
 	"database/sql"
+	"fmt"
 	"sort"
+	"time"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
+	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -24,6 +27,40 @@ type ModelSecretBackend struct {
 	// SecretBackendID is the unique identifier for the secret backend configured for the model.
 	// TODO: change to string once we changed the `model_secret_backend.secret_backend_uuid` column to be not null.
 	SecretBackendID sql.NullString `db:"secret_backend_uuid"`
+}
+
+// upsertSecretBackendParams are used to upsert a secret backend.
+type upsertSecretBackendParams struct {
+	ID                  string
+	Name                string
+	BackendType         string
+	TokenRotateInterval *time.Duration
+	NextRotateTime      *time.Time
+	Config              map[string]string
+}
+
+// Validate checks that the parameters are valid.
+func (p upsertSecretBackendParams) Validate() error {
+	if p.ID == "" {
+		return fmt.Errorf("%w: ID is missing", backenderrors.NotValid)
+	}
+	if p.Name == "" {
+		return fmt.Errorf("%w: name is missing", backenderrors.NotValid)
+	}
+	if p.BackendType == "" {
+		return fmt.Errorf("%w: type is missing", backenderrors.NotValid)
+	}
+	for k, v := range p.Config {
+		if k == "" {
+			return fmt.Errorf(
+				"%w: empty config key for %q", backenderrors.NotValid, p.Name)
+		}
+		if v == "" {
+			return fmt.Errorf(
+				"%w: empty config value for %q", backenderrors.NotValid, p.Name)
+		}
+	}
+	return nil
 }
 
 // SecretBackend represents a single row from the state database's secret_backend table.

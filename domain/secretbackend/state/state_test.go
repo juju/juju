@@ -69,7 +69,7 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	result, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	result, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -249,7 +249,7 @@ func (s *stateSuite) TestCreateSecretBackendFailed(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -260,9 +260,9 @@ func (s *stateSuite) TestCreateSecretBackendFailed(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIs, backenderrors.NotValid)
-	c.Assert(err, gc.ErrorMatches, `secret backend not valid: empty config value for "`+backendID+`"`)
+	c.Assert(err, gc.ErrorMatches, `secret backend not valid: empty config value for "my-backend"`)
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -273,14 +273,14 @@ func (s *stateSuite) TestCreateSecretBackendFailed(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIs, backenderrors.NotValid)
-	c.Assert(err, gc.ErrorMatches, `secret backend not valid: empty config key for "`+backendID+`"`)
+	c.Assert(err, gc.ErrorMatches, `secret backend not valid: empty config key for "my-backend"`)
 }
 
 func (s *stateSuite) TestCreateSecretBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	result, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	result, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -308,7 +308,7 @@ func (s *stateSuite) TestCreateSecretBackend(c *gc.C) {
 
 func (s *stateSuite) TestCreateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	result, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	result, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
@@ -323,46 +323,50 @@ func (s *stateSuite) TestCreateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	}, nil)
 }
 
-func (s *stateSuite) TestUpsertSecretBackendInvalidArg(c *gc.C) {
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{})
+func (s *stateSuite) TestupsertSecretBackendInvalidArg(c *gc.C) {
+	_, err := s.state.upsertSecretBackend(context.Background(), nil, upsertSecretBackendParams{})
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: ID is missing`)
 
 	backendID := uuid.MustNewUUID().String()
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.upsertSecretBackend(context.Background(), nil, upsertSecretBackendParams{
 		ID: backendID,
 	})
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: name is missing`)
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.upsertSecretBackend(context.Background(), nil, upsertSecretBackendParams{
 		ID:   backendID,
 		Name: "my-backend",
 	})
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: type is missing`)
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID: backendID,
+	_, err = s.state.upsertSecretBackend(context.Background(), nil, upsertSecretBackendParams{
+		ID:          backendID,
+		Name:        "my-backend",
+		BackendType: "vault",
 		Config: map[string]string{
 			"key1": "",
 		},
 	})
 	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`secret backend not valid: empty config value for %q`, backendID))
+	c.Check(err, gc.ErrorMatches, `secret backend not valid: empty config value for "my-backend"`)
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID: backendID,
+	_, err = s.state.upsertSecretBackend(context.Background(), nil, upsertSecretBackendParams{
+		ID:          backendID,
+		Name:        "my-backend",
+		BackendType: "vault",
 		Config: map[string]string{
 			"": "value1",
 		},
 	})
 	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`secret backend not valid: empty config key for %q`, backendID))
+	c.Check(err, gc.ErrorMatches, `secret backend not valid: empty config key for "my-backend"`)
 }
 
 func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -385,12 +389,30 @@ func (s *stateSuite) TestUpdateSecretBackend(c *gc.C) {
 		},
 	}, &nextRotateTime)
 
+	// Update by ID.
+	nameChange := "my-backend-updated"
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		ID:      backendID,
+		NewName: &nameChange,
+	})
+	c.Assert(err, gc.IsNil)
+
+	s.assertSecretBackend(c, secretbackend.SecretBackend{
+		ID:                  backendID,
+		Name:                "my-backend-updated",
+		BackendType:         "vault",
+		TokenRotateInterval: &rotateInternal,
+		Config: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+	}, &nextRotateTime)
+
+	// Update by name.
 	newRotateInternal := 48 * time.Hour
 	newNextRotateTime := time.Now().Add(newRotateInternal)
-	nameChange := "my-backend-updated"
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID:                  backendID,
-		Name:                nameChange,
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		Name:                "my-backend-updated",
 		TokenRotateInterval: &newRotateInternal,
 		NextRotateTime:      &newNextRotateTime,
 		Config: map[string]string{
@@ -416,7 +438,7 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -440,9 +462,9 @@ func (s *stateSuite) TestUpdateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	}, &nextRotateTime)
 
 	nameChange := "my-backend-updated"
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID:   backendID,
-		Name: nameChange,
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		ID:      backendID,
+		NewName: &nameChange,
 	})
 	c.Assert(err, gc.IsNil)
 	s.assertSecretBackend(c, secretbackend.SecretBackend{
@@ -461,7 +483,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID1,
 		Name:                "my-backend1",
 		BackendType:         "vault",
@@ -471,7 +493,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	c.Check(err, gc.IsNil)
 
 	backendID2 := uuid.MustNewUUID().String()
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID2,
 		Name:                "my-backend2",
 		BackendType:         "vault",
@@ -481,14 +503,14 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	c.Check(err, gc.IsNil)
 
 	nameChange := "my-backend1"
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID:   backendID2,
-		Name: nameChange,
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		ID:      backendID2,
+		NewName: &nameChange,
 	})
 	c.Check(err, jc.ErrorIs, backenderrors.AlreadyExists)
 	c.Check(err, gc.ErrorMatches, `secret backend already exists: name "my-backend1"`)
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
 		ID: backendID2,
 		Config: map[string]string{
 			"key1": "",
@@ -497,7 +519,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`secret backend not valid: empty config value for %q`, backendID2))
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
 		ID: backendID2,
 		Config: map[string]string{
 			"": "value1",
@@ -505,18 +527,11 @@ func (s *stateSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`secret backend not valid: empty config key for %q`, backendID2))
-
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID:          backendID2,
-		BackendType: "kubernetes",
-	})
-	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
-	c.Check(err, gc.ErrorMatches, `secret backend not valid: cannot change backend type from "vault" to "kubernetes" because backend type is immutable`)
-
 }
+
 func (s *stateSuite) TestUpdateSecretBackendFailedForInternalBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "internal",
@@ -524,10 +539,9 @@ func (s *stateSuite) TestUpdateSecretBackendFailedForInternalBackend(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	newName := "my-backend-new"
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID:          backendID,
-		Name:        newName,
-		BackendType: "internal",
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		ID:      backendID,
+		NewName: &newName,
 	})
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
@@ -535,7 +549,7 @@ func (s *stateSuite) TestUpdateSecretBackendFailedForInternalBackend(c *gc.C) {
 
 func (s *stateSuite) TestUpdateSecretBackendFailedForKubernetesBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "kubernetes",
@@ -543,10 +557,9 @@ func (s *stateSuite) TestUpdateSecretBackendFailedForKubernetesBackend(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 
 	newName := "my-backend-new"
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID:          backendID,
-		Name:        newName,
-		BackendType: "kubernetes",
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		ID:      backendID,
+		NewName: &newName,
 	})
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
@@ -606,7 +619,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 func (s *stateSuite) TestDeleteSecretBackendWithNoConfigNoNextRotationTime(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -652,7 +665,7 @@ WHERE backend_uuid = ?`[1:], backendID)
 
 func (s *stateSuite) TestDeleteSecretBackendFailedForInternalBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "internal",
@@ -666,7 +679,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForInternalBackend(c *gc.C) {
 
 func (s *stateSuite) TestDeleteSecretBackendFailedForKubernetesBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "kubernetes",
@@ -690,7 +703,7 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal1 := 24 * time.Hour
 	nextRotateTime1 := time.Now().Add(rotateInternal1)
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID1,
 		Name:                "my-backend1",
 		BackendType:         "vault",
@@ -716,7 +729,7 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 	backendID2 := uuid.MustNewUUID().String()
 	rotateInternal2 := 48 * time.Hour
 	nextRotateTime2 := time.Now().Add(rotateInternal2)
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID2,
 		Name:                "my-backend2",
 		BackendType:         "kubernetes",
@@ -775,7 +788,7 @@ func (s *stateSuite) TestListSecretBackendsEmpty(c *gc.C) {
 func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
@@ -795,7 +808,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 		BackendType: "vault",
 	})
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
 		ID:                  backendID,
 		TokenRotateInterval: &rotateInternal,
 	})
@@ -809,7 +822,7 @@ func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
 		TokenRotateInterval: &rotateInternal,
 	})
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
 		ID: backendID,
 		Config: map[string]string{
 			"key1": "value1",
@@ -841,7 +854,7 @@ func (s *stateSuite) TestGetSecretBackendByNameNotFound(c *gc.C) {
 func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:          backendID,
 		Name:        "my-backend",
 		BackendType: "vault",
@@ -861,7 +874,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 		BackendType: "vault",
 	})
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
 		ID:                  backendID,
 		TokenRotateInterval: &rotateInternal,
 	})
@@ -875,7 +888,7 @@ func (s *stateSuite) TestGetSecretBackend(c *gc.C) {
 		TokenRotateInterval: &rotateInternal,
 	})
 
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
 		ID: backendID,
 		Config: map[string]string{
 			"key1": "value1",
@@ -909,7 +922,7 @@ func (s *stateSuite) TestSecretBackendRotated(c *gc.C) {
 	backendID := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID,
 		Name:                "my-backend",
 		BackendType:         "vault",
@@ -961,7 +974,7 @@ func (s *stateSuite) TestGetSecretBackendRotateChanges(c *gc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal1 := 24 * time.Hour
 	nextRotateTime1 := time.Now().Add(rotateInternal1)
-	_, err := s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err := s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID1,
 		Name:                "my-backend1",
 		BackendType:         "vault",
@@ -979,7 +992,7 @@ func (s *stateSuite) TestGetSecretBackendRotateChanges(c *gc.C) {
 	backendID2 := uuid.MustNewUUID().String()
 	rotateInternal2 := 48 * time.Hour
 	nextRotateTime2 := time.Now().Add(rotateInternal2)
-	_, err = s.state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
+	_, err = s.state.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
 		ID:                  backendID2,
 		Name:                "my-backend2",
 		BackendType:         "vault",
