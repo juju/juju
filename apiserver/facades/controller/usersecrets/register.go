@@ -13,7 +13,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/internal/secrets/provider"
-	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -24,16 +23,16 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // NewUserSecretsManager creates a UserSecretsManager.
-func NewUserSecretsManager(context facade.ModelContext) (*UserSecretsManager, error) {
-	if !context.Auth().AuthController() {
+func NewUserSecretsManager(ctx facade.ModelContext) (*UserSecretsManager, error) {
+	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	model, err := context.State().Model()
+	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := context.ServiceFactory()
+	serviceFactory := ctx.ServiceFactory()
 	backendConfigGetter := func(ctx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(
 			ctx, secrets.SecretsModel(model),
@@ -42,12 +41,8 @@ func NewUserSecretsManager(context facade.ModelContext) (*UserSecretsManager, er
 	}
 
 	return &UserSecretsManager{
-		authorizer:          context.Auth(),
-		resources:           context.Resources(),
-		authTag:             context.Auth().GetAuthTag(),
-		controllerUUID:      context.State().ControllerUUID(),
-		modelUUID:           context.State().ModelUUID(),
-		secretsState:        state.NewSecrets(context.State()),
-		backendConfigGetter: backendConfigGetter,
+		authorizer:    ctx.Auth(),
+		resources:     ctx.Resources(),
+		secretService: serviceFactory.Secret(backendConfigGetter),
 	}, nil
 }

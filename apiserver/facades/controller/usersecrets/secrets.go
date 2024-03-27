@@ -7,15 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 // UserSecretsManager is the implementation for the usersecrets facade.
@@ -23,52 +19,57 @@ type UserSecretsManager struct {
 	authorizer facade.Authorizer
 	resources  facade.Resources
 
-	authTag        names.Tag
-	controllerUUID string
-	modelUUID      string
-
-	secretsState        SecretsState
-	backendConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
+	secretService SecretService
 }
 
 // WatchRevisionsToPrune returns a watcher for notifying when:
 //   - a secret revision owned by the model no longer
 //     has any consumers and should be pruned.
-func (s *UserSecretsManager) WatchRevisionsToPrune() (params.StringsWatchResult, error) {
+func (s *UserSecretsManager) WatchRevisionsToPrune(ctx context.Context) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
-	w, err := s.secretsState.WatchRevisionsToPrune([]names.Tag{names.NewModelTag(s.modelUUID)})
+	w, err := s.secretService.WatchUserSecretsRevisionsToPrune(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	if changes, ok := <-w.Changes(); ok {
 		result.StringsWatcherId = s.resources.Register(w)
 		result.Changes = changes
-	} else {
-		err = watcher.EnsureErr(w)
-		result.Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
 // DeleteRevisions deletes the specified revisions of the specified secret.
 func (s *UserSecretsManager) DeleteRevisions(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	return commonsecrets.RemoveUserSecrets(
-		ctx,
-		s.secretsState, s.backendConfigGetter,
-		s.authTag, args, s.modelUUID,
-		func(uri *coresecrets.URI) error {
-			md, err := s.secretsState.GetSecret(uri)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			// Can only delete model owned(user supplied) secrets.
-			if md.OwnerTag != names.NewModelTag(s.modelUUID).String() {
-				return apiservererrors.ErrPerm
-			}
-			if !md.AutoPrune {
-				return errors.Errorf("cannot delete non auto-prune secret %q", uri.String())
-			}
-			return nil
-		},
-	)
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+
+	if len(args.Args) == 0 {
+		return result, nil
+	}
+
+	canDelete := func(uri *coresecrets.URI) error {
+		md, err := s.secretService.GetSecret(ctx, uri)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !md.AutoPrune {
+			return errors.Errorf("cannot delete non auto-prune secret %q", uri.String())
+		}
+		return nil
+	}
+
+	for i, arg := range args.Args {
+		uri, err := coresecrets.ParseURI(arg.URI)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = s.secretService.DeleteUserSecret(ctx, uri, arg.Revisions, canDelete)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return result, nil
 }
