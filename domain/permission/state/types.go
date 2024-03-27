@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/permission"
+	corepermission "github.com/juju/juju/core/permission"
 )
 
 // User represents a user in the system where the values overlap with
 // corepermission.UserAccess.
-type User struct {
+type user struct {
 	// UUID is the unique identifier for the user.
 	UUID string `db:"uuid"`
 
@@ -34,8 +34,10 @@ type User struct {
 }
 
 // toCoreUserAccess converts the state user to a core permission UserAccess.
-func (u User) toCoreUserAccess() permission.UserAccess {
-	return permission.UserAccess{
+// Additional detail regarding the permission is required to be added
+// after.
+func (u user) toCoreUserAccess() corepermission.UserAccess {
+	return corepermission.UserAccess{
 		UserID:      u.UUID,
 		UserTag:     names.NewUserTag(u.Name),
 		DisplayName: u.DisplayName,
@@ -59,4 +61,37 @@ type addUserPermission struct {
 
 	// GrantTo is the tag that the permission is granted to.
 	GrantTo string `db:"grant_to"`
+}
+
+// readUserPermission represents a permission in the system.
+type readUserPermission struct {
+	// UUID is the unique identifier for the permission.
+	UUID string `db:"uuid"`
+
+	// GrantOn is the unique identifier of the permission target.
+	// A name or UUID depending on the ObjectType.
+	GrantOn string `db:"grant_on"`
+
+	// GrantTo is the unique identifier of the user the permission
+	// is granted to.
+	GrantTo string `db:"grant_to"`
+
+	// AccessType is a string version of core permission AccessType.
+	AccessType string `db:"access_type"`
+
+	// ObjectType is a string version of core permission ObjectType.
+	ObjectType string `db:"object_type"`
+}
+
+// toUserAccess combines a readUserPermission with a user to create
+// a core permission UserAccess.
+func (r readUserPermission) toUserAccess(u user) corepermission.UserAccess {
+	userAccess := u.toCoreUserAccess()
+	userAccess.PermissionID = r.UUID
+	userAccess.Object = objectTag(corepermission.ID{
+		ObjectType: corepermission.ObjectType(r.ObjectType),
+		Key:        r.GrantOn,
+	})
+	userAccess.Access = corepermission.Access(r.AccessType)
+	return userAccess
 }
