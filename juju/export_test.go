@@ -4,5 +4,6 @@
 package juju
 
 var (
-	ConnectionInfo = connectionInfo
+	ConnectionInfo        = connectionInfo
+	ProcessAccountDetails = processAccountDetails
 )

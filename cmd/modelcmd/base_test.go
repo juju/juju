@@ -13,6 +13,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -406,4 +407,66 @@ func addCookie(c *gc.C, jar http.CookieJar, mac *macaroon.Macaroon, url *url.URL
 	c.Assert(err, jc.ErrorIsNil)
 	cookie.Expires = time.Now().Add(time.Hour) // only persistent cookies are stored
 	jar.SetCookies(url, []*http.Cookie{cookie})
+}
+
+func (s *BaseCommandSuite) TestProcessAccountDetails(c *gc.C) {
+
+	m, err := macaroon.New([]byte("test-root-key"), []byte("test-id"), "", macaroon.V2)
+	c.Assert(err, gc.IsNil)
+
+	tests := []struct {
+		input          jujuclient.AccountDetails
+		expectedOutput jujuclient.AccountDetails
+	}{{
+		input: jujuclient.AccountDetails{
+			Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
+			SessionToken: "test-session-token",
+		},
+		expectedOutput: jujuclient.AccountDetails{
+			Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
+			SessionToken: "test-session-token",
+		},
+	}, {
+		input: jujuclient.AccountDetails{
+			Type:     "",
+			User:     names.NewUserTag("alice").String(),
+			Password: "test-secret-password",
+		},
+		expectedOutput: jujuclient.AccountDetails{
+			Type:     "",
+			User:     names.NewUserTag("alice").String(),
+			Password: "test-secret-password",
+		},
+	}, {
+		input: jujuclient.AccountDetails{
+			Type:      jujuclient.UserPassAccountDetailsType,
+			User:      names.NewUserTag("alice").String(),
+			Macaroons: []macaroon.Slice{{m}},
+		},
+		expectedOutput: jujuclient.AccountDetails{
+			Type:      jujuclient.UserPassAccountDetailsType,
+			User:      names.NewUserTag("alice").String(),
+			Macaroons: []macaroon.Slice{{m}},
+		},
+	}, {
+		input: jujuclient.AccountDetails{
+			Type:      jujuclient.UserPassAccountDetailsType,
+			User:      names.NewUserTag("alice@wonderland.canonical.com").String(),
+			Macaroons: []macaroon.Slice{{m}},
+		},
+		expectedOutput: jujuclient.AccountDetails{
+			User:      names.NewUserTag("alice@wonderland.canonical.com").String(),
+			Macaroons: []macaroon.Slice{{m}},
+		},
+	}, {
+		input: jujuclient.AccountDetails{
+			User: names.NewUserTag("alice@wonderland.canonical.com").String(),
+		},
+		expectedOutput: jujuclient.AccountDetails{},
+	}}
+	for i, test := range tests {
+		c.Logf("running test case %d", i)
+		output := modelcmd.ProcessAccountDetails(&test.input)
+		c.Assert(output, gc.DeepEquals, &test.expectedOutput)
+	}
 }

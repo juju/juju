@@ -214,18 +214,9 @@ func (c *CommandBase) NewAPIRoot(
 	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil)
 }
 
-// NewAPIRootWithDialOpts returns a new connection to the API server for the
-// given model or controller (the default dial options will be overridden if
-// dialOpts is not nil).
-func (c *CommandBase) NewAPIRootWithDialOpts(
-	store jujuclient.ClientStore,
-	controllerName, modelName string,
-	dialOpts *api.DialOpts,
-) (api.Connection, error) {
-	c.assertRunStarted()
-	accountDetails, err := store.AccountDetails(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+func processAccountDetails(accountDetails *jujuclient.AccountDetails) *jujuclient.AccountDetails {
+	if accountDetails != nil && accountDetails.Type != "" && accountDetails.Type != jujuclient.UserPassAccountDetailsType {
+		return accountDetails
 	}
 	// If there are no account details or there's no logged-in
 	// user or the user is external, then trigger macaroon authentication
@@ -248,6 +239,24 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 			}
 		}
 	}
+	return accountDetails
+}
+
+// NewAPIRootWithDialOpts returns a new connection to the API server for the
+// given model or controller (the default dial options will be overridden if
+// dialOpts is not nil).
+func (c *CommandBase) NewAPIRootWithDialOpts(
+	store jujuclient.ClientStore,
+	controllerName, modelName string,
+	dialOpts *api.DialOpts,
+) (api.Connection, error) {
+	c.assertRunStarted()
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, errors.Trace(err)
+	}
+
+	accountDetails = processAccountDetails(accountDetails)
 
 	param, err := c.NewAPIConnectionParams(
 		store, controllerName, modelName, accountDetails,

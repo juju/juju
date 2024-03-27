@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -531,4 +532,104 @@ type ipAddrResolverFunc func(ctx context.Context, host string) ([]net.IPAddr, er
 
 func (f ipAddrResolverFunc) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
 	return f(ctx, host)
+}
+
+func (s *NewAPIClientSuite) TestProcessAccountDetails(c *gc.C) {
+	tests := []struct {
+		authTag                names.Tag
+		apiInfoTag             names.Tag
+		controllerName         string
+		controllerAccess       string
+		skipLogin              bool
+		accountDetails         *jujuclient.AccountDetails
+		expectedAccountDetails *jujuclient.AccountDetails
+	}{{
+		authTag:                names.NewMachineTag("machine-1"),
+		controllerName:         "test-controller",
+		skipLogin:              false,
+		expectedAccountDetails: nil,
+	}, {
+		authTag:          names.NewUserTag("eve"),
+		controllerName:   "test-controller",
+		controllerAccess: "superuser",
+		skipLogin:        false,
+		accountDetails: &jujuclient.AccountDetails{
+			Type:     jujuclient.UserPassAccountDetailsType,
+			User:     "eve",
+			Password: "test-password",
+		},
+		expectedAccountDetails: &jujuclient.AccountDetails{
+			Type:            jujuclient.UserPassAccountDetailsType,
+			User:            "eve",
+			Password:        "test-password",
+			LastKnownAccess: "superuser",
+		},
+	}, {
+		authTag:          names.NewUserTag("eve@external"),
+		controllerName:   "test-controller",
+		controllerAccess: "superuser",
+		skipLogin:        false,
+		accountDetails:   &jujuclient.AccountDetails{},
+		expectedAccountDetails: &jujuclient.AccountDetails{
+			Type:            jujuclient.UserPassAccountDetailsType,
+			User:            "eve@external",
+			LastKnownAccess: "superuser",
+		},
+	}, {
+		authTag:          names.NewUserTag("eve@external"),
+		controllerName:   "test-controller",
+		controllerAccess: "superuser",
+		skipLogin:        false,
+		accountDetails: &jujuclient.AccountDetails{
+			Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
+			SessionToken: "test-session-token",
+		},
+		expectedAccountDetails: &jujuclient.AccountDetails{
+			Type:            jujuclient.OAuth2DeviceFlowAccountDetailsType,
+			SessionToken:    "test-session-token",
+			LastKnownAccess: "superuser",
+		},
+	}}
+
+	for i, test := range tests {
+		c.Logf("running test case %d", i)
+		store := &testClientStore{
+			accountDetails: map[string]*jujuclient.AccountDetails{
+				test.controllerName: test.accountDetails,
+			},
+		}
+
+		juju.ProcessAccountDetails(test.authTag, test.apiInfoTag, test.controllerName, test.controllerAccess, store, test.skipLogin)
+
+		c.Assert(store.accountDetails[test.controllerName], gc.DeepEquals, test.expectedAccountDetails)
+	}
+
+}
+
+type testClientStore struct {
+	jujuclient.ClientStore
+
+	mu             sync.RWMutex
+	accountDetails map[string]*jujuclient.AccountDetails
+}
+
+func (s *testClientStore) AccountDetails(controllerName string) (*jujuclient.AccountDetails, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.accountDetails[controllerName] == nil {
+		return nil, errors.NotFound
+	}
+	return s.accountDetails[controllerName], nil
+}
+
+func (s *testClientStore) UpdateAccount(controllerName string, accountDetails jujuclient.AccountDetails) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.accountDetails == nil {
+		return errors.NotImplemented
+	}
+	s.accountDetails[controllerName] = &accountDetails
+	return nil
 }

@@ -10,7 +10,10 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var NewAPIContext = newAPIContext
+var (
+	NewAPIContext         = newAPIContext
+	ProcessAccountDetails = processAccountDetails
+)
 
 func Interactor(ctx *apiContext) httpbakery.Interactor {
 	return ctx.interactor
