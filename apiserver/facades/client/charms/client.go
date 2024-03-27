@@ -4,6 +4,7 @@
 package charms
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"sync"
@@ -271,6 +272,7 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 		Origin:             args.Origin,
 		CharmStoreMacaroon: nil,
 		Force:              args.Force,
+		Series:             args.Series,
 	})
 }
 
@@ -288,32 +290,90 @@ func (a *API) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	return a.addCharmWithAuthorization(args)
 }
 
-// compatibilityAddCharmWithAuthArg ensures that AddCharm calls from
-// a juju 3.x client will work against a juju 2.9.x controller. In
-// juju 3.x, params.AddCharmWithAuth was changed to remove series
+// compatibilityApplicationDeployArgs ensures that Deploy calls from
+// clients such as juju 3.x, python-libjuju 3.x, etc. work against a 2.9.x
+// controller. To support these clients, we make no assumptions about
+// which of the 3 potential places the OS is specified. We check all 3,
+// assert any provided match, and fill in the remain series.
+//
+// In juju 3.x, params.AddCharmWithAuth was changed to remove series
 // however, the facade version was not changed, nor was the name of
 // the params.AddCharmWithAuth changed. Thus it appears you can use
 // a juju 3.x client to deploy from a juju 2.9 controller, however it
-// fails because the series was not found. Make those corrections here.
+// fails because the series was not found.
+//
+// NOTE: We do not mess with charm url because this is dangerous. Mutating
+// charm url can lead to unexpected results.
 func compatibilityAddCharmWithAuthArg(arg params.AddCharmWithAuth) (params.AddCharmWithAuth, error) {
-	origin := arg.Origin
-	if origin.Series != "" {
-		return arg, nil
-	}
-	originSeries, err := series.GetSeriesFromChannel(origin.Base.Name, origin.Base.Channel)
+	unifiedSeries, err := getUnifiedSeries(arg)
 	if err != nil {
-		return arg, err
+		return arg, errors.Annotatef(err, "cannot add charm")
 	}
-	arg.Origin.Series = originSeries
-	arg.Series = originSeries
+	unifiedBase, err := series.GetBaseFromSeries(unifiedSeries)
+	if err != nil {
+		return arg, errors.Trace(err)
+	}
+
+	arg.Series = unifiedSeries
+	arg.Origin.Series = unifiedSeries
+	arg.Origin.Base.Name = unifiedBase.Name
+	arg.Origin.Base.Channel = unifiedBase.Channel.String()
+
 	return arg, nil
+}
+
+// getUnifiedSeries checks the multiple places a series can be provided in a params.AddCharmWithAuth,
+// checks they match if they're provided, and returns the matching series
+func getUnifiedSeries(arg params.AddCharmWithAuth) (string, error) {
+	argSeries := arg.Series
+	originSeries := arg.Origin.Series
+
+	var originBaseSeries string
+	if arg.Origin.Base.Name != "" && arg.Origin.Base.Channel != "" {
+		var err error
+		originBaseSeries, err = series.GetSeriesFromChannel(arg.Origin.Base.Name, arg.Origin.Base.Channel)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+
+	curl, err := charm.ParseURL(arg.URL)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	curlSeries := curl.Series
+
+	// Ensure existence of a series, setting 'unified' to a present value
+	series := []string{argSeries, originSeries, originBaseSeries, curlSeries}
+	var unified string
+	for _, s := range series {
+		if unified == "" {
+			unified = s
+		}
+	}
+	if unified == "" {
+		return "", errors.Errorf("unable to determine series for %q", arg.URL)
+	}
+	// Ensure uniqueness, assert all provided series are equal
+	for _, s := range series {
+		if s != "" && s != unified {
+			var originBase string
+			if arg.Origin.Base.Name != "" && arg.Origin.Base.Channel != "" {
+				originBase = fmt.Sprintf("%s@%s", arg.Origin.Base.Name, arg.Origin.Base.Channel)
+			}
+			return "", errors.Errorf(
+				"inconsistent values for series detected. argument: %q, charm origin series: %q, charm origin base: %q, charm url: %q",
+				argSeries, originSeries, originBase, curlSeries)
+		}
+	}
+	return unified, nil
 }
 
 func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	var err error
 	args, err = compatibilityAddCharmWithAuthArg(args)
 	if err != nil {
-		return params.CharmOriginResult{}, errors.Annotatef(err, "compatibility updates of origin failed")
+		return params.CharmOriginResult{}, errors.Trace(err)
 	}
 	if args.Origin.Source != "charm-hub" && args.Origin.Source != "charm-store" {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)

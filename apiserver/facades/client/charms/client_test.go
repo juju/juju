@@ -368,6 +368,87 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	})
 }
 
+// NOTE: I am not aware of any clients that add charms like this, however we have had
+// trouble with application deploy where old clients (juju 2.8, pylibjuju bundle + local charm)
+// depoy applications in this style. It is not something we can rule out for AddCharm
+func (s *charmsMockSuite) TestAddCharmSeriesInArgOnly(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
+
+	curl, err := charm.ParseURL("cs:jammy/testme-8")
+	c.Assert(err, jc.ErrorIsNil)
+
+	origin := corecharm.Origin{
+		Source: "charm-store",
+		Channel: &charm.Channel{
+			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+	}
+
+	s.downloader.EXPECT().DownloadAndStore(curl, origin, nil, false).Return(origin, nil)
+
+	api := s.api(c)
+
+	args := params.AddCharmWithOrigin{
+		URL: curl.String(),
+		Origin: params.CharmOrigin{
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+		Series: "jammy",
+		Force:  false,
+	}
+	obtained, err := api.AddCharm(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
+		Origin: params.CharmOrigin{
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
+		},
+	})
+}
+
+func (s *charmsMockSuite) TestAddCharmInconsistantSeries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl, err := charm.ParseURL("cs:jammy/testme-8")
+	c.Assert(err, jc.ErrorIsNil)
+
+	api := s.api(c)
+
+	args := params.AddCharmWithOrigin{
+		URL: curl.String(),
+		Origin: params.CharmOrigin{
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+			Series:       "focal",
+		},
+		Series: "jammy",
+		Force:  false,
+	}
+	_, err = api.AddCharm(args)
+	c.Assert(err, gc.ErrorMatches, `.*inconsistent values for series detected.*`)
+}
+
 func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
@@ -600,6 +681,66 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 			Channel: "22.04",
 		},
 	}, gc.Commentf("expected to get back the origin recorded by the application"))
+}
+
+var unifiedSeriesTests = []struct {
+	desc     string
+	param    params.AddCharmWithAuth
+	unified  string
+	errMatch string
+}{
+	{
+		desc:    "Series only",
+		param:   params.AddCharmWithAuth{Series: "focal", URL: "ch:foo"},
+		unified: "focal",
+	},
+	{
+		desc: "All present",
+		param: params.AddCharmWithAuth{
+			Series: "focal",
+			URL:    "ch:focal/foo",
+			Origin: params.CharmOrigin{Series: "focal", Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
+		},
+		unified: "focal",
+	},
+	{
+		desc: "Clash",
+		param: params.AddCharmWithAuth{
+			Series: "jammy",
+			URL:    "ch:foo",
+			Origin: params.CharmOrigin{Series: "focal"},
+		},
+		errMatch: `.*inconsistent values for series detected. argument: "jammy", charm origin series: "focal".*`,
+	},
+	{
+		desc: "Clash with base",
+		param: params.AddCharmWithAuth{
+			Series: "jammy",
+			URL:    "ch:foo",
+			Origin: params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
+		},
+		errMatch: `.*inconsistent values for series detected. argument: "jammy".* charm origin base: "ubuntu@20.04".*`,
+	},
+	{
+		desc: "No series",
+		param: params.AddCharmWithAuth{
+			URL: "ch:foo",
+		},
+		errMatch: `unable to determine series for "ch:foo"`,
+	},
+}
+
+func (s *charmsMockSuite) TestGetUnifiedSeries(c *gc.C) {
+	for i, t := range unifiedSeriesTests {
+		c.Logf("Test %d: %s", i, t.desc)
+		unified, err := charms.GetUnifiedSeries(t.param)
+		if t.errMatch == "" {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(unified, gc.Equals, t.unified)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.errMatch)
+		}
+	}
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {

@@ -1382,11 +1382,11 @@ func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.
 func createCharmOriginFromURL(c *gc.C, curl *charm.URL) *params.CharmOrigin {
 	switch curl.Schema {
 	case "cs":
-		return &params.CharmOrigin{Source: "charm-store", Series: "quantal"}
+		return &params.CharmOrigin{Source: "charm-store", Series: curl.Series}
 	case "local":
-		return &params.CharmOrigin{Source: "local", Series: "quantal"}
+		return &params.CharmOrigin{Source: "local", Series: curl.Series}
 	default:
-		return &params.CharmOrigin{Source: "charm-hub", Series: "quantal"}
+		return &params.CharmOrigin{Source: "charm-hub", Series: curl.Series}
 	}
 }
 

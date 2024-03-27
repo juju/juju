@@ -11,6 +11,7 @@ var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	NewStateStorage         = &newStateStorage
 	GetStorageState         = getStorageState
+	GetUnifiedSeries        = getUnifiedSeries
 )
 
 func GetState(st *state.State) Backend {
