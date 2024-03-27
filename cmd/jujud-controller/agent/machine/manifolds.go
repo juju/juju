@@ -702,7 +702,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:                       stateName,
 			LogSinkName:                     logSinkName,
 			ServiceFactoryName:              serviceFactoryName,
-			ProviderServiceFactoryName:      providerServiceFactoryName,
+			ProviderServiceFactoriesName:    providerServiceFactoryName,
 			NewWorker:                       modelworkermanager.New,
 			NewModelWorker:                  config.NewModelWorker,
 			ModelMetrics:                    config.DependencyEngineMetrics,

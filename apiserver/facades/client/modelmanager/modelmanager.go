@@ -62,25 +62,35 @@ type StateBackend interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
+
+	// Access control.
+	authorizer facade.Authorizer
+	isAdmin    bool
+	apiUser    names.UserTag
+
+	// Legacy state access.
+	state     StateBackend
+	ctlrState common.ModelManagerBackend
+	model     common.Model
+	check     common.BlockCheckerInterface
+
+	// Services required by the model manager.
 	serviceFactoryGetter ServiceFactoryGetter
 	modelService         ModelService
 	modelDefaultsService ModelDefaultsService
-	state                StateBackend
-	modelExporter        ModelExporter
-	ctlrState            common.ModelManagerBackend
 	cloudService         CloudService
 	credentialService    CredentialService
-	store                objectstore.ObjectStore
 	configSchemaSource   config.ConfigSchemaSourceGetter
-	check                common.BlockCheckerInterface
-	authorizer           facade.Authorizer
-	toolsFinder          common.ToolsFinder
-	apiUser              names.UserTag
-	isAdmin              bool
-	model                common.Model
-	getBroker            newCaasBrokerFunc
 	userService          UserService
-	controllerUUID       coremodel.UUID
+	modelExporter        ModelExporter
+	store                objectstore.ObjectStore
+
+	// ToolsFinder is used to find tools for a given version.
+	toolsFinder common.ToolsFinder
+
+	// Broker/Provider management.
+	getBroker      newCaasBrokerFunc
+	controllerUUID coremodel.UUID
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing

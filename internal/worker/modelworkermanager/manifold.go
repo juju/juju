@@ -35,19 +35,37 @@ type GetProviderServiceFactoryGetterFunc func(getter dependency.Getter, name str
 // ManifoldConfig holds the information necessary to run a model worker manager
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName                  string
-	AuthorityName              string
-	StateName                  string
-	ServiceFactoryName         string
-	ProviderServiceFactoryName string
-	LogSinkName                string
+	// AgentName is the name of the agent.Agent dependency.
+	AgentName string
+	// AuthorityName is the name of the pki.Authority dependency.
+	AuthorityName string
+	// StateName is the name of the workerstate.StateTracker dependency.
+	// Deprecated: Migration to service factory.
+	StateName string
+	// ServiceFactoryName is used to get the controller service factory
+	// dependency.
+	ServiceFactoryName string
+	// ProviderServiceFactoriesName is used to get the provider service factory
+	// getter dependency. This exposes a provider service factory for each
+	// model upon request.
+	ProviderServiceFactoriesName string
+	// LogSinkName is the name of the corelogger.ModelLogger dependency.
+	LogSinkName string
 
-	NewWorker      func(Config) (worker.Worker, error)
-	NewModelWorker NewModelWorkerFunc
-	ModelMetrics   ModelMetrics
-	Logger         Logger
-
+	// GetProviderServiceFactoryGetter is used to get the provider service
+	// factory getter from the dependency engine. This makes testing a lot
+	// simpler, as we can expose the interface directly, without the
+	// intermediary type.
 	GetProviderServiceFactoryGetter GetProviderServiceFactoryGetterFunc
+
+	// NewWorker is the function that creates the worker.
+	NewWorker func(Config) (worker.Worker, error)
+	// NewModelWorker is the function that creates the model worker.
+	NewModelWorker NewModelWorkerFunc
+	// ModelMetrics is the metrics for the model worker.
+	ModelMetrics ModelMetrics
+	// Logger is the logger for the worker.
+	Logger Logger
 }
 
 // Validate validates the manifold configuration.
@@ -64,8 +82,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
 	}
-	if config.ProviderServiceFactoryName == "" {
-		return errors.NotValidf("empty ProviderServiceFactoryName")
+	if config.ProviderServiceFactoriesName == "" {
+		return errors.NotValidf("empty ProviderServiceFactoriesName")
 	}
 	if config.LogSinkName == "" {
 		return errors.NotValidf("empty LogSinkName")
@@ -97,7 +115,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.LogSinkName,
 			config.ServiceFactoryName,
-			config.ProviderServiceFactoryName,
+			config.ProviderServiceFactoriesName,
 		},
 		Start: config.start,
 	}
@@ -128,7 +146,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	providerServiceFactoryGetter, err := config.GetProviderServiceFactoryGetter(getter, config.ProviderServiceFactoryName)
+	providerServiceFactoryGetter, err := config.GetProviderServiceFactoryGetter(getter, config.ProviderServiceFactoriesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

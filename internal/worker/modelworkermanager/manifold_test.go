@@ -70,16 +70,16 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.getter = s.newGetter(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
-		AgentName:                  "agent",
-		AuthorityName:              "authority",
-		StateName:                  "state",
-		LogSinkName:                "log-sink",
-		ServiceFactoryName:         "service-factory",
-		ProviderServiceFactoryName: "provider-service-factory",
-		NewWorker:                  s.newWorker,
-		NewModelWorker:             s.newModelWorker,
-		ModelMetrics:               dummyModelMetrics{},
-		Logger:                     loggo.GetLogger("test"),
+		AgentName:                    "agent",
+		AuthorityName:                "authority",
+		StateName:                    "state",
+		LogSinkName:                  "log-sink",
+		ServiceFactoryName:           "service-factory",
+		ProviderServiceFactoriesName: "provider-service-factory",
+		NewWorker:                    s.newWorker,
+		NewModelWorker:               s.newModelWorker,
+		ModelMetrics:                 dummyModelMetrics{},
+		Logger:                       loggo.GetLogger("test"),
 		GetProviderServiceFactoryGetter: func(getter dependency.Getter, name string) (modelworkermanager.ProviderServiceFactoryGetter, error) {
 			var a any
 			if err := getter.Get(name, &a); err != nil {
