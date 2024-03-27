@@ -308,7 +308,7 @@ type RemoteApplication interface {
 	Life() state.Life
 
 	// SetStatus sets the status of the remote application.
-	SetStatus(info status.StatusInfo) error
+	SetStatus(info status.StatusInfo, recorder status.StatusHistoryRecorder) error
 
 	// TerminateOperation returns an operation that will set this
 	// remote application to terminated and leave it in a state

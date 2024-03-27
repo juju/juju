@@ -39,6 +39,10 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 		}
 		return secrets.AdminBackendConfigInfo(ctx, secrets.SecretsModel(model), cloudService, credentialService)
 	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
@@ -47,5 +51,5 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, ctx.ServiceFactory().Credential()),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
-	return newUndertakerAPI(&stateShim{st}, ctx.Resources(), ctx.Auth(), secretsBackendsGetter, cloudSpecAPI)
+	return newUndertakerAPI(&stateShim{st}, ctx.Resources(), ctx.Auth(), secretsBackendsGetter, cloudSpecAPI, common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger))
 }

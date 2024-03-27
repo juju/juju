@@ -16,7 +16,7 @@ import (
 )
 
 type statusSetter interface {
-	SetStatus(status.StatusInfo) error
+	SetStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 }
 
 func primeStatusHistory(c *gc.C, clock clock.Clock, entity statusSetter,
@@ -32,7 +32,7 @@ func primeStatusHistory(c *gc.C, clock clock.Clock, entity statusSetter,
 			Data:    data,
 			Since:   &t,
 		}
-		err := entity.SetStatus(s)
+		err := entity.SetStatus(s, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

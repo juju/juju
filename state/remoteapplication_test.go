@@ -134,7 +134,7 @@ func (s *remoteApplicationSuite) TestStatus(c *gc.C) {
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	}
-	err := s.application.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.RemoteApplication("mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,7 +156,7 @@ func (s *remoteApplicationSuite) TestSetStatusSince(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err := s.application.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err := s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,7 +165,7 @@ func (s *remoteApplicationSuite) TestSetStatusSince(c *gc.C) {
 	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
 
 	// Setting the same status a second time also updates the timestamp.
-	err = s.application.SetStatus(sInfo)
+	err = s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err = s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +182,7 @@ func (s *remoteApplicationSuite) TestGetSetStatusNotFound(c *gc.C) {
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.application.SetStatus(sInfo)
+	err = s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	statusInfo, err := s.application.Status()
@@ -864,7 +864,7 @@ func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C
 func (s *remoteApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 	err := s.application.SetStatus(status.StatusInfo{
 		Status: status.Active,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	filter := status.StatusHistoryFilter{Size: 100}
 	agentInfo, err := s.application.StatusHistory(filter)
@@ -913,7 +913,7 @@ func (s *remoteApplicationSuite) assertDestroyAppWithStatus(c *gc.C, appStatus *
 	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	if appStatus != nil {
-		err = s.application.SetStatus(status.StatusInfo{Status: *appStatus})
+		err = s.application.SetStatus(status.StatusInfo{Status: *appStatus}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -948,7 +948,7 @@ func (s *remoteApplicationSuite) TestDestroyTerminated(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestDestroyTerminatedDead(c *gc.C) {
-	err := s.application.SetStatus(status.StatusInfo{Status: status.Terminated})
+	err := s.application.SetStatus(status.StatusInfo{Status: status.Terminated}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.SetDead()
 	c.Assert(err, jc.ErrorIsNil)

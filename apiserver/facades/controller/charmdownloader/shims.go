@@ -50,8 +50,10 @@ type appShim struct {
 	app *state.Application
 }
 
-func (a appShim) CharmPendingToBeDownloaded() bool       { return a.app.CharmPendingToBeDownloaded() }
-func (a appShim) SetStatus(info status.StatusInfo) error { return a.app.SetStatus(info) }
+func (a appShim) CharmPendingToBeDownloaded() bool { return a.app.CharmPendingToBeDownloaded() }
+func (a appShim) SetStatus(info status.StatusInfo, recorder status.StatusHistoryRecorder) error {
+	return a.app.SetStatus(info, nil)
+}
 func (a appShim) SetDownloadedIDAndHash(id, hash string) error {
 	return a.app.SetDownloadedIDAndHash(id, hash)
 }

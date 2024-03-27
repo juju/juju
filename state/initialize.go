@@ -239,7 +239,7 @@ func Initialize(args InitializeParams, providerConfigSchemaGetter config.ConfigS
 	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, _ = probablyUpdateStatusHistory(st.db(), modelTag.Kind(), modelGlobalKey, modelGlobalKey, modelStatusDoc)
+	_, _ = probablyUpdateStatusHistory(st.db(), modelTag.Kind(), modelGlobalKey, modelGlobalKey, modelStatusDoc, status.NoopStatusHistoryRecorder)
 	return ctlr, nil
 }
 

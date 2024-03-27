@@ -196,7 +196,7 @@ func (r *mockRemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
 	return macaroon.New(nil, []byte("test"), "", macaroon.LatestVersion)
 }
 
-func (r *mockRemoteApplication) SetStatus(info status.StatusInfo) error {
+func (r *mockRemoteApplication) SetStatus(info status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	r.MethodCall(r, "SetStatus")
 	r.status = info.Status
 	r.message = info.Message

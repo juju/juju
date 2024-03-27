@@ -24,11 +24,12 @@ import (
 type API struct {
 	*common.UpgradeSeriesAPI
 
-	st         common.UpgradeSeriesBackend
-	auth       facade.Authorizer
-	resources  facade.Resources
-	leadership *common.LeadershipPinning
-	logger     loggo.Logger
+	st              common.UpgradeSeriesBackend
+	auth            facade.Authorizer
+	resources       facade.Resources
+	leadership      *common.LeadershipPinning
+	logger          loggo.Logger
+	historyRecorder status.StatusHistoryRecorder
 }
 
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
@@ -39,6 +40,7 @@ func NewUpgradeSeriesAPI(
 	authorizer facade.Authorizer,
 	leadership *common.LeadershipPinning,
 	logger loggo.Logger,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -61,6 +63,7 @@ func NewUpgradeSeriesAPI(
 		auth:             authorizer,
 		leadership:       leadership,
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		historyRecorder:  historyRecorder,
 	}, nil
 }
 
@@ -348,7 +351,7 @@ func (a *API) SetInstanceStatus(ctx context.Context, args params.SetStatus) (par
 		if err := machine.SetInstanceStatus(status.StatusInfo{
 			Status:  status.Status(entity.Status),
 			Message: entity.Info,
-		}); err != nil {
+		}, a.historyRecorder); err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 		}
 	}

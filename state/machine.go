@@ -709,7 +709,7 @@ func (m *Machine) destroyControllerWithPrincipals() error {
 	err = m.SetStatus(status.StatusInfo{
 		Status:  status.Stopped,
 		Message: fmt.Sprintf("waiting on dying units %s", strings.Join(evacuablePrincipals, ", ")),
-	})
+	}, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1328,7 +1328,7 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 }
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
-func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
+func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo, recorder status.StatusHistoryRecorder) (err error) {
 	return setStatus(m.st.db(), setStatusParams{
 		badge:      "instance",
 		statusKind: m.InstanceKind(),
@@ -1338,7 +1338,7 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 		message:    sInfo.Message,
 		rawData:    sInfo.Data,
 		updated:    timeOrNow(sInfo.Since, m.st.clock()),
-	})
+	}, recorder)
 }
 
 // InstanceStatusHistory returns a slice of at most filter.Size StatusInfo items
@@ -1370,7 +1370,7 @@ func (m *Machine) ModificationStatus() (status.StatusInfo, error) {
 // SetModificationStatus sets the provider specific modification status
 // for a machine. Allowing the propagation of status messages to the
 // operator.
-func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
+func (m *Machine) SetModificationStatus(sInfo status.StatusInfo, recorder status.StatusHistoryRecorder) (err error) {
 	return setStatus(m.st.db(), setStatusParams{
 		badge:      "modification",
 		statusKind: m.ModificationKind(),
@@ -1380,7 +1380,7 @@ func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 		message:    sInfo.Message,
 		rawData:    sInfo.Data,
 		updated:    timeOrNow(sInfo.Since, m.st.clock()),
-	})
+	}, recorder)
 }
 
 // AvailabilityZone returns the provider-specific instance availability
@@ -1557,7 +1557,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 		if err := vol.SetStatus(status.StatusInfo{
 			Status: volStatus,
-		}); err != nil {
+		}, nil); err != nil {
 			return errors.Annotatef(
 				err, "setting status of %s", names.ReadableString(tag),
 			)
@@ -1967,7 +1967,7 @@ func (m *Machine) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
+func (m *Machine) SetStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	switch statusInfo.Status {
 	case status.Started, status.Stopped:
 	case status.Error:
@@ -1997,7 +1997,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 		message:    statusInfo.Message,
 		rawData:    statusInfo.Data,
 		updated:    timeOrNow(statusInfo.Since, m.st.clock()),
-	})
+	}, recorder)
 }
 
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
@@ -2129,7 +2129,7 @@ func (m *Machine) markInvalidContainers() error {
 					Data:    map[string]interface{}{"type": containerType},
 					Since:   &now,
 				}
-				_ = container.SetStatus(s)
+				_ = container.SetStatus(s, nil)
 			} else {
 				logger.Errorf("unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}

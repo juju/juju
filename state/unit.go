@@ -248,7 +248,7 @@ func (u *Unit) WorkloadVersion() (string, error) {
 
 // SetWorkloadVersion sets the version of the workload that the unit
 // is currently running.
-func (u *Unit) SetWorkloadVersion(version string) error {
+func (u *Unit) SetWorkloadVersion(version string, recorder status.StatusHistoryRecorder) error {
 	// Store in status rather than an attribute of the unit doc - we
 	// want to avoid everything being an attr of the main docs to
 	// stop a swarm of watchers being notified for irrelevant changes.
@@ -261,7 +261,7 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 		status:     status.Active,
 		message:    version,
 		updated:    &now,
-	})
+	}, recorder)
 }
 
 // WorkloadVersionHistory returns a HistoryGetter which enables the
@@ -371,8 +371,9 @@ func (u *Unit) PasswordValid(password string) bool {
 // UpdateOperation returns a model operation that will update a unit.
 func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation {
 	return &UpdateUnitOperation{
-		unit:  &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		props: props,
+		unit:     &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
+		props:    props,
+		recorder: status.NoopStatusHistoryRecorder,
 	}
 }
 
@@ -382,6 +383,7 @@ type UpdateUnitOperation struct {
 	props UnitUpdateProperties
 
 	setStatusDocs map[string]statusDoc
+	recorder      status.StatusHistoryRecorder
 }
 
 // Build is part of the ModelOperation interface.
@@ -503,7 +505,7 @@ func (op *UpdateUnitOperation) Done(err error) error {
 	// so as with existing practice, do a best effort update of status history.
 	for key, doc := range op.setStatusDocs {
 		_, _ = probablyUpdateStatusHistory(op.unit.st.db(),
-			op.unit.Kind(), op.unit.Name(), key, doc)
+			op.unit.Kind(), op.unit.Name(), key, doc, op.recorder)
 	}
 	return nil
 }
@@ -1413,7 +1415,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 		Data:    agentStatus.Data,
 		Since:   agentStatus.Since,
 	}
-	return agent.SetStatus(s)
+	return agent.SetStatus(s, nil)
 }
 
 // AgentStatus calls Status for this unit's agent, this call
@@ -1470,7 +1472,7 @@ func (u *Unit) ContainerStatus() (status.StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
+func (u *Unit) SetStatus(unitStatus status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	if !status.ValidWorkloadStatus(unitStatus.Status) {
 		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
@@ -1502,7 +1504,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 		rawData:          unitStatus.Data,
 		updated:          timeOrNow(unitStatus.Since, u.st.clock()),
 		historyOverwrite: newHistory,
-	})
+	}, recorder)
 }
 
 // OpenedPortRanges returns a UnitPortRanges object that can be used to query

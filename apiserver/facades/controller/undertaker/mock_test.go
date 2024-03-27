@@ -149,7 +149,7 @@ func (m *mockModel) Destroy() error {
 	return nil
 }
 
-func (m *mockModel) SetStatus(sInfo status.StatusInfo) error {
+func (m *mockModel) SetStatus(sInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	m.status = sInfo.Status
 	m.statusInfo = sInfo.Message
 	m.statusData = sInfo.Data

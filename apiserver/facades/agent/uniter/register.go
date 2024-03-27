@@ -40,24 +40,24 @@ func newUniterAPI(stdCtx context.Context, context facade.ModelContext) (*UniterA
 // newUniterAPIWithServices creates a new instance using the services.
 func newUniterAPIWithServices(
 	stdCtx context.Context,
-	context facade.ModelContext,
+	ctx facade.ModelContext,
 	controllerConfigService ControllerConfigService,
 	cloudService CloudService,
 	credentialService CredentialService,
 	unitRemover UnitRemover,
 ) (*UniterAPI, error) {
-	authorizer := context.Auth()
+	authorizer := ctx.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	st := context.State()
-	aClock := context.StatePool().Clock()
-	resources := context.Resources()
-	leadershipChecker, err := context.LeadershipChecker()
+	st := ctx.State()
+	aClock := ctx.StatePool().Clock()
+	resources := ctx.Resources()
+	leadershipChecker, err := ctx.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leadershipRevoker, err := context.LeadershipRevoker()
+	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,7 +77,7 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 	storageAPI, err := newStorageAPI(
-		stateShim{st}, storageAccessor, context.ServiceFactory().BlockDevice(), resources, accessUnit)
+		stateShim{st}, storageAccessor, ctx.ServiceFactory().BlockDevice(), resources, accessUnit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -92,15 +92,21 @@ func newUniterAPIWithServices(
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 
-	systemState, err := context.StatePool().SystemState()
+	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretsAPI, err := secretsmanager.NewSecretManagerAPI(stdCtx, context)
+	secretsAPI, err := secretsmanager.NewSecretManagerAPI(stdCtx, ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger := context.Logger().Child("uniter")
+	logger := ctx.Logger().Child("uniter")
+
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	historyRecorder := common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger)
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
@@ -115,7 +121,8 @@ func newUniterAPIWithServices(
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
-		StatusAPI: NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),
+		StatusAPI:       NewStatusAPI(m, accessUnitOrApplication, leadershipChecker, historyRecorder),
+		historyRecorder: historyRecorder,
 
 		m:                       m,
 		st:                      st,
@@ -134,6 +141,6 @@ func newUniterAPIWithServices(
 		cloudSpecer:             cloudSpec,
 		StorageAPI:              storageAPI,
 		logger:                  logger,
-		store:                   context.ObjectStore(),
+		store:                   ctx.ObjectStore(),
 	}, nil
 }

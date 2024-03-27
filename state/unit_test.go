@@ -1581,10 +1581,10 @@ func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 		err := s.unit.SetAgentStatus(info)
 		c.Assert(err, jc.ErrorIsNil)
 		info.Status = status.Active
-		err = s.unit.SetStatus(info)
+		err = s.unit.SetStatus(info, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = s.unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i))
+		err = s.unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1653,7 +1653,7 @@ func (s *UnitSuite) TestUnitsInError(c *gc.C) {
 		Status:  status.Error,
 		Message: "some machine error",
 		Since:   &now,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a unit not in error to ensure it's ignored.
@@ -2762,7 +2762,7 @@ func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "")
 
-	err = unit.SetWorkloadVersion("3.combined")
+	err = unit.SetWorkloadVersion("3.combined", status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	version, err = unit.WorkloadVersion()
 	c.Assert(err, jc.ErrorIsNil)

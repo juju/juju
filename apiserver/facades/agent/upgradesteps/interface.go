@@ -29,7 +29,7 @@ type UpgradeStepsState interface {
 type Machine interface {
 	ContainerType() instance.ContainerType
 	ModificationStatus() (status.StatusInfo, error)
-	SetModificationStatus(status.StatusInfo) error
+	SetModificationStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 }
 
 // Unit represents point of use methods from the state unit object

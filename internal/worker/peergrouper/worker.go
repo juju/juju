@@ -55,7 +55,7 @@ type ControllerHost interface {
 	Id() string
 	Life() state.Life
 	Watch() state.NotifyWatcher
-	SetStatus(status.StatusInfo) error
+	SetStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 	Refresh() error
 	Addresses() network.SpaceAddresses
 }
@@ -666,7 +666,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Any previous peer-group determination errors result in status
 	// warning messages.
 	for id := range desired.members {
-		if err := w.controllerTrackers[id].host.SetStatus(getStatusInfo("")); err != nil {
+		if err := w.controllerTrackers[id].host.SetStatus(getStatusInfo(""), status.NoopStatusHistoryRecorder); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

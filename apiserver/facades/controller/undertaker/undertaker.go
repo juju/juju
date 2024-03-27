@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -37,7 +38,11 @@ type UndertakerAPI struct {
 	secretBackendConfigGetter commonsecrets.BackendAdminConfigGetter
 }
 
-func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer, secretBackendConfigGetter commonsecrets.BackendAdminConfigGetter, cloudSpecer cloudspec.CloudSpecer) (*UndertakerAPI, error) {
+func newUndertakerAPI(
+	st State, resources facade.Resources, authorizer facade.Authorizer,
+	secretBackendConfigGetter commonsecrets.BackendAdminConfigGetter, cloudSpecer cloudspec.CloudSpecer,
+	historyRecorder status.StatusHistoryRecorder,
+) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -62,7 +67,7 @@ func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Au
 		st:                        st,
 		resources:                 resources,
 		secretBackendConfigGetter: secretBackendConfigGetter,
-		StatusSetter:              common.NewStatusSetter(st, getCanModifyModel),
+		StatusSetter:              common.NewStatusSetter(st, getCanModifyModel, historyRecorder),
 		ModelWatcher:              common.NewModelWatcher(model, resources, authorizer),
 		CloudSpecer:               cloudSpecer,
 	}, nil

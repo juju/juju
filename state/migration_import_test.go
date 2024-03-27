@@ -1234,7 +1234,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
+	err = rel.SetStatus(status.StatusInfo{Status: status.Joined}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
@@ -2469,7 +2469,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
+	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))

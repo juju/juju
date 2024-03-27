@@ -65,7 +65,7 @@ func defaultPassword(tag names.Tag) string {
 }
 
 type setStatuser interface {
-	SetStatus(status.StatusInfo) error
+	SetStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
@@ -75,7 +75,7 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 		Message: "",
 		Since:   &now,
 	}
-	err := entity.SetStatus(s)
+	err := entity.SetStatus(s, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

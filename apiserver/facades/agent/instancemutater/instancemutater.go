@@ -34,12 +34,13 @@ type InstanceMutaterV2 interface {
 type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
-	st          InstanceMutaterState
-	watcher     InstanceMutatorWatcher
-	resources   facade.Resources
-	authorizer  facade.Authorizer
-	getAuthFunc common.GetAuthFunc
-	logger      loggo.Logger
+	st              InstanceMutaterState
+	watcher         InstanceMutatorWatcher
+	resources       facade.Resources
+	authorizer      facade.Authorizer
+	getAuthFunc     common.GetAuthFunc
+	logger          loggo.Logger
+	historyRecorder status.StatusHistoryRecorder
 }
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
@@ -58,6 +59,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger loggo.Logger,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -65,13 +67,14 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 	return &InstanceMutaterAPI{
-		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
-		st:          st,
-		watcher:     watcher,
-		resources:   resources,
-		authorizer:  authorizer,
-		getAuthFunc: getAuthFunc,
-		logger:      logger,
+		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
+		st:              st,
+		watcher:         watcher,
+		resources:       resources,
+		authorizer:      authorizer,
+		getAuthFunc:     getAuthFunc,
+		logger:          logger,
+		historyRecorder: historyRecorder,
 	}, nil
 }
 
@@ -419,7 +422,7 @@ func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFun
 		Data:    arg.Data,
 		Since:   since,
 	}
-	if err = machine.SetModificationStatus(s); err != nil {
+	if err = machine.SetModificationStatus(s, api.historyRecorder); err != nil {
 		api.logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
 		return err
 	}

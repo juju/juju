@@ -7,6 +7,9 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -22,5 +25,14 @@ func newFacadeV3(ctx facade.ModelContext) (*InstanceMutaterAPI, error) {
 	st := &instanceMutaterStateShim{State: ctx.State()}
 
 	watcher := &instanceMutatorWatcher{st: st}
-	return NewInstanceMutaterAPI(st, watcher, ctx.Resources(), ctx.Auth(), ctx.Logger().Child("instancemutater"))
+
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewInstanceMutaterAPI(st, watcher, ctx.Resources(), ctx.Auth(), ctx.Logger().Child("instancemutater"), common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger))
 }

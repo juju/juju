@@ -31,11 +31,21 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	serviceFactory := ctx.ServiceFactory()
 	controllerConfigService := serviceFactory.ControllerConfig()
 	externalControllerService := serviceFactory.ExternalController()
+
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
 		externalControllerService,
 		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),
 		ctx.Resources(), ctx.Auth(),
 		ctx.Logger().ChildWithTags("remoterelations", corelogger.CMR),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }

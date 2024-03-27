@@ -98,7 +98,7 @@ type Machine interface {
 	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus, string) error
 	ApplicationNames() ([]string, error)
 	InstanceStatus() (status.StatusInfo, error)
-	SetInstanceStatus(sInfo status.StatusInfo) error
+	SetInstanceStatus(sInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error
 }
 
 type Application interface {

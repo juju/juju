@@ -65,7 +65,7 @@ func (s *VolumeStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err := s.volume.SetStatus(sInfo)
+	err := s.volume.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
@@ -78,7 +78,7 @@ func (s *VolumeStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Message: "orville",
 		Since:   &now,
 	}
-	err := s.volume.SetStatus(sInfo)
+	err := s.volume.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
@@ -94,7 +94,7 @@ func (s *VolumeStatusSuite) TestSetOverwritesData(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.volume.SetStatus(sInfo)
+	err := s.volume.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c, status.Attaching)
@@ -122,7 +122,7 @@ func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, volumeStatus status.Statu
 		},
 		Since: &now,
 	}
-	err := s.volume.SetStatus(sInfo)
+	err := s.volume.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	volume, err := s.storageBackend.Volume(s.volume.VolumeTag())
@@ -174,7 +174,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Message: "not really",
 		Since:   &now,
 	}
-	err := s.volume.SetStatus(sInfo)
+	err := s.volume.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status: volume not found`)
 
 	statusInfo, err := s.volume.Status()
@@ -189,7 +189,7 @@ func (s *VolumeStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 		Message: "still",
 		Since:   &now,
 	}
-	err := s.volume.SetStatus(sInfo)
+	err := s.volume.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -204,6 +204,6 @@ func (s *VolumeStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err = s.volume.SetStatus(sInfo)
+	err = s.volume.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
 }

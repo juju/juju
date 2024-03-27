@@ -425,7 +425,7 @@ func (s *RelationSuite) assertDestroyCrossModelRelation(c *gc.C, appStatus *stat
 	s.assertInScope(c, wpru, true)
 
 	if appStatus != nil {
-		err = rwordpress.SetStatus(status.StatusInfo{Status: *appStatus})
+		err = rwordpress.SetStatus(status.StatusInfo{Status: *appStatus}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -559,7 +559,7 @@ func (s *RelationSuite) TestAddCrossModelNotAllowed(c *gc.C) {
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rwordpress.SetStatus(status.StatusInfo{Status: status.Terminated})
+	err = rwordpress.SetStatus(status.StatusInfo{Status: status.Terminated}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "remote-wordpress:db mysql:server": remote offer remote-wordpress is terminated`)
@@ -846,7 +846,7 @@ func (s *RelationSuite) TestStatus(c *gc.C) {
 	err := rel.SetStatus(status.StatusInfo{
 		Status:  status.Suspended,
 		Message: "for a while",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	relStatus, err := rel.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -864,7 +864,7 @@ func (s *RelationSuite) TestInvalidStatus(c *gc.C) {
 
 	err := rel.SetStatus(status.StatusInfo{
 		Status: status.Status("invalid"),
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "invalid"`)
 }
 

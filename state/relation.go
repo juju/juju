@@ -134,7 +134,7 @@ func (r *Relation) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status of the relation.
-func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
+func (r *Relation) SetStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	currentStatus, err := r.Status()
 	if err != nil {
 		return errors.Trace(err)
@@ -171,7 +171,7 @@ func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
 		message:    statusInfo.Message,
 		rawData:    statusInfo.Data,
 		updated:    timeOrNow(statusInfo.Since, r.st.clock()),
-	})
+	}, recorder)
 }
 
 // SetSuspended sets whether the relation is suspended.

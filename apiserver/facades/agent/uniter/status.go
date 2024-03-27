@@ -16,12 +16,15 @@ import (
 	"github.com/juju/juju/state"
 )
 
+type StatusHistoryRecorder func(statusKind string, statusId string, status status.Status, statusInfo string)
+
 // StatusAPI is the uniter part that deals with setting/getting
 // status from different entities, this particular separation from
 // base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
 	model             *state.Model
 	leadershipChecker leadership.Checker
+	recordHistory     StatusHistoryRecorder
 
 	agentSetter       *common.StatusSetter
 	unitSetter        *common.StatusSetter
@@ -31,14 +34,14 @@ type StatusAPI struct {
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(model *state.Model, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker) *StatusAPI {
+func NewStatusAPI(model *state.Model, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, historyRecorder status.StatusHistoryRecorder) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
 	st := model.State()
-	unitSetter := common.NewStatusSetter(st, getCanModify)
+	unitSetter := common.NewStatusSetter(st, getCanModify, historyRecorder)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
-	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify)
+	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, historyRecorder)
 	return &StatusAPI{
 		model:             model,
 		leadershipChecker: leadershipChecker,

@@ -562,7 +562,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					Message: "some status",
 					Since:   &now,
 				}
-				err = m.SetStatus(sInfo)
+				err = m.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {

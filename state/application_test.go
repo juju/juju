@@ -2873,7 +2873,7 @@ func (s *ApplicationSuite) TestDestroySimple(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 	err := s.mysql.SetStatus(status.StatusInfo{
 		Status: status.Active,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	filter := status.StatusHistoryFilter{Size: 100}
 	agentInfo, err := s.mysql.StatusHistory(filter)
@@ -4545,7 +4545,7 @@ func (s *ApplicationSuite) TestUnitStatusesWithUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.SetStatus(status.StatusInfo{
 		Status: status.Maintenance,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// If Agent status is in error, we see that.
@@ -4554,11 +4554,11 @@ func (s *ApplicationSuite) TestUnitStatusesWithUnits(c *gc.C) {
 	err = u2.Agent().SetStatus(status.StatusInfo{
 		Status:  status.Error,
 		Message: "foo",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u2.SetStatus(status.StatusInfo{
 		Status: status.Blocked,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	statuses, err := s.mysql.UnitStatuses()
@@ -5061,7 +5061,7 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	err = app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Allocating,
 		Message: "operator message",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
@@ -5074,12 +5074,12 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	err = app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Running,
 		Message: "operator running",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.SetStatus(status.StatusInfo{
 		Status:  status.Active,
 		Message: "app active",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Log(history)

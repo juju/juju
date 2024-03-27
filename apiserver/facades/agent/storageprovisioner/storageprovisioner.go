@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -83,6 +84,7 @@ func NewStorageProvisionerAPIv4(
 	registry storage.ProviderRegistry,
 	storagePoolGetter StoragePoolGetter,
 	logger loggo.Logger,
+	statusHistory status.StatusHistoryRecorder,
 ) (*StorageProvisionerAPIv4, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -244,7 +246,7 @@ func NewStorageProvisionerAPIv4(
 		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(st, nil, getStorageEntityAuthFunc),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
-		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
+		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc, statusHistory),
 
 		watcherRegistry: watcherRegistry,
 

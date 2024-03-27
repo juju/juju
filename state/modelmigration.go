@@ -398,7 +398,7 @@ func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg str
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, _ = probablyUpdateStatusHistory(st.db(), model.Kind(), globalKey, globalKey, doc)
+	_, _ = probablyUpdateStatusHistory(st.db(), model.Kind(), globalKey, globalKey, doc, status.NoopStatusHistoryRecorder)
 	return ops, nil
 }
 

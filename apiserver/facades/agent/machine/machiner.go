@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -49,6 +50,7 @@ func NewMachinerAPIForState(
 	cloudService common.CloudService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	statusHistory status.StatusHistoryRecorder,
 ) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -65,7 +67,7 @@ func NewMachinerAPIForState(
 
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
-		StatusSetter:            common.NewStatusSetter(st, getCanAccess),
+		StatusSetter:            common.NewStatusSetter(st, getCanAccess, statusHistory),
 		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getCanAccess),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, resources, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),

@@ -65,7 +65,7 @@ func (s *FilesystemStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err := s.filesystem.SetStatus(sInfo)
+	err := s.filesystem.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
@@ -78,7 +78,7 @@ func (s *FilesystemStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Message: "orville",
 		Since:   &now,
 	}
-	err := s.filesystem.SetStatus(sInfo)
+	err := s.filesystem.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
@@ -94,7 +94,7 @@ func (s *FilesystemStatusSuite) TestSetOverwritesData(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.filesystem.SetStatus(sInfo)
+	err := s.filesystem.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -116,7 +116,7 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.filesystem.SetStatus(sInfo)
+	err := s.filesystem.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	filesystem, err := s.storageBackend.Filesystem(s.filesystem.FilesystemTag())
@@ -168,7 +168,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Message: "not really",
 		Since:   &now,
 	}
-	err := s.filesystem.SetStatus(sInfo)
+	err := s.filesystem.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status: filesystem not found`)
 
 	statusInfo, err := s.filesystem.Status()
@@ -183,7 +183,7 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 		Message: "still",
 		Since:   &now,
 	}
-	err := s.filesystem.SetStatus(sInfo)
+	err := s.filesystem.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -198,6 +198,6 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err = s.filesystem.SetStatus(sInfo)
+	err = s.filesystem.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
 }

@@ -951,6 +951,11 @@ func (ctx *facadeContext) Logger() loggo.Logger {
 	return ctx.r.shared.logger
 }
 
+// ModelLogger returns the logger instance for the model served by the api connection.
+func (ctx *facadeContext) ModelLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
+	return ctx.r.shared.logSink.GetLogger(modelUUID, modelName, modelOwner)
+}
+
 // controllerDB is a protected method, do not expose this directly in to the
 // facade context. It is expect that users of the facade context will use the
 // higher level abstractions.

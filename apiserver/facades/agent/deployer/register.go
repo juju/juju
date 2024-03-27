@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -42,5 +43,13 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
 	unitRemover := ctx.ServiceFactory().Unit()
 
-	return NewDeployerAPI(controllerConfigGetter, unitRemover, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState)
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewDeployerAPI(controllerConfigGetter, unitRemover, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState, common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger))
 }

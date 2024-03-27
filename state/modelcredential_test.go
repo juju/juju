@@ -279,7 +279,7 @@ func (s *ModelCredentialSuite) TestSetCredentialRevertsModelStatus(c *gc.C) {
 		defer helper.Release()
 		if validModelStatuses[i] != status.Available {
 			// any model would be in 'available' status on setup.
-			err = oneModelState.SetStatus(status.StatusInfo{Status: validModelStatuses[i]})
+			err = oneModelState.SetStatus(status.StatusInfo{Status: validModelStatuses[i]}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(oneModelState.Refresh(), jc.ErrorIsNil)
 		}

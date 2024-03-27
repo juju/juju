@@ -374,7 +374,7 @@ func (m *fakeController) Status() (status.StatusInfo, error) {
 	return m.doc().statusInfo, nil
 }
 
-func (m *fakeController) SetStatus(sInfo status.StatusInfo) error {
+func (m *fakeController) SetStatus(sInfo status.StatusInfo, _ status.StatusHistoryRecorder) error {
 	m.mutate(func(doc *controllerDoc) {
 		doc.statusInfo = sInfo
 	})

@@ -26,5 +26,13 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership, ctx.Logger().Child("upgradeseries"))
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership, ctx.Logger().Child("upgradeseries"), common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger))
 }

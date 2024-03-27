@@ -100,6 +100,7 @@ type MachineManagerAPI struct {
 
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	logger                      loggo.Logger
+	historyRecorder             status.StatusHistoryRecorder
 }
 
 type MachineManagerV9 struct {
@@ -167,6 +168,11 @@ func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 
 	controllerConfigService := serviceFactory.ControllerConfig()
 
+	modelLogger, err := ctx.ModelLogger(model.UUID(), model.Name(), model.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewMachineManagerAPI(
 		controllerConfigService,
 		backend,
@@ -186,6 +192,7 @@ func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 		leadership,
 		chClient,
 		logger,
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }
 
@@ -205,6 +212,7 @@ func NewMachineManagerAPI(
 	leadership Leadership,
 	charmhubClient CharmhubClient,
 	logger loggo.Logger,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -230,7 +238,8 @@ func NewMachineManagerAPI(
 			makeUpgradeSeriesValidator(charmhubClient),
 			auth,
 		),
-		logger: logger,
+		logger:          logger,
+		historyRecorder: historyRecorder,
 	}
 	return api, nil
 }
@@ -521,7 +530,7 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data
 		Data:    newData,
 		Since:   &now,
 	}
-	return m.SetInstanceStatus(sInfo)
+	return m.SetInstanceStatus(sInfo, mm.historyRecorder)
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.

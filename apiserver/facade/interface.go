@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
@@ -86,6 +87,9 @@ type ModelContext interface {
 	ServiceFactory
 	ObjectStoreFactory
 	Logger
+
+	// ModelLogger returns the logger instance for the specified model.
+	ModelLogger(modelUUID, modelName, modelOwner string) (logger.LoggerCloser, error)
 
 	// Auth represents information about the connected client. You
 	// should always be checking individual requests against Auth:

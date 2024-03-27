@@ -38,7 +38,7 @@ type Machine interface {
 	IsManual() (bool, error)
 	CharmProfiles() ([]string, error)
 	SetCharmProfiles([]string) error
-	SetModificationStatus(status.StatusInfo) error
+	SetModificationStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 	Units() ([]Unit, error)
 	WatchContainers(instance.ContainerType) state.StringsWatcher
 	WatchInstanceData() state.NotifyWatcher

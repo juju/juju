@@ -35,7 +35,7 @@ type ModelBackend interface {
 // Application provides an API for querying application-specific details.
 type Application interface {
 	CharmPendingToBeDownloaded() bool
-	SetStatus(status.StatusInfo) error
+	SetStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 	CharmOrigin() *corecharm.Origin
 	Charm() (Charm, bool, error)
 	SetDownloadedIDAndHash(id, hash string) error

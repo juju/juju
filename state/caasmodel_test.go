@@ -370,7 +370,7 @@ func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 	c.Check(msWorkload.Message, gc.Equals, "agent initialising")
 	c.Check(msWorkload.Status, gc.Equals, status.Waiting)
 
-	err := unit.SetStatus(status.StatusInfo{Status: status.Active, Message: "running"})
+	err := unit.SetStatus(status.StatusInfo{Status: status.Active, Message: "running"}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	msWorkload = unitWorkloadStatus(c, m, unit.Name())
 	c.Check(msWorkload.Message, gc.Equals, "running")

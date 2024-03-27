@@ -112,7 +112,6 @@ type Server struct {
 	// TODO(debug-log) - move into logSink
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
-	logSink                corelogger.ModelLogger
 	getAuditConfig         func() auditlog.Config
 	upgradeComplete        func() bool
 	mux                    *apiserverhttp.Mux
@@ -353,6 +352,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		leaseManager:         cfg.LeaseManager,
 		controllerConfig:     controllerConfig,
 		logger:               loggo.GetLogger("juju.apiserver"),
+		logSink:              cfg.LogSink,
 		charmhubHTTPClient:   cfg.CharmhubHTTPClient,
 		dbGetter:             cfg.DBGetter,
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,
@@ -390,7 +390,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 			Clock:  cfg.Clock,
 		},
 		getAuditConfig:      cfg.GetAuditConfig,
-		logSink:             cfg.LogSink,
 		metricsCollector:    cfg.MetricsCollector,
 		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
 
@@ -452,7 +451,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 
 	ready := make(chan struct{})
 	srv.tomb.Go(func() error {
-		defer srv.logSink.Close()
+		defer srv.shared.logSink.Close()
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
 		defer unsubscribeControllerConfig()
@@ -738,7 +737,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	)
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
-		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, srv.logSink),
+		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, srv.shared.logSink),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
@@ -748,7 +747,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
 		// to a logfile as well as to the DB.
-		newMigrationLogWriteCloserFunc(httpCtxt, srv.logSink),
+		newMigrationLogWriteCloserFunc(httpCtxt, srv.shared.logSink),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},

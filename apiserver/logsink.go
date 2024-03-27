@@ -65,7 +65,8 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	}
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			return s.modelLogger.RemoveLogger(s.modelUUID)
+			// TODO - we should add flush support
+			// return s.modelLogger.Flush(s.modelUUID)
 		}
 		return nil
 	}

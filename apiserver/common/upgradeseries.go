@@ -38,7 +38,7 @@ type UpgradeSeriesMachine interface {
 	UpgradeSeriesTarget() (string, error)
 	Base() state.Base
 	UpdateMachineSeries(base state.Base) error
-	SetInstanceStatus(status.StatusInfo) error
+	SetInstanceStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 }
 
 // UpgradeSeriesUnit describes unit-receiver state methods

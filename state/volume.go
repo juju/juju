@@ -306,7 +306,7 @@ func (v *volume) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus is required to implement StatusSetter.
-func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
+func (v *volume) SetStatus(volumeStatus status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	switch volumeStatus.Status {
 	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
 	case status.Error:
@@ -338,7 +338,7 @@ func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
 		message:    volumeStatus.Message,
 		rawData:    volumeStatus.Data,
 		updated:    timeOrNow(volumeStatus.Since, v.mb.clock()),
-	})
+	}, recorder)
 }
 
 func (v *volumeAttachmentPlan) Volume() names.VolumeTag {

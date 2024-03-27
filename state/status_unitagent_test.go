@@ -47,7 +47,7 @@ func (s *StatusUnitAgentSuite) TestSetUnknownStatus(c *gc.C) {
 		Message: "orville",
 		Since:   &now,
 	}
-	err := s.agent.SetStatus(sInfo)
+	err := s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
@@ -60,7 +60,7 @@ func (s *StatusUnitAgentSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err := s.agent.SetStatus(sInfo)
+	err := s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
@@ -73,7 +73,7 @@ func (s *StatusUnitAgentSuite) TestSetAllocatingStatusAlreadyAssigned(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err := s.agent.SetStatus(sInfo)
+	err := s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status "allocating" as unit is already assigned`)
 
 	s.checkInitialStatus(c)
@@ -91,7 +91,7 @@ func (s *StatusUnitAgentSuite) TestSetStatusUnassigned(c *gc.C) {
 			Message: "",
 			Since:   &now,
 		}
-		err := agent.SetStatus(sInfo)
+		err := agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 		c.Check(err, gc.ErrorMatches, fmt.Sprintf(`cannot set status %q until unit is assigned`, value))
 
 		s.checkInitialStatus(c)
@@ -109,7 +109,7 @@ func (s *StatusUnitAgentSuite) TestSetStatusRunningNonCAAS(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err = agent.SetStatus(sInfo)
+	err = agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "running"`)
 	s.checkInitialStatus(c)
 }
@@ -124,7 +124,7 @@ func (s *StatusUnitAgentSuite) TestSetOverwritesData(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.agent.SetStatus(sInfo)
+	err := s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -148,7 +148,7 @@ func (s *StatusUnitAgentSuite) checkGetSetStatus(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.agent.SetStatus(sInfo)
+	err := s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	unit, err := s.State.Unit(s.unit.Name())
@@ -200,7 +200,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.agent.SetStatus(sInfo)
+	err = s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status: agent not found`)
 
 	statusInfo, err := s.agent.Status()
@@ -218,7 +218,7 @@ func (s *StatusUnitAgentSuite) TestGetSetErrorStatus(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.agent.SetStatus(sInfo)
+	err := s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Agent error is reported as unit error.
@@ -249,7 +249,7 @@ func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err := s.agent.SetStatus(sInfo)
+	err := s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -264,7 +264,7 @@ func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err = s.agent.SetStatus(sInfo)
+	err = s.agent.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = s.agent.Status()
 	c.Assert(err, jc.ErrorIsNil)

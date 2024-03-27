@@ -89,6 +89,7 @@ type ProvisionerAPI struct {
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	toolsFinder                 common.ToolsFinder
 	logger                      loggo.Logger
+	historyRecorder             status.StatusHistoryRecorder
 
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
@@ -184,9 +185,14 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 	unitRemover := ctx.ServiceFactory().Unit()
 
 	resources := ctx.Resources()
+	modelLogger, err := ctx.ModelLogger(model.UUID(), model.Name(), model.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	historyRecorder := common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger)
 	api := &ProvisionerAPI{
 		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc, unitRemover),
-		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
+		StatusSetter:         common.NewStatusSetter(st, getAuthFunc, historyRecorder),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc),
 		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
@@ -214,6 +220,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		credentialInvalidatorGetter: credentialcommon.CredentialInvalidatorGetter(ctx),
 		controllerUUID:              controllerCfg.ControllerUUID(),
 		logger:                      ctx.Logger().Child("provisioner"),
+		historyRecorder:             historyRecorder,
 	}
 	if isCaasModel {
 		return api, nil
@@ -1246,14 +1253,14 @@ func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg p
 	// TODO(jam): 2017-01-29 These two status should be set in a single
 	//	transaction, not in two separate transactions. Otherwise you can see
 	//	one toggle, but not the other.
-	if err = machine.SetInstanceStatus(s); err != nil {
+	if err = machine.SetInstanceStatus(s, api.historyRecorder); err != nil {
 		api.logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
 		return err
 	}
 	if status.Status(arg.Status) == status.ProvisioningError ||
 		status.Status(arg.Status) == status.Error {
 		s.Status = status.Error
-		if err = machine.SetStatus(s); err != nil {
+		if err = machine.SetStatus(s, nil); err != nil {
 			return err
 		}
 	}
@@ -1324,7 +1331,7 @@ func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, a
 		Data:    arg.Data,
 		Since:   since,
 	}
-	if err = machine.SetModificationStatus(s); err != nil {
+	if err = machine.SetModificationStatus(s, api.historyRecorder); err != nil {
 		api.logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
 		return err
 	}

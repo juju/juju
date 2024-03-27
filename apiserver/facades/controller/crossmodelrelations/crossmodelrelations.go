@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/rpc/params"
@@ -54,6 +55,7 @@ type CrossModelRelationsAPIv3 struct {
 	offerStatusWatcher     offerStatusWatcherFunc
 	consumedSecretsWatcher consumedSecretsWatcherFunc
 	logger                 loggo.Logger
+	historyRecorder        status.StatusHistoryRecorder
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -68,6 +70,7 @@ func NewCrossModelRelationsAPI(
 	offerStatusWatcher offerStatusWatcherFunc,
 	consumedSecretsWatcher consumedSecretsWatcherFunc,
 	logger loggo.Logger,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		st:                     st,
@@ -81,6 +84,7 @@ func NewCrossModelRelationsAPI(
 		consumedSecretsWatcher: consumedSecretsWatcher,
 		relationToOffer:        make(map[string]string),
 		logger:                 logger,
+		historyRecorder:        historyRecorder,
 	}, nil
 }
 
@@ -155,7 +159,7 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 				continue
 			}
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, api.historyRecorder, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

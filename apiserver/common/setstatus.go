@@ -6,13 +6,17 @@ package common
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -113,7 +117,7 @@ func (s *ApplicationStatusSetter) SetStatus(ctx context.Context, args params.Set
 			Data:    arg.Data,
 			Since:   &now,
 		}
-		if err := service.SetStatus(sInfo); err != nil {
+		if err := service.SetStatus(sInfo, nil); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 
@@ -121,20 +125,51 @@ func (s *ApplicationStatusSetter) SetStatus(ctx context.Context, args params.Set
 	return result, nil
 }
 
+func NewStatusHistoryRecorder(sourceController string, logger corelogger.Logger) status.StatusHistoryRecorder {
+	return func(statusKind string, statusId string, st status.Status, statusInfo string) {
+		if statusKind == "machine-lxd-profile" && st != status.Idle {
+			return
+		}
+		_, file, line, ok := runtime.Caller(1)
+		if !ok {
+			file = "???"
+			line = 0
+		}
+		labels := map[string]string{
+			"domain": "status",
+			"kind":   statusKind,
+			"id":     statusId,
+			"value":  st.String(),
+		}
+		_ = logger.Log([]corelogger.LogRecord{{
+			Time:     time.Now(),
+			Level:    loggo.INFO,
+			Module:   "juju.status",
+			Location: fmt.Sprintf("%s:%d", filepath.Base(file), line),
+			Entity:   sourceController,
+			Message:  statusInfo,
+			Labels:   labels,
+		}})
+	}
+
+}
+
 // StatusSetter implements a common SetStatus method for use by
 // various facades.
 type StatusSetter struct {
-	st           state.EntityFinder
-	getCanModify GetAuthFunc
+	st            state.EntityFinder
+	getCanModify  GetAuthFunc
+	recordHistory status.StatusHistoryRecorder
 }
 
 // NewStatusSetter returns a new StatusSetter. The GetAuthFunc will be
 // used on each invocation of SetStatus to determine current
 // permissions.
-func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSetter {
+func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc, recordHistory status.StatusHistoryRecorder) *StatusSetter {
 	return &StatusSetter{
-		st:           st,
-		getCanModify: getCanModify,
+		st:            st,
+		getCanModify:  getCanModify,
+		recordHistory: recordHistory,
 	}
 }
 
@@ -153,7 +188,7 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 			Data:    data,
 			Since:   updated,
 		}
-		return entity.SetStatus(sInfo)
+		return entity.SetStatus(sInfo, s.recordHistory)
 	default:
 		return apiservererrors.NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity))
 	}

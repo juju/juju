@@ -57,7 +57,7 @@ func (u *UnitAgent) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
-func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
+func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo, recorder status.StatusHistoryRecorder) (err error) {
 	unit, err := u.st.Unit(u.name)
 	if errors.Is(err, errors.NotFound) {
 		return errors.Annotate(errors.NotFoundf("agent"), "cannot set status")
@@ -101,7 +101,7 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 		message:    unitAgentStatus.Message,
 		rawData:    unitAgentStatus.Data,
 		updated:    timeOrNow(unitAgentStatus.Since, u.st.clock()),
-	})
+	}, recorder)
 }
 
 // StatusHistory returns a slice of at most filter.Size StatusInfo items

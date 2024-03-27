@@ -33,11 +33,12 @@ type ExternalControllerService interface {
 // API provides access to the remote relations API facade.
 type API struct {
 	ControllerConfigAPI
-	st         RemoteRelationsState
-	ecService  ExternalControllerService
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	logger     loggo.Logger
+	st              RemoteRelationsState
+	ecService       ExternalControllerService
+	resources       facade.Resources
+	authorizer      facade.Authorizer
+	logger          loggo.Logger
+	historyRecorder status.StatusHistoryRecorder
 }
 
 // NewRemoteRelationsAPI returns a new server-side API facade.
@@ -48,6 +49,7 @@ func NewRemoteRelationsAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger loggo.Logger,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -59,6 +61,7 @@ func NewRemoteRelationsAPI(
 		resources:           resources,
 		authorizer:          authorizer,
 		logger:              logger,
+		historyRecorder:     historyRecorder,
 	}, nil
 }
 
@@ -381,7 +384,7 @@ func (api *API) ConsumeRemoteRelationChanges(ctx context.Context, changes params
 			continue
 		}
 		api.logger.Debugf("ConsumeRemoteRelationChanges: rel tag %v; app tag: %v", relationTag, applicationTag)
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, api.historyRecorder, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -412,7 +415,7 @@ func (api *API) SetRemoteApplicationsStatus(ctx context.Context, args params.Set
 			err = app.SetStatus(status.StatusInfo{
 				Status:  statusValue,
 				Message: entity.Info,
-			})
+			}, nil)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

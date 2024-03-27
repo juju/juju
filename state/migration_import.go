@@ -129,7 +129,7 @@ func (ctrl *Controller) Import(
 	if err := dbModel.SetStatus(status.StatusInfo{
 		Status:  status.Busy,
 		Message: "importing",
-	}); err != nil {
+	}, status.NoopStatusHistoryRecorder); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 

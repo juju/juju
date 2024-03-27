@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
@@ -43,6 +44,10 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	modelLogger, err := ctx.ModelLogger(model.UUID(), model.Name(), model.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewStorageProvisionerAPIv4(
 		stdCtx,
 		ctx.WatcherRegistry(),
@@ -55,5 +60,6 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		registry,
 		serviceFactory.Storage(registry),
 		ctx.Logger().Child("storageprovisioner"),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }

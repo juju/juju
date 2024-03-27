@@ -46,7 +46,7 @@ func (s *ApplicationStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Message: "orville",
 		Since:   &now,
 	}
-	err := s.application.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
@@ -62,7 +62,7 @@ func (s *ApplicationStatusSuite) TestSetOverwritesData(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.application.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -84,7 +84,7 @@ func (s *ApplicationStatusSuite) checkGetSetStatus(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.application.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	application, err := s.State.Application(s.application.Name())
@@ -121,7 +121,7 @@ func (s *ApplicationStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.application.SetStatus(sInfo)
+	err = s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status: application not found`)
 
 	statusInfo, err := s.application.Status()
@@ -136,7 +136,7 @@ func (s *ApplicationStatusSuite) TestSetStatusSince(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err := s.application.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +151,7 @@ func (s *ApplicationStatusSuite) TestSetStatusSince(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err = s.application.SetStatus(sInfo)
+	err = s.application.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)

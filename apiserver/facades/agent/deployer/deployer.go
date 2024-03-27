@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -57,6 +58,7 @@ func NewDeployerAPI(
 	resources facade.Resources,
 	leadershipRevoker leadership.Revoker,
 	systemState *state.State,
+	statusHistory status.StatusHistoryRecorder,
 ) (*DeployerAPI, error) {
 	getAuthFunc := func() (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
@@ -87,7 +89,7 @@ func NewDeployerAPI(
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		StatusSetter:           common.NewStatusSetter(st, getAuthFunc, statusHistory),
 		controllerConfigGetter: controllerConfigGetter,
 		st:                     st,
 		resources:              resources,

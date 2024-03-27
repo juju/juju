@@ -395,7 +395,7 @@ func (f *FirewallerAPI) SetRelationsStatus(ctx context.Context, args params.SetS
 		err = rel.SetStatus(status.StatusInfo{
 			Status:  status.Status(entity.Status),
 			Message: entity.Info,
-		})
+		}, nil)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil

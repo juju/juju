@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
@@ -201,4 +202,13 @@ func (c ModelContext) LogDir() string {
 
 func (c ModelContext) Logger() loggo.Logger {
 	return c.Logger_
+}
+
+type noopLogger struct{}
+
+func (noopLogger) Log([]logger.LogRecord) error { return nil }
+
+func (noopLogger) Close() error { return nil }
+func (c ModelContext) ModelLogger(modelUUID, modelName, modelOwner string) (logger.LoggerCloser, error) {
+	return noopLogger{}, nil
 }

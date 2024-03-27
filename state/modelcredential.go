@@ -190,7 +190,7 @@ func (st *State) maybeSetModelStatusHistoryDoc(modelUUID string, doc statusDoc) 
 		return
 	}
 
-	if _, err = probablyUpdateStatusHistory(one.st.db(), one.Kind(), one.globalKey(), one.globalKey(), doc); err != nil {
+	if _, err = probablyUpdateStatusHistory(one.st.db(), one.Kind(), one.globalKey(), one.globalKey(), doc, status.NoopStatusHistoryRecorder); err != nil {
 		logger.Warningf("%v", err)
 	}
 }
@@ -212,7 +212,7 @@ func (m *Model) maybeRevertModelStatus() error {
 			Updated:    timeOrNow(nil, m.st.clock()).UnixNano(),
 		}
 
-		if _, err = probablyUpdateStatusHistory(m.st.db(), m.Kind(), m.globalKey(), m.globalKey(), doc); err != nil {
+		if _, err = probablyUpdateStatusHistory(m.st.db(), m.Kind(), m.globalKey(), m.globalKey(), doc, status.NoopStatusHistoryRecorder); err != nil {
 			return errors.Trace(err)
 		}
 	}

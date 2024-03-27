@@ -310,7 +310,7 @@ func timeOrNow(t *time.Time, clock clock.Clock) *time.Time {
 }
 
 // setStatus inteprets the supplied params as documented on the type.
-func setStatus(db Database, params setStatusParams) (err error) {
+func setStatus(db Database, params setStatusParams, recorder status.StatusHistoryRecorder) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set status")
 	if params.updated == nil {
 		return errors.NotValidf("nil updated time")
@@ -329,7 +329,7 @@ func setStatus(db Database, params setStatusParams) (err error) {
 	}
 
 	newStatus, historyErr := probablyUpdateStatusHistory(db,
-		params.statusKind, params.statusId, params.globalKey, *historyDoc)
+		params.statusKind, params.statusId, params.globalKey, *historyDoc, recorder)
 	if params.historyOverwrite == nil && (!newStatus && historyErr == nil) {
 		// If this status is not new (i.e. it is exactly the same as
 		// our last status), there is no need to update the record.
@@ -410,25 +410,6 @@ type recordedHistoricalStatusDoc struct {
 	StatusData map[string]interface{} `bson:"statusdata"`
 }
 
-// logStatusUpdate sends the status update to the status logger.
-//
-// The "idle" status for the machine-lxd-profile is omitted from the status log,
-// since only the applied or error statuses are useful in that case.
-//
-// TODO (cderici): Once the statusesHistoryC collection goes away we'll lose
-// access to the doc parameter, so we'll replace it with a couple more
-// parameters for the status info and the status value.
-func logStatusUpdate(statusKind string, statusId string, doc statusDoc) {
-	if statusKind != "machine-lxd-profile" || doc.Status != status.Idle {
-		status_logger.InfoWithLabelsf(doc.StatusInfo, map[string]string{
-			"domain": "status",
-			"kind":   statusKind,
-			"id":     statusId,
-			"value":  doc.Status.String(),
-		})
-	}
-}
-
 // probablyUpdateStatusHistory inspects existing status-history
 // and determines if this status is new or the same as the last recorded.
 // If this is a new status, a new status history record will be added.
@@ -437,7 +418,7 @@ func logStatusUpdate(statusKind string, statusId string, doc statusDoc) {
 // Status messages are considered to be the same if they only differ in their timestamps.
 // The call returns true if a new status history record has been created.
 func probablyUpdateStatusHistory(db Database,
-	statusKind string, statusId string, globalKey string, doc statusDoc) (bool, error) {
+	statusKind string, statusId string, globalKey string, doc statusDoc, logRecorder status.StatusHistoryRecorder) (bool, error) {
 	historyDoc := &historicalStatusDoc{
 		Status:     doc.Status,
 		StatusInfo: doc.StatusInfo,
@@ -446,7 +427,7 @@ func probablyUpdateStatusHistory(db Database,
 		GlobalKey:  globalKey,
 	}
 
-	logStatusUpdate(statusKind, statusId, doc)
+	logRecorder(statusKind, statusId, doc.Status, doc.StatusInfo)
 
 	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()

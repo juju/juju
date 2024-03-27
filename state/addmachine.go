@@ -582,9 +582,9 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// history entry. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	_, _ = probablyUpdateStatusHistory(st.db(), m.Kind(), mdoc.Id, machineGlobalKey(mdoc.Id), machineStatusDoc)
-	_, _ = probablyUpdateStatusHistory(st.db(), m.InstanceKind(), mdoc.Id, machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc)
-	_, _ = probablyUpdateStatusHistory(st.db(), m.ModificationKind(), mdoc.Id, machineGlobalModificationKey(mdoc.Id), modificationStatusDoc)
+	_, _ = probablyUpdateStatusHistory(st.db(), m.Kind(), mdoc.Id, machineGlobalKey(mdoc.Id), machineStatusDoc, status.NoopStatusHistoryRecorder)
+	_, _ = probablyUpdateStatusHistory(st.db(), m.InstanceKind(), mdoc.Id, machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc, status.NoopStatusHistoryRecorder)
+	_, _ = probablyUpdateStatusHistory(st.db(), m.ModificationKind(), mdoc.Id, machineGlobalModificationKey(mdoc.Id), modificationStatusDoc, status.NoopStatusHistoryRecorder)
 	return prereqOps, machineOp, nil
 }
 

@@ -270,12 +270,12 @@ func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
 	shared, ph, err := s.StatePool.GetModel(modelNameToUUID["shared"])
 	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
-	err = shared.SetStatus(expectedStatus["shared"])
+	err = shared.SetStatus(expectedStatus["shared"], status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
 	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
-	err = user1.SetStatus(expectedStatus["user1model"])
+	err = user1.SetStatus(expectedStatus["user1model"], status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -314,7 +314,7 @@ func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
 	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
 	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
-	err = user1.SetStatus(expectedStatus["user1model"])
+	err = user1.SetStatus(expectedStatus["user1model"], status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -462,7 +462,7 @@ func (s *ModelSummariesSuite) TestModelsWithNoSettings(c *gc.C) {
 	err = model.SetStatus(status.StatusInfo{
 		Status:  status.Available,
 		Message: "running",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	summaryMap := s.namedSummariesForUser(c, "user2read")
@@ -477,7 +477,7 @@ func (s *ModelSummariesSuite) TestModelsWithNoSettings(c *gc.C) {
 	err = model.SetStatus(status.StatusInfo{
 		Status:  status.Destroying,
 		Message: "stopping",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	summaryMap = s.namedSummariesForUser(c, "user2read")

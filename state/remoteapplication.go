@@ -417,7 +417,7 @@ func (a *RemoteApplication) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status for the application.
-func (a *RemoteApplication) SetStatus(info status.StatusInfo) error {
+func (a *RemoteApplication) SetStatus(info status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	// We only care about status for alive apps; we want to
 	// avoid stray updates from the other model.
 	if a.Life() != Alive {
@@ -436,7 +436,7 @@ func (a *RemoteApplication) SetStatus(info status.StatusInfo) error {
 		message:    info.Message,
 		rawData:    info.Data,
 		updated:    timeOrNow(info.Since, a.st.clock()),
-	})
+	}, recorder)
 }
 
 // TerminateOperation returns a ModelOperation that will terminate this
@@ -450,12 +450,14 @@ func (a *RemoteApplication) TerminateOperation(message string) ModelOperation {
 			StatusInfo: message,
 			Updated:    a.st.clock().Now().UnixNano(),
 		},
+		recorder: status.NoopStatusHistoryRecorder,
 	}
 }
 
 type terminateRemoteApplicationOperation struct {
-	app *RemoteApplication
-	doc statusDoc
+	app      *RemoteApplication
+	doc      statusDoc
+	recorder status.StatusHistoryRecorder
 }
 
 // Build is part of ModelOperation.
@@ -505,7 +507,7 @@ func (op *terminateRemoteApplicationOperation) Done(err error) error {
 		return errors.Annotatef(err, "terminating saas application %q", op.app.Name())
 	}
 	_, _ = probablyUpdateStatusHistory(op.app.st.db(),
-		op.app.Kind(), op.app.Name(), op.app.globalKey(), op.doc)
+		op.app.Kind(), op.app.Name(), op.app.globalKey(), op.doc, op.recorder)
 	// Set the life to Dead so that the lifecycle watcher will trigger to inform the
 	// relevant workers that this application is gone.
 	ops := []txn.Op{{

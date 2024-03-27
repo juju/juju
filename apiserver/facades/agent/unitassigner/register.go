@@ -7,6 +7,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state/stateenvirons"
@@ -30,7 +32,15 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 		return nil, err
 	}
 
-	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways())
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways(), common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger))
 	return &API{
 		st:             stateShim{State: st, prechecker: prechecker},
 		res:            ctx.Resources(),

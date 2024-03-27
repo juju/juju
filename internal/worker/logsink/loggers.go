@@ -106,6 +106,7 @@ func (d *modelLogger) Close() error {
 		}
 	}
 	if len(errs) == 0 {
+		d.modelLoggers = make(map[string]corelogger.LoggerCloser)
 		return nil
 	}
 	return errors.Errorf("errors closing loggers: %v", strings.Join(errs, "\n"))

@@ -323,7 +323,7 @@ func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo) error 
 	return a.NextErr()
 }
 
-func (a *mockApplication) SetStatus(statusInfo status.StatusInfo) error {
+func (a *mockApplication) SetStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	a.MethodCall(a, "SetStatus", statusInfo)
 	return a.NextErr()
 }
@@ -634,7 +634,7 @@ func (f *mockFilesystem) Volume() (names.VolumeTag, error) {
 	return f.volTag, nil
 }
 
-func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo) error {
+func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	f.MethodCall(f, "SetStatus", statusInfo)
 	return nil
 }
@@ -657,7 +657,7 @@ func (v *mockVolume) VolumeTag() names.VolumeTag {
 	return v.tag
 }
 
-func (v *mockVolume) SetStatus(statusInfo status.StatusInfo) error {
+func (v *mockVolume) SetStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	v.MethodCall(v, "SetStatus", statusInfo)
 	return nil
 }

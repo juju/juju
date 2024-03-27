@@ -55,7 +55,7 @@ type Model interface {
 type Application interface {
 	Charm() (ch Charm, force bool, err error)
 	CharmPendingToBeDownloaded() bool
-	SetOperatorStatus(status.StatusInfo) error
+	SetOperatorStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 	AllUnits() ([]Unit, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
 	StorageConstraints() (map[string]state.StorageConstraints, error)
@@ -64,7 +64,7 @@ type Application interface {
 	Constraints() (constraints.Value, error)
 	Life() state.Life
 	Base() state.Base
-	SetStatus(statusInfo status.StatusInfo) error
+	SetStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error
 	CharmModifiedVersion() int
 	CharmURL() (curl *string, force bool)
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)

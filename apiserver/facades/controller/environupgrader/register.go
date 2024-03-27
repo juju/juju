@@ -7,6 +7,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -35,9 +36,18 @@ func NewStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		ctx.Resources(),
 		common.AuthFuncForTagKind(names.ModelTagKind),
 	)
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	statusSetter := common.NewStatusSetter(
 		ctx.State(),
 		common.AuthFuncForTagKind(names.ModelTagKind),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 	return NewFacade(ctx.ServiceFactory().Cloud(), pool, registry, watcher, statusSetter)
 }

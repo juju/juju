@@ -366,21 +366,21 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machines[0].SetStatus(sInfo)
+	err := s.machines[0].SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Stopped,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.machines[1].SetStatus(sInfo)
+	err = s.machines[1].SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.machines[2].SetStatus(sInfo)
+	err = s.machines[2].SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -801,14 +801,14 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machines[0].SetStatus(sInfo)
+	err := s.machines[0].SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Stopped,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.machines[1].SetStatus(sInfo)
+	err = s.machines[1].SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
@@ -816,7 +816,7 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}
-	err = s.machines[2].SetStatus(sInfo)
+	err = s.machines[2].SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

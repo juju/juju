@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -27,5 +28,9 @@ func newFacade(ctx facade.ModelContext) (*InstancePollerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewInstancePollerAPI(st, m, ctx.Resources(), ctx.Auth(), clock.WallClock, ctx.Logger().Child("instancepoller"))
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewInstancePollerAPI(st, m, ctx.Resources(), ctx.Auth(), clock.WallClock, ctx.Logger().Child("instancepoller"), common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger))
 }

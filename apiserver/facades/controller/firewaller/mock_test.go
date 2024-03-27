@@ -93,7 +93,7 @@ func (r *mockRelation) WatchRelationIngressNetworks() state.StringsWatcher {
 	return w
 }
 
-func (r *mockRelation) SetStatus(info status.StatusInfo) error {
+func (r *mockRelation) SetStatus(info status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	r.status = info
 	return nil
 }

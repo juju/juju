@@ -35,14 +35,14 @@ func (s *offerConnectionsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.activeRel, err = s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.activeRel.SetStatus(status.StatusInfo{Status: status.Joined})
+	err = s.activeRel.SetStatus(status.StatusInfo{Status: status.Joined}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err = s.State.InferEndpoints("wordpress2", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	s.suspendedRel, err = s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.suspendedRel.SetStatus(status.StatusInfo{Status: status.Suspended})
+	err = s.suspendedRel.SetStatus(status.StatusInfo{Status: status.Suspended}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

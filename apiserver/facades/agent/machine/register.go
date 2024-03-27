@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -26,6 +27,15 @@ func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerA
 		return nil, errors.Trace(err)
 	}
 	serviceFactory := ctx.ServiceFactory()
+
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewMachinerAPIForState(
 		stdCtx,
 		systemState,
@@ -34,5 +44,6 @@ func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerA
 		serviceFactory.Cloud(),
 		ctx.Resources(),
 		ctx.Auth(),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }

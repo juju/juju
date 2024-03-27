@@ -2530,9 +2530,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	_, _ = probablyUpdateStatusHistory(a.st.db(), u.Kind(), name, globalKey, *unitStatusDoc)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), u.unitWorkloadVersionKind(), name, globalWorkloadVersionKey(name), *workloadVersionDoc)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), uAgent.Kind(), name, agentGlobalKey, agentStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), u.Kind(), name, globalKey, *unitStatusDoc, status.NoopStatusHistoryRecorder)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), u.unitWorkloadVersionKind(), name, globalWorkloadVersionKey(name), *workloadVersionDoc, status.NoopStatusHistoryRecorder)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), uAgent.Kind(), name, agentGlobalKey, agentStatusDoc, status.NoopStatusHistoryRecorder)
 	return name, ops, nil
 }
 
@@ -3466,7 +3466,7 @@ func (a *Application) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status for the application.
-func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
+func (a *Application) SetStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
@@ -3501,12 +3501,12 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		rawData:          statusInfo.Data,
 		updated:          timeOrNow(statusInfo.Since, a.st.clock()),
 		historyOverwrite: newHistory,
-	})
+	}, recorder)
 }
 
 // SetOperatorStatus sets the operator status for an application.
 // This is used on CAAS models.
-func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
+func (a *Application) SetOperatorStatus(sInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	m, err := a.st.Model()
 	if err != nil {
 		return errors.Trace(err)
@@ -3524,7 +3524,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 		message:    sInfo.Message,
 		rawData:    sInfo.Data,
 		updated:    timeOrNow(sInfo.Since, a.st.clock()),
-	})
+	}, recorder)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3539,7 +3539,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	if historyDoc != nil {
 		// rewriting application status history
 		_, err = probablyUpdateStatusHistory(a.st.db(),
-			a.Kind(), a.Name(), a.globalKey(), *historyDoc)
+			a.Kind(), a.Name(), a.globalKey(), *historyDoc, recorder)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3785,6 +3785,7 @@ func (a *Application) AddOperation(props UnitUpdateProperties) *AddUnitOperation
 	return &AddUnitOperation{
 		application: &Application{st: a.st, doc: a.doc},
 		props:       props,
+		recorder:    status.NoopStatusHistoryRecorder,
 	}
 }
 
@@ -3792,6 +3793,7 @@ func (a *Application) AddOperation(props UnitUpdateProperties) *AddUnitOperation
 type AddUnitOperation struct {
 	application *Application
 	props       UnitUpdateProperties
+	recorder    status.StatusHistoryRecorder
 
 	unitName string
 }
@@ -3861,7 +3863,7 @@ func (op *AddUnitOperation) Done(err error) error {
 			Message: op.props.AgentStatus.Message,
 			Data:    op.props.AgentStatus.Data,
 			Since:   &now,
-		}); err != nil {
+		}, nil); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -3874,7 +3876,7 @@ func (op *AddUnitOperation) Done(err error) error {
 		}
 		_, err := probablyUpdateStatusHistory(
 			op.application.st.db(), u.cloudContainerKind(), op.unitName,
-			globalCloudContainerKey(op.unitName), doc)
+			globalCloudContainerKey(op.unitName), doc, op.recorder)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3899,7 +3901,7 @@ func (op *AddUnitOperation) Done(err error) error {
 				rawData:          unitStatus.Data,
 				updated:          timeOrNow(unitStatus.Since, u.st.clock()),
 				historyOverwrite: newHistory,
-			})
+			}, op.recorder)
 			if err != nil {
 				return errors.Trace(err)
 			}

@@ -282,7 +282,7 @@ func (api *APIV1) Activate(ctx context.Context, args params.ModelArgs) error {
 	}
 	defer release()
 
-	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
+	if err := model.SetStatus(status.StatusInfo{Status: status.Available}, nil); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -342,7 +342,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 		}
 	}
 
-	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
+	if err := model.SetStatus(status.StatusInfo{Status: status.Available}, nil); err != nil {
 		return errors.Trace(err)
 	}
 

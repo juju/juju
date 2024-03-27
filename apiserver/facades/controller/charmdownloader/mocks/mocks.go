@@ -256,7 +256,7 @@ func (mr *MockApplicationMockRecorder) SetDownloadedIDAndHash(arg0, arg1 any) *g
 }
 
 // SetStatus mocks base method.
-func (m *MockApplication) SetStatus(arg0 status.StatusInfo) error {
+func (m *MockApplication) SetStatus(arg0 status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetStatus", arg0)
 	ret0, _ := ret[0].(error)

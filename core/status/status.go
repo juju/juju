@@ -28,9 +28,13 @@ type StatusInfo struct {
 	Since   *time.Time
 }
 
+type StatusHistoryRecorder func(statusKind string, statusId string, status Status, statusInfo string)
+
+var NoopStatusHistoryRecorder = func(statusKind string, statusId string, status Status, statusInfo string) {}
+
 // StatusSetter represents a type whose status can be set.
 type StatusSetter interface {
-	SetStatus(StatusInfo) error
+	SetStatus(StatusInfo, StatusHistoryRecorder) error
 }
 
 // StatusGetter represents a type whose status can be read.

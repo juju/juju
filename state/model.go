@@ -367,7 +367,7 @@ func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGet
 		return nil, nil, errors.Trace(err)
 	}
 	if args.MigrationMode != MigrationModeImporting {
-		_, _ = probablyUpdateStatusHistory(newSt.db(), newModel.Kind(), modelGlobalKey, modelGlobalKey, modelStatusDoc)
+		_, _ = probablyUpdateStatusHistory(newSt.db(), newModel.Kind(), modelGlobalKey, modelGlobalKey, modelStatusDoc, status.NoopStatusHistoryRecorder)
 	}
 
 	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
@@ -578,7 +578,7 @@ func (m *Model) localID(id string) string {
 }
 
 // SetStatus sets the status of the model.
-func (m *Model) SetStatus(sInfo status.StatusInfo) error {
+func (m *Model) SetStatus(sInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	if !status.ValidModelStatus(sInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
 	}
@@ -591,7 +591,7 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 		message:    sInfo.Message,
 		rawData:    sInfo.Data,
 		updated:    timeOrNow(sInfo.Since, m.st.clock()),
-	})
+	}, recorder)
 }
 
 // StatusHistory returns a slice of at most filter.Size StatusInfo items

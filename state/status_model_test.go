@@ -60,7 +60,7 @@ func (s *ModelStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Message: "orville",
 		Since:   &now,
 	}
-	err := s.model.SetStatus(sInfo)
+	err := s.model.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
@@ -76,7 +76,7 @@ func (s *ModelStatusSuite) TestSetOverwritesData(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.model.SetStatus(sInfo)
+	err := s.model.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -116,7 +116,7 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.model.SetStatus(sInfo)
+	err = s.model.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status: model not found`)
 
 	_, err = s.model.Status()
@@ -134,7 +134,7 @@ func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
 			}},
 		Since: &now,
 	}
-	err := s.model.SetStatus(sInfo)
+	err := s.model.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	// Get another instance of the Model to compare against
@@ -188,8 +188,8 @@ func (s *ModelStatusSuite) TestMachineStatus(c *gc.C) {
 func (s *ModelStatusSuite) TestUnitStatus(c *gc.C) {
 	unit := s.factory.MakeUnit(c, nil)
 
-	c.Assert(unit.SetWorkloadVersion("42.1"), jc.ErrorIsNil)
-	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}), jc.ErrorIsNil)
+	c.Assert(unit.SetWorkloadVersion("42.1", status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
+	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}, nil), jc.ErrorIsNil)
 	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
 
 	ms, err := s.model.LoadModelStatus()
@@ -219,7 +219,7 @@ func (s *ModelStatusSuite) TestUnitStatusWeirdness(c *gc.C) {
 
 	// When the agent status is in error, we show the workload status
 	// as an error, and the agent as idle
-	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}), jc.ErrorIsNil)
+	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}, nil), jc.ErrorIsNil)
 	c.Assert(unit.SetAgentStatus(status.StatusInfo{
 		Status:  status.Error,
 		Message: "OMG"}), jc.ErrorIsNil)

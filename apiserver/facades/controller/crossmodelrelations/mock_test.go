@@ -431,7 +431,7 @@ func (r *mockRelation) UnitCount() int {
 	return 666
 }
 
-func (r *mockRelation) SetStatus(statusInfo status.StatusInfo) error {
+func (r *mockRelation) SetStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	r.MethodCall(r, "SetStatus")
 	r.status = statusInfo.Status
 	r.message = statusInfo.Message

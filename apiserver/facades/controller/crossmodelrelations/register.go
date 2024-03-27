@@ -7,6 +7,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
@@ -31,6 +33,10 @@ func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelatio
 		return nil, err
 	}
 
+	modelLogger, err := ctx.ModelLogger(model.UUID(), model.Name(), model.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewCrossModelRelationsAPI(
 		stateShim{
 			st:      st,
@@ -44,5 +50,6 @@ func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelatio
 		watchOfferStatus,
 		watchConsumedSecrets,
 		ctx.Logger().ChildWithTags("crossmodelrelations", corelogger.CMR),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }

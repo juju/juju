@@ -28,12 +28,13 @@ type InstancePollerAPI struct {
 	*common.InstanceIdGetter
 	*common.StatusGetter
 
-	st            StateInterface
-	resources     facade.Resources
-	authorizer    facade.Authorizer
-	accessMachine common.GetAuthFunc
-	clock         clock.Clock
-	logger        loggo.Logger
+	st              StateInterface
+	resources       facade.Resources
+	authorizer      facade.Authorizer
+	accessMachine   common.GetAuthFunc
+	clock           clock.Clock
+	logger          loggo.Logger
+	historyRecorder status.StatusHistoryRecorder
 }
 
 // NewInstancePollerAPI creates a new server-side InstancePoller API
@@ -45,6 +46,7 @@ func NewInstancePollerAPI(
 	authorizer facade.Authorizer,
 	clock clock.Clock,
 	logger loggo.Logger,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*InstancePollerAPI, error) {
 
 	if !authorizer.AuthController() {
@@ -95,6 +97,7 @@ func NewInstancePollerAPI(
 		accessMachine:        accessMachine,
 		clock:                clock,
 		logger:               logger,
+		historyRecorder:      historyRecorder,
 	}, nil
 }
 
@@ -387,11 +390,11 @@ func (a *InstancePollerAPI) SetInstanceStatus(ctx context.Context, args params.S
 				Data:    arg.Data,
 				Since:   &now,
 			}
-			err = machine.SetInstanceStatus(s)
+			err = machine.SetInstanceStatus(s, a.historyRecorder)
 			if status.Status(arg.Status) == status.ProvisioningError {
 				s.Status = status.Error
 				if err == nil {
-					err = machine.SetStatus(s)
+					err = machine.SetStatus(s, nil)
 				}
 			}
 		}

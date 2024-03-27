@@ -43,7 +43,7 @@ func (s *UnitStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Message: "orville",
 		Since:   &now,
 	}
-	err := s.unit.SetStatus(sInfo)
+	err := s.unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
@@ -59,7 +59,7 @@ func (s *UnitStatusSuite) TestSetOverwritesData(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.unit.SetStatus(sInfo)
+	err := s.unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -80,7 +80,7 @@ func (s *UnitStatusSuite) checkGetSetStatus(c *gc.C) {
 			}},
 		Since: &now,
 	}
-	err := s.unit.SetStatus(sInfo)
+	err := s.unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 
 	unit, err := s.State.Unit(s.unit.Name())
@@ -129,7 +129,7 @@ func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.unit.SetStatus(sInfo)
+	err = s.unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot set status: unit not found`)
 
 	statusInfo, err := s.unit.Status()
@@ -144,7 +144,7 @@ func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err := s.unit.SetStatus(sInfo)
+	err := s.unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,7 +159,7 @@ func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err = s.unit.SetStatus(sInfo)
+	err = s.unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,7 +187,7 @@ func (s *UnitStatusSuite) TestStatusSinceDoesNotChangeWhenReceivedStatusIsTheSam
 	// should not update a status. It should, however, update
 	// the history record with the timestamp of the last call made.
 	for i := 0; i < 10; i++ {
-		err = s.unit.SetStatus(sInfo)
+		err = s.unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		// Next status sent will be an hour from now.
 		now = now.Add(1 * time.Hour)

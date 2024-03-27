@@ -57,7 +57,7 @@ func (*cloudServiceShim) Life() state.Life {
 	return state.Alive
 }
 
-func (*cloudServiceShim) SetStatus(status.StatusInfo) error {
+func (*cloudServiceShim) SetStatus(status.StatusInfo, status.StatusHistoryRecorder) error {
 	// We don't record the status of a cloud service entity.
 	return nil
 }

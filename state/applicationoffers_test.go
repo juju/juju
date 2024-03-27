@@ -970,7 +970,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	err = app.SetStatus(status.StatusInfo{
 		Status:  status.Waiting,
 		Message: "waiting for replication",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -980,7 +980,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	wc.AssertOneChange()
 	err = u.SetStatus(status.StatusInfo{
 		Status: status.Blocked,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))

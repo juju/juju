@@ -234,20 +234,20 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 		Message: "current status",
 		Since:   &now,
 	}
-	err := unit.SetStatus(sInfo)
+	err := unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Active,
 		Message: "2 days ago",
 		Since:   &twoDaysAgo,
 	}
-	unit.SetStatus(sInfo)
+	unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	sInfo = status.StatusInfo{
 		Status:  status.Active,
 		Message: "3 days ago",
 		Since:   &threeDaysAgo,
 	}
-	unit.SetStatus(sInfo)
+	unit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 50})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 4)
@@ -316,7 +316,7 @@ func (s *StatusHistorySuite) TestSameValueNotRepeated(c *gc.C) {
 			Status:  status.Active,
 			Message: "current status",
 			Since:   &when,
-		})
+		}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

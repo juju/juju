@@ -16,6 +16,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
@@ -47,6 +48,7 @@ type sharedServerContext struct {
 	presence             presence.Recorder
 	leaseManager         lease.Manager
 	logger               loggo.Logger
+	logSink              corelogger.ModelLogger
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
@@ -72,6 +74,7 @@ type sharedServerConfig struct {
 	leaseManager         lease.Manager
 	controllerConfig     jujucontroller.Config
 	logger               loggo.Logger
+	logSink              corelogger.ModelLogger
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
@@ -116,6 +119,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
+	if c.logSink == nil {
+		return errors.NotValidf("empty logSink")
+	}
 	return nil
 }
 
@@ -130,6 +136,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		presence:             config.presence,
 		leaseManager:         config.leaseManager,
 		logger:               config.logger,
+		logSink:              config.logSink,
 		controllerConfig:     config.controllerConfig,
 		charmhubHTTPClient:   config.charmhubHTTPClient,
 		dbGetter:             config.dbGetter,

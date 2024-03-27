@@ -159,14 +159,14 @@ func (s *uniterSuite) TestSetUnitStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.wordpressUnit.SetStatus(sInfo)
+	err := s.wordpressUnit.SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Terminated,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.mysqlUnit.SetStatus(sInfo)
+	err = s.mysqlUnit.SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -2098,7 +2098,7 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 
 func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
-	err := rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: "going, going"})
+	err := rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: "going, going"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2115,7 +2115,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	rel2 := s.addRelation(c, "wordpress", "logging")
 	err = rel2.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: ""})
+	err = rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: ""}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -2990,14 +2990,14 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.wordpressUnit.SetStatus(sInfo)
+	err := s.wordpressUnit.SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Terminated,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.mysqlUnit.SetStatus(sInfo)
+	err = s.mysqlUnit.SetStatus(sInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{

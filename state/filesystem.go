@@ -264,7 +264,7 @@ func (f *filesystem) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus is required to implement StatusSetter.
-func (f *filesystem) SetStatus(fsStatus status.StatusInfo) error {
+func (f *filesystem) SetStatus(fsStatus status.StatusInfo, recorder status.StatusHistoryRecorder) error {
 	switch fsStatus.Status {
 	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
 	case status.Error:
@@ -296,7 +296,7 @@ func (f *filesystem) SetStatus(fsStatus status.StatusInfo) error {
 		message:    fsStatus.Message,
 		rawData:    fsStatus.Data,
 		updated:    timeOrNow(fsStatus.Since, f.mb.clock()),
-	})
+	}, recorder)
 }
 
 // Filesystem is required to implement FilesystemAttachment.

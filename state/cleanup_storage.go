@@ -164,7 +164,7 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 		updateStatus = func() error {
 			return f.SetStatus(status.StatusInfo{
 				Status: status.Detached,
-			})
+			}, status.NoopStatusHistoryRecorder)
 		}
 	}
 

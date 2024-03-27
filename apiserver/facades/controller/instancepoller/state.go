@@ -21,8 +21,8 @@ type StateMachine interface {
 	ProviderAddresses() network.SpaceAddresses
 	SetProviderAddresses(controller.Config, ...network.SpaceAddress) error
 	InstanceStatus() (status.StatusInfo, error)
-	SetInstanceStatus(status.StatusInfo) error
-	SetStatus(status.StatusInfo) error
+	SetInstanceStatus(status.StatusInfo, status.StatusHistoryRecorder) error
+	SetStatus(status.StatusInfo, status.StatusHistoryRecorder) error
 	String() string
 	Refresh() error
 	Life() state.Life

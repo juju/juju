@@ -2007,7 +2007,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 		return rel.SetStatus(status.StatusInfo{
 			Status:  statusValue,
 			Message: arg.Message,
-		})
+		}, nil)
 	}
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
