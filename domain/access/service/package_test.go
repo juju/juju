@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/user"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package service -destination state_mock_test.go github.com/juju/juju/domain/user/service State
+//go:generate go run go.uber.org/mock/mockgen -package service -destination state_mock_test.go github.com/juju/juju/domain/access/service State,UserState,PermissionState
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

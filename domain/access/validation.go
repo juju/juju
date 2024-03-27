@@ -1,14 +1,14 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package user
+package access
 
 import (
 	"regexp"
 
 	"github.com/juju/errors"
 
-	usererrors "github.com/juju/juju/domain/user/errors"
+	usererrors "github.com/juju/juju/domain/access/errors"
 )
 
 const (

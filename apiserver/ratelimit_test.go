@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -106,7 +106,7 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 	// Make a copy
 	newInfo := *info
 
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag(name)
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),

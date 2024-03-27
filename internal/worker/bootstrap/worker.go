@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	usererrors "github.com/juju/juju/domain/access/errors"
+	userservice "github.com/juju/juju/domain/access/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
-	usererrors "github.com/juju/juju/domain/user/errors"
-	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -281,7 +281,7 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	// User already exists, we don't need to do anything in this scenario.
-	if errors.Is(err, usererrors.AlreadyExists) {
+	if errors.Is(err, usererrors.UserAlreadyExists) {
 		return nil
 	}
 	return errors.Annotatef(err, "inserting initial users")

@@ -21,9 +21,9 @@ import (
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	user "github.com/juju/juju/core/user"
-	service "github.com/juju/juju/domain/application/service"
-	service0 "github.com/juju/juju/domain/storage/service"
-	service1 "github.com/juju/juju/domain/user/service"
+	service "github.com/juju/juju/domain/access/service"
+	service0 "github.com/juju/juju/domain/application/service"
+	service1 "github.com/juju/juju/domain/storage/service"
 	bootstrap "github.com/juju/juju/internal/bootstrap"
 	services "github.com/juju/juju/internal/charm/services"
 	storage "github.com/juju/juju/internal/storage"
@@ -542,7 +542,7 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 }
 
 // CreateStoragePool mocks base method.
-func (m *MockStorageService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage.ProviderType, arg3 service0.PoolAttrs) error {
+func (m *MockStorageService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage.ProviderType, arg3 service1.PoolAttrs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateStoragePool", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -579,7 +579,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // CreateApplication mocks base method.
-func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 service.AddApplicationParams, arg3 ...service.AddUnitParams) error {
+func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 service0.AddApplicationParams, arg3 ...service0.AddUnitParams) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1, arg2}
 	for _, a := range arg3 {
@@ -689,7 +689,7 @@ func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 }
 
 // AddUser mocks base method.
-func (m *MockUserService) AddUser(arg0 context.Context, arg1 service1.AddUserArg) (user.UUID, []byte, error) {
+func (m *MockUserService) AddUser(arg0 context.Context, arg1 service.AddUserArg) (user.UUID, []byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUser", arg0, arg1)
 	ret0, _ := ret[0].(user.UUID)

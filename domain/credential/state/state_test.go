@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	userstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
-	userstate "github.com/juju/juju/domain/user/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
@@ -57,7 +57,7 @@ func (s *credentialSuite) SetUpTest(c *gc.C) {
 func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userState := userstate.NewState(s.TxnRunnerFactory())
+	userState := userstate.NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 	err = userState.AddUser(
 		context.Background(),
 		userUUID,

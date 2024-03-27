@@ -96,7 +96,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 
 	var w worker.Worker
 	w, err = cfg.NewWorker(Config{
-		UserService: serviceFactory.User(),
+		UserService: serviceFactory.Access(),
 		PermissionService: permissionService{
 			state: st,
 		},

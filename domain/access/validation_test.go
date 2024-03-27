@@ -1,14 +1,14 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package user
+package access
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	usererrors "github.com/juju/juju/domain/user/errors"
-	usertesting "github.com/juju/juju/domain/user/testing"
+	usererrors "github.com/juju/juju/domain/access/errors"
+	usertesting "github.com/juju/juju/domain/access/testing"
 )
 
 type validationSuite struct{}

@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
@@ -407,7 +407,7 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	userTag := names.NewUserTag("charlie")
 	password := "shhh..."
 
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
@@ -658,7 +658,7 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	userTag := names.NewUserTag("charlie")
 	password := "shhh..."
 
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
@@ -825,7 +825,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, par
 	userTag := names.NewUserTag("charlie")
 	password := "shhh..."
 
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
@@ -904,7 +904,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	uuid, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
@@ -1039,7 +1039,7 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	uuid, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",

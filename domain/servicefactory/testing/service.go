@@ -4,6 +4,7 @@
 package testing
 
 import (
+	accessservice "github.com/juju/juju/domain/access/service"
 	annotationservice "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
@@ -24,7 +25,6 @@ import (
 	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
-	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
 )
@@ -107,8 +107,8 @@ func (s *TestingServiceFactory) Flag() *flagservice.Service {
 	return nil
 }
 
-// User returns the user service.
-func (s *TestingServiceFactory) User() *userservice.Service {
+// Access returns the access service.
+func (s *TestingServiceFactory) Access() *accessservice.Service {
 	return nil
 }
 

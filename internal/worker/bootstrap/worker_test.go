@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
-	userservice "github.com/juju/juju/domain/user/service"
+	userservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"

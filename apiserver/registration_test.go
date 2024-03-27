@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usererrors "github.com/juju/juju/domain/user/errors"
-	"github.com/juju/juju/domain/user/service"
+	usererrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -49,7 +49,7 @@ var _ = gc.Suite(&registrationSuite{})
 func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.userService = s.ControllerServiceFactory(c).User()
+	s.userService = s.ControllerServiceFactory(c).Access()
 	var err error
 	s.userUUID, _, err = s.userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bob",
@@ -102,7 +102,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	// It should be not possible to log in as bob with the password "hunter2"
 	// now.
 	_, err := s.userService.GetUserByAuth(context.Background(), "bob", auth.NewPassword(password))
-	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
 
 	validNonce := []byte(strings.Repeat("X", 24))
 	ciphertext := s.sealBox(

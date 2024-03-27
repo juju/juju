@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

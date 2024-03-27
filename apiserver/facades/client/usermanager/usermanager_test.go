@@ -23,8 +23,8 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	usererrors "github.com/juju/juju/domain/user/errors"
-	"github.com/juju/juju/domain/user/service"
+	usererrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -384,7 +384,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 		Name:     "barfoo",
 		Disabled: true,
 	}, nil)
-	exp.GetUserByName(a, "ellie").Return(coreuser.User{}, usererrors.NotFound)
+	exp.GetUserByName(a, "ellie").Return(coreuser.User{}, usererrors.UserNotFound)
 
 	args := params.UserInfoRequest{
 		Entities: []params.Entity{

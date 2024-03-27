@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	usererrors "github.com/juju/juju/domain/user/errors"
-	"github.com/juju/juju/domain/user/service"
+	usererrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/access/service"
 	auth "github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/testing"
 )
@@ -180,7 +180,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
 		DisplayName: "juju-metrics-r0",
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
-	}).Return(coreuser.UUID("foobar"), nil, usererrors.AlreadyExists)
+	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
 	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
 		CreatorName: "not-you",
 	}, nil)
@@ -205,7 +205,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *gc.C) {
 		DisplayName: "juju-metrics-r0",
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
-	}).Return(coreuser.UUID("foobar"), nil, usererrors.AlreadyExists)
+	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
 	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
 		CreatorName: "not-you",
 		Disabled:    true,
@@ -231,7 +231,7 @@ func (s *workerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
 		DisplayName: "juju-metrics-r0",
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
-	}).Return(coreuser.UUID("foobar"), nil, usererrors.AlreadyExists)
+	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
 	s.userService.EXPECT().GetUserByAuth(gomock.Any(), "juju-metrics-r0", auth.NewPassword("bar")).Return(coreuser.User{
 		CreatorName: userCreator,
 	}, nil)
@@ -309,7 +309,7 @@ func (s *workerSuite) TestMetricsUsersRemoveNotFound(c *gc.C) {
 		UUID:        coreuser.UUID("deadbeef"),
 		Name:        "juju-metrics-r0",
 		CreatorName: "not-you",
-	}, usererrors.NotFound)
+	}, usererrors.UserNotFound)
 
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,

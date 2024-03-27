@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/juju/testing"
@@ -37,7 +37,7 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	userUUID, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",

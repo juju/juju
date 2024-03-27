@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	accessservice "github.com/juju/juju/domain/access/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
-	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
@@ -235,7 +235,7 @@ func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Watchab
 	return nil
 }
 
-func (s *stubServiceFactory) User() *userservice.Service {
-	s.MethodCall(s, "User")
+func (s *stubServiceFactory) Access() *accessservice.Service {
+	s.MethodCall(s, "Access")
 	return nil
 }

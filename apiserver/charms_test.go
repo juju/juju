@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -522,7 +522,7 @@ func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 }
 
 func (s *charmsSuite) TestMigrateCharmUnauthorized(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).User()
+	userService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),

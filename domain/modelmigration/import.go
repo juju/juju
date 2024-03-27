@@ -37,7 +37,7 @@ func ImportOperations(coordinator Coordinator, logger Logger, registry internals
 	lease.RegisterImport(coordinator, logger)
 	externalcontroller.RegisterImport(coordinator)
 	credential.RegisterImport(coordinator)
-	model.RegisterImport(coordinator)
+	model.RegisterImport(coordinator, logger)
 	machine.RegisterImport(coordinator)
 	application.RegisterImport(coordinator, registry)
 	blockdevice.RegisterImport(coordinator)
