@@ -455,25 +455,13 @@ func (s *SecretsAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecret
 		return result, errors.Trace(err)
 	}
 
-	canDelete := func(uri *coresecrets.URI) error {
-		md, err := s.secretService.GetSecret(ctx, uri)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// Can only delete model owned(user supplied) secrets.
-		if md.OwnerTag != names.NewModelTag(s.modelUUID).String() {
-			return apiservererrors.ErrPerm
-		}
-		return nil
-	}
-
 	for i, arg := range args.Args {
 		uri, err := s.secretURI(ctx, arg.URI, arg.Label)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = s.secretService.DeleteUserSecret(ctx, uri, arg.Revisions, canDelete)
+		err = s.secretService.DeleteUserSecret(ctx, uri, arg.Revisions)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

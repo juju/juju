@@ -5,7 +5,6 @@ package usersecrets_test
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +14,6 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets/mocks"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -26,7 +24,7 @@ type userSecretsSuite struct {
 	resources  *facademocks.MockResources
 
 	secretService *mocks.MockSecretService
-	stringWatcher *mocks.MockStringsWatcher
+	watcher       *mocks.MockNotifyWatcher
 
 	facade *usersecrets.UserSecretsManager
 }
@@ -38,7 +36,7 @@ func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.resources = facademocks.NewMockResources(ctrl)
-	s.stringWatcher = mocks.NewMockStringsWatcher(ctrl)
+	s.watcher = mocks.NewMockNotifyWatcher(ctrl)
 	s.secretService = mocks.NewMockSecretService(ctrl)
 
 	s.authorizer.EXPECT().AuthController().Return(true)
@@ -55,84 +53,24 @@ func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
 func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretService.EXPECT().WatchUserSecretsRevisionsToPrune(gomock.Any()).Return(s.stringWatcher, nil)
-	s.resources.EXPECT().Register(s.stringWatcher).Return("watcher-id")
-	stringChan := make(chan []string, 1)
-	stringChan <- []string{"1", "2", "3"}
-	s.stringWatcher.EXPECT().Changes().Return(stringChan)
+	s.secretService.EXPECT().WatchObsoleteUserSecrets(gomock.Any()).Return(s.watcher, nil)
+	s.resources.EXPECT().Register(s.watcher).Return("watcher-id")
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	s.watcher.EXPECT().Changes().Return(ch)
 
 	result, err := s.facade.WatchRevisionsToPrune(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{
-		StringsWatcherId: "watcher-id",
-		Changes:          []string{"1", "2", "3"},
+	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
+		NotifyWatcherId: "watcher-id",
 	})
 }
 
 func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	uri := coresecrets.NewURI()
-	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		URI:       uri,
-		AutoPrune: true,
-	}, nil)
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), uri, []int{666}, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, revisions []int, canDelete func(uri *coresecrets.URI) error) error {
-			return canDelete(uri)
-		},
-	)
+	s.secretService.EXPECT().DeleteObsoleteUserSecrets(gomock.Any()).Return(nil)
 
-	results, err := s.facade.DeleteRevisions(
-		context.Background(),
-		params.DeleteSecretArgs{
-			Args: []params.DeleteSecretArg{
-				{
-					URI:       uri.String(),
-					Revisions: []int{666},
-				},
-			},
-		},
-	)
+	err := s.facade.DeleteObsoleteUserSecrets(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{}},
-	})
-}
-
-func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	uri := coresecrets.NewURI()
-	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		URI:       uri,
-		AutoPrune: false,
-	}, nil)
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), uri, []int{666}, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, revisions []int, canDelete func(uri *coresecrets.URI) error) error {
-			return canDelete(uri)
-		},
-	)
-
-	results, err := s.facade.DeleteRevisions(
-		context.Background(),
-		params.DeleteSecretArgs{
-			Args: []params.DeleteSecretArg{
-				{
-					URI:       uri.String(),
-					Revisions: []int{666},
-				},
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{
-				Error: &params.Error{
-					Message: fmt.Sprintf("cannot delete non auto-prune secret %q", uri.String()),
-				},
-			},
-		},
-	})
 }

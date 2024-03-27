@@ -13,6 +13,6 @@ import (
 // SecretService instances provide secret apis.
 type SecretService interface {
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
-	DeleteUserSecret(ctx context.Context, uri *secrets.URI, revisions []int, canDelete func(uri *secrets.URI) error) error
-	WatchUserSecretsRevisionsToPrune(ctx context.Context) (watcher.StringsWatcher, error)
+	DeleteObsoleteUserSecrets(ctx context.Context) error
+	WatchObsoleteUserSecrets(ctx context.Context) (watcher.NotifyWatcher, error)
 }

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state.go github.com/juju/juju/apiserver/facades/controller/usersecrets SecretService
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/watcher.go github.com/juju/juju/state StringsWatcher
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/service.go github.com/juju/juju/apiserver/facades/controller/usersecrets SecretService
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/watcher.go github.com/juju/juju/core/watcher NotifyWatcher
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
