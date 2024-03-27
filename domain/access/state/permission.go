@@ -40,11 +40,11 @@ func NewPermissionState(factory coredatabase.TxnRunnerFactory, logger Logger) *P
 // It requires the user/target combination has not already been
 // created. UserAccess is returned on success.
 // If the user provided does not exist or is marked removed,
-// accesserrors.NotFound is returned.
+// accesserrors.PermissionNotFound is returned.
 // If the user provided exists but is marked disabled,
-// accesserrors.AuthenticationDisabled is returned.
+// accesserrors.UserAuthenticationDisabled is returned.
 // If a permission for the user and target key already exists,
-// accesserrors.AlreadyExists is returned.
+// accesserrors.PermissionAlreadyExists is returned.
 func (st *PermissionState) CreatePermission(ctx context.Context, newPermissionUUID uuid.UUID, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error) {
 	var userAccess corepermission.UserAccess
 
