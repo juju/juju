@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/juju/charm/v13"
@@ -167,14 +166,6 @@ func (ctrl *Controller) Import(
 
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
-	}
-	// Spaces are needed to migrate Subnets
-	if err := restore.spaces(); err != nil {
-		return nil, nil, errors.Annotate(err, "spaces")
-	}
-	// Subnets are needed to migrate machine portsDocs
-	if err := restore.subnets(); err != nil {
-		return nil, nil, errors.Annotate(err, "subnets")
 	}
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
@@ -1745,35 +1736,6 @@ func (i *importer) relationNetworks() error {
 	return nil
 }
 
-// spaces imports spaces without subnets, which are added later.
-func (i *importer) spaces() error {
-	i.logger.Debugf("importing spaces")
-	for _, s := range i.model.Spaces() {
-		// The default space should not have been exported, but be defensive.
-		// Any subnets added to the space will be imported subsequently.
-		if s.Name() == network.AlphaSpaceName {
-			continue
-		}
-
-		if s.Id() == "" {
-			if _, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil); err != nil {
-				i.logger.Errorf("error importing space %s: %s", s.Name(), err)
-				return errors.Annotate(err, s.Name())
-			}
-			continue
-		}
-
-		ops := i.st.addSpaceTxnOps(s.Id(), s.Name(), network.Id(s.ProviderID()))
-		if err := i.st.db().RunTransaction(ops); err != nil {
-			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
-			return errors.Annotate(err, s.Name())
-		}
-	}
-
-	i.logger.Debugf("importing spaces succeeded")
-	return nil
-}
-
 func (i *importer) linklayerdevices() error {
 	i.logger.Debugf("importing linklayerdevices")
 	for _, device := range i.model.LinkLayerDevices() {
@@ -1817,75 +1779,6 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 		ops = append(ops, i.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 	}
 	if err := i.st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (i *importer) subnets() error {
-	i.logger.Debugf("importing subnets")
-	for _, subnet := range i.model.Subnets() {
-		info := network.SubnetInfo{
-			CIDR:              subnet.CIDR(),
-			ProviderId:        network.Id(subnet.ProviderId()),
-			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
-			VLANTag:           subnet.VLANTag(),
-			AvailabilityZones: subnet.AvailabilityZones(),
-			SpaceID:           subnet.SpaceID(),
-
-			// SpaceName will only be present when migrating from pre-2.7
-			// models. We use it to look up a space ID.
-			SpaceName: subnet.SpaceName(),
-		}
-		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())
-
-		if info.SpaceID == "" && info.SpaceName != "" {
-			space, err := i.st.SpaceByName(subnet.SpaceName())
-			if err != nil {
-				return errors.Trace(err)
-			}
-			info.SpaceID = space.Id()
-		}
-
-		snID := subnet.ID()
-		if snID == "" {
-			seq, err := sequence(i.st, "subnet")
-			if err != nil {
-				return errors.Trace(err)
-			}
-			snID = strconv.Itoa(seq)
-		}
-		err := i.addSubnet(snID, info)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	i.logger.Debugf("importing subnets succeeded")
-	return nil
-}
-
-func (i *importer) addSubnet(id string, args network.SubnetInfo) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		subnetDoc, ops, err := i.st.addSubnetOps(id, args)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		subnet := &Subnet{st: i.st, doc: subnetDoc}
-		if attempt != 0 {
-			if _, err = i.st.Subnet(id); err == nil {
-				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
-			}
-			if err := subnet.Refresh(); err != nil {
-				if errors.Is(err, errors.NotFound) {
-					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
-				}
-				return nil, errors.Trace(err)
-			}
-		}
-		return ops, nil
-	}
-	err := i.st.db().Run(buildTxn)
-	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
