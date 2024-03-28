@@ -12,7 +12,7 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -23,27 +23,32 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // newSecretsDrainAPI creates a SecretsDrainAPI.
-func newSecretsDrainAPI(context facade.ModelContext) (*commonsecrets.SecretsDrainAPI, error) {
-	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
+func newSecretsDrainAPI(ctx facade.ModelContext) (*commonsecrets.SecretsDrainAPI, error) {
+	if !ctx.Auth().AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	leadershipChecker, err := context.LeadershipChecker()
+	leadershipChecker, err := ctx.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := context.State().Model()
+	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authTag := context.Auth().GetAuthTag()
+	authTag := ctx.Auth().GetAuthTag()
+
+	cloudService := ctx.ServiceFactory().Cloud()
+	credentialSerivce := ctx.ServiceFactory().Credential()
+	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
+		return commonsecrets.AdminBackendConfigInfo(stdCtx, commonsecrets.SecretsModel(model), cloudService, credentialSerivce)
+	}
 	return commonsecrets.NewSecretsDrainAPI(
 		authTag,
-		context.Auth(),
-		context.Logger().Child("secretsdrain"),
+		ctx.Auth(),
+		ctx.Logger().Child("secretsdrain"),
 		leadershipChecker,
 		commonsecrets.SecretsModel(model),
-		state.NewSecrets(context.State()),
-		context.State(),
-		context.WatcherRegistry(),
+		ctx.ServiceFactory().Secret(secretBackendAdminConfigGetter),
+		ctx.WatcherRegistry(),
 	)
 }

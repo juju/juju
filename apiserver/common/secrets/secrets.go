@@ -19,6 +19,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -32,13 +33,8 @@ var logger = loggo.GetLoggerWithTags("juju.apiserver.common.secrets", corelogger
 // For testing.
 var (
 	GetProvider            = provider.Provider
-	GetSecretsState        = getSecretsState
 	GetSecretBackendsState = getSecretBackendsState
 )
-
-func getSecretsState(m Model) state.SecretsStore {
-	return state.NewSecrets(m.State())
-}
 
 func getSecretBackendsState(m Model) state.SecretBackendsStorage {
 	return state.NewSecretBackends(m.State())
@@ -131,7 +127,9 @@ func AdminBackendConfigInfo(
 
 // DrainBackendConfigInfo returns the secret backend config for the drain worker to use.
 func DrainBackendConfigInfo(
-	ctx context.Context, backendID string, model Model, cloudService common.CloudService, credentialService common.CredentialService,
+	ctx context.Context, backendID string, model Model,
+	secretService SecretService,
+	cloudService common.CloudService, credentialService common.CredentialService,
 	authTag names.Tag, leadershipChecker leadership.Checker,
 ) (*provider.ModelBackendConfigInfo, error) {
 	adminModelCfg, err := AdminBackendConfigInfo(ctx, model, cloudService, credentialService)
@@ -150,7 +148,7 @@ func DrainBackendConfigInfo(
 	if !ok {
 		return nil, errors.Errorf("missing secret backend %q", backendID)
 	}
-	backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, true, true)
+	backendCfg, err := backendConfigInfo(ctx, secretService, model, backendID, &cfg, authTag, leadershipChecker, true, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -168,6 +166,7 @@ func DrainBackendConfigInfo(
 // of the current active backend.
 func BackendConfigInfo(
 	ctx context.Context, model Model, sameController bool,
+	secretService SecretService,
 	cloudService common.CloudService, credentialService common.CredentialService,
 	backendIDs []string, wantAll bool,
 	authTag names.Tag, leadershipChecker leadership.Checker,
@@ -194,7 +193,7 @@ func BackendConfigInfo(
 		if !ok {
 			return nil, errors.Errorf("missing secret backend %q", backendID)
 		}
-		backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, sameController, false)
+		backendCfg, err := backendConfigInfo(ctx, secretService, model, backendID, &cfg, authTag, leadershipChecker, sameController, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -205,6 +204,7 @@ func BackendConfigInfo(
 
 func backendConfigInfo(
 	ctx context.Context,
+	secretService SecretService,
 	model Model, backendID string, adminCfg *provider.ModelBackendConfig,
 	authTag names.Tag, leadershipChecker leadership.Checker, sameController, forDrain bool,
 ) (*provider.ModelBackendConfig, error) {
@@ -216,24 +216,18 @@ func backendConfigInfo(
 	if err != nil {
 		return nil, errors.Annotate(err, "initialising secrets provider")
 	}
-	secretsState := GetSecretsState(model)
 
-	// Find secrets owned by the agent
-	// (or its app if the agent is a leader).
-	ownedFilter := state.SecretsFilter{
-		OwnerTags: []names.Tag{authTag},
-	}
-	// Find secrets shared with the agent.
-	// We include secrets shared with the app or just the specified unit.
-	readFilter := state.SecretsFilter{
-		ConsumerTags: []names.Tag{authTag},
-	}
-	// Find secrets owned by the application that should be readable for non leader units.
-	readAppOwnedFilter := state.SecretsFilter{}
+	ownedRevisions := map[string]provider.SecretRevisions{}
+	readRevisions := map[string]provider.SecretRevisions{}
 	switch t := authTag.(type) {
 	case names.UnitTag:
-		appName, _ := names.UnitApplication(t.Id())
-		authApp := names.NewApplicationTag(appName)
+		unitName := authTag.Id()
+		// Find secrets owned by the agent
+		// (or its app if the agent is a leader).
+		owner := secretservice.CharmSecretOwners{
+			UnitName: &unitName,
+		}
+		appName := AuthTagApp(t)
 		token := leadershipChecker.LeadershipCheck(appName, t.Id())
 		err := token.Check()
 		if err != nil && !leadership.IsNotLeaderError(err) {
@@ -241,35 +235,53 @@ func backendConfigInfo(
 		}
 		if err == nil {
 			// Leader unit owns application level secrets.
-			ownedFilter.OwnerTags = append(ownedFilter.OwnerTags, authApp)
+			owner.ApplicationName = &appName
 		} else {
 			// Non leader units can read application level secrets.
 			// Find secrets owned by the application.
-			readAppOwnedFilter.OwnerTags = append(readAppOwnedFilter.OwnerTags, authApp)
+			readOnlyOwner := secretservice.CharmSecretOwners{
+				ApplicationName: &appName,
+			}
+			secrets, revisionMetadata, err := secretService.ListCharmSecrets(ctx, readOnlyOwner)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err := composeExternalRevisions(backendID, secrets, revisionMetadata, readRevisions); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-		// Granted secrets can be consumed in application level for all units.
-		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
-	case names.ApplicationTag:
-	case names.ModelTag:
-		// Model Tag is validate for user secrets.
-	default:
-		return nil, errors.NotSupportedf("login as %q", authTag)
-	}
-
-	ownedRevisions := map[string]provider.SecretRevisions{}
-	if err := getExternalRevisions(secretsState, backendID, ownedFilter, ownedRevisions); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	readRevisions := map[string]provider.SecretRevisions{}
-	if err := getExternalRevisions(secretsState, backendID, readFilter, readRevisions); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if len(readAppOwnedFilter.OwnerTags) > 0 {
-		if err := getExternalRevisions(secretsState, backendID, readAppOwnedFilter, readRevisions); err != nil {
+		secrets, revisionMetadata, err := secretService.ListCharmSecrets(ctx, owner)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		if err := composeExternalRevisions(backendID, secrets, revisionMetadata, ownedRevisions); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// Granted secrets can be consumed in application level for all units.
+		// We include secrets shared with the app or just the specified unit.
+		consumer := secretservice.SecretConsumer{
+			UnitName:        &unitName,
+			ApplicationName: &appName,
+		}
+		secrets, revisionMetadata, err = secretService.ListConsumedSecrets(ctx, consumer)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := composeExternalRevisions(backendID, secrets, revisionMetadata, readRevisions); err != nil {
+			return nil, errors.Trace(err)
+		}
+	case names.ModelTag:
+		// Model Tag is valid for user secrets.
+		secrets, revisionMetadata, err := secretService.ListUserSecrets(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := composeExternalRevisions(backendID, secrets, revisionMetadata, ownedRevisions); err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
 
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
@@ -286,17 +298,14 @@ func backendConfigInfo(
 	return info, nil
 }
 
-func getExternalRevisions(backend state.SecretsStore, backendID string, filter state.SecretsFilter, revisions map[string]provider.SecretRevisions) error {
-	secrets, err := backend.ListSecrets(filter)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, md := range secrets {
-		revs, err := backend.ListSecretRevisions(md.URI)
-		if err != nil {
-			return errors.Annotatef(err, "cannot get revisions for secret %q", md.URI)
-		}
-		for _, rev := range revs {
+func composeExternalRevisions(
+	backendID string,
+	metadata []*coresecrets.SecretMetadata,
+	revisionMetadata [][]*coresecrets.SecretRevisionMetadata,
+	revisions map[string]provider.SecretRevisions,
+) error {
+	for i, md := range metadata {
+		for _, rev := range revisionMetadata[i] {
 			if rev.ValueRef == nil || rev.ValueRef.BackendID != backendID {
 				continue
 			}
@@ -480,260 +489,4 @@ func PingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 		return errors.Annotate(err, "checking backend")
 	}
 	return b.Ping()
-}
-
-// GetSecretMetadata returns the secrets metadata for the given filter.
-func GetSecretMetadata(
-	ownerTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
-	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
-) (params.ListSecretResults, error) {
-	var result params.ListSecretResults
-	listFilter := state.SecretsFilter{
-		// TODO: there is a bug that operator agents can't get any unit owned secrets!
-		// Because the ownerTag here is the application tag, but not unit tag.
-		OwnerTags: []names.Tag{ownerTag},
-	}
-	if ownerTag.Kind() == names.UnitTagKind {
-		// Unit leaders can also get metadata for secrets owned by the app.
-		// TODO(wallyworld) - temp fix for old podspec charms
-		isLeader, err := IsLeaderUnit(ownerTag, leadershipChecker)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		if isLeader {
-			appOwner := names.NewApplicationTag(AuthTagApp(ownerTag))
-			listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
-		}
-	}
-
-	secrets, err := secretsState.ListSecrets(listFilter)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	for _, md := range secrets {
-		secretResult := params.ListSecretResult{
-			URI:              md.URI.String(),
-			Version:          md.Version,
-			OwnerTag:         md.OwnerTag,
-			RotatePolicy:     md.RotatePolicy.String(),
-			NextRotateTime:   md.NextRotateTime,
-			Description:      md.Description,
-			Label:            md.Label,
-			LatestRevision:   md.LatestRevision,
-			LatestExpireTime: md.LatestExpireTime,
-			CreateTime:       md.CreateTime,
-			UpdateTime:       md.UpdateTime,
-		}
-		grants, err := secretsState.SecretGrants(md.URI, coresecrets.RoleView)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		for _, g := range grants {
-			secretResult.Access = append(secretResult.Access, params.AccessInfo{
-				TargetTag: g.Target, ScopeTag: g.Scope, Role: g.Role,
-			})
-		}
-
-		revs, err := secretsState.ListSecretRevisions(md.URI)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		for _, r := range revs {
-			if filter != nil && !filter(md, r) {
-				continue
-			}
-			var valueRef *params.SecretValueRef
-			if r.ValueRef != nil {
-				valueRef = &params.SecretValueRef{
-					BackendID:  r.ValueRef.BackendID,
-					RevisionID: r.ValueRef.RevisionID,
-				}
-			}
-			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
-				Revision: r.Revision,
-				ValueRef: valueRef,
-			})
-		}
-		if len(secretResult.Revisions) == 0 {
-			continue
-		}
-		result.Results = append(result.Results, secretResult)
-	}
-	return result, nil
-}
-
-// RemoveSecretsForAgent removes the specified secrets for agent.
-// The secrets are only removed from the state and
-// the caller must have permission to manage the secret(secret owners remove secrets from the backend on uniter side).
-func RemoveSecretsForAgent(
-	ctx context.Context,
-	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
-	args params.DeleteSecretArgs,
-	modelUUID string,
-	canDelete func(*coresecrets.URI) error,
-) (params.ErrorResults, error) {
-	return removeSecrets(
-		ctx,
-		removeState, adminConfigGetter, args,
-		modelUUID,
-		canDelete,
-		func(context.Context, provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
-			return nil
-		},
-	)
-}
-
-// RemoveUserSecrets removes the specified user supplied secrets.
-// The secrets are removed from the state and backend, and the caller must have model admin access.
-func RemoveUserSecrets(
-	ctx context.Context,
-	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
-	authTag names.Tag, args params.DeleteSecretArgs,
-	modelUUID string,
-	canDelete func(*coresecrets.URI) error,
-) (params.ErrorResults, error) {
-	return removeSecrets(
-		ctx,
-		removeState, adminConfigGetter, args, modelUUID, canDelete,
-		func(ctx context.Context, p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
-			backend, err := p.NewBackend(&cfg)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			for _, revId := range revs.RevisionIDs() {
-				if err = backend.DeleteContent(ctx, revId); err != nil {
-					return errors.Trace(err)
-				}
-			}
-			if err := p.CleanupSecrets(ctx, &cfg, authTag, revs); err != nil {
-				return errors.Trace(err)
-			}
-			return nil
-		},
-	)
-}
-
-func getSecretURIForLabel(secretsState ListSecretsState, modelUUID string, label string) (*coresecrets.URI, error) {
-	results, err := secretsState.ListSecrets(state.SecretsFilter{
-		Label:     &label,
-		OwnerTags: []names.Tag{names.NewModelTag(modelUUID)},
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results) == 0 {
-		return nil, errors.NotFoundf("secret %q", label)
-	}
-	if len(results) > 1 {
-		return nil, errors.NotFoundf("more than 1 secret with label %q", label)
-	}
-	return results[0].URI, nil
-}
-
-func removeSecrets(
-	ctx context.Context,
-	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
-	args params.DeleteSecretArgs,
-	modelUUID string,
-	canDelete func(*coresecrets.URI) error,
-	removeFromBackend func(context.Context, provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
-) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-
-	if len(args.Args) == 0 {
-		return result, nil
-	}
-	cfgInfo, err := adminConfigGetter(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	removeFromExternal := func(uri *coresecrets.URI, revisions ...int) error {
-		externalRevs := make(map[string]provider.SecretRevisions)
-		gatherExternalRevs := func(valRef *coresecrets.ValueRef) {
-			if valRef == nil {
-				// Internal secret, nothing to do here.
-				return
-			}
-			if _, ok := externalRevs[valRef.BackendID]; !ok {
-				externalRevs[valRef.BackendID] = provider.SecretRevisions{}
-			}
-			externalRevs[valRef.BackendID].Add(uri, valRef.RevisionID)
-		}
-		if len(revisions) == 0 {
-			// Remove all revisions.
-			revs, err := removeState.ListSecretRevisions(uri)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			for _, rev := range revs {
-				gatherExternalRevs(rev.ValueRef)
-			}
-		} else {
-			for _, rev := range revisions {
-				revMeta, err := removeState.GetSecretRevision(uri, rev)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				gatherExternalRevs(revMeta.ValueRef)
-			}
-		}
-
-		for backendID, r := range externalRevs {
-			backendCfg, ok := cfgInfo.Configs[backendID]
-			if !ok {
-				return errors.NotFoundf("secret backend %q", backendID)
-			}
-			provider, err := GetProvider(backendCfg.BackendType)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if err := removeFromBackend(ctx, provider, backendCfg, r); err != nil {
-				return errors.Trace(err)
-			}
-		}
-		return nil
-	}
-
-	for i, arg := range args.Args {
-		if arg.URI == "" && arg.Label == "" {
-			result.Results[i].Error = apiservererrors.ServerError(errors.New("must specify either URI or label"))
-			continue
-		}
-
-		var (
-			uri *coresecrets.URI
-			err error
-		)
-		if arg.URI != "" {
-			uri, err = coresecrets.ParseURI(arg.URI)
-		} else {
-			uri, err = getSecretURIForLabel(removeState, modelUUID, arg.Label)
-		}
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if _, err := removeState.GetSecret(uri); err != nil {
-			// Check if the uri exists or not.
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := canDelete(uri); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := removeFromExternal(uri, arg.Revisions...); err != nil {
-			// We remove the secret from the backend first.
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if _, err = removeState.DeleteSecret(uri, arg.Revisions...); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-	}
-	return result, nil
 }

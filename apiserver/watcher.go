@@ -24,6 +24,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -1338,11 +1339,15 @@ func (w *srvSecretBackendsRotateWatcher) translateChanges(changes []corewatcher.
 	return result
 }
 
+type secretService interface {
+	GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecrets.SecretMetadata, error)
+}
+
 // srvSecretsRevisionWatcher defines the API wrapping a SecretsRevisionWatcher.
 type srvSecretsRevisionWatcher struct {
 	watcherCommon
-	st      *state.State
-	watcher corewatcher.StringsWatcher
+	secretService secretService
+	watcher       corewatcher.StringsWatcher
 }
 
 func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
@@ -1364,7 +1369,7 @@ func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (
 
 	return &srvSecretsRevisionWatcher{
 		watcherCommon: newWatcherCommon(context),
-		st:            context.State(),
+		secretService: context.ServiceFactory().Secret(service.NotImplementedBackendConfigGetter),
 		watcher:       watcher,
 	}, nil
 }
@@ -1377,7 +1382,7 @@ func (w *srvSecretsRevisionWatcher) Next(ctx context.Context) (params.SecretRevi
 	if err != nil {
 		return params.SecretRevisionWatchResult{}, errors.Trace(err)
 	}
-	ch, err := w.translateChanges(changes)
+	ch, err := w.translateChanges(ctx, changes)
 	if err != nil {
 		return params.SecretRevisionWatchResult{}, errors.Trace(err)
 	}
@@ -1386,18 +1391,17 @@ func (w *srvSecretsRevisionWatcher) Next(ctx context.Context) (params.SecretRevi
 	}, nil
 }
 
-func (w *srvSecretsRevisionWatcher) translateChanges(changes []string) ([]params.SecretRevisionChange, error) {
+func (w *srvSecretsRevisionWatcher) translateChanges(ctx context.Context, changes []string) ([]params.SecretRevisionChange, error) {
 	if changes == nil {
 		return nil, nil
 	}
-	secrets := state.NewSecrets(w.st)
 	result := make([]params.SecretRevisionChange, len(changes))
 	for i, uriStr := range changes {
 		uri, err := coresecrets.ParseURI(uriStr)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		md, err := secrets.GetSecret(uri)
+		md, err := w.secretService.GetSecret(ctx, uri)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
