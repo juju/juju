@@ -32,7 +32,7 @@ wait_for_ha() {
 	# shellcheck disable=SC2143
 	until [[ "$(juju show-controller --format=json | jq -r '.[] | .["controller-machines"] | .[] | select(.["ha-status"] == "ha-enabled") | .["instance-id"]' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling ha"
-		juju show-controller 2>&1 | sed 's/^/    | /g'
+		juju show-controller 2>&1 | yq '.[]["controller-machines"]' | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
@@ -85,6 +85,8 @@ run_enable_ha() {
 
 	juju deploy jameinel-ubuntu-lite
 
+	enable_microceph_backed_storage
+
 	juju enable-ha
 
 	wait_for_controller_machines 3
@@ -96,13 +98,15 @@ run_enable_ha() {
 	# remove-machine will fail. Wait for the config to be
 	# settled before trying to tear down.
 	juju switch controller
-	wait_for "controller" "$(idle_condition "controller" 0 0)"
-	wait_for "controller" "$(idle_condition "controller" 0 1)"
-	wait_for "controller" "$(idle_condition "controller" 0 2)"
+	wait_for "controller" "$(idle_condition "controller" 1 0)"
+	wait_for "controller" "$(idle_condition "controller" 1 1)"
+	wait_for "controller" "$(idle_condition "controller" 1 2)"
 
 	juju switch enable-ha
-	juju remove-machine -m controller 1
-	juju remove-machine -m controller 2
+	controller_1=$(juju status -m controller --format json | jq -r '.applications.controller.units["controller/1"].machine')
+	juju remove-machine -m controller "${controller_1}"
+	controller_2=$(juju status -m controller --format json | jq -r '.applications.controller.units["controller/2"].machine')
+	juju remove-machine -m controller "${controller_2}"
 
 	wait_for_controller_no_leader
 	wait_for_controller_leader
