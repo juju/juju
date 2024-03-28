@@ -204,17 +204,6 @@ func newBootstrapCommand() cmd.Command {
 	)
 }
 
-type constraintsFlag []string
-
-func (s *constraintsFlag) String() string {
-	return fmt.Sprintf("%v", *s)
-}
-
-func (s *constraintsFlag) Set(value string) error {
-	*s = append(*s, value)
-	return nil
-}
-
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
@@ -223,7 +212,7 @@ type bootstrapCommand struct {
 	clock jujuclock.Clock
 
 	Constraints              constraints.Value
-	ConstraintsStr           constraintsFlag
+	ConstraintsStr           common.ConstraintsFlag
 	BootstrapConstraints     constraints.Value
 	BootstrapConstraintsStr  string
 	BootstrapSeries          string
