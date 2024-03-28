@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -337,11 +338,49 @@ func (st *PermissionState) ReadAllUserAccessForTarget(ctx context.Context, targe
 	return userAccess, nil
 }
 
-// ReadAllAccessTypeForUser return a slice of user access for the subject
+// ReadAllAccessForUserAndObjectType return a slice of user access for the subject
 // (user) specified and of the given access type.
 // E.G. All clouds the user has access to.
-func (st *PermissionState) ReadAllAccessTypeForUser(ctx context.Context, subject string, access_type corepermission.ObjectType) ([]corepermission.UserAccess, error) {
-	return nil, errors.NotImplementedf("ReadAllAccessTypeForUser")
+func (st *PermissionState) ReadAllAccessForUserAndObjectType(ctx context.Context, subject string, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var (
+		permissions []dbReadUserPermission
+		actualUser  dbPermissionUser
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get user uuid.
+		// Get all grantOn values possible for the given object type.
+		// Read all permissions with the union of the 2 values.
+		actualUser, err = st.findUserByName(ctx, tx, subject)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ids, err := st.allGrantOnForObjectType(ctx, tx, objectType)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		permissions, err = st.allPermissionsForUserAndType(ctx, tx, actualUser.UUID, ids)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+
+	userAccess := make([]corepermission.UserAccess, len(permissions))
+	for i, p := range permissions {
+		p.ObjectType = string(objectType)
+		userAccess[i] = p.toUserAccess(actualUser)
+	}
+
+	return userAccess, nil
+
 }
 
 // findUserByName finds the user provided exists, hasn't been removed and is not
@@ -656,4 +695,86 @@ WHERE permission.grant_on = $M.grant_on
 		return usersPermissions, nil
 	}
 	return nil, errors.Annotatef(accesserrors.PermissionNotFound, "for %q", grantOn)
+}
+
+// allGrantOnForObjectType returns the grant_on values for
+// a given object type.
+func (st *PermissionState) allGrantOnForObjectType(
+	ctx context.Context,
+	tx *sqlair.TX,
+	objectType corepermission.ObjectType,
+) ([]string, error) {
+
+	var allGrantOnForType string
+	switch objectType {
+	case corepermission.Controller:
+		return []string{coredatabase.ControllerNS}, nil
+	case corepermission.Model:
+		allGrantOnForType = `
+SELECT uuid AS &ids.grant_on
+FROM model_list
+`
+	case corepermission.Cloud:
+		allGrantOnForType = `
+SELECT name AS &ids.grant_on
+FROM cloud
+`
+	case corepermission.Offer:
+	// TODO implement for offers
+	default:
+		return nil, errors.NotValidf("object type %q", objectType)
+	}
+
+	type ids struct {
+		GrantOn string `db:"grant_on"`
+	}
+	allAccessTypeIDsForObjectTypeStmt, err := st.Prepare(allGrantOnForType, ids{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result = []ids{}
+	err = tx.Query(ctx, allAccessTypeIDsForObjectTypeStmt).GetAll(&result)
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.Annotatef(err, "mismatch in %q", objectType)
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "getting grant on values for %q", objectType)
+	}
+	results := make([]string, len(result))
+	for i, value := range result {
+		results[i] = value.GrantOn
+	}
+	return results, nil
+}
+
+// allPermissionsForUserAndType returns dbReadUserPermission for all
+// grant_on in the list and the given user.
+func (st *PermissionState) allPermissionsForUserAndType(
+	ctx context.Context,
+	tx *sqlair.TX,
+	grantTo string,
+	idsForType []string,
+) ([]dbReadUserPermission, error) {
+	allAccessTypeIDsForObjectType := `
+SELECT (permission.uuid, permission.grant_on, permission.grant_to) AS (&dbReadUserPermission.*),
+       permission_access_type.type AS &dbReadUserPermission.access_type
+FROM permission
+    JOIN permission_access_type
+    ON permission_access_type.id = permission.permission_type_id
+WHERE permission.grant_to = $M.grant_to AND permission.grant_on IN ($S[:])
+`
+	permissionTypeIDsSlice := sqlair.S(transform.Slice(idsForType, func(s string) any { return any(s) }))
+	allPermissionsForUserAndTypeStmt, err := st.Prepare(allAccessTypeIDsForObjectType, sqlair.M{}, sqlair.S{}, dbReadUserPermission{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result = []dbReadUserPermission{}
+	err = tx.Query(ctx, allPermissionsForUserAndTypeStmt, permissionTypeIDsSlice, sqlair.M{"grant_to": grantTo}).GetAll(&result)
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", grantTo, strings.Join(idsForType, ", "))
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "getting permissions for %q on %q", grantTo, idsForType)
+	}
+	return result, nil
 }

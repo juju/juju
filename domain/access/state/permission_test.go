@@ -33,7 +33,7 @@ func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
 	s.ensureModel(c, "model-uuid")
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
-	s.ensureCloud(c, "test-cloud")
+	s.ensureCloud(c, "987", "test-cloud")
 
 	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
@@ -65,7 +65,7 @@ func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
 	s.ensureModel(c, "model-uuid")
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
-	s.ensureCloud(c, "test-cloud")
+	s.ensureCloud(c, "987", "test-cloud")
 
 	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
@@ -368,7 +368,7 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
 	// Setup to add permissions for user bob on the model
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
-	s.ensureCloud(c, "test-cloud")
+	s.ensureCloud(c, "987", "test-cloud")
 
 	target := corepermission.ID{
 		Key:        "test-cloud",
@@ -428,12 +428,81 @@ func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
 	c.Check(accessZero.UserID, gc.Not(gc.Equals), accessOne.UserID)
 }
 
+func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectType(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+
+	// Setup to add permissions for user bob on the model
+	s.ensureUser(c, "42", "admin", "42") // model owner
+	s.ensureUser(c, "123", "bob", "42")
+	s.ensureCloud(c, "987", "test-cloud")
+	s.ensureCloud(c, "654", "another-cloud")
+
+	target := corepermission.ID{
+		Key:        "test-cloud",
+		ObjectType: corepermission.Cloud,
+	}
+	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "bob",
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.AddModelAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	anotherTarget := corepermission.ID{
+		Key:        "another-cloud",
+		ObjectType: corepermission.Cloud,
+	}
+	_, err = st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "bob",
+		AccessSpec: corepermission.AccessSpec{
+			Target: anotherTarget,
+			Access: corepermission.AddModelAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	users, err := st.ReadAllAccessForUserAndObjectType(context.Background(), "bob", corepermission.Cloud)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(users, gc.HasLen, 2)
+
+	var foundTestCloud, foundAnotherCloud bool
+	for _, userAccess := range users {
+		c.Check(userAccess.UserTag.Id(), gc.Equals, "bob")
+		c.Check(userAccess.UserName, gc.Equals, "bob")
+		c.Check(userAccess.CreatedBy.Id(), gc.Equals, "admin")
+		c.Check(userAccess.UserID, gc.Equals, "123")
+		c.Check(userAccess.Access, gc.Equals, corepermission.AddModelAccess)
+		if userAccess.Object.Id() == "test-cloud" {
+			foundTestCloud = true
+		}
+		if userAccess.Object.Id() == "another-cloud" {
+			foundAnotherCloud = true
+		}
+	}
+
+	c.Check(foundTestCloud && foundAnotherCloud, jc.IsTrue)
+}
+
+func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+
+	// Setup to add permissions for user bob on the model
+	s.ensureUser(c, "42", "admin", "42") // model owner
+	s.ensureUser(c, "123", "bob", "42")
+	s.ensureCloud(c, "987", "test-cloud")
+	s.ensureCloud(c, "654", "another-cloud")
+
+	_, err := st.ReadAllAccessForUserAndObjectType(context.Background(), "bob", corepermission.Cloud)
+	c.Assert(err, jc.ErrorIs, accesserrors.PermissionNotFound)
+}
+
 func (s *permissionStateSuite) twoUsersACloudAndAModel(c *gc.C, st *PermissionState, modelUUID string) corepermission.ID {
 	// Setup to add permissions for user bob and sue on the model and a cloud
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "456", "sue", "42")
 	s.ensureUser(c, "123", "bob", "42")
-	s.ensureCloud(c, "test-cloud")
+	s.ensureCloud(c, "987", "test-cloud")
 	s.ensureModel(c, modelUUID)
 
 	targetCloud := corepermission.ID{
@@ -493,12 +562,12 @@ func (s *permissionStateSuite) ensureModel(c *gc.C, uuid string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *permissionStateSuite) ensureCloud(c *gc.C, name string) {
+func (s *permissionStateSuite) ensureCloud(c *gc.C, uuid, name string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-			VALUES (?, ?, 1, "test-endpoint", true)
-		`, "cloud-uuid", name)
+			VALUES (?, ?, 7, "test-endpoint", true)
+		`, uuid, name)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
