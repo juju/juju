@@ -6,11 +6,11 @@ package eventsource
 import (
 	"context"
 
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher/watchertest"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
 )
 
 type multiNotifyWatcherSuite struct{}

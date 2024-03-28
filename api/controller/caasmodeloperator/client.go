@@ -100,9 +100,9 @@ func (c *Client) SetPassword(password string) error {
 
 // WatchModelOperatorProvisioningInfo provides a watcher for changes that affect the
 // information returned by ModelOperatorProvisioningInfo.
-func (c *Client) WatchModelOperatorProvisioningInfo() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchModelOperatorProvisioningInfo(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	if err := c.facade.FacadeCall(context.TODO(), "WatchModelOperatorProvisioningInfo", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchModelOperatorProvisioningInfo", nil, &result); err != nil {
 		return nil, err
 	}
 	if result.Error != nil {

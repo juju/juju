@@ -10,15 +10,15 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // ProxyUpdaterV2 defines the public methods for the v2 facade.
@@ -88,18 +88,24 @@ func NewAPIV2(controller ControllerBackend, backend Backend, resources facade.Re
 func (api *API) oneWatch(ctx context.Context) params.NotifyWatchResult {
 	var result params.NotifyWatchResult
 
-	watch := common.NewMultiNotifyWatcher(
+	watch, err := eventsource.NewMultiWatcher[struct{}](ctx,
 		api.backend.WatchForModelConfigChanges(),
-		api.controller.WatchAPIHostPortsForAgents())
-
-	if _, ok := <-watch.Changes(); ok {
-		result = params.NotifyWatchResult{
-			NotifyWatcherId: api.resources.Register(watch),
-		}
-	} else {
-		result.Error = apiservererrors.ServerError(watcher.EnsureErr(watch))
+		api.controller.WatchAPIHostPortsForAgents(),
+	)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
 	}
-	return result
+
+	_, err = internal.FirstResult[struct{}](ctx, watch)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
+	return params.NotifyWatchResult{
+		NotifyWatcherId: api.resources.Register(watch),
+	}
 }
 
 // WatchForProxyConfigAndAPIHostPortChanges watches for changes to the proxy and api host port settings.

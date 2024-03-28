@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/config"
 	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -132,7 +133,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 			url:  "ch:gitlab",
 		},
 	}
-	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "ch:gitlab" pending not provisioned`)
 }
@@ -168,7 +169,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	res := s.resources.Get("1")
-	c.Assert(res, gc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
+	c.Assert(res, gc.FitsTypeOf, (*eventsource.Watcher[struct{}])(nil))
 }
 
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {

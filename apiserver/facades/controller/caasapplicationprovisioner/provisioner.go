@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/eventsource"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -224,7 +226,7 @@ func (a *API) WatchProvisioningInfo(ctx context.Context, args params.Entities) (
 			continue
 		}
 
-		res, err := a.watchProvisioningInfo(appName)
+		res, err := a.watchProvisioningInfo(ctx, appName)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -235,7 +237,7 @@ func (a *API) WatchProvisioningInfo(ctx context.Context, args params.Entities) (
 	return result, nil
 }
 
-func (a *API) watchProvisioningInfo(appName names.ApplicationTag) (params.NotifyWatchResult, error) {
+func (a *API) watchProvisioningInfo(ctx context.Context, appName names.ApplicationTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
@@ -252,14 +254,22 @@ func (a *API) watchProvisioningInfo(appName names.ApplicationTag) (params.Notify
 	controllerAPIHostPortsWatcher := a.ctrlSt.WatchAPIHostPortsForAgents()
 	modelConfigWatcher := model.WatchForModelConfigChanges()
 
-	multiWatcher := common.NewMultiNotifyWatcher(appWatcher, controllerConfigWatcher, controllerAPIHostPortsWatcher, modelConfigWatcher)
-
-	if _, ok := <-multiWatcher.Changes(); ok {
-		result.NotifyWatcherId = a.resources.Register(multiWatcher)
-	} else {
-		return result, watcher.EnsureErr(multiWatcher)
+	multiWatcher, err := eventsource.NewMultiWatcher[struct{}](ctx,
+		appWatcher,
+		controllerConfigWatcher,
+		controllerAPIHostPortsWatcher,
+		modelConfigWatcher,
+	)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
 
+	// Consume the initial event and forward it to the result.
+	if _, err := internal.FirstResult[struct{}](ctx, multiWatcher); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.NotifyWatcherId = a.resources.Register(multiWatcher)
 	return result, nil
 }
 

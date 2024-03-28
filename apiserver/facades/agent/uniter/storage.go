@@ -13,8 +13,10 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/life"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -307,12 +309,14 @@ func (s *StorageAPI) watchOneStorageAttachment(ctx context.Context, id params.St
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
-	if _, ok := <-watch.Changes(); ok {
-		return params.NotifyWatchResult{
-			NotifyWatcherId: s.resources.Register(watch),
-		}, nil
+
+	if _, err := internal.FirstResult[struct{}](ctx, watch); err != nil {
+		return nothing, errors.Trace(err)
 	}
-	return nothing, watcher.EnsureErr(watch)
+
+	return params.NotifyWatchResult{
+		NotifyWatcherId: s.resources.Register(watch),
+	}, nil
 }
 
 // RemoveStorageAttachments removes the specified storage
@@ -407,12 +411,12 @@ func watchStorageAttachment(
 	storageTag names.StorageTag,
 	hostTag names.Tag,
 	unitTag names.UnitTag,
-) (state.NotifyWatcher, error) {
+) (eventsource.Watcher[struct{}], error) {
 	storageInstance, err := st.StorageInstance(storageTag)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage instance")
 	}
-	var watchers []state.NotifyWatcher
+	var watchers []eventsource.Watcher[struct{}]
 	switch storageInstance.Kind() {
 	case state.StorageKindBlock:
 		if stVolume == nil {
@@ -425,7 +429,7 @@ func watchStorageAttachment(
 		// We need to watch both the volume attachment, and the
 		// machine's block devices. A volume attachment's block
 		// device could change (most likely, become present).
-		watchers = []state.NotifyWatcher{
+		watchers = []eventsource.Watcher[struct{}]{
 			stVolume.WatchVolumeAttachment(hostTag, volume.VolumeTag()),
 		}
 
@@ -452,14 +456,14 @@ func watchStorageAttachment(
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage filesystem")
 		}
-		watchers = []state.NotifyWatcher{
+		watchers = []eventsource.Watcher[struct{}]{
 			stFile.WatchFilesystemAttachment(hostTag, filesystem.FilesystemTag()),
 		}
 	default:
 		return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 	}
 	watchers = append(watchers, st.WatchStorageAttachment(storageTag, unitTag))
-	return common.NewMultiNotifyWatcher(watchers...), nil
+	return eventsource.NewMultiWatcher[struct{}](ctx, watchers...)
 }
 
 // watcherAdaptor adapts a core watcher to a state watcher.

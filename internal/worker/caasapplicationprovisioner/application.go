@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -104,6 +105,9 @@ func (a *appWorker) Wait() error {
 }
 
 func (a *appWorker) loop() error {
+	ctx, cancel := a.scopedContext()
+	defer cancel()
+
 	// TODO(sidecar): support more than statefulset
 	app := a.broker.Application(a.name, caas.DeploymentStateful)
 
@@ -179,7 +183,7 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q units changes", a.name)
 	}
 
-	done := false
+	var done bool
 
 	var (
 		initial             = true
@@ -246,7 +250,7 @@ func (a *appWorker) loop() error {
 				}
 			}
 			if appChanges == nil {
-				appWatcher, err := app.Watch()
+				appWatcher, err := app.Watch(ctx)
 				if err != nil {
 					return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
 				}
@@ -423,4 +427,12 @@ func (a *appWorker) loop() error {
 			}
 		}
 	}
+}
+
+// scopedContext returns a context that is in the scope of the watcher lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (a *appWorker) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return a.catacomb.Context(ctx), cancel
 }
