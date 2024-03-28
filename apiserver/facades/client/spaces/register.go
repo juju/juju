@@ -60,5 +60,7 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		Authorizer:                  auth,
 		Factory:                     newOpFactory(st),
 		logger:                      ctx.Logger().Child("spaces"),
+		SpaceService:                ctx.ServiceFactory().Space(),
+		SubnetService:               ctx.ServiceFactory().Subnet(),
 	})
 }

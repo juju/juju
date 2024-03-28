@@ -7,85 +7,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// BackingSubnet defines the methods supported by a Subnet entity
-// stored persistently.
-//
-// TODO(dimitern): Once the state backing is implemented, remove this
-// and just use *state.Subnet.
-type BackingSubnet interface {
-	ID() string
-	CIDR() string
-	VLANTag() int
-	ProviderId() network.Id
-	ProviderNetworkId() network.Id
-	AvailabilityZones() []string
-	SpaceName() string
-	SpaceID() string
-	Life() state.Life
-}
-
-// BackingSubnetInfo describes a single subnet to be added in the
-// backing store.
-//
-// TODO(dimitern): Replace state.SubnetInfo with this and remove
-// BackingSubnetInfo, once the rest of state backing methods and the
-// following pre-reqs are done:
-//   - Subnets need a reference count to calculate Status.
-//   - ensure EC2 and MAAS providers accept empty IDs as Subnets() args
-//     and return all subnets, including the AvailabilityZones (for EC2;
-//     empty for MAAS as zones are orthogonal to networks).
-type BackingSubnetInfo struct {
-	// ProviderId is a provider-specific network id. This may be empty.
-	ProviderId network.Id
-
-	// ProviderNetworkId is the id of the network containing this
-	// subnet from the provider's perspective. It can be empty if the
-	// provider doesn't support distinct networks.
-	ProviderNetworkId network.Id
-
-	// CIDR of the network, in 123.45.67.89/24 format.
-	CIDR string
-
-	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for normal
-	// networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int
-
-	// AvailabilityZones describes which availability zone(s) this
-	// subnet is in. It can be empty if the provider does not support
-	// availability zones.
-	AvailabilityZones []string
-
-	// SpaceName holds the juju network space this subnet is
-	// associated with. Can be empty if not supported.
-	SpaceName string
-	SpaceID   string
-
-	// Live holds the life of the subnet
-	Life life.Value
-}
-
-// BackingSpace defines the methods supported by a Space entity stored
-// persistently.
-type BackingSpace interface {
-	// Id returns the ID of the space.
-	Id() string
-
-	// Name returns the space name.
-	Name() string
-
-	// NetworkSpace maps the space into network.SpaceInfo
-	NetworkSpace() (network.SpaceInfo, error)
-
-	// ProviderId returns the network ID of the provider
-	ProviderId() network.Id
-}
 
 // NetworkBacking defines the methods needed by the API facade to store and
 // retrieve information from the underlying persistence layer (state
@@ -101,42 +27,28 @@ type NetworkBacking interface {
 	// zones with the given zones.
 	SetAvailabilityZones(network.AvailabilityZones) error
 
-	// AddSpace creates a space
-	AddSpace(string, network.Id, []string) (BackingSpace, error)
-
-	// AllSpaces returns all known Juju network spaces.
-	AllSpaces() ([]BackingSpace, error)
-
-	// AddSubnet creates a backing subnet for an existing subnet.
-	AddSubnet(BackingSubnetInfo) (BackingSubnet, error)
-
-	// AllSubnets returns all backing subnets.
-	AllSubnets() ([]BackingSubnet, error)
-
-	SubnetByCIDR(cidr string) (BackingSubnet, error)
-
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
 }
 
 // BackingSubnetToParamsSubnetV2 converts a network backing subnet to the new
 // version of the subnet API parameter.
-func BackingSubnetToParamsSubnetV2(subnet BackingSubnet) params.SubnetV2 {
+func BackingSubnetToParamsSubnetV2(subnet network.SubnetInfo) params.SubnetV2 {
 	return params.SubnetV2{
-		ID:     subnet.ID(),
+		ID:     subnet.ID.String(),
 		Subnet: BackingSubnetToParamsSubnet(subnet),
 	}
 }
 
-func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
+func BackingSubnetToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
 	return params.Subnet{
-		CIDR:              subnet.CIDR(),
-		VLANTag:           subnet.VLANTag(),
-		ProviderId:        subnet.ProviderId().String(),
-		ProviderNetworkId: subnet.ProviderNetworkId().String(),
-		Zones:             subnet.AvailabilityZones(),
-		SpaceTag:          names.NewSpaceTag(subnet.SpaceName()).String(),
-		Life:              subnet.Life().Value(),
+		CIDR:              subnet.CIDR,
+		VLANTag:           subnet.VLANTag,
+		ProviderId:        subnet.ProviderId.String(),
+		ProviderNetworkId: subnet.ProviderNetworkId.String(),
+		Zones:             subnet.AvailabilityZones,
+		SpaceTag:          names.NewSpaceTag(subnet.SpaceName).String(),
+		Life:              subnet.Life,
 	}
 }
 
