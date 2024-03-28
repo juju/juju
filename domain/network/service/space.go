@@ -49,28 +49,45 @@ func (s *SpaceService) AddSpace(ctx context.Context, name string, providerID net
 	return network.Id(uuid.String()), nil
 }
 
+// UpdateSpace updates the space name identified by the passed uuid.
+func (s *SpaceService) UpdateSpace(ctx context.Context, uuid string, name string) error {
+	return errors.Trace(s.st.UpdateSpace(ctx, uuid, name))
+}
+
 // Space returns a space from state that matches the input ID.
 // An error is returned if the space does not exist or if there was a problem
 // accessing its information.
 func (s *SpaceService) Space(ctx context.Context, uuid string) (*network.SpaceInfo, error) {
-	return s.st.GetSpace(ctx, uuid)
+	sp, err := s.st.GetSpace(ctx, uuid)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return sp, nil
 }
 
 // SpaceByName returns a space from state that matches the input name.
 // An error is returned that satisfied errors.NotFound if the space was not found
 // or an error static any problems fetching the given space.
 func (s *SpaceService) SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error) {
-	return s.st.GetSpaceByName(ctx, name)
+	sp, err := s.st.GetSpaceByName(ctx, name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return sp, nil
 }
 
 // GetAllSpaces returns all spaces for the model.
 func (s *SpaceService) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) {
-	return s.st.GetAllSpaces(ctx)
+	spaces, err := s.st.GetAllSpaces(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return spaces, nil
 }
 
 // Remove deletes a space identified by its uuid.
 func (s *SpaceService) Remove(ctx context.Context, uuid string) error {
-	return s.st.DeleteSpace(ctx, uuid)
+	return errors.Trace(s.st.DeleteSpace(ctx, uuid))
 }
 
 // SaveProviderSubnets loads subnets into state.

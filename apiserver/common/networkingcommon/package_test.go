@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon BackingSpace,BackingSubnet,LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,AddSubnetsState,LinkLayerAndSubnetsState
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,AddSubnetsState,LinkLayerAndSubnetsState
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
