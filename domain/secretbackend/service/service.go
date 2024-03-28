@@ -186,7 +186,8 @@ func (s *Service) GetSecretBackendConfig(
 	return nil, nil
 }
 
-// GetSecretBackendConfigForDrain returns the secret backend configuration for the given backend ID for the drain worker.
+// GetSecretBackendConfigForDrain returns the secret backend configuration
+// for the given backend ID for the drain worker.
 func (s *Service) GetSecretBackendConfigForDrain(
 	ctx context.Context, backendID string,
 	modelUUID coremodel.UUID, cloud cloud.Cloud, cred cloud.Credential,
@@ -391,11 +392,7 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend coresecrets.S
 }
 
 // UpdateSecretBackend updates an existing secret backend.
-func (s *Service) UpdateSecretBackend(
-	ctx context.Context, params UpdateSecretBackendParams,
-	// backend coresecrets.SecretBackend,
-	// newName *string, force bool, reset ...string,
-) error {
+func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBackendParams) error {
 	if err := params.Validate(); err != nil {
 		return errors.Trace(err)
 	}
