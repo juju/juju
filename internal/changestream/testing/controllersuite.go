@@ -46,7 +46,7 @@ func (s *ControllerSuite) GetWatchableDB(namespace string) (changestream.Watchab
 	return s.watchableDB, nil
 }
 
-func killAndWait(c *gc.C, w worker.Worker) {
+func killAndWait(_ *gc.C, w worker.Worker) {
 	wait := make(chan error, 1)
 	go func() {
 		wait <- w.Wait()

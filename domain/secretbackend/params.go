@@ -10,10 +10,15 @@ import (
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 )
 
+// BackendIdentifier is used to identify a secret backend.
+type BackendIdentifier struct {
+	ID   string
+	Name string
+}
+
 // CreateSecretBackendParams are used to create a secret backend.
 type CreateSecretBackendParams struct {
-	ID                  string
-	Name                string
+	BackendIdentifier
 	BackendType         string
 	TokenRotateInterval *time.Duration
 	NextRotateTime      *time.Time
@@ -46,8 +51,7 @@ func (p CreateSecretBackendParams) Validate() error {
 
 // UpdateSecretBackendParams are used to update a secret backend.
 type UpdateSecretBackendParams struct {
-	ID                  string
-	Name                string
+	BackendIdentifier
 	NewName             *string
 	TokenRotateInterval *time.Duration
 	NextRotateTime      *time.Time

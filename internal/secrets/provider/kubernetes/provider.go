@@ -29,6 +29,8 @@ import (
 var logger = loggo.GetLogger("juju.secrets.provider.kubernetes")
 
 const (
+	// BackendName is the name of the Kubernetes secrets backend.
+	BackendName = "kubernetes"
 	// BackendType is the type of the Kubernetes secrets backend.
 	BackendType = "kubernetes"
 )

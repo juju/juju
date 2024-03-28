@@ -13,6 +13,7 @@ import (
 
 // IsInternalSecretBackendID returns true if the supplied backend ID is the internal backend ID.
 func IsInternalSecretBackendID(backendID string) bool {
+	// TODO: Fix me!!! This is not correct anymore because secret backend IDs now are all UUIDs.
 	return utils.IsValidUUIDString(backendID)
 }
 
