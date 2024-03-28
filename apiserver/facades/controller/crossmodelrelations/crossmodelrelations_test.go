@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -47,7 +47,7 @@ type crossmodelRelationsSuite struct {
 	st          *mockState
 	bakery      *mockBakeryService
 	authContext *commoncrossmodel.AuthContext
-	api         *crossmodelrelations.CrossModelRelationsAPI
+	api         *crossmodelrelations.CrossModelRelationsAPIv3
 
 	watchedRelations       params.Entities
 	watchedOffers          []string

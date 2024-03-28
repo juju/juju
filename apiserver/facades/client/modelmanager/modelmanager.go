@@ -50,6 +50,8 @@ type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caa
 
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
+// V10 of the facade does not return default-series or default-base
+// in model info
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
@@ -62,6 +64,12 @@ type ModelManagerAPI struct {
 	model       common.Model
 	getBroker   newCaasBrokerFunc
 	callContext context.ProviderCallContext
+}
+
+// ModelManagerAPI implements the model manager interface and is
+// the concrete implementation of the api end point.
+type ModelManagerAPIV9 struct {
+	*ModelManagerAPI
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -198,6 +206,18 @@ func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.Us
 // CreateModel creates a new model using the account and
 // model config specified in the args.
 func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
+	return m.createModel(args, false)
+}
+
+// CreateModel creates a new model using the account and
+// model config specified in the args.
+// V9 of the facade includes the model default-series and default-base
+// in it's output
+func (m *ModelManagerAPIV9) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
+	return m.createModel(args, true)
+}
+
+func (m *ModelManagerAPI) createModel(args params.ModelCreateArgs, withDefaultOS bool) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
 
 	// Get the controller model first. We need it both for the state
@@ -360,7 +380,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	return m.getModelInfo(model.ModelTag(), false)
+	return m.getModelInfo(model.ModelTag(), false, withDefaultOS)
 }
 
 func (m *ModelManagerAPI) newCAASModel(
@@ -625,6 +645,20 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 // can list models for any user.  Other users
 // can only ask about their own models.
 func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
+	return m.listModelSummaries(req, false)
+}
+
+// ListModelSummaries returns models that the specified user
+// has access to in the current server.  Controller admins (superuser)
+// can list models for any user.  Other users
+// can only ask about their own models.
+// V9 of the facade includes the model default-series and default-base
+// in it's output
+func (m *ModelManagerAPIV9) ListModelSummaries(req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
+	return m.listModelSummaries(req, true)
+}
+
+func (m *ModelManagerAPI) listModelSummaries(req params.ModelSummariesRequest, includeDefaultSeries bool) (params.ModelSummaryResults, error) {
 	result := params.ModelSummaryResults{}
 
 	userTag, err := names.ParseUserTag(req.UserTag)
@@ -643,70 +677,76 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 	}
 
 	for _, mi := range modelInfos {
-		summary := &params.ModelSummary{
-			Name:           mi.Name,
-			UUID:           mi.UUID,
-			Type:           string(mi.Type),
-			OwnerTag:       names.NewUserTag(mi.Owner).String(),
-			ControllerUUID: mi.ControllerUUID,
-			IsController:   mi.IsController,
-			Life:           life.Value(mi.Life.String()),
-
-			CloudTag:    mi.CloudTag,
-			CloudRegion: mi.CloudRegion,
-
-			CloudCredentialTag: mi.CloudCredentialTag,
-
-			SLA: &params.ModelSLAInfo{
-				Level: mi.SLALevel,
-				Owner: mi.Owner,
-			},
-
-			DefaultSeries: mi.DefaultSeries,
-			ProviderType:  mi.ProviderType,
-			AgentVersion:  mi.AgentVersion,
-
-			Status:             common.EntityStatusFromState(mi.Status),
-			Counts:             []params.ModelEntityCount{},
-			UserLastConnection: mi.UserLastConnection,
+		summary := m.makeModelSummary(mi)
+		if includeDefaultSeries {
+			summary.DefaultSeries = mi.DefaultSeries
 		}
-
-		if mi.MachineCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
-		}
-
-		if mi.CoreCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
-		}
-
-		if mi.UnitCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
-		}
-
-		access, err := common.StateToParamsUserAccessPermission(mi.Access)
-		if err == nil {
-			summary.UserAccess = access
-		}
-		if mi.Migration != nil {
-			migration := mi.Migration
-			startTime := migration.StartTime()
-			endTime := new(time.Time)
-			*endTime = migration.EndTime()
-			var zero time.Time
-			if *endTime == zero {
-				endTime = nil
-			}
-
-			summary.Migration = &params.ModelMigrationStatus{
-				Status: migration.StatusMessage(),
-				Start:  &startTime,
-				End:    endTime,
-			}
-		}
-
 		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
 	}
 	return result, nil
+
+}
+
+func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelSummary {
+	summary := &params.ModelSummary{
+		Name:           mi.Name,
+		UUID:           mi.UUID,
+		Type:           string(mi.Type),
+		OwnerTag:       names.NewUserTag(mi.Owner).String(),
+		ControllerUUID: mi.ControllerUUID,
+		IsController:   mi.IsController,
+		Life:           life.Value(mi.Life.String()),
+
+		CloudTag:    mi.CloudTag,
+		CloudRegion: mi.CloudRegion,
+
+		CloudCredentialTag: mi.CloudCredentialTag,
+
+		SLA: &params.ModelSLAInfo{
+			Level: mi.SLALevel,
+			Owner: mi.Owner,
+		},
+
+		ProviderType: mi.ProviderType,
+		AgentVersion: mi.AgentVersion,
+
+		Status:             common.EntityStatusFromState(mi.Status),
+		Counts:             []params.ModelEntityCount{},
+		UserLastConnection: mi.UserLastConnection,
+	}
+	if mi.MachineCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
+	}
+
+	if mi.CoreCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
+	}
+
+	if mi.UnitCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
+	}
+
+	access, err := common.StateToParamsUserAccessPermission(mi.Access)
+	if err == nil {
+		summary.UserAccess = access
+	}
+	if mi.Migration != nil {
+		migration := mi.Migration
+		startTime := migration.StartTime()
+		endTime := new(time.Time)
+		*endTime = migration.EndTime()
+		var zero time.Time
+		if *endTime == zero {
+			endTime = nil
+		}
+
+		summary.Migration = &params.ModelMigrationStatus{
+			Status: migration.StatusMessage(),
+			Start:  &startTime,
+			End:    endTime,
+		}
+	}
+	return summary
 }
 
 // ListModels returns the models that the specified user
@@ -798,6 +838,17 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 
 // ModelInfo returns information about the specified models.
 func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
+	return m.modelInfo(args, false)
+}
+
+// ModelInfo returns information about the specified models.
+// In V9 of the facade, we include DefaultSeries and DefaultBase within model
+// info
+func (m *ModelManagerAPIV9) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
+	return m.modelInfo(args, true)
+}
+
+func (m *ModelManagerAPI) modelInfo(args params.Entities, includeDefaultOS bool) (params.ModelInfoResults, error) {
 	results := params.ModelInfoResults{
 		Results: make([]params.ModelInfoResult, len(args.Entities)),
 	}
@@ -807,7 +858,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		modelInfo, err := m.getModelInfo(tag, true)
+		modelInfo, err := m.getModelInfo(tag, true, includeDefaultOS)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -837,7 +888,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 	return results, nil
 }
 
-func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool, withDefaultOS bool) (params.ModelInfo, error) {
 	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
@@ -900,17 +951,20 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 			info.AgentVersion = &agentVersion
 		}
 
-		// TODO(stickupkid): Series is deprecated, always use a base as the
-		// source of truth.
-		defaultBase := config.PreferredBase(cfg)
-		info.DefaultBase = defaultBase.String()
-		if defaultSeries, err := corebase.GetSeriesFromBase(defaultBase); err == nil {
-			info.DefaultSeries = defaultSeries
-		} else {
-			logger.Errorf("cannot get default series from base %q: %v", defaultBase, err)
-			// This is slightly defensive, but we should always show a series
-			// in the model info.
-			info.DefaultSeries = jujuversion.DefaultSupportedLTS()
+		// Optionally include DefaultBase and DefaultSeries. Facade versions 10+
+		// should not include these because series is deprecated, and the default OS
+		// is a property of model config, so should not be duplicated here
+		if withDefaultOS {
+			defaultBase := config.PreferredBase(cfg)
+			info.DefaultBase = defaultBase.String()
+			if defaultSeries, err := corebase.GetSeriesFromBase(defaultBase); err == nil {
+				info.DefaultSeries = defaultSeries
+			} else {
+				logger.Errorf("cannot get default series from base %q: %v", defaultBase, err)
+				// This is slightly defensive, but we should always show a series
+				// in the model info.
+				info.DefaultSeries = jujuversion.DefaultSupportedLTS()
+			}
 		}
 	}
 

@@ -74,6 +74,8 @@ const (
 
 var (
 	containerAgentPebbleVersion = version.MustParse("2.9.37")
+	profileDirVersion           = version.MustParse("3.5-beta1")
+	pebbleCopyOnceVersion       = version.MustParse("3.5-beta1")
 )
 
 type app struct {
@@ -1361,25 +1363,29 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			SubPath:   "containeragent/pebble",
 		},
 	}
-	if config.Rootless {
+	charmContainerExtraVolumeMounts = append(charmContainerExtraVolumeMounts, corev1.VolumeMount{
+		Name:      constants.CharmVolumeName,
+		MountPath: "/var/log/juju",
+		SubPath:   "containeragent/var/log/juju",
+	}, corev1.VolumeMount{
+		Name:      constants.CharmVolumeName,
+		MountPath: paths.JujuIntrospect(paths.OSUnixLike),
+		SubPath:   "charm/bin/containeragent",
+		ReadOnly:  true,
+	}, corev1.VolumeMount{
+		Name:      constants.CharmVolumeName,
+		MountPath: paths.JujuExec(paths.OSUnixLike),
+		SubPath:   "charm/bin/containeragent",
+		ReadOnly:  true,
+	})
+
+	agentVersionNoBuild := config.AgentVersion
+	agentVersionNoBuild.Build = 0
+	if agentVersionNoBuild.Compare(profileDirVersion) >= 0 {
 		charmContainerExtraVolumeMounts = append(charmContainerExtraVolumeMounts, corev1.VolumeMount{
-			Name:      constants.CharmVolumeName,
-			MountPath: "/var/log/juju",
-			SubPath:   "containeragent/var/log/juju",
-		}, corev1.VolumeMount{
 			Name:      constants.CharmVolumeName,
 			MountPath: "/etc/profile.d/juju-introspection.sh",
 			SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
-			ReadOnly:  true,
-		}, corev1.VolumeMount{
-			Name:      constants.CharmVolumeName,
-			MountPath: paths.JujuIntrospect(paths.OSUnixLike),
-			SubPath:   "charm/bin/containeragent",
-			ReadOnly:  true,
-		}, corev1.VolumeMount{
-			Name:      constants.CharmVolumeName,
-			MountPath: paths.JujuExec(paths.OSUnixLike),
-			SubPath:   "charm/bin/containeragent",
 			ReadOnly:  true,
 		})
 	}
@@ -1477,11 +1483,36 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmContainerExtraVolumeMounts...),
 	}
-	if config.Rootless {
+	switch config.CharmUser {
+	case caas.RunAsRoot:
+		charmContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(0),
+			RunAsGroup: pointer.Int64(0),
+		}
+	case caas.RunAsSudoer:
+		charmContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
+			RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
+		}
+	case caas.RunAsNonRoot:
 		charmContainer.SecurityContext = &corev1.SecurityContext{
 			RunAsUser:  pointer.Int64(constants.JujuUserID),
 			RunAsGroup: pointer.Int64(constants.JujuGroupID),
 		}
+	}
+
+	containerExtraEnv := []corev1.EnvVar{{
+		Name:  "PEBBLE_SOCKET",
+		Value: "/charm/container/pebble.socket",
+	}}
+	if agentVersionNoBuild.Compare(pebbleCopyOnceVersion) >= 0 {
+		containerExtraEnv = append(containerExtraEnv, corev1.EnvVar{
+			Name:  "PEBBLE",
+			Value: "/charm/container/pebble",
+		}, corev1.EnvVar{
+			Name:  "PEBBLE_COPY_ONCE",
+			Value: constants.DefaultPebbleDir,
+		})
 	}
 
 	containerSpecs := []corev1.Container{charmContainer}
@@ -1498,13 +1529,10 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				"--http", fmt.Sprintf(":%s", pebble.WorkloadHealthCheckPort(i)),
 				"--verbose",
 			},
-			Env: []corev1.EnvVar{{
+			Env: append([]corev1.EnvVar{{
 				Name:  "JUJU_CONTAINER_NAME",
 				Value: v.Name,
-			}, {
-				Name:  "PEBBLE_SOCKET",
-				Value: "/charm/container/pebble.socket",
-			}},
+			}}, containerExtraEnv...),
 			LivenessProbe: &corev1.Probe{
 				ProbeHandler:        pebble.LivenessHandler(pebble.WorkloadHealthCheckPort(i)),
 				InitialDelaySeconds: containerProbeInitialDelay,
@@ -1521,10 +1549,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				SuccessThreshold:    containerProbeSuccess,
 				FailureThreshold:    containerReadinessProbeFailure,
 			},
-			// Run Pebble as root (because it's a service manager).
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(0),
-				RunAsGroup: pointer.Int64(0),
+				RunAsUser:  pointer.Int64(int64(v.Uid)),
+				RunAsGroup: pointer.Int64(int64(v.Gid)),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -1539,12 +1566,6 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
 			},
-		}
-		if config.Rootless {
-			container.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(constants.JujuUserID),
-				RunAsGroup: pointer.Int64(constants.JujuGroupID),
-			}
 		}
 		if v.Image.Password != "" {
 			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: a.imagePullSecretName(v.Name)})
@@ -1577,7 +1598,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		}
 	}
 
-	if config.Rootless {
+	if agentVersionNoBuild.Compare(profileDirVersion) >= 0 {
 		containerAgentArgs = append(containerAgentArgs, "--profile-dir", "/containeragent/etc/profile.d")
 		charmInitAdditionalMounts = append(charmInitAdditionalMounts, corev1.VolumeMount{
 			Name:      constants.CharmVolumeName,
@@ -1644,11 +1665,21 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmInitAdditionalMounts...),
 	}
-	if config.Rootless {
+	switch config.CharmUser {
+	case caas.RunAsRoot:
 		charmInitContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:              pointer.Int64(constants.JujuUserID),
-			RunAsGroup:             pointer.Int64(constants.JujuGroupID),
-			ReadOnlyRootFilesystem: pointer.Bool(true),
+			RunAsUser:  pointer.Int64(0),
+			RunAsGroup: pointer.Int64(0),
+		}
+	case caas.RunAsSudoer:
+		charmInitContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
+			RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
+		}
+	case caas.RunAsNonRoot:
+		charmInitContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(constants.JujuUserID),
+			RunAsGroup: pointer.Int64(constants.JujuGroupID),
 		}
 	}
 
@@ -1673,11 +1704,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	if err != nil {
 		return nil, errors.Annotate(err, "processing constraints")
 	}
-	if config.Rootless {
-		spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup:            pointer.Int64(constants.JujuFSGroupID),
-			SupplementalGroups: []int64{constants.JujuFSGroupID},
-		}
+	spec.SecurityContext = &corev1.PodSecurityContext{
+		FSGroup:            pointer.Int64(constants.JujuFSGroupID),
+		SupplementalGroups: []int64{constants.JujuFSGroupID},
 	}
 	return spec, nil
 }

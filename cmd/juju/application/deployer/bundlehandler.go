@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12"
+	charmresource "github.com/juju/charm/v12/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -320,21 +320,20 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 
 		// To deploy by revision, the revision number must be in the origin for a
-		// charmhub charm.
-		if charm.CharmHub.Matches(ch.Schema) {
-			if ch.Revision != -1 {
-				return errors.Errorf("cannot specify revision in %q, please use revision", ch)
+		// charmhub charm. We know we must have a charmhub charm, since we return
+		// early for local charms.
+		if ch.Revision != -1 {
+			return errors.Errorf("cannot specify revision in %q, please use revision", ch)
+		}
+		var channel charm.Channel
+		if spec.Channel != "" {
+			channel, err = charm.ParseChannelNormalize(spec.Channel)
+			if err != nil {
+				return errors.Annotatef(err, "for application %q", spec.Charm)
 			}
-			var channel charm.Channel
-			if spec.Channel != "" {
-				channel, err = charm.ParseChannelNormalize(spec.Channel)
-				if err != nil {
-					return errors.Annotatef(err, "for application %q", spec.Charm)
-				}
-			}
-			if spec.Revision != nil && *spec.Revision != -1 && channel.Empty() {
-				return errors.Errorf("application %q with a revision requires a channel for future upgrades, please use channel", name)
-			}
+		}
+		if spec.Revision != nil && *spec.Revision != -1 && channel.Empty() {
+			return errors.Errorf("application %q with a revision requires a channel for future upgrades, please use channel", name)
 		}
 
 		var base corebase.Base
@@ -347,7 +346,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			return errors.Trace(err)
 		}
 
-		channel, origin, err := h.constructChannelAndOrigin(ch, base, spec.Channel, cons)
+		// We return early with local charms, so here we know the charm must be from charmhub.
+		channel, origin, err := h.constructChannelAndOrigin(charm.CharmHub, ch.Revision, base, spec.Channel, cons)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -393,22 +393,15 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBas
 	if h.isLocalCharm(charmURL) {
 		return charmChannel, -1, nil
 	}
-	// If the charm URL already contains a revision, return that before
-	// attempting to resolve a revision from any charm repository. We can ignore the
-	// error here, as we want to just parse out the charm URL.
-	// Resolution and validation of the charm URL happens further down.
-	if curl, err := charm.ParseURL(charmURL); err == nil {
-		if charm.Local.Matches(curl.Schema) {
-			return charmChannel, -1, nil
-		} else if curl.Revision >= 0 && charmChannel != "" {
-			return charmChannel, curl.Revision, nil
-		}
-	}
-
 	// Resolve and validate a charm URL based on passed in charm.
 	ch, err := resolveCharmURL(charmURL, h.defaultCharmSchema)
 	if err != nil {
 		return "", -1, errors.Trace(err)
+	}
+	// If the charm URL already contains a revision, return that before
+	// attempting to resolve a revision from charmhub.
+	if ch.Revision >= 0 && charmChannel != "" {
+		return charmChannel, ch.Revision, nil
 	}
 
 	var cons constraints.Value
@@ -422,7 +415,9 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBas
 		ch = ch.WithRevision(revision)
 	}
 
-	_, origin, err := h.constructChannelAndOrigin(ch, charmBase, charmChannel, cons)
+	// We return early with local charms, so here we know the charm must be from charmhub.
+	_, origin, err := h.constructChannelAndOrigin(charm.CharmHub, ch.Revision, charmBase, charmChannel, cons)
+
 	if err != nil {
 		return "", -1, errors.Trace(err)
 	}
@@ -441,7 +436,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBas
 // constructChannelAndOrigin attempts to construct a fully qualified channel
 // along with an origin that matches the hardware constraints and the charm url
 // source.
-func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase corebase.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
+func (h *bundleHandler) constructChannelAndOrigin(schema charm.Schema, revision int, charmBase corebase.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
 	var channel charm.Channel
 	if charmChannel != "" {
 		var err error
@@ -451,7 +446,7 @@ func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase cor
 	}
 
 	platform := utils.MakePlatform(cons, charmBase, h.modelConstraints)
-	origin, err := utils.DeduceOrigin(curl, channel, platform)
+	origin, err := utils.MakeOrigin(schema, revision, channel, platform)
 	if err != nil {
 		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 	}
@@ -611,35 +606,31 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	urlForOrigin := ch
-	if change.Params.Revision != nil && *change.Params.Revision >= 0 {
-		urlForOrigin = urlForOrigin.WithRevision(*change.Params.Revision)
-	}
-
 	// Ensure that we use the architecture from the add charm change params.
 	var cons constraints.Value
-	if change.Params.Architecture != "" {
+	if chParams.Architecture != "" {
 		cons = constraints.Value{
-			Arch: &change.Params.Architecture,
+			Arch: &chParams.Architecture,
 		}
 	}
 
 	// A channel is needed whether the risk is valid or not.
-	var channel charm.Channel
-	if charm.CharmHub.Matches(ch.Schema) {
-		channel = corecharm.DefaultChannel
-		if chParams.Channel != "" {
-			channel, err = charm.ParseChannelNormalize(chParams.Channel)
-			if err != nil {
-				return errors.Trace(err)
-			}
+	channel := corecharm.DefaultChannel
+	if chParams.Channel != "" {
+		channel, err = charm.ParseChannelNormalize(chParams.Channel)
+		if err != nil {
+			return errors.Trace(err)
 		}
-	} else {
-		channel = corecharm.MakeRiskOnlyChannel(chParams.Channel)
+	}
+
+	revision := -1
+	if chParams.Revision != nil && *chParams.Revision >= 0 {
+		revision = *chParams.Revision
 	}
 
 	platform := utils.MakePlatform(cons, base, h.modelConstraints)
-	origin, err := utils.DeduceOrigin(urlForOrigin, channel, platform)
+	// We return early with local charms, so here we know the charm must be from charmhub.
+	origin, err := utils.MakeOrigin(charm.CharmHub, revision, channel, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -671,11 +662,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	selectedSeries, err := corebase.GetSeriesFromBase(selectedBase)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	url = url.WithSeries(selectedSeries)
 	resolvedOrigin.Base = selectedBase
 	logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base, supportedBases, url)
 
@@ -806,7 +792,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	chID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 
@@ -843,7 +829,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	charmInfo, err := h.deployAPI.CharmInfo(chID.URL.String())
+	charmInfo, err := h.deployAPI.CharmInfo(chID.URL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -879,7 +865,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		numUnits = p.NumUnits
 	}
 
-	if charm.Local.Matches(chID.URL.Schema) {
+	if charm.Local.Matches(curl.Schema) {
 		var (
 			base corebase.Base
 			err  error
@@ -1248,7 +1234,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 
 	chID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 

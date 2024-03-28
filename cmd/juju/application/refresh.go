@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -103,7 +103,7 @@ type CharmRefreshClient interface {
 // a new CharmAdder.
 type NewCharmAdderFunc func(
 	api.Connection,
-) store.CharmAdder
+) (store.CharmAdder, error)
 
 // NewCharmResolverFunc returns a client implementing CharmResolver.
 type NewCharmResolverFunc func(base.APICallCloser, store.DownloadBundleClient) CharmResolver
@@ -450,7 +450,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	chID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 	resourceIDs, err := c.upgradeResources(apiRoot, chID)
@@ -614,16 +614,22 @@ func (c *refreshCommand) upgradeResources(
 
 func newCharmAdder(
 	conn api.Connection,
-) store.CharmAdder {
+) (store.CharmAdder, error) {
+	localCharmsClient, err := apicharms.NewLocalCharmClient(conn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &charmAdderShim{
 		api:               apiclient.NewClient(conn, logger),
 		charmsClient:      apicharms.NewClient(conn),
+		localCharmsClient: localCharmsClient,
 		modelConfigClient: modelconfig.NewClient(conn),
-	}
+	}, nil
 }
 
 type charmAdderShim struct {
 	*charmsClient
+	*localCharmsClient
 	*modelConfigClient
 	api *apiclient.Client
 }
@@ -633,7 +639,7 @@ func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.charmsClient.AddLocalCharm(curl, ch, force, agentVersion)
+	return c.localCharmsClient.AddLocalCharm(curl, ch, force, agentVersion)
 }
 
 func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
@@ -664,9 +670,13 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	charmAdder, err := c.NewCharmAdder(apiRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	deps := refresher.RefresherDependencies{
-		CharmAdder:    c.NewCharmAdder(apiRoot),
+		CharmAdder:    charmAdder,
 		CharmResolver: c.NewCharmResolver(apiRoot, downloadClient),
 	}
 	return c.NewRefresherFactory(deps), nil

@@ -1,8 +1,8 @@
-*Why this change is needed and what it does.*
+<!-- Why this change is needed and what it does. -->
 
 ## Checklist
 
-*If an item is not applicable, use `~strikethrough~`.*
+<!-- If an item is not applicable, use `~strikethrough~`. -->
 
 - [ ] Code style: imports ordered, good names, simple structure, etc
 - [ ] Comments saying why design decisions were made
@@ -12,20 +12,17 @@
 
 ## QA steps
 
-*Commands to run to verify that the change works.*
-
-```sh
-QA steps here
-```
+<!-- Describe steps to verify that the change works. -->
 
 ## Documentation changes
 
-*How it affects user workflow (CLI or API). Delete section if not applicable.*
+<!-- How it affects user workflow (CLI or API). -->
 
 ## Links
 
-**Launchpad bug:** https://pad.lv/<bug-number>
+<!-- Link to all relevant specification, documentation, bug, issue or JIRA card. -->
 
-**Jira card:** JUJU-[XXXX]
+**Launchpad bug:** https://bugs.launchpad.net/juju/+bug/
 
-*Insert other relevant links here.*
+**Jira card:** JUJU-
+

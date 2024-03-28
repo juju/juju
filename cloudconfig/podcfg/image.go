@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/docker/distribution/reference"
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 

@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 
-	jujucharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -955,8 +955,12 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.workloadEvents = container.NewWorkloadEvents()
 	u.workloadEventChannel = make(chan string)
 	if len(u.containerNames) > 0 {
-		pebblePoller := NewPebblePoller(u.logger, u.clock, u.containerNames, u.workloadEventChannel, u.workloadEvents, u.newPebbleClient)
-		if err := u.catacomb.Add(pebblePoller); err != nil {
+		poller := NewPebblePoller(u.logger, u.clock, u.containerNames, u.workloadEventChannel, u.workloadEvents, u.newPebbleClient)
+		if err := u.catacomb.Add(poller); err != nil {
+			return errors.Trace(err)
+		}
+		noticer := NewPebbleNoticer(u.logger, u.clock, u.containerNames, u.workloadEventChannel, u.workloadEvents, u.newPebbleClient)
+		if err := u.catacomb.Add(noticer); err != nil {
 			return errors.Trace(err)
 		}
 	}

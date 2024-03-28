@@ -167,6 +167,10 @@ func (s *stubAPICaller) HTTPClient() (*httprequest.Client, error) {
 	panic("should not be called")
 }
 
+func (s *stubAPICaller) RootHTTPClient() (*httprequest.Client, error) {
+	panic("should not be called")
+}
+
 func (s *stubAPICaller) Context() context.Context {
 	return context.Background()
 }

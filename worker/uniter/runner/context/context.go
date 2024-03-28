@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/hooks"
+	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -332,6 +332,15 @@ type HookContext struct {
 
 	// workloadName is the name of the container which the hook is in relation to.
 	workloadName string
+
+	// noticeID is the Pebble notice ID associated with the hook.
+	noticeID string
+
+	// noticeType is the Pebble notice type associated with the hook.
+	noticeType string
+
+	// noticeKey is the Pebble notice key associated with the hook.
+	noticeKey string
 
 	// baseUpgradeTarget is the base that the unit's machine is to be
 	// updated to when Juju is issued the `upgrade-machine` command.
@@ -1425,6 +1434,13 @@ func (ctx *HookContext) HookVars(
 	}
 	if ctx.workloadName != "" {
 		vars = append(vars, "JUJU_WORKLOAD_NAME="+ctx.workloadName)
+		if ctx.noticeID != "" {
+			vars = append(vars,
+				"JUJU_NOTICE_ID="+ctx.noticeID,
+				"JUJU_NOTICE_TYPE="+ctx.noticeType,
+				"JUJU_NOTICE_KEY="+ctx.noticeKey,
+			)
+		}
 	}
 
 	if ctx.baseUpgradeTarget != "" {

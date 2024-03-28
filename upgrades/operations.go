@@ -18,10 +18,7 @@ import (
 // All state-based operations are run before API-based operations
 // (below).
 var stateUpgradeOperations = func() []Operation {
-	steps := []Operation{
-		upgradeToVersion{version.MustParse("3.3.1"), stateStepsFor331()},
-		upgradeToVersion{version.MustParse("3.3.4"), stateStepsFor334()},
-	}
+	steps := []Operation{}
 	return steps
 }
 
@@ -29,10 +26,7 @@ var stateUpgradeOperations = func() []Operation {
 // operations needed to upgrade Juju to particular version. As per the
 // state-based operations above, ordering is important.
 var upgradeOperations = func() []Operation {
-	steps := []Operation{
-		upgradeToVersion{version.MustParse("3.3.1"), stepsFor331()},
-		upgradeToVersion{version.MustParse("3.3.4"), stepsFor334()},
-	}
+	steps := []Operation{}
 	return steps
 }
 

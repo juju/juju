@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"strings"
 
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v12/resource"
 	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"

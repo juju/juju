@@ -6,8 +6,8 @@ package charms
 import (
 	"fmt"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
@@ -132,6 +132,7 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		MinJujuVersion: minVersion,
 		Containers:     containers,
 		Assumes:        meta.AssumesExpr,
+		CharmUser:      charm.RunAs(meta.CharmUser),
 	}
 	return result, nil
 }
@@ -410,6 +411,8 @@ func convertCharmContainers(input map[string]params.CharmContainer) (map[string]
 		containers[k] = charm.Container{
 			Resource: v.Resource,
 			Mounts:   convertCharmMounts(v.Mounts),
+			Uid:      v.Uid,
+			Gid:      v.Gid,
 		}
 	}
 	if len(containers) == 0 {

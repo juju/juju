@@ -6,7 +6,7 @@ package resolver_test
 import (
 	"errors"
 
-	"github.com/juju/charm/v11/hooks"
+	"github.com/juju/charm/v12/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

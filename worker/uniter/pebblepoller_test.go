@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"context"
 	"regexp"
 	"sync"
 	"time"
@@ -113,10 +114,12 @@ func (s *pebblePollerSuite) TestStart(c *gc.C) {
 }
 
 type fakePebbleClient struct {
-	sysInfo pebbleclient.SysInfo
-	err     error
-	mut     sync.Mutex
-	closed  bool
+	sysInfo     pebbleclient.SysInfo
+	err         error
+	mut         sync.Mutex
+	closed      bool
+	clock       *testclock.Clock
+	noticeAdded chan *pebbleclient.Notice
 }
 
 func (c *fakePebbleClient) SysInfo() (*pebbleclient.SysInfo, error) {
@@ -140,4 +143,43 @@ func (c *fakePebbleClient) CloseIdleConnections() {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	c.closed = true
+}
+
+// AddNotice adds a notice for WaitNotices to receive. To have WaitNotices
+// return an error, use notice.Type "error" with the message in notice.Key.
+func (c *fakePebbleClient) AddNotice(checkC *gc.C, notice *pebbleclient.Notice) {
+	select {
+	case c.noticeAdded <- notice:
+	case <-time.After(testing.LongWait):
+		checkC.Fatalf("timed out waiting to add notice")
+	}
+}
+
+func (c *fakePebbleClient) WaitNotices(ctx context.Context, serverTimeout time.Duration, opts *pebbleclient.NoticesOptions) ([]*pebbleclient.Notice, error) {
+	timeoutCh := c.clock.After(serverTimeout)
+	for {
+		select {
+		case notice := <-c.noticeAdded:
+			if notice.Type == "error" {
+				return nil, errors.New(notice.Key)
+			}
+			if noticeMatches(notice, opts) {
+				return []*pebbleclient.Notice{notice}, nil
+			}
+		case <-timeoutCh:
+			return nil, nil // no notices after serverTimeout is not an error
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+func noticeMatches(notice *pebbleclient.Notice, opts *pebbleclient.NoticesOptions) bool {
+	if opts == nil || opts.Types != nil || opts.Keys != nil {
+		panic("not supported")
+	}
+	if !opts.After.IsZero() && !notice.LastRepeated.After(opts.After) {
+		return false
+	}
+	return true
 }

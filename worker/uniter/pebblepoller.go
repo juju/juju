@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"path"
 	"sync"
 	"time"
@@ -20,8 +21,9 @@ import (
 // PebbleClient describes the subset of github.com/canonical/pebble/client.Client that we
 // need for the PebblePoller.
 type PebbleClient interface {
-	SysInfo() (*client.SysInfo, error)
 	CloseIdleConnections()
+	SysInfo() (*client.SysInfo, error)
+	WaitNotices(ctx context.Context, serverTimeout time.Duration, opts *client.NoticesOptions) ([]*client.Notice, error)
 }
 
 // NewPebbleClientFunc is the function type used to create a PebbleClient.
@@ -104,10 +106,14 @@ func (p *pebblePoller) run(containerName string) error {
 	}
 }
 
-func (p *pebblePoller) poll(containerName string) error {
-	config := &client.Config{
+func newPebbleConfig(containerName string) *client.Config {
+	return &client.Config{
 		Socket: path.Join("/charm/containers", containerName, "pebble.socket"),
 	}
+}
+
+func (p *pebblePoller) poll(containerName string) error {
+	config := newPebbleConfig(containerName)
 	pc, err := p.newPebbleClient(config)
 	if err != nil {
 		return errors.Annotate(err, "failed to create Pebble client")

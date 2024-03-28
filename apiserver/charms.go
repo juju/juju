@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/v3/zip"
 
@@ -117,7 +117,7 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return errors.NewBadRequest(err, "")
 	}
-	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()}))
+	return errors.Trace(sendStatusAndHeadersAndJSON(w, http.StatusOK, map[string]string{"Juju-Curl": charmURL.String()}, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {

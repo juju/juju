@@ -4,7 +4,7 @@
 package cache_test
 
 import (
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"

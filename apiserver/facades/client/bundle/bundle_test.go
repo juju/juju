@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v12/resource"
 	"github.com/juju/description/v5"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"

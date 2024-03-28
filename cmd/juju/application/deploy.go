@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -53,6 +53,7 @@ type CharmsAPI interface {
 
 type (
 	charmsClient         = apicharms.Client
+	localCharmsClient    = apicharms.LocalCharmClient
 	applicationClient    = application.Client
 	modelConfigClient    = modelconfig.Client
 	annotationsClient    = annotations.Client
@@ -64,6 +65,7 @@ type (
 type deployAPIAdapter struct {
 	api.Connection
 	*charmsClient
+	*localCharmsClient
 	*applicationClient
 	*modelConfigClient
 	*annotationsClient
@@ -134,7 +136,7 @@ func (a *deployAPIAdapter) AddLocalCharm(url *charm.URL, c charm.Charm, b bool) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return a.charmsClient.AddLocalCharm(url, c, b, agentVersion)
+	return a.localCharmsClient.AddLocalCharm(url, c, b, agentVersion)
 }
 
 func (a *deployAPIAdapter) Status(opts *apiclient.StatusArgs) (*apiparams.FullStatus, error) {
@@ -179,10 +181,15 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		localCharmsClient, err := apicharms.NewLocalCharmClient(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return &deployAPIAdapter{
 			Connection:           apiRoot,
 			legacyClient:         apiclient.NewClient(apiRoot, logger),
 			charmsClient:         apicharms.NewClient(apiRoot),
+			localCharmsClient:    localCharmsClient,
 			applicationClient:    application.NewClient(apiRoot),
 			machineManagerClient: machinemanager.NewClient(apiRoot),
 			modelConfigClient:    modelconfig.NewClient(apiRoot),

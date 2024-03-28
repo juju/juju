@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -42,6 +43,12 @@ func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) 
 	e := newEnviron()
 	e.name = args.Config.Name()
 	e.controllerUUID = args.ControllerUUID
+
+	namespace, err := instance.NewNamespace(args.Config.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	e.namespace = namespace
 
 	if err := e.SetCloudSpec(ctx, args.Cloud); err != nil {
 		return nil, err

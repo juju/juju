@@ -109,6 +109,9 @@ type azureEnviron struct {
 	// modelName is the name of the model.
 	modelName string
 
+	// namespace is used to create the machine and device hostnames.
+	namespace instance.Namespace
+
 	clientOptions policy.ClientOptions
 	credential    azcore.TokenCredential
 
@@ -541,8 +544,11 @@ func (env *azureEnviron) startInstance(
 		return nil, err
 	}
 
-	machineTag := names.NewMachineTag(args.InstanceConfig.MachineId)
-	vmName := resourceName(machineTag)
+	vmName, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	vmTags := make(map[string]string)
 	for k, v := range args.InstanceConfig.Tags {
 		vmTags[k] = v

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12"
+	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
@@ -817,11 +817,10 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	}
 
 	deployURL := *inURL
-	deployURL.Series = "jammy"
 
 	dArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    &deployURL,
+			URL:    deployURL.String(),
 			Origin: origin,
 		},
 		CharmOrigin:     origin,
@@ -951,7 +950,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	s.fakeAPI.Call("GetConsumeDetails",
 		"admin/default.mysql",
 	).Returns(params.ConsumeOfferDetails{
-		Offer: &params.ApplicationOfferDetails{
+		Offer: &params.ApplicationOfferDetailsV5{
 			OfferName: "mysql",
 			OfferURL:  "admin/default.mysql",
 		},
@@ -966,7 +965,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 
 	s.fakeAPI.Call("Consume",
 		crossmodel.ConsumeApplicationArgs{
-			Offer: params.ApplicationOfferDetails{
+			Offer: params.ApplicationOfferDetailsV5{
 				OfferName: "mysql",
 				OfferURL:  "test:admin/default.mysql",
 			},
@@ -1477,7 +1476,7 @@ func (s *DeploySuite) setupNonESMBase(c *gc.C) (corebase.Base, string) {
 		c.Fatal("cannot write to metadata.yaml")
 	}
 
-	curl := charm.MustParseURL(fmt.Sprintf("local:%s/series-logging-1", nonEMSSeries))
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/logging-1", nonEMSSeries))
 	ch, err := charm.ReadCharm(loggingPath)
 	c.Assert(err, jc.ErrorIsNil)
 	withLocalCharmDeployable(s.fakeAPI, curl, ch, false)
@@ -1542,7 +1541,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    curl,
+			URL:    curl.String(),
 			Origin: originWithSeries,
 		},
 		CharmOrigin:     originWithSeries,
@@ -1627,7 +1626,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, aserie
 					OS:           base.OS,
 					Channel:      base.Channel.Track,
 				}
-				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
+				origin, err := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
 				c.Assert(err, jc.ErrorIsNil)
 
 				abase, err := corebase.GetBaseFromSeries(aseries)
@@ -1675,7 +1674,7 @@ func (s *FakeStoreStateSuite) setupBundle(c *gc.C, url, name string, allSeries .
 			base, err = corebase.GetBaseFromSeries(serie)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		origin, err := apputils.DeduceOrigin(bundleResolveURL, charm.Channel{}, corecharm.Platform{
+		origin, err := apputils.MakeOrigin(charm.Schema(bundleResolveURL.Schema), bundleResolveURL.Revision, charm.Channel{}, corecharm.Platform{
 			OS: base.OS, Channel: base.Channel.Track})
 		c.Assert(err, jc.ErrorIsNil)
 		s.fakeAPI.Call("ResolveBundleURL", &baseURL, origin).Returns(
@@ -1785,7 +1784,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	}
 
 	charmID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 
@@ -2136,10 +2135,15 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			localCharmClient, err := apicharms.NewLocalCharmClient(apiRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
 				legacyClient:      apiclient.NewClient(apiRoot, coretesting.NoopLogger{}),
 				charmsClient:      apicharms.NewClient(apiRoot),
+				localCharmsClient: localCharmClient,
 				applicationClient: application.NewClient(apiRoot),
 				modelConfigClient: modelconfig.NewClient(apiRoot),
 				annotationsClient: annotations.NewClient(apiRoot),
@@ -2554,12 +2558,9 @@ func withCharmDeployableWithDevicesAndStorage(
 	devices map[string]devices.Constraints,
 ) {
 	deployURL := *url
-	if deployURL.Series == "" {
-		deployURL.Series = "jammy"
-	}
 	fallbackCons := constraints.MustParse("arch=amd64")
 	platform := apputils.MakePlatform(constraints.Value{}, base, fallbackCons)
-	origin, _ := apputils.DeduceOrigin(url, charm.Channel{}, platform)
+	origin, _ := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&apicommoncharms.CharmInfo{
@@ -2571,7 +2572,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	)
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    &deployURL,
+			URL:    deployURL.String(),
 			Origin: origin,
 		},
 		CharmOrigin:     origin,
@@ -2636,7 +2637,7 @@ func withLocalBundleCharmDeployable(
 	fakeAPI.Call("ListSpaces").Returns([]apiparams.Space{}, error(nil))
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    url,
+			URL:    url.String(),
 			Origin: commoncharm.Origin{Source: "local"},
 		},
 		CharmOrigin:     commoncharm.Origin{Source: "local", Base: base},

@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -126,6 +127,10 @@ func encodeMacaroonSlice(ms macaroon.Slice) (string, error) {
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
+func isJSONMediaType(header http.Header) bool {
+	return header.Get("Content-Type") == "application/json"
+}
+
 // unmarshalHTTPErrorResponse unmarshals an error response from
 // an HTTP endpoint. For historical reasons, these endpoints
 // return several different incompatible error response formats.
@@ -134,6 +139,27 @@ func encodeMacaroonSlice(ms macaroon.Slice) (string, error) {
 //
 // It always returns a non-nil error.
 func unmarshalHTTPErrorResponse(resp *http.Response) error {
+	if !isJSONMediaType(resp.Header) {
+		// response body is not JSON. This is probably a response
+		// from the underlying webserver
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		switch resp.StatusCode {
+		case 401:
+			return errors.Unauthorizedf(string(body))
+		case 403:
+			return errors.Forbiddenf(string(body))
+		case 404:
+			return errors.NotFoundf(string(body))
+		case 405:
+			return errors.MethodNotAllowedf(string(body))
+		default:
+			return errors.Errorf(string(body))
+		}
+	}
+
 	var body json.RawMessage
 	if err := httprequest.UnmarshalJSONResponse(resp, &body); err != nil {
 		return errors.Trace(err)

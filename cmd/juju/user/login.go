@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -259,21 +260,35 @@ use "juju unregister %s" to remove the existing controller.`[1:], c.domain, c.co
 			return errors.Trace(err)
 		}
 	}
-	accountDetails.LastKnownAccess = conn.ControllerAccess()
-	if err := store.UpdateAccount(c.controllerName, *accountDetails); err != nil {
+
+	// During the login process account details might have been updated so
+	// we fetch them from the store.
+	updatedAccountDetails, err := store.AccountDetails(c.controllerName)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Trace(err)
+	}
+	if updatedAccountDetails == nil {
+		updatedAccountDetails = accountDetails
+	} else {
+		updatedAccountDetails.User = accountDetails.User
+		updatedAccountDetails.Password = accountDetails.Password
+	}
+	updatedAccountDetails.LastKnownAccess = conn.ControllerAccess()
+
+	if err := store.UpdateAccount(c.controllerName, *updatedAccountDetails); err != nil {
 		return errors.Annotatef(err, "cannot update account information: %v", err)
 	}
 	if err := store.SetCurrentController(c.controllerName); err != nil {
 		return errors.Annotatef(err, "cannot switch")
 	}
-	if controllerDetails != nil && oldAccountDetails != nil && oldAccountDetails.User == accountDetails.User {
+	if controllerDetails != nil && oldAccountDetails != nil && oldAccountDetails.User == updatedAccountDetails.User {
 		// We're still using the same controller and the same user name,
 		// so no need to list models or set the current controller
 		return nil
 	}
 	// Now list the models available so we can show them and store their
 	// details locally.
-	models, err := listModels(conn, accountDetails.User)
+	models, err := listModels(conn, updatedAccountDetails.User)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -282,9 +297,9 @@ use "juju unregister %s" to remove the existing controller.`[1:], c.domain, c.co
 	}
 	fmt.Fprintf(
 		ctx.Stderr, "Welcome, %s. You are now logged into %q.\n",
-		friendlyUserName(accountDetails.User), c.controllerName,
+		friendlyUserName(updatedAccountDetails.User), c.controllerName,
 	)
-	return c.maybeSetCurrentModel(ctx, store, c.controllerName, accountDetails.User, models)
+	return c.maybeSetCurrentModel(ctx, store, c.controllerName, updatedAccountDetails.User, models)
 }
 
 func (c *loginCommand) existingControllerLogin(ctx *cmd.Context, store jujuclient.ClientStore, controllerName string, currentAccountDetails *jujuclient.AccountDetails) (api.Connection, *jujuclient.AccountDetails, error) {
@@ -296,6 +311,17 @@ func (c *loginCommand) existingControllerLogin(ctx *cmd.Context, store jujuclien
 		return newAPIConnection(args)
 	}
 	return c.login(ctx, currentAccountDetails, dial)
+}
+
+func cookieURL(host string) (*url.URL, error) {
+	if strings.Contains(host, ":") {
+		var err error
+		host, _, err = net.SplitHostPort(host)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return url.Parse(host)
 }
 
 // publicControllerLogin logs into the public controller at the given
@@ -327,6 +353,11 @@ func (c *loginCommand) publicControllerLogin(
 		APIEndpoints: []string{host},
 	}
 
+	cookieURL, err := cookieURL(host)
+	if err != nil {
+		return fail(err)
+	}
+
 	// Make a direct API connection because we don't yet know the
 	// controller UUID so can't store the thus-incomplete controller
 	// details to make a conventional connection.
@@ -341,6 +372,32 @@ func (c *loginCommand) publicControllerLogin(
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bclient
 	dialOpts.VerifyCA = c.promptUserToTrustCA(ctx, ctrlDetails)
+
+	// we set up a login provider that will first try to log in using
+	// oauth device flow, failing that it will try to log in using
+	// user-pass or macaroons.
+	var sessionToken string
+	if currentAccountDetails != nil {
+		sessionToken = currentAccountDetails.SessionToken
+	}
+
+	dialOpts.LoginProvider = api.NewTryInOrderLoginProvider(
+		api.NewSessionTokenLoginProvider(
+			sessionToken,
+			func(format string, params ...any) error {
+				_, err := fmt.Fprintf(ctx.Stderr, format, params...)
+				return err
+			},
+			func(sessionToken string) error {
+				return c.ClientStore().UpdateAccount(controllerName, jujuclient.AccountDetails{
+					Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
+					User:         "user",
+					SessionToken: sessionToken,
+				})
+			},
+		),
+		api.NewUserpassLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
+	)
 
 	// Keep track of existing interactors as the dial callback will create
 	// new ones each time it gets invoked.

@@ -4,7 +4,7 @@
 package hook_test
 
 import (
-	"github.com/juju/charm/v11/hooks"
+	"github.com/juju/charm/v12/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -46,6 +46,12 @@ var validateTests = []struct {
 	}, {
 		hook.Info{Kind: hooks.PebbleReady},
 		`"pebble-ready" hook requires a workload name`,
+	}, {
+		hook.Info{Kind: hooks.PebbleCustomNotice},
+		`"pebble-custom-notice" hook requires a workload name`,
+	}, {
+		hook.Info{Kind: hooks.PebbleCustomNotice, WorkloadName: "test"},
+		`"pebble-custom-notice" hook requires a notice ID, type, and key`,
 	}, {
 		hook.Info{Kind: hooks.PreSeriesUpgrade},
 		`"pre-series-upgrade" hook requires a target base`,

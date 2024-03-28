@@ -4,8 +4,8 @@
 package charms_test
 
 import (
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v12/resource"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -69,6 +69,8 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 							Location: "/cockroach/cockroach-data",
 						},
 					},
+					Uid: 5000,
+					Gid: 5001,
 				},
 			},
 			Storage: map[string]params.CharmStorage{
@@ -76,6 +78,7 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 					Type: "filesystem",
 				},
 			},
+			CharmUser: "root",
 		},
 		Manifest: &params.CharmManifest{
 			Bases: []params.CharmBase{
@@ -133,6 +136,8 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 							Location: "/cockroach/cockroach-data",
 						},
 					},
+					Uid: 5000,
+					Gid: 5001,
 				},
 			},
 			Storage: map[string]charm.Storage{
@@ -140,6 +145,7 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 					Type: "filesystem",
 				},
 			},
+			CharmUser: charm.RunAsRoot,
 		},
 		Manifest: &charm.Manifest{
 			Bases: []charm.Base{

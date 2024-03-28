@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/base"
@@ -48,11 +48,7 @@ func NewCharmAtPathForceBase(path string, b base.Base, force bool) (charm.Charm,
 		}
 		return nil, nil, err
 	}
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, nil, err
-	}
-	_, name := filepath.Split(absPath)
+	name := ch.Meta().Name
 
 	baseToUse, err := charmBase(b, force, ch)
 	if err != nil {

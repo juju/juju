@@ -4,14 +4,9 @@
 package state
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v5"
-
-	"github.com/juju/juju/core/charm"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.
@@ -21,6 +16,8 @@ var _ = func() {
 
 // runForAllModelStates will run runner function for every model passing a state
 // for that model.
+//
+//nolint:unused
 func runForAllModelStates(pool *StatePool, runner func(st *State) error) error {
 	st, err := pool.SystemState()
 	if err != nil {
@@ -97,86 +94,4 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
-}
-
-// ConvertApplicationOfferTokenKeys updates application offer remote entity
-// keys to have the offer uuid rather than the name.
-func ConvertApplicationOfferTokenKeys(pool *StatePool) error {
-	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		remoteEntities, closer := st.db().GetCollection(remoteEntitiesC)
-		defer closer()
-
-		var docs []bson.M
-		if err := remoteEntities.Find(
-			bson.D{{"_id", bson.D{{"$regex", names.ApplicationOfferTagKind + "-.*"}}}},
-		).All(&docs); err != nil {
-			return errors.Annotate(err, "failed to read remote entity docs")
-		}
-
-		appOffers := NewApplicationOffers(st)
-		var ops []txn.Op
-		for _, doc := range docs {
-			oldID := doc["_id"].(string)
-			offerName := strings.TrimPrefix(st.localID(oldID), names.ApplicationOfferTagKind+"-")
-			offer, err := appOffers.ApplicationOffer(offerName)
-			if errors.Is(err, errors.NotFound) {
-				// Already been updated.
-				continue
-			}
-			if err != nil {
-				return errors.Trace(err)
-			}
-			newID := st.docID(names.NewApplicationOfferTag(offer.OfferUUID).String())
-			doc["_id"] = newID
-			ops = append(ops, txn.Op{
-				C:      remoteEntitiesC,
-				Id:     oldID,
-				Remove: true,
-			}, txn.Op{
-				C:      remoteEntitiesC,
-				Id:     newID,
-				Insert: doc,
-			})
-		}
-		if len(ops) > 0 {
-			return errors.Trace(st.runRawTransaction(ops))
-		}
-		return nil
-	}))
-}
-
-func FillInEmptyCharmhubTracks(pool *StatePool) error {
-	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		applications, closer := st.db().GetCollection(applicationsC)
-		defer closer()
-
-		var docs []bson.M
-		if err := applications.Find(bson.D{}).All(&docs); err != nil {
-			return errors.Annotatef(err, "failed to read applications")
-		}
-
-		var ops []txn.Op
-		for _, doc := range docs {
-			charmOrigin := doc["charm-origin"].(bson.M)
-			if charmOrigin["source"] != charm.CharmHub.String() {
-				continue
-			}
-
-			channel := charmOrigin["channel"].(bson.M)
-			if _, ok := channel["track"]; ok {
-				continue
-			}
-
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     doc["_id"],
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{"charm-origin.channel.track": "latest"}},
-			})
-		}
-		if len(ops) > 0 {
-			return errors.Trace(st.runRawTransaction(ops))
-		}
-		return nil
-	}))
 }

@@ -12,7 +12,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"text/template"
@@ -224,14 +226,25 @@ func friendlyUserName(user string) string {
 // given registration parameters.
 func (c *registerCommand) controllerDetails(ctx *cmd.Context, p *registrationParams, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 	if p.publicHost != "" {
-		return c.publicControllerDetails(p.publicHost, controllerName)
+		return c.publicControllerDetails(ctx, p.publicHost, controllerName)
 	}
 	return c.nonPublicControllerDetails(ctx, p, controllerName)
 }
 
+func cookieURL(host string) (*url.URL, error) {
+	if strings.Contains(host, ":") {
+		var err error
+		host, _, err = net.SplitHostPort(host)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return url.Parse(host)
+}
+
 // publicControllerDetails returns controller and account details to be registered
 // for the given public controller host name.
-func (c *registerCommand) publicControllerDetails(host, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
+func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 	errRet := func(err error) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 		return jujuclient.ControllerDetails{}, jujuclient.AccountDetails{}, err
 	}
@@ -251,8 +264,35 @@ func (c *registerCommand) publicControllerDetails(host, controllerName string) (
 	if err != nil {
 		return errRet(errors.Trace(err))
 	}
+
+	cookieURL, err := cookieURL(host)
+	if err != nil {
+		return errRet(err)
+	}
+
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bclient
+
+	// we set up a login provider that will first try to log in using
+	// oauth device flow, failing that it will try to log in using
+	// user-pass or macaroons.
+	dialOpts.LoginProvider = api.NewTryInOrderLoginProvider(
+		api.NewSessionTokenLoginProvider(
+			"",
+			func(format string, params ...any) error {
+				_, err := fmt.Fprintf(ctx.Stderr, format, params...)
+				return err
+			},
+			func(sessionToken string) error {
+				return c.store.UpdateAccount(controllerName, jujuclient.AccountDetails{
+					Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
+					SessionToken: sessionToken,
+				})
+			},
+		),
+		api.NewUserpassLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
+	)
+
 	conn, err := c.apiOpen(&api.Info{
 		Addrs: []string{apiAddr},
 	}, dialOpts)

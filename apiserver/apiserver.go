@@ -644,7 +644,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 
 func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	const modelRoutePrefix = "/model/:modeluuid"
-	const charmsObjectsRoutePrefix = "/:bucket/charms/:object"
+	const charmsObjectsRoutePrefix = "/model-:modeluuid/charms/:object"
 
 	type handler struct {
 		pattern         string
@@ -689,7 +689,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) {
 				h = &httpcontext.BucketModelHandler{
 					Handler: h,
-					Query:   ":bucket",
+					Query:   ":modeluuid",
 				}
 			} else {
 				h = &httpcontext.ImpliedModelHandler{
@@ -763,6 +763,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
 		GetHandler:          modelObjectsCharmsHandler.ServeGet,
+		PutHandler:          modelObjectsCharmsHandler.ServePut,
 		LegacyCharmsHandler: modelCharmsHTTPHandler,
 	}
 
@@ -828,6 +829,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	migrateCharmsHTTPHandler := &CharmsHTTPHandler{
 		PostHandler: migrateCharmsHandler.ServePost,
 		GetHandler:  migrateCharmsHandler.ServeUnsupported,
+	}
+	migrateObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
+		PutHandler:          modelObjectsCharmsHandler.ServePut,
+		GetHandler:          modelObjectsCharmsHandler.ServeUnsupported,
+		LegacyCharmsHandler: migrateCharmsHTTPHandler,
 	}
 	migrateToolsUploadHandler := &toolsUploadHandler{
 		ctxt:          httpCtxt,
@@ -911,8 +917,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    backupHandler,
 		authorizer: controllerAdminAuthorizer,
 	}, {
+		// Legacy migration endpoint. Used by Juju 3.3 and prior
 		pattern:    "/migrate/charms",
 		handler:    migrateCharmsHTTPHandler,
+		authorizer: controllerAdminAuthorizer,
+	}, {
+		pattern:    "/migrate/charms/:object",
+		handler:    migrateObjectsCharmsHTTPHandler,
 		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:    "/migrate/tools",
@@ -983,9 +994,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    modelCharmsHTTPHandler,
 		authorizer: modelCharmsUploadAuthorizer,
 	}, {
+		// GET has no authorizer
 		pattern: charmsObjectsRoutePrefix,
 		methods: []string{"GET"},
 		handler: modelObjectsCharmsHTTPHandler,
+	}, {
+		pattern:    charmsObjectsRoutePrefix,
+		methods:    []string{"PUT"},
+		handler:    modelObjectsCharmsHTTPHandler,
+		authorizer: modelCharmsUploadAuthorizer,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {

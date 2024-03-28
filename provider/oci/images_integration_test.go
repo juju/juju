@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
@@ -225,8 +224,9 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		_, _, err := oci.NewInstanceImage(test.Image, &s.testCompartment)
-		c.Assert(err, jc.ErrorIs, errors.NotSupported, gc.Commentf(test.Name))
+		img, _, err := oci.NewInstanceImage(test.Image, &s.testCompartment)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(img.IsMinimal, jc.IsTrue)
 	}
 }
 
@@ -290,6 +290,8 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	fakeUbuntu2 := "fakeUbuntu2"
 	fakeUbuntu3 := "fakeUbuntu3"
 	fakeUbuntu4 := "fakeUbuntu4"
+	fakeUbuntuMinimal0 := "fakeUbuntuMinimal0"
+	fakeUbuntuMinimal1 := "fakeUbuntuMinimal1"
 	fakeCentOSID := "fakeCentOS"
 
 	listImageResponse := []ociCore.Image{
@@ -306,6 +308,20 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
 			OperatingSystemVersion: makeStringPointer("22.04"),
 			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.12-0"),
+		},
+		{
+			CompartmentId:          &s.testCompartment,
+			Id:                     &fakeUbuntuMinimal0,
+			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+			OperatingSystemVersion: makeStringPointer("22.04 Minimal"),
+			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.12-0"),
+		},
+		{
+			CompartmentId:          &s.testCompartment,
+			Id:                     &fakeUbuntuMinimal1,
+			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+			OperatingSystemVersion: makeStringPointer("22.04"),
+			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Minimal-2018.01.12-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
@@ -344,7 +360,8 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 
 	imageMap := imgCache.ImageMap()
 	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
-	// Both archs AMD64 and ARM64 should be on the base jammy
+	// Both archs AMD64 and ARM64 should be on the base jammy and minimal
+	// ubuntu should be ignored.
 	c.Check(imageMap[jammy], gc.HasLen, 2)
 	// Two images on each arch
 	c.Check(imageMap[jammy][corearch.AMD64], gc.HasLen, 2)

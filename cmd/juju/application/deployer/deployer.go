@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12"
+	charmresource "github.com/juju/charm/v12/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -138,14 +138,14 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 		charmHubSchemaCheck := charm.CharmHub.Matches(userCharmURL.Schema)
 
 		// Check revision
-		urlForOrigin, revErr := d.checkHandleRevision(userCharmURL, charmHubSchemaCheck)
+		revision, revErr := d.checkHandleRevision(userCharmURL, charmHubSchemaCheck)
 		if revErr != nil {
 			return nil, errors.Trace(revErr)
 		}
 
 		// Make the origin
 		platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-		origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
+		origin, err := utils.MakeOrigin(charm.CharmHub, revision, d.channel, platform)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -325,16 +325,16 @@ func (d *factory) determineBaseForLocalCharm(charmOrBundle string, getter ModelC
 	return selectedBase, imageStream, nil
 }
 
-func (d *factory) checkHandleRevision(userCharmURL *charm.URL, charmHubSchemaCheck bool) (*charm.URL, error) {
+func (d *factory) checkHandleRevision(userCharmURL *charm.URL, charmHubSchemaCheck bool) (int, error) {
 	// To deploy by revision, the revision number must be in the origin for a charmhub bundle
 	if userCharmURL.Revision != -1 && charmHubSchemaCheck {
-		return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
+		return -1, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
 	}
 
 	if d.revision != -1 {
-		userCharmURL = userCharmURL.WithRevision(d.revision)
+		return d.revision, nil
 	}
-	return userCharmURL, nil
+	return userCharmURL.Revision, nil
 }
 
 func (d *factory) checkPath() error {
@@ -571,6 +571,7 @@ func (dk *localCharmDeployerKind) CreateDeployer(d factory) (Deployer, error) {
 	return &localCharm{
 		deployCharm: d.newDeployCharm(),
 		curl:        dk.curl,
+		base:        dk.base,
 		ch:          dk.ch,
 	}, err
 }

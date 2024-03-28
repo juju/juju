@@ -6,7 +6,7 @@ package relation_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v11/hooks"
+	"github.com/juju/charm/v12/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"

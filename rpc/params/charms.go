@@ -4,8 +4,8 @@
 package params
 
 import (
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/assumes"
+	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v12/assumes"
 )
 
 // ApplicationCharmResults contains a set of ApplicationCharmResults.
@@ -129,10 +129,9 @@ type CharmMeta struct {
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
-
-	Containers map[string]CharmContainer `json:"containers,omitempty"`
-
-	AssumesExpr *assumes.ExpressionTree `json:"assumes-expr,omitempty"`
+	Containers     map[string]CharmContainer    `json:"containers,omitempty"`
+	AssumesExpr    *assumes.ExpressionTree      `json:"assumes-expr,omitempty"`
+	CharmUser      string                       `json:"charm-user,omitempty"`
 }
 
 // Charm holds all the charm data that the client needs.
@@ -200,6 +199,8 @@ type CharmBase struct {
 type CharmContainer struct {
 	Resource string       `json:"resource,omitempty"`
 	Mounts   []CharmMount `json:"mounts,omitempty"`
+	Uid      int          `json:"uid,omitempty"`
+	Gid      int          `json:"gid,omitempty"`
 }
 
 // CharmMount mirrors charm.Mount

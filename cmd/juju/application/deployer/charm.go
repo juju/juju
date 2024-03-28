@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -61,7 +61,7 @@ func (d *deployCharm) deploy(
 	deployAPI DeployerAPI,
 ) (rErr error) {
 	id := d.id
-	charmInfo, err := deployAPI.CharmInfo(id.URL.String())
+	charmInfo, err := deployAPI.CharmInfo(id.URL)
 	if err != nil {
 		return err
 	}
@@ -87,9 +87,10 @@ func (d *deployCharm) deploy(
 			return errors.New("cannot use --num-units or --to with subordinate application")
 		}
 	}
+	charmName := charmInfo.Meta.Name
 	applicationName := d.applicationName
 	if applicationName == "" {
-		applicationName = charmInfo.Meta.Name
+		applicationName = charmName
 	}
 
 	// Process the --config args.
@@ -102,7 +103,7 @@ func (d *deployCharm) deploy(
 		delete(appConfig, app.TrustConfigOptionName)
 	}
 
-	if id.URL != nil && id.URL.Schema != "local" && len(charmInfo.Meta.Terms) > 0 {
+	if len(charmInfo.Meta.Terms) > 0 {
 		ctx.Infof("Deployment under prior agreement to terms: %s",
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
@@ -126,7 +127,7 @@ func (d *deployCharm) deploy(
 		appConfig = nil
 	}
 
-	ctx.Infof(d.formatDeployingText())
+	ctx.Infof(d.formatDeployingText(applicationName, charmName))
 	args := applicationapi.DeployArgs{
 		CharmID:          id,
 		CharmOrigin:      id.Origin,
@@ -174,20 +175,19 @@ func (d *deployCharm) validateCharmFlags() error {
 	return nil
 }
 
-func (d *deployCharm) formatDeployingText() string {
-	curl := d.id.URL
-	name := d.applicationName
-	if name == "" {
-		name = curl.Name
-	}
+func (d *deployCharm) formatDeployingText(applicationName, charmName string) string {
 	origin := d.id.Origin
 	channel := origin.CharmChannel().String()
 	if channel != "" {
 		channel = fmt.Sprintf(" in channel %s", channel)
 	}
+	var revision int
+	if origin.Revision != nil {
+		revision = *origin.Revision
+	}
 
 	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s",
-		name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.String())
+		applicationName, origin.Source, charmName, revision, channel, origin.Base.String())
 }
 
 type predeployedLocalCharm struct {
@@ -248,13 +248,13 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	}
 
 	platform := utils.MakePlatform(d.constraints, base, d.modelConstraints)
-	origin, err := utils.DeduceOrigin(userCharmURL, charm.Channel{}, platform)
+	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	d.id = application.CharmID{
-		URL:    d.userCharmURL,
+		URL:    d.userCharmURL.String(),
 		Origin: origin,
 	}
 	return d.deploy(ctx, deployAPI)
@@ -263,6 +263,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 type localCharm struct {
 	deployCharm
 	curl *charm.URL
+	base corebase.Base
 	ch   charm.Charm
 }
 
@@ -287,22 +288,17 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	base, err := corebase.GetBaseFromSeries(l.curl.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	platform := utils.MakePlatform(l.constraints, base, l.modelConstraints)
-	origin, err := utils.DeduceOrigin(curl, charm.Channel{}, platform)
+	platform := utils.MakePlatform(l.constraints, l.base, l.modelConstraints)
+	// Local charms don't need a channel.
+	origin, err := utils.MakeOrigin(charm.Local, curl.Revision, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	ctx.Infof(formatLocatedText(curl, origin))
 	l.id = application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
-		// Local charms don't need a channel.
 	}
 	return l.deploy(ctx, deployAPI)
 }
@@ -554,7 +550,7 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 	}
 
 	c.id = application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: csOrigin,
 	}
 	return c.deploy(ctx, deployAPI)

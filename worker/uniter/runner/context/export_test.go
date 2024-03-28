@@ -4,7 +4,7 @@
 package context
 
 import (
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -195,6 +195,15 @@ func SetEnvironmentHookContextRelation(context *HookContext, relationId int, end
 // It makes no assumptions about the validity of context.
 func SetEnvironmentHookContextStorage(context *HookContext, storageTag names.StorageTag) {
 	context.storageTag = storageTag
+}
+
+// SetEnvironmentHookContextNotice exists purely to set the fields used in hookVars.
+// It makes no assumptions about the validity of context.
+func SetEnvironmentHookContextNotice(context *HookContext, workloadName, noticeID, noticeType, noticeKey string) {
+	context.workloadName = workloadName
+	context.noticeID = noticeID
+	context.noticeType = noticeType
+	context.noticeKey = noticeKey
 }
 
 func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {

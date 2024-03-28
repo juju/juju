@@ -59,72 +59,37 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 		}),
 		[]string{
 			"agent",
-			"agent-config-updater",
 			"api-address-updater",
 			"api-caller",
 			"api-config-watcher",
-			"api-server",
-			"audit-config-updater",
 			"broker-tracker",
-			"central-hub",
-			"certificate-updater",
-			"certificate-watcher",
-			"change-stream",
 			"charmhub-http-client",
 			"clock",
-			"control-socket",
-			"controller-port",
-			"db-accessor",
 			"deployer",
 			"disk-manager",
-			"external-controller-updater",
 			"fan-configurer",
-			"file-notify-watcher",
 			"host-key-reporter",
-			"http-server",
-			"http-server-args",
 			"instance-mutater",
-			"is-controller-flag",
-			"is-not-controller-flag",
-			"is-primary-controller-flag",
-			"lease-expiry",
-			"lease-manager",
+			"kvm-container-provisioner",
 			"log-sender",
 			"logging-config-updater",
 			"lxd-container-provisioner",
-			"kvm-container-provisioner",
 			"machine-action-runner",
 			"machine-setup",
 			"machiner",
 			"migration-fortress",
-			"migration-minion",
 			"migration-inactive-flag",
-			"model-cache",
-			"model-cache-initialized-flag",
-			"model-cache-initialized-gate",
-			"model-worker-manager",
-			"multiwatcher",
-			"peer-grouper",
-			"presence",
+			"migration-minion",
 			"proxy-config-updater",
-			"pubsub-forwarder",
-			"query-logger",
 			"reboot-executor",
-			"secret-backend-rotate",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
-			"state",
-			"state-config-watcher",
-			"state-converter",
 			"storage-provisioner",
 			"syslog",
 			"termination-signal-handler",
 			"tools-version-checker",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
-			"upgrade-database-flag",
-			"upgrade-database-gate",
-			"upgrade-database-runner",
 			"upgrade-series",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
@@ -142,54 +107,22 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 		}),
 		[]string{
 			"agent",
-			"agent-config-updater",
 			"api-caller",
 			"api-config-watcher",
-			"api-server",
-			"audit-config-updater",
 			"caas-units-manager",
-			"central-hub",
-			"certificate-watcher",
-			"change-stream",
 			"charmhub-http-client",
 			"clock",
-			"control-socket",
-			"controller-port",
-			"db-accessor",
-			"external-controller-updater",
-			"file-notify-watcher",
-			"http-server",
-			"http-server-args",
-			"is-controller-flag",
-			"is-primary-controller-flag",
-			"lease-expiry",
-			"lease-manager",
 			"log-sender",
 			"logging-config-updater",
 			"migration-fortress",
-			"migration-minion",
 			"migration-inactive-flag",
-			"model-cache",
-			"model-cache-initialized-flag",
-			"model-cache-initialized-gate",
-			"model-worker-manager",
-			"multiwatcher",
-			"peer-grouper",
-			"presence",
+			"migration-minion",
 			"proxy-config-updater",
-			"pubsub-forwarder",
-			"query-logger",
-			"secret-backend-rotate",
 			"ssh-identity-writer",
-			"state",
-			"state-config-watcher",
 			"syslog",
 			"termination-signal-handler",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
-			"upgrade-database-flag",
-			"upgrade-database-gate",
-			"upgrade-database-runner",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
 			"upgrade-steps-runner",
@@ -438,20 +371,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"agent": {},
 
-	"agent-config-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"central-hub",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"api-address-updater": {
 		"agent",
 		"api-caller",
@@ -468,37 +387,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"api-config-watcher": {"agent"},
 
-	"api-server": {
-		"agent",
-		"audit-config-updater",
-		"central-hub",
-		"charmhub-http-client",
-		"clock",
-		"controller-port",
-		"db-accessor",
-		"http-server-args",
-		"is-controller-flag",
-		"lease-manager",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
-		"multiwatcher",
-		"query-logger",
-		"state",
-		"state-config-watcher",
-		"syslog",
-		"upgrade-steps-gate",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
-	"audit-config-updater": {
-		"agent",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-	},
-
 	"broker-tracker": {
 		"agent",
 		"api-caller",
@@ -511,59 +399,9 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"central-hub": {"agent", "state-config-watcher"},
-
-	"certificate-updater": {
-		"agent",
-		"certificate-watcher",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"certificate-watcher": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"change-stream": {
-		"agent",
-		"db-accessor",
-		"file-notify-watcher",
-		"is-controller-flag",
-		"query-logger",
-		"state-config-watcher",
-	},
-
 	"charmhub-http-client": {},
 
 	"clock": {},
-
-	"control-socket": {
-		"agent",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-	},
-
-	"controller-port": {
-		"agent",
-		"central-hub",
-		"state",
-		"state-config-watcher",
-	},
-
-	"db-accessor": {
-		"agent",
-		"is-controller-flag",
-		"query-logger",
-		"state-config-watcher",
-	},
 
 	"deployer": {
 		"agent",
@@ -587,21 +425,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"external-controller-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"fan-configurer": {
 		"agent",
 		"api-caller",
@@ -612,12 +435,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"file-notify-watcher": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"host-key-reporter": {
@@ -632,41 +449,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"http-server": {
-		"agent",
-		"api-server",
-		"audit-config-updater",
-		"central-hub",
-		"certificate-watcher",
-		"charmhub-http-client",
-		"clock",
-		"controller-port",
-		"db-accessor",
-		"http-server-args",
-		"is-controller-flag",
-		"lease-manager",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
-		"multiwatcher",
-		"query-logger",
-		"state",
-		"state-config-watcher",
-		"syslog",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-		"upgrade-steps-gate",
-	},
-
-	"http-server-args": {
-		"agent",
-		"central-hub",
-		"clock",
-		"controller-port",
-		"state",
-		"state-config-watcher",
-	},
-
 	"instance-mutater": {
 		"agent",
 		"api-caller",
@@ -678,36 +460,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"is-controller-flag": {"agent", "state-config-watcher"},
-
-	"is-not-controller-flag": {"agent", "state-config-watcher"},
-
-	"is-primary-controller-flag": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"lease-expiry": {
-		"agent",
-		"clock",
-		"db-accessor",
-		"is-controller-flag",
-		"query-logger",
-		"state-config-watcher",
-	},
-
-	"lease-manager": {
-		"agent",
-		"clock",
-		"db-accessor",
-		"is-controller-flag",
-		"query-logger",
-		"state-config-watcher",
 	},
 
 	"log-sender": {
@@ -819,72 +571,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"model-cache": {
-		"agent",
-		"central-hub",
-		"is-controller-flag",
-		"model-cache-initialized-gate",
-		"multiwatcher",
-		"state",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
-	"model-cache-initialized-flag": {
-		"agent",
-		"is-controller-flag",
-		"model-cache-initialized-gate",
-		"state-config-watcher",
-	},
-
-	"model-cache-initialized-gate": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"model-worker-manager": {
-		"agent",
-		"central-hub",
-		"certificate-watcher",
-		"clock",
-		"controller-port",
-		"http-server-args",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-		"syslog",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"multiwatcher": {
-		"agent",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
-	"peer-grouper": {
-		"agent",
-		"central-hub",
-		"clock",
-		"controller-port",
-		"state",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"presence": {"agent", "central-hub", "state-config-watcher"},
-
 	"proxy-config-updater": {
 		"agent",
 		"api-caller",
@@ -897,39 +583,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"pubsub-forwarder": {
-		"agent",
-		"central-hub",
-		"state-config-watcher",
-	},
-
-	"query-logger": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
 	"reboot-executor": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"secret-backend-rotate": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state-config-watcher",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -954,24 +613,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"state": {"agent", "state-config-watcher"},
-
-	"state-config-watcher": {"agent"},
-
-	"state-converter": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-not-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state-config-watcher",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -1010,26 +651,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"upgrade-check-flag": {"upgrade-check-gate"},
 
 	"upgrade-check-gate": {},
-
-	"upgrade-database-flag": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-gate",
-	},
-
-	"upgrade-database-gate": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"upgrade-database-runner": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-gate",
-	},
 
 	"upgrade-series": {
 		"agent",
@@ -1073,180 +694,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"agent": {},
 
-	"agent-config-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"central-hub",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"api-caller": {"agent", "api-config-watcher"},
 
 	"api-config-watcher": {"agent"},
 
-	"api-server": {
-		"agent",
-		"audit-config-updater",
-		"central-hub",
-		"charmhub-http-client",
-		"clock",
-		"controller-port",
-		"db-accessor",
-		"http-server-args",
-		"is-controller-flag",
-		"lease-manager",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
-		"multiwatcher",
-		"query-logger",
-		"state",
-		"state-config-watcher",
-		"syslog",
-		"upgrade-steps-gate",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
-	"audit-config-updater": {
-		"agent",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-	},
-
-	"central-hub": {"agent", "state-config-watcher"},
-
-	"certificate-watcher": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"change-stream": {
-		"agent",
-		"db-accessor",
-		"file-notify-watcher",
-		"is-controller-flag",
-		"query-logger",
-		"state-config-watcher",
-	},
-
 	"charmhub-http-client": {},
 
 	"clock": {},
-
-	"control-socket": {
-		"agent",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-	},
-
-	"controller-port": {
-		"agent",
-		"central-hub",
-		"state",
-		"state-config-watcher",
-	},
-
-	"db-accessor": {
-		"agent",
-		"is-controller-flag",
-		"query-logger",
-		"state-config-watcher",
-	},
-
-	"external-controller-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"file-notify-watcher": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"http-server": {
-		"agent",
-		"api-server",
-		"audit-config-updater",
-		"central-hub",
-		"certificate-watcher",
-		"charmhub-http-client",
-		"clock",
-		"controller-port",
-		"db-accessor",
-		"http-server-args",
-		"is-controller-flag",
-		"lease-manager",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
-		"multiwatcher",
-		"query-logger",
-		"state",
-		"state-config-watcher",
-		"syslog",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-		"upgrade-steps-gate",
-	},
-
-	"http-server-args": {
-		"agent",
-		"central-hub",
-		"clock",
-		"controller-port",
-		"state",
-		"state-config-watcher",
-	},
-
-	"is-controller-flag": {"agent", "state-config-watcher"},
-
-	"is-primary-controller-flag": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"lease-expiry": {
-		"agent",
-		"clock",
-		"db-accessor",
-		"is-controller-flag",
-		"query-logger",
-		"state-config-watcher",
-	},
-
-	"lease-manager": {
-		"agent",
-		"clock",
-		"db-accessor",
-		"is-controller-flag",
-		"query-logger",
-		"state-config-watcher",
-	},
 
 	"log-sender": {
 		"agent",
@@ -1296,105 +750,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"model-cache": {
-		"agent",
-		"central-hub",
-		"is-controller-flag",
-		"model-cache-initialized-gate",
-		"multiwatcher",
-		"state",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
-	"model-cache-initialized-flag": {
-		"agent",
-		"is-controller-flag",
-		"model-cache-initialized-gate",
-		"state-config-watcher",
-	},
-
-	"model-cache-initialized-gate": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"model-worker-manager": {
-		"agent",
-		"central-hub",
-		"certificate-watcher",
-		"clock",
-		"controller-port",
-		"http-server-args",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-		"syslog",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"multiwatcher": {
-		"agent",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
-	"peer-grouper": {
-		"agent",
-		"central-hub",
-		"clock",
-		"controller-port",
-		"state",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"presence": {"agent", "central-hub", "state-config-watcher"},
-
 	"proxy-config-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"pubsub-forwarder": {
-		"agent",
-		"central-hub",
-		"state-config-watcher",
-	},
-
-	"query-logger": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"secret-backend-rotate": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state-config-watcher",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -1413,10 +774,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"state": {"agent", "state-config-watcher"},
-
-	"state-config-watcher": {"agent"},
-
 	"syslog": {},
 
 	"termination-signal-handler": {},
@@ -1424,26 +781,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"upgrade-check-flag": {"upgrade-check-gate"},
 
 	"upgrade-check-gate": {},
-
-	"upgrade-database-flag": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-gate",
-	},
-
-	"upgrade-database-gate": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"upgrade-database-runner": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-gate",
-	},
 
 	"upgrade-steps-flag": {"upgrade-steps-gate"},
 

@@ -15,8 +15,8 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
-	resource "github.com/juju/charm/v11/resource"
+	charm "github.com/juju/charm/v12"
+	resource "github.com/juju/charm/v12/resource"
 	cmd "github.com/juju/cmd/v3"
 	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
@@ -453,7 +453,7 @@ func (mr *MockDeployerAPIMockRecorder) HTTPClient() *gomock.Call {
 }
 
 // ListCharmResources mocks base method.
-func (m *MockDeployerAPI) ListCharmResources(arg0 *charm.URL, arg1 charm0.Origin) ([]resource.Resource, error) {
+func (m *MockDeployerAPI) ListCharmResources(arg0 string, arg1 charm0.Origin) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListCharmResources", arg0, arg1)
 	ret0, _ := ret[0].([]resource.Resource)
@@ -540,6 +540,21 @@ func (m *MockDeployerAPI) Offer(arg0, arg1 string, arg2 []string, arg3, arg4, ar
 func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// RootHTTPClient mocks base method.
+func (m *MockDeployerAPI) RootHTTPClient() (*httprequest.Client, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RootHTTPClient")
+	ret0, _ := ret[0].(*httprequest.Client)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RootHTTPClient indicates an expected call of RootHTTPClient.
+func (mr *MockDeployerAPIMockRecorder) RootHTTPClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHTTPClient", reflect.TypeOf((*MockDeployerAPI)(nil).RootHTTPClient))
 }
 
 // ScaleApplication mocks base method.

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
@@ -1668,7 +1668,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		ExistingContainers:   []string{apiServerContainerName},
 		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
 		//Filesystems: nil,
-		Rootless: true,
+		CharmUser: caas.RunAsNonRoot,
 	}
 	spec, err := controllerApp.ApplicationPodSpec(cfg)
 	if err != nil {

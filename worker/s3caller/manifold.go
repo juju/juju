@@ -8,18 +8,9 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/internal/s3client"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
-}
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
@@ -37,14 +28,14 @@ type ManifoldConfig struct {
 
 	APICallerName string
 
-	NewS3Client func(apiConn api.Connection, agentConfig agent.Config, logger Logger) (Session, error)
+	NewS3Client func(apiConn api.Connection, logger s3client.Logger) (s3client.Session, error)
 
 	// Filter is used to specialize responses to connection errors
 	// made on behalf of different kinds of agent.
 	Filter dependency.FilterFunc
 
 	// Logger is used to write logging statements for the worker.
-	Logger Logger
+	Logger s3client.Logger
 }
 
 // Manifold returns a manifold whose worker wraps an S3 Session.
@@ -62,17 +53,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // manifold config and wraps it in a worker.
 func (config ManifoldConfig) startFunc() dependency.StartFunc {
 	return func(context dependency.Context) (worker.Worker, error) {
-		var agent agent.Agent
-		if err := context.Get(config.AgentName, &agent); err != nil {
-			return nil, err
-		}
-
 		var apiConn api.Connection
 		if err := context.Get(config.APICallerName, &apiConn); err != nil {
 			return nil, err
 		}
 
-		session, err := config.NewS3Client(apiConn, agent.CurrentConfig(), config.Logger)
+		session, err := config.NewS3Client(apiConn, config.Logger)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +74,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *Session:
+	case *s3client.Session:
 		*outPointer = inWorker.session
 	default:
 		return errors.Errorf("out should be *s3caller.Session; got %T", out)

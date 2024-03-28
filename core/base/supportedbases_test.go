@@ -35,6 +35,7 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 			MustParseBaseFromString("kubernetes@kubernetes"),
 			MustParseBaseFromString("ubuntu@20.04/stable"),
 			MustParseBaseFromString("ubuntu@22.04/stable"),
+			MustParseBaseFromString("ubuntu@24.04/stable"),
 		},
 	}, {
 		name:          "requested base",
@@ -47,6 +48,7 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 			MustParseBaseFromString("kubernetes@kubernetes"),
 			MustParseBaseFromString("ubuntu@20.04/stable"),
 			MustParseBaseFromString("ubuntu@22.04/stable"),
+			MustParseBaseFromString("ubuntu@24.04/stable"),
 		},
 	}, {
 		name:          "invalid base",

@@ -7,7 +7,7 @@ import (
 	stderrors "errors"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -64,7 +64,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("ch:a-charm-1"),
+			URL: "ch:a-charm-1",
 		},
 		CharmOrigin: apicharm.Origin{
 			Source: apicharm.OriginCharmHub,
@@ -117,7 +117,7 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("ch:a-charm-1"),
+			URL: "ch:a-charm-1",
 		},
 		CharmOrigin: apicharm.Origin{
 			Source: apicharm.OriginCharmHub,
@@ -266,7 +266,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("ch:application-1"),
+			URL: "ch:application-1",
 			Origin: apicharm.Origin{
 				Source: "charm-hub",
 				Risk:   "edge",
@@ -516,7 +516,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	offer := params.ApplicationOfferDetails{
+	offer := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
 		OfferUUID:              "offer-uuid",
@@ -535,13 +535,13 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 
 	result := new(params.ErrorResults)
 	results := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	args := params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
+	args := params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{
 			{
-				ApplicationAlias:        "alias",
-				ApplicationOfferDetails: offer,
-				Macaroon:                mac,
-				ControllerInfo:          controllerInfo,
+				ApplicationAlias:          "alias",
+				ApplicationOfferDetailsV5: offer,
+				Macaroon:                  mac,
+				ControllerInfo:            controllerInfo,
 			},
 		},
 	}

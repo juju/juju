@@ -69,6 +69,11 @@ const (
 	JujuUserID = 170
 	// JujuGroupID is the juju group id for rootless juju agents.
 	JujuGroupID = 170
+	// JujuSudoUserID is the juju user id for rootless juju agents with sudo.
+	// NOTE: 171 uid/gid must be updated here and in caas/Dockerfile
+	JujuSudoUserID = 171
+	// JujuSudoGroupID is the juju group id for rootless juju agents with sudo.
+	JujuSudoGroupID = 171
 	// JujuFSGroupID is the group id for all fs entries written to k8s volumes.
 	JujuFSGroupID = 170
 )

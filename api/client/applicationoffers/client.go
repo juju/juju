@@ -5,7 +5,7 @@ package applicationoffers
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -83,7 +83,7 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*cr
 		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}
 
-	offers := params.QueryApplicationOffersResults{}
+	offers := params.QueryApplicationOffersResultsV5{}
 	err := c.facade.FacadeCall("ListApplicationOffers", paramsFilter, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -91,7 +91,7 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*cr
 	return convertOffersResultsToModel(offers.Results)
 }
 
-func convertOffersResultsToModel(items []params.ApplicationOfferAdminDetails) ([]*crossmodel.ApplicationOfferDetails, error) {
+func convertOffersResultsToModel(items []params.ApplicationOfferAdminDetailsV5) ([]*crossmodel.ApplicationOfferDetails, error) {
 	result := make([]*crossmodel.ApplicationOfferDetails, len(items))
 	var err error
 	for i, one := range items {
@@ -102,7 +102,7 @@ func convertOffersResultsToModel(items []params.ApplicationOfferAdminDetails) ([
 	return result, nil
 }
 
-func offerParamsToDetails(offer params.ApplicationOfferAdminDetails) (*crossmodel.ApplicationOfferDetails, error) {
+func offerParamsToDetails(offer params.ApplicationOfferAdminDetailsV5) (*crossmodel.ApplicationOfferDetails, error) {
 	eps := make([]charm.Relation, len(offer.Endpoints))
 	for i, ep := range offer.Endpoints {
 		eps[i] = charm.Relation{
@@ -246,7 +246,7 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}
 
-	offers := params.QueryApplicationOffersResults{}
+	offers := params.QueryApplicationOffersResultsV5{}
 	err := c.facade.FacadeCall("FindApplicationOffers", paramsFilter, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)

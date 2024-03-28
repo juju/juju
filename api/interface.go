@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/rpc/params"
 )
 
 // AnonymousUsername is the special username to use for anonymous logins.
@@ -126,9 +127,31 @@ func (info *Info) Validate() error {
 	return nil
 }
 
+// LoginResultParams holds the login result parameters.
+type LoginResultParams struct {
+	tag              names.Tag
+	modelTag         string
+	controllerTag    string
+	modelAccess      string
+	controllerAccess string
+	servers          []network.MachineHostPorts
+	facades          []params.FacadeVersions
+	publicDNSName    string
+	serverVersion    version.Number
+}
+
+// LoginProvider implements a way to log in when connecting to a controller.
+type LoginProvider interface {
+	// Login performs log in when connecting to the controller.
+	Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error)
+}
+
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a controller.
 type DialOpts struct {
+	// LoginProvider performs the log in on the open connection.
+	LoginProvider LoginProvider
+
 	// DialAddressInterval is the amount of time to wait
 	// before starting to dial another address.
 	DialAddressInterval time.Duration
@@ -224,6 +247,14 @@ type DialOption func(*DialOpts)
 func WithDialOpts(newOpts DialOpts) DialOption {
 	return func(opts *DialOpts) {
 		*opts = newOpts
+	}
+}
+
+// WithLoginProvider returns a DialOption that sets the
+// login provider to the one specified.
+func WithLoginProvider(lp LoginProvider) DialOption {
+	return func(opts *DialOpts) {
+		opts.LoginProvider = lp
 	}
 }
 
