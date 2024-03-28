@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -47,7 +46,7 @@ func NewSecretManagerAPIV1(stdCtx context.Context, context facade.ModelContext) 
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
 func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*SecretsManagerAPI, error) {
-	if !ctx.Auth().AuthUnitAgent() && !ctx.Auth().AuthApplicationAgent() {
+	if !ctx.Auth().AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	model, err := ctx.State().Model()
@@ -62,14 +61,16 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 	}
 	cloudService := serviceFactory.Cloud()
 	credentialSerivce := serviceFactory.Credential()
-	secretBackendConfigGetter := func(stdCtx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), true, cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
-	}
+
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce)
 	}
+	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
+	secretBackendConfigGetter := func(stdCtx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), true, secretService, cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
+	}
 	secretBackendDrainConfigGetter := func(stdCtx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), cloudService, credentialSerivce, ctx.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), secretService, cloudService, credentialSerivce, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),
@@ -106,10 +107,10 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 		authTag:             ctx.Auth().GetAuthTag(),
 		authorizer:          ctx.Auth(),
 		leadershipChecker:   leadershipChecker,
-		secretsState:        state.NewSecrets(ctx.State()),
 		watcherRegistry:     ctx.WatcherRegistry(),
-		secretsTriggers:     ctx.State(),
-		secretsConsumer:     ctx.State(),
+		secretService:       secretService,
+		secretsTriggers:     secretService,
+		secretsConsumer:     secretService,
 		clock:               clock.WallClock,
 		controllerUUID:      ctx.State().ControllerUUID(),
 		modelUUID:           ctx.State().ModelUUID(),

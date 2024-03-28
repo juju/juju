@@ -2614,7 +2614,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.TrackLatest) > 0 {
-		result, err := u.SecretsManagerAPI.UpdateTrackedRevisions(changes.TrackLatest)
+		result, err := u.SecretsManagerAPI.UpdateTrackedRevisions(ctx, changes.TrackLatest)
 		if err == nil {
 			err = result.Combine()
 		}

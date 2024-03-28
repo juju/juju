@@ -5,12 +5,16 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -169,6 +173,109 @@ func (s *SecretService) ListUserSecrets(ctx context.Context) ([]*secrets.SecretM
 // If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
 func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int) (secrets.SecretValue, *secrets.ValueRef, error) {
 	return nil, nil, errors.NotFound
+}
+
+// ProcessSecretConsumerLabel takes a secret consumer and a uri and label which have been used to consumer the secret.
+// If the uri is empty, the label and consumer are used to lookup the consumed secret uri.
+// This method returns the resulting uri, and optionally the label to update for the consumer.
+func (s *SecretService) ProcessSecretConsumerLabel(
+	ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner string) (bool, leadership.Token, error),
+) (*secrets.URI, *string, error) {
+	// TODO
+	var modelUUID string
+
+	// label could be the consumer label for consumers or the owner label for owners.
+	var labelToUpdate *string
+	if label != "" && uri != nil {
+		labelToUpdate = &label
+	}
+
+	// For local secrets, check those which may be owned by the caller.
+	if uri == nil || uri.IsLocal(modelUUID) {
+		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(ctx, uri, unitName, label)
+		if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
+			return nil, nil, errors.Trace(err)
+		}
+		if md != nil {
+			// If the label has is to be changed by the secret owner, update the secret metadata.
+			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
+			isOwner := true
+			if labelToUpdate != nil && *labelToUpdate != md.Label {
+				var (
+					token leadership.Token
+					err   error
+				)
+				if isOwner, token, err = checkCallerOwner(md.OwnerTag); err != nil {
+					return nil, nil, errors.Trace(err)
+				}
+				if isOwner {
+					// TODO(secrets) - this should be updated when the consumed revision is looked up
+					// but if the secret is a cross model secret, we get the content from the other
+					// model and don't do the update. The logic should be reworked so local lookups
+					// can ge done in a single txn.
+					// Update the label.
+					_, err := s.UpdateSecret(ctx, uri, UpdateSecretParams{
+						LeaderToken: token,
+						Label:       &label,
+					})
+					if err != nil {
+						return nil, nil, errors.Trace(err)
+					}
+				}
+			}
+			// 1. secrets can be accessed by the owner;
+			// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
+			uri = md.URI
+			// We don't update the consumer label in this case since the label comes
+			// from the owner metadata and we don't want to violate uniqueness checks.
+			if isOwner {
+				labelToUpdate = nil
+			}
+		}
+	}
+
+	if uri == nil {
+		var err error
+		uri, err = s.GetURIByConsumerLabel(ctx, label, SecretConsumer{UnitName: &unitName})
+		if errors.Is(err, errors.NotFound) {
+			return nil, nil, errors.NotFoundf("consumer label %q", label)
+		}
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+	return uri, labelToUpdate, nil
+}
+
+func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context, uri *secrets.URI, unitName, label string) (*secrets.SecretMetadata, error) {
+	notFoundErr := fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
+	if label != "" {
+		notFoundErr = errors.NotFoundf("secret with label %q not found%w", label, errors.Hide(secreterrors.SecretNotFound))
+	}
+
+	appName, err := names.UnitApplication(unitName)
+	if err != nil {
+		// Should never happen.
+		return nil, errors.Trace(err)
+	}
+	owner := CharmSecretOwners{
+		UnitName:        &unitName,
+		ApplicationName: &appName,
+	}
+	metadata, _, err := s.ListCharmSecrets(ctx, owner)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for _, md := range metadata {
+		if uri != nil && md.URI.ID == uri.ID {
+			return md, nil
+		}
+		if label != "" && md.Label == label {
+			return md, nil
+		}
+	}
+	return nil, notFoundErr
 }
 
 // ChangeSecretBackend sets the secret backend where the specified secret revision is stored.

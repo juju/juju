@@ -59,6 +59,7 @@ func newSecretsAPI(context facade.ModelContext) (*SecretsAPI, error) {
 		authTag := model.ModelTag()
 		return secrets.BackendConfigInfo(
 			ctx, secrets.SecretsModel(model), true,
+			serviceFactory.Secret(adminBackendConfigGetter),
 			serviceFactory.Cloud(), serviceFactory.Credential(),
 			[]string{backendID}, false, authTag, leadershipChecker,
 		)

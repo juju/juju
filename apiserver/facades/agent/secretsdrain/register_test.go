@@ -25,7 +25,6 @@ func (s *drainSuite) TestNewSecretManagerAPIPermissionCheck(c *gc.C) {
 
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthUnitAgent().Return(false)
-	authorizer.EXPECT().AuthApplicationAgent().Return(false)
 
 	_, err := secretsdrain.NewSecretsDrainAPI(facadetest.ModelContext{
 		Auth_: authorizer,
