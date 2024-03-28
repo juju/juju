@@ -351,12 +351,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.Manifold(providertracker.ManifoldConfig{
+		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.Manifold(providertracker.ManifoldConfig[environs.Environ]{
 			ProviderServiceFactoryName: providerServiceFactoryName,
-			NewEnviron:                 config.NewEnvironFunc,
-			NewWorker:                  providertracker.NewWorker,
+			NewWorker:                  providertracker.NewWorker[environs.Environ],
 			GetProviderServiceFactory:  providertracker.GetProviderServiceFactory,
 			Logger:                     config.LoggingContext.GetLogger("juju.worker.providertracker"),
+			GetProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+				return config.NewEnvironFunc(ctx, args)
+			}),
 		}))),
 
 		// Everything else should be wrapped in ifResponsible,

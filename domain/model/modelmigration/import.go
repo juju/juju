@@ -15,9 +15,9 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	coreuser "github.com/juju/juju/core/user"
-	usererrors "github.com/juju/juju/domain/access/errors"
-	userservice "github.com/juju/juju/domain/access/service"
-	userstate "github.com/juju/juju/domain/access/state"
+	accesserrors "github.com/juju/juju/domain/access/errors"
+	accessservice "github.com/juju/juju/domain/access/service"
+	accessstate "github.com/juju/juju/domain/access/state"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	domainmodel "github.com/juju/juju/domain/model"
@@ -103,7 +103,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.readOnlyModelService = modelservice.NewModelService(
 		modelstate.NewModelState(scope.ModelDB()),
 	)
-	i.userService = userservice.NewService(userstate.NewState(scope.ControllerDB(), i.logger))
+	i.userService = accessservice.NewService(accessstate.NewState(scope.ControllerDB(), i.logger))
 	i.controllerConfigService = controllerconfigservice.NewService(
 		controllerconfigstate.NewState(scope.ControllerDB()),
 	)
@@ -116,7 +116,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // If model name or uuid are undefined or are not strings in the model config an
 // error satisfying [errors.NotValid] will be returned.
 // If the user specified for the model cannot be found an error satisfying
-// [usererrors.NotFound] will be returned.
+// [accesserrors.NotFound] will be returned.
 func (i importOperation) Execute(ctx context.Context, model description.Model) error {
 	modelName, uuid, err := i.getModelNameAndUUID(model)
 	if err != nil {
@@ -124,9 +124,9 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	}
 
 	user, err := i.userService.GetUserByName(ctx, model.Owner().Name())
-	if errors.Is(err, usererrors.UserNotFound) {
+	if errors.Is(err, accesserrors.UserNotFound) {
 		return fmt.Errorf("cannot import model %q with uuid %q, %w for name %q",
-			modelName, uuid, usererrors.UserNotFound, model.Owner().Name(),
+			modelName, uuid, accesserrors.UserNotFound, model.Owner().Name(),
 		)
 	} else if err != nil {
 		return fmt.Errorf(

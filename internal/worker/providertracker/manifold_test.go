@@ -15,7 +15,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
+	cloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/servicefactory"
 	storage "github.com/juju/juju/internal/storage"
 )
@@ -37,7 +39,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewEnviron = nil
+	cfg.GetProvider = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -53,15 +55,15 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) getConfig() ManifoldConfig {
-	return ManifoldConfig{
+func (s *manifoldSuite) getConfig() ManifoldConfig[environs.Environ] {
+	return ManifoldConfig[environs.Environ]{
 		ProviderServiceFactoryName: "provider-service-factory",
 		Logger:                     s.logger,
-		NewEnviron: func(ctx context.Context, op environs.OpenParams) (environs.Environ, error) {
-			return nil, nil
-		},
-		NewWorker: func(ctx context.Context, cfg Config) (worker.Worker, error) {
+		NewWorker: func(ctx context.Context, cfg Config[environs.Environ]) (worker.Worker, error) {
 			return newStubWorker(), nil
+		},
+		GetProvider: func(ctx context.Context, pcg ProviderConfigGetter) (environs.Environ, cloudspec.CloudSpec, error) {
+			return s.environ, cloudspec.CloudSpec{}, nil
 		},
 		GetProviderServiceFactory: func(getter dependency.Getter, name string) (ServiceFactory, error) {
 			return s.serviceFactory, nil
@@ -95,28 +97,52 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) TestOutput(c *gc.C) {
+func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := &trackerWorker{
-		environ: s.environ,
+	w := &trackerWorker[environs.Environ]{
+		provider: s.environ,
 	}
 
 	var environ environs.Environ
-	err := manifoldOutput(w, &environ)
+	err := manifoldOutput[environs.Environ](w, &environ)
 	c.Check(err, jc.ErrorIsNil)
 
 	var destroyer environs.CloudDestroyer
-	err = manifoldOutput(w, &destroyer)
+	err = manifoldOutput[environs.Environ](w, &destroyer)
 	c.Check(err, jc.ErrorIsNil)
 
 	var registry storage.ProviderRegistry
-	err = manifoldOutput(w, &registry)
+	err = manifoldOutput[environs.Environ](w, &registry)
 	c.Check(err, jc.ErrorIsNil)
 
 	var bob string
-	err = manifoldOutput(w, &bob)
+	err = manifoldOutput[environs.Environ](w, &bob)
 	c.Check(err, gc.ErrorMatches, `expected \*environs.Environ, \*storage.ProviderRegistry, or \*environs.CloudDestroyer, got \*string`)
+}
+
+func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := &trackerWorker[caas.Broker]{
+		provider: s.broker,
+	}
+
+	var broker caas.Broker
+	err := manifoldOutput[caas.Broker](w, &broker)
+	c.Check(err, jc.ErrorIsNil)
+
+	var destroyer environs.CloudDestroyer
+	err = manifoldOutput[caas.Broker](w, &destroyer)
+	c.Check(err, jc.ErrorIsNil)
+
+	var registry storage.ProviderRegistry
+	err = manifoldOutput[caas.Broker](w, &registry)
+	c.Check(err, jc.ErrorIsNil)
+
+	var bob string
+	err = manifoldOutput[caas.Broker](w, &bob)
+	c.Check(err, gc.ErrorMatches, `expected \*caas.Broker, \*storage.ProviderRegistry or \*environs.CloudDestroyer, got \*string`)
 }
 
 type stubWorker struct {
