@@ -96,6 +96,7 @@ require (
 	github.com/moby/sys/mountinfo v0.7.1
 	github.com/oracle/oci-go-sdk/v65 v65.55.0
 	github.com/packethost/packngo v0.28.1
+	github.com/peterh/liner v1.2.1
 	github.com/pkg/sftp v1.13.6
 	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/client_model v0.5.0
