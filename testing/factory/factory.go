@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	coreconfig "github.com/juju/juju/core/config"
@@ -51,15 +52,17 @@ type Factory struct {
 	st                 *state.State
 	prechecker         environs.InstancePrechecker
 	applicationService *applicationservice.Service
+	controllerConfig   controller.Config
 }
 
 var index uint32
 
-func NewFactory(st *state.State, pool *state.StatePool) *Factory {
+func NewFactory(st *state.State, pool *state.StatePool, controllerConfig controller.Config) *Factory {
 	return &Factory{
-		st:         st,
-		pool:       pool,
-		prechecker: state.NoopInstancePrechecker{},
+		st:               st,
+		pool:             pool,
+		prechecker:       state.NoopInstancePrechecker{},
+		controllerConfig: controllerConfig,
 	}
 }
 
@@ -70,11 +73,17 @@ func (f *Factory) WithApplicationService(s *applicationservice.Service) *Factory
 }
 
 // NewFactoryWithPrechecker returns a new factory with the given prechecker.
-func NewFactoryWithPrechecker(st *state.State, pool *state.StatePool, prechecker environs.InstancePrechecker) *Factory {
+func NewFactoryWithPrechecker(
+	st *state.State,
+	pool *state.StatePool,
+	prechecker environs.InstancePrechecker,
+	controllerConfig controller.Config,
+) *Factory {
 	return &Factory{
-		st:         st,
-		pool:       pool,
-		prechecker: prechecker,
+		st:               st,
+		pool:             pool,
+		prechecker:       prechecker,
+		controllerConfig: controllerConfig,
 	}
 }
 
@@ -393,9 +402,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(params.Addresses) > 0 {
-		controllerConfig, err := factory.st.ControllerConfig()
-		c.Assert(err, jc.ErrorIsNil)
-		err = machine.SetProviderAddresses(controllerConfig, params.Addresses...)
+		err = machine.SetProviderAddresses(factory.controllerConfig, params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	current := testing.CurrentVersion()

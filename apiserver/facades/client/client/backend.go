@@ -15,7 +15,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
@@ -40,7 +39,6 @@ type Backend interface {
 	AllRelations() ([]*state.Relation, error)
 	AllSubnets() ([]*state.Subnet, error)
 	Application(string) (Application, error)
-	ControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTag() names.ControllerTag
 	ControllerTimestamp() (*time.Time, error)
@@ -230,7 +228,7 @@ var getStorageState = func(st *state.State) (StorageInterface, error) {
 	return sb, nil
 }
 
-// BlockDeviceGetter instances can fetch block devices for a machine.
-type BlockDeviceGetter interface {
+// BlockDeviceService instances can fetch block devices for a machine.
+type BlockDeviceService interface {
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }

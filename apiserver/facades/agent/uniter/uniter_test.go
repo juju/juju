@@ -378,9 +378,11 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 	})
 
 	// Now set it an try again.
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.machine0.SetProviderAddresses(
 		controllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopePublic)),
@@ -422,9 +424,11 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	})
 
 	// Now set it and try again.
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.machine0.SetProviderAddresses(
 		controllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
@@ -448,9 +452,11 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 // TestNetworkInfoSpaceless is in uniterSuite and not uniterNetworkInfoSuite since we don't want
 // all the spaces set up.
 func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.machine0.SetProviderAddresses(
 		controllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
@@ -1794,9 +1800,11 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.machine0.SetProviderAddresses(
 		controllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
@@ -2798,9 +2806,13 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
+	st := s.ControllerModel(c).State()
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3161,8 +3173,9 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.RelationUnit) {
 	s.makeRemoteWordpress(c)
 
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set mysql's addresses first.
@@ -3173,6 +3186,7 @@ func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.Re
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	st := s.ControllerModel(c).State()
 	eps, err := st.InferEndpoints("mysql", "remote-wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.AddRelation(eps...)
@@ -3213,8 +3227,9 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 
 	thisUniter := s.makeMysqlUniter(c)
 
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set mysql's addresses - no public address.

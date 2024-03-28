@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -169,7 +170,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	// Create a non-empty hosted model.
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
-	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool, jujutesting.FakeControllerConfig()).MakeApplication(c, nil)
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

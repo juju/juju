@@ -210,6 +210,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
+		coretesting.ControllerTag.Id(),
 		s.cloudService,
 		apiservertesting.ConstCredentialGetter(&cred),
 		nil, nil, nil,
@@ -223,6 +224,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	caasCred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	caasApi, err := modelmanager.NewModelManagerAPI(
 		s.caasSt, s.modelExporter, s.ctlrSt,
+		coretesting.ControllerTag.Id(),
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{
 				"k8s-cloud": mockK8sCloud,
@@ -254,6 +256,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
+		coretesting.ControllerTag.Id(),
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": jujutesting.DefaultCloud},
 		},
@@ -719,6 +722,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
+		coretesting.ControllerTag.Id(),
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": jujutesting.DefaultCloud},
 		},
@@ -924,6 +928,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	toolsFinder := common.NewToolsFinder(s.controllerConfigService, configGetter, st, urlGetter, newEnviron, s.store)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		mockCredentialShim{st}, nil, ctlrSt,
+		coretesting.ControllerTag.Id(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		nil, nil, nil,
@@ -949,6 +954,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
+		coretesting.ControllerTag.Id(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		nil, nil, nil,
@@ -971,6 +977,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
+		coretesting.ControllerTag.Id(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		nil, nil, nil,
@@ -1204,6 +1211,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
+		coretesting.ControllerTag.Id(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		nil, nil, nil,
@@ -1262,6 +1270,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
+		coretesting.ControllerTag.Id(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		nil, nil, nil,
@@ -1308,6 +1317,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
+		coretesting.ControllerTag.Id(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		nil, nil, nil,
@@ -1545,7 +1555,7 @@ func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 
 	st := f.MakeModel(c, nil)
 	defer st.Close()
-	stFactory := factory.NewFactory(st, s.StatePool())
+	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
 	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: permission.ReadAccess})
 
 	m, err := st.Model()
@@ -1593,7 +1603,7 @@ func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 	apiUser := names.NewUserTag("bob@remote")
 	s.setAPIUser(c, apiUser)
 
-	stFactory := factory.NewFactory(st, s.StatePool())
+	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
 		User: apiUser.Id(), Access: permission.ReadAccess})
 
@@ -1617,7 +1627,7 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 
 	apiUser := names.NewUserTag("admin@remote")
 	s.setAPIUser(c, apiUser)
-	stFactory := factory.NewFactory(st, s.StatePool())
+	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
 		User: apiUser.Id(), Access: permission.AdminAccess})
 
@@ -1775,6 +1785,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
+		coretesting.ControllerTag.Id(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		nil, nil, nil,

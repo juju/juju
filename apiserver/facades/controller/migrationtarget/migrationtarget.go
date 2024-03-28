@@ -77,20 +77,25 @@ type UpgradeService interface {
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state                           *state.State
-	modelImporter                   ModelImporter
-	externalControllerService       ExternalControllerService
-	cloudService                    common.CloudService
-	upgradeService                  UpgradeService
-	credentialService               credentialcommon.CredentialService
-	credentialValidator             credentialservice.CredentialValidator
-	credentialCallContextGetter     credentialservice.ValidationContextGetter
-	credentialInvalidatorGetter     environscontext.ModelCredentialInvalidatorGetter
-	pool                            *state.StatePool
-	authorizer                      facade.Authorizer
-	presence                        facade.Presence
-	getEnviron                      stateenvirons.NewEnvironFunc
-	getCAASBroker                   stateenvirons.NewCAASBrokerFunc
+	state          *state.State
+	modelImporter  ModelImporter
+	upgradeService UpgradeService
+
+	controllerConfigService     ControllerConfigService
+	externalControllerService   ExternalControllerService
+	cloudService                common.CloudService
+	credentialService           credentialcommon.CredentialService
+	credentialValidator         credentialservice.CredentialValidator
+	credentialCallContextGetter credentialservice.ValidationContextGetter
+	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
+
+	pool       *state.StatePool
+	authorizer facade.Authorizer
+	presence   facade.Presence
+
+	getEnviron    stateenvirons.NewEnvironFunc
+	getCAASBroker stateenvirons.NewCAASBrokerFunc
+
 	requiredMigrationFacadeVersions facades.FacadeVersions
 
 	logDir string
@@ -128,6 +133,7 @@ func NewAPI(
 		state:                           ctx.State(),
 		modelImporter:                   ctx.ModelImporter(),
 		pool:                            ctx.StatePool(),
+		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
 		cloudService:                    cloudService,
 		upgradeService:                  upgradeService,
@@ -515,7 +521,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 
 // CACert returns the certificate used to validate the state connection.
 func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
-	cfg, err := api.state.ControllerConfig()
+	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
 	}

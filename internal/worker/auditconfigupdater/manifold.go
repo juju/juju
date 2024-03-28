@@ -11,18 +11,24 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	coredependency "github.com/juju/juju/core/dependency"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
-	workerstate "github.com/juju/juju/internal/worker/state"
-	"github.com/juju/juju/state"
 )
+
+// GetControllerConfigServiceFunc is a helper function that gets a service from
+// the manifold.
+type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
 // ManifoldConfig holds the information needed to run an
 // auditconfigupdater in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName string
-	StateName string
-	NewWorker func(ConfigSource, auditlog.Config, AuditLogFactory) (worker.Worker, error)
+	AgentName                  string
+	ServiceFactoryName         string
+	NewWorker                  func(ControllerConfigService, auditlog.Config, AuditLogFactory) (worker.Worker, error)
+	GetControllerConfigService GetControllerConfigServiceFunc
 }
 
 // Validate validates the manifold configuration.
@@ -30,11 +36,14 @@ func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if config.StateName == "" {
-		return errors.NotValidf("empty StateName")
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.GetControllerConfigService == nil {
+		return errors.NotValidf("nil GetControllerConfigService")
 	}
 	return nil
 }
@@ -45,16 +54,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.StateName,
+			config.ServiceFactoryName,
 		},
 		Start:  config.start,
 		Output: output,
 	}
-}
-
-// ConfigSourceFromState is patched for testing.
-var ConfigSourceFromState = func(st *state.State) ConfigSource {
-	return st
 }
 
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (_ worker.Worker, err error) {
@@ -67,27 +71,21 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var stTracker workerstate.StateTracker
-	if err := getter.Get(config.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-	_, st, err := stTracker.Use()
+	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer func() {
-		if err != nil {
-			_ = stTracker.Done()
-		}
-	}()
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	logDir := agent.CurrentConfig().LogDir()
 
 	logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
 		return auditlog.NewLogFile(logDir, cfg.MaxSizeMB, cfg.MaxBackups)
 	}
-	configSrc := ConfigSourceFromState(st)
-	auditConfig, err := initialConfig(configSrc)
+	auditConfig, err := initialConfig(controllerConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,11 +93,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		auditConfig.Target = logFactory(auditConfig)
 	}
 
-	w, err := config.NewWorker(configSrc, auditConfig, logFactory)
+	w, err := config.NewWorker(controllerConfigService, auditConfig, logFactory)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+	return w, nil
 }
 
 type withCurrentConfig interface {
@@ -122,11 +120,7 @@ func output(in worker.Worker, out interface{}) error {
 	return nil
 }
 
-func initialConfig(source ConfigSource) (auditlog.Config, error) {
-	cfg, err := source.ControllerConfig()
-	if err != nil {
-		return auditlog.Config{}, errors.Trace(err)
-	}
+func initialConfig(cfg controller.Config) (auditlog.Config, error) {
 	result := auditlog.Config{
 		Enabled:        cfg.AuditingEnabled(),
 		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
@@ -135,4 +129,12 @@ func initialConfig(source ConfigSource) (auditlog.Config, error) {
 		ExcludeMethods: cfg.AuditLogExcludeMethods(),
 	}
 	return result, nil
+}
+
+// GetControllerConfigService is a helper function that gets a service from the
+// manifold.
+func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+		return factory.ControllerConfig()
+	})
 }

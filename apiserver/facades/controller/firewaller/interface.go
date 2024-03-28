@@ -11,7 +11,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -22,7 +21,6 @@ import (
 type State interface {
 	firewall.State
 
-	ControllerConfig() (controller.Config, error)
 	IsController() bool
 	ModelUUID() string
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
@@ -50,10 +48,6 @@ func StateShim(st *state.State, m *state.Model) stateShim {
 type stateShim struct {
 	firewall.State
 	st *state.State
-}
-
-func (st stateShim) ControllerConfig() (controller.Config, error) {
-	return st.st.ControllerConfig()
 }
 
 func (st stateShim) IsController() bool {

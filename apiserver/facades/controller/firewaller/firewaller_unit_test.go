@@ -31,11 +31,12 @@ var _ = gc.Suite(&RemoteFirewallerSuite{})
 type RemoteFirewallerSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockState
-	cc         *mocks.MockControllerConfigAPI
-	api        *firewaller.FirewallerAPI
+	resources               *common.Resources
+	authorizer              *apiservertesting.FakeAuthorizer
+	st                      *mocks.MockState
+	controllerConfigAPI     *mocks.MockControllerConfigAPI
+	controllerConfigService *mocks.MockControllerConfigService
+	api                     *firewaller.FirewallerAPI
 }
 
 func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
@@ -50,19 +51,28 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *RemoteFirewallerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockState(ctrl)
-	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, loggo.GetLogger("juju.apiserver.firewaller"))
+	s.controllerConfigAPI = mocks.NewMockControllerConfigAPI(ctrl)
+	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+
+	api, err := firewaller.NewStateFirewallerAPI(
+		s.st,
+		s.resources,
+		s.authorizer,
+		&mockCloudSpecAPI{},
+		s.controllerConfigAPI,
+		s.controllerConfigService,
+		loggo.GetLogger("juju.apiserver.firewaller"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
 }
 
 func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	db2Relation := newMockRelation(123)
 	s.st.EXPECT().ModelUUID().Return(coretesting.ModelTag.Id()).AnyTimes()
@@ -87,7 +97,7 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
 }
 
 func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	mac, err := jujutesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +118,7 @@ func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
 }
 
 func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	db2Relation := newMockRelation(123)
 	entity := names.NewRelationTag("remote-db2:db django:db")
@@ -136,9 +146,10 @@ type FirewallerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 
-	st  *mocks.MockState
-	cc  *mocks.MockControllerConfigAPI
-	api *firewaller.FirewallerAPI
+	st                      *mocks.MockState
+	controllerConfigAPI     *mocks.MockControllerConfigAPI
+	controllerConfigService *mocks.MockControllerConfigService
+	api                     *firewaller.FirewallerAPI
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -153,25 +164,34 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *FirewallerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockState(ctrl)
-	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, loggo.GetLogger("juju.apiserver.firewaller"))
+	s.controllerConfigAPI = mocks.NewMockControllerConfigAPI(ctrl)
+	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	api, err := firewaller.NewStateFirewallerAPI(
+		s.st,
+		s.resources,
+		s.authorizer,
+		&mockCloudSpecAPI{},
+		s.controllerConfigAPI,
+		s.controllerConfigService,
+		loggo.GetLogger("juju.apiserver.firewaller"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
 }
 
 func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
+
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}))
 
 	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
 	s.st.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
-	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}))
 	s.st.EXPECT().IsController().Return(false)
 
 	rules, err := s.api.ModelFirewallRules(context.Background())
@@ -184,18 +204,18 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
-		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
-	})
-	s.st.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
+	defer s.setupMocks(c).Finish()
 
 	ctrlAttrs := map[string]interface{}{
 		controller.APIPort:            17777,
 		controller.AutocertDNSNameKey: "example.com",
 	}
-	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, ctrlAttrs))
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, ctrlAttrs))
+
+	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
+		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
+	})
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
 	s.st.EXPECT().IsController().Return(true)
 
 	rules, err := s.api.ModelFirewallRules(context.Background())
@@ -214,7 +234,7 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	ch := make(chan struct{}, 1)
@@ -239,7 +259,7 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Set up our mocks
 	mockMachine := newMockMachine("0")
@@ -320,7 +340,7 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Set up our mocks
 	spaceInfos := network.SpaceInfos{

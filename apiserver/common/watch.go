@@ -10,10 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -191,4 +194,69 @@ func (w *MultiNotifyWatcher) Err() error {
 
 func (w *MultiNotifyWatcher) Changes() <-chan struct{} {
 	return w.changes
+}
+
+// StringsNotifyWatcher wraps a corewatcher.StringsWatcher and
+// provides a NotifyWatcher interface.
+type StringsNotifyWatcher struct {
+	catacomb catacomb.Catacomb
+	out      chan struct{}
+	watcher  corewatcher.StringsWatcher
+}
+
+// NewStringsNotifyWatcher creates a new StringsNotifyWatcher.
+func NewStringsNotifyWatcher(watcher corewatcher.StringsWatcher) (*StringsNotifyWatcher, error) {
+	w := StringsNotifyWatcher{
+		watcher: watcher,
+	}
+
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: []worker.Worker{watcher},
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &w, nil
+}
+
+func (w *StringsNotifyWatcher) loop() error {
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case _, ok := <-w.watcher.Changes():
+			if !ok {
+				return nil
+			}
+
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+			case w.out <- struct{}{}:
+			}
+		}
+	}
+}
+
+func (w *StringsNotifyWatcher) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+func (w *StringsNotifyWatcher) Wait() error {
+	return w.catacomb.Wait()
+}
+
+func (w *StringsNotifyWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *StringsNotifyWatcher) Err() error {
+	return w.catacomb.Err()
+}
+
+func (w *StringsNotifyWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
 }

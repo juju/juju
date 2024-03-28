@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -48,7 +49,7 @@ func (s *SSHHostKeysSuite) TestModelIsolation(c *gc.C) {
 
 	stB := s.Factory.MakeModel(c, nil)
 	defer stB.Close()
-	factoryB := factory.NewFactory(stB, s.StatePool)
+	factoryB := factory.NewFactory(stB, s.StatePool, testing.FakeControllerConfig())
 	tagB := factoryB.MakeMachine(c, nil).MachineTag()
 	keysB := state.SSHHostKeys{"rsaB", "dsaB"}
 	c.Assert(stB.SetSSHHostKeys(tagB, keysB), jc.ErrorIsNil)

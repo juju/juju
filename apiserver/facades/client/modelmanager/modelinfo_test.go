@@ -173,6 +173,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		s.st, nil, s.ctlrSt,
+		coretesting.ControllerTag.Id(),
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 		},
@@ -200,6 +201,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		s.st, nil, s.ctlrSt,
+		coretesting.ControllerTag.Id(),
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 		},

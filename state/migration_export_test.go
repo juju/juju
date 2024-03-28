@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -341,7 +342,7 @@ func (s *MigrationExportSuite) TestApplicationsWithRootDiskSourceConstraint(c *g
 }
 
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.State, cons constraints.Value) {
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,7 +488,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 }
 
 func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
-	f := factory.NewFactory(s.State, s.StatePool)
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
 
 	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -714,7 +715,7 @@ func (s *MigrationExportSuite) TestOfferConnections(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
-	f := factory.NewFactory(s.State, s.StatePool)
+	f := factory.NewFactory(s.State, s.StatePool, testing.FakeControllerConfig())
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
@@ -725,7 +726,7 @@ func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
-	f := factory.NewFactory(caasSt, s.StatePool)
+	f := factory.NewFactory(caasSt, s.StatePool, testing.FakeControllerConfig())
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})

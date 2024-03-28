@@ -114,7 +114,7 @@ func (api *API) checkSpaceIsRemovable(
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
-	settingMatches, err := api.getSpaceControllerSettings(space.Name())
+	settingMatches, err := api.getSpaceControllerSettings(context.Background(), space.Name())
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
@@ -203,14 +203,14 @@ func (api *API) entityTagsForSpaceConstraints(spaceName string) ([]names.Tag, er
 	return tags, nil
 }
 
-func (api *API) getSpaceControllerSettings(spaceName string) ([]string, error) {
+func (api *API) getSpaceControllerSettings(ctx context.Context, spaceName string) ([]string, error) {
 	var matches []string
 
 	if !api.backing.IsController() {
 		return matches, nil
 	}
 
-	currentControllerConfig, err := api.backing.ControllerConfig()
+	currentControllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return matches, errors.Trace(err)
 	}

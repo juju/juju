@@ -13,17 +13,14 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/metricobserver"
-	"github.com/juju/juju/controller"
 )
 
 func newObserverFn(
 	agentConfig agent.Config,
-	controllerConfig controller.Config,
 	clock clock.Clock,
 	hub *pubsub.StructuredHub,
 	metricsCollector *apiserver.Collector,
 ) (observer.ObserverFactory, error) {
-
 	var observerFactories []observer.ObserverFactory
 
 	// Common logging of RPC requests

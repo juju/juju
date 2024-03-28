@@ -25,7 +25,6 @@ type State interface {
 // ControllerState provides the subset of controller state
 // required by the CAAS application facade.
 type ControllerState interface {
-	ControllerConfig() (controller.Config, error)
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 

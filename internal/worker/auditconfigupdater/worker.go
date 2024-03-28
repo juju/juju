@@ -4,6 +4,7 @@
 package auditconfigupdater
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -12,27 +13,56 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 )
 
-// ConfigSource lets us get notifications of changes to controller
-// configuration, and then get the changed config. (Primary
-// implementation is State.)
-type ConfigSource interface {
-	WatchControllerConfig() state.NotifyWatcher
-	ControllerConfig() (controller.Config, error)
+const (
+	// States which report the state of the worker.
+	stateStarted = "started"
+	stateChanged = "changed"
+)
+
+// ControllerConfigService is an interface for getting the controller config.
+type ControllerConfigService interface {
+	// ControllerConfig returns the config values for the controller.
+	ControllerConfig(ctx context.Context) (controller.Config, error)
+
+	// Watch returns a watcher that returns keys for any changes to controller
+	// config.
+	Watch() (watcher.StringsWatcher, error)
 }
 
 // AuditLogFactory is a function that will return an audit log given
 // config.
 type AuditLogFactory func(auditlog.Config) auditlog.AuditLog
 
-// New returns a worker that will keep an up-to-date audit log config.
-func New(source ConfigSource, initial auditlog.Config, logFactory AuditLogFactory) (worker.Worker, error) {
+type updater struct {
+	internalStates          chan string
+	catacomb                catacomb.Catacomb
+	controllerConfigService ControllerConfigService
+
+	mu         sync.Mutex
+	current    auditlog.Config
+	logFactory AuditLogFactory
+}
+
+// NewWorker returns a worker that will keep an up-to-date audit log config.
+func NewWorker(controllerConfigService ControllerConfigService, initial auditlog.Config, logFactory AuditLogFactory) (worker.Worker, error) {
+	return newWorker(controllerConfigService, initial, logFactory, nil)
+}
+
+func newWorker(
+	controllerConfigService ControllerConfigService,
+	initial auditlog.Config,
+	logFactory AuditLogFactory,
+	internalStates chan string,
+) (*updater, error) {
 	u := &updater{
-		source:     source,
-		current:    initial,
-		logFactory: logFactory,
+		internalStates:          internalStates,
+		controllerConfigService: controllerConfigService,
+		current:                 initial,
+		logFactory:              logFactory,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -42,14 +72,6 @@ func New(source ConfigSource, initial auditlog.Config, logFactory AuditLogFactor
 		return nil, errors.Trace(err)
 	}
 	return u, nil
-}
-
-type updater struct {
-	mu         sync.Mutex
-	catacomb   catacomb.Catacomb
-	source     ConfigSource
-	current    auditlog.Config
-	logFactory AuditLogFactory
 }
 
 // Kill is part of the worker.Worker interface.
@@ -63,19 +85,27 @@ func (u *updater) Wait() error {
 }
 
 func (u *updater) loop() error {
-	watcher := u.source.WatchControllerConfig()
-	if err := u.catacomb.Add(watcher); err != nil {
+	ctx, cancel := u.scopedContext()
+	defer cancel()
+
+	changes, err := u.watchForConfigChanges(ctx)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Report the initial started state.
+	u.reportInternalState(stateStarted)
+
 	for {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
-		case _, ok := <-watcher.Changes():
+
+		case _, ok := <-changes:
 			if !ok {
 				return errors.Errorf("watcher channel closed")
 			}
-			newConfig, err := u.newConfig()
+			newConfig, err := u.newConfig(ctx)
 			if err != nil {
 				return errors.Annotatef(err, "getting new config")
 			}
@@ -84,8 +114,8 @@ func (u *updater) loop() error {
 	}
 }
 
-func (u *updater) newConfig() (auditlog.Config, error) {
-	cfg, err := u.source.ControllerConfig()
+func (u *updater) newConfig(ctx context.Context) (auditlog.Config, error) {
+	cfg, err := u.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return auditlog.Config{}, errors.Trace(err)
 	}
@@ -96,6 +126,7 @@ func (u *updater) newConfig() (auditlog.Config, error) {
 		MaxBackups:     cfg.AuditLogMaxBackups(),
 		ExcludeMethods: cfg.AuditLogExcludeMethods(),
 	}
+
 	if result.Enabled && u.current.Target == nil {
 		result.Target = u.logFactory(result)
 	} else {
@@ -111,6 +142,9 @@ func (u *updater) update(newConfig auditlog.Config) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.current = newConfig
+
+	// Report the initial started state.
+	u.reportInternalState(stateChanged)
 }
 
 // CurrentConfig returns the updater's up-to-date audit config.
@@ -118,4 +152,37 @@ func (u *updater) CurrentConfig() auditlog.Config {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	return u.current
+}
+
+// watchForConfigChanges starts a watcher for changes to controller config.
+// It returns a channel which will receive events if the watcher fires.
+func (u *updater) watchForConfigChanges(ctx context.Context) (<-chan []string, error) {
+	watcher, err := u.controllerConfigService.Watch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := u.catacomb.Add(watcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Consume the initial events from the watchers. The watcher will
+	// dispatch an initial event when it is created, so we need to consume
+	// that event before we can start watching.
+	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return watcher.Changes(), nil
+}
+
+func (u *updater) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(u.catacomb.Context(context.Background()))
+}
+
+func (u *updater) reportInternalState(state string) {
+	select {
+	case <-u.catacomb.Dying():
+	case u.internalStates <- state:
+	default:
+	}
 }

@@ -270,7 +270,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
 
 	// Add a compatible charm and force it.
@@ -295,7 +295,7 @@ func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
 		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
@@ -972,7 +972,7 @@ func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroyForSidecarApplication(
 		Type: state.ModelTypeCAAS,
 	})
 	s.AddCleanup(func(*gc.C) { _ = st.Close() })
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 	charmDef := `
 name: cockroachdb
 description: foo
@@ -2722,7 +2722,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
@@ -2764,7 +2764,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	agentTools := version.Binary{
@@ -2781,7 +2781,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
@@ -4623,7 +4623,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.caasSt = s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { _ = s.caasSt.Close() })
 
-	f := factory.NewFactory(s.caasSt, s.StatePool)
+	f := factory.NewFactory(s.caasSt, s.StatePool, coretesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 	// Consume the initial construction events from the watchers.
@@ -5044,7 +5044,7 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
@@ -5331,7 +5331,7 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
@@ -5418,7 +5418,7 @@ func (s *ApplicationSuite) addCAASSidecarApplication(c *gc.C) (*state.State, *st
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS,
 	})
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
 
 	charmDef := `
 name: cockroachdb

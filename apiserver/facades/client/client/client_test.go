@@ -61,7 +61,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.mgmtSpace, err = st.AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerService := controllerServiceFactory.ControllerConfig()
+
+	err = controllerService.UpdateControllerConfig(context.Background(), map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -431,7 +434,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, blockDeviceGetter, nil,
+		nil, blockDeviceGetter, nil, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
@@ -511,7 +514,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, blockDeviceGetter, nil,
+		nil, blockDeviceGetter, nil, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
@@ -597,7 +600,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, blockDeviceGetter, nil,
+		nil, blockDeviceGetter, nil, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
