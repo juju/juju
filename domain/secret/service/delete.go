@@ -14,12 +14,13 @@ import (
 )
 
 func (s *SecretService) DeleteCharmSecret(ctx context.Context, uri *secrets.URI, revisions []int, canDelete func(uri *secrets.URI) error) error {
-	panic("implement me")
+	return nil
 }
 
 // DeleteObsoleteUserSecrets deletes any obsolete user secret revisions that are marked as auto-prune.
 func (s *SecretService) DeleteObsoleteUserSecrets(ctx context.Context) error {
-	panic("implement me")
+	// TODO(secrets)
+	return nil
 }
 
 // DeleteUserSecret removes the specified user supplied secret.
@@ -76,7 +77,7 @@ func (s *SecretService) deleteSecret(
 		}
 		if len(revisions) == 0 {
 			// Remove all revisions.
-			revs, err := s.ListSecretRevisions(ctx, uri)
+			revs, err := s.listSecretRevisions(ctx, uri)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -114,5 +115,9 @@ func (s *SecretService) deleteSecret(
 		return errors.Trace(err)
 	}
 
+	panic("implement me")
+}
+
+func (s *SecretService) listSecretRevisions(ctx context.Context, uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error) {
 	panic("implement me")
 }

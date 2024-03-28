@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
@@ -35,9 +36,8 @@ type secretsDrainSuite struct {
 	provider                  *mocks.MockSecretBackendProvider
 	leadership                *mocks.MockChecker
 	token                     *mocks.MockToken
-	secretsMetaState          *mocks.MockSecretsMetaState
+	secretService             *mocks.MockSecretService
 	model                     *mocks.MockModel
-	secretsConsumer           *mocks.MockSecretsConsumer
 	modelConfigChangesWatcher *mocks.MockNotifyWatcher
 
 	authTag names.Tag
@@ -62,9 +62,8 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
 	s.leadership = mocks.NewMockChecker(ctrl)
 	s.token = mocks.NewMockToken(ctrl)
-	s.secretsMetaState = mocks.NewMockSecretsMetaState(ctrl)
+	s.secretService = mocks.NewMockSecretService(ctrl)
 	s.model = mocks.NewMockModel(ctrl)
-	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.modelConfigChangesWatcher = mocks.NewMockNotifyWatcher(ctrl)
 	s.expectAuthUnitAgent()
 
@@ -77,8 +76,7 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 		loggo.GetLogger("juju.apiserver.secretsdrain"),
 		s.leadership,
 		s.model,
-		s.secretsMetaState,
-		s.secretsConsumer,
+		s.secretService,
 		s.watcherRegistry,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -90,16 +88,14 @@ func (s *secretsDrainSuite) expectAuthUnitAgent() {
 }
 
 func (s *secretsDrainSuite) expectSecretAccessQuery(n int) {
-	s.secretsConsumer.EXPECT().SecretAccess(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(uri *coresecrets.URI, entity names.Tag) (coresecrets.SecretRole, error) {
-			if entity.String() == s.authTag.String() {
+	s.secretService.EXPECT().GetSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, uri *coresecrets.URI, accessor secretservice.SecretAccessor) (coresecrets.SecretRole, error) {
+			if accessor.UnitName != nil && *accessor.UnitName == s.authTag.Id() {
 				return coresecrets.RoleView, nil
 			}
-			if s.authTag.Kind() == names.UnitTagKind {
-				appName, _ := names.UnitApplication(s.authTag.Id())
-				if entity.Id() == appName {
-					return coresecrets.RoleManage, nil
-				}
+			appName, _ := names.UnitApplication(s.authTag.Id())
+			if accessor.ApplicationName != nil && *accessor.ApplicationName == appName {
+				return coresecrets.RoleManage, nil
 			}
 			return coresecrets.RoleNone, errors.NotFoundf("role")
 		},
@@ -131,9 +127,11 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 
 	now := time.Now()
 	uri := coresecrets.NewURI()
-	s.secretsMetaState.EXPECT().ListSecrets(
-		state.SecretsFilter{
-			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
+	s.secretService.EXPECT().ListCharmSecrets(
+		gomock.Any(),
+		secretservice.CharmSecretOwners{
+			UnitName:        ptr("mariadb/0"),
+			ApplicationName: ptr("mariadb"),
 		}).Return([]*coresecrets.SecretMetadata{{
 		URI:              uri,
 		OwnerTag:         "application-mariadb",
@@ -142,9 +140,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 		LatestRevision:   666,
 		LatestExpireTime: &now,
 		NextRotateTime:   &now,
-	}}, nil)
-	s.secretsMetaState.EXPECT().SecretGrants(uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{}, nil)
-	s.secretsMetaState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{
+	}}, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			// External backend.
 			Revision: 666,
@@ -164,7 +160,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 				RevisionID: "rev-668",
 			},
 		},
-	}, nil)
+	}}, nil)
 
 	results, err := s.facade.GetSecretsToDrain(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -281,23 +277,23 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 	s.expectSecretAccessQuery(4)
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	s.secretsMetaState.EXPECT().ChangeSecretBackend(
-		state.ChangeSecretBackendParams{
-			Token:    s.token,
-			URI:      uri1,
-			Revision: 666,
+	s.secretService.EXPECT().ChangeSecretBackend(
+		gomock.Any(),
+		uri1, 666,
+		secretservice.ChangeSecretBackendParams{
+			LeaderToken: s.token,
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
 				RevisionID: "rev-666",
 			},
 		},
 	).Return(nil)
-	s.secretsMetaState.EXPECT().ChangeSecretBackend(
-		state.ChangeSecretBackendParams{
-			Token:    s.token,
-			URI:      uri2,
-			Revision: 888,
-			Data:     map[string]string{"foo": "bar"},
+	s.secretService.EXPECT().ChangeSecretBackend(
+		gomock.Any(),
+		uri2, 888,
+		secretservice.ChangeSecretBackendParams{
+			LeaderToken: s.token,
+			Data:        map[string]string{"foo": "bar"},
 		},
 	).Return(nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)

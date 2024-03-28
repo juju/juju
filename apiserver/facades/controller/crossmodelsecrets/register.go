@@ -31,18 +31,30 @@ func Register(registry facade.FacadeRegistry) {
 func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.ModelContext) (*CrossModelSecretsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	serviceFactory := ctx.ServiceFactory()
+
 	leadershipChecker, err := ctx.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cloudService := serviceFactory.Cloud()
+	credentialSerivce := serviceFactory.Credential()
 
+	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
+		return secrets.AdminBackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce)
+	}
+	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
 	secretBackendConfigGetter := func(stdCtx context.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
 		model, closer, err := ctx.StatePool().GetModel(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		defer closer.Release()
-		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), sameController, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(), []string{backendID}, false, consumer, leadershipChecker)
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), sameController, secretService, cloudService, credentialSerivce, []string{backendID}, false, consumer, leadershipChecker)
 	}
 	secretInfoGetter := func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error) {
 		st, err := ctx.StatePool().Get(modelUUID)

@@ -18,8 +18,9 @@ type CreateSecretParams struct {
 
 	// One owner must be non-nil.
 
-	CharmOwner *CharmSecretOwner
-	ModelOwner *string
+	UnitOwner        *string
+	ApplicationOwner *string
+	ModelOwner       *string
 }
 
 // UpdateSecretParams are used to update a secret.
@@ -45,27 +46,30 @@ type SecretAccessParams struct {
 
 // ChangeSecretBackendParams are used to change the backend of a secret.
 type ChangeSecretBackendParams struct {
-	ValueRef *secrets.ValueRef
-	Data     secrets.SecretData
+	LeaderToken leadership.Token
+	ValueRef    *secrets.ValueRef
+	Data        secrets.SecretData
 }
 
 // SecretConsumer represents the consumer of a secret.
-// One of ApplicationName or UnitName must be non nil.
+// Exactly one of ApplicationName or UnitName must be non nil.
 type SecretConsumer struct {
 	ApplicationName *string
 	UnitName        *string
 }
 
 // SecretAccessor represents an entity that can access a secret.
-// One of ApplicationName, UnitName, or ModelUUID must be non nil.
+// Exactly one of ApplicationName, UnitName, or ModelUUID must be non nil.
 type SecretAccessor struct {
 	ApplicationName *string
 	UnitName        *string
 	ModelUUID       *string
 }
 
-// CharmSecretOwner represents the owner of a secret created by a charm.
-type CharmSecretOwner struct {
-	UnitName string
-	Leader   bool
+// CharmSecretOwners represents the owners of a secret created by a charm.
+// At least one owner is required to be non nil.
+// This is used to query or watch secrets for specified owners.
+type CharmSecretOwners struct {
+	UnitName        *string
+	ApplicationName *string
 }
