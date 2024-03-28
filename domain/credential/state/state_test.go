@@ -573,8 +573,8 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 			return err
 		}
 		result, err := tx.ExecContext(ctx, fmt.Sprintf(`
-		INSERT INTO model_metadata (model_uuid, name, owner_uuid, model_type_id, cloud_uuid, cloud_credential_uuid)
-		SELECT %q, %q, %q, 0,
+		INSERT INTO model_metadata (model_uuid, name, owner_uuid, life_id, model_type_id, cloud_uuid, cloud_credential_uuid)
+		SELECT %q, %q, %q, 0, 0,
 			(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`,
 			modelUUID, name, s.userUUID),

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -46,6 +47,12 @@ func (m ModelType) IsValid() bool {
 type Model struct {
 	// Name returns the human friendly name of the model.
 	Name string
+
+	// Life is the current state of the model.
+	// Options are alive, dying, dead. Every model starts as alive, only
+	// during the destruction of the model it transitions to dying and then
+	// dead.
+	Life life.Value
 
 	// UUID is the universally unique identifier of the model.
 	UUID UUID

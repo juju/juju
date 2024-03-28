@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	jujudb "github.com/juju/juju/internal/database"
@@ -152,7 +153,7 @@ func Get(
 	uuid coremodel.UUID,
 ) (coremodel.Model, error) {
 	modelStmt := `
-SELECT md.name, cl.name, cr.name, mt.type, u.uuid, cc.cloud_uuid, cc.name, o.name, ccn.name
+SELECT md.name, cl.name, cr.name, mt.type, u.uuid, cc.cloud_uuid, cc.name, o.name, ccn.name, l.value
 FROM model_metadata AS md
 LEFT JOIN model_list ml ON ml.uuid = md.model_uuid
 LEFT JOIN cloud cl ON cl.uuid = md.cloud_uuid
@@ -162,6 +163,7 @@ LEFT JOIN model_type mt ON mt.id = md.model_type_id
 LEFT JOIN user u ON u.uuid = md.owner_uuid
 LEFT JOIN user o ON o.uuid = cc.owner_uuid
 LEFT JOIN cloud ccn ON ccn.uuid = cc.cloud_uuid
+LEFT JOIN life l ON l.id = md.life_id
 WHERE md.model_uuid = ?
 `
 
@@ -186,6 +188,7 @@ WHERE md.model_uuid = ?
 		&credKey.Name,
 		&credKey.Owner,
 		&credKey.Cloud,
+		&model.Life,
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {
@@ -370,15 +373,16 @@ AND removed = false
 INSERT INTO model_metadata (model_uuid,
                             cloud_uuid,
                             model_type_id,
+							life_id,
                             name,
                             owner_uuid)
-SELECT ?, ?, model_type.id, ?, ?
+SELECT ?, ?, model_type.id, ?, ?, ?
 FROM model_type
 WHERE model_type.type = ?
 `
 
 	res, err := tx.ExecContext(ctx, stmt,
-		uuid, cloudUUID, input.Name, input.Owner, modelType,
+		uuid, cloudUUID, life.Alive, input.Name, input.Owner, modelType,
 	)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
 		return fmt.Errorf("%w for uuid %q", modelerrors.AlreadyExists, uuid)

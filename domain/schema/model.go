@@ -122,20 +122,6 @@ CREATE TABLE annotation_%[1]s (
 	}
 }
 
-func lifeSchema() schema.Patch {
-	return schema.MakePatch(`
-CREATE TABLE life (
-    id    INT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-
-INSERT INTO life VALUES
-    (0, 'alive'), 
-    (1, 'dying'),
-    (2, 'dead');
-`)
-}
-
 func changeLogModelNamespaceSchema() schema.Patch {
 	// Note: These should match exactly the values of the tableNamespaceID
 	// constants above.
