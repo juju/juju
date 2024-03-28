@@ -241,7 +241,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return jujuversion.DefaultSupportedLTS(), nil })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return corebase.GetSeriesFromBase(jujuversion.DefaultSupportedLTSBase()) })
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	// TODO(jam) I don't understand why we shouldn't do this.

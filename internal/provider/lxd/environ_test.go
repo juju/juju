@@ -91,8 +91,8 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 
 	ctx := cmdtesting.Context(c)
 	params := environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
 	result, err := s.Env.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,8 +109,8 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	params := environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
 	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	_, err := s.Env.Bootstrap(ctx, callCtx, params)

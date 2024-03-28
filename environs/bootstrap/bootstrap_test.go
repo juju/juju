@@ -169,7 +169,7 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	env.args.AvailableTools = nil
-	env.args.SupportedBootstrapSeries = nil
+	env.args.SupportedBootstrapBases = nil
 	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
@@ -222,11 +222,11 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *gc.C) {
 	})
 }
 
-func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapBase(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": "focal",
+		"default-base": "ubuntu@20.04",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg
@@ -241,15 +241,15 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
+	c.Check(env.args.BootstrapBase, gc.Equals, jammyBootstrapBase)
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
-func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapFallbackBootstrapBase(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": jujuversion.DefaultSupportedLTS(),
+		"default-base": jujuversion.DefaultSupportedLTSBase().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg
@@ -266,11 +266,11 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
-func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapForcedBootstrapBase(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": "jammy",
+		"default-base": "ubuntu@22.04",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg
@@ -286,7 +286,7 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "focal")
+	c.Check(env.args.BootstrapBase, gc.Equals, focalBootstrapBase)
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -295,26 +295,6 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *gc.C) {
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
 		"default-base": "ubuntu@22.04",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	env.cfg = cfg
-
-	err = bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
-		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:        coretesting.FakeControllerConfig(),
-			AdminSecret:             "admin-secret",
-			CAPrivateKey:            coretesting.CAKey,
-			BootstrapBase:           corebase.MustParseBaseFromString("spock@1"),
-			SupportedBootstrapBases: supportedJujuBases,
-		})
-	c.Assert(err, gc.ErrorMatches, `base "spock@1/stable" not valid`)
-}
-
-func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
-	env := newEnviron("foo", useDefaultKeys, nil)
-	s.setDummyStorage(c, env)
-	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": "jammy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg
@@ -647,7 +627,7 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
+	c.Check(env.args.BootstrapBase, gc.Equals, jammyBootstrapBase)
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -700,7 +680,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
+	c.Check(env.args.BootstrapBase, gc.Equals, jammyBootstrapBase)
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -1480,13 +1460,9 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envc
 		e.instanceConfig = icfg
 		return nil
 	}
-	base := jujuversion.DefaultSupportedLTSBase()
-	if args.BootstrapSeries != "" {
-		var err error
-		base, err = corebase.GetBaseFromSeries(args.BootstrapSeries)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	base := args.BootstrapBase
+	if base.Empty() {
+		base = jujuversion.DefaultSupportedLTSBase()
 	}
 	arch, _ := args.AvailableTools.OneArch()
 	return &environs.BootstrapResult{
