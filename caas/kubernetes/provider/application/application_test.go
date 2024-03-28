@@ -1350,7 +1350,7 @@ func (s *applicationSuite) TestWatchNotsupported(c *gc.C) {
 		return w, nil
 	}
 
-	_, err := app.Watch()
+	_, err := app.Watch(context.Background())
 	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
 }
 
@@ -1363,7 +1363,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 		return w, nil
 	}
 
-	w, err := app.Watch()
+	w, err := app.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

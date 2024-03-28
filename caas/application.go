@@ -16,14 +16,12 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/caas Application
-
 // Application is for interacting with the CAAS substrate.
 type Application interface {
 	Ensure(config ApplicationConfig) error
 	Exists() (DeploymentState, error)
 	Delete() error
-	Watch() (watcher.NotifyWatcher, error)
+	Watch(context.Context) (watcher.NotifyWatcher, error)
 	WatchReplicas() (watcher.NotifyWatcher, error)
 
 	// ApplicationPodSpec returns the pod spec needed to run the application workload.

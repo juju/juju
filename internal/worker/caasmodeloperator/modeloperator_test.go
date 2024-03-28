@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 )
@@ -65,9 +66,9 @@ func (a *dummyAPI) ModelOperatorProvisioningInfo() (modeloperatorapi.ModelOperat
 	return a.provInfo()
 }
 
-func (a *dummyAPI) WatchModelOperatorProvisioningInfo() (watcher.NotifyWatcher, error) {
+func (a *dummyAPI) WatchModelOperatorProvisioningInfo(ctx context.Context) (watcher.NotifyWatcher, error) {
 	if a.watchProvInfo == nil {
-		return watcher.NewMultiNotifyWatcher(), nil
+		return eventsource.NewMultiWatcher[struct{}](ctx)
 	}
 	return a.watchProvInfo()
 }
