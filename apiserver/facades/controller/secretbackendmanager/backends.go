@@ -95,14 +95,9 @@ func (s *SecretBackendsManagerAPI) RotateBackendTokens(ctx context.Context, args
 		}
 
 		s.logger.Debugf("refresh token for backend %v", backendInfo.Name)
-		cfg := &provider.ModelBackendConfig{
-			ControllerUUID: s.controllerUUID,
-			ModelUUID:      s.modelUUID,
-			ModelName:      s.modelName,
-			BackendConfig: provider.BackendConfig{
-				BackendType: backendInfo.BackendType,
-				Config:      backendInfo.Config,
-			},
+		cfg := provider.BackendConfig{
+			BackendType: backendInfo.BackendType,
+			Config:      backendInfo.Config,
 		}
 
 		var nextRotateTime time.Time

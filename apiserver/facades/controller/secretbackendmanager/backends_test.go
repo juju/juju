@@ -107,10 +107,9 @@ type providerWithRefresh struct {
 	provider.SecretBackendProvider
 }
 
-func (providerWithRefresh) RefreshAuth(adminCfg *provider.ModelBackendConfig, validFor time.Duration) (*provider.BackendConfig, error) {
-	result := *adminCfg
-	result.Config["token"] = validFor.String()
-	return &result.BackendConfig, nil
+func (providerWithRefresh) RefreshAuth(cfg provider.BackendConfig, validFor time.Duration) (*provider.BackendConfig, error) {
+	cfg.Config["token"] = validFor.String()
+	return &cfg, nil
 }
 
 func (s *SecretsManagerSuite) TestRotateBackendTokens(c *gc.C) {

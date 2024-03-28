@@ -334,12 +334,12 @@ func (p vaultProvider) newBackendNoMount(cfg *provider.BackendConfig) (*vaultBac
 }
 
 // RefreshAuth implements SupportAuthRefresh.
-func (p vaultProvider) RefreshAuth(adminCfg *provider.ModelBackendConfig, validFor time.Duration) (_ *provider.BackendConfig, err error) {
+func (p vaultProvider) RefreshAuth(backendConfig provider.BackendConfig, validFor time.Duration) (_ *provider.BackendConfig, err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()
 
-	backend, err := p.newBackendNoMount(&adminCfg.BackendConfig)
+	backend, err := p.newBackendNoMount(&backendConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -357,7 +357,6 @@ func (p vaultProvider) RefreshAuth(adminCfg *provider.ModelBackendConfig, validF
 		return nil, errors.Annotate(err, "extracting new auth token")
 	}
 	backend.client.SetToken(tok)
-	cfgCopy := adminCfg.BackendConfig
-	cfgCopy.Config[TokenKey] = tok
-	return &cfgCopy, nil
+	backendConfig.Config[TokenKey] = tok
+	return &backendConfig, nil
 }
