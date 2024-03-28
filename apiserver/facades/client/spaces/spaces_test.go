@@ -17,8 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	netmocks "github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -42,14 +40,123 @@ type APISuite struct {
 
 var _ = gc.Suite(&APISuite{})
 
+func (s *APISuite) TestCreateSpacesFailInvalidTag(c *gc.C) {
+	ctrl, unreg := s.setupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+
+	args := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{
+			{
+				CIDRs:      []string{"10.0.0.0/24", "192.168.0.0/24"},
+				SpaceTag:   "space0",
+				ProviderId: "space-0",
+			},
+		},
+	}
+
+	expected := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{
+					Message: "\"space0\" is not a valid tag",
+				},
+			},
+		},
+	}
+
+	res, err := s.API.CreateSpaces(stdcontext.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.DeepEquals, expected)
+}
+
+func (s *APISuite) TestCreateSpacesFailInvalidCIDR(c *gc.C) {
+	ctrl, unreg := s.setupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+
+	args := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{
+			{
+				CIDRs:      []string{"256.0.0.0/24"},
+				SpaceTag:   "space-0",
+				ProviderId: "space-0",
+			},
+		},
+	}
+
+	expected := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{
+					Message: "\"256.0.0.0/24\" is not a valid CIDR",
+				},
+			},
+		},
+	}
+
+	res, err := s.API.CreateSpaces(stdcontext.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.DeepEquals, expected)
+}
+
+func (s *APISuite) TestCreateSpacesSuccess(c *gc.C) {
+	ctrl, unreg := s.setupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+
+	args := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{
+			{
+				CIDRs:      []string{"10.0.0.0/24", "192.168.0.0/24"},
+				SpaceTag:   "space-0",
+				ProviderId: "prov-space-0",
+			},
+			{
+				CIDRs:      []string{"10.0.1.0/24", "192.168.1.0/24"},
+				SpaceTag:   "space-1",
+				ProviderId: "prov-space-1",
+			},
+		},
+	}
+
+	s.SubnetService.EXPECT().SubnetsByCIDR(gomock.Any(), []string{"10.0.0.0/24", "192.168.0.0/24"}).
+		Return([]network.SubnetInfo{
+			{
+				ID: "subnet-1",
+			},
+			{
+				ID: "subnet-2",
+			},
+		}, nil)
+	s.SubnetService.EXPECT().SubnetsByCIDR(gomock.Any(), []string{"10.0.1.0/24", "192.168.1.0/24"}).
+		Return([]network.SubnetInfo{
+			{
+				ID: "subnet-3",
+			},
+			{
+				ID: "subnet-4",
+			},
+		}, nil)
+	s.SpaceService.EXPECT().AddSpace(gomock.Any(), "0", network.Id("prov-space-0"), []string{"subnet-1", "subnet-2"})
+	s.SpaceService.EXPECT().AddSpace(gomock.Any(), "1", network.Id("prov-space-1"), []string{"subnet-3", "subnet-4"})
+
+	expected := params.ErrorResults{Results: []params.ErrorResult{{}, {}}}
+	res, err := s.API.CreateSpaces(stdcontext.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, jc.DeepEquals, expected)
+}
+
 func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 	ctrl, unreg := s.setupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 
-	s.expectDefaultSpace(ctrl, "default", nil, nil)
+	s.expectDefaultSpace(ctrl, "default", nil)
 	s.expectEndpointBindings(ctrl, "1")
 	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
+
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	expectedApplications := []string{"mysql", "mediawiki"}
 	sort.Strings(expectedApplications)
@@ -86,8 +193,10 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 	defer unreg()
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, "default", bamErr, nil)
+	s.expectDefaultSpace(ctrl, "default", bamErr)
 	args := s.getShowSpaceArg("default")
+
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,12 +210,14 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 	defer unreg()
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, "default", nil, bamErr)
+	s.expectDefaultSpace(ctrl, "default", bamErr)
 	args := s.getShowSpaceArg("default")
+
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("fetching subnets: %v", bamErr.Error())
+	expectedErr := fmt.Sprintf("fetching space \"space-default\": %v", bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
@@ -116,8 +227,9 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 	defer unreg()
 
 	expErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, "default", nil, nil)
+	s.expectDefaultSpace(ctrl, "default", nil)
 	s.Backing.EXPECT().AllEndpointBindings().Return(nil, expErr)
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	args := s.getShowSpaceArg("default")
 
@@ -133,9 +245,11 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 	defer unreg()
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, "default", nil, nil)
+	s.expectDefaultSpace(ctrl, "default", nil)
 	s.expectEndpointBindings(ctrl, "1")
 	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
+
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	args := s.getShowSpaceArg("default")
 	res, err := s.API.ShowSpace(stdcontext.Background(), args)
@@ -149,7 +263,7 @@ func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 
-	s.expectDefaultSpace(ctrl, "blub", nil, nil)
+	s.expectDefaultSpace(ctrl, "blub", nil)
 
 	from, to := "bla", "blub"
 	args := s.getRenameArgs(from, to)
@@ -167,7 +281,7 @@ func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, to, bamErr, nil)
+	s.expectDefaultSpace(ctrl, to, bamErr)
 
 	args := s.getRenameArgs(from, to)
 
@@ -184,8 +298,14 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf(""), nil)
+	s.expectDefaultSpace(ctrl, to, errors.NotFoundf(""))
 	args := s.getRenameArgs(from, to)
+
+	fromSpace := &network.SpaceInfo{
+		ID: "space-bla",
+	}
+	s.SpaceService.EXPECT().SpaceByName(gomock.Any(), "bla").Return(fromSpace, nil)
+	s.SpaceService.EXPECT().UpdateSpace(gomock.Any(), fromSpace.ID, "blub").Return(nil)
 
 	s.OpFactory.EXPECT().NewRenameSpaceOp(from, to).Return(nil, bamErr)
 
@@ -214,9 +334,15 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 	from, to := "bla", "blub"
 
 	s.OpFactory.EXPECT().NewRenameSpaceOp(from, to).Return(s.renameSpaceOp, nil)
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
+	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"))
 	s.Backing.EXPECT().ApplyOperation(s.renameSpaceOp).Return(nil)
 	args := s.getRenameArgs(from, to)
+
+	fromSpace := &network.SpaceInfo{
+		ID: "space-bla",
+	}
+	s.SpaceService.EXPECT().SpaceByName(gomock.Any(), "bla").Return(fromSpace, nil)
+	s.SpaceService.EXPECT().UpdateSpace(gomock.Any(), fromSpace.ID, "blub").Return(nil)
 
 	res, err := s.API.RenameSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,15 +366,21 @@ func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 	ctrl, unreg := s.setupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
-	space := "myspace"
-	args, tag := s.getRemoveArgs(space, false)
+	spaceTag := "myspace"
+	args, tag := s.getRemoveArgs(spaceTag, false)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectDefaultSpace(ctrl, spaceTag, nil)
 	s.expectEndpointBindings(ctrl, "2")
-	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.Backing.EXPECT().ConstraintsBySpaceName(spaceTag).Return(nil, nil)
 	s.Backing.EXPECT().IsController().Return(false)
-	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
-	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
+
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
+	space := &network.SpaceInfo{
+		ID:   "my-space-id",
+		Name: "myspace",
+	}
+	s.SpaceService.EXPECT().SpaceByName(gomock.Any(), tag.Id()).Return(space, nil)
+	s.SpaceService.EXPECT().Remove(gomock.Any(), space.ID)
 
 	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
@@ -260,18 +392,24 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	ctrl, unreg := s.setupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
-	space := "myspace"
-	args, tag := s.getRemoveArgs(space, false)
+	spaceTag := "myspace"
+	args, tag := s.getRemoveArgs(spaceTag, false)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectDefaultSpace(ctrl, spaceTag, nil)
 	s.expectEndpointBindings(ctrl, "2")
 
 	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(nil, nil)
 
-	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
 	s.Backing.EXPECT().IsController().Return(true)
-	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
-	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
+	s.Backing.EXPECT().ConstraintsBySpaceName(spaceTag).Return(nil, nil)
+
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
+	space := &network.SpaceInfo{
+		ID:   "my-space-id",
+		Name: "myspace",
+	}
+	s.SpaceService.EXPECT().SpaceByName(gomock.Any(), tag.Id()).Return(space, nil)
+	s.SpaceService.EXPECT().Remove(gomock.Any(), space.ID)
 
 	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
@@ -286,7 +424,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space, false)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectDefaultSpace(ctrl, space, nil)
 	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(false)
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
@@ -303,6 +441,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 		ControllerSettings: nil,
 		Error:              nil,
 	}}}
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
@@ -314,23 +453,24 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 	ctrl, unreg := s.setupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
-	space := "myspace"
-	args, _ := s.getRemoveArgs(space, false)
+	spaceName := "myspace"
+	args, _ := s.getRemoveArgs(spaceName, false)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectDefaultSpace(ctrl, spaceName, nil)
 	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().IsController().Return(true)
 
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: spaceName})
 	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
-
-	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName).Return(nil, nil)
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings:           nil,
 		Constraints:        nil,
 		ControllerSettings: []string{controller.JujuManagementSpace},
 		Error:              nil,
 	}}}
+
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
@@ -345,7 +485,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space, false)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectDefaultSpace(ctrl, space, nil)
 	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().IsController().Return(false)
 
@@ -365,6 +505,8 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 		Error:              nil,
 	}}}
 
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
+
 	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,7 +523,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space, false)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectDefaultSpace(ctrl, space, nil)
 	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(true)
 
@@ -410,6 +552,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 		ControllerSettings: []string{controller.JujuManagementSpace},
 		Error:              nil,
 	}}}
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
@@ -424,19 +567,25 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 	ctrl, unreg := s.setupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
-	space := "myspace"
-	args, tag := s.getRemoveArgs(space, true)
+	spaceTag := "myspace"
+	args, tag := s.getRemoveArgs(spaceTag, true)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectDefaultSpace(ctrl, spaceTag, nil)
 	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(true)
 
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: spaceTag})
 	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
-	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
-	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
 
-	_, _ = s.expectAllTags(space)
+	s.SpaceService.EXPECT().GetAllSpaces(gomock.Any())
+	space := &network.SpaceInfo{
+		ID:   "my-space-id",
+		Name: "myspace",
+	}
+	s.SpaceService.EXPECT().SpaceByName(gomock.Any(), tag.Id()).Return(space, nil)
+	s.SpaceService.EXPECT().Remove(gomock.Any(), space.ID)
+
+	_, _ = s.expectAllTags(spaceTag)
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}}
 
@@ -520,7 +669,7 @@ func (s *APISuite) expectEndpointBindings(ctrl *gomock.Controller, spaceID strin
 }
 
 // expectDefaultSpace configures a default space mock with default subnet settings
-func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spacesErr, subnetErr error) {
+func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spacesErr error) {
 	backingSubnets := network.SubnetInfos{{
 		ProviderId:        network.Id("0"),
 		ProviderNetworkId: network.Id("1"),
@@ -531,20 +680,16 @@ func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spac
 		SpaceID:           "1",
 		Life:              life.Value("alive"),
 	}}
-	backingSpaceInfo := network.SpaceInfo{
+
+	backingSpaceInfo := &network.SpaceInfo{
 		ID:      "1",
 		Name:    network.SpaceName(name),
 		Subnets: backingSubnets,
 	}
-
-	spacesMock := netmocks.NewMockBackingSpace(ctrl)
-	spacesMock.EXPECT().Id().Return("1").AnyTimes()
-	spacesMock.EXPECT().Name().Return(name).AnyTimes()
-	spacesMock.EXPECT().NetworkSpace().Return(backingSpaceInfo, subnetErr).AnyTimes()
 	if spacesErr != nil {
-		s.Backing.EXPECT().SpaceByName(name).Return(nil, spacesErr)
+		s.SpaceService.EXPECT().SpaceByName(gomock.Any(), name).Return(nil, spacesErr)
 	} else {
-		s.Backing.EXPECT().SpaceByName(name).Return(spacesMock, nil)
+		s.SpaceService.EXPECT().SpaceByName(gomock.Any(), name).Return(backingSpaceInfo, nil)
 	}
 }
 
@@ -607,10 +752,6 @@ func (sb *stubBacking) ControllerConfig() (controller.Config, error) {
 	panic("should not be called")
 }
 
-func (sb *stubBacking) SpaceByName(_ string) (networkingcommon.BackingSpace, error) {
-	panic("should not be called")
-}
-
 func (sb *stubBacking) AllEndpointBindings() (map[string]spaces.Bindings, error) {
 	panic("should not be called")
 }
@@ -620,14 +761,6 @@ func (sb *stubBacking) AllMachines() ([]spaces.Machine, error) {
 }
 
 func (sb *stubBacking) AllConstraints() ([]spaces.Constraints, error) {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) MovingSubnet(string) (spaces.MovingSubnet, error) {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) AllSpaceInfos() (network.SpaceInfos, error) {
 	panic("should not be called")
 }
 
@@ -642,7 +775,9 @@ type LegacySuite struct {
 	auth      apiservertesting.FakeAuthorizer
 	facade    *spaces.API
 
-	blockChecker mockBlockChecker
+	blockChecker  mockBlockChecker
+	SpaceService  *spaces.MockSpaceService
+	SubnetService *spaces.MockSubnetService
 }
 
 var _ = gc.Suite(&LegacySuite{})
@@ -650,6 +785,10 @@ var _ = gc.Suite(&LegacySuite{})
 func (s *LegacySuite) SetUpSuite(c *gc.C) {
 	s.StubNetwork.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
+
+	ctrl := gomock.NewController(c)
+	s.SpaceService = spaces.NewMockSpaceService(ctrl)
+	s.SubnetService = spaces.NewMockSubnetService(ctrl)
 }
 
 func (s *LegacySuite) TearDownSuite(c *gc.C) {
@@ -680,6 +819,8 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
 		Resources:                   s.resources,
 		Authorizer:                  s.auth,
+		SpaceService:                s.SpaceService,
+		SubnetService:               s.SubnetService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -720,173 +861,6 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	c.Assert(facade, gc.IsNil)
 	// No calls so far.
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
-}
-
-type checkAddSpacesParams struct {
-	Name       string
-	Subnets    []string
-	Error      string
-	MakesCall  bool
-	ProviderId string
-}
-
-func (s *LegacySuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
-	arg := params.CreateSpaceParams{
-		ProviderId: p.ProviderId,
-	}
-	if p.Name != "" {
-		arg.SpaceTag = "space-" + p.Name
-	}
-	if len(p.Subnets) > 0 {
-		arg.CIDRs = p.Subnets
-	}
-
-	args := params.CreateSpacesParams{
-		Spaces: []params.CreateSpaceParams{arg},
-	}
-
-	results, err := s.facade.CreateSpaces(stdcontext.Background(), args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	if p.Error == "" {
-		c.Assert(results.Results[0].Error, gc.IsNil)
-	} else {
-		c.Assert(results.Results[0].Error, gc.NotNil)
-		c.Assert(results.Results[0].Error, gc.ErrorMatches, p.Error)
-	}
-
-	// If we have an expected error, no calls to SubnetByCIDR() nor
-	// AddSpace() should be made.  Check the methods called and
-	// return.  The exception is TestAddSpacesAPIError cause an
-	// error after SubnetByCIDR() is called.
-	if p.Error != "" && !subnetCallMade() {
-		apiservertesting.SharedStub.CheckCallNames(c,
-			"ModelConfig",
-			"CloudSpec",
-			"Open",
-			"SupportsSpaces",
-		)
-		apiservertesting.SharedStub.CheckCall(c, 2, "Open", apiservertesting.BackingInstance.EnvConfig)
-		return
-	}
-
-	var allCalls []jtesting.StubCall
-	var subnetIDs []string
-	for _, cidr := range p.Subnets {
-		allCalls = append(allCalls, jtesting.StubCall{FuncName: "SubnetByCIDR", Args: []any{cidr}})
-		for _, fakeSN := range apiservertesting.BackingInstance.Subnets {
-			if fakeSN.CIDR() == cidr {
-				subnetIDs = append(subnetIDs, fakeSN.ID())
-			}
-		}
-	}
-
-	// Only add the call to AddSpace() if there are no errors
-	// which have continued to this point.
-	if p.Error == "" {
-		allCalls = append(allCalls, jtesting.StubCall{FuncName: "AddSpace", Args: []any{p.Name, network.Id(p.ProviderId), subnetIDs}})
-	}
-	if len(allCalls) == 0 {
-		return
-	}
-	remainingCalls := apiservertesting.SharedStub.Calls()[4:]
-	c.Assert(remainingCalls, jc.DeepEquals, allCalls)
-}
-
-func subnetCallMade() bool {
-	for _, call := range apiservertesting.SharedStub.Calls() {
-		if call.FuncName == "SubnetByCIDR" {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *LegacySuite) TestAddSpacesOneSubnet(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "foo",
-		Subnets: []string{"10.10.0.0/24"},
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesTwoSubnets(c *gc.C) {
-	apiservertesting.BackingInstance.AdditionalSubnets()
-	p := checkAddSpacesParams{
-		Name:    "foo",
-		Subnets: []string{"10.10.0.0/24", "10.0.2.0/24"},
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesManySubnets(c *gc.C) {
-	apiservertesting.BackingInstance.AdditionalSubnets()
-	p := checkAddSpacesParams{
-		Name: "foo",
-		Subnets: []string{"10.10.0.0/24", "10.0.2.0/24",
-			"10.0.3.0/24", "10.0.4.0/24"},
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesCreateInvalidSpace(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "-",
-		Subnets: []string{"10.0.0.0/24"},
-		Error:   `"space--" is not a valid space tag`,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesCreateInvalidCIDR(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "foo",
-		Subnets: []string{"bar"},
-		Error:   `"bar" is not a valid CIDR`,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesProviderId(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:       "foo",
-		Subnets:    []string{"10.10.0.0/24"},
-		ProviderId: "foobar",
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesEmptySpaceName(c *gc.C) {
-	p := checkAddSpacesParams{
-		Subnets: []string{"10.0.0.0/24"},
-		Error:   `"" is not a valid tag`,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesNoSubnets(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "foo",
-		Subnets: nil,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesAPIError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		nil,                                // Backing.ModelConfig()
-		nil,                                // Backing.CloudSpec()
-		nil,                                // Provider.Open()
-		nil,                                // ZonedNetworkingEnviron.SupportsSpaces()
-		errors.AlreadyExistsf("space-foo"), // Backing.AddSpace()
-	)
-	p := checkAddSpacesParams{
-		Name:      "foo",
-		Subnets:   []string{"10.10.0.0/24"},
-		MakesCall: true,
-		Error:     "space-foo already exists",
-	}
-	s.checkAddSpaces(c, p)
 }
 
 func (s *LegacySuite) TestShowSpaceError(c *gc.C) {

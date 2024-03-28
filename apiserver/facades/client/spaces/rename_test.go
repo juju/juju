@@ -58,7 +58,7 @@ func (s *SpaceRenameSuite) TestBuildSuccess(c *gc.C) {
 	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.controllerConfigService, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ops, gc.HasLen, 4)
+	c.Assert(ops, gc.HasLen, 3)
 }
 
 func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
@@ -66,7 +66,6 @@ func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
 
 	toName := "external"
 
-	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
 	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return([]spaces.Constraints{s.cons1, s.cons2}, nil)
 	s.cons1.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 	s.cons2.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
@@ -74,7 +73,7 @@ func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
 	op := spaces.NewRenameSpaceOp(false, s.settings, s.state, s.controllerConfigService, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ops, gc.HasLen, 3)
+	c.Assert(ops, gc.HasLen, 2)
 }
 
 func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *gc.C) {
@@ -82,7 +81,6 @@ func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *gc.C) {
 
 	toName := "external"
 
-	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
 	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return(nil, nil)
 
 	bamErr := errors.New("bam")
@@ -99,7 +97,6 @@ func (s *SpaceRenameSuite) TestBuildConstraintsRetrievalError(c *gc.C) {
 	toName := "external"
 	bamErr := errors.New("bam")
 
-	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
 	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return(nil, bamErr)
 
 	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.controllerConfigService, s.space, toName)

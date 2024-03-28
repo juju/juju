@@ -12,14 +12,8 @@ import (
 // OpFactory describes a source of model operations
 // required by the spaces API.
 type OpFactory interface {
-	// NewRemoveSpaceOp returns an operation for removing a space.
-	NewRemoveSpaceOp(fromName string) (state.ModelOperation, error)
-
 	// NewRenameSpaceOp returns an operation for renaming a space.
 	NewRenameSpaceOp(spaceName, toName string) (state.ModelOperation, error)
-
-	// NewMoveSubnetsOp returns an operation for updating a space with new CIDRs.
-	NewMoveSubnetsOp(spaceID string, subnets []MovingSubnet) (MoveSubnetsOp, error)
 }
 
 type opFactory struct {
@@ -32,16 +26,6 @@ func newOpFactory(st *state.State, controllerConfigService ControllerConfigServi
 		st:                      st,
 		controllerConfigService: controllerConfigService,
 	}
-}
-
-// NewRemoveSpaceOp (OpFactory) returns an operation
-// for removing a space.
-func (f *opFactory) NewRemoveSpaceOp(spaceName string) (state.ModelOperation, error) {
-	space, err := f.st.SpaceByName(spaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewRemoveSpaceOp(space), nil
 }
 
 // NewRenameSpaceOp (OpFactory) returns an operation
@@ -59,14 +43,4 @@ func (f *opFactory) NewRenameSpaceOp(fromName, toName string) (state.ModelOperat
 		space,
 		toName,
 	), nil
-}
-
-// NewMoveSubnetsOp (OpFactory) returns an operation
-// to move a list of subnets to a space.
-func (f *opFactory) NewMoveSubnetsOp(spaceName string, subnets []MovingSubnet) (MoveSubnetsOp, error) {
-	space, err := f.st.SpaceByName(spaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewMoveSubnetsOp(f.st, space.Id(), subnets), nil
 }
