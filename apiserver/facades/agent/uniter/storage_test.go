@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -578,7 +578,7 @@ func (s *watchStorageAttachmentSuite) testWatchStorageAttachment(c *gc.C, change
 		s.unitTag,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 	change()
 	wc.AssertOneChange()

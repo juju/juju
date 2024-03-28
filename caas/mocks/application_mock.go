@@ -217,18 +217,18 @@ func (mr *MockApplicationMockRecorder) UpdateService(arg0 any) *gomock.Call {
 }
 
 // Watch mocks base method.
-func (m *MockApplication) Watch() (watcher.Watcher[struct{}], error) {
+func (m *MockApplication) Watch(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Watch")
+	ret := m.ctrl.Call(m, "Watch", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Watch indicates an expected call of Watch.
-func (mr *MockApplicationMockRecorder) Watch() *gomock.Call {
+func (mr *MockApplicationMockRecorder) Watch(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockApplication)(nil).Watch))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockApplication)(nil).Watch), arg0)
 }
 
 // WatchReplicas mocks base method.
