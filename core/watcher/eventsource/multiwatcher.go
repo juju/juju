@@ -1,0 +1,117 @@
+// Copyright 2024 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package eventsource
+
+import (
+	"context"
+
+	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
+)
+
+// MultiWatcher implements Watcher, combining multiple Watchers.
+type MultiWatcher[T any] struct {
+	catacomb         catacomb.Catacomb
+	staging, changes chan T
+}
+
+// NewMultiNotifyWatcher creates a NotifyWatcher that combines
+// each of the NotifyWatchers passed in. Each watcher's initial
+// event is consumed, and a single initial event is sent.
+// Subsequent events are not coalesced.
+func NewMultiWatcher[T any](ctx context.Context, watchers ...Watcher[T]) (*MultiWatcher[T], error) {
+	workers := make([]worker.Worker, len(watchers))
+	for i, w := range watchers {
+		_, err := ConsumeInitialEvent[T](ctx, w)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		workers[i] = w
+	}
+
+	w := &MultiWatcher[T]{
+		staging: make(chan T),
+		changes: make(chan T),
+	}
+
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: workers,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for _, watcher := range watchers {
+		// Copy events from the watcher to the staging channel.
+		go w.copyEvents(w.staging, watcher.Changes())
+	}
+
+	return w, nil
+}
+
+// loop copies events from the input channel to the output channel,
+// coalescing events by waiting a short time between receiving and
+// sending.
+func (w *MultiWatcher[T]) loop() error {
+	defer close(w.changes)
+
+	out := w.changes
+	var values T
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case values = <-w.staging:
+			out = w.changes
+		case out <- values:
+			out = nil
+		}
+	}
+}
+
+// copyEvents copies channel events from "in" to "out", coalescing.
+func (w *MultiWatcher[T]) copyEvents(out chan<- T, in <-chan T) {
+	var (
+		outC   chan<- T
+		values T
+		ok     bool
+	)
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return
+		case values, ok = <-in:
+			if !ok {
+				return
+			}
+			outC = out
+		case outC <- values:
+			outC = nil
+		}
+	}
+}
+
+func (w *MultiWatcher[T]) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+func (w *MultiWatcher[T]) Wait() error {
+	return w.catacomb.Wait()
+}
+
+func (w *MultiWatcher[T]) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *MultiWatcher[T]) Err() error {
+	return w.catacomb.Err()
+}
+
+func (w *MultiWatcher[T]) Changes() <-chan T {
+	return w.changes
+}
