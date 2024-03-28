@@ -195,3 +195,24 @@ func (s *serviceSuite) TestReadAllUserAccessForUser(c *gc.C) {
 		"testme")
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *serviceSuite) TestReadAllAccessForUserAndObjectType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().ReadAllAccessForUserAndObjectType(gomock.Any(), "testme", corepermission.Cloud).Return(nil, nil)
+
+	_, err := NewPermissionService(s.state).ReadAllAccessForUserAndObjectType(
+		context.Background(),
+		"testme",
+		corepermission.Cloud)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestReadAllAccessForUserAndObjectTypeError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewPermissionService(s.state).ReadAllAccessForUserAndObjectType(
+		context.Background(),
+		"testme",
+		"failme")
+	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
+}

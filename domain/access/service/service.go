@@ -159,9 +159,9 @@ type PermissionState interface {
 	ReadAllUserAccessForTarget(ctx context.Context, target permission.ID) ([]permission.UserAccess, error)
 
 	// ReadAllAccessTypeForUser return a slice of user access for the subject
-	// (user) specified and of the given access type.
+	// (user) specified and of the given object type.
 	// E.G. All clouds the user has access to.
-	ReadAllAccessTypeForUser(ctx context.Context, subject string, accessType permission.ObjectType) ([]permission.UserAccess, error)
+	ReadAllAccessForUserAndObjectType(ctx context.Context, subject string, objectType permission.ObjectType) ([]permission.UserAccess, error)
 }
 
 // Service provides the API for working with users.

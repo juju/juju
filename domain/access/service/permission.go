@@ -107,18 +107,18 @@ func (s *PermissionService) ReadAllUserAccessForUser(ctx context.Context, subjec
 }
 
 // ReadAllAccessTypeForUser return a slice of user access for the user
-// specified and of the given access type. A NotValid error is returned if
+// specified and of the given object type. A NotValid error is returned if
 // the given access type does not exist, or the subject (user) is an empty
 // string.
 // E.G. All clouds the user has access to.
-func (s *PermissionService) ReadAllAccessTypeForUser(ctx context.Context, subject string, accessType corepermission.ObjectType) ([]corepermission.UserAccess, error) {
+func (s *PermissionService) ReadAllAccessForUserAndObjectType(ctx context.Context, subject string, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error) {
 	if subject == "" {
 		return nil, errors.Trace(errors.NotValidf("empty subject"))
 	}
-	if err := accessType.Validate(); err != nil {
+	if err := objectType.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	userAccess, err := s.st.ReadAllAccessTypeForUser(ctx, subject, accessType)
+	userAccess, err := s.st.ReadAllAccessForUserAndObjectType(ctx, subject, objectType)
 	return userAccess, errors.Trace(err)
 }
 
