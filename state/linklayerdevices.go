@@ -597,24 +597,33 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 	// Include a single address without an IP, but with a CIDR
 	// to indicate that we know the subnet for this bridge.
 	if len(addrs) > 0 {
-		addr := addrs[0]
-		if askProviderForAddress {
-			sub, err := addr.Subnet()
-			if err != nil {
-				return newDev, errors.Annotatef(err,
-					"retrieving subnet %q used by address %q of host machine device %q",
-					addr.SubnetCIDR(), addr.Value(), dev.Name(),
-				)
+		// Find the first IP which we know the subnet for
+		// this used to check only the first one
+		for addrIdx, addr := range addrs {
+			if askProviderForAddress {
+				sub, err := addr.Subnet()
+				if err != nil {
+					logger.Warningf("failed retrieving subnet %q used by address %q of host machine device %q (%d addresses left to evaluate)",
+						addr.SubnetCIDR(), addr.Value(), dev.Name(), len(addrs)-addrIdx-1)
+					// Return an error if we have no addresses left to check
+					if addrIdx == len(addrs)-1 {
+						return newDev, errors.Annotatef(err,
+							"retrieving a subnet used by any address of host machine device %q",
+							dev.Name())
+					}
+					// Try next address
+					continue
+				}
+				newDev.ConfigType = network.ConfigStatic
+				newDev.ProviderSubnetId = sub.ProviderId()
+				newDev.VLANTag = sub.VLANTag()
+				newDev.IsDefaultGateway = addr.IsDefaultGateway()
+				newDev.Addresses = network.ProviderAddresses{
+					network.NewMachineAddress("", network.WithCIDR(sub.CIDR())).AsProviderAddress()}
+			} else {
+				newDev.Addresses = network.ProviderAddresses{
+					network.NewMachineAddress("", network.WithCIDR(addr.SubnetCIDR())).AsProviderAddress()}
 			}
-			newDev.ConfigType = network.ConfigStatic
-			newDev.ProviderSubnetId = sub.ProviderId()
-			newDev.VLANTag = sub.VLANTag()
-			newDev.IsDefaultGateway = addr.IsDefaultGateway()
-			newDev.Addresses = network.ProviderAddresses{
-				network.NewMachineAddress("", network.WithCIDR(sub.CIDR())).AsProviderAddress()}
-		} else {
-			newDev.Addresses = network.ProviderAddresses{
-				network.NewMachineAddress("", network.WithCIDR(addr.SubnetCIDR())).AsProviderAddress()}
 		}
 	}
 
