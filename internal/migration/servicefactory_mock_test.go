@@ -323,10 +323,10 @@ func (mr *MockServiceFactoryMockRecorder) ModelDefaults() *gomock.Call {
 }
 
 // ModelInfo mocks base method.
-func (m *MockServiceFactory) ModelInfo() *service10.ModelService {
+func (m *MockServiceFactory) ModelInfo() *service11.ModelService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelInfo")
-	ret0, _ := ret[0].(*service10.ModelService)
+	ret0, _ := ret[0].(*service11.ModelService)
 	return ret0
 }
 
