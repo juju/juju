@@ -681,11 +681,31 @@ func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *gc.C) {
 	cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
 		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
-		"--constraints", "spaces=ha-space,random-space",
+		"--constraints", "spaces=ha-space,random-space","--constraints","mem=4G",
 	)
 
+	c.Log(bootstrapFuncs.args.BootstrapConstraints.String())
 	got := *(bootstrapFuncs.args.BootstrapConstraints.Spaces)
 	c.Check(got, gc.DeepEquals, []string{"ha-space", "management-space", "random-space"})
+	bootstrapCons := constraints.MustParse("mem=4G spaces=ha-space,management-space,random-space")
+	c.Assert(bootstrapFuncs.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
+}
+
+func (s *BootstrapSuite) TestBootstrapAllConstraintsMerged(c *gc.C) {
+	s.patchVersionAndSeries(c, "jammy")
+
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
+		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
+		"--constraints", "spaces=ha-space,random-space","--constraints","mem=4G",
+	)
+
+	bootstrapCons := constraints.MustParse("mem=4G spaces=ha-space,management-space,random-space")
+	c.Assert(bootstrapFuncs.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {

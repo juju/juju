@@ -204,6 +204,17 @@ func newBootstrapCommand() cmd.Command {
 	)
 }
 
+type constraintsFlag []string
+
+func (s *constraintsFlag) String() string {
+	return fmt.Sprintf("%v", *s)
+}
+
+func (s *constraintsFlag) Set(value string) error {
+	*s = append(*s, value)
+	return nil
+}
+
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
@@ -212,7 +223,7 @@ type bootstrapCommand struct {
 	clock jujuclock.Clock
 
 	Constraints              constraints.Value
-	ConstraintsStr           string
+	ConstraintsStr           constraintsFlag
 	BootstrapConstraints     constraints.Value
 	BootstrapConstraintsStr  string
 	BootstrapSeries          string
@@ -313,7 +324,7 @@ func (c *bootstrapCommand) setControllerName(controllerName string) {
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
+	f.Var(&c.ConstraintsStr, "constraints", "Set model constraints")
 	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-base)")
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
@@ -562,8 +573,8 @@ specify a credential using the --credential argument`[1:],
 func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 	allAliases := map[string]string{}
 	defer common.WarnConstraintAliases(ctx, allAliases)
-	if c.ConstraintsStr != "" {
-		cons, aliases, err := constraints.ParseWithAliases(c.ConstraintsStr)
+	if c.ConstraintsStr.String() != "" {
+		cons, aliases, err := constraints.ParseWithAliases(strings.Join(c.ConstraintsStr, " "))
 		for k, v := range aliases {
 			allAliases[k] = v
 		}
