@@ -84,11 +84,16 @@ func (a *API) WatchModelOperatorProvisioningInfo() (params.NotifyWatchResult, er
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	controllerConfigNotifyWatcher, err := common.NewStringsNotifyWatcher(controllerConfigWatcher)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	controllerAPIHostPortsWatcher := a.ctrlState.WatchAPIHostPortsForAgents()
 	modelConfigWatcher := model.WatchForModelConfigChanges()
 
 	multiWatcher := common.NewMultiNotifyWatcher(
-		common.NewStringsNotifyWatcher(controllerConfigWatcher),
+		controllerConfigNotifyWatcher,
 		controllerAPIHostPortsWatcher,
 		modelConfigWatcher,
 	)

@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -197,33 +199,41 @@ func (w *MultiNotifyWatcher) Changes() <-chan struct{} {
 // StringsNotifyWatcher wraps a corewatcher.StringsWatcher and
 // provides a NotifyWatcher interface.
 type StringsNotifyWatcher struct {
-	tomb    tomb.Tomb
-	out     chan struct{}
-	watcher corewatcher.StringsWatcher
+	catacomb catacomb.Catacomb
+	out      chan struct{}
+	watcher  corewatcher.StringsWatcher
 }
 
 // NewStringsNotifyWatcher creates a new StringsNotifyWatcher.
-func NewStringsNotifyWatcher(watcher corewatcher.StringsWatcher) *StringsNotifyWatcher {
-	w := &StringsNotifyWatcher{
+func NewStringsNotifyWatcher(watcher corewatcher.StringsWatcher) (*StringsNotifyWatcher, error) {
+	w := StringsNotifyWatcher{
 		watcher: watcher,
 	}
-	w.tomb.Go(w.loop)
-	return w
+
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: []worker.Worker{watcher},
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &w, nil
 }
 
 func (w *StringsNotifyWatcher) loop() error {
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 		case _, ok := <-w.watcher.Changes():
 			if !ok {
 				return nil
 			}
 
 			select {
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
 			case w.out <- struct{}{}:
 			}
 		}
@@ -231,12 +241,11 @@ func (w *StringsNotifyWatcher) loop() error {
 }
 
 func (w *StringsNotifyWatcher) Kill() {
-	w.tomb.Kill(nil)
-	w.watcher.Kill()
+	w.catacomb.Kill(nil)
 }
 
 func (w *StringsNotifyWatcher) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }
 
 func (w *StringsNotifyWatcher) Changes() <-chan struct{} {
@@ -244,7 +253,7 @@ func (w *StringsNotifyWatcher) Changes() <-chan struct{} {
 }
 
 func (w *StringsNotifyWatcher) Err() error {
-	return w.tomb.Err()
+	return w.catacomb.Err()
 }
 
 func (w *StringsNotifyWatcher) Stop() error {
