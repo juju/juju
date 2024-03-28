@@ -6,11 +6,12 @@ package auditconfigupdater
 import (
 	stdtesting "testing"
 
-	controller "github.com/juju/juju/controller"
-	"github.com/juju/juju/testing"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package auditconfigupdater -destination servicefactory_mock_test.go github.com/juju/juju/internal/worker/auditconfigupdater ControllerConfigService
