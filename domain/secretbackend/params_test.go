@@ -21,23 +21,29 @@ func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: ID is missing`)
 
 	p = CreateSecretBackendParams{
-		ID: "backend-id",
+		BackendIdentifier: BackendIdentifier{
+			ID: "backend-id",
+		},
 	}
 	err = p.Validate()
 	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: name is missing`)
 
 	p = CreateSecretBackendParams{
-		ID:   "backend-id",
-		Name: "backend-name",
+		BackendIdentifier: BackendIdentifier{
+			ID:   "backend-id",
+			Name: "backend-name",
+		},
 	}
 	err = p.Validate()
 	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: type is missing`)
 
 	p = CreateSecretBackendParams{
-		ID:          "backend-id",
-		Name:        "backend-name",
+		BackendIdentifier: BackendIdentifier{
+			ID:   "backend-id",
+			Name: "backend-name",
+		},
 		BackendType: "vault",
 		Config: map[string]string{
 			"": "value",
@@ -48,8 +54,10 @@ func (s *paramsSuite) TestCreateSecretBackendParamsValidate(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: empty config key for "backend-name"`)
 
 	p = CreateSecretBackendParams{
-		ID:          "backend-id",
-		Name:        "backend-name",
+		BackendIdentifier: BackendIdentifier{
+			ID:   "backend-id",
+			Name: "backend-name",
+		},
 		BackendType: "vault",
 		Config: map[string]string{
 			"key": "",
@@ -67,15 +75,19 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: both ID and name are missing`)
 
 	p = UpdateSecretBackendParams{
-		ID:   "backend-id",
-		Name: "backend-name",
+		BackendIdentifier: BackendIdentifier{
+			ID:   "backend-id",
+			Name: "backend-name",
+		},
 	}
 	err = p.Validate()
 	c.Check(err, jc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: both ID and name are set`)
 
 	p = UpdateSecretBackendParams{
-		ID:      "backend-id",
+		BackendIdentifier: BackendIdentifier{
+			ID: "backend-id",
+		},
 		NewName: ptr(""),
 	}
 	err = p.Validate()
@@ -83,7 +95,9 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: name cannot be set to empty`)
 
 	p = UpdateSecretBackendParams{
-		ID: "backend-id",
+		BackendIdentifier: BackendIdentifier{
+			ID: "backend-id",
+		},
 		Config: map[string]string{
 			"": "value",
 		},
@@ -93,7 +107,9 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: empty config key for "backend-id"`)
 
 	p = UpdateSecretBackendParams{
-		ID: "backend-id",
+		BackendIdentifier: BackendIdentifier{
+			ID: "backend-id",
+		},
 		Config: map[string]string{
 			"key": "",
 		},

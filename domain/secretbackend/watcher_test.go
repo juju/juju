@@ -83,14 +83,16 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	result, err := state.UpsertSecretBackend(context.Background(),
-		secretbackend.UpsertSecretBackendParams{
-			ID:                  backendID1,
-			Name:                "my-backend1",
+	result, err := state.CreateSecretBackend(context.Background(),
+		secretbackend.CreateSecretBackendParams{
+			BackendIdentifier: secretbackend.BackendIdentifier{
+				ID:   backendID1,
+				Name: "my-backend1",
+			},
 			BackendType:         "vault",
 			TokenRotateInterval: &rotateInternal,
 			NextRotateTime:      &nextRotateTime,
-			Config: map[string]interface{}{
+			Config: map[string]string{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -100,14 +102,16 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	c.Assert(result, gc.Equals, backendID1)
 
 	backendID2 := uuid.MustNewUUID().String()
-	result, err = state.UpsertSecretBackend(context.Background(),
-		secretbackend.UpsertSecretBackendParams{
-			ID:                  backendID2,
-			Name:                "my-backend2",
+	result, err = state.CreateSecretBackend(context.Background(),
+		secretbackend.CreateSecretBackendParams{
+			BackendIdentifier: secretbackend.BackendIdentifier{
+				ID:   backendID2,
+				Name: "my-backend2",
+			},
 			BackendType:         "vault",
 			TokenRotateInterval: &rotateInternal,
 			NextRotateTime:      &nextRotateTime,
-			Config: map[string]interface{}{
+			Config: map[string]string{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -132,10 +136,12 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 
 	// NOT triggered - update the backend name and config.
 	nameChange := "my-backend1-updated"
-	_, err = state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID:   backendID1,
-		Name: nameChange,
-		Config: map[string]interface{}{
+	_, err = state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		BackendIdentifier: secretbackend.BackendIdentifier{
+			ID: backendID1,
+		},
+		NewName: &nameChange,
+		Config: map[string]string{
 			"key1": "value1-updated",
 			"key3": "value3",
 		},
@@ -145,11 +151,13 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	// Triggered - UPDATE the rotation time.
 	newRotateInternal := 48 * time.Hour
 	newNextRotateTime := time.Now().Add(newRotateInternal)
-	_, err = state.UpsertSecretBackend(context.Background(), secretbackend.UpsertSecretBackendParams{
-		ID:                  backendID2,
+	_, err = state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+		BackendIdentifier: secretbackend.BackendIdentifier{
+			ID: backendID2,
+		},
 		TokenRotateInterval: &newRotateInternal,
 		NextRotateTime:      &newNextRotateTime,
-		Config: map[string]interface{}{
+		Config: map[string]string{
 			"key1": "value1-updated",
 			"key3": "value3",
 		},
@@ -170,9 +178,9 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	err = state.DeleteSecretBackend(context.Background(), backendID2, false)
 	c.Assert(err, gc.IsNil)
 
-	_, err = state.GetSecretBackend(context.Background(), backendID1)
+	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID1})
 	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID1+`"`)
-	_, err = state.GetSecretBackend(context.Background(), backendID2)
+	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID2})
 	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID2+`"`)
 
 	select {

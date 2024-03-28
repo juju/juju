@@ -19,4 +19,7 @@ const (
 
 	// Forbidden describes an error that occurs when the operation is forbidden.
 	Forbidden = errors.ConstError("secret backend operation forbidden")
+
+	// NotSupported describes an error that occurs when the secret backend is not supported.
+	NotSupported = errors.ConstError("secret backend not supported")
 )
