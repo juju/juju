@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/servicefactory"
+	jujutesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -88,7 +89,9 @@ func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
 }
 
 func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
-	err := cloudstate.AllowCloudType(context.Background(), s.ControllerTxnRunner(), 99, "dummy")
+	ctx := context.Background()
+
+	err := cloudstate.AllowCloudType(ctx, s.ControllerTxnRunner(), 99, "dummy")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.CloudName = "dummy"
@@ -101,7 +104,7 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 				Name: "dummy-region",
 			},
 		},
-	})(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	})(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.CredentialKey = credential.Key{
@@ -115,13 +118,17 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 			"username": "dummy",
 			"password": "secret",
 		}),
-	)(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	)(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // SeedModelDatabases makes sure that model's for both the controller and default
 // model have been created in the database.
 func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
+	ctx := context.Background()
+
+	controllerUUID := coremodel.UUID(jujutesting.ControllerTag.Id())
+
 	controllerArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
@@ -132,9 +139,12 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	}
 
 	uuid, fn := modelbootstrap.CreateModel(controllerArgs)
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.ControllerModelUUID = uuid
+
+	err = modelbootstrap.CreateReadOnlyModel(controllerArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	c.Assert(err, jc.ErrorIsNil)
 
 	modelArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
@@ -146,9 +156,12 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	}
 
 	uuid, fn = modelbootstrap.CreateModel(modelArgs)
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.DefaultModelUUID = uuid
+
+	err = modelbootstrap.CreateReadOnlyModel(modelArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // ServiceFactoryGetter provides an implementation of the ServiceFactoryGetter

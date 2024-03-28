@@ -75,14 +75,15 @@ type ModelMetrics interface {
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
-	Authority        pki.Authority
-	ModelName        string
-	ModelOwner       string
-	ModelUUID        string
-	ModelType        state.ModelType
-	ModelLogger      ModelLogger
-	ModelMetrics     MetricSink
-	ControllerConfig controller.Config
+	Authority              pki.Authority
+	ModelName              string
+	ModelOwner             string
+	ModelUUID              string
+	ModelType              state.ModelType
+	ModelLogger            ModelLogger
+	ModelMetrics           MetricSink
+	ControllerConfig       controller.Config
+	ProviderServiceFactory ProviderServiceFactory
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -93,17 +94,18 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	Authority              pki.Authority
-	Logger                 Logger
-	MachineID              string
-	ModelWatcher           ModelWatcher
-	ModelMetrics           ModelMetrics
-	Mux                    *apiserverhttp.Mux
-	Controller             Controller
-	ControllerConfigGetter ControllerConfigGetter
-	NewModelWorker         NewModelWorkerFunc
-	ErrorDelay             time.Duration
-	LogSink                corelogger.ModelLogger
+	Authority                    pki.Authority
+	Logger                       Logger
+	MachineID                    string
+	ModelWatcher                 ModelWatcher
+	ModelMetrics                 ModelMetrics
+	Mux                          *apiserverhttp.Mux
+	Controller                   Controller
+	ControllerConfigGetter       ControllerConfigGetter
+	NewModelWorker               NewModelWorkerFunc
+	ErrorDelay                   time.Duration
+	LogSink                      corelogger.ModelLogger
+	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -139,6 +141,9 @@ func (config Config) Validate() error {
 	if config.ErrorDelay <= 0 {
 		return errors.NotValidf("non-positive ErrorDelay")
 	}
+	if config.ProviderServiceFactoryGetter == nil {
+		return errors.NotValidf("nil ProviderServiceFactoryGetter")
+	}
 	return nil
 }
 
@@ -149,11 +154,20 @@ func New(config Config) (worker.Worker, error) {
 	}
 	m := &modelWorkerManager{
 		config: config,
+		runner: worker.NewRunner(worker.RunnerParams{
+			IsFatal:       neverFatal,
+			MoreImportant: neverImportant,
+			RestartDelay:  config.ErrorDelay,
+			Logger:        config.Logger,
+		}),
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
 		Work: m.loop,
+		Init: []worker.Worker{
+			m.runner,
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -178,54 +192,9 @@ func (m *modelWorkerManager) Wait() error {
 }
 
 func (m *modelWorkerManager) loop() error {
-	m.runner = worker.NewRunner(worker.RunnerParams{
-		IsFatal:       neverFatal,
-		MoreImportant: neverImportant,
-		RestartDelay:  m.config.ErrorDelay,
-		Logger:        m.config.Logger,
-	})
-	if err := m.catacomb.Add(m.runner); err != nil {
-		return errors.Trace(err)
-	}
 	watcher := m.config.ModelWatcher.WatchModels()
 	if err := m.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
-	}
-
-	modelChanged := func(modelUUID string) error {
-		model, release, err := m.config.Controller.Model(modelUUID)
-		if errors.Is(err, errors.NotFound) {
-			// Model was removed, ignore it.
-			// The reason we ignore it here is that one of the embedded
-			// workers is also responding to the model life changes and
-			// when it returns a NotFound error, which is determined as a
-			// fatal error for the model worker engine. This causes it to be
-			// removed from the runner above. However since the runner itself
-			// has neverFatal as an error handler, the runner itself doesn't
-			// propagate the error.
-			return nil
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		defer release()
-
-		if !isModelActive(model) {
-			// Ignore this model until it's activated - we
-			// never want to run workers for an importing
-			// model.
-			// https://bugs.launchpad.net/juju/+bug/1646310
-			return nil
-		}
-
-		cfg := NewModelConfig{
-			Authority:    m.config.Authority,
-			ModelName:    model.Name(),
-			ModelOwner:   model.Owner().Id(),
-			ModelUUID:    modelUUID,
-			ModelType:    model.Type(),
-			ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
-		}
-		return errors.Trace(m.ensure(cfg))
 	}
 
 	for {
@@ -237,7 +206,7 @@ func (m *modelWorkerManager) loop() error {
 				return errors.New("changes stopped")
 			}
 			for _, modelUUID := range uuids {
-				if err := modelChanged(modelUUID); err != nil {
+				if err := m.modelChanged(modelUUID); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -245,8 +214,47 @@ func (m *modelWorkerManager) loop() error {
 	}
 }
 
+func (m *modelWorkerManager) modelChanged(modelUUID string) error {
+	model, release, err := m.config.Controller.Model(modelUUID)
+	if errors.Is(err, errors.NotFound) {
+		// Model was removed, ignore it.
+		// The reason we ignore it here is that one of the embedded
+		// workers is also responding to the model life changes and
+		// when it returns a NotFound error, which is determined as a
+		// fatal error for the model worker engine. This causes it to be
+		// removed from the runner above. However since the runner itself
+		// has neverFatal as an error handler, the runner itself doesn't
+		// propagate the error.
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	defer release()
+
+	if !isModelActive(model) {
+		// Ignore this model until it's activated - we
+		// never want to run workers for an importing
+		// model.
+		// https://bugs.launchpad.net/juju/+bug/1646310
+		return nil
+	}
+
+	cfg := NewModelConfig{
+		Authority:    m.config.Authority,
+		ModelName:    model.Name(),
+		ModelOwner:   model.Owner().Id(),
+		ModelUUID:    modelUUID,
+		ModelType:    model.Type(),
+		ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
+	}
+	return errors.Trace(m.ensure(cfg))
+}
+
 func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
+	// Creates a new worker func based on the model config.
 	starter := m.starter(cfg)
+	// If the worker is already running, this will return an AlreadyExists
+	// error and the start function will not be called.
 	if err := m.runner.StartWorker(cfg.ModelUUID, starter); !errors.Is(err, errors.AlreadyExists) {
 		return errors.Trace(err)
 	}
@@ -268,6 +276,9 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 			return nil, errors.Annotate(err, "unable to get controller config")
 		}
 		cfg.ControllerConfig = controllerConfig
+
+		// Get the provider service factory for the model.
+		cfg.ProviderServiceFactory = m.config.ProviderServiceFactoryGetter.FactoryForModel(modelUUID)
 
 		logSink, err := m.config.LogSink.GetLogger(modelUUID, cfg.ModelName, cfg.ModelOwner)
 		if err != nil {

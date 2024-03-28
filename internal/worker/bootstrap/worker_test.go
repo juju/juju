@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	userservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -315,11 +316,11 @@ func (s *workerSuite) expectControllerConfig() {
 
 func (s *workerSuite) expectUser(c *gc.C) {
 	s.userService.EXPECT().GetUserByName(gomock.Any(), "admin").Return(user.User{
-		UUID: user.MustNewUUID(),
+		UUID: usertesting.GenUserUUID(c),
 	}, nil)
 	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u userservice.AddUserArg) (user.UUID, []byte, error) {
 		c.Check(u.Name, gc.Equals, "juju-metrics")
-		return user.MustNewUUID(), nil, nil
+		return usertesting.GenUserUUID(c), nil, nil
 	})
 }
 

@@ -10,6 +10,8 @@ import (
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	credentialstate "github.com/juju/juju/domain/credential/state"
+	modelservice "github.com/juju/juju/domain/model/service"
+	modelstate "github.com/juju/juju/domain/model/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 )
@@ -35,7 +37,14 @@ func NewProviderFactory(
 	}
 }
 
-// Cloud returns the cloud service.
+// Model returns the provider model service.
+func (s *ProviderFactory) Model() *modelservice.ProviderService {
+	return modelservice.NewProviderService(
+		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// Cloud returns the provider cloud service.
 func (s *ProviderFactory) Cloud() *cloudservice.WatchableProviderService {
 	return cloudservice.NewWatchableProviderService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
@@ -46,7 +55,7 @@ func (s *ProviderFactory) Cloud() *cloudservice.WatchableProviderService {
 	)
 }
 
-// Credential returns the credential service.
+// Credential returns the provider credential service.
 func (s *ProviderFactory) Credential() *credentialservice.WatchableProviderService {
 	return credentialservice.NewWatchableProviderService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
@@ -57,7 +66,7 @@ func (s *ProviderFactory) Credential() *credentialservice.WatchableProviderServi
 	)
 }
 
-// Config returns the model config service.
+// Config returns the provider model config service.
 func (s *ProviderFactory) Config() *modelconfigservice.WatchableProviderService {
 	return modelconfigservice.NewWatchableProviderService(
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),

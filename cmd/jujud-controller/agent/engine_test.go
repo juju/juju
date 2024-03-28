@@ -23,11 +23,12 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"clock",
-		"environ-upgrade-gate",
-		"environ-upgraded-flag",
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		"provider-service-factory",
+		"provider-upgrade-gate",
+		"provider-upgraded-flag",
 		"valid-credential-flag",
 	}
 	requireValidCredentialModelWorkers = []string{
@@ -36,17 +37,17 @@ var (
 		"charm-downloader",       // tertiary dependency: will be inactive because migration workers will be inactive
 		"charm-revision-updater", // tertiary dependency: will be inactive because migration workers will be inactive
 		"compute-provisioner",
-		"environ-tracker",
-		"environ-upgrader",
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",
 		"logging-config-updater",  // tertiary dependency: will be inactive because migration workers will be inactive
 		"machine-undertaker",      // tertiary dependency: will be inactive because migration workers will be inactive
-		"migration-fortress",      // secondary dependency: will be inactive because depends on environ-upgrader
-		"migration-inactive-flag", // secondary dependency: will be inactive because depends on environ-upgrader
-		"migration-master",        // secondary dependency: will be inactive because depends on environ-upgrader
-		"remote-relations",        // tertiary dependency: will be inactive because migration workers will be inactive
+		"migration-fortress",      // secondary dependency: will be inactive because depends on provider-upgrader
+		"migration-inactive-flag", // secondary dependency: will be inactive because depends on provider-upgrader
+		"migration-master",        // secondary dependency: will be inactive because depends on provider-upgrader
+		"provider-tracker",
+		"provider-upgrader",
+		"remote-relations", // tertiary dependency: will be inactive because migration workers will be inactive
 		"secrets-pruner",
 		"state-cleaner",         // tertiary dependency: will be inactive because migration workers will be inactive
 		"status-history-pruner", // tertiary dependency: will be inactive because migration workers will be inactive
@@ -61,7 +62,6 @@ var (
 		"charm-downloader",
 		"charm-revision-updater",
 		"compute-provisioner",
-		"environ-tracker",
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",
@@ -70,6 +70,7 @@ var (
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
+		"provider-tracker",
 		"remote-relations",
 		"secrets-pruner",
 		"state-cleaner",
@@ -79,9 +80,9 @@ var (
 		"user-secrets-drain-worker",
 	}
 	migratingModelWorkers = []string{
-		"environ-tracker",
-		"environ-upgrade-gate",
-		"environ-upgraded-flag",
+		"provider-tracker",
+		"provider-upgrade-gate",
+		"provider-upgraded-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",

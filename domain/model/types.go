@@ -75,15 +75,28 @@ func (m ModelCreationArgs) Validate() error {
 // AsReadOnly returns a ReadOnlyModelCreationArgs struct that is a copy of the
 // ModelCreationArgs struct. This is useful when you want to create a model
 // within the model database.
-func (m ModelCreationArgs) AsReadOnly() ReadOnlyModelCreationArgs {
+func (m ModelCreationArgs) AsReadOnly(
+	controllerUUID coremodel.UUID,
+	modelType coremodel.ModelType,
+) ReadOnlyModelCreationArgs {
+	var (
+		credOwner string
+		credName  string
+	)
+	if !m.Credential.IsZero() {
+		credOwner = m.Credential.Owner
+		credName = m.Credential.Name
+	}
+
 	return ReadOnlyModelCreationArgs{
-		UUID:        m.UUID,
-		Cloud:       m.Cloud,
-		CloudRegion: m.CloudRegion,
-		Name:        m.Name,
-		// TODO (tlm): This is a hack that Simon or TLM will deal with in
-		// coming days. See #17063 for a possible solution to this problem.
-		Type: coremodel.IAAS,
+		UUID:            m.UUID,
+		ControllerUUID:  controllerUUID,
+		Name:            m.Name,
+		Type:            modelType,
+		Cloud:           m.Cloud,
+		CloudRegion:     m.CloudRegion,
+		CredentialOwner: credOwner,
+		CredentialName:  credName,
 	}
 }
 
@@ -96,6 +109,14 @@ type ReadOnlyModelCreationArgs struct {
 	// this value when you are trying to import a model during model migration.
 	UUID coremodel.UUID
 
+	// ControllerUUID represents the unique id for the controller that the model
+	// is associated with.
+	ControllerUUID coremodel.UUID
+
+	// Name is the name of the model.
+	// Must not be empty for a valid struct.
+	Name string
+
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.
 	Type coremodel.ModelType
@@ -105,27 +126,34 @@ type ReadOnlyModelCreationArgs struct {
 	Cloud string
 
 	// CloudRegion is the region that the model will use in the cloud.
+	// Optional and can be empty.
 	CloudRegion string
 
-	// Name is the name of the model.
-	// Must not be empty for a valid struct.
-	Name string
+	// CredentialOwner is the name of the credential owner for this model in
+	// the Juju controller.
+	// Optional and can be empty.
+	CredentialOwner string
+
+	// CredentialName is the name of the credential to be associated with the
+	// model.
+	// Optional and can be empty.
+	CredentialName string
 }
 
 // Validate is responsible for checking all of the fields of ModelCreationArgs
 // are in a set state that is valid for use.
 func (m ReadOnlyModelCreationArgs) Validate() error {
-	if m.Cloud == "" {
-		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
+	if err := m.UUID.Validate(); err != nil {
+		return fmt.Errorf("uuid: %w", err)
 	}
 	if m.Name == "" {
 		return fmt.Errorf("%w name cannot be empty", errors.NotValid)
 	}
+	if m.Cloud == "" {
+		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
+	}
 	if !m.Type.IsValid() {
 		return fmt.Errorf("%w model type of %q", errors.NotSupported, m.Type)
-	}
-	if err := m.UUID.Validate(); err != nil {
-		return fmt.Errorf("uuid: %w", err)
 	}
 	return nil
 }

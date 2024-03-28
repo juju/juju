@@ -14,7 +14,8 @@ import (
 
 	service "github.com/juju/juju/domain/cloud/service"
 	service0 "github.com/juju/juju/domain/credential/service"
-	service1 "github.com/juju/juju/domain/modelconfig/service"
+	service1 "github.com/juju/juju/domain/model/service"
+	service2 "github.com/juju/juju/domain/modelconfig/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -57,10 +58,10 @@ func (mr *MockProviderServiceFactoryMockRecorder) Cloud() *gomock.Call {
 }
 
 // Config mocks base method.
-func (m *MockProviderServiceFactory) Config() *service1.WatchableProviderService {
+func (m *MockProviderServiceFactory) Config() *service2.WatchableProviderService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*service1.WatchableProviderService)
+	ret0, _ := ret[0].(*service2.WatchableProviderService)
 	return ret0
 }
 
@@ -82,6 +83,20 @@ func (m *MockProviderServiceFactory) Credential() *service0.WatchableProviderSer
 func (mr *MockProviderServiceFactoryMockRecorder) Credential() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Credential", reflect.TypeOf((*MockProviderServiceFactory)(nil).Credential))
+}
+
+// Model mocks base method.
+func (m *MockProviderServiceFactory) Model() *service1.ProviderService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Model")
+	ret0, _ := ret[0].(*service1.ProviderService)
+	return ret0
+}
+
+// Model indicates an expected call of Model.
+func (mr *MockProviderServiceFactoryMockRecorder) Model() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockProviderServiceFactory)(nil).Model))
 }
 
 // MockProviderServiceFactoryGetter is a mock of ProviderServiceFactoryGetter interface.

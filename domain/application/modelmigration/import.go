@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/description/v5"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/application/service"

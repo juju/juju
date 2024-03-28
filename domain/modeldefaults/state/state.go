@@ -44,7 +44,7 @@ func (s *State) ModelCloudDefaults(
 
 	cloudDefaultsStmt := `
 SELECT cloud_defaults.key,
-       cloud_defaults.value,
+       cloud_defaults.value
 FROM cloud_defaults
      INNER JOIN cloud
          ON cloud.uuid = cloud_defaults.cloud_uuid
@@ -56,16 +56,14 @@ WHERE model_metadata.model_uuid = ?
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, cloudDefaultsStmt, uuid)
 		if err != nil {
-			return fmt.Errorf("fetching cloud defaults for model %q", uuid)
+			return fmt.Errorf("fetching cloud defaults for model %q: %w", uuid, err)
 		}
 		defer rows.Close()
 
-		var (
-			key, val string
-		)
 		for rows.Next() {
+			var key, val string
 			if err := rows.Scan(&key, &val); err != nil {
-				return fmt.Errorf("reading cloud defaults for model %q", uuid)
+				return fmt.Errorf("reading cloud defaults for model %q: %w", uuid, err)
 			}
 			rval[key] = val
 		}
@@ -94,7 +92,7 @@ func (s *State) ModelCloudRegionDefaults(
 
 	cloudDefaultsStmt := `
 SELECT cloud_region_defaults.key,
-       cloud_region_defaults.value,
+       cloud_region_defaults.value
 FROM cloud_region_defaults
      INNER JOIN cloud_region
          ON cloud_region.uuid = cloud_region_defaults.region_uuid
@@ -106,7 +104,7 @@ WHERE model_metadata.model_uuid = ?
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, cloudDefaultsStmt, uuid)
 		if err != nil {
-			return fmt.Errorf("fetching cloud region defaults for model %q", uuid)
+			return fmt.Errorf("fetching cloud region defaults for model %q: %w", uuid, err)
 		}
 		defer rows.Close()
 
@@ -115,7 +113,7 @@ WHERE model_metadata.model_uuid = ?
 		)
 		for rows.Next() {
 			if err := rows.Scan(&key, &val); err != nil {
-				return fmt.Errorf("reading cloud region defaults for model %q", uuid)
+				return fmt.Errorf("reading cloud region defaults for model %q: %w", uuid, err)
 			}
 			rval[key] = val
 		}

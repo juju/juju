@@ -15,39 +15,50 @@ import (
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.
 type StateBase struct {
-	mu    sync.Mutex
-	getDB database.TxnRunnerFactory
-	db    database.TxnRunner
+	dbMutex sync.RWMutex
+	getDB   database.TxnRunnerFactory
+	db      database.TxnRunner
 
-	// stmts is a cache of sqlair statements keyed by the query string.
-	stmts     map[string]*sqlair.Statement
-	stmtMutex sync.RWMutex
+	// statements is a cache of sqlair statements keyed by the query string.
+	statementMutex sync.RWMutex
+	statements     map[string]*sqlair.Statement
 }
 
 // NewStateBase returns a new StateBase.
 func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 	return &StateBase{
-		getDB: getDB,
-		stmts: make(map[string]*sqlair.Statement),
+		getDB:      getDB,
+		statements: make(map[string]*sqlair.Statement),
 	}
 }
 
 // DB returns the database for a given namespace.
 func (st *StateBase) DB() (database.TxnRunner, error) {
-	st.mu.Lock()
-	defer st.mu.Unlock()
+	// Check if the database has already been retrieved.
+	// We optimistically check if the database is not nil, before checking
+	// if the getDB function is nil. This reduces the branching logic for the
+	// common use case.
+	st.dbMutex.RLock()
+	if st.db != nil {
+		db := st.db
+		st.dbMutex.RUnlock()
+		return db, nil
+	}
+	st.dbMutex.RUnlock()
+
+	// Move into a write lock to retrieve the database, this should only
+	// happen once, so using the full lock isn't a problem.
+	st.dbMutex.Lock()
+	defer st.dbMutex.Unlock()
 
 	if st.getDB == nil {
 		return nil, errors.New("nil getDB")
 	}
 
-	if st.db == nil {
-		var err error
-		if st.db, err = st.getDB(); err != nil {
-			return nil, errors.Annotate(err, "invoking getDB")
-		}
+	var err error
+	if st.db, err = st.getDB(); err != nil {
+		return nil, errors.Annotate(err, "invoking getDB")
 	}
-
 	return st.db, nil
 }
 
@@ -65,19 +76,22 @@ func (st *StateBase) DB() (database.TxnRunner, error) {
 // rare and caught by QA if present.
 func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
 	// Take a read lock to check if the statement is already prepared.
-	st.stmtMutex.RLock()
-	if stmt, ok := st.stmts[query]; ok && stmt != nil {
-		st.stmtMutex.RUnlock()
+	st.statementMutex.RLock()
+	if stmt, ok := st.statements[query]; ok && stmt != nil {
+		st.statementMutex.RUnlock()
 		return stmt, nil
 	}
-	st.stmtMutex.RUnlock()
+	st.statementMutex.RUnlock()
+
 	// Grab the write lock to prepare the statement.
-	st.stmtMutex.Lock()
-	defer st.stmtMutex.Unlock()
+	st.statementMutex.Lock()
+	defer st.statementMutex.Unlock()
+
 	stmt, err := sqlair.Prepare(query, typeSamples...)
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing:")
 	}
-	st.stmts[query] = stmt
+
+	st.statements[query] = stmt
 	return stmt, nil
 }

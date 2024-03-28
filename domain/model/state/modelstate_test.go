@@ -27,24 +27,33 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 	state := NewModelState(runner)
 
 	id := modeltesting.GenModelUUID(c)
+	cid := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
-		UUID:        id,
-		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
+		UUID:            id,
+		ControllerUUID:  cid,
+		Name:            "my-awesome-model",
+		Type:            coremodel.IAAS,
+		Cloud:           "aws",
+		CloudRegion:     "myregion",
+		CredentialOwner: "myowner",
+		CredentialName:  "mycredential",
 	}
 	err := state.Create(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	db := s.DB()
-	row := db.QueryRowContext(context.Background(), "SELECT uuid, name, type, cloud, cloud_region FROM model WHERE uuid = $1", id)
-
-	var got model.ReadOnlyModelCreationArgs
-	err = row.Scan(&got.UUID, &got.Name, &got.Type, &got.Cloud, &got.CloudRegion)
+	// Check that it was written correctly.
+	model, err := state.Model(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(got, jc.DeepEquals, args)
+	c.Check(model, jc.DeepEquals, coremodel.ReadOnlyModel{
+		UUID:            id,
+		ControllerUUID:  cid,
+		Name:            "my-awesome-model",
+		Type:            coremodel.IAAS,
+		Cloud:           "aws",
+		CloudRegion:     "myregion",
+		CredentialOwner: "myowner",
+		CredentialName:  "mycredential",
+	})
 }
 
 func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
@@ -54,12 +63,14 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 	// Ensure that we can't create the same model twice.
 
 	id := modeltesting.GenModelUUID(c)
+	cid := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
-		UUID:        id,
-		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
+		UUID:           id,
+		ControllerUUID: cid,
+		Name:           "my-awesome-model",
+		Type:           coremodel.IAAS,
+		Cloud:          "aws",
+		CloudRegion:    "myregion",
 	}
 	err := state.Create(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,12 +110,14 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	// Ensure that you can't update it.
 
 	id := modeltesting.GenModelUUID(c)
+	cid := modeltesting.GenModelUUID(c)
 	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
-		UUID:        id,
-		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
+		UUID:           id,
+		ControllerUUID: cid,
+		Name:           "my-awesome-model",
+		Type:           coremodel.IAAS,
+		Cloud:          "aws",
+		CloudRegion:    "myregion",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -132,4 +145,12 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 	db := s.DB()
 	_, err = db.ExecContext(context.Background(), "DELETE FROM model WHERE uuid = $1", id)
 	c.Assert(err, gc.ErrorMatches, `model table is immutable`)
+}
+
+func (s *modelSuite) TestModelNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner)
+
+	_, err := state.Model(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }

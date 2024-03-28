@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
@@ -23,7 +22,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type bootstrapSuite struct {
+type baseSuite struct {
 	schematesting.ControllerSuite
 
 	adminUserUUID  coreuser.UUID
@@ -31,9 +30,7 @@ type bootstrapSuite struct {
 	credentialName string
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
-
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	uuid, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.ControllerForAccess(permission.SuperuserAccess))
@@ -63,6 +60,12 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+type bootstrapSuite struct {
+	baseSuite
+}
+
+var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestUUIDIsCreated(c *gc.C) {
 	uuid, fn := CreateModel(model.ModelCreationArgs{
@@ -106,20 +109,40 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 }
 
 type modelBootstrapSuite struct {
+	baseSuite
 	schematesting.ModelSuite
 }
 
 var _ = gc.Suite(&modelBootstrapSuite{})
 
-func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
-	fn := CreateReadOnlyModel(model.ReadOnlyModelCreationArgs{
-		UUID:        modeltesting.GenModelUUID(c),
-		Name:        "test",
-		Type:        coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
-	})
+func (s *modelBootstrapSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	s.ModelSuite.SetUpTest(c)
+}
 
-	err := fn(context.Background(), s.NoopTxnRunner(), s.ModelTxnRunner())
+func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
+	controllerUUID := modeltesting.GenModelUUID(c)
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	args := model.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        s.cloudName,
+		Credential: credential.Key{
+			Cloud: s.cloudName,
+			Name:  s.credentialName,
+			Owner: coreuser.AdminUserName,
+		},
+		Name:  "test",
+		Owner: s.adminUserUUID,
+		UUID:  modelUUID,
+	}
+
+	// Create a model and then create a read-only model from it.
+	_, fn := CreateModel(args)
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fn = CreateReadOnlyModel(args, controllerUUID)
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }

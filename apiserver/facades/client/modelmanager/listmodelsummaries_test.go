@@ -16,7 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloud"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -34,7 +35,7 @@ type ListModelsWithInfoSuite struct {
 	jujutesting.IsolationSuite
 
 	st   *mockState
-	cred jujucloud.Credential
+	cred cloud.Credential
 
 	authoriser apiservertesting.FakeAuthorizer
 	adminUser  names.UserTag
@@ -61,15 +62,21 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		Tag: s.adminUser,
 	}
 
-	s.cred = jujucloud.NewEmptyCredential()
+	s.cred = cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
-		&mockCloudService{
-			clouds: map[string]jujucloud.Cloud{"dummy": jtesting.DefaultCloud},
+		modeltesting.GenModelUUID(c),
+		modelmanager.Services{
+			ServiceFactoryGetter: nil,
+			CloudService: &mockCloudService{
+				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
+			},
+			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
+			ModelService:         nil,
+			ModelDefaultsService: nil,
+			UserService:          nil,
+			ObjectStore:          &mockObjectStore{},
 		},
-		apiservertesting.ConstCredentialGetter(&s.cred),
-		nil, nil, nil,
-		&mockObjectStore{},
 		state.NoopConfigSchemaSource,
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
@@ -94,12 +101,18 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
-		&mockCloudService{
-			clouds: map[string]jujucloud.Cloud{"dummy": jtesting.DefaultCloud},
+		modeltesting.GenModelUUID(c),
+		modelmanager.Services{
+			ServiceFactoryGetter: nil,
+			CloudService: &mockCloudService{
+				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
+			},
+			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
+			ModelService:         nil,
+			ModelDefaultsService: nil,
+			UserService:          nil,
+			ObjectStore:          &mockObjectStore{},
 		},
-		apiservertesting.ConstCredentialGetter(&s.cred),
-		nil, nil, nil,
-		&mockObjectStore{},
 		state.NoopConfigSchemaSource,
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model,

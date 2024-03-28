@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	coredependency "github.com/juju/juju/core/dependency"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
@@ -27,19 +28,44 @@ type Logger interface {
 	Infof(string, ...interface{})
 }
 
+// GetProviderServiceFactoryGetterFunc returns a ProviderServiceFactoryGetter
+// from the given dependency.Getter.
+type GetProviderServiceFactoryGetterFunc func(getter dependency.Getter, name string) (ProviderServiceFactoryGetter, error)
+
 // ManifoldConfig holds the information necessary to run a model worker manager
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName          string
-	AuthorityName      string
-	StateName          string
+	// AgentName is the name of the agent.Agent dependency.
+	AgentName string
+	// AuthorityName is the name of the pki.Authority dependency.
+	AuthorityName string
+	// StateName is the name of the workerstate.StateTracker dependency.
+	// Deprecated: Migration to service factory.
+	StateName string
+	// ServiceFactoryName is used to get the controller service factory
+	// dependency.
 	ServiceFactoryName string
-	LogSinkName        string
+	// ProviderServiceFactoriesName is used to get the provider service factory
+	// getter dependency. This exposes a provider service factory for each
+	// model upon request.
+	ProviderServiceFactoriesName string
+	// LogSinkName is the name of the corelogger.ModelLogger dependency.
+	LogSinkName string
 
-	NewWorker      func(Config) (worker.Worker, error)
+	// GetProviderServiceFactoryGetter is used to get the provider service
+	// factory getter from the dependency engine. This makes testing a lot
+	// simpler, as we can expose the interface directly, without the
+	// intermediary type.
+	GetProviderServiceFactoryGetter GetProviderServiceFactoryGetterFunc
+
+	// NewWorker is the function that creates the worker.
+	NewWorker func(Config) (worker.Worker, error)
+	// NewModelWorker is the function that creates the model worker.
 	NewModelWorker NewModelWorkerFunc
-	ModelMetrics   ModelMetrics
-	Logger         Logger
+	// ModelMetrics is the metrics for the model worker.
+	ModelMetrics ModelMetrics
+	// Logger is the logger for the worker.
+	Logger Logger
 }
 
 // Validate validates the manifold configuration.
@@ -56,6 +82,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
 	}
+	if config.ProviderServiceFactoriesName == "" {
+		return errors.NotValidf("empty ProviderServiceFactoriesName")
+	}
 	if config.LogSinkName == "" {
 		return errors.NotValidf("empty LogSinkName")
 	}
@@ -71,6 +100,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if config.GetProviderServiceFactoryGetter == nil {
+		return errors.NotValidf("nil GetProviderServiceFactoryGetter")
+	}
 	return nil
 }
 
@@ -83,6 +115,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.LogSinkName,
 			config.ServiceFactoryName,
+			config.ProviderServiceFactoriesName,
 		},
 		Start: config.start,
 	}
@@ -113,6 +146,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	providerServiceFactoryGetter, err := config.GetProviderServiceFactoryGetter(getter, config.ProviderServiceFactoriesName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -133,14 +171,55 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		Controller: StatePoolController{
 			StatePool: statePool,
 		},
-		LogSink:                logSink,
-		ControllerConfigGetter: controllerServiceFactory.ControllerConfig(),
-		NewModelWorker:         config.NewModelWorker,
-		ErrorDelay:             jworker.RestartDelay,
+		LogSink:                      logSink,
+		ControllerConfigGetter:       controllerServiceFactory.ControllerConfig(),
+		NewModelWorker:               config.NewModelWorker,
+		ErrorDelay:                   jworker.RestartDelay,
+		ProviderServiceFactoryGetter: providerServiceFactoryGetter,
 	})
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+}
+
+// GetProviderServiceFactoryGetter returns a ProviderServiceFactoryGetter from
+// the given dependency.Getter.
+func GetProviderServiceFactoryGetter(getter dependency.Getter, name string) (ProviderServiceFactoryGetter, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factoryGetter servicefactory.ProviderServiceFactoryGetter) ProviderServiceFactoryGetter {
+		return providerServiceFactoryGetter{factoryGetter: factoryGetter}
+	})
+}
+
+type providerServiceFactoryGetter struct {
+	factoryGetter servicefactory.ProviderServiceFactoryGetter
+}
+
+// FactoryForModel returns a ProviderServiceFactory for the given model.
+func (g providerServiceFactoryGetter) FactoryForModel(modelUUID string) ProviderServiceFactory {
+	return providerServiceFactory{factory: g.factoryGetter.FactoryForModel(modelUUID)}
+}
+
+type providerServiceFactory struct {
+	factory servicefactory.ProviderServiceFactory
+}
+
+func (f providerServiceFactory) Model() ProviderModelService {
+	return f.factory.Model()
+}
+
+// Cloud returns the cloud service.
+func (f providerServiceFactory) Cloud() ProviderCloudService {
+	return f.factory.Cloud()
+}
+
+// Config returns the cloud service.
+func (f providerServiceFactory) Config() ProviderConfigService {
+	return f.factory.Config()
+}
+
+// Credential returns the credential service.
+func (f providerServiceFactory) Credential() ProviderCredentialService {
+	return f.factory.Credential()
 }

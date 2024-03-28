@@ -4,6 +4,7 @@
 package filenotifywatcher
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
@@ -95,20 +96,31 @@ type Watcher struct {
 	logger Logger
 }
 
+// NewWatcher returns a new FileWatcher that watches the given fileName in the
+// given path.
 func NewWatcher(fileName string, opts ...Option) (FileWatcher, error) {
 	o := newOption()
 	for _, opt := range opts {
 		opt(o)
 	}
 
+	// Ensure that we create the watch path.
+	if _, err := os.Stat(o.path); err != nil && os.IsNotExist(err) {
+		if err := os.MkdirAll(o.path, 0755); err != nil {
+			o.logger.Infof("failed watching file %q in path %q: %v", fileName, o.path, err)
+			return newNoopFileWatcher(), nil
+		}
+	}
+
 	watcher, err := o.watcherFn()
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating watcher for file %q in path %q", fileName, o.path)
 	}
+
 	if err := watcher.Watch(o.path); err != nil {
 		// As this is only used for debugging, we don't want to fail if we can't
 		// watch the folder.
-		o.logger.Warningf("failed watching file %q in path %q: %v", fileName, o.path, err)
+		o.logger.Infof("failed watching file %q in path %q: %v", fileName, o.path, err)
 		_ = watcher.Close()
 		return newNoopFileWatcher(), nil
 	}

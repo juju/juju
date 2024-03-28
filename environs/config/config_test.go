@@ -371,26 +371,26 @@ var configTests = []configTest{
 		}),
 		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
-		about:       fmt.Sprintf("num-provision-workers: 42"),
+		about:       "num-provision-workers: 42",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"num-provision-workers": 42,
 		}),
 	}, {
-		about:       fmt.Sprintf("num-provision-workers: over max"),
+		about:       "num-provision-workers: over max",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"num-provision-workers": 101,
 		}),
 		err: `num-provision-workers: must be less than 100`,
 	}, {
-		about:       fmt.Sprintf("num-container-provision-workers: 17"),
+		about:       "num-container-provision-workers: 17",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"num-container-provision-workers": 17,
 		}),
 	}, {
-		about:       fmt.Sprintf("num-container-provision-workers: over max"),
+		about:       "num-container-provision-workers: over max",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"num-container-provision-workers": 26,
@@ -809,7 +809,7 @@ func (test configTest) check(c *gc.C) {
 	c.Assert(cfg.SSHAllow(), gc.DeepEquals, []string{"0.0.0.0/0", "::/0"})
 }
 
-func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
+func (s *ConfigSuite) TestAllAttrs(c *gc.C) {
 	// Normally this is handled by jujutesting.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
@@ -854,6 +854,58 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
 	attrs["new-unknown"] = "my-new-unknown"
 	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
+}
+
+func (s *ConfigSuite) TestSafeModelAttrs(c *gc.C) {
+	// Normally this is handled by jujutesting.FakeHome
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
+	attrs := map[string]interface{}{
+		"type":                       "my-type",
+		"name":                       "my-name",
+		"uuid":                       "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
+		"authorized-keys":            testing.FakeAuthKeys,
+		"firewall-mode":              config.FwInstance,
+		"unknown":                    "my-unknown",
+		"ssl-hostname-verification":  true,
+		"default-base":               jujuversion.DefaultSupportedLTSBase().String(),
+		"disable-network-management": false,
+		"ignore-machine-addresses":   false,
+		"automatically-retry-hooks":  true,
+		"proxy-ssh":                  false,
+		"development":                false,
+		"test-mode":                  false,
+		"secret-backend":             "auto",
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set from default
+	attrs["logging-config"] = "<root>=INFO"
+
+	// Default firewall mode is instance
+	attrs["firewall-mode"] = string(config.FwInstance)
+	c.Assert(cfg.SafeModelAttrs(), jc.DeepEquals, attrs)
+	c.Assert(cfg.UnknownAttrs(), jc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+
+	// Verify that default provisioner-harvest-mode is good.
+	c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
+
+	newcfg, err := cfg.Apply(map[string]interface{}{
+		"name":        "new-name",
+		"uuid":        "6216dfc3-6e82-408f-9f74-8565e63e6158",
+		"new-unknown": "my-new-unknown",
+
+		// Ensure that we remove the following keys.
+		"agent-version":  "1.9.13",
+		"admin-secret":   "deadbeef",
+		"ca-private-key": "shh....",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	attrs["name"] = "new-name"
+	attrs["uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
+	attrs["new-unknown"] = "my-new-unknown"
+	c.Assert(newcfg.SafeModelAttrs(), jc.DeepEquals, attrs)
 }
 
 type validationTest struct {

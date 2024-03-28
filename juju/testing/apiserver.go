@@ -650,8 +650,9 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
-func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) {
-	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner, noopTxnRunner{})
+func SeedDatabase(c *gc.C, controller database.TxnRunner, controllerConfig controller.Config) {
+	ctx := context.Background()
+	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(ctx, controller, noopTxnRunner{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

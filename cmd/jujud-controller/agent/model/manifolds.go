@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/worker/cleaner"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
-	"github.com/juju/juju/internal/worker/environ"
 	"github.com/juju/juju/internal/worker/environupgrader"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -52,6 +51,8 @@ import (
 	"github.com/juju/juju/internal/worker/machineundertaker"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
+	"github.com/juju/juju/internal/worker/modelworkermanager"
+	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/pruner"
 	"github.com/juju/juju/internal/worker/remoterelations"
@@ -120,6 +121,9 @@ type ManifoldsConfig struct {
 	// NewMigrationMaster is called to create a new migrationmaster
 	// worker.
 	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
+
+	// ProviderServiceFactory is used to access the provider service.
+	ProviderServiceFactory modelworkermanager.ProviderServiceFactory
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -148,6 +152,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Filter:        apiConnectFilter,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.apicaller"),
 		}),
+
+		// The provider service factory is used to access the provider service.
+		// It's injected into the model worker manager so that it can be used
+		// by the provider and broker workers.
+		providerServiceFactoryName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.ProviderServiceFactory)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
 
 		// The logging config updater listens for logging config updates
 		// for the model and configures the logging context appropriately.
@@ -299,15 +313,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PruneInterval: config.ActionPrunerInterval,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.action"),
 		})),
-		// The environ upgrader runs on all controller agents, and
-		// unlocks the gate when the environ is up-to-date. The
-		// environ tracker will be supplied only to the leader,
+		// The provider upgrader runs on all controller agents, and
+		// unlocks the gate when the provider is up-to-date. The
+		// provider tracker will be supplied only to the leader,
 		// which is the agent that will run the upgrade steps;
 		// the other controller agents will wait for it to complete
 		// running those steps before allowing logins to the model.
-		environUpgradeGateName: gate.Manifold(),
-		environUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  environUpgradeGateName,
+		providerUpgradeGateName: gate.Manifold(),
+		providerUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  providerUpgradeGateName,
 			NewWorker: gate.NewFlagWorker,
 			// No Logger defined in gate package.
 		}),
@@ -337,10 +351,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		environTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			NewEnvironFunc: config.NewEnvironFunc,
-			Logger:         config.LoggingContext.GetLogger("juju.worker.environ"),
+		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.Manifold(providertracker.ManifoldConfig{
+			ProviderServiceFactoryName: providerServiceFactoryName,
+			NewEnviron:                 config.NewEnvironFunc,
+			NewWorker:                  providertracker.NewWorker,
+			GetProviderServiceFactory:  providertracker.GetProviderServiceFactory,
+			Logger:                     config.LoggingContext.GetLogger("juju.worker.providertracker"),
 		}))),
 
 		// Everything else should be wrapped in ifResponsible,
@@ -384,7 +400,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			EnvironName:   providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.provisioner"),
 
 			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
@@ -394,7 +410,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:                apiCallerName,
 			Clock:                        config.Clock,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
-			StorageRegistryName:          environTrackerName,
+			StorageRegistryName:          providerTrackerName,
 			Model:                        modelTag,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			NewWorker:                    storageprovisioner.NewStorageProvisioner,
@@ -402,7 +418,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			EnvironName:   providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.firewaller"),
 
 			NewControllerConnection:      apicaller.NewExternalControllerConnection,
@@ -427,22 +443,22 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName:                apiCallerName,
-			EnvironName:                  environTrackerName,
+			EnvironName:                  providerTrackerName,
 			ClockName:                    clockName,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.instancepoller"),
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,
-			EnvironName:                  environTrackerName,
+			EnvironName:                  providerTrackerName,
 			NewWorker:                    machineundertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		})),
-		environUpgraderName: ifNotDead(ifCredentialValid(environupgrader.Manifold(environupgrader.ManifoldConfig{
+		providerUpgraderName: ifNotDead(ifCredentialValid(environupgrader.Manifold(environupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
-			EnvironName:                  environTrackerName,
-			GateName:                     environUpgradeGateName,
+			EnvironName:                  providerTrackerName,
+			GateName:                     providerUpgradeGateName,
 			ControllerTag:                controllerTag,
 			ModelTag:                     modelTag,
 			NewFacade:                    environupgrader.NewFacade,
@@ -453,7 +469,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		instanceMutaterName: ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			EnvironName:   providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater.environ"),
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewEnvironWorker,
@@ -533,9 +549,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		)),
 
-		environUpgraderName: ifNotDead(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
+		providerUpgraderName: ifNotDead(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
-			GateName:      environUpgradeGateName,
+			GateName:      providerUpgradeGateName,
 			ModelTag:      modelTag,
 			NewFacade:     caasenvironupgrader.NewFacade,
 			NewWorker:     caasenvironupgrader.NewWorker,
@@ -624,10 +640,10 @@ var (
 	}.Decorate
 
 	// ifNotUpgrading wraps a manifold such that it only runs after
-	// the environ upgrade worker has completed.
+	// the provider upgrade worker has completed.
 	ifNotUpgrading = engine.Housing{
 		Flags: []string{
-			environUpgradedFlagName,
+			providerUpgradedFlagName,
 		},
 	}.Decorate
 
@@ -654,27 +670,28 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
-	environUpgradeGateName  = "environ-upgrade-gate"
-	environUpgradedFlagName = "environ-upgraded-flag"
-	environUpgraderName     = "environ-upgrader"
+	providerTrackerName      = "provider-tracker"
+	providerUpgradeGateName  = "provider-upgrade-gate"
+	providerUpgradedFlagName = "provider-upgraded-flag"
+	providerUpgraderName     = "provider-upgrader"
 
-	environTrackerName       = "environ-tracker"
-	undertakerName           = "undertaker"
-	computeProvisionerName   = "compute-provisioner"
-	storageProvisionerName   = "storage-provisioner"
-	charmDownloaderName      = "charm-downloader"
-	firewallerName           = "firewaller"
-	unitAssignerName         = "unit-assigner"
-	applicationScalerName    = "application-scaler"
-	instancePollerName       = "instance-poller"
-	charmRevisionUpdaterName = "charm-revision-updater"
-	stateCleanerName         = "state-cleaner"
-	statusHistoryPrunerName  = "status-history-pruner"
-	actionPrunerName         = "action-pruner"
-	machineUndertakerName    = "machine-undertaker"
-	remoteRelationsName      = "remote-relations"
-	loggingConfigUpdaterName = "logging-config-updater"
-	instanceMutaterName      = "instance-mutater"
+	undertakerName             = "undertaker"
+	computeProvisionerName     = "compute-provisioner"
+	storageProvisionerName     = "storage-provisioner"
+	charmDownloaderName        = "charm-downloader"
+	firewallerName             = "firewaller"
+	unitAssignerName           = "unit-assigner"
+	applicationScalerName      = "application-scaler"
+	instancePollerName         = "instance-poller"
+	charmRevisionUpdaterName   = "charm-revision-updater"
+	stateCleanerName           = "state-cleaner"
+	statusHistoryPrunerName    = "status-history-pruner"
+	actionPrunerName           = "action-pruner"
+	machineUndertakerName      = "machine-undertaker"
+	remoteRelationsName        = "remote-relations"
+	loggingConfigUpdaterName   = "logging-config-updater"
+	instanceMutaterName        = "instance-mutater"
+	providerServiceFactoryName = "provider-service-factory"
 
 	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"

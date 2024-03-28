@@ -14,6 +14,8 @@ import (
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
+	modelservice "github.com/juju/juju/domain/model/service"
+	modelstate "github.com/juju/juju/domain/model/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	networkservice "github.com/juju/juju/domain/network/service"
@@ -136,5 +138,11 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 		nil, // TODO(secrets)
 		s.logger.Child("secret"),
 		adminConfigGetter,
+	)
+}
+
+func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
+	return modelservice.NewModelService(
+		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }

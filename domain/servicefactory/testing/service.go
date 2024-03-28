@@ -188,3 +188,12 @@ func (s *TestingServiceFactory) WithUnitService(getter func() *unitservice.Servi
 	s.unitServiceGetter = getter
 	return s
 }
+
+// ModelInfo returns the model service for the model. The model info
+// contains read-only information about the model.
+// Note: This should be called model, but we have naming conflicts with
+// the model service. As this is only for read-only model information, we
+// can rename it to the more obscure version.
+func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
+	return nil
+}

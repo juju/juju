@@ -42,6 +42,11 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	controllerUUID := coremodel.UUID(st.ControllerUUID())
+	if err := controllerUUID.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -77,22 +82,20 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
 
-	modelConfigGetter := func(uuid coremodel.UUID) (ModelConfigService, error) {
-		sf := ctx.ServiceFactoryForModel(uuid)
-		configService := sf.Config(sf.ModelDefaults().ModelDefaultsProvider(uuid))
-		return configService, nil
-	}
-
 	return NewModelManagerAPI(
 		backend.(StateBackend),
 		ctx.ModelExporter(backend),
 		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
-		serviceFactory.Cloud(),
-		serviceFactory.Credential(),
-		serviceFactory.Model(),
-		modelConfigGetter,
-		serviceFactory.Access(),
-		ctx.ObjectStore(),
+		controllerUUID,
+		Services{
+			ServiceFactoryGetter: serviceFactoryGetter{ctx: ctx},
+			CloudService:         serviceFactory.Cloud(),
+			CredentialService:    serviceFactory.Credential(),
+			ModelService:         serviceFactory.Model(),
+			ModelDefaultsService: serviceFactory.ModelDefaults(),
+			UserService:          serviceFactory.Access(),
+			ObjectStore:          ctx.ObjectStore(),
+		},
 		configSchemaSource,
 		toolsFinder,
 		caas.New,
