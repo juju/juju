@@ -9,14 +9,12 @@ import (
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type agentEntityWatcherSuite struct{}
@@ -91,39 +89,4 @@ func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 	result, err := a.Watch(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
-}
-
-type multiNotifyWatcherSuite struct{}
-
-var _ = gc.Suite(&multiNotifyWatcherSuite{})
-
-func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
-	w0 := apiservertesting.NewFakeNotifyWatcher()
-	w1 := apiservertesting.NewFakeNotifyWatcher()
-
-	mw := common.NewMultiNotifyWatcher(w0, w1)
-	defer workertest.CleanKill(c, mw)
-
-	wc := statetesting.NewNotifyWatcherC(c, mw)
-	wc.AssertOneChange()
-
-	w0.C <- struct{}{}
-	wc.AssertOneChange()
-	w1.C <- struct{}{}
-	wc.AssertOneChange()
-
-	w0.C <- struct{}{}
-	w1.C <- struct{}{}
-	wc.AssertOneChange()
-}
-
-func (*multiNotifyWatcherSuite) TestMultiNotifyWatcherStop(c *gc.C) {
-	w0 := apiservertesting.NewFakeNotifyWatcher()
-	w1 := apiservertesting.NewFakeNotifyWatcher()
-
-	mw := common.NewMultiNotifyWatcher(w0, w1)
-	wc := statetesting.NewNotifyWatcherC(c, mw)
-	wc.AssertOneChange()
-	statetesting.AssertCanStopWhenSending(c, mw)
-	wc.AssertClosed()
 }
