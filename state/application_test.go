@@ -271,7 +271,10 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", CharmOrigin: &state.CharmOrigin{
+		Source:   "local",
+		Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
+	}})
 
 	// Add a compatible charm and force it.
 	sch := state.AddCustomCharm(c, st, "mysql-k8s", "metadata.yaml", metaBaseCAAS, "focal", 2)
