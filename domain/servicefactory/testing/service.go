@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"github.com/juju/clock"
+
 	accessservice "github.com/juju/juju/domain/access/service"
 	annotationservice "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -22,6 +24,7 @@ import (
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -155,6 +158,15 @@ func (s *TestingServiceFactory) WithMachineService(getter func() *machineservice
 
 // BlockDevice returns the block device service.
 func (s *TestingServiceFactory) BlockDevice() *blockdeviceservice.WatchableService {
+	return nil
+}
+
+// SecretBackend returns the secret backend service.
+func (s *TestingServiceFactory) SecretBackend(
+	clk clock.Clock,
+	controllerUUID string,
+	registry secretbackendservice.SecretProviderRegistry,
+) *secretbackendservice.WatchableService {
 	return nil
 }
 
