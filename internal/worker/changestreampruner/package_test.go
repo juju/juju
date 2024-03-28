@@ -41,7 +41,8 @@ type baseSuite struct {
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.DqliteSuite.SetUpTest(c)
 	s.DqliteSuite.ApplyDDL(c, &domaintesting.SchemaApplier{
-		Schema: schema.ControllerDDL(),
+		Schema:  schema.ControllerDDL(),
+		Verbose: s.Verbose,
 	})
 }
 
@@ -49,7 +50,8 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 // given database.
 func (s *baseSuite) ApplyDDLForRunner(c *gc.C, runner coredatabase.TxnRunner) {
 	s.DqliteSuite.ApplyDDLForRunner(c, &domaintesting.SchemaApplier{
-		Schema: schema.ControllerDDL(),
+		Schema:  schema.ControllerDDL(),
+		Verbose: s.Verbose,
 	}, runner)
 }
 

@@ -29,6 +29,10 @@ import (
 	"github.com/juju/juju/internal/database/pragma"
 )
 
+// includeSQLOutput is used to enable the output of all SQL queries hitting the
+// database.
+var includeSQLOutput = os.Getenv("INCLUDE_SQL_OUTPUT")
+
 // SchemaApplier is an interface that can be used to apply a schema to a
 // database.
 type SchemaApplier interface {
@@ -40,6 +44,10 @@ type SchemaApplier interface {
 // Suite to call ApplyDDL after SetupTest has been called.
 type DqliteSuite struct {
 	testing.IsolationSuite
+
+	// Verbose indicates whether the suite should print all the sql
+	// hitting the db.
+	Verbose bool
 
 	dbPath   string
 	rootPath string
@@ -96,6 +104,9 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Enable super verbose mode.
+	s.Verbose = verbose && includeSQLOutput != ""
 
 	err = s.dqlite.Ready(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

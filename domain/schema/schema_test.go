@@ -71,10 +71,12 @@ func readEntityNames(c *gc.C, db *sql.DB, entity_type string) []string {
 }
 
 func (s *schemaSuite) applyDDL(c *gc.C, ddl *schema.Schema) {
-	ddl.Hook(func(i int) error {
-		c.Log("Applying schema change", i)
-		return nil
-	})
+	if s.Verbose {
+		ddl.Hook(func(i int, statement string) error {
+			c.Logf("-- Applying schema change %d\n%s\n", i, statement)
+			return nil
+		})
+	}
 	changeSet, err := ddl.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changeSet.Current, gc.Equals, 0)
