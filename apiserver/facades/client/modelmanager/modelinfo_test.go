@@ -962,11 +962,6 @@ func (st *mockState) AddSpace(name string, provider network.Id, subnetIds []stri
 	return nil, st.NextErr()
 }
 
-func (st *mockState) AllEndpointBindingsSpaceNames() (set.Strings, error) {
-	st.MethodCall(st, "AllEndpointBindingsSpaceNames")
-	return set.NewStrings(), nil
-}
-
 func (st *mockState) DefaultEndpointBindingSpace() (string, error) {
 	st.MethodCall(st, "DefaultEndpointBindingSpace")
 	return "alpha", nil

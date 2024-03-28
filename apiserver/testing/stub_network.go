@@ -587,11 +587,6 @@ func (sb *StubBacking) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID
 	return nil
 }
 
-func (sb *StubBacking) AllEndpointBindingsSpaceNames() (set.Strings, error) {
-	sb.MethodCall(sb, "AllEndpointBindingsSpaceNames")
-	return set.NewStrings(), nil
-}
-
 func (sb *StubBacking) DefaultEndpointBindingSpace() (string, error) {
 	sb.MethodCall(sb, "DefaultEndpointBindingSpace")
 	return "alpha", nil
