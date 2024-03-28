@@ -113,6 +113,25 @@ func (s *pebbleNoticerSuite) TestWaitNotices(c *gc.C) {
 	})
 }
 
+func (s *pebbleNoticerSuite) TestChangeUpdate(c *gc.C) {
+	s.setUpWorker(c, []string{"c1"})
+	defer workertest.CleanKill(c, s.worker)
+
+	s.clients["c1"].AddNotice(c, &client.Notice{
+		ID:           "1",
+		Type:         "change-update",
+		Key:          "42",
+		LastRepeated: time.Now(),
+	})
+	s.waitWorkloadEvent(c, container.WorkloadEvent{
+		Type:         container.ChangeUpdatedEvent,
+		WorkloadName: "c1",
+		NoticeID:     "1",
+		NoticeType:   "change-update",
+		NoticeKey:    "42",
+	})
+}
+
 func (s *pebbleNoticerSuite) TestWaitNoticesError(c *gc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)

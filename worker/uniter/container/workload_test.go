@@ -131,3 +131,46 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *gc.C) {
 		NoticeKey:    "example.com/foo",
 	})
 }
+
+func (s *workloadSuite) TestWorkloadChangeUpdatedHook(c *gc.C) {
+	events := container.NewWorkloadEvents()
+	expectedErr := errors.Errorf("expected error")
+	handler := func(err error) {
+		c.Assert(err, gc.Equals, expectedErr)
+	}
+	containerResolver := container.NewWorkloadHookResolver(
+		loggo.GetLogger("test"),
+		events,
+		events.RemoveWorkloadEvent)
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+			Step: operation.Pending,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		WorkloadEvents: []string{
+			events.AddWorkloadEvent(container.WorkloadEvent{
+				Type:         container.ChangeUpdatedEvent,
+				WorkloadName: "test",
+				NoticeID:     "123",
+				NoticeType:   "change-update",
+				NoticeKey:    "42",
+			}, handler),
+		},
+	}
+	opFactory := &mockOperations{}
+	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op, gc.NotNil)
+	op = operation.Unwrap(op)
+	hookOp, ok := op.(*mockRunHookOp)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(hookOp.hookInfo, gc.DeepEquals, hook.Info{
+		Kind:         "pebble-change-updated",
+		WorkloadName: "test",
+		NoticeID:     "123",
+		NoticeType:   "change-update",
+		NoticeKey:    "42",
+	})
+}

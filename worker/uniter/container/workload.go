@@ -32,6 +32,7 @@ const (
 	// ReadyEvent is triggered when the container/pebble starts up.
 	ReadyEvent WorkloadEventType = iota
 	CustomNoticeEvent
+	ChangeUpdatedEvent
 )
 
 // WorkloadEvent contains information about the event type and data associated with
@@ -192,6 +193,14 @@ func (r *workloadHookResolver) NextOp(
 			case CustomNoticeEvent:
 				op, err = opFactory.NewRunHook(hook.Info{
 					Kind:         hooks.PebbleCustomNotice,
+					WorkloadName: evt.WorkloadName,
+					NoticeID:     evt.NoticeID,
+					NoticeType:   evt.NoticeType,
+					NoticeKey:    evt.NoticeKey,
+				})
+			case ChangeUpdatedEvent:
+				op, err = opFactory.NewRunHook(hook.Info{
+					Kind:         hooks.PebbleChangeUpdated,
 					WorkloadName: evt.WorkloadName,
 					NoticeID:     evt.NoticeID,
 					NoticeType:   evt.NoticeType,
