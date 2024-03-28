@@ -6,7 +6,6 @@ package space
 import (
 	"context"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -205,7 +204,6 @@ func (s *providerSpacesSuite) TestDeleteSpaces(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
 	mockState.EXPECT().ConstraintsBySpaceName("1").Return(nil, nil)
 	mockState.EXPECT().Remove("1").Return(nil)
 
@@ -228,7 +226,6 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesAlphaSpace(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
 
 	provider := NewProviderSpaces(mockState)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
@@ -252,7 +249,6 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesDefaultBindingSpace(c *gc.C
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
 
 	provider := NewProviderSpaces(mockState)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
@@ -269,34 +265,11 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesDefaultBindingSpace(c *gc.C
 	})
 }
 
-func (s *providerSpacesSuite) TestDeleteSpacesContainedInAllEndpointBindings(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings("1"), nil)
-
-	provider := NewProviderSpaces(mockState)
-	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
-		network.Id("1"): {
-			ID:   "1",
-			Name: "1",
-		},
-	}
-
-	warnings, err := provider.DeleteSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(warnings, gc.DeepEquals, []string{
-		`Unable to delete space "1". Space is used as a endpoint binding.`,
-	})
-}
-
 func (s *providerSpacesSuite) TestDeleteSpacesContainsConstraintsSpace(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
 	mockState.EXPECT().ConstraintsBySpaceName("1").Return([]Constraints{struct{}{}}, nil)
 
 	provider := NewProviderSpaces(mockState)
@@ -355,7 +328,6 @@ func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
 		},
 	})
 
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
 	mockState.EXPECT().ConstraintsBySpaceName("space1").Return(nil, nil)
 
 	warnings, err := provider.DeleteSpaces()

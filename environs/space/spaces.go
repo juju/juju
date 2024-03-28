@@ -32,9 +32,6 @@ type ReloadSpacesState interface {
 	// ConstraintsBySpaceName returns all Constraints that include a positive
 	// or negative space constraint for the input space name.
 	ConstraintsBySpaceName(string) ([]Constraints, error)
-	// AllEndpointBindingsSpaceNames returns a set of spaces names for all the
-	// endpoint bindings.
-	AllEndpointBindingsSpaceNames() (set.Strings, error)
 	// Remove removes a Dead space. If the space is not Dead or it is already
 	// removed, an error is returned.
 	Remove(spaceID string) error
@@ -187,11 +184,6 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 	// migrating this logic to Dqlite.
 	defaultEndpointBinding := network.AlphaSpaceId
 
-	allEndpointBindings, err := s.state.AllEndpointBindingsSpaceNames()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	var warnings []string
 	for _, providerID := range remnantSpaces.SortedValues() {
 		// If the space is not in state or the name is not in space names, then
@@ -208,13 +200,11 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 			continue
 		}
 
+		// TODO(nvinuesa): This check is removed. We are going to handle
+		// this validation by referential integrity (between spaces and
+		// endpoint bindings).
 		// Check all endpoint bindings found within a model. If they reference
 		// a space name, then ignore then space for removal.
-		if allEndpointBindings.Contains(string(space.Name)) {
-			warning := fmt.Sprintf("Unable to delete space %q. Space is used as a endpoint binding.", space.Name)
-			warnings = append(warnings, warning)
-			continue
-		}
 
 		// Check to see if any space is within any constraints, if they are,
 		// ignore them for now.

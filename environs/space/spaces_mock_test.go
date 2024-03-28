@@ -12,7 +12,6 @@ package space
 import (
 	reflect "reflect"
 
-	set "github.com/juju/collections/set"
 	network "github.com/juju/juju/core/network"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -53,21 +52,6 @@ func (m *MockReloadSpacesState) AddSpace(arg0 string, arg1 network.Id, arg2 []st
 func (mr *MockReloadSpacesStateMockRecorder) AddSpace(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockReloadSpacesState)(nil).AddSpace), arg0, arg1, arg2)
-}
-
-// AllEndpointBindingsSpaceNames mocks base method.
-func (m *MockReloadSpacesState) AllEndpointBindingsSpaceNames() (set.Strings, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllEndpointBindingsSpaceNames")
-	ret0, _ := ret[0].(set.Strings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllEndpointBindingsSpaceNames indicates an expected call of AllEndpointBindingsSpaceNames.
-func (mr *MockReloadSpacesStateMockRecorder) AllEndpointBindingsSpaceNames() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindingsSpaceNames", reflect.TypeOf((*MockReloadSpacesState)(nil).AllEndpointBindingsSpaceNames))
 }
 
 // AllSpaces mocks base method.
