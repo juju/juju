@@ -29,6 +29,7 @@ type Schema struct {
 type Patch struct {
 	run  func(context.Context, Tx) error
 	hash string
+	stmt string
 }
 
 // MakePatch returns a patch that applies the given SQL statement with the given
@@ -40,11 +41,12 @@ func MakePatch(statement string, args ...any) Patch {
 			return errors.Trace(err)
 		},
 		hash: computeHash(statement),
+		stmt: statement,
 	}
 }
 
 // Hook is a callback that gets fired when a update gets applied.
-type Hook func(int) error
+type Hook func(int, string) error
 
 // New creates a new schema Schema with the given patches.
 func New(patches ...Patch) *Schema {
@@ -122,4 +124,4 @@ func (s *Schema) Ensure(ctx context.Context, runner database.TxnRunner) (ChangeS
 }
 
 // omitHook always returns a nil, omitting the error.
-func omitHook(int) error { return nil }
+func omitHook(int, string) error { return nil }

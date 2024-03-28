@@ -133,7 +133,7 @@ func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patch
 			return errors.Trace(err)
 		}
 
-		if err := hook(current); err != nil {
+		if err := hook(current, patch.stmt); err != nil {
 			return errors.Annotatef(err, "failed to execute hook (version %d)", current)
 		}
 

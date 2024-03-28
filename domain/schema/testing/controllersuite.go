@@ -31,7 +31,8 @@ func (s *ControllerSuite) ControllerTxnRunner() coredatabase.TxnRunner {
 func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	s.DqliteSuite.SetUpTest(c)
 	s.DqliteSuite.ApplyDDL(c, &SchemaApplier{
-		Schema: schema.ControllerDDL(),
+		Schema:  schema.ControllerDDL(),
+		Verbose: s.Verbose,
 	})
 	err := database.InsertControllerNodeID(context.Background(), s.DqliteSuite.TxnRunner(), 0x2dc171858c3155be)
 	c.Assert(err, jc.ErrorIsNil)
@@ -41,7 +42,8 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 // given database.
 func (s *ControllerSuite) ApplyDDLForRunner(c *gc.C, runner coredatabase.TxnRunner) {
 	s.DqliteSuite.ApplyDDLForRunner(c, &SchemaApplier{
-		Schema: schema.ControllerDDL(),
+		Schema:  schema.ControllerDDL(),
+		Verbose: s.Verbose,
 	}, runner)
 	err := database.InsertControllerNodeID(context.Background(), runner, 0x2dc171858c3155be)
 	c.Assert(err, jc.ErrorIsNil)
