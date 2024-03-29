@@ -128,7 +128,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		s.st, fw, s.resources, s.authorizer,
 		s.authContext, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher,
-		loggo.GetLoggerWithTags("juju.apiserver.crossmodelrelations", corelogger.CMR),
+		loggo.GetLoggerWithTags("juju.apiserver.crossmodelrelations", corelogger.CMR), status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

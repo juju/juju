@@ -598,7 +598,7 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) expectSetModificationStat
 		Message: message,
 		Data:    nil,
 		Since:   &now,
-	}).Return(err)
+	}, status.NoopStatusHistoryRecorder).Return(err)
 }
 
 type InstanceMutaterAPIWatchMachinesSuite struct {

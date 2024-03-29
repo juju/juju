@@ -164,17 +164,17 @@ func (mr *MockMachineMockRecorder) ModificationStatus() *gomock.Call {
 }
 
 // SetModificationStatus mocks base method.
-func (m *MockMachine) SetModificationStatus(arg0 status.StatusInfo) error {
+func (m *MockMachine) SetModificationStatus(arg0 status.StatusInfo, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModificationStatus", arg0)
+	ret := m.ctrl.Call(m, "SetModificationStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetModificationStatus indicates an expected call of SetModificationStatus.
-func (mr *MockMachineMockRecorder) SetModificationStatus(arg0 any) *gomock.Call {
+func (mr *MockMachineMockRecorder) SetModificationStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMachine)(nil).SetModificationStatus), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMachine)(nil).SetModificationStatus), arg0, arg1)
 }
 
 // MockUnit is a mock of Unit interface.

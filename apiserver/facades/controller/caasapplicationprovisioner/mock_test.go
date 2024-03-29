@@ -318,8 +318,8 @@ func (a *mockApplication) Base() state.Base {
 	return a.base
 }
 
-func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo) error {
-	a.MethodCall(a, "SetOperatorStatus", statusInfo)
+func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo, recorder status.StatusHistoryRecorder) error {
+	a.MethodCall(a, "SetOperatorStatus", statusInfo, recorder)
 	return a.NextErr()
 }
 

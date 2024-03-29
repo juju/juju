@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -79,6 +80,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		registry,
 		storageService,
 		loggo.GetLogger("juju.apiserver.storageprovisioner"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

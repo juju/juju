@@ -419,21 +419,21 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machines[0].SetInstanceStatus(sInfo)
+	err := s.machines[0].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Running,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.machines[1].SetInstanceStatus(sInfo)
+	err = s.machines[1].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.machines[2].SetInstanceStatus(sInfo)
+	err = s.machines[2].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -474,21 +474,21 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machines[0].SetModificationStatus(sInfo)
+	err := s.machines[0].SetModificationStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Applied,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.machines[1].SetModificationStatus(sInfo)
+	err = s.machines[1].SetModificationStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.machines[2].SetModificationStatus(sInfo)
+	err = s.machines[2].SetModificationStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -527,7 +527,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machines[0].SetInstanceStatus(sInfo)
+	err := s.machines[0].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
@@ -535,7 +535,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		Data:    map[string]any{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
-	err = s.machines[1].SetInstanceStatus(sInfo)
+	err = s.machines[1].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
@@ -543,14 +543,14 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		Data:    map[string]any{"transient": false},
 		Since:   &now,
 	}
-	err = s.machines[2].SetInstanceStatus(sInfo)
+	err = s.machines[2].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
 		Message: "error",
 		Since:   &now,
 	}
-	err = s.machines[3].SetInstanceStatus(sInfo)
+	err = s.machines[3].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// Machine 4 is provisioned but error not reset yet.
 	sInfo = status.StatusInfo{
@@ -559,7 +559,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		Data:    map[string]any{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
-	err = s.machines[4].SetInstanceStatus(sInfo)
+	err = s.machines[4].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
 	err = s.machines[4].SetProvisioned("i-am", "", "fake_nonce", &hwChars)
@@ -595,7 +595,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		Message: "blah",
 		Since:   &now,
 	}
-	err = s.machines[0].SetInstanceStatus(sInfo)
+	err = s.machines[0].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
@@ -603,7 +603,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		Data:    map[string]any{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
-	err = s.machines[1].SetInstanceStatus(sInfo)
+	err = s.machines[1].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
@@ -611,14 +611,14 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		Data:    map[string]any{"transient": false},
 		Since:   &now,
 	}
-	err = s.machines[2].SetInstanceStatus(sInfo)
+	err = s.machines[2].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
 		Message: "error",
 		Since:   &now,
 	}
-	err = s.machines[3].SetInstanceStatus(sInfo)
+	err = s.machines[3].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := aProvisioner.MachinesWithTransientErrors(context.Background())
@@ -857,14 +857,14 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machines[0].SetInstanceStatus(sInfo)
+	err := s.machines[0].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Running,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.machines[1].SetInstanceStatus(sInfo)
+	err = s.machines[1].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
@@ -872,7 +872,7 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}
-	err = s.machines[2].SetInstanceStatus(sInfo)
+	err = s.machines[2].SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

@@ -2736,7 +2736,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, st.ModelUUID())
 
-	err = unitZero.SetWorkloadVersion("3.combined")
+	err = unitZero.SetWorkloadVersion("3.combined", status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	version, err := unitZero.WorkloadVersion()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5344,7 +5344,7 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 		Message: "broken",
 		Since:   &now,
 	}
-	err := app.SetOperatorStatus(sInfo)
+	err := app.SetOperatorStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appStatus, err := app.OperatorStatus()

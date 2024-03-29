@@ -24,7 +24,6 @@ type StatusHistoryRecorder func(statusKind string, statusId string, status statu
 type StatusAPI struct {
 	model             *state.Model
 	leadershipChecker leadership.Checker
-	recordHistory     StatusHistoryRecorder
 
 	agentSetter       *common.StatusSetter
 	unitSetter        *common.StatusSetter

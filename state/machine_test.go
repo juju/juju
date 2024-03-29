@@ -1084,7 +1084,7 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 		Message: "alive",
 		Since:   &now,
 	}
-	err = s.machine.SetInstanceStatus(sInfo)
+	err = s.machine.SetInstanceStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Reload machine and check result.
@@ -1107,7 +1107,7 @@ func (s *MachineSuite) TestMachineSetModificationStatus(c *gc.C) {
 		Message: "applied",
 		Since:   &now,
 	}
-	err = s.machine.SetModificationStatus(sInfo)
+	err = s.machine.SetModificationStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Reload machine and check result.

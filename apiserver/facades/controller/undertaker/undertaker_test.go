@@ -58,7 +58,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 			},
 		}, secretsConfigError
 	}
-	api, err := undertaker.NewUndertaker(st, nil, authorizer, secretBackendConfigGetter, nil)
+	api, err := undertaker.NewUndertaker(st, nil, authorizer, secretBackendConfigGetter, nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
 }
@@ -78,6 +78,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 				return nil, errors.NotImplemented
 			},
 			nil,
+			status.NoopStatusHistoryRecorder,
 		)
 		c.Assert(err, gc.ErrorMatches, "permission denied")
 	}

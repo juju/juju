@@ -25,6 +25,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/internal/uuid"
@@ -435,7 +436,7 @@ func addUnitWithVersion(c *gc.C, application *state.Application, version string)
 	// TODO(babbageclunk): when Application and Unit have clocks, change
 	// that instead of sleeping (lp:1558657)
 	time.Sleep(time.Millisecond * 1)
-	err = unit.SetWorkloadVersion(version)
+	err = unit.SetWorkloadVersion(version, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }

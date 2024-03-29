@@ -767,7 +767,7 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 
 func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
 	// Set wordpressUnit's workload version first.
-	err := s.wordpressUnit.SetWorkloadVersion("capulet")
+	err := s.wordpressUnit.SetWorkloadVersion("capulet", status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	version, err := s.wordpressUnit.WorkloadVersion()
 	c.Assert(version, gc.Equals, "capulet")

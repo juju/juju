@@ -256,17 +256,17 @@ func (mr *MockApplicationMockRecorder) SetDownloadedIDAndHash(arg0, arg1 any) *g
 }
 
 // SetStatus mocks base method.
-func (m *MockApplication) SetStatus(arg0 status.StatusInfo, recorder status.StatusHistoryRecorder) error {
+func (m *MockApplication) SetStatus(arg0 status.StatusInfo, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatus", arg0)
+	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetStatus indicates an expected call of SetStatus.
-func (mr *MockApplicationMockRecorder) SetStatus(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) SetStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockApplication)(nil).SetStatus), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockApplication)(nil).SetStatus), arg0, arg1)
 }
 
 // MockCharm is a mock of Charm interface.

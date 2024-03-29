@@ -385,7 +385,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	if dbModel.Type() == state.ModelTypeCAAS {
 		_, err = application.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 		c.Assert(err, jc.ErrorIsNil)
-		err = application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+		err = application.SetOperatorStatus(status.StatusInfo{Status: status.Running}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 
 		addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
@@ -737,7 +737,7 @@ func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 
 func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit *state.Unit) {
 	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {
-		err := unit.SetWorkloadVersion(version)
+		err := unit.SetWorkloadVersion(version, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	us := state.NewUnitState()

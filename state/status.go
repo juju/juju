@@ -22,8 +22,6 @@ import (
 	"github.com/juju/juju/internal/mongo/utils"
 )
 
-var status_logger = loggo.GetLogger("juju.status")
-
 type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
 
 // ModelStatus holds all the current status values for a given model

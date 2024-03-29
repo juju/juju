@@ -485,7 +485,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if testModel.Type() == state.ModelTypeCAAS {
-		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+		application.SetOperatorStatus(status.StatusInfo{Status: status.Running}, status.NoopStatusHistoryRecorder)
 	}
 	if primeStatusHistory {
 		s.primeStatusHistory(c, application, status.Active, 5)
@@ -1085,7 +1085,7 @@ func (s *MigrationImportSuite) TestUnitWithoutAnyPersistedState(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, cons constraints.Value, exported *state.Unit, pwd string) {
-	err := exported.SetWorkloadVersion("amethyst")
+	err := exported.SetWorkloadVersion("amethyst", status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	testModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)

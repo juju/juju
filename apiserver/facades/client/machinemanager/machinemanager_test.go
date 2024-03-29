@@ -80,6 +80,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -140,6 +141,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -285,6 +287,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -809,6 +812,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
@@ -958,7 +962,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
 	machine0.EXPECT().SetInstanceStatus(statusMatcher{c: c, expected: status.StatusInfo{
 		Status: status.ProvisioningError,
 		Data:   map[string]interface{}{"transient": true},
-	}}).Return(nil)
+	}}, status.NoopStatusHistoryRecorder).Return(nil)
 	machine1 := mocks.NewMockMachine(ctrl)
 	machine1.EXPECT().Id().Return("1")
 	s.st.EXPECT().AllMachines().Return([]machinemanager.Machine{machine0, machine1}, nil)
@@ -981,7 +985,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
 	machine0.EXPECT().SetInstanceStatus(statusMatcher{c: c, expected: status.StatusInfo{
 		Status: status.ProvisioningError,
 		Data:   map[string]interface{}{"transient": true},
-	}}).Return(nil)
+	}}, status.NoopStatusHistoryRecorder).Return(nil)
 	machine1 := mocks.NewMockMachine(ctrl)
 	machine1.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "pending"}, nil)
 	s.st.EXPECT().AllMachines().Return([]machinemanager.Machine{machine0, machine1}, nil)
@@ -1073,6 +1077,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1346,6 +1351,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1458,6 +1464,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
@@ -1575,6 +1582,7 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

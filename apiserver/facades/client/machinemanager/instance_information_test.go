@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
@@ -76,6 +77,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

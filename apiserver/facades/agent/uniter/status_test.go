@@ -40,7 +40,7 @@ func (s *statusBaseSuite) newStatusAPI() *uniter.StatusAPI {
 	auth := func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
-	return uniter.NewStatusAPI(s.StateSuite.Model, auth, s.leadershipChecker)
+	return uniter.NewStatusAPI(s.StateSuite.Model, auth, s.leadershipChecker, status.NoopStatusHistoryRecorder)
 }
 
 type ApplicationStatusAPISuite struct {

@@ -125,17 +125,17 @@ func (mr *MockUpgradeSeriesMachineMockRecorder) RemoveUpgradeSeriesLock() *gomoc
 }
 
 // SetInstanceStatus mocks base method.
-func (m *MockUpgradeSeriesMachine) SetInstanceStatus(arg0 status.StatusInfo) error {
+func (m *MockUpgradeSeriesMachine) SetInstanceStatus(arg0 status.StatusInfo, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0)
+	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetInstanceStatus indicates an expected call of SetInstanceStatus.
-func (mr *MockUpgradeSeriesMachineMockRecorder) SetInstanceStatus(arg0 any) *gomock.Call {
+func (mr *MockUpgradeSeriesMachineMockRecorder) SetInstanceStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).SetInstanceStatus), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).SetInstanceStatus), arg0, arg1)
 }
 
 // SetUpgradeSeriesStatus mocks base method.

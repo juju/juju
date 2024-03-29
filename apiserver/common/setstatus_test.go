@@ -30,7 +30,7 @@ func (s *statusSetterSuite) SetUpTest(c *gc.C) {
 
 	s.setter = common.NewStatusSetter(s.State, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
-	})
+	}, status.NoopStatusHistoryRecorder)
 }
 
 func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {

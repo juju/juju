@@ -138,6 +138,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.revoker,
 		st,
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployer = deployer

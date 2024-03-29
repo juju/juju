@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -51,6 +52,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 		authorizer,
 		nil, nil,
 		loggo.GetLogger("juju.apiserver.storageprovisioner"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

@@ -203,7 +203,7 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 	exp.SetInstanceStatus(status.StatusInfo{
 		Status:  status.Running,
 		Message: msg,
-	}).Return(nil)
+	}, status.NoopStatusHistoryRecorder).Return(nil)
 
 	results, err := s.api.SetInstanceStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{
@@ -232,7 +232,7 @@ func (s *upgradeSeriesSuite) arrangeTest(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 
 	var err error
-	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer, nil, loggo.GetLogger("juju.apiserver.upgradeseries"))
+	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer, nil, loggo.GetLogger("juju.apiserver.upgradeseries"), status.NoopStatusHistoryRecorder)
 
 	c.Assert(err, jc.ErrorIsNil)
 

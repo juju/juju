@@ -51,6 +51,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
 		s.resources,
 		s.authorizer,
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machiner = machiner
@@ -66,7 +67,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 		st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		nil,
-		s.resources, anAuthorizer)
+		s.resources, anAuthorizer, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

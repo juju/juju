@@ -64,7 +64,7 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 	s.ecService = mocks.NewMockExternalControllerService(ctrl)
 	api, err := remoterelations.NewRemoteRelationsAPI(
 		s.st, s.ecService, s.cc, s.resources, s.authorizer,
-		loggo.GetLogger("test"),
+		loggo.GetLogger("test"), status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
