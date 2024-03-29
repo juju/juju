@@ -125,6 +125,11 @@ func (s *TestingServiceFactory) Space() *networkservice.SpaceService {
 	return nil
 }
 
+// Subnet returns the subnet service.
+func (s *TestingServiceFactory) Subnet() *networkservice.SubnetService {
+	return nil
+}
+
 // Annotation returns the annotation service.
 func (s *TestingServiceFactory) Annotation() *annotationservice.Service {
 	return nil

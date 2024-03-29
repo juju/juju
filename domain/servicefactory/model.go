@@ -116,6 +116,13 @@ func (s *ModelFactory) Space() *networkservice.SpaceService {
 	)
 }
 
+// Subnet returns the model's subnet service.
+func (s *ModelFactory) Subnet() *networkservice.SubnetService {
+	return networkservice.NewSubnetService(
+		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
 // Annotation returns the model's annotation service.
 func (s *ModelFactory) Annotation() *annotationService.Service {
 	return annotationService.NewService(

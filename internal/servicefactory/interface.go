@@ -77,6 +77,8 @@ type ModelServiceFactory interface {
 	Unit() *unitservice.Service
 	// Space returns the space service.
 	Space() *networkservice.SpaceService
+	// Subnet returns the subnet service.
+	Subnet() *networkservice.SubnetService
 	// Annotation returns the annotation service.
 	Annotation() *annotationService.Service
 	// Storage returns the storage service.
