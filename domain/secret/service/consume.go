@@ -13,9 +13,9 @@ import (
 )
 
 func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI, consumer SecretConsumer) (*secrets.SecretConsumerMetadata, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, errors.NotFound
 	/*
+		consumerMetadata, err := getConsumerMetadata(...)
 		//if consumerMetadata.Label != "" {
 		//	return consumerMetadata, nil
 		//}
@@ -35,16 +35,17 @@ func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI,
 }
 
 func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string, consumer SecretConsumer) (*secrets.URI, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, errors.NotFound
 }
 
 func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, consumer SecretConsumer, md *secrets.SecretConsumerMetadata) error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
-// TODO(secrets) - document and test
+// GetConsumedRevision returns the secret revision number for the specified consumer, possibly updating
+// the label associated with the secret for the consumer.
+// Only one of consumer app or unit name must be specified.
+// TODO(secrets) - test
 func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, consumer SecretConsumer, refresh, peek bool, labelToUpdate *string) (int, error) {
 	consumerInfo, err := s.GetSecretConsumer(ctx, uri, consumer)
 	if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
@@ -83,4 +84,11 @@ func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.UR
 		}
 	}
 	return wantRevision, nil
+}
+
+// ListConsumedSecrets returns the secret metadata and revision metadata for any secrets matching the specified consumer.
+// The result contains secrets consumed by any of the non nil consumer attributes.
+// The count of secret and revisions in the result must match.
+func (s *SecretService) ListConsumedSecrets(ctx context.Context, consumer SecretConsumer) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+	return nil, nil, nil
 }

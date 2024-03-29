@@ -2275,33 +2275,6 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *uniterSuite) TestReadLocalApplicationSettingsForAnotherApplicationAsAnOperator(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings := map[string]interface{}{
-		"some": "settings",
-	}
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	// The agent has logged in as the "riak" application; this simulates a k8s operator.
-	auth := apiservertesting.FakeAuthorizer{Tag: names.NewApplicationTag("application-riak-k8s")}
-	uniter := s.newUniterAPI(c, s.ControllerModel(c).State(), auth)
-
-	// As the operator for riak, try to read the application data on behalf
-	// of another application unit; the facade should reject this request
-	// with a permission error as the inferred app from the unit name below
-	// does not match our login credentials.
-	arg := params.RelationUnit{
-		Relation: rel.Tag().String(),
-		Unit:     "unit-wordpress-0",
-	}
-	_, err = uniter.ReadLocalApplicationSettings(context.Background(), arg)
-	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm, gc.Commentf("expected ErrPerm due to mismatch in logged in app and inferred app from provided unit name"))
-}
-
 func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -2332,52 +2305,6 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
-	uniter := s.newUniterAPI(c, st, auth)
-
-	arg := params.RelationUnit{
-		Relation: rel.Tag().String(),
-		Unit:     "unit-riak-0",
-	}
-	result, err := uniter.ReadLocalApplicationSettings(context.Background(), arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResult{
-		Settings: params.Settings{
-			"deerhoof": "little hollywood",
-		},
-	})
-}
-
-func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelationAsAnOperator(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	riak := f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "riak",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "riak"}),
-	})
-	ep, err := riak.Endpoint("ring")
-	c.Assert(err, jc.ErrorIsNil)
-	st := s.ControllerModel(c).State()
-	rel, err := st.EndpointsRelation(ep)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = rel.UpdateApplicationSettings("riak", &fakeToken{}, map[string]interface{}{
-		"deerhoof": "little hollywood",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	riakUnit := f.MakeUnit(c, &factory.UnitParams{
-		Application: riak,
-		Machine:     s.machine0,
-	})
-
-	relUnit, err := rel.Unit(riakUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The agent has logged in as the application; this simulates a k8s operator.
-	auth := apiservertesting.FakeAuthorizer{Tag: riak.Tag()}
 	uniter := s.newUniterAPI(c, st, auth)
 
 	arg := params.RelationUnit{

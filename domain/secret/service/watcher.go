@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
@@ -15,7 +16,9 @@ import (
 )
 
 func (s *SecretService) WatchConsumedSecretsChanges(ctx context.Context, consumer SecretConsumer) (watcher.StringsWatcher, error) {
-	return watchertest.NewMockStringsWatcher(make(chan []string)), nil
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	return watchertest.NewMockStringsWatcher(ch), nil
 }
 
 // WatchObsolete returns a watcher for notifying when:
@@ -25,16 +28,58 @@ func (s *SecretService) WatchConsumedSecretsChanges(ctx context.Context, consume
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (s *SecretService) WatchObsolete(ctx context.Context, owner CharmSecretOwner) (watcher.StringsWatcher, error) {
-	return watchertest.NewMockStringsWatcher(make(chan []string)), nil
+func (s *SecretService) WatchObsolete(ctx context.Context, owner CharmSecretOwners) (watcher.StringsWatcher, error) {
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	return watchertest.NewMockStringsWatcher(ch), nil
 }
 
-func (s *SecretService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owner CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
-	panic("implement me")
+// TODO(secrets) - replace with real watcher
+func newMockTriggerWatcher(ch watcher.SecretTriggerChannel) *mockSecretTriggerWatcher {
+	w := &mockSecretTriggerWatcher{ch: ch}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return w
 }
 
-func (s *SecretService) WatchSecretsRotationChanges(ctx context.Context, owner CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
-	panic("implement me")
+type mockSecretTriggerWatcher struct {
+	tomb tomb.Tomb
+	ch   watcher.SecretTriggerChannel
+}
+
+func (w *mockSecretTriggerWatcher) Changes() watcher.SecretTriggerChannel {
+	return w.ch
+}
+
+func (w *mockSecretTriggerWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *mockSecretTriggerWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *mockSecretTriggerWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *mockSecretTriggerWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (s *SecretService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owner CharmSecretOwners) (watcher.SecretTriggerWatcher, error) {
+	ch := make(chan []watcher.SecretTriggerChange, 1)
+	ch <- []watcher.SecretTriggerChange{}
+	return newMockTriggerWatcher(ch), nil
+}
+
+func (s *SecretService) WatchSecretsRotationChanges(ctx context.Context, owner CharmSecretOwners) (watcher.SecretTriggerWatcher, error) {
+	ch := make(chan []watcher.SecretTriggerChange, 1)
+	ch <- []watcher.SecretTriggerChange{}
+	return newMockTriggerWatcher(ch), nil
 }
 
 func (s *SecretService) WatchObsoleteUserSecrets(ctx context.Context) (watcher.NotifyWatcher, error) {
@@ -71,5 +116,6 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, ori
 	}
 	s.logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
 
-	panic("implement me")
+	// TODO(secrets)
+	return nil
 }
