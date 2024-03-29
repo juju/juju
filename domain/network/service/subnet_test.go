@@ -91,6 +91,23 @@ func (s *subnetSuite) TestAddSubnet(c *gc.C) {
 	c.Assert(returnedUUID, gc.Equals, expectedUUID)
 }
 
+func (s *subnetSuite) TestRetrieveAllSubnets(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subnetInfos := network.SubnetInfos{
+		{
+			CIDR:              "192.168.0.0/20",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id-0",
+			AvailabilityZones: []string{"az0"},
+		},
+	}
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnetInfos, nil)
+	subnets, err := NewSubnetService(s.st).GetAllSubnets(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subnets, jc.SameContents, subnetInfos)
+}
+
 func (s *subnetSuite) TestRetrieveSubnetByID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

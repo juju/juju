@@ -95,6 +95,15 @@ func (s *spaceSuite) TestAddSpace(c *gc.C) {
 	c.Assert(returnedUUID.String(), gc.Equals, expectedUUID)
 }
 
+func (s *spaceSuite) TestUpdateSpaceName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newName := "new-space-name"
+	s.st.EXPECT().UpdateSpace(gomock.Any(), network.AlphaSpaceId, newName).Return(nil)
+	err := NewSpaceService(s.st, s.logger).UpdateSpace(context.Background(), network.AlphaSpaceId, newName)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *spaceSuite) TestRetrieveSpaceByID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
