@@ -36,6 +36,12 @@ func NewSecretService(st State, logger Logger, adminConfigGetter BackendAdminCon
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
 type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 
+// NotImplementedBackendConfigGetter is a not implemented secret backend getter.
+// TODO(secrets) - this is a placeholder
+var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBackendConfigInfo, error) {
+	return nil, errors.NotImplemented
+}
+
 // SecretService provides the API for working with secrets.
 type SecretService struct {
 	st                State
@@ -59,7 +65,7 @@ func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*sec
 	return result, nil
 }
 func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, params CreateSecretParams) (*secrets.SecretMetadata, error) {
-	panic("implement me")
+	return nil, errors.NotImplemented
 	/*
 		var nextRotateTime *time.Time
 		if params.RotatePolicy.WillRotate() {
@@ -70,7 +76,7 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 }
 
 func (s *SecretService) UpdateSecret(ctx context.Context, uri *secrets.URI, params UpdateSecretParams) (*secrets.SecretMetadata, error) {
-	panic("implement me")
+	return nil, errors.NotFound
 
 	// TODO(secrets)
 	/*
@@ -114,39 +120,59 @@ func (s *SecretService) UpdateSecret(ctx context.Context, uri *secrets.URI, para
 	//return md, nil
 }
 
-func (s *SecretService) GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error) {
-	panic("implement me")
-}
-
-func (s *SecretService) ListSecretRevisions(ctx context.Context, uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error) {
-	panic("implement me")
-}
-
+// ListSecrets returns the secrets matching the specified terms.
+// If multiple values for a given term are specified, secrets matching any of the
+// values for that term are included.
 func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	revisions domainsecret.Revisions,
 	labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
 	unitOwners domainsecret.UnitOwners, modelOwners domainsecret.ModelOwners,
 ) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	panic("implement me")
+	return nil, nil, nil
 }
 
-func (s *SecretService) ListCharmSecrets(ctx context.Context, owner CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	//TODO implement me
-	panic("implement me")
+// ListCharmSecrets returns the secret metadata and revision metadata for any secrets matching the specified owner.
+// The result contains secrets owned by any of the non nil owner attributes.
+// The count of secret and revisions in the result must match.
+func (s *SecretService) ListCharmSecrets(ctx context.Context, owner CharmSecretOwners) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+	// TODO(secrets)
+	return nil, nil, nil
 }
 
+// GetSecret returns the secret with the specified URI.
+// If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error) {
-	panic("implement me")
+	return nil, errors.NotFound
 }
 
+// GetSecretRevision returns the secret revision for the specified URI.
+// If returns [secreterrors.SecretNotFound] is there's no such secret.
+// If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
+func (s *SecretService) GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error) {
+	return nil, errors.NotFound
+}
+
+// GetUserSecretByLabel returns the user secret with the specified label.
+// If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetUserSecretByLabel(ctx context.Context, label string) (*secrets.SecretMetadata, error) {
-	panic("implement me")
+	return nil, errors.NotFound
 }
 
+// ListUserSecrets returns the secret metadata and revision metadata for any user secrets in the current model.
+// The count of secret and revisions in the result must match.
+func (s *SecretService) ListUserSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+	// TODO(secrets)
+	return nil, nil, nil
+}
+
+// GetSecretValue returns the value of the specified secret revision.
+// If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
 func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int) (secrets.SecretValue, *secrets.ValueRef, error) {
-	panic("implement me")
+	return nil, nil, errors.NotFound
 }
 
+// ChangeSecretBackend sets the secret backend where the specified secret revision is stored.
+// If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
 func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) error {
-	panic("implement me")
+	return nil
 }
