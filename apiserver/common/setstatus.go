@@ -125,6 +125,9 @@ func (s *ApplicationStatusSetter) SetStatus(ctx context.Context, args params.Set
 	return result, nil
 }
 
+// NewStatusHistoryRecorder returns a new status.StatusHistoryRecorder to be
+// passed down to the backend for logging the status history using the given
+// logger for the given entity.
 func NewStatusHistoryRecorder(sourceController string, logger corelogger.Logger) status.StatusHistoryRecorder {
 	return func(statusKind string, statusId string, st status.Status, statusInfo string) {
 		if statusKind == "machine-lxd-profile" && st != status.Idle {

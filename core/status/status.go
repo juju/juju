@@ -30,6 +30,8 @@ type StatusInfo struct {
 
 type StatusHistoryRecorder func(statusKind string, statusId string, status Status, statusInfo string)
 
+// NoopStatusHistoryRecorder is a placeholder StatusHistoryRecorder that does
+// nothing (to be used in tests and spots where we don't need status logging).
 var NoopStatusHistoryRecorder = func(statusKind string, statusId string, status Status, statusInfo string) {}
 
 // StatusSetter represents a type whose status can be set.
