@@ -41,12 +41,12 @@ func (api *API) RemoveSpace(ctx context.Context, spaceParams params.RemoveSpaceP
 			continue
 		}
 
-		space, err := api.spaceService.SpaceByName(ctx, spacesTag.Id())
+		space, err := api.networkService.SpaceByName(ctx, spacesTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
-		if err := api.spaceService.Remove(ctx, space.ID); err != nil {
+		if err := api.networkService.RemoveSpace(ctx, space.ID); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
@@ -68,7 +68,7 @@ func (api *API) checkSpaceIsRemovable(
 		results.Results[index].Error = apiservererrors.ServerError(newErr)
 		return false
 	}
-	space, err := api.spaceService.SpaceByName(ctx, spacesTag.Id())
+	space, err := api.networkService.SpaceByName(ctx, spacesTag.Id())
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
@@ -111,7 +111,7 @@ func (api *API) checkSpaceIsRemovable(
 // applicationTagsForSpace returns the tags for all applications with an
 // endpoint bound to a space with the input name.
 func (api *API) applicationTagsForSpace(ctx context.Context, spaceID string) ([]names.Tag, error) {
-	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
+	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -165,7 +165,7 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
-		toSpace, err := api.spaceService.SpaceByName(ctx, toTag.Id())
+		toSpace, err := api.networkService.SpaceByName(ctx, toTag.Id())
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			newErr := errors.Annotatef(err, "retrieving space %q", toTag.Id())
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
@@ -176,18 +176,14 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
 		}
-		fromSpace, err := api.spaceService.SpaceByName(ctx, fromTag.Id())
-		if err != nil {
-			newErr := errors.Annotatef(err, "retrieving space %q", fromTag.Id())
-			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
-			continue
-		}
-		if err := api.spaceService.UpdateSpace(ctx, fromSpace.ID, toTag.Id()); err != nil {
-			newErr := errors.Annotatef(err, "updating space %q", fromTag.Id())
-			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
-			continue
-		}
 
+		// TODO(nvinuesa): We still perform the legacy rename operation
+		// because it takes into account the checks on space constraints.
+		// We are aware that until we migrate those to dqlite, this is
+		// not transactional, but at least it allows us to update the
+		// space constraints in mongodb. If an error occurs in the
+		// new dqlite domain `UpdateSpace` then we will have to deal
+		// with the inconsistency.
 		operation, err := api.opFactory.NewRenameSpaceOp(fromTag.Id(), toTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
@@ -195,6 +191,18 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 		}
 		if err = api.backing.ApplyOperation(operation); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
+			continue
+		}
+
+		fromSpace, err := api.networkService.SpaceByName(ctx, fromTag.Id())
+		if err != nil {
+			newErr := errors.Annotatef(err, "retrieving space %q", fromTag.Id())
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
+			continue
+		}
+		if err := api.networkService.UpdateSpace(ctx, fromSpace.ID, toTag.Id()); err != nil {
+			newErr := errors.Annotatef(err, "updating space %q", fromTag.Id())
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
 		}
 	}

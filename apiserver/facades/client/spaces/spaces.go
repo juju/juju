@@ -30,20 +30,15 @@ type ControllerConfigService interface {
 	ControllerConfig(stdcontext.Context) (controller.Config, error)
 }
 
-// SpaceService is the interface that is used to interact with the
-// network spaces.
-type SpaceService interface {
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
 	AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error)
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	UpdateSpace(ctx context.Context, uuid string, name string) error
-	Remove(ctx context.Context, uuid string) error
-}
-
-// SubnetService is the interface that is used to interact with the
-// network subnets.
-type SubnetService interface {
+	RemoveSpace(ctx context.Context, uuid string) error
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
 	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
@@ -55,8 +50,7 @@ type API struct {
 	reloadSpacesAPI         ReloadSpaces
 	controllerConfigService ControllerConfigService
 
-	spaceService                SpaceService
-	subnetService               SubnetService
+	networkService              NetworkService
 	backing                     Backing
 	resources                   facade.Resources
 	auth                        facade.Authorizer
@@ -77,8 +71,7 @@ type apiConfig struct {
 	Authorizer                  facade.Authorizer
 	Factory                     OpFactory
 	logger                      loggo.Logger
-	SpaceService                SpaceService
-	SubnetService               SubnetService
+	NetworkService              NetworkService
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
@@ -99,8 +92,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		check:                       cfg.Check,
 		opFactory:                   cfg.Factory,
 		logger:                      cfg.logger,
-		spaceService:                cfg.SpaceService,
-		subnetService:               cfg.SubnetService,
+		networkService:              cfg.NetworkService,
 	}, nil
 }
 
@@ -146,7 +138,7 @@ func (api *API) createOneSpace(ctx context.Context, args params.CreateSpaceParam
 		}
 	}
 
-	subnets, err := api.subnetService.SubnetsByCIDR(ctx, args.CIDRs...)
+	subnets, err := api.networkService.SubnetsByCIDR(ctx, args.CIDRs...)
 	if err != nil {
 		return err
 	}
@@ -156,7 +148,7 @@ func (api *API) createOneSpace(ctx context.Context, args params.CreateSpaceParam
 	}
 
 	// Add the validated space.
-	_, err = api.spaceService.AddSpace(ctx, spaceTag.Id(), network.Id(args.ProviderId), subnetIDs)
+	_, err = api.networkService.AddSpace(ctx, spaceTag.Id(), network.Id(args.ProviderId), subnetIDs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -175,7 +167,7 @@ func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesRes
 		return results, apiservererrors.ServerError(errors.Trace(err))
 	}
 
-	spaces, err := api.spaceService.GetAllSpaces(ctx)
+	spaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -216,7 +208,7 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 	}
 
 	// Retrieve the list of all spaces, needed for the bindings.
-	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
+	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
 	}
@@ -229,7 +221,7 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 			continue
 		}
 		var result params.ShowSpaceResult
-		space, err := api.spaceService.SpaceByName(ctx, spaceName.Id())
+		space, err := api.networkService.SpaceByName(ctx, spaceName.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching space %q", spaceName)
 			results[i].Error = apiservererrors.ServerError(newErr)

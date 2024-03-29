@@ -19,7 +19,7 @@ import (
 	environmocks "github.com/juju/juju/environs/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings,SpaceService,SubnetService,ControllerConfigService
+//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,Constraints,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings,NetworkService,ControllerConfigService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -45,8 +45,7 @@ type APISuite struct {
 	ReloadSpacesEnviron     *MockReloadSpacesEnviron
 	ReloadSpacesAPI         *ReloadSpacesAPI
 	ControllerConfigService *MockControllerConfigService
-	SpaceService            *MockSpaceService
-	SubnetService           *MockSubnetService
+	NetworkService          *MockNetworkService
 }
 
 var _ = gc.Suite(&APISuite{})
@@ -108,8 +107,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		),
 	)
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
-	s.SpaceService = NewMockSpaceService(ctrl)
-	s.SubnetService = NewMockSubnetService(ctrl)
+	s.NetworkService = NewMockNetworkService(ctrl)
 
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
@@ -121,8 +119,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		Authorizer:                  s.authorizer,
 		Factory:                     s.OpFactory,
 		ControllerConfigService:     s.ControllerConfigService,
-		SpaceService:                s.SpaceService,
-		SubnetService:               s.SubnetService,
+		NetworkService:              s.NetworkService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

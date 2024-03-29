@@ -58,15 +58,12 @@ type Backend interface {
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
-	SpaceByName(string) (Space, error)
 	User(names.UserTag) (User, error)
 
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
 	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
-
-	AllSpaceInfos() (network.SpaceInfos, error)
 }
 
 var GetStateAccess = func(st *state.State) Backend {

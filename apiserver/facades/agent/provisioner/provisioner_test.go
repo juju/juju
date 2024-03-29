@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/container"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -55,9 +56,10 @@ type provisionerSuite struct {
 
 	machines []*state.Machine
 
-	authorizer  apiservertesting.FakeAuthorizer
-	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV11
+	authorizer     apiservertesting.FakeAuthorizer
+	resources      *common.Resources
+	provisioner    *provisioner.ProvisionerAPIV11
+	serviceFactory servicefactory.ServiceFactory
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -108,13 +110,14 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Register, and to register the root for tools URLs.
 	s.resources = common.NewResources()
 
+	s.serviceFactory = s.ControllerServiceFactory(c)
 	// Create a provisioner API for the machine.
 	provisionerAPI, err := provisioner.NewProvisionerAPIV11(context.Background(), facadetest.ModelContext{
 		Auth_:           s.authorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: controllerServiceFactory,
+		ServiceFactory_: s.serviceFactory,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.provisioner = provisionerAPI

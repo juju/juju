@@ -57,6 +57,7 @@ type StoragePoolGetter interface {
 // network spaces/subnets.
 type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.

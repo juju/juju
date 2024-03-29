@@ -34,6 +34,7 @@ type uniterNetworkInfoSuite struct {
 	uniterSuiteBase
 	mysqlCharm *state.Charm
 	st         *state.State
+	allSpaces  network.SpaceInfos
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
@@ -57,44 +58,49 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	s.st = s.ControllerModel(c).State()
+	networkService := serviceFactory.Network()
 
-	publicSpace, err := s.st.AddSpace("public", "", nil)
+	publicSpaceID, err := networkService.AddSpace(context.Background(), "public", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"8.8.0.0/16", "240.0.0.0/12"} {
 		_, err = s.st.AddSubnet(network.SubnetInfo{
 			CIDR:    cidr,
-			SpaceID: publicSpace.Id(),
+			SpaceID: string(publicSpaceID),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	internalSpace, err := s.st.AddSpace("internal", "", nil)
+	internalSpaceID, err := networkService.AddSpace(context.Background(), "internal", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"10.0.0.0/24"} {
 		_, err = s.st.AddSubnet(network.SubnetInfo{
 			CIDR:    cidr,
-			SpaceID: internalSpace.Id(),
+			SpaceID: string(internalSpaceID),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	wpDefaultSpace, err := s.st.AddSpace("wp-default", "", nil)
+	wpDefaultSpaceID, err := networkService.AddSpace(context.Background(), "wp-default", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"100.64.0.0/16"} {
 		_, err = s.st.AddSubnet(network.SubnetInfo{
 			CIDR:    cidr,
-			SpaceID: wpDefaultSpace.Id(),
+			SpaceID: string(wpDefaultSpaceID),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	databaseSpace, err := s.st.AddSpace("database", "", nil)
+	databaseSpaceID, err := networkService.AddSpace(context.Background(), "database", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"192.168.1.0/24"} {
 		_, err = s.st.AddSubnet(network.SubnetInfo{
 			CIDR:    cidr,
-			SpaceID: databaseSpace.Id(),
+			SpaceID: string(databaseSpaceID),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	layerTwoSpace, err := s.st.AddSpace("layertwo", "", nil)
+	layerTwoSpaceID, err := networkService.AddSpace(context.Background(), "layertwo", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.st = s.ControllerModel(c).State()
+	s.allSpaces, err = networkService.GetAllSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10, s.InstancePrechecker(c, s.st))
@@ -111,10 +117,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Charm:       s.wpCharm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
 		EndpointBindings: map[string]string{
-			"db":        internalSpace.Id(),  // relation name
-			"admin-api": publicSpace.Id(),    // extra-binding name
-			"foo-bar":   layerTwoSpace.Id(),  // extra-binding to L2
-			"":          wpDefaultSpace.Id(), // explicitly specified default space
+			"db":        string(internalSpaceID),  // relation name
+			"admin-api": string(publicSpaceID),    // extra-binding name
+			"foo-bar":   string(layerTwoSpaceID),  // extra-binding to L2
+			"":          string(wpDefaultSpaceID), // explicitly specified default space
 		},
 	}, testing.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,7 +138,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Name:  "mysql",
 		Charm: s.mysqlCharm,
 		EndpointBindings: map[string]string{
-			"server": databaseSpace.Id(),
+			"server": string(databaseSpaceID),
 		},
 	})
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{

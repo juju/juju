@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -40,6 +41,13 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+}
+
 type API struct {
 	stateAccessor           Backend
 	pool                    Pool
@@ -54,6 +62,7 @@ type API struct {
 
 	toolsFinder      common.ToolsFinder
 	leadershipReader leadership.Reader
+	networkService   NetworkService
 }
 
 // TODO(wallyworld) - remove this method
@@ -181,6 +190,7 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 		blockChecker,
 		leadershipReader,
 		factory,
+		ctx.ServiceFactory().Network(),
 		registry.New,
 	)
 }
@@ -201,6 +211,7 @@ func NewClient(
 	blockChecker *common.BlockChecker,
 	leadershipReader leadership.Reader,
 	factory multiwatcher.Factory,
+	networkService NetworkService,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
@@ -219,6 +230,7 @@ func NewClient(
 			toolsFinder:             toolsFinder,
 			leadershipReader:        leadershipReader,
 			multiwatcherFactory:     factory,
+			networkService:          networkService,
 		},
 		newEnviron:      newEnviron,
 		check:           blockChecker,

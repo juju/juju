@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
@@ -47,12 +48,21 @@ type applicationSuite struct {
 	authorizer     *apiservertesting.FakeAuthorizer
 	lastKnownRev   map[string]int
 
-	store objectstore.ObjectStore
+	store          objectstore.ObjectStore
+	networkService *application.MockNetworkService
 }
 
 var _ = gc.Suite(&applicationSuite{})
 
+func (s *applicationSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.networkService = application.NewMockNetworkService(ctrl)
+	return ctrl
+}
+
 func (s *applicationSuite) SetUpTest(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	s.ApiServerSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
@@ -112,6 +122,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ModelUUID()),
+		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

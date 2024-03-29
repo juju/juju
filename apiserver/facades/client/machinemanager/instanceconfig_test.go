@@ -14,7 +14,6 @@ import (
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
-	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
@@ -24,29 +23,29 @@ import (
 )
 
 type machineConfigSuite struct {
-	ctrlSt       *mocks.MockControllerBackend
-	st           *mocks.MockInstanceConfigBackend
-	store        *mocks.MockObjectStore
+	ctrlSt       *MockControllerBackend
+	st           *MockInstanceConfigBackend
+	store        *MockObjectStore
 	cloudService *commonmocks.MockCloudService
 	credService  *commonmocks.MockCredentialService
-	model        *mocks.MockModel
+	model        *MockModel
 
-	controllerConfigService *mocks.MockControllerConfigService
+	controllerConfigService *MockControllerConfigService
 }
 
 var _ = gc.Suite(&machineConfigSuite{})
 
 func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
-	s.ctrlSt = mocks.NewMockControllerBackend(ctrl)
-	s.st = mocks.NewMockInstanceConfigBackend(ctrl)
+	s.ctrlSt = NewMockControllerBackend(ctrl)
+	s.st = NewMockInstanceConfigBackend(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
-	s.store = mocks.NewMockObjectStore(ctrl)
+	s.store = NewMockObjectStore(ctrl)
 
-	s.model = mocks.NewMockModel(ctrl)
+	s.model = NewMockModel(ctrl)
 	s.model.EXPECT().UUID().Return("uuid").AnyTimes()
 	s.model.EXPECT().ModelTag().Return(coretesting.ModelTag).AnyTimes()
 
@@ -65,7 +64,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	})))
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
-	machine0 := mocks.NewMockMachine(ctrl)
+	machine0 := NewMockMachine(ctrl)
 	machine0.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
 	machine0.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
@@ -73,7 +72,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	machine0.EXPECT().SetPassword(gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	storageCloser := mocks.NewMockStorageCloser(ctrl)
+	storageCloser := NewMockStorageCloser(ctrl)
 	storageCloser.EXPECT().AllMetadata().Return([]binarystorage.Metadata{{
 		Version: "2.6.6-ubuntu-amd64",
 	}}, nil)

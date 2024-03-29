@@ -27,11 +27,10 @@ import (
 // SubnetSuite uses mocks for testing.
 // All future facade tests should be added to this suite.
 type SubnetSuite struct {
-	mockBacking       *subnets.MockBacking
-	mockResource      *facademocks.MockResources
-	mockAuthorizer    *facademocks.MockAuthorizer
-	mockSpaceService  *subnets.MockSpaceService
-	mockSubnetService *subnets.MockSubnetService
+	mockBacking        *subnets.MockBacking
+	mockResource       *facademocks.MockResources
+	mockAuthorizer     *facademocks.MockAuthorizer
+	mockNetworkService *subnets.MockNetworkService
 
 	api *subnets.API
 }
@@ -59,8 +58,8 @@ func (s *SubnetSuite) TestSubnetsByCIDR(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockSubnetService.EXPECT().SubnetsByCIDR(gomock.Any(), cidrs[0]).Return(nil, errors.New("bad-mongo")),
-		s.mockSubnetService.EXPECT().SubnetsByCIDR(gomock.Any(), cidrs[1]).Return([]network.SubnetInfo{subnet}, nil),
+		s.mockNetworkService.EXPECT().SubnetsByCIDR(gomock.Any(), cidrs[0]).Return(nil, errors.New("bad-mongo")),
+		s.mockNetworkService.EXPECT().SubnetsByCIDR(gomock.Any(), cidrs[1]).Return([]network.SubnetInfo{subnet}, nil),
 		// No call for cidrs[2]; the input is invalidated.
 	)
 
@@ -87,11 +86,10 @@ func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 
 	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))
 
-	s.mockSubnetService = subnets.NewMockSubnetService(ctrl)
-	s.mockSpaceService = subnets.NewMockSpaceService(ctrl)
+	s.mockNetworkService = subnets.NewMockNetworkService(ctrl)
 
 	var err error
-	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, apiservertesting.NoopModelCredentialInvalidatorGetter, s.mockResource, s.mockAuthorizer, loggo.GetLogger("juju.apiserver.subnets"), s.mockSpaceService, s.mockSubnetService)
+	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, apiservertesting.NoopModelCredentialInvalidatorGetter, s.mockResource, s.mockAuthorizer, loggo.GetLogger("juju.apiserver.subnets"), s.mockNetworkService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -109,8 +107,7 @@ type SubnetsSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 	facade     *subnets.API
 
-	mockSpaceService  *subnets.MockSpaceService
-	mockSubnetService *subnets.MockSubnetService
+	mockNetworkService *subnets.MockNetworkService
 }
 
 type stubBacking struct {
@@ -122,8 +119,7 @@ var _ = gc.Suite(&SubnetsSuite{})
 func (s *SubnetsSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.mockSpaceService = subnets.NewMockSpaceService(ctrl)
-	s.mockSubnetService = subnets.NewMockSubnetService(ctrl)
+	s.mockNetworkService = subnets.NewMockNetworkService(ctrl)
 
 	return ctrl
 }
@@ -156,8 +152,7 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.authorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
-		s.mockSpaceService,
-		s.mockSubnetService,
+		s.mockNetworkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -188,8 +183,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 		s.resources,
 		s.authorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
-		s.mockSpaceService,
-		s.mockSubnetService,
+		s.mockNetworkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -205,8 +199,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 		s.resources,
 		agentAuthorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
-		s.mockSpaceService,
-		s.mockSubnetService,
+		s.mockNetworkService,
 	)
 	c.Assert(err, jc.DeepEquals, apiservererrors.ErrPerm)
 	c.Assert(facade, gc.IsNil)
@@ -402,7 +395,7 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 	}}
 	// No filtering.
 	args := params.SubnetsFilters{}
-	s.mockSubnetService.EXPECT().GetAllSubnets(gomock.Any()).Return(
+	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any()).Return(
 		network.SubnetInfos{
 			{
 				CIDR:              "10.10.0.0/24",
@@ -449,14 +442,14 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 
 func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
 	args := params.SubnetsFilters{SpaceTag: "invalid"}
-	s.mockSubnetService.EXPECT().GetAllSubnets(gomock.Any())
+	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any())
 	_, err := s.facade.ListSubnets(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
 func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
 	boom := errors.New("no subnets for you")
-	s.mockSubnetService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, boom)
+	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, boom)
 	_, err := s.facade.ListSubnets(stdcontext.Background(), params.SubnetsFilters{})
 	c.Assert(err, gc.ErrorMatches, "no subnets for you")
 }

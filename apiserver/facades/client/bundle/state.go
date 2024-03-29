@@ -7,7 +7,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/description/v5"
 
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
@@ -16,7 +15,6 @@ type Backend interface {
 	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 	GetExportConfig() state.ExportConfig
 	Charm(url string) (charm.Charm, error)
-	AllSpaceInfos() (network.SpaceInfos, error)
 }
 
 type stateShim struct {

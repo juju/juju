@@ -65,7 +65,7 @@ type ApplicationSuite struct {
 	api *application.APIBase
 
 	backend            *mocks.MockBackend
-	ecService          *mocks.MockECService
+	ecService          *application.MockExternalControllerService
 	cloudService       *commonmocks.MockCloudService
 	credService        *commonmocks.MockCredentialService
 	machineService     *application.MockMachineService
@@ -77,6 +77,7 @@ type ApplicationSuite struct {
 	registry           *mocks.MockProviderRegistry
 	caasBroker         *mocks.MockCaasBrokerInterface
 	store              *mocks.MockObjectStore
+	networkService     *application.MockNetworkService
 
 	blockChecker  *mocks.MockBlockChecker
 	changeAllowed error
@@ -158,14 +159,14 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.networkService = application.NewMockNetworkService(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
-	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
 	s.machineService = application.NewMockMachineService(ctrl)
 	s.applicationService = application.NewMockApplicationService(ctrl)
 
-	s.ecService = mocks.NewMockECService(ctrl)
+	s.ecService = application.NewMockExternalControllerService(ctrl)
 
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
@@ -224,6 +225,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		s.caasBroker,
 		s.store,
+		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -2900,6 +2902,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	app.EXPECT().EndpointBindings().Return(bindings, nil).MinTimes(1)
 	app.EXPECT().ExposedEndpoints().Return(nil).MinTimes(1)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
@@ -2941,6 +2944,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 		},
 	}).MinTimes(1)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(3).Return(s.allSpaceInfos, nil)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
@@ -2972,6 +2976,7 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().CharmConfig("master").Return(nil, errors.Errorf("boom"))
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
@@ -2989,6 +2994,7 @@ func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 	app.EXPECT().EndpointBindings().Return(nil, errors.Errorf("boom")).MinTimes(1)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
@@ -3017,6 +3023,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 
 	// wordpress
 	s.backend.EXPECT().Application("wordpress").Return(nil, errors.NotFoundf(`application "wordpress"`))
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}, {Tag: "application-wordpress"}, {Tag: "unit-postgresql-0"}}
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})

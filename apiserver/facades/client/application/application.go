@@ -61,10 +61,20 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
-type ECService interface {
+// ExternalControllerService provides a subset of the external controller domain
+// service methods.
+type ExternalControllerService interface {
 	// UpdateExternalController persists the input controller
 	// record.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
 // APIv20 provides the Application API facade for version 20.
@@ -84,7 +94,7 @@ type APIBase struct {
 	storageAccess StorageInterface
 	store         objectstore.ObjectStore
 
-	ecService  ECService
+	ecService  ExternalControllerService
 	authorizer facade.Authorizer
 	check      BlockChecker
 	updateBase UpdateBase
@@ -95,6 +105,7 @@ type APIBase struct {
 	credentialService  common.CredentialService
 	machineService     MachineService
 	applicationService ApplicationService
+	networkService     NetworkService
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -213,6 +224,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		resources,
 		caasBroker,
 		ctx.ObjectStore(),
+		serviceFactory.Network(),
 	)
 }
 
@@ -222,7 +234,7 @@ type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, c
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	backend Backend,
-	ecService ECService,
+	ecService ExternalControllerService,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
 	updateBase UpdateBase,
@@ -241,6 +253,7 @@ func NewAPIBase(
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
+	networkService NetworkService,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -267,6 +280,7 @@ func NewAPIBase(
 		resources:             resources,
 		caasBroker:            caasBroker,
 		store:                 store,
+		networkService:        networkService,
 	}, nil
 }
 
@@ -967,7 +981,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(args.EndpointBindings)
+	bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(ctx, args.EndpointBindings)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1312,7 +1326,7 @@ func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) e
 	}
 
 	// Map space names to space IDs before calling SetExposed
-	mappedExposeParams, err := api.mapExposedEndpointParams(args.ExposedEndpoints)
+	mappedExposeParams, err := api.mapExposedEndpointParams(ctx, args.ExposedEndpoints)
 	if err != nil {
 		return apiservererrors.ServerError(err)
 	}
@@ -1333,7 +1347,7 @@ func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) e
 	return nil
 }
 
-func (api *APIBase) mapExposedEndpointParams(params map[string]params.ExposedEndpoint) (map[string]state.ExposedEndpoint, error) {
+func (api *APIBase) mapExposedEndpointParams(ctx context.Context, params map[string]params.ExposedEndpoint) (map[string]state.ExposedEndpoint, error) {
 	if len(params) == 0 {
 		return nil, nil
 	}
@@ -1352,7 +1366,7 @@ func (api *APIBase) mapExposedEndpointParams(params map[string]params.ExposedEnd
 		if len(exposeDetails.ExposeToSpaces) != 0 {
 			// Lazily fetch SpaceInfos
 			if spaceInfos == nil {
-				if spaceInfos, err = api.backend.AllSpaceInfos(); err != nil {
+				if spaceInfos, err = api.networkService.GetAllSpaces(ctx); err != nil {
 					return nil, err
 				}
 			}
@@ -2386,7 +2400,7 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (params.ApplicationInfoResults, error) {
 	// Get all the space infos before iterating over the application infos.
-	allSpaceInfosLookup, err := api.backend.AllSpaceInfos()
+	allSpaceInfosLookup, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return params.ApplicationInfoResults{}, apiservererrors.ServerError(err)
 	}
@@ -2404,7 +2418,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		details, err := api.getConfig(params.ApplicationGet{ApplicationName: tag.Name}, describe)
+		details, err := api.getConfig(ctx, params.ApplicationGet{ApplicationName: tag.Name}, describe)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2422,7 +2436,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		exposedEndpoints, err := api.mapExposedEndpointsFromState(app.ExposedEndpoints())
+		exposedEndpoints, err := api.mapExposedEndpointsFromState(ctx, app.ExposedEndpoints())
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2456,7 +2470,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 	}, nil
 }
 
-func (api *APIBase) mapExposedEndpointsFromState(exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
+func (api *APIBase) mapExposedEndpointsFromState(ctx context.Context, exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
 	if len(exposedEndpoints) == 0 {
 		return nil, nil
 	}
@@ -2475,7 +2489,7 @@ func (api *APIBase) mapExposedEndpointsFromState(exposedEndpoints map[string]sta
 		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
 			// Lazily fetch SpaceInfos
 			if spaceInfos == nil {
-				if spaceInfos, err = api.backend.AllSpaceInfos(); err != nil {
+				if spaceInfos, err = api.networkService.GetAllSpaces(ctx); err != nil {
 					return nil, err
 				}
 			}
@@ -2522,7 +2536,7 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 			continue
 		}
 
-		bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(arg.Bindings)
+		bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(ctx, arg.Bindings)
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2544,20 +2558,20 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 // names) and converts them to spaceIDs.
 // TODO(nvinuesa): this method should not be needed once we migrate endpoint
 // bindings to dqlite.
-func (api *APIBase) convertSpacesToIDInBindings(bindings map[string]string) (map[string]string, error) {
+func (api *APIBase) convertSpacesToIDInBindings(ctx context.Context, bindings map[string]string) (map[string]string, error) {
 	if bindings == nil {
 		return nil, nil
 	}
 	newMap := make(map[string]string)
 	for endpoint, spaceName := range bindings {
-		space, err := api.backend.SpaceByName(spaceName)
+		space, err := api.networkService.SpaceByName(ctx, spaceName)
 		if errors.Is(err, errors.NotFound) {
 			return nil, errors.Annotatef(err, "space with name %q not found for endpoint %q", spaceName, endpoint)
 		}
 		if err != nil {
 			return nil, err
 		}
-		newMap[endpoint] = space.Id()
+		newMap[endpoint] = space.ID
 	}
 
 	return newMap, nil

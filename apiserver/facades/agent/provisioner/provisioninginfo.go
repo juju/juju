@@ -48,7 +48,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		return result, errors.Annotate(err, "retrieving environ")
 	}
 
-	allSpaceInfos, err := api.st.AllSpaceInfos()
+	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return result, errors.Annotate(err, "getting all space infos")
 	}
@@ -61,7 +61,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(ctx, machine, env, allSpaceInfos)
+			result.Results[i].Result, err = api.getProvisioningInfo(ctx, machine, env, allSpaces)
 		}
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -73,14 +73,14 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	ctx context.Context,
 	m *state.Machine,
 	env environs.Environ,
-	spaceInfos network.SpaceInfos,
+	allSpaces network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
 		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
 	}
 
-	spaceBindings, err := api.translateEndpointBindingsToSpaces(spaceInfos, endpointBindings)
+	spaceBindings, err := api.translateEndpointBindingsToSpaces(allSpaces, endpointBindings)
 	if err != nil {
 		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
 	}
@@ -90,12 +90,12 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 		return nil, errors.Trace(err)
 	}
 
-	machineSpaces, err := api.machineSpaces(m, spaceInfos, endpointBindings)
+	machineSpaces, err := api.machineSpaces(m, allSpaces, endpointBindings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(m.Id(), machineSpaces); err != nil {
+	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(ctx, m.Id(), machineSpaces); err != nil {
 		return nil, errors.Annotate(err, "matching subnets to zones")
 	}
 
@@ -339,7 +339,7 @@ func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
 	return includeSpaces.SortedValues(), nil
 }
 
-func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []string) (params.ProvisioningNetworkTopology, error) {
+func (api *ProvisionerAPI) machineSpaceTopology(ctx context.Context, machineID string, spaceNames []string) (params.ProvisioningNetworkTopology, error) {
 	var topology params.ProvisioningNetworkTopology
 
 	// If there are no space names, or if there is only one space
@@ -353,7 +353,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []s
 	topology.SpaceSubnets = make(map[string][]string)
 
 	for _, spaceName := range spaceNames {
-		subnetsAndZones, err := api.subnetsAndZonesForSpace(machineID, spaceName)
+		subnetsAndZones, err := api.subnetsAndZonesForSpace(ctx, machineID, spaceName)
 		if err != nil {
 			return topology, errors.Trace(err)
 		}
@@ -377,17 +377,13 @@ func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []s
 	return topology, nil
 }
 
-func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName string) (map[string][]string, error) {
-	space, err := api.st.SpaceByName(spaceName)
+func (api *ProvisionerAPI) subnetsAndZonesForSpace(ctx context.Context, machineID string, spaceName string) (map[string][]string, error) {
+	space, err := api.networkService.SpaceByName(ctx, spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	spaceInfo, err := space.NetworkSpace()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	subnets := spaceInfo.Subnets
+	subnets := space.Subnets
 
 	if len(subnets) == 0 {
 		return nil, errors.Errorf("cannot use space %q as deployment target: no subnets", spaceName)

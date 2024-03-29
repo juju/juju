@@ -38,17 +38,12 @@ type Backing interface {
 	ModelTag() names.ModelTag
 }
 
-// SpaceService is the interface that is used to interact with the
-// network spaces.
-type SpaceService interface {
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-}
-
-// SubnetService is the interface that is used to interact with the
-// network subnets.
-type SubnetService interface {
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
 }
@@ -60,8 +55,7 @@ type API struct {
 	authorizer                  facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	logger                      loggo.Logger
-	spaceService                SpaceService
-	subnetService               SubnetService
+	networkService              NetworkService
 }
 
 func (api *API) checkCanRead() error {
@@ -76,8 +70,7 @@ func newAPIWithBacking(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger loggo.Logger,
-	spaceService SpaceService,
-	subnetService SubnetService,
+	networkService NetworkService,
 ) (*API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
@@ -89,8 +82,7 @@ func newAPIWithBacking(
 		authorizer:                  authorizer,
 		credentialInvalidatorGetter: credentialInvalidatorGetter,
 		logger:                      logger,
-		spaceService:                spaceService,
-		subnetService:               subnetService,
+		networkService:              networkService,
 	}, nil
 }
 
@@ -116,7 +108,7 @@ func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) 
 		return params.ListSubnetsResults{}, err
 	}
 
-	allSubnets, err := api.subnetService.GetAllSubnets(ctx)
+	allSubnets, err := api.networkService.GetAllSubnets(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -172,7 +164,7 @@ func (api *API) SubnetsByCIDR(ctx stdcontext.Context, arg params.CIDRParams) (pa
 		// of CIDRs and will return every subnet included in them. We
 		// should therefore refactor this so we don't hit the db on
 		// every CIDR. The API response should be revisited.
-		subnets, err := api.subnetService.SubnetsByCIDR(ctx, cidr)
+		subnets, err := api.networkService.SubnetsByCIDR(ctx, cidr)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue

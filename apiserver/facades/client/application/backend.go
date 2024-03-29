@@ -58,9 +58,6 @@ type Backend interface {
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 	Branch(string) (Generation, error)
-	AllSpaceInfos() (network.SpaceInfos, error)
-	Space(id string) (*state.Space, error)
-	SpaceByName(name string) (*state.Space, error)
 	ModelConstraints() (constraints.Value, error)
 	services.StateBackend
 

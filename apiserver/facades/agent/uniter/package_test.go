@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/newlxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackendV2,LXDProfileMachineV2,LXDProfileUnitV2,LXDProfileCharmV2,LXDProfileModelV2
+//go:generate go run go.uber.org/mock/mockgen -package uniter_test -destination package_mocks_test.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit,LXDProfileBackendV2,LXDProfileMachineV2,LXDProfileUnitV2,LXDProfileCharmV2,LXDProfileModelV2,NetworkService
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)

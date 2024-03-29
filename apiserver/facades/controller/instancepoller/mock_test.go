@@ -41,8 +41,6 @@ type mockState struct {
 
 	config   *config.Config
 	machines map[string]*mockMachine
-
-	spaceInfos network.SpaceInfos
 }
 
 func NewMockState() *mockState {
@@ -234,20 +232,6 @@ func (m *mockState) Machine(id string) (instancepoller.StateMachine, error) {
 		return nil, errors.NotFoundf("machine %s", id)
 	}
 	return machine, nil
-}
-
-// AllSpaceInfos implements network.AllSpaceInfos.
-// This method never throws an error.
-func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
-	m.MethodCall(m, "AllSpaceInfos")
-	return m.spaceInfos, nil
-}
-
-// SetSpaceInfo updates the mocked space infos returned by AllSpaceInfos()
-func (m *mockState) SetSpaceInfo(infos network.SpaceInfos) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.spaceInfos = infos
 }
 
 func (m *mockState) ApplyOperation(op state.ModelOperation) error {

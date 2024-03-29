@@ -120,6 +120,7 @@ func newUniterAPIWithServices(
 		m:                       m,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
+		networkService:          context.ServiceFactory().Network(),
 		cloudService:            cloudService,
 		credentialService:       credentialService,
 		unitRemover:             unitRemover,

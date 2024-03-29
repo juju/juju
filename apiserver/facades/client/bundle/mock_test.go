@@ -9,7 +9,6 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
@@ -55,20 +54,6 @@ func (m *mockState) GetExportConfig() state.ExportConfig {
 
 func (m *mockState) Charm(url string) (charm.Charm, error) {
 	return m.charm, nil
-}
-
-func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
-	result := make(network.SpaceInfos, len(m.Spaces))
-	i := 0
-	for id, name := range m.Spaces {
-		result[i] = network.SpaceInfo{ID: id, Name: network.SpaceName(name)}
-		i += 1
-	}
-	return result, nil
-}
-
-func (m *mockState) Space(_ string) (*state.Space, error) {
-	return nil, nil
 }
 
 func newMockState() *mockState {

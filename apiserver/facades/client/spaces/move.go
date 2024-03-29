@@ -72,7 +72,7 @@ func (api *API) getSubnets(ctx context.Context, tags []string) (network.SubnetIn
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		subnet, err := api.subnetService.Subnet(ctx, subnetTag.Id())
+		subnet, err := api.networkService.Subnet(ctx, subnetTag.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -84,12 +84,12 @@ func (api *API) getSubnets(ctx context.Context, tags []string) (network.SubnetIn
 // updateSubnet updates the space in each subnet of the provided list of
 // subnets.
 func (api *API) updateSubnets(ctx context.Context, spaceName string, subnets network.SubnetInfos) error {
-	space, err := api.spaceService.SpaceByName(ctx, spaceName)
+	space, err := api.networkService.SpaceByName(ctx, spaceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, subnet := range subnets {
-		if err := api.subnetService.UpdateSubnet(ctx, subnet.ID.String(), space.ID); err != nil {
+		if err := api.networkService.UpdateSubnet(ctx, subnet.ID.String(), space.ID); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -108,7 +108,7 @@ func (api *API) ensureSubnetsCanBeMoved(ctx context.Context, subnets network.Sub
 		}
 	}
 
-	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
+	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

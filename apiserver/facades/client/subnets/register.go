@@ -35,7 +35,6 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Logger().Child("subnets"),
-		ctx.ServiceFactory().Space(),
-		ctx.ServiceFactory().Subnet(),
+		ctx.ServiceFactory().Network(),
 	)
 }

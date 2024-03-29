@@ -27,6 +27,12 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
 	*common.LifeGetter
@@ -36,6 +42,7 @@ type InstancePollerAPI struct {
 	*common.StatusGetter
 
 	st                      StateInterface
+	networkService          NetworkService
 	resources               facade.Resources
 	authorizer              facade.Authorizer
 	accessMachine           common.GetAuthFunc
@@ -54,6 +61,7 @@ func NewInstancePollerAPI(
 	controllerConfigService ControllerConfigService,
 	clock clock.Clock,
 	logger loggo.Logger,
+	networkService NetworkService,
 ) (*InstancePollerAPI, error) {
 
 	if !authorizer.AuthController() {
@@ -98,6 +106,7 @@ func NewInstancePollerAPI(
 		ModelMachinesWatcher:    machinesWatcher,
 		InstanceIdGetter:        instanceIdGetter,
 		StatusGetter:            statusGetter,
+		networkService:          networkService,
 		st:                      sti,
 		resources:               resources,
 		authorizer:              authorizer,
@@ -139,7 +148,7 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 		return result, err
 	}
 
-	spaceInfos, err := a.st.AllSpaceInfos()
+	spaceInfos, err := a.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -307,7 +316,16 @@ func (a *InstancePollerAPI) ProviderAddresses(ctx context.Context, args params.E
 			continue
 		}
 
-		addrs, err := machine.ProviderAddresses().ToProviderAddresses(a.st)
+		var allSpaces network.SpaceInfos
+		sas := machine.ProviderAddresses()
+		if len(sas) > 0 {
+			allSpaces, err = a.networkService.GetAllSpaces(ctx)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+		addrs, err := sas.ToProviderAddresses(allSpaces)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -342,7 +360,16 @@ func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args param
 			continue
 		}
 
-		addrsToSet, err := params.ToProviderAddresses(arg.Addresses...).ToSpaceAddresses(a.st)
+		var spaceInfos network.SpaceInfos
+		pas := params.ToProviderAddresses(arg.Addresses...)
+		if len(pas) > 0 {
+			spaceInfos, err = a.networkService.GetAllSpaces(ctx)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+		addrsToSet, err := pas.ToSpaceAddresses(spaceInfos)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

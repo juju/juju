@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
-	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -65,6 +64,7 @@ func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		&mockCloudSpecAPI{},
 		s.controllerConfigAPI,
 		s.controllerConfigService,
+		nil,
 		loggo.GetLogger("juju.apiserver.firewaller"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -146,10 +146,17 @@ type FirewallerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 
+<<<<<<< HEAD
 	st                      *mocks.MockState
 	controllerConfigAPI     *mocks.MockControllerConfigAPI
 	controllerConfigService *mocks.MockControllerConfigService
 	api                     *firewaller.FirewallerAPI
+=======
+	st             *MockState
+	cc             *MockControllerConfigAPI
+	api            *firewaller.FirewallerAPI
+	networkService *MockNetworkService
+>>>>>>> a7e3f591ba (Wire machine and provisioner agent facades)
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -167,6 +174,7 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+<<<<<<< HEAD
 	s.st = mocks.NewMockState(ctrl)
 	s.controllerConfigAPI = mocks.NewMockControllerConfigAPI(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
@@ -178,6 +186,13 @@ func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.controllerConfigAPI,
 		s.controllerConfigService,
 		loggo.GetLogger("juju.apiserver.firewaller"))
+=======
+	s.st = NewMockState(ctrl)
+	s.cc = NewMockControllerConfigAPI(ctrl)
+	s.networkService = NewMockNetworkService(ctrl)
+
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, s.networkService, loggo.GetLogger("juju.apiserver.firewaller"))
+>>>>>>> a7e3f591ba (Wire machine and provisioner agent facades)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
@@ -240,7 +255,7 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 	ch := make(chan struct{}, 1)
 	// initial event
 	ch <- struct{}{}
-	w := mocks.NewMockNotifyWatcher(ctrl)
+	w := NewMockNotifyWatcher(ctrl)
 	w.EXPECT().Changes().Return(ch).MinTimes(1)
 	w.EXPECT().Wait().AnyTimes()
 	w.EXPECT().Kill().AnyTimes()
@@ -303,7 +318,7 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		},
 	}
 	s.st.EXPECT().Machine("0").Return(mockMachine, nil)
-	s.st.EXPECT().SpaceInfos().Return(spaceInfos, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(spaceInfos, nil)
 	s.st.EXPECT().AllEndpointBindings().Return(applicationEndpointBindings, nil)
 
 	// Test call output
@@ -369,7 +384,7 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
 			{ID: "999", CIDR: "192.168.2.0/24"},
 		}},
 	}
-	s.st.EXPECT().SpaceInfos().Return(spaceInfos, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(spaceInfos, nil)
 
 	// Test call output
 	req := params.SpaceInfosParams{

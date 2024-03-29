@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
@@ -27,16 +28,25 @@ import (
 
 type bundleSuite struct {
 	coretesting.BaseSuite
-	auth     *apiservertesting.FakeAuthorizer
-	facade   *bundle.APIv8
-	st       *mockState
-	store    *mockObjectStore
-	modelTag names.ModelTag
+	auth           *apiservertesting.FakeAuthorizer
+	facade         *bundle.APIv8
+	st             *mockState
+	store          *mockObjectStore
+	modelTag       names.ModelTag
+	networkService *MockNetworkService
 }
 
 var _ = gc.Suite(&bundleSuite{})
 
+func (s *bundleSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.networkService = NewMockNetworkService(ctrl)
+	return ctrl
+}
+
 func (s *bundleSuite) SetUpTest(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	s.BaseSuite.SetUpTest(c)
 	s.auth = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("read"),
@@ -53,9 +63,26 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 		s.store,
 		s.auth,
 		s.modelTag,
+		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return &bundle.APIv8{api}
+}
+
+func (s *bundleSuite) assertGetSpaces(c *gc.C, spaces ...network.SpaceInfo) {
+	defaultSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+		{
+			ID:   "1",
+			Name: "vlan2",
+		},
+	}
+	defaultSpaces = append(defaultSpaces, spaces...)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(defaultSpaces, nil)
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
@@ -460,6 +487,7 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -509,6 +537,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -563,6 +592,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -608,6 +638,7 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -671,6 +702,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -818,6 +850,7 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -945,6 +978,7 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -1055,6 +1089,7 @@ func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1098,6 +1133,7 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	})
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{IncludeCharmDefaults: true})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1174,6 +1210,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	s.setEndpointSettings(mysqlEndpoint, "mysql/0")
 	s.setEndpointSettings(loggingEndpoint, "logging/2")
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1242,6 +1279,10 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 	application.SetStatus(minimalStatusArgs())
 
+	s.assertGetSpaces(c, network.SpaceInfo{
+		ID:   "2",
+		Name: "some-space",
+	})
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1297,6 +1338,8 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 
 func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
 	s.setupExportBundleEndpointBindingsPrinted("0", "0")
+
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1319,6 +1362,8 @@ applications:
 
 func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
 	s.setupExportBundleEndpointBindingsPrinted("0", "1")
+
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1365,6 +1410,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 
 	s.addMinimalMachineWithConstraints(s.st.model, "0")
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1417,6 +1463,7 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -1473,6 +1520,7 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -1559,6 +1607,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	})
 	ut.SetAgentStatus(minimalStatusArgs())
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -1620,6 +1669,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 		Base: "ubuntu@22.04",
 	})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1686,6 +1736,7 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 		Base: "ubuntu@22.04",
 	})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1718,6 +1769,7 @@ func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
 	model := s.newModel("caas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1744,6 +1796,7 @@ func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
 	model := s.newModel("iaas", "ch:wordpress", "ch:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1780,6 +1833,7 @@ func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
 	model := s.newModel("iaas", "local:wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1814,6 +1868,7 @@ func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
 	model := s.newModel("iaas", "local:focal/wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1952,6 +2007,10 @@ applications:
 		application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 		application.SetStatus(minimalStatusArgs())
 
+		s.assertGetSpaces(c, network.SpaceInfo{
+			ID:   "2",
+			Name: "some-space",
+		})
 		result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 		c.Assert(err, jc.ErrorIsNil)
 

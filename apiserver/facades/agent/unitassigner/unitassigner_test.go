@@ -7,6 +7,7 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -19,12 +20,15 @@ var _ = gc.Suite(testsuite{})
 type testsuite struct{}
 
 func (testsuite) TestAssignUnits(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	f := &fakeState{
 		unitMachines: map[string]string{"foo/0": "1/lxd/2"},
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	a := &fakeMachineService{}
-	api := API{st: f, res: common.NewResources(), machineService: a}
+	api := API{st: f, res: common.NewResources(), machineService: a, networkService: nil}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})

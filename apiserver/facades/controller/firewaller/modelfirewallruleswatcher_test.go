@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
-	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	"github.com/juju/juju/environs/config"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -19,12 +18,12 @@ import (
 var _ = gc.Suite(&ModelFirewallRulesWatcherSuite{})
 
 type ModelFirewallRulesWatcherSuite struct {
-	st *mocks.MockState
+	st *MockState
 }
 
 func (s *ModelFirewallRulesWatcherSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.st = mocks.NewMockState(ctrl)
+	s.st = NewMockState(ctrl)
 
 	return ctrl
 }
@@ -36,9 +35,9 @@ func cfg(c *gc.C, in map[string]interface{}) *config.Config {
 	return cfg
 }
 
-func mockNotifyWatcher(ctrl *gomock.Controller) (*mocks.MockNotifyWatcher, chan struct{}) {
+func mockNotifyWatcher(ctrl *gomock.Controller) (*MockNotifyWatcher, chan struct{}) {
 	ch := make(chan struct{})
-	watcher := mocks.NewMockNotifyWatcher(ctrl)
+	watcher := NewMockNotifyWatcher(ctrl)
 	watcher.EXPECT().Changes().Return(ch).MinTimes(1)
 	watcher.EXPECT().Wait().AnyTimes()
 	watcher.EXPECT().Kill().AnyTimes()

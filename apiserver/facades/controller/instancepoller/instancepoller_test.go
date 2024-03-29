@@ -36,10 +36,11 @@ import (
 type InstancePollerSuite struct {
 	testing.IsolationSuite
 
-	st         *mockState
-	api        *instancepoller.InstancePollerAPI
-	authoriser apiservertesting.FakeAuthorizer
-	resources  *common.Resources
+	st             *mockState
+	api            *instancepoller.InstancePollerAPI
+	authoriser     apiservertesting.FakeAuthorizer
+	resources      *common.Resources
+	networkService *MockNetworkService
 
 	machineEntities     params.Entities
 	machineErrorResults params.ErrorResults
@@ -52,7 +53,16 @@ type InstancePollerSuite struct {
 
 var _ = gc.Suite(&InstancePollerSuite{})
 
+func (s *InstancePollerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.networkService = NewMockNetworkService(ctrl)
+	return ctrl
+}
+
 func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	s.IsolationSuite.SetUpTest(c)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
@@ -761,7 +771,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
-	s.setDefaultSpaceInfo()
+	s.expectDefaultSpaces()
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 
@@ -862,7 +872,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
-	s.setDefaultSpaceInfo()
+	s.expectDefaultSpaces()
 
 	s.st.SetMachineInfo(c, machineInfo{
 		id:             "1",
@@ -965,7 +975,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.setDefaultSpaceInfo()
+	s.expectDefaultSpaces()
 
 	// Hardware address not matched.
 	dev := mocks.NewMockLinkLayerDevice(ctrl)
@@ -1016,7 +1026,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.setDefaultSpaceInfo()
+	s.expectDefaultSpaces()
 
 	// Hardware address will match; provider ID will be set.
 	dev := mocks.NewMockLinkLayerDevice(ctrl)
@@ -1095,7 +1105,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.setDefaultSpaceInfo()
+	s.expectDefaultSpaces()
 
 	// Ethernet device will have the provider ID set.
 	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
@@ -1151,7 +1161,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.setDefaultSpaceInfo()
+	s.expectDefaultSpaces()
 
 	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
 	ethExp := ethDev.EXPECT()
@@ -1209,12 +1219,13 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(
 	c.Assert(buildCalled, jc.IsFalse)
 }
 
-func (s *InstancePollerSuite) setDefaultSpaceInfo() {
-	s.st.SetSpaceInfo(network.SpaceInfos{
-		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
-		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
-		{ID: "2", Name: "my-space-on-maas", ProviderId: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24"}}},
-	})
+func (s *InstancePollerSuite) expectDefaultSpaces() {
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(
+		network.SpaceInfos{
+			{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
+			{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
+			{ID: "2", Name: "my-space-on-maas", ProviderId: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24"}}},
+		}, nil)
 }
 
 func makeSpaceAddress(ip string, scope network.Scope, spaceID string) network.SpaceAddress {

@@ -51,6 +51,7 @@ type FirewallerAPI struct {
 	accessMachine     common.GetAuthFunc
 	accessModel       common.GetAuthFunc
 	logger            loggo.Logger
+	networkService    NetworkService
 
 	// Fetched on demand and memoized
 	spaceInfos          network.SpaceInfos
@@ -67,6 +68,7 @@ func NewStateFirewallerAPI(
 	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
 	controllerConfigService ControllerConfigService,
+	networkService NetworkService,
 	logger loggo.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -133,6 +135,7 @@ func NewStateFirewallerAPI(
 		accessMachine:           accessMachine,
 		accessModel:             accessModel,
 		controllerConfigService: controllerConfigService,
+		networkService:          networkService,
 		logger:                  logger,
 	}, nil
 }
@@ -261,12 +264,12 @@ func (f *FirewallerAPI) GetAssignedMachine(ctx context.Context, args params.Enti
 
 // getSpaceInfos returns the cached SpaceInfos or retrieves them from state
 // and memoizes it for future invocations.
-func (f *FirewallerAPI) getSpaceInfos() (network.SpaceInfos, error) {
+func (f *FirewallerAPI) getSpaceInfos(ctx context.Context) (network.SpaceInfos, error) {
 	if f.spaceInfos != nil {
 		return f.spaceInfos, nil
 	}
 
-	si, err := f.st.SpaceInfos()
+	si, err := f.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -463,7 +466,7 @@ func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params
 			continue
 		}
 
-		unitPortRanges, err := f.openedPortRangesForOneMachine(machine)
+		unitPortRanges, err := f.openedPortRangesForOneMachine(ctx, machine)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -474,7 +477,7 @@ func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params
 	return result, nil
 }
 
-func (f *FirewallerAPI) openedPortRangesForOneMachine(machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
+func (f *FirewallerAPI) openedPortRangesForOneMachine(ctx context.Context, machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
 	machPortRanges, err := machine.OpenedPortRanges()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -486,7 +489,7 @@ func (f *FirewallerAPI) openedPortRangesForOneMachine(machine firewall.Machine) 
 	}
 
 	// Look up space to subnet mappings
-	spaceInfos, err := f.getSpaceInfos()
+	spaceInfos, err := f.getSpaceInfos(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -627,7 +630,7 @@ func (f *FirewallerAPI) SpaceInfos(ctx context.Context, args params.SpaceInfosPa
 		return params.SpaceInfos{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	allSpaceInfos, err := f.getSpaceInfos()
+	allSpaceInfos, err := f.getSpaceInfos(ctx)
 	if err != nil {
 		return params.SpaceInfos{}, apiservererrors.ServerError(err)
 	}

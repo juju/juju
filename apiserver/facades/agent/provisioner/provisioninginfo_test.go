@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -228,20 +227,18 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.C) {
-	s.addSpacesAndSubnets(c)
+	spaces := s.addSpacesAndSubnets(c)
 
-	st := s.ControllerModel(c).State()
-	alphaSpace, err := st.SpaceByName("alpha")
-	c.Assert(err, jc.ErrorIsNil)
-
-	testing.AddSubnetsWithTemplate(c, st, 1, network.SubnetInfo{
-		CIDR:              "10.10.{{add 4 .}}.0/24",
+	networkService := s.serviceFactory.Network()
+	networkService.AddSubnet(context.Background(), network.SubnetInfo{
+		CIDR:              "10.10.4.0/24",
 		ProviderId:        "subnet-alpha",
 		AvailabilityZones: []string{"zone-alpha"},
-		SpaceID:           alphaSpace.Id(),
+		SpaceID:           network.AlphaSpaceId,
 		VLANTag:           43,
 	})
 
+	st := s.ControllerModel(c).State()
 	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
@@ -253,8 +250,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
-		"url": "1", // has both name and provider ID
-		"db":  "2", // has only name, no provider ID
+		"url": spaces[0].ID, // has both name and provider ID
+		"db":  spaces[1].ID, // has only name, no provider ID
 	}
 	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -323,7 +320,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAlphaSpace(c *gc.C) {
-	s.addSpacesAndSubnets(c)
+	spaces := s.addSpacesAndSubnets(c)
 
 	st := s.ControllerModel(c).State()
 	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
@@ -337,8 +334,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
-		"url": "1", // has both name and provider ID
-		"db":  "2", // has only name, no provider ID
+		"url": spaces[0].ID, // has both name and provider ID
+		"db":  spaces[1].ID, // has only name, no provider ID
 	}
 	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -366,20 +363,18 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 }
 
 func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingError(c *gc.C) {
-	s.addSpacesAndSubnets(c)
+	spaces := s.addSpacesAndSubnets(c)
 
-	st := s.ControllerModel(c).State()
-	alphaSpace, err := st.SpaceByName("alpha")
-	c.Assert(err, jc.ErrorIsNil)
-
-	testing.AddSubnetsWithTemplate(c, st, 1, network.SubnetInfo{
-		CIDR:              "10.10.{{add 4 .}}.0/24",
+	networkService := s.serviceFactory.Network()
+	networkService.AddSubnet(context.Background(), network.SubnetInfo{
+		CIDR:              "10.10.4.0/24",
 		ProviderId:        "subnet-alpha",
 		AvailabilityZones: []string{"zone-alpha"},
-		SpaceID:           alphaSpace.Id(),
+		SpaceID:           network.AlphaSpaceId,
 		VLANTag:           43,
 	})
 
+	st := s.ControllerModel(c).State()
 	cons := constraints.MustParse("spaces=^space1")
 	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
@@ -393,8 +388,8 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
-		"url": "1", // has both name and provider ID
-		"db":  "2", // has only name, no provider ID
+		"url": spaces[0].ID, // has both name and provider ID
+		"db":  spaces[1].ID, // has only name, no provider ID
 	}
 	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -420,28 +415,84 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
-	st := s.ControllerModel(c).State()
+func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) network.SpaceInfos {
+	networkService := s.serviceFactory.Network()
 	// Add a couple of spaces.
-	space1, err := st.AddSpace("space1", "first space id", nil)
+	sp1ID, err := networkService.AddSpace(context.Background(), "space1", "first space id", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	space2, err := st.AddSpace("space2", "", nil) // no provider ID
+	sp2ID, err := networkService.AddSpace(context.Background(), "space2", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
-	testing.AddSubnetsWithTemplate(c, st, 3, network.SubnetInfo{
-		CIDR:              "10.10.{{.}}.0/24",
-		ProviderId:        "subnet-{{.}}",
-		AvailabilityZones: []string{"zone{{.}}"},
-		SpaceID:           fmt.Sprintf("{{if (eq . 0)}}%s{{else}}%s{{end}}", space1.Id(), space2.Id()),
+	_, err = networkService.AddSubnet(context.Background(), network.SubnetInfo{
+		SpaceID:           string(sp1ID),
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "subnet-0",
+		ProviderNetworkId: "subnet-0",
 		VLANTag:           42,
+		AvailabilityZones: []string{"zone0"},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = networkService.AddSubnet(context.Background(), network.SubnetInfo{
+		SpaceID:           string(sp2ID),
+		CIDR:              "10.0.1.0/24",
+		ProviderId:        "subnet-1",
+		ProviderNetworkId: "subnet-1",
+		VLANTag:           42,
+		AvailabilityZones: []string{"zone1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = networkService.AddSubnet(context.Background(), network.SubnetInfo{
+		SpaceID:           string(sp2ID),
+		CIDR:              "10.0.2.0/24",
+		ProviderId:        "subnet-2",
+		ProviderNetworkId: "subnet-2",
+		VLANTag:           42,
+		AvailabilityZones: []string{"zone2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return network.SpaceInfos{
+		{
+			ID:         sp1ID.String(),
+			Name:       "space1",
+			ProviderId: "first space id",
+			Subnets: network.SubnetInfos{
+				{
+					CIDR:              "10.0.0.0/24",
+					ProviderId:        "subnet-0",
+					VLANTag:           42,
+					AvailabilityZones: []string{"zone0"},
+				},
+			},
+		},
+		{
+			ID:         sp2ID.String(),
+			Name:       "space2",
+			ProviderId: "",
+			Subnets: network.SubnetInfos{
+				{
+					CIDR:              "10.0.1.0/24",
+					ProviderId:        "subnet-1",
+					VLANTag:           42,
+					AvailabilityZones: []string{"zone1"},
+				},
+				{
+					CIDR:              "10.0.2.0/24",
+					ProviderId:        "subnet-2",
+					VLANTag:           42,
+					AvailabilityZones: []string{"zone2"},
+				},
+			},
+		},
+	}
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Add an empty space.
-	_, err := st.AddSpace("empty", "", nil)
+	networkService := s.serviceFactory.Network()
+	_, err := networkService.AddSpace(context.Background(), "empty", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consEmptySpace := constraints.MustParse("cores=123 mem=8G spaces=empty")
@@ -471,7 +522,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 	expectedErrorEmptySpace := `matching subnets to zones: ` +
 		`cannot use space "empty" as deployment target: no subnets`
 	expectedErrorMissingSpace := `matching subnets to zones: ` +
-		`space "missing"` // " not found" will be appended by NotFoundError helper below.
+		`space with name "missing"` // " not found" will be appended by NotFoundError helper below.
 	expected := params.ProvisioningInfoResults{Results: []params.ProvisioningInfoResult{
 		{Error: apiservertesting.ServerError(expectedErrorEmptySpace)},
 		{Error: apiservertesting.NotFoundError(expectedErrorMissingSpace)},

@@ -58,8 +58,8 @@ type NetworkInfoBase struct {
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(ctx context.Context, st *state.State, tag names.UnitTag, logger loggo.Logger) (NetworkInfo, error) {
-	n, err := NewNetworkInfoForStrategy(ctx, st, tag, defaultRetryFactory, net.LookupHost, logger)
+func NewNetworkInfo(ctx context.Context, st *state.State, tag names.UnitTag, logger loggo.Logger, networkService NetworkService) (NetworkInfo, error) {
+	n, err := NewNetworkInfoForStrategy(ctx, st, tag, defaultRetryFactory, net.LookupHost, logger, networkService)
 	return n, errors.Trace(err)
 }
 
@@ -68,7 +68,12 @@ func NewNetworkInfo(ctx context.Context, st *state.State, tag names.UnitTag, log
 // behaviour via the input retry factory and host resolver.
 func NewNetworkInfoForStrategy(
 	ctx context.Context,
-	st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error), logger loggo.Logger,
+	st *state.State,
+	tag names.UnitTag,
+	retryFactory func() retry.CallArgs,
+	lookupHost func(string) ([]string, error),
+	logger loggo.Logger,
+	networkService NetworkService,
 ) (NetworkInfo, error) {
 	model, err := st.Model()
 	if err != nil {
@@ -97,11 +102,11 @@ func NewNetworkInfoForStrategy(
 	defaultSpaceID := network.AlphaSpaceId
 	defaultSpaceName := cfg.DefaultSpace()
 	if defaultSpaceName != "" && defaultSpaceName != network.AlphaSpaceName {
-		defaultSpace, err := st.SpaceByName(defaultSpaceName)
+		defaultSpace, err := networkService.SpaceByName(ctx, defaultSpaceName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defaultSpaceID = defaultSpace.Id()
+		defaultSpaceID = defaultSpace.ID
 	}
 
 	// Initialise the bindings map with all application endpoints.
