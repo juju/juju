@@ -80,9 +80,9 @@ type ApplicationService interface {
 	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
 }
 
-// SpaceService is the interface that is used to interact with the
-// network spaces.
-type SpaceService interface {
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
@@ -361,7 +361,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ProviderRegistry:        registry,
 				ApplicationService:      modelServiceFactory.Application(registry),
 				FlagService:             flagService,
-				SpaceService:            modelServiceFactory.Space(),
+				NetworkService:          modelServiceFactory.Network(),
 				SystemState: &stateShim{
 					State:      systemState,
 					prechecker: prechecker,

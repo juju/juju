@@ -53,9 +53,9 @@ type StoragePoolGetter interface {
 	GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error)
 }
 
-// SpaceService is the interface that is used to interact with the
-// network spaces.
-type SpaceService interface {
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
@@ -75,7 +75,7 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 	*networkingcommon.NetworkConfigAPI
 
-	spaceService                SpaceService
+	networkService              NetworkService
 	st                          *state.State
 	m                           *state.Model
 	controllerConfigService     ControllerConfigService
@@ -200,7 +200,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 			serviceFactory.ExternalController(),
 		),
 		NetworkConfigAPI:            netConfigAPI,
-		spaceService:                ctx.ServiceFactory().Space(),
+		networkService:              ctx.ServiceFactory().Network(),
 		st:                          st,
 		m:                           model,
 		controllerConfigService:     serviceFactory.ControllerConfig(),
@@ -900,7 +900,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args par
 		return errors.Trace(err)
 	}
 
-	policy, err := containerizer.NewBridgePolicy(ctx, env, api.spaceService)
+	policy, err := containerizer.NewBridgePolicy(ctx, env, api.networkService)
 	if err != nil {
 		return errors.Trace(err)
 	}

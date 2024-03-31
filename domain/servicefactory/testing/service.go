@@ -120,13 +120,8 @@ func (s *TestingServiceFactory) Machine() *machineservice.Service {
 	return s.machineServiceGetter()
 }
 
-// Space returns the space service.
-func (s *TestingServiceFactory) Space() *networkservice.SpaceService {
-	return nil
-}
-
-// Subnet returns the subnet service.
-func (s *TestingServiceFactory) Subnet() *networkservice.SubnetService {
+// Network returns the network service.
+func (s *TestingServiceFactory) Network() *networkservice.Service {
 	return nil
 }
 
