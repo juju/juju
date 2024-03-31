@@ -41,6 +41,12 @@ func (s *SubnetService) AddSubnet(ctx context.Context, args network.SubnetInfo) 
 	return args.ID, nil
 }
 
+// GetAllSubnets returns all the subnets for the model.
+func (s *SubnetService) GetAllSubnets(ctx context.Context) (network.SubnetInfos, error) {
+	allSubnets, err := s.st.GetAllSubnets(ctx)
+	return allSubnets, errors.Trace(err)
+}
+
 // Subnet returns the subnet identified by the input UUID,
 // or an error if it is not found.
 func (s *SubnetService) Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error) {
