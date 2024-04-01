@@ -1121,7 +1121,7 @@ func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD})
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
@@ -1137,7 +1137,7 @@ func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainer
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD})
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
@@ -1152,7 +1152,7 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SupportsNoContainers()
+	err = host.SupportsNoContainers(status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{

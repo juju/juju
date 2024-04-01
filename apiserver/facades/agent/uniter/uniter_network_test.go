@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/feature"
@@ -156,7 +157,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int, prechecker environs.InstancePrechecker) *state.Machine {
 	machine, err := s.st.AddMachine(prechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
+	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)

@@ -1642,7 +1642,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXD})
+			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXD}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			err = m.SetAgentVersion(version.MustParseBinary("2.4.1-ubuntu-amd64"))

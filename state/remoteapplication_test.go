@@ -864,7 +864,7 @@ func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C
 func (s *remoteApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 	err := s.application.SetStatus(status.StatusInfo{
 		Status: status.Active,
-	}, nil)
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	filter := status.StatusHistoryFilter{Size: 100}
 	agentInfo, err := s.application.StatusHistory(filter)
@@ -913,7 +913,7 @@ func (s *remoteApplicationSuite) assertDestroyAppWithStatus(c *gc.C, appStatus *
 	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	if appStatus != nil {
-		err = s.application.SetStatus(status.StatusInfo{Status: *appStatus}, nil)
+		err = s.application.SetStatus(status.StatusInfo{Status: *appStatus}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -948,7 +948,7 @@ func (s *remoteApplicationSuite) TestDestroyTerminated(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestDestroyTerminatedDead(c *gc.C) {
-	err := s.application.SetStatus(status.StatusInfo{Status: status.Terminated}, nil)
+	err := s.application.SetStatus(status.StatusInfo{Status: status.Terminated}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.SetDead()
 	c.Assert(err, jc.ErrorIsNil)

@@ -1415,7 +1415,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 		Data:    agentStatus.Data,
 		Since:   agentStatus.Since,
 	}
-	return agent.SetStatus(s, nil)
+	return agent.SetStatus(s, status.NoopStatusHistoryRecorder)
 }
 
 // AgentStatus calls Status for this unit's agent, this call

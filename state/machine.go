@@ -709,7 +709,7 @@ func (m *Machine) destroyControllerWithPrincipals() error {
 	err = m.SetStatus(status.StatusInfo{
 		Status:  status.Stopped,
 		Message: fmt.Sprintf("waiting on dying units %s", strings.Join(evacuablePrincipals, ", ")),
-	}, nil)
+	}, status.NoopStatusHistoryRecorder)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1525,6 +1525,7 @@ func (m *Machine) SetInstanceInfo(
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 	charmProfiles []string,
+	recorder status.StatusHistoryRecorder,
 ) error {
 	logger.Tracef(
 		"setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v",
@@ -1557,7 +1558,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 		if err := vol.SetStatus(status.StatusInfo{
 			Status: volStatus,
-		}, nil); err != nil {
+		}, recorder); err != nil {
 			return errors.Annotatef(
 				err, "setting status of %s", names.ReadableString(tag),
 			)
@@ -2025,15 +2026,15 @@ func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
 }
 
 // SupportsNoContainers records the fact that this machine doesn't support any containers.
-func (m *Machine) SupportsNoContainers() (err error) {
+func (m *Machine) SupportsNoContainers(recorder status.StatusHistoryRecorder) (err error) {
 	if err = m.updateSupportedContainers([]instance.ContainerType{}); err != nil {
 		return err
 	}
-	return m.markInvalidContainers()
+	return m.markInvalidContainers(recorder)
 }
 
 // SetSupportedContainers sets the list of containers supported by this machine.
-func (m *Machine) SetSupportedContainers(containers []instance.ContainerType) (err error) {
+func (m *Machine) SetSupportedContainers(containers []instance.ContainerType, recorder status.StatusHistoryRecorder) (err error) {
 	if len(containers) == 0 {
 		return fmt.Errorf("at least one valid container type is required")
 	}
@@ -2045,7 +2046,7 @@ func (m *Machine) SetSupportedContainers(containers []instance.ContainerType) (e
 	if err = m.updateSupportedContainers(containers); err != nil {
 		return err
 	}
-	return m.markInvalidContainers()
+	return m.markInvalidContainers(recorder)
 }
 
 func isSupportedContainer(container instance.ContainerType, supportedContainers []instance.ContainerType) bool {
@@ -2101,7 +2102,7 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 
 // markInvalidContainers sets the status of any container belonging to this machine
 // as being in error if the container type is not supported.
-func (m *Machine) markInvalidContainers() error {
+func (m *Machine) markInvalidContainers(recorder status.StatusHistoryRecorder) error {
 	currentContainers, err := m.Containers()
 	if err != nil {
 		return err
@@ -2129,7 +2130,7 @@ func (m *Machine) markInvalidContainers() error {
 					Data:    map[string]interface{}{"type": containerType},
 					Since:   &now,
 				}
-				_ = container.SetStatus(s, nil)
+				_ = container.SetStatus(s, recorder)
 			} else {
 				logger.Errorf("unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}

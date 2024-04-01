@@ -75,7 +75,7 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 		Message: "",
 		Since:   &now,
 	}
-	err := entity.SetStatus(s, nil)
+	err := entity.SetStatus(s, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

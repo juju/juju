@@ -189,7 +189,7 @@ func (s *ModelStatusSuite) TestUnitStatus(c *gc.C) {
 	unit := s.factory.MakeUnit(c, nil)
 
 	c.Assert(unit.SetWorkloadVersion("42.1", status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
-	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}, nil), jc.ErrorIsNil)
+	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
 
 	ms, err := s.model.LoadModelStatus()
@@ -219,7 +219,7 @@ func (s *ModelStatusSuite) TestUnitStatusWeirdness(c *gc.C) {
 
 	// When the agent status is in error, we show the workload status
 	// as an error, and the agent as idle
-	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}, nil), jc.ErrorIsNil)
+	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(unit.SetAgentStatus(status.StatusInfo{
 		Status:  status.Error,
 		Message: "OMG"}), jc.ErrorIsNil)

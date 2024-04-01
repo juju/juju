@@ -331,9 +331,9 @@ func (api *ProvisionerAPI) SetSupportedContainers(ctx stdcontext.Context, args p
 			continue
 		}
 		if len(arg.ContainerTypes) == 0 {
-			err = machine.SupportsNoContainers()
+			err = machine.SupportsNoContainers(api.historyRecorder)
 		} else {
-			err = machine.SetSupportedContainers(arg.ContainerTypes)
+			err = machine.SetSupportedContainers(arg.ContainerTypes, api.historyRecorder)
 		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -766,6 +766,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx stdcontext.Context, args params.I
 			arg.InstanceId, arg.DisplayName, arg.Nonce, arg.Characteristics,
 			devicesArgs, devicesAddrs,
 			volumes, volumeAttachments, arg.CharmProfiles,
+			api.historyRecorder,
 		)
 		if err != nil {
 			return errors.Annotatef(err, "cannot record provisioning info for %q", arg.InstanceId)

@@ -39,7 +39,7 @@ func NewStatusAPI(model *state.Model, getCanModify common.GetAuthFunc, leadershi
 	st := model.State()
 	unitSetter := common.NewStatusSetter(st, getCanModify, historyRecorder)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
-	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
+	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker, historyRecorder)
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, historyRecorder)
 	return &StatusAPI{
 		model:             model,

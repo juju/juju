@@ -1132,7 +1132,7 @@ func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus
 			Message: volStatus.Message,
 			Data:    volStatus.Data,
 			Since:   &now,
-		}, nil)
+		}, a.historyRecorder)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1205,7 +1205,7 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 			Message: fsStatus.Message,
 			Data:    fsStatus.Data,
 			Since:   &now,
-		}, nil)
+		}, a.historyRecorder)
 		if err != nil {
 			return errors.Trace(err)
 		}

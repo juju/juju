@@ -3863,7 +3863,7 @@ func (op *AddUnitOperation) Done(err error) error {
 			Message: op.props.AgentStatus.Message,
 			Data:    op.props.AgentStatus.Data,
 			Since:   &now,
-		}, nil); err != nil {
+		}, op.recorder); err != nil {
 			return errors.Trace(err)
 		}
 	}

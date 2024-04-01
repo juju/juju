@@ -1014,14 +1014,14 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{
 		names.NewVolumeTag("1065"): {VolumeId: "vol-ume"},
 	}
-	err := s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
 	invalidVolumes = map[names.VolumeTag]state.VolumeInfo{
 		names.NewVolumeTag("1065"): {},
 	}
-	err = s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume ID not set`)
 	assertNotProvisioned()
 
@@ -1050,7 +1050,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 		Size:     1234,
 	}
 	volumes := map[names.VolumeTag]state.VolumeInfo{volumeTag: volumeInfo}
-	err := s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, volumes, nil, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, volumes, nil, nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 
@@ -2445,7 +2445,7 @@ func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container insta
 	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	containers := []instance.ContainerType{container}
-	err = machine.SetSupportedContainers(containers)
+	err = machine.SetSupportedContainers(containers, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, containers)
 	return machine
@@ -2482,7 +2482,7 @@ func (s *MachineSuite) TestSupportsNoContainers(c *gc.C) {
 	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SupportsNoContainers()
+	err = machine.SupportsNoContainers(status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{})
 }
@@ -2491,7 +2491,7 @@ func (s *MachineSuite) TestSetSupportedContainerTypeNoneIsError(c *gc.C) {
 	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.NONE})
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.NONE}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `"none" is not a valid container type`)
 	assertSupportedContainersUnknown(c, machine)
 	err = machine.Refresh()
@@ -2502,12 +2502,12 @@ func (s *MachineSuite) TestSetSupportedContainerTypeNoneIsError(c *gc.C) {
 func (s *MachineSuite) TestSupportsNoContainersOverwritesExisting(c *gc.C) {
 	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
 
-	err := machine.SupportsNoContainers()
+	err := machine.SupportsNoContainers(status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{})
 	// Calling it a second time should not invoke a db transaction
 	defer state.SetFailIfTransaction(c, s.State).Check()
-	err = machine.SupportsNoContainers()
+	err = machine.SupportsNoContainers(status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{})
 }
@@ -2516,7 +2516,7 @@ func (s *MachineSuite) TestSetSupportedContainersSingle(c *gc.C) {
 	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD})
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD})
 }
@@ -2525,7 +2525,7 @@ func (s *MachineSuite) TestSetSupportedContainersSame(c *gc.C) {
 	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
 
 	defer state.SetFailIfTransaction(c, s.State).Check()
-	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXD})
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXD}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD})
 }
@@ -2545,7 +2545,7 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		containers = append(containers, container)
 	}
 
-	err = machine.SupportsNoContainers()
+	err = machine.SupportsNoContainers(status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All containers should be in error state.

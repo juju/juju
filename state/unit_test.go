@@ -1653,7 +1653,7 @@ func (s *UnitSuite) TestUnitsInError(c *gc.C) {
 		Status:  status.Error,
 		Message: "some machine error",
 		Since:   &now,
-	}, nil)
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a unit not in error to ensure it's ignored.

@@ -153,7 +153,7 @@ func (s *serviceStatusSetterSuite) SetUpTest(c *gc.C) {
 
 	s.setter = common.NewApplicationStatusSetter(s.State, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
-	}, s.leadershipChecker)
+	}, s.leadershipChecker, status.NoopStatusHistoryRecorder)
 }
 
 func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {

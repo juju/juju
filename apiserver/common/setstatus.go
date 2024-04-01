@@ -31,14 +31,16 @@ type ApplicationStatusSetter struct {
 	leadershipChecker leadership.Checker
 	st                *state.State
 	getCanModify      GetAuthFunc
+	recordHistory     status.StatusHistoryRecorder
 }
 
 // NewApplicationStatusSetter returns a ServiceStatusSetter.
-func NewApplicationStatusSetter(st *state.State, getCanModify GetAuthFunc, leadershipChecker leadership.Checker) *ApplicationStatusSetter {
+func NewApplicationStatusSetter(st *state.State, getCanModify GetAuthFunc, leadershipChecker leadership.Checker, recordHistory status.StatusHistoryRecorder) *ApplicationStatusSetter {
 	return &ApplicationStatusSetter{
 		leadershipChecker: leadershipChecker,
 		st:                st,
 		getCanModify:      getCanModify,
+		recordHistory:     recordHistory,
 	}
 }
 
@@ -117,7 +119,7 @@ func (s *ApplicationStatusSetter) SetStatus(ctx context.Context, args params.Set
 			Data:    arg.Data,
 			Since:   &now,
 		}
-		if err := service.SetStatus(sInfo, nil); err != nil {
+		if err := service.SetStatus(sInfo, s.recordHistory); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 
