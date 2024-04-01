@@ -12,8 +12,10 @@ import (
 // UpsertPermissionArgs are necessary arguments to run
 // UpdatePermissionOnTarget.
 type UpsertPermissionArgs struct {
-	// Access is what the permission access should change to.
-	Access permission.Access
+	// AccessSpec is what the permission access should change to
+	// combined with the target the subject's permission to is being
+	// updated on.
+	AccessSpec permission.AccessSpec
 	// AddUser will add the subject if the user does not exist.
 	AddUser bool
 	// ApiUser is the user requesting the change, they must have
@@ -23,9 +25,6 @@ type UpsertPermissionArgs struct {
 	Change permission.AccessChange
 	// Subject is the subject of the permission, e.g. user.
 	Subject string
-	// Target is the thing the subject's permission to is being
-	// updated on.
-	Target permission.ID
 }
 
 func (args UpsertPermissionArgs) Validate() error {
@@ -35,7 +34,7 @@ func (args UpsertPermissionArgs) Validate() error {
 	if args.Subject == "" {
 		return errors.Trace(errors.NotValidf("empty subject"))
 	}
-	if err := args.Target.ValidateAccess(args.Access); err != nil {
+	if err := args.AccessSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	if args.Change != permission.Grant && args.Change != permission.Revoke {

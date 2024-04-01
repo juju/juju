@@ -93,15 +93,17 @@ func (s *serviceSuite) TestUpsertPermission(c *gc.C) {
 	err := NewPermissionService(s.state).UpsertPermission(
 		context.Background(),
 		access.UpsertPermissionArgs{
-			Access:  corepermission.AddModelAccess,
+			AccessSpec: corepermission.AccessSpec{
+				Access: corepermission.AddModelAccess,
+				Target: corepermission.ID{
+					ObjectType: corepermission.Cloud,
+					Key:        "aws",
+				},
+			},
 			AddUser: false,
 			ApiUser: "admin",
 			Change:  corepermission.Grant,
 			Subject: "testme",
-			Target: corepermission.ID{
-				ObjectType: corepermission.Cloud,
-				Key:        "aws",
-			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
