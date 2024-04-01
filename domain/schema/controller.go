@@ -716,6 +716,14 @@ INSERT INTO permission_access_type VALUES
     (5, 'add-model'),
     (6, 'superuser');
 
+CREATE VIEW v_permission AS
+SELECT at.type AS access_type,
+       p.uuid AS uuid,
+       p.grant_on AS grant_on,
+       p.grant_to AS grant_to
+FROM   permission p
+       JOIN permission_access_type at ON at.id = p.permission_type_id;
+
 CREATE TABLE permission_object_type (
     id    INT PRIMARY KEY,
     type  TEXT NOT NULL
