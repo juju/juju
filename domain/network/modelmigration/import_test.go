@@ -15,8 +15,7 @@ import (
 
 type importSuite struct {
 	coordinator   *MockCoordinator
-	spaceService  *MockImportSpaceService
-	subnetService *MockImportSubnetService
+	importService *MockImportService
 }
 
 var _ = gc.Suite(&importSuite{})
@@ -25,16 +24,14 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
-	s.spaceService = NewMockImportSpaceService(ctrl)
-	s.subnetService = NewMockImportSubnetService(ctrl)
+	s.importService = NewMockImportService(ctrl)
 
 	return ctrl
 }
 
 func (s *importSuite) newImportOperation() *importOperation {
 	return &importOperation{
-		spaceService:  s.spaceService,
-		subnetService: s.subnetService,
+		importService: s.importService,
 	}
 }
 
@@ -52,7 +49,7 @@ func (s *importSuite) TestImportSubnetWithoutSpaces(c *gc.C) {
 		FanLocalUnderlay:  "192.168.0.0/12",
 		FanOverlay:        "10.0.0.0/8",
 	})
-	s.subnetService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        "subnet-provider-id",
 		ProviderNetworkId: "subnet-provider-network-id",
@@ -81,7 +78,7 @@ func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *gc.C) {
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
 	})
-	s.subnetService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        "subnet-provider-id",
 		ProviderNetworkId: "subnet-provider-network-id",
@@ -93,7 +90,11 @@ func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *gc.C) {
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
-	s.spaceService.EXPECT().AddSpace(gomock.Any(), "space-name", network.Id("space-provider-id"), nil)
+	spaceInfo := network.SpaceInfo{
+		Name:       "space-name",
+		ProviderId: "space-provider-id",
+	}
+	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
@@ -109,9 +110,13 @@ func (s *importSuite) TestImportSpaceWithSubnet(c *gc.C) {
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
-	s.spaceService.EXPECT().AddSpace(gomock.Any(), "space-name", network.Id("space-provider-id"), nil).
+	spaceInfo := network.SpaceInfo{
+		Name:       "space-name",
+		ProviderId: "space-provider-id",
+	}
+	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
 		Return(network.Id("new-space-id"), nil)
-	s.spaceService.EXPECT().Space(gomock.Any(), "new-space-id").
+	s.importService.EXPECT().Space(gomock.Any(), "new-space-id").
 		Return(&network.SpaceInfo{
 			ID:         "new-space-id",
 			Name:       "space-name",
@@ -128,7 +133,7 @@ func (s *importSuite) TestImportSpaceWithSubnet(c *gc.C) {
 		SpaceName:         "space-name",
 		ProviderSpaceId:   "space-provider-id",
 	})
-	s.subnetService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        "subnet-provider-id",
 		ProviderNetworkId: "subnet-provider-network-id",

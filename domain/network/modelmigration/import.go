@@ -25,34 +25,25 @@ func RegisterImport(coordinator Coordinator) {
 	coordinator.Add(&importOperation{})
 }
 
-// ImportSpaceService provides a subset of the network domain
-// service methods needed for spaces import.
-type ImportSpaceService interface {
-	AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error)
+// ImportService provides a subset of the network domain
+// service methods needed for spaces/subnets import.
+type ImportService interface {
+	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
-}
-
-// ImportSpaceService provides a subset of the network domain
-// service methods needed for subnets import.
-type ImportSubnetService interface {
 	AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error)
 }
 
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	spaceService  ImportSpaceService
-	subnetService ImportSubnetService
+	importService ImportService
 }
 
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.spaceService = service.NewSpaceService(
+	i.importService = service.NewService(
 		state.NewState(scope.ModelDB()),
 		logger,
-	)
-	i.subnetService = service.NewSubnetService(
-		state.NewState(scope.ModelDB()),
 	)
 	return nil
 }
@@ -65,7 +56,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		if space.Name() == network.AlphaSpaceName {
 			continue
 		}
-		spaceID, err := i.spaceService.AddSpace(ctx, space.Name(), network.Id(space.ProviderID()), nil)
+		spaceInfo := network.SpaceInfo{
+			// ID:         space.UUID(),
+			Name:       network.SpaceName(space.Name()),
+			ProviderId: network.Id(space.ProviderID()),
+		}
+		spaceID, err := i.importService.AddSpace(ctx, spaceInfo)
 		if err != nil {
 			return errors.Annotatef(err, "creating space %s", space.Name())
 		}
@@ -77,6 +73,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// Now import the subnets.
 	for _, subnet := range model.Subnets() {
 		subnetInfo := network.SubnetInfo{
+			// ID:                subnet.UUID(),
 			CIDR:              subnet.CIDR(),
 			ProviderId:        network.Id(subnet.ProviderId()),
 			VLANTag:           subnet.VLANTag(),
@@ -92,7 +89,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		importedSpaceID, ok := spaceIDsMap[subnet.SpaceID()]
 		if ok {
-			space, err := i.spaceService.Space(ctx, importedSpaceID)
+			space, err := i.importService.Space(ctx, importedSpaceID)
 			if err != nil {
 				return errors.Annotatef(err, "retrieving space with ID %s to import subnet %s", importedSpaceID, subnet.ID())
 			}
@@ -101,7 +98,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			subnetInfo.ProviderSpaceId = space.ProviderId
 		}
 
-		i.subnetService.AddSubnet(ctx, subnetInfo)
+		i.importService.AddSubnet(ctx, subnetInfo)
 	}
 
 	return nil

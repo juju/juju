@@ -23,16 +23,11 @@ func RegisterExport(coordinator Coordinator) {
 	coordinator.Add(&exportOperation{})
 }
 
-// ExportSpaceService provides a subset of the network domain
-// service methods needed for spaces export.
-type ExportSpaceService interface {
+// ExportService provides a subset of the network domain
+// service methods needed for spaces/subnets export.
+type ExportService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-}
-
-// ExportSpaceService provides a subset of the network domain
-// service methods needed for subnets export.
-type ExportSubnetService interface {
-	GetAllSubnets(ctx context.Context) ([]network.SubnetInfo, error)
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -40,25 +35,21 @@ type ExportSubnetService interface {
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	spaceService  ExportSpaceService
-	subnetService ExportSubnetService
+	exportService ExportService
 }
 
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.spaceService = service.NewSpaceService(
+	e.exportService = service.NewService(
 		state.NewState(scope.ModelDB()),
 		logger,
-	)
-	e.subnetService = service.NewSubnetService(
-		state.NewState(scope.ModelDB()),
 	)
 	return nil
 }
 
 // Execute the migration export, which adds the spaces and subnets to the model.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	spaces, err := e.spaceService.GetAllSpaces(ctx)
+	spaces, err := e.exportService.GetAllSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -78,7 +69,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	// Export subnets.
-	subnets, err := e.subnetService.GetAllSubnets(ctx)
+	subnets, err := e.exportService.GetAllSubnets(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -17,8 +17,7 @@ import (
 
 type exportSuite struct {
 	coordinator   *MockCoordinator
-	spaceService  *MockExportSpaceService
-	subnetService *MockExportSubnetService
+	exportService *MockExportService
 }
 
 var _ = gc.Suite(&exportSuite{})
@@ -27,16 +26,14 @@ func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
-	s.spaceService = NewMockExportSpaceService(ctrl)
-	s.subnetService = NewMockExportSubnetService(ctrl)
+	s.exportService = NewMockExportService(ctrl)
 
 	return ctrl
 }
 
 func (s *exportSuite) newExportOperation() *exportOperation {
 	return &exportOperation{
-		spaceService:  s.spaceService,
-		subnetService: s.subnetService,
+		exportService: s.exportService,
 	}
 }
 func (s *exportSuite) TestExport(c *gc.C) {
@@ -51,7 +48,7 @@ func (s *exportSuite) TestExport(c *gc.C) {
 			ProviderId: "provider-space-1",
 		},
 	}
-	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+	s.exportService.EXPECT().GetAllSpaces(gomock.Any()).
 		Return(spaces, nil)
 	subnets := network.SubnetInfos{
 		{
@@ -70,7 +67,7 @@ func (s *exportSuite) TestExport(c *gc.C) {
 			},
 		},
 	}
-	s.subnetService.EXPECT().GetAllSubnets(gomock.Any()).
+	s.exportService.EXPECT().GetAllSubnets(gomock.Any()).
 		Return(subnets, nil)
 
 	op := s.newExportOperation()
@@ -101,7 +98,7 @@ func (s *exportSuite) TestExportSpacesNotFound(c *gc.C) {
 
 	dst := description.NewModel(description.ModelArgs{})
 
-	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+	s.exportService.EXPECT().GetAllSpaces(gomock.Any()).
 		Return(nil, errors.NotFound)
 
 	op := s.newExportOperation()
@@ -114,9 +111,9 @@ func (s *exportSuite) TestExportSubnetsNotFound(c *gc.C) {
 
 	dst := description.NewModel(description.ModelArgs{})
 
-	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+	s.exportService.EXPECT().GetAllSpaces(gomock.Any()).
 		Return(nil, nil)
-	s.subnetService.EXPECT().GetAllSubnets(gomock.Any()).
+	s.exportService.EXPECT().GetAllSubnets(gomock.Any()).
 		Return(nil, errors.NotFound)
 
 	op := s.newExportOperation()
