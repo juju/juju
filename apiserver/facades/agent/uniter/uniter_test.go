@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -1431,6 +1432,46 @@ func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: s.wpCharm.BundleSha256()},
 			{Result: dummyCharm.BundleSha256()},
+		},
+	})
+}
+
+func (s *uniterSuite) TestCharmArchiveSha256Pending(c *gc.C) {
+	st := s.ControllerModel(c).State()
+
+	curl := charm.MustParseURL("ch:amd64/dummy-666")
+	err := st.AddCharmPlaceholder(curl)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bundleSHA256 := fmt.Sprintf("%d", time.Now().Unix())
+	go func() {
+		// TODO - the base suite uses a state pool with a wallclock
+		// This is go away as an issue once we move off mongo.
+		// The first retry happens after 3 seconds so wait longer than that.
+		time.Sleep(5 * time.Second)
+		ch := testcharms.Hub.CharmDir("dummy")
+		info := state.CharmInfo{
+			Charm:       ch,
+			ID:          curl.String(),
+			StoragePath: "fake-storage-path",
+			SHA256:      bundleSHA256,
+		}
+		_, err := st.AddCharm(info)
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	args := params.CharmURLs{URLs: []params.CharmURL{
+		{URL: "something-invalid"},
+		{URL: s.wpCharm.URL()},
+		{URL: curl.String()},
+	}}
+	result, err := s.uniter.CharmArchiveSha256(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: s.wpCharm.BundleSha256()},
+			{Result: bundleSHA256},
 		},
 	})
 }

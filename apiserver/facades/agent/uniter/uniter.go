@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -796,16 +798,44 @@ func (u *UniterAPI) CharmArchiveSha256(ctx context.Context, args params.CharmURL
 		Results: make([]params.StringResult, len(args.URLs)),
 	}
 	for i, arg := range args.URLs {
-		sch, err := u.st.Charm(arg.URL)
-		if errors.Is(err, errors.NotFound) {
-			err = apiservererrors.ErrPerm
+		sha, err := u.oneCharmArchiveSha256(ctx, arg.URL)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		if err == nil {
-			result.Results[i].Result = sch.BundleSha256()
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i].Result = sha
+
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) oneCharmArchiveSha256(ctx context.Context, curl string) (string, error) {
+	// The charm in state may only be a placeholder when this call is made.
+	// Ideally, the unit agent would not be started until the charm is fully available,
+	// but that's not currently the case and it doesn't hurt to be defensive here regardless.
+	// We'll retry the sha256 lookup if the charm is still pending and therefore not found.
+	var sha string
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			sch, err := u.st.Charm(curl)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			sha = sch.BundleSha256()
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, errors.NotFound)
+		},
+		Stop:     ctx.Done(),
+		Delay:    3 * time.Second,
+		Attempts: 20,
+		Clock:    u.clock,
+	})
+	if errors.Is(err, errors.NotFound) {
+		return "", apiservererrors.ErrPerm
+	}
+	return sha, errors.Trace(err)
 }
 
 // Relation returns information about all given relation/unit pairs,
