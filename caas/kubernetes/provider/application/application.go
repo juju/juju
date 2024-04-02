@@ -1055,7 +1055,7 @@ func (a *app) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return eventsource.NewMultiWatcher[struct{}](ctx, w1, w2)
+	return eventsource.NewMultiNotifyWatcher(ctx, w1, w2)
 }
 
 func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {

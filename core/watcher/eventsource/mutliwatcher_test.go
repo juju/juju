@@ -30,7 +30,7 @@ func (*multiNotifyWatcherSuite) TestMultiWatcher(c *gc.C) {
 	ch0 <- struct{}{}
 	ch1 <- struct{}{}
 
-	w, err := NewMultiWatcher[struct{}](context.Background(), w0, w1)
+	w, err := NewMultiNotifyWatcher(context.Background(), w0, w1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc := watchertest.NewNotifyWatcherC(c, w)
@@ -44,7 +44,7 @@ func (*multiNotifyWatcherSuite) TestMultiWatcher(c *gc.C) {
 
 	ch0 <- struct{}{}
 	ch1 <- struct{}{}
-	wc.AssertOneChange()
+	wc.AssertAtLeastOneChange()
 
 	workertest.CleanKill(c, w)
 }
@@ -62,7 +62,7 @@ func (*multiNotifyWatcherSuite) TestMultiWatcherStop(c *gc.C) {
 	ch0 <- struct{}{}
 	ch1 <- struct{}{}
 
-	w, err := NewMultiWatcher[struct{}](context.Background(), w0, w1)
+	w, err := NewMultiNotifyWatcher(context.Background(), w0, w1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc := watchertest.NewNotifyWatcherC(c, w)

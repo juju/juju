@@ -68,7 +68,7 @@ func (a *dummyAPI) ModelOperatorProvisioningInfo() (modeloperatorapi.ModelOperat
 
 func (a *dummyAPI) WatchModelOperatorProvisioningInfo(ctx context.Context) (watcher.NotifyWatcher, error) {
 	if a.watchProvInfo == nil {
-		return eventsource.NewMultiWatcher[struct{}](ctx)
+		return eventsource.NewMultiNotifyWatcher(ctx)
 	}
 	return a.watchProvInfo()
 }

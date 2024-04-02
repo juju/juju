@@ -491,7 +491,7 @@ func watchOfferStatus(ctx context.Context, st CrossModelRelationsState, offerUUI
 		return nil, errors.Trace(err)
 	}
 	w2 := st.WatchOffer(offer.OfferName)
-	mw, err := eventsource.NewMultiWatcher[struct{}](ctx, w1, w2)
+	mw, err := eventsource.NewMultiNotifyWatcher(ctx, w1, w2)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -88,7 +88,7 @@ func NewAPIV2(controller ControllerBackend, backend Backend, resources facade.Re
 func (api *API) oneWatch(ctx context.Context) params.NotifyWatchResult {
 	var result params.NotifyWatchResult
 
-	watch, err := eventsource.NewMultiWatcher[struct{}](ctx,
+	watch, err := eventsource.NewMultiNotifyWatcher(ctx,
 		api.backend.WatchForModelConfigChanges(),
 		api.controller.WatchAPIHostPortsForAgents(),
 	)

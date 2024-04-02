@@ -202,7 +202,7 @@ func (s CloudSpecAPI) watchCloudSpecChanges(ctx context.Context, tag names.Model
 	}
 	var watcher eventsource.Watcher[struct{}]
 	if credentialContentWatch != nil {
-		watcher, err = eventsource.NewMultiWatcher[struct{}](ctx,
+		watcher, err = eventsource.NewMultiNotifyWatcher(ctx,
 			&watcherAdaptor{NotifyWatcher: cloudWatch},
 			credentialReferenceWatch,
 			&watcherAdaptor{NotifyWatcher: credentialContentWatch},
@@ -210,7 +210,7 @@ func (s CloudSpecAPI) watchCloudSpecChanges(ctx context.Context, tag names.Model
 	} else {
 		// It's rare but possible that a model does not have a credential.
 		// In this case there is no point trying to 'watch' content changes.
-		watcher, err = eventsource.NewMultiWatcher[struct{}](ctx,
+		watcher, err = eventsource.NewMultiNotifyWatcher(ctx,
 			&watcherAdaptor{NotifyWatcher: cloudWatch},
 			credentialReferenceWatch,
 		)

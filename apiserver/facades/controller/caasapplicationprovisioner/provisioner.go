@@ -254,7 +254,7 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	controllerAPIHostPortsWatcher := a.ctrlSt.WatchAPIHostPortsForAgents()
 	modelConfigWatcher := model.WatchForModelConfigChanges()
 
-	multiWatcher, err := eventsource.NewMultiWatcher[struct{}](ctx,
+	multiWatcher, err := eventsource.NewMultiNotifyWatcher(ctx,
 		appWatcher,
 		controllerConfigWatcher,
 		controllerAPIHostPortsWatcher,

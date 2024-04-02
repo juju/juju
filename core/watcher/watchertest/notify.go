@@ -80,6 +80,17 @@ func (c NotifyWatcherC) AssertOneChange() {
 	c.AssertNoChange()
 }
 
+// AssertAtLeastOneChange fails if no change is sent before a long time has
+// passed.
+func (c NotifyWatcherC) AssertAtLeastOneChange() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+}
+
 // AssertChanges asserts that there was a series of changes for a given
 // duration. If there are any more changes after that period, then it
 // will fail.

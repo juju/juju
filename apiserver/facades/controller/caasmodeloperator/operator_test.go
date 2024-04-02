@@ -99,5 +99,5 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	res := m.resources.Get("1")
-	c.Assert(res, gc.FitsTypeOf, (*eventsource.Watcher[struct{}])(nil))
+	c.Assert(res, gc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
 }

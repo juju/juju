@@ -463,7 +463,7 @@ func watchStorageAttachment(
 		return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 	}
 	watchers = append(watchers, st.WatchStorageAttachment(storageTag, unitTag))
-	return eventsource.NewMultiWatcher[struct{}](ctx, watchers...)
+	return eventsource.NewMultiNotifyWatcher(ctx, watchers...)
 }
 
 // watcherAdaptor adapts a core watcher to a state watcher.

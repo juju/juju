@@ -169,7 +169,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	res := s.resources.Get("1")
-	c.Assert(res, gc.FitsTypeOf, (*eventsource.Watcher[struct{}])(nil))
+	c.Assert(res, gc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
 }
 
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {

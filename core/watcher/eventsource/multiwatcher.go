@@ -11,17 +11,41 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 )
 
+// Applier is a function that applies a change to a value.
+type Applier[T any] func(T, T) T
+
 // MultiWatcher implements Watcher, combining multiple Watchers.
 type MultiWatcher[T any] struct {
 	catacomb         catacomb.Catacomb
 	staging, changes chan T
+	applier          Applier[T]
+}
+
+// NewMultiNotifyWatcher creates a NotifyWatcher that combines
+// each of the NotifyWatchers passed in. Each watcher's initial
+// event is consumed, and a single initial event is sent.
+func NewMultiNotifyWatcher(ctx context.Context, watchers ...Watcher[struct{}]) (*MultiWatcher[struct{}], error) {
+	applier := func(_, _ struct{}) struct{} {
+		return struct{}{}
+	}
+	return NewMultiWatcher[struct{}](ctx, applier, watchers...)
+}
+
+// NewMultiStringsWatcher creates a StringsWatcher that combines
+// each of the StringsWatcher passed in. Each watcher's initial
+// event is consumed, and a single initial event is sent.
+func NewMultiStringsWatcher(ctx context.Context, watchers ...Watcher[[]string]) (*MultiWatcher[[]string], error) {
+	applier := func(current, additional []string) []string {
+		return append(current, additional...)
+	}
+	return NewMultiWatcher[[]string](ctx, applier, watchers...)
 }
 
 // NewMultiNotifyWatcher creates a NotifyWatcher that combines
 // each of the NotifyWatchers passed in. Each watcher's initial
 // event is consumed, and a single initial event is sent.
 // Subsequent events are not coalesced.
-func NewMultiWatcher[T any](ctx context.Context, watchers ...Watcher[T]) (*MultiWatcher[T], error) {
+func NewMultiWatcher[T any](ctx context.Context, applier Applier[T], watchers ...Watcher[T]) (*MultiWatcher[T], error) {
 	workers := make([]worker.Worker, len(watchers))
 	for i, w := range watchers {
 		_, err := ConsumeInitialEvent[T](ctx, w)
@@ -35,6 +59,7 @@ func NewMultiWatcher[T any](ctx context.Context, watchers ...Watcher[T]) (*Multi
 	w := &MultiWatcher[T]{
 		staging: make(chan T),
 		changes: make(chan T),
+		applier: applier,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -78,16 +103,16 @@ func (w *MultiWatcher[T]) copyEvents(out chan<- T, in <-chan T) {
 	var (
 		outC   chan<- T
 		values T
-		ok     bool
 	)
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return
-		case values, ok = <-in:
+		case v, ok := <-in:
 			if !ok {
 				return
 			}
+			values = w.applier(values, v)
 			outC = out
 		case outC <- values:
 			outC = nil
