@@ -32,7 +32,8 @@ func (s *ModelSuite) SetUpTest(c *gc.C) {
 
 	s.DqliteSuite.SetUpTest(c)
 	s.DqliteSuite.ApplyDDL(c, &SchemaApplier{
-		Schema: schema.ModelDDL(),
+		Schema:  schema.ModelDDL(),
+		Verbose: s.Verbose,
 	})
 }
 
