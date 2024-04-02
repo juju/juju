@@ -375,12 +375,12 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	}()
 
 	if p.ContainerType == "" {
-		return mm.st.AddOneMachine(template)
+		return mm.st.AddOneMachine(template, mm.historyRecorder)
 	}
 	if p.ParentId != "" {
-		return mm.st.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+		return mm.st.AddMachineInsideMachine(template, p.ParentId, p.ContainerType, mm.historyRecorder)
 	}
-	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
+	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType, mm.historyRecorder)
 }
 
 func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineId string) error {
@@ -639,7 +639,7 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 				continue
 			}
 		} else {
-			if err := machine.Destroy(mm.store); err != nil {
+			if err := machine.Destroy(mm.store, mm.historyRecorder); err != nil {
 				fail(err)
 				continue
 			}

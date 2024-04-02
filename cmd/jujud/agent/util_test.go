@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/tools"
@@ -143,7 +144,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
 func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	m, err := s.ControllerModel(c).State().AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), jobs...)
+	m, err := s.ControllerModel(c).State().AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - we need the dqlite model database to be available.
 	// s.createMachine(c, m.Id())

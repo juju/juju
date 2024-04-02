@@ -1261,7 +1261,7 @@ func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg p
 	if status.Status(arg.Status) == status.ProvisioningError ||
 		status.Status(arg.Status) == status.Error {
 		s.Status = status.Error
-		if err = machine.SetStatus(s, nil); err != nil {
+		if err = machine.SetStatus(s, api.historyRecorder); err != nil {
 			return err
 		}
 	}

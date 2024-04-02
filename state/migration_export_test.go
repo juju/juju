@@ -110,7 +110,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine := s.Factory.MakeMachine(c, nil)
@@ -383,7 +383,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(err, jc.ErrorIsNil)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
-		_, err = application.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
+		_, err = application.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		err = application.SetOperatorStatus(status.StatusInfo{Status: status.Running}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
@@ -764,6 +764,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit
 					Status:  status.Running,
 					Message: "cloud container running",
 				},
+				Recorder: status.NoopStatusHistoryRecorder,
 			})}
 		app, err := unit.Application()
 		c.Assert(err, jc.ErrorIsNil)
@@ -980,7 +981,7 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	wordpressSettings := map[string]interface{}{
 		"name": "wordpress/0",
 	}
-	err = ru.EnterScope(wordpressSettings)
+	err = ru.EnterScope(wordpressSettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ru, err = rel.Unit(mysql_0)
@@ -988,7 +989,7 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	mysqlSettings := map[string]interface{}{
 		"name": "mysql/0",
 	}
-	err = ru.EnterScope(mysqlSettings)
+	err = ru.EnterScope(mysqlSettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressAppSettings := map[string]interface{}{
@@ -1057,7 +1058,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		pru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = pru.EnterScope(nil)
+		err = pru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		// Need to reload the doc to get the subordinates.
 		err = unit.Refresh()
@@ -1068,7 +1069,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		sub, err := rel.Unit(loggingUnit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = sub.EnterScope(nil)
+		err = sub.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1192,7 +1193,7 @@ func (s *MigrationExportSuite) TestMissingInstanceDataIgnored(c *gc.C) {
 	_, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base: state.UbuntuBase("18.04"),
 		Jobs: []state.MachineJob{state.JobManageModel},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
@@ -1225,7 +1226,7 @@ func (s *MigrationBaseSuite) TestMissingMachineAgentBinariesIgnored(c *gc.C) {
 	_, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base: state.UbuntuBase("18.04"),
 		Jobs: []state.MachineJob{state.JobManageModel},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
@@ -1242,7 +1243,7 @@ func (s *MigrationBaseSuite) TestUnitAgentBinariesSkipped(c *gc.C) {
 	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
-	_, err := application.AddUnit(state.AddUnitParams{})
+	_, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
@@ -1259,7 +1260,7 @@ func (s *MigrationBaseSuite) TestMissingUnitAgentBinariesIgnored(c *gc.C) {
 	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
-	_, err := application.AddUnit(state.AddUnitParams{})
+	_, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
@@ -2265,7 +2266,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 	wordpressSettings := map[string]interface{}{
 		"name": "wordpress/0",
 	}
-	err = ru.EnterScope(wordpressSettings)
+	err = ru.EnterScope(wordpressSettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ru, err = rel.Unit(mysql0)
@@ -2273,7 +2274,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 	mysqlSettings := map[string]interface{}{
 		"name": "mysql/0",
 	}
-	err = ru.EnterScope(mysqlSettings)
+	err = ru.EnterScope(mysqlSettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.RemoveRelationStatus(c, rel)
@@ -2318,14 +2319,14 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressSettings := map[string]interface{}{"name": "wordpress/0"}
-	err = localRU.EnterScope(wordpressSettings)
+	err = localRU.EnterScope(wordpressSettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remoteRU, err := rel.RemoteUnit("gravy-rainbow/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	gravySettings := map[string]interface{}{"name": "gravy-rainbow/0"}
-	err = remoteRU.EnterScope(gravySettings)
+	err = remoteRU.EnterScope(gravySettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))

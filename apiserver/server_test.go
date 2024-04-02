@@ -27,6 +27,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -178,7 +179,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 
 	// Now add another machine, intentionally unprovisioned.
 	st1 := s.ControllerModel(c).State()
-	stm1, err := st1.AddMachine(s.InstancePrechecker(c, st1), state.UbuntuBase("12.10"), state.JobHostUnits)
+	stm1, err := st1.AddMachine(s.InstancePrechecker(c, st1), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = stm1.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

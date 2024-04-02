@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -51,7 +52,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
 	}
-	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -148,7 +149,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 		Constraints: constraints.MustParse("root-disk-source=static-pool"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 	}
-	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
+	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -176,7 +177,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		Constraints: cons,
 		Placement:   "valid",
 	}
-	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -245,7 +246,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -261,7 +262,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 		EndpointBindings: bindings,
 	})
 
-	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit.AssignToMachine(wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -329,7 +330,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -345,7 +346,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 		EndpointBindings: bindings,
 	})
 
-	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit.AssignToMachine(wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,7 +386,7 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -400,7 +401,7 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 		EndpointBindings: bindings,
 	})
-	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit.AssignToMachine(wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -457,7 +458,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		Constraints: consMissingSpace,
 		Placement:   "valid",
 	}}
-	placementMachines, err := st.AddMachines(s.InstancePrechecker(c, st), templates...)
+	placementMachines, err := st.AddMachines(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder, templates...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(placementMachines, gc.HasLen, 2)
 
@@ -484,7 +485,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	profileMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -494,7 +495,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 		Name:  "lxd-profile",
 		Charm: ch,
 	})
-	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
+	profileUnit, err := profileService.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = profileUnit.AssignToMachine(profileMachine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -547,7 +548,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 		},
 	}
 	st := s.ControllerModel(c).State()
-	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -606,7 +607,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 		},
 	}
-	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
+	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision just one of the volumes, but neither of the attachments.
@@ -662,7 +663,7 @@ func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	st := s.ControllerModel(c).State()
-	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
+	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), template, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

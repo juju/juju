@@ -179,7 +179,7 @@ func (s *clientWatchSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	st := s.ControllerModel(c).State()
-	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)
+	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -281,7 +281,7 @@ func (s *clientWatchSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	st := s.ControllerModel(c).State()
-	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)
+	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)

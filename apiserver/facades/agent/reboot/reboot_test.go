@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -96,13 +97,13 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	}
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	container, err := st.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
+	container, err := st.AddMachineInsideMachine(template, machine.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	nestedContainer, err := st.AddMachineInsideMachine(template, container.Id(), instance.LXD)
+	nestedContainer, err := st.AddMachineInsideMachine(template, container.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine = s.setUpMachine(c, machine)

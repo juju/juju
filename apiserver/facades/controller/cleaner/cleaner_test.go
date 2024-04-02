@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
@@ -159,7 +160,7 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 	return w
 }
 
-func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationRemover, ur state.UnitRemover) error {
-	st.MethodCall(st, "Cleanup", mr, ar, ur)
+func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationRemover, ur state.UnitRemover, hr status.StatusHistoryRecorder) error {
+	st.MethodCall(st, "Cleanup", mr, ar, ur, hr)
 	return st.NextErr()
 }

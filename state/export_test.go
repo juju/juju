@@ -385,7 +385,7 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 		Storage:          params.storage,
 		Devices:          params.devices,
 		NumUnits:         params.numUnits,
-	}, objectStore)
+	}, objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }

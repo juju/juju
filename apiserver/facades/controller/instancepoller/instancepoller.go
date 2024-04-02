@@ -394,7 +394,7 @@ func (a *InstancePollerAPI) SetInstanceStatus(ctx context.Context, args params.S
 			if status.Status(arg.Status) == status.ProvisioningError {
 				s.Status = status.Error
 				if err == nil {
-					err = machine.SetStatus(s, nil)
+					err = machine.SetStatus(s, a.historyRecorder)
 				}
 			}
 		}

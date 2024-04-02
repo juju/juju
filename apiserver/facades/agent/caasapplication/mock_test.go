@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/controller"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
@@ -154,8 +155,8 @@ func (a *mockApplication) GetScale() int {
 	return a.scale
 }
 
-func (a *mockApplication) UpsertCAASUnit(args state.UpsertCAASUnitParams) (caasapplication.Unit, error) {
-	a.MethodCall(a, "UpsertCAASUnit", args)
+func (a *mockApplication) UpsertCAASUnit(args state.UpsertCAASUnitParams, recorder status.StatusHistoryRecorder) (caasapplication.Unit, error) {
+	a.MethodCall(a, "UpsertCAASUnit", args, recorder)
 	return a.unit, a.NextErr()
 }
 

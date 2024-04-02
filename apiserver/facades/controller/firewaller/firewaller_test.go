@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -70,6 +71,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		cloudSpecAPI,
 		controllerConfigAPI,
 		loggo.GetLogger("juju.apiserver.firewaller"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
@@ -200,7 +202,7 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
 		Nonce:      "manual:",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{

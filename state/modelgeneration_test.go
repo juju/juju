@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -517,7 +518,7 @@ options:
 
 	riak := s.AddTestingApplication(c, "riak", s.ch)
 	for i := 0; i < 4; i++ {
-		_, err := riak.AddUnit(state.AddUnitParams{})
+		_, err := riak.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

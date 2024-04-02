@@ -82,6 +82,7 @@ func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 	updateUnits.Updates = []*state.UpdateUnitOperation{
 		u[0].UpdateOperation(state.UnitUpdateProperties{
 			CloudContainerStatus: &status.StatusInfo{Status: status.Blocked, Message: "blocked"},
+			Recorder:             status.NoopStatusHistoryRecorder,
 		})}
 	err = s.app.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)

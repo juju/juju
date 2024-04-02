@@ -7,6 +7,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -25,6 +27,15 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model")
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	serviceFactory := ctx.ServiceFactory()
 	return &CleanerAPI{
 		st:             getState(ctx.State()),
@@ -32,7 +43,8 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 		objectStore:    ctx.ObjectStore(),
 		machineRemover: serviceFactory.Machine(),
 		// For removing applications, we don't need a storage registry.
-		appRemover:  serviceFactory.Application(nil),
-		unitRemover: serviceFactory.Unit(),
+		appRemover:      serviceFactory.Application(nil),
+		unitRemover:     serviceFactory.Unit(),
+		historyRecorder: common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	}, nil
 }

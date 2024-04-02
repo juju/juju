@@ -73,16 +73,16 @@ type Machine interface {
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Life() state.Life
 	ForceDestroy(time.Duration) error
-	Destroy(objectstore.ObjectStore) error
+	Destroy(objectstore.ObjectStore, status.StatusHistoryRecorder) error
 	IsManager() bool
 	IsLockedForSeriesUpgrade() (bool, error)
 }
 
-func DestroyMachines(st origStateInterface, store objectstore.ObjectStore, force bool, maxWait time.Duration, ids ...string) error {
-	return destroyMachines(&stateShim{st}, store, force, maxWait, ids...)
+func DestroyMachines(st origStateInterface, store objectstore.ObjectStore, force bool, maxWait time.Duration, historyRecorder status.StatusHistoryRecorder, ids ...string) error {
+	return destroyMachines(&stateShim{st}, store, force, maxWait, historyRecorder, ids...)
 }
 
-func destroyMachines(st stateInterface, store objectstore.ObjectStore, force bool, maxWait time.Duration, ids ...string) error {
+func destroyMachines(st stateInterface, store objectstore.ObjectStore, force bool, maxWait time.Duration, historyRecorder status.StatusHistoryRecorder, ids ...string) error {
 	var errs []error
 	for _, id := range ids {
 		machine, err := st.Machine(id)
@@ -95,7 +95,7 @@ func destroyMachines(st stateInterface, store objectstore.ObjectStore, force boo
 		case machine.Life() != state.Alive:
 			continue
 		default:
-			err = machine.Destroy(store)
+			err = machine.Destroy(store, historyRecorder)
 		}
 		if err != nil {
 			errs = append(errs, err)

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
@@ -93,6 +94,7 @@ func (st *State) maintainControllersOps(newIds []string, bootstrapOnly bool) ([]
 func (st *State) EnableHA(
 	prechecker environs.InstancePrechecker,
 	numControllers int, cons constraints.Value, base Base, placement []string,
+	recorder status.StatusHistoryRecorder,
 ) (ControllersChanges, []string, error) {
 
 	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
@@ -150,7 +152,7 @@ func (st *State) EnableHA(
 		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
-		ops, change, addedUnits, err = st.enableHAIntentionOps(prechecker, intent, cons, base)
+		ops, change, addedUnits, err = st.enableHAIntentionOps(prechecker, intent, cons, base, recorder)
 		return ops, err
 	}
 	if err := st.db().Run(buildTxn); err != nil {
@@ -174,6 +176,7 @@ func (st *State) enableHAIntentionOps(
 	intent *enableHAIntent,
 	cons constraints.Value,
 	base Base,
+	recorder status.StatusHistoryRecorder,
 ) ([]txn.Op, ControllersChanges, []string, error) {
 	var (
 		ops        []txn.Op
@@ -192,7 +195,7 @@ func (st *State) enableHAIntentionOps(
 		change.Converted = append(change.Converted, m.Id())
 		// Add a controller charm unit to the promoted machine.
 		if controllerApp != nil {
-			unitName, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{machineID: m.Id()}, nil)
+			unitName, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{machineID: m.Id()}, nil, recorder)
 			if err != nil {
 				return nil, ControllersChanges{}, nil, errors.Trace(err)
 			}
@@ -244,7 +247,7 @@ func (st *State) enableHAIntentionOps(
 			template.Dirty = true
 			template.principals = []string{controllerUnitName}
 		}
-		mdoc, addOps, err := st.addMachineOps(prechecker, template)
+		mdoc, addOps, err := st.addMachineOps(prechecker, template, recorder)
 		if err != nil {
 			return nil, ControllersChanges{}, nil, errors.Trace(err)
 		}
@@ -257,7 +260,7 @@ func (st *State) enableHAIntentionOps(
 			_, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{
 				UnitName:  &controllerUnitName,
 				machineID: mdoc.Id,
-			}, nil)
+			}, nil, recorder)
 			if err != nil {
 				return nil, ControllersChanges{}, nil, errors.Trace(err)
 			}

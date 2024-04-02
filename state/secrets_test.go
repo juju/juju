@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
@@ -301,7 +302,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
-	err := s.owner.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.owner.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := secrets.NewURI()
@@ -1823,11 +1824,11 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingScope(c *gc.C) {
 	// Ensure destroy only sets relation to dying.
 	wordpress, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.relation.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.relation.DestroyWithForce(true, time.Second)
@@ -1858,14 +1859,14 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingSubject(c *gc.C) {
 	// Ensure destroy only sets app to dying.
 	wordpress, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.relation.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{

@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -47,15 +48,15 @@ func (s *runSuite) SetUpTest(c *gc.C) {
 
 func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
 
 func (s *runSuite) addUnit(c *gc.C, application *state.Application, prechecker environs.InstancePrechecker) *state.Unit {
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToNewMachine(prechecker)
+	err = unit.AssignToNewMachine(prechecker, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }
@@ -122,7 +123,7 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	magic, err := st.AddApplication(prechecker, state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()))
+	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic, prechecker)
 	s.addUnit(c, magic, prechecker)
@@ -179,7 +180,7 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	magic, err := st.AddApplication(prechecker, state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()))
+	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic, prechecker)
 	s.addUnit(c, magic, prechecker)

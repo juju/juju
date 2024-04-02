@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -210,9 +211,9 @@ func (s *PayloadsSuite) TestRemoveUnitUntracksPayloads(c *gc.C) {
 	err := fix.UnitPayloads.Track(additional)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = fix.Unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = fix.Unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	fix.CheckNoPayload(c)
 }
@@ -222,7 +223,7 @@ func (s *PayloadsSuite) TestTrackRaceDyingUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, fix.Unit)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -237,7 +238,7 @@ func (s *PayloadsSuite) TestTrackRaceDeadUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, fix.Unit)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		err = fix.Unit.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
@@ -253,7 +254,7 @@ func (s *PayloadsSuite) TestTrackRaceRemovedUnit(c *gc.C) {
 	fix := s.newFixture(c)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -668,12 +669,12 @@ func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
 	ch := s.AddMetaCharm(c, args.charm, args.metadata, 2)
 
 	app := s.AddTestingApplication(c, args.application, ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
 	c.Assert(args.machine, gc.Equals, "0")
-	err = unit.AssignToNewMachine(defaultInstancePrechecker) // machine "0"
+	err = unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder) // machine "0"
 	c.Assert(err, jc.ErrorIsNil)
 
 	return unit

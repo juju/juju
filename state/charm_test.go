@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
@@ -235,7 +236,7 @@ func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.State.ModelUUID()))
+	_, err := s.State.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
@@ -253,7 +254,7 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.State.ModelUUID()))
+	_, err := s.State.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
@@ -282,7 +283,7 @@ func (s *CharmSuite) TestDestroyUnreferencedCharm(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
 	})
-	err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.charm.Destroy()
@@ -318,11 +319,11 @@ func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
 	})
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("calling app.Destroy()")
-	c.Assert(app.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	removeUnit(c, s.State, unit)
 
 	assertCleanupCount(c, s.State, 2)

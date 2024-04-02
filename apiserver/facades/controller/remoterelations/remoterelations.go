@@ -384,7 +384,7 @@ func (api *API) ConsumeRemoteRelationChanges(ctx context.Context, changes params
 			continue
 		}
 		api.logger.Debugf("ConsumeRemoteRelationChanges: rel tag %v; app tag: %v", relationTag, applicationTag)
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, api.historyRecorder, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, api.historyRecorder, relationTag, applicationTag, change, api.historyRecorder); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -409,7 +409,7 @@ func (api *API) SetRemoteApplicationsStatus(ctx context.Context, args params.Set
 		}
 		statusValue := status.Status(entity.Status)
 		if statusValue == status.Terminated {
-			operation := app.TerminateOperation(entity.Info)
+			operation := app.TerminateOperation(entity.Info, api.historyRecorder)
 			err = api.st.ApplyOperation(operation)
 		} else {
 			err = app.SetStatus(status.StatusInfo{

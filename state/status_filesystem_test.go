@@ -31,7 +31,7 @@ func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 				Pool: "modelscoped", Size: 1024,
 			},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystemAttachments, err := s.storageBackend.MachineFilesystemAttachments(machine.MachineTag())

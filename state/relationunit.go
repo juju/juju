@@ -18,6 +18,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 
+	"github.com/juju/juju/core/status"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -71,7 +72,7 @@ func (ru *RelationUnit) UnitName() string {
 // Once a unit has entered a scope, it stays in scope without further
 // intervention; the relation will not be able to become Dead until all units
 // have departed its scopes.
-func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
+func (ru *RelationUnit) EnterScope(settings map[string]interface{}, historyRecorder status.StatusHistoryRecorder) error {
 	db, dbCloser := ru.st.newDB()
 	defer dbCloser()
 	relationScopes, rsCloser := db.GetCollection(relationScopesC)
@@ -197,7 +198,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		})
 
 		// * If the unit should have a subordinate, and does not, create it.
-		if subOps, subName, err := ru.subordinateOps(); err != nil {
+		if subOps, subName, err := ru.subordinateOps(historyRecorder); err != nil {
 			return nil, errors.Trace(err)
 		} else {
 			existingSubName = subName
@@ -237,7 +238,7 @@ func (ru *RelationUnit) counterpartApplicationSettingsKeys() []string {
 // subordinate state when entering scope. If a required subordinate unit
 // exists and is Alive, its name will be returned as well; if one exists
 // but is not Alive, ErrCannotEnterScopeYet is returned.
-func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
+func (ru *RelationUnit) subordinateOps(recorder status.StatusHistoryRecorder) ([]txn.Op, string, error) {
 	units, closer := ru.st.db().GetCollection(unitsC)
 	defer closer()
 
@@ -279,7 +280,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		}
 		_, ops, err := application.addUnitOps(unitName, AddUnitParams{
 			machineID: principalMachineID,
-		}, nil)
+		}, nil, recorder)
 		return ops, "", err
 	} else if err != nil {
 		return nil, "", err

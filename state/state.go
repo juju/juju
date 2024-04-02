@@ -1155,7 +1155,7 @@ type AddApplicationArgs struct {
 // AddApplication creates a new application, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddApplication(prechecker environs.InstancePrechecker, args AddApplicationArgs, store objectstore.ObjectStore) (_ *Application, err error) {
+func (st *State) AddApplication(prechecker environs.InstancePrechecker, args AddApplicationArgs, store objectstore.ObjectStore, recorder status.StatusHistoryRecorder) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 
 	// Sanity checks.
@@ -1435,7 +1435,7 @@ func (st *State) AddApplication(prechecker environs.InstancePrechecker, args Add
 				cons:          args.Constraints,
 				storageCons:   args.Storage,
 				attachStorage: args.AttachStorage,
-			})
+			}, recorder)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1644,7 +1644,7 @@ func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 
 // AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
 // assignments.
-func (st *State) AssignStagedUnits(prechecker environs.InstancePrechecker, ids []string) ([]UnitAssignmentResult, error) {
+func (st *State) AssignStagedUnits(prechecker environs.InstancePrechecker, ids []string, recorder status.StatusHistoryRecorder) ([]UnitAssignmentResult, error) {
 	query := bson.D{{"_id", bson.D{{"$in", ids}}}}
 	unitAssignments, err := st.unitAssignments(query)
 	if err != nil {
@@ -1652,7 +1652,7 @@ func (st *State) AssignStagedUnits(prechecker environs.InstancePrechecker, ids [
 	}
 	results := make([]UnitAssignmentResult, len(unitAssignments))
 	for i, a := range unitAssignments {
-		err := st.assignStagedUnit(prechecker, a)
+		err := st.assignStagedUnit(prechecker, a, recorder)
 		results[i].Unit = a.Unit
 		results[i].Error = err
 	}
@@ -1691,23 +1691,23 @@ func removeStagedAssignmentOp(id string) txn.Op {
 	}
 }
 
-func (st *State) assignStagedUnit(prechecker environs.InstancePrechecker, a UnitAssignment) error {
+func (st *State) assignStagedUnit(prechecker environs.InstancePrechecker, a UnitAssignment, recorder status.StatusHistoryRecorder) error {
 	u, err := st.Unit(a.Unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if a.Scope == "" && a.Directive == "" {
-		return errors.Trace(st.AssignUnit(prechecker, u, AssignNew))
+		return errors.Trace(st.AssignUnit(prechecker, u, AssignNew, recorder))
 	}
 
 	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
 
-	return errors.Trace(st.AssignUnitWithPlacement(prechecker, u, placement))
+	return errors.Trace(st.AssignUnitWithPlacement(prechecker, u, placement, recorder))
 }
 
 // AssignUnitWithPlacement chooses a machine using the given placement directive
 // and then assigns the unit to it.
-func (st *State) AssignUnitWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, placement *instance.Placement) error {
+func (st *State) AssignUnitWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, placement *instance.Placement, recorder status.StatusHistoryRecorder) error {
 	// TODO(natefinch) this should be done as a single transaction, not two.
 	// Mark https://launchpad.net/bugs/1506994 fixed when done.
 
@@ -1716,10 +1716,10 @@ func (st *State) AssignUnitWithPlacement(prechecker environs.InstancePrechecker,
 		return errors.Trace(err)
 	}
 	if data.placementType() == directivePlacement {
-		return unit.assignToNewMachine(prechecker, data.directive)
+		return unit.assignToNewMachine(prechecker, data.directive, recorder)
 	}
 
-	m, err := st.addMachineWithPlacement(prechecker, unit, data)
+	m, err := st.addMachineWithPlacement(prechecker, unit, data, recorder)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1774,7 +1774,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 
 // addMachineWithPlacement finds a machine that matches the given
 // placement directive for the given unit.
-func (st *State) addMachineWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, data *placementData) (*Machine, error) {
+func (st *State) addMachineWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, data *placementData, recorder status.StatusHistoryRecorder) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1878,9 +1878,9 @@ func (st *State) addMachineWithPlacement(prechecker environs.InstancePrechecker,
 			Constraints: cons,
 		}
 		if mId != "" {
-			return st.AddMachineInsideMachine(template, mId, data.containerType)
+			return st.AddMachineInsideMachine(template, mId, data.containerType, recorder)
 		}
-		return st.AddMachineInsideNewMachine(prechecker, template, template, data.containerType)
+		return st.AddMachineInsideNewMachine(prechecker, template, template, data.containerType, recorder)
 	case directivePlacement:
 		return nil, errors.NotSupportedf(
 			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
@@ -2504,7 +2504,7 @@ func (st *State) UnitsInError() ([]*Unit, error) {
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the model, this may lead to new instances being launched
 // within the model.
-func (st *State) AssignUnit(prechecker environs.InstancePrechecker, u *Unit, policy AssignmentPolicy) (err error) {
+func (st *State) AssignUnit(prechecker environs.InstancePrechecker, u *Unit, policy AssignmentPolicy, recorder status.StatusHistoryRecorder) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
@@ -2518,7 +2518,7 @@ func (st *State) AssignUnit(prechecker environs.InstancePrechecker, u *Unit, pol
 		}
 		return u.AssignToMachine(m)
 	case AssignNew:
-		return errors.Trace(u.AssignToNewMachine(prechecker))
+		return errors.Trace(u.AssignToNewMachine(prechecker, recorder))
 	}
 	return errors.Errorf("unknown unit assignment policy: %q", policy)
 }

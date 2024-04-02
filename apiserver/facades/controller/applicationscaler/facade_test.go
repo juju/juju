@@ -12,6 +12,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -22,13 +23,13 @@ type FacadeSuite struct {
 var _ = gc.Suite(&FacadeSuite{})
 
 func (s *FacadeSuite) TestModelManager(c *gc.C) {
-	facade, err := applicationscaler.NewFacade(nil, nil, auth(true))
+	facade, err := applicationscaler.NewFacade(nil, nil, auth(true), status.NoopStatusHistoryRecorder)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(facade, gc.NotNil)
 }
 
 func (s *FacadeSuite) TestNotModelManager(c *gc.C) {
-	facade, err := applicationscaler.NewFacade(nil, nil, auth(false))
+	facade, err := applicationscaler.NewFacade(nil, nil, auth(false), status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
 	c.Check(facade, gc.IsNil)
 }

@@ -705,7 +705,7 @@ func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *
 func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnections(c *gc.C) {
 	s.createDefaultOffer(c)
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -717,7 +717,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnection
 		s.createDefaultOffer(c)
 	}
 	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -728,7 +728,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnecti
 	offer := s.createDefaultOffer(c)
 	s.addOfferConnection(c, offer.OfferUUID)
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -741,7 +741,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnecti
 		s.addOfferConnection(c, offer.OfferUUID)
 	}
 	defer state.SetBeforeHooks(c, s.State, addConnectedOffer).Check()
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -812,7 +812,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 
 	mysql, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -821,13 +821,13 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlru, err := rel.Unit(mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlru.EnterScope(nil)
+	err = mysqlru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlru, true)
 
 	wpru, err := rel.RemoteUnit("remote-wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpru.EnterScope(nil)
+	err = wpru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpru, true)
 
@@ -903,7 +903,7 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		for _, rel := range rels {
-			err = rel.Destroy(nil)
+			err = rel.Destroy(nil, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			err = s.mysql.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
@@ -914,7 +914,7 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 	bumpTxnRevno := jujutxn.TestHook{Before: addRelation, After: rmRelations}
 	defer state.SetTestHooks(c, s.State, bumpTxnRevno, bumpTxnRevno, bumpTxnRevno).Check()
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(err, gc.ErrorMatches, "cannot destroy application.*")
 	s.mysql.Refresh()
@@ -936,7 +936,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
 		// Remove the local relation and add a remote relation,
 		// so that the relation count remains stable. We should
 		// be checking the *remote* relation count.
-		c.Assert(localRel.Destroy(nil), jc.ErrorIsNil)
+		c.Assert(localRel.Destroy(nil, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 		s.addOfferConnection(c, offer.OfferUUID)
 	}
 	defer state.SetBeforeHooks(c, s.State, addOfferConnection).Check()
@@ -983,7 +983,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -991,7 +991,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }

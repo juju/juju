@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -25,23 +26,25 @@ type Backend interface {
 
 	// RescaleService ensures that the named service has at least its
 	// configured minimum unit count.
-	RescaleService(name string) error
+	RescaleService(name string, recorder status.StatusHistoryRecorder) error
 }
 
 // Facade allows model-manager clients to watch and rescale services.
 type Facade struct {
 	backend   Backend
 	resources facade.Resources
+	recorder  status.StatusHistoryRecorder
 }
 
 // NewFacade creates a new authorized Facade.
-func NewFacade(backend Backend, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
+func NewFacade(backend Backend, res facade.Resources, auth facade.Authorizer, recorder status.StatusHistoryRecorder) (*Facade, error) {
 	if !auth.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
 		backend:   backend,
 		resources: res,
+		recorder:  recorder,
 	}, nil
 }
 
@@ -83,5 +86,5 @@ func (facade *Facade) rescaleOne(tagString string) error {
 	if !ok {
 		return apiservererrors.ErrPerm
 	}
-	return facade.backend.RescaleService(applicationTag.Id())
+	return facade.backend.RescaleService(applicationTag.Id(), facade.recorder)
 }

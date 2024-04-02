@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
@@ -78,6 +79,7 @@ type ControllerAPI struct {
 
 	multiwatcherFactory multiwatcher.Factory
 	logger              loggo.Logger
+	historyRecorder     status.StatusHistoryRecorder
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -101,6 +103,7 @@ func NewControllerAPI(
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -146,6 +149,7 @@ func NewControllerAPI(
 		credentialService:       credentialService,
 		upgradeService:          upgradeService,
 		cloudService:            cloudService,
+		historyRecorder:         historyRecorder,
 	}, nil
 }
 
@@ -711,7 +715,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	mig, err := hostedState.CreateMigration(state.MigrationSpec{
 		InitiatedBy: c.apiUser,
 		TargetInfo:  targetInfo,
-	})
+	}, c.historyRecorder)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

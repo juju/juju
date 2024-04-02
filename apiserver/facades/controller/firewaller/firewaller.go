@@ -44,6 +44,7 @@ type FirewallerAPI struct {
 	accessMachine     common.GetAuthFunc
 	accessModel       common.GetAuthFunc
 	logger            loggo.Logger
+	recorder          status.StatusHistoryRecorder
 
 	// Fetched on demand and memoized
 	spaceInfos          network.SpaceInfos
@@ -58,6 +59,7 @@ func NewStateFirewallerAPI(
 	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
 	logger loggo.Logger,
+	recorder status.StatusHistoryRecorder,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.
@@ -123,6 +125,7 @@ func NewStateFirewallerAPI(
 		accessMachine:        accessMachine,
 		accessModel:          accessModel,
 		logger:               logger,
+		recorder:             recorder,
 	}, nil
 }
 
@@ -395,7 +398,7 @@ func (f *FirewallerAPI) SetRelationsStatus(ctx context.Context, args params.SetS
 		err = rel.SetStatus(status.StatusInfo{
 			Status:  status.Status(entity.Status),
 			Message: entity.Info,
-		}, status.NoopStatusHistoryRecorder)
+		}, f.recorder)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil

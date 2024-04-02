@@ -970,6 +970,7 @@ func (a *API) updateUnitsFromCloud(app Application, unitUpdates []params.Applica
 		}
 
 		updateProps := processUnitParams(unitParams)
+		updateProps.Recorder = a.historyRecorder
 		unitUpdate.Updates = append(unitUpdate.Updates, unit.UpdateOperation(*updateProps))
 
 		if len(unitParams.FilesystemInfo) > 0 {

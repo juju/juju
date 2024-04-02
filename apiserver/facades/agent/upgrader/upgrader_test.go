@@ -22,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -67,10 +68,10 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	var err error
 	// The first machine created is the only one allowed to
 	// JobManageModel
-	s.apiMachine, err = s.hosted.AddMachine(s.InstancePrechecker(c, s.hosted), state.UbuntuBase("12.10"), state.JobHostUnits,
+	s.apiMachine, err = s.hosted.AddMachine(s.InstancePrechecker(c, s.hosted), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits,
 		state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	s.rawMachine, err = s.hosted.AddMachine(s.InstancePrechecker(c, s.hosted), state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.hosted.AddMachine(s.InstancePrechecker(c, s.hosted), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent
@@ -186,7 +187,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 
 	app := f.MakeApplication(c, nil)
 	providerId := "provider-id1"
-	unit, err := app.AddUnit(state.AddUnitParams{ProviderId: &providerId})
+	unit, err := app.AddUnit(state.AddUnitParams{ProviderId: &providerId}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),

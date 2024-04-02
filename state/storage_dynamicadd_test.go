@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -36,9 +37,9 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitTag = u.UnitTag()
 	all, err := s.storageBackend.AllStorageInstances()
@@ -49,7 +50,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 
 func (s *storageAddSuite) assignUnit(c *gc.C, u *state.Unit) {
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,7 +210,7 @@ func (s *storageAddSuite) TestAddStorageToDyingUnitFails(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		u, err := s.State.Unit(s.unitTag.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -235,7 +236,7 @@ func (s *storageAddSuite) createAndAssignUnitWithSingleStorage(c *gc.C) names.Un
 	s.assertStorageCount(c, 1)
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumes, err := s.storageBackend.AllVolumes()
@@ -370,7 +371,7 @@ func (s *storageAddSuite) TestAddStorageFilesystem(c *gc.C) {
 	_, u, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -396,7 +397,7 @@ func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
 	s.assertStorageCount(c, 1)
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -70,7 +71,7 @@ type watchFixture struct {
 func newWatchFixture(c *gc.C, working bool) *watchFixture {
 	backend := &watchBackend{working: working}
 	resources := common.NewResources()
-	facade, err := applicationscaler.NewFacade(backend, resources, auth(true))
+	facade, err := applicationscaler.NewFacade(backend, resources, auth(true), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	return &watchFixture{facade, resources}
 }
@@ -81,7 +82,7 @@ type rescaleBackend struct {
 	applicationscaler.Backend
 }
 
-func (rescaleBackend) RescaleService(name string) error {
+func (rescaleBackend) RescaleService(name string, recorder status.StatusHistoryRecorder) error {
 	switch name {
 	case "expected":
 		return nil
@@ -98,7 +99,7 @@ type rescaleFixture struct {
 }
 
 func newRescaleFixture(c *gc.C) *rescaleFixture {
-	facade, err := applicationscaler.NewFacade(rescaleBackend{}, nil, auth(true))
+	facade, err := applicationscaler.NewFacade(rescaleBackend{}, nil, auth(true), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	return &rescaleFixture{facade}
 }

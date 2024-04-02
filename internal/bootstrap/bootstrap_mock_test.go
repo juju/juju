@@ -21,6 +21,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
+	status "github.com/juju/juju/core/status"
 	service "github.com/juju/juju/domain/application/service"
 	config "github.com/juju/juju/environs/config"
 	services "github.com/juju/juju/internal/charm/services"
@@ -654,18 +655,18 @@ func (m *MockStateBackend) EXPECT() *MockStateBackendMockRecorder {
 }
 
 // AddApplication mocks base method.
-func (m *MockStateBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore) (Application, error) {
+func (m *MockStateBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore, arg2 status.StatusHistoryRecorder) (Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1)
+	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddApplication indicates an expected call of AddApplication.
-func (mr *MockStateBackendMockRecorder) AddApplication(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateBackendMockRecorder) AddApplication(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockStateBackend)(nil).AddApplication), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockStateBackend)(nil).AddApplication), arg0, arg1, arg2)
 }
 
 // Charm mocks base method.

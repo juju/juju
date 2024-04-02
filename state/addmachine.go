@@ -112,8 +112,8 @@ type HostFilesystemParams struct {
 // AddMachineInsideNewMachine creates a new machine within a container
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
-func (st *State) AddMachineInsideNewMachine(prechecker environs.InstancePrechecker, template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideNewMachineOps(prechecker, template, parentTemplate, containerType)
+func (st *State) AddMachineInsideNewMachine(prechecker environs.InstancePrechecker, template, parentTemplate MachineTemplate, containerType instance.ContainerType, recorder status.StatusHistoryRecorder) (*Machine, error) {
+	mdoc, ops, err := st.addMachineInsideNewMachineOps(prechecker, template, parentTemplate, containerType, recorder)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
@@ -122,8 +122,8 @@ func (st *State) AddMachineInsideNewMachine(prechecker environs.InstancePrecheck
 
 // AddMachineInsideMachine adds a machine inside a container of the
 // given type on the existing machine with id=parentId.
-func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId string, containerType instance.ContainerType) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideMachineOps(template, parentId, containerType)
+func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId string, containerType instance.ContainerType, recorder status.StatusHistoryRecorder) (*Machine, error) {
+	mdoc, ops, err := st.addMachineInsideMachineOps(template, parentId, containerType, recorder)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
@@ -132,8 +132,8 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 
 // AddMachine adds a machine with the given series and jobs.
 // It is deprecated and around for testing purposes only.
-func (st *State) AddMachine(prechecker environs.InstancePrechecker, base Base, jobs ...MachineJob) (*Machine, error) {
-	ms, err := st.AddMachines(prechecker, MachineTemplate{
+func (st *State) AddMachine(prechecker environs.InstancePrechecker, base Base, recorder status.StatusHistoryRecorder, jobs ...MachineJob) (*Machine, error) {
+	ms, err := st.AddMachines(prechecker, recorder, MachineTemplate{
 		Base: base,
 		Jobs: jobs,
 	})
@@ -145,8 +145,8 @@ func (st *State) AddMachine(prechecker environs.InstancePrechecker, base Base, j
 
 // AddOneMachine machine adds a new machine configured according to the
 // given template.
-func (st *State) AddOneMachine(prechecker environs.InstancePrechecker, template MachineTemplate) (*Machine, error) {
-	ms, err := st.AddMachines(prechecker, template)
+func (st *State) AddOneMachine(prechecker environs.InstancePrechecker, template MachineTemplate, recorder status.StatusHistoryRecorder) (*Machine, error) {
+	ms, err := st.AddMachines(prechecker, recorder, template)
 	if err != nil {
 		return nil, err
 	}
@@ -155,13 +155,13 @@ func (st *State) AddOneMachine(prechecker environs.InstancePrechecker, template 
 
 // AddMachines adds new machines configured according to the
 // given templates.
-func (st *State) AddMachines(prechecker environs.InstancePrechecker, templates ...MachineTemplate) (_ []*Machine, err error) {
+func (st *State) AddMachines(prechecker environs.InstancePrechecker, recorder status.StatusHistoryRecorder, templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
 	var ops []txn.Op
 	var controllerIds []string
 	for _, template := range templates {
-		mdoc, addOps, err := st.addMachineOps(prechecker, template)
+		mdoc, addOps, err := st.addMachineOps(prechecker, template, recorder)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -261,7 +261,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 // addMachineOps returns operations to add a new top level machine
 // based on the given template. It also returns the machine document
 // that will be inserted.
-func (st *State) addMachineOps(prechecker environs.InstancePrechecker, template MachineTemplate) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(prechecker environs.InstancePrechecker, template MachineTemplate, recorder status.StatusHistoryRecorder) (*machineDoc, []txn.Op, error) {
 	template, err := st.effectiveMachineTemplate(template, st.IsController())
 	if err != nil {
 		return nil, nil, err
@@ -281,7 +281,7 @@ func (st *State) addMachineOps(prechecker environs.InstancePrechecker, template 
 		return nil, nil, err
 	}
 	mdoc := st.machineDocForTemplate(template, strconv.Itoa(seq))
-	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template, recorder)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -339,7 +339,7 @@ func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
 
 // addMachineInsideMachineOps returns operations to add a machine inside
 // a container of the given type on an existing machine.
-func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId string, containerType instance.ContainerType, recorder status.StatusHistoryRecorder) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
@@ -376,7 +376,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	}
 	mdoc := st.machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template, recorder)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -404,7 +404,7 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 // machine within a container of the given type inside another
 // new machine. The two given templates specify the form
 // of the child and parent respectively.
-func (st *State) addMachineInsideNewMachineOps(prechecker environs.InstancePrechecker, template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineInsideNewMachineOps(prechecker environs.InstancePrechecker, template, parentTemplate MachineTemplate, containerType instance.ContainerType, recorder status.StatusHistoryRecorder) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
@@ -447,11 +447,11 @@ func (st *State) addMachineInsideNewMachineOps(prechecker environs.InstancePrech
 	}
 	mdoc := st.machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	parentPrereqOps, parentOp, err := st.insertNewMachineOps(parentDoc, parentTemplate)
+	parentPrereqOps, parentOp, err := st.insertNewMachineOps(parentDoc, parentTemplate, recorder)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template, recorder)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -528,7 +528,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // insertNewMachineOps returns operations to insert the given machine document
 // into the database, based on the given template. Only the constraints are
 // taken from the template.
-func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
+func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate, recorder status.StatusHistoryRecorder) (prereqOps []txn.Op, machineOp txn.Op, err error) {
 	now := st.clock().Now()
 	machineStatusDoc := statusDoc{
 		Status:    status.Pending,
@@ -582,9 +582,9 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// history entry. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	_, _ = probablyUpdateStatusHistory(st.db(), m.Kind(), mdoc.Id, machineGlobalKey(mdoc.Id), machineStatusDoc, status.NoopStatusHistoryRecorder)
-	_, _ = probablyUpdateStatusHistory(st.db(), m.InstanceKind(), mdoc.Id, machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc, status.NoopStatusHistoryRecorder)
-	_, _ = probablyUpdateStatusHistory(st.db(), m.ModificationKind(), mdoc.Id, machineGlobalModificationKey(mdoc.Id), modificationStatusDoc, status.NoopStatusHistoryRecorder)
+	_, _ = probablyUpdateStatusHistory(st.db(), m.Kind(), mdoc.Id, machineGlobalKey(mdoc.Id), machineStatusDoc, recorder)
+	_, _ = probablyUpdateStatusHistory(st.db(), m.InstanceKind(), mdoc.Id, machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc, recorder)
+	_, _ = probablyUpdateStatusHistory(st.db(), m.ModificationKind(), mdoc.Id, machineGlobalModificationKey(mdoc.Id), modificationStatusDoc, recorder)
 	return prereqOps, machineOp, nil
 }
 

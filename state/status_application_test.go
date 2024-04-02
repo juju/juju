@@ -103,16 +103,16 @@ func (s *ApplicationStatusSuite) checkGetSetStatus(c *gc.C) {
 }
 
 func (s *ApplicationStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	_, err := s.application.AddUnit(state.AddUnitParams{})
+	_, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
 func (s *ApplicationStatusSuite) TestGetSetStatusGone(c *gc.C) {
-	err := s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()

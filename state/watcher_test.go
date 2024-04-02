@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -29,7 +30,7 @@ func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
 }
 
 func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	// Send the Machine creation event before we start our watcher
 	w := m.Watch()
@@ -66,7 +67,7 @@ loop:
 
 func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *gc.C) {
 	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit(state.AddUnitParams{})
+	unit, err := dummy.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := state.NewActionNotificationWatcher(s.State, true, unit)

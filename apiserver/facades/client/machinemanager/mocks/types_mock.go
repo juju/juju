@@ -55,48 +55,48 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddMachineInsideMachine mocks base method.
-func (m *MockBackend) AddMachineInsideMachine(arg0 state.MachineTemplate, arg1 string, arg2 instance.ContainerType) (machinemanager.Machine, error) {
+func (m *MockBackend) AddMachineInsideMachine(arg0 state.MachineTemplate, arg1 string, arg2 instance.ContainerType, arg3 status.StatusHistoryRecorder) (machinemanager.Machine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddMachineInsideMachine", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddMachineInsideMachine", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(machinemanager.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddMachineInsideMachine indicates an expected call of AddMachineInsideMachine.
-func (mr *MockBackendMockRecorder) AddMachineInsideMachine(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddMachineInsideMachine(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachineInsideMachine", reflect.TypeOf((*MockBackend)(nil).AddMachineInsideMachine), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachineInsideMachine", reflect.TypeOf((*MockBackend)(nil).AddMachineInsideMachine), arg0, arg1, arg2, arg3)
 }
 
 // AddMachineInsideNewMachine mocks base method.
-func (m *MockBackend) AddMachineInsideNewMachine(arg0, arg1 state.MachineTemplate, arg2 instance.ContainerType) (machinemanager.Machine, error) {
+func (m *MockBackend) AddMachineInsideNewMachine(arg0, arg1 state.MachineTemplate, arg2 instance.ContainerType, arg3 status.StatusHistoryRecorder) (machinemanager.Machine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddMachineInsideNewMachine", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddMachineInsideNewMachine", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(machinemanager.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddMachineInsideNewMachine indicates an expected call of AddMachineInsideNewMachine.
-func (mr *MockBackendMockRecorder) AddMachineInsideNewMachine(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddMachineInsideNewMachine(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachineInsideNewMachine", reflect.TypeOf((*MockBackend)(nil).AddMachineInsideNewMachine), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachineInsideNewMachine", reflect.TypeOf((*MockBackend)(nil).AddMachineInsideNewMachine), arg0, arg1, arg2, arg3)
 }
 
 // AddOneMachine mocks base method.
-func (m *MockBackend) AddOneMachine(arg0 state.MachineTemplate) (machinemanager.Machine, error) {
+func (m *MockBackend) AddOneMachine(arg0 state.MachineTemplate, arg1 status.StatusHistoryRecorder) (machinemanager.Machine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddOneMachine", arg0)
+	ret := m.ctrl.Call(m, "AddOneMachine", arg0, arg1)
 	ret0, _ := ret[0].(machinemanager.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddOneMachine indicates an expected call of AddOneMachine.
-func (mr *MockBackendMockRecorder) AddOneMachine(arg0 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddOneMachine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOneMachine", reflect.TypeOf((*MockBackend)(nil).AddOneMachine), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOneMachine", reflect.TypeOf((*MockBackend)(nil).AddOneMachine), arg0, arg1)
 }
 
 // AllMachines mocks base method.
@@ -602,17 +602,17 @@ func (mr *MockMachineMockRecorder) CreateUpgradeSeriesLock(arg0, arg1 any) *gomo
 }
 
 // Destroy mocks base method.
-func (m *MockMachine) Destroy(arg0 objectstore.ObjectStore) error {
+func (m *MockMachine) Destroy(arg0 objectstore.ObjectStore, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy", arg0)
+	ret := m.ctrl.Call(m, "Destroy", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockMachineMockRecorder) Destroy(arg0 any) *gomock.Call {
+func (mr *MockMachineMockRecorder) Destroy(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockMachine)(nil).Destroy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockMachine)(nil).Destroy), arg0, arg1)
 }
 
 // ForceDestroy mocks base method.

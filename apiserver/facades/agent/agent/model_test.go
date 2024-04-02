@@ -11,6 +11,7 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -33,7 +34,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits, state.JobManageModel)
+	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{

@@ -736,11 +736,11 @@ func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, re
 	c.Assert(s.application.Refresh(), jc.ErrorIsNil)
 
 	// Add a separate reference to the first relation.
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel0.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Optionally update the application document to get correct relation counts.
@@ -890,7 +890,7 @@ func (s *remoteApplicationSuite) assertDestroyAppWithStatus(c *gc.C, appStatus *
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wpUnit, err := wordpress.AddUnit(state.AddUnitParams{})
+	wpUnit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wpEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
@@ -899,13 +899,13 @@ func (s *remoteApplicationSuite) assertDestroyAppWithStatus(c *gc.C, appStatus *
 	c.Assert(err, jc.ErrorIsNil)
 	wpru, err := rel.Unit(wpUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpru.EnterScope(nil)
+	err = wpru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpru, true)
 
 	mysqlru, err := rel.RemoteUnit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlru.EnterScope(nil)
+	err = mysqlru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlru, true)
 
@@ -1008,7 +1008,7 @@ func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
@@ -1027,7 +1027,7 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 				OS:      "ubuntu",
 				Channel: "20.04/stable",
 			}},
-		}, state.NewObjectStore(c, s.State.ModelUUID()))
+		}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
@@ -1112,11 +1112,11 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 
 	// Add a unit to the relation so the remote application is not
 	// short-circuit removed.
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.application.Destroy()
@@ -1145,15 +1145,15 @@ func (s *remoteApplicationSuite) TestTerminateOperationLeavesScopes(c *gc.C) {
 
 	ru1, err := rel1.RemoteUnit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru1.EnterScope(nil)
+	err = ru1.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ru2, err := rel2.RemoteUnit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru2.EnterScope(nil)
+	err = ru2.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	op := s.application.TerminateOperation("do-do-do do-do-do do-do")
+	op := s.application.TerminateOperation("do-do-do do-do-do do-do", status.NoopStatusHistoryRecorder)
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
 

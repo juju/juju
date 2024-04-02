@@ -19,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -49,7 +50,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine and unit to work with
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -66,10 +67,10 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
-	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
+	s.rawUnit, err = app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to the machine.
-	err = s.rawUnit.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err = s.rawUnit.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := s.rawUnit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

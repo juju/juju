@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -112,6 +113,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ModelUUID()),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -248,7 +250,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -298,7 +300,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-0", "lxd-profile")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -354,7 +356,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -510,7 +512,7 @@ func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
@@ -563,7 +565,7 @@ func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 
 	// Add a machine for the units to be placed on.
 	st := s.ControllerModel(c).State()
-	_, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
+	_, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	for i, t := range addApplicationUnitTests {
 		c.Logf("test %d. %s", i, t.about)
@@ -990,7 +992,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
-		err = app.Destroy(s.store)
+		err = app.Destroy(s.store, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -1013,14 +1015,14 @@ func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Applica
 	c.Assert(err, jc.ErrorIsNil)
 	app.Refresh()
 	c.Assert(app.IsExposed(), gc.Equals, false)
-	err = app.Destroy(s.store)
+	err = app.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationSuite) assertApplicationUnexposeBlocked(c *gc.C, app *state.Application, msg string) {
 	err := s.applicationAPI.Unexpose(context.Background(), params.ApplicationUnexpose{ApplicationName: "dummy-application"})
 	s.AssertBlocked(c, err, msg)
-	err = app.Destroy(s.store)
+	err = app.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

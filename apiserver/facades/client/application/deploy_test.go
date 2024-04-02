@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -76,6 +77,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 			Charm:           ch,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, gc.ErrorMatches, "manual deploy of the controller charm not supported")
 }
@@ -96,6 +98,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 			Charm:           s.charm,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, app, s.charm.URL())
@@ -122,6 +125,7 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 			Charm:           s.charm,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -150,6 +154,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 			EndpointBindings: nil,
 			CharmOrigin:      corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -225,6 +230,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -278,6 +284,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -317,6 +324,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 			Resources:   map[string]string{"foo": "bar"},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -345,6 +353,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSettings(c, app, charm.Settings{
@@ -373,6 +382,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
 	_, err = st.Application("bob")
@@ -412,6 +422,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 			ApplicationConfig: cfg,
 			CharmOrigin:       corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes{
@@ -442,6 +453,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 			Constraints:     applicationCons,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConstraints(c, app, constraints.MustParse("cores=2 arch=amd64"))
@@ -467,6 +479,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 			NumUnits:        2,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -497,6 +510,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -529,6 +543,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
@@ -566,6 +581,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 			Placement:       placement,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -605,6 +621,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 			NumUnits:        1,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, gc.ErrorMatches, "(?m).*Charm feature requirements cannot be met.*")
 }
@@ -639,6 +656,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 			Force:           true, // bypass assumes checks
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -665,6 +683,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 			Placement:       placement,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
@@ -714,7 +733,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 	st := s.ControllerModel(c).State()
 	for _, unit := range units {
 		id := unit.UnitTag().Id()
-		res, err := st.AssignStagedUnits(state.NoopInstancePrechecker{}, []string{id})
+		res, err := st.AssignStagedUnits(state.NoopInstancePrechecker{}, []string{id}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(res[0].Error, jc.ErrorIsNil)
 		c.Assert(res[0].Unit, gc.Equals, id)
@@ -746,8 +765,8 @@ func (d stateDeployer) ReadSequence(name string) (int, error) {
 	return state.ReadSequence(d.State, name)
 }
 
-func (d stateDeployer) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (application.Application, error) {
-	app, err := d.State.AddApplication(state.NoopInstancePrechecker{}, args, store)
+func (d stateDeployer) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore, recorder status.StatusHistoryRecorder) (application.Application, error) {
+	app, err := d.State.AddApplication(state.NoopInstancePrechecker{}, args, store, recorder)
 	if err != nil {
 		return nil, err
 	}
@@ -770,7 +789,7 @@ func (f *fakeDeployer) ControllerConfig() (controller.Config, error) {
 	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 
-func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ objectstore.ObjectStore) (application.Application, error) {
+func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ objectstore.ObjectStore, recorder status.StatusHistoryRecorder) (application.Application, error) {
 	f.args = args
 	return nil, nil
 }

@@ -318,7 +318,7 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // Destroy ensures that the application and all its relations will be removed at
 // some point; if the application has no units, and no relation involving the
 // application has any units in scope, they are all removed immediately.
-func (a *Application) Destroy(store objectstore.ObjectStore) (err error) {
+func (a *Application) Destroy(store objectstore.ObjectStore, historyRecorder status.StatusHistoryRecorder) (err error) {
 	op := a.DestroyOperation(store)
 	defer func() {
 		logger.Tracef("Application(%s).Destroy() => %v", a.doc.Name, err)
@@ -2337,6 +2337,7 @@ func (a *Application) addUnitOps(
 	principalName string,
 	args AddUnitParams,
 	asserts bson.D,
+	recorder status.StatusHistoryRecorder,
 ) (string, []txn.Op, error) {
 	var cons constraints.Value
 	if !a.doc.Subordinate {
@@ -2381,7 +2382,7 @@ func (a *Application) addUnitOps(
 		ports:              args.Ports,
 		unitName:           args.UnitName,
 		passwordHash:       args.PasswordHash,
-	})
+	}, recorder)
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
 	}
@@ -2408,7 +2409,7 @@ type applicationAddUnitOpsArgs struct {
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
-func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
+func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs, recorder status.StatusHistoryRecorder) (string, []txn.Op, error) {
 	if a.doc.Subordinate && args.principalName == "" {
 		return "", nil, errors.New("application is a subordinate")
 	} else if !a.doc.Subordinate && args.principalName != "" {
@@ -2530,9 +2531,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	_, _ = probablyUpdateStatusHistory(a.st.db(), u.Kind(), name, globalKey, *unitStatusDoc, status.NoopStatusHistoryRecorder)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), u.unitWorkloadVersionKind(), name, globalWorkloadVersionKey(name), *workloadVersionDoc, status.NoopStatusHistoryRecorder)
-	_, _ = probablyUpdateStatusHistory(a.st.db(), uAgent.Kind(), name, agentGlobalKey, agentStatusDoc, status.NoopStatusHistoryRecorder)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), u.Kind(), name, globalKey, *unitStatusDoc, recorder)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), u.unitWorkloadVersionKind(), name, globalWorkloadVersionKey(name), *workloadVersionDoc, recorder)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), uAgent.Kind(), name, agentGlobalKey, agentStatusDoc, recorder)
 	return name, ops, nil
 }
 
@@ -2726,9 +2727,9 @@ type AddUnitParams struct {
 }
 
 // AddUnit adds a new principal unit to the application.
-func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
+func (a *Application) AddUnit(args AddUnitParams, recorder status.StatusHistoryRecorder) (unit *Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add unit to application %q", a)
-	name, ops, err := a.addUnitOps("", args, nil)
+	name, ops, err := a.addUnitOps("", args, nil, recorder)
 	if err != nil {
 		return nil, err
 	}
@@ -2759,9 +2760,12 @@ type UpsertCAASUnitParams struct {
 	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached by the infrastructure,
 	// used to map existing attachments.
 	ObservedAttachedVolumeIDs []string
+
+	// Recorder is used to record the status history of the unit.
+	Recorder status.StatusHistoryRecorder
 }
 
-func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
+func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams, recorder status.StatusHistoryRecorder) (*Unit, error) {
 	if args.PasswordHash == nil {
 		return nil, errors.NotValidf("password hash")
 	}
@@ -2823,7 +2827,7 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 		}
 
 		if unit == nil {
-			return a.insertCAASUnitOps(args)
+			return a.insertCAASUnitOps(args, recorder)
 		}
 
 		if unit.Life() == Dead {
@@ -2834,6 +2838,7 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 			ProviderId: args.ProviderId,
 			Address:    args.Address,
 			Ports:      args.Ports,
+			Recorder:   args.Recorder,
 		}).Build(attempt)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2869,7 +2874,7 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 	return unit, nil
 }
 
-func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams) ([]txn.Op, error) {
+func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams, recorder status.StatusHistoryRecorder) ([]txn.Op, error) {
 	if args.UnitName == nil {
 		return nil, errors.NotValidf("nil unit name")
 	}
@@ -2879,7 +2884,7 @@ func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams) ([]txn.Op, er
 		return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
 	}
 
-	_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
+	_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil, recorder)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -3719,6 +3724,7 @@ type UnitUpdateProperties struct {
 	AgentStatus          *status.StatusInfo
 	UnitStatus           *status.StatusInfo
 	CloudContainerStatus *status.StatusInfo
+	Recorder             status.StatusHistoryRecorder
 }
 
 // UpdateUnits applies the given application unit update operations.
@@ -3781,11 +3787,11 @@ func (op *UpdateUnitsOperation) Done(err error) error {
 }
 
 // AddOperation returns a model operation that will add a unit.
-func (a *Application) AddOperation(props UnitUpdateProperties) *AddUnitOperation {
+func (a *Application) AddOperation(props UnitUpdateProperties, recorder status.StatusHistoryRecorder) *AddUnitOperation {
 	return &AddUnitOperation{
 		application: &Application{st: a.st, doc: a.doc},
 		props:       props,
-		recorder:    status.NoopStatusHistoryRecorder,
+		recorder:    recorder,
 	}
 }
 
@@ -3814,7 +3820,7 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		Ports:      op.props.Ports,
 		UnitName:   op.props.UnitName,
 	}
-	name, addOps, err := op.application.addUnitOps("", addUnitArgs, nil)
+	name, addOps, err := op.application.addUnitOps("", addUnitArgs, nil, op.recorder)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

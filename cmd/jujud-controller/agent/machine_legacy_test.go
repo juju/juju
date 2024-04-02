@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
@@ -395,7 +396,7 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *gc.C) {
 			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
 		},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, modelUUID,
@@ -559,9 +560,9 @@ func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
 			Name:  "wordpress",
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 		})
-		unit, err := app.AddUnit(state.AddUnitParams{})
+		unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		err = app.Destroy(testing.NewObjectStore(c, s.ControllerModelUUID()))
+		err = app.Destroy(testing.NewObjectStore(c, s.ControllerModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check the unit was not yet removed.
@@ -715,9 +716,9 @@ func (s *MachineLegacySuite) TestManageModelRunsInstancePoller(c *gc.C) {
 			}},
 		Constraints: constraints.MustParse("arch=" + arch),
 	})
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.ControllerModel(c).State().AssignUnit(state.NoopInstancePrechecker{}, unit, state.AssignNew)
+	err = s.ControllerModel(c).State().AssignUnit(state.NoopInstancePrechecker{}, unit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)

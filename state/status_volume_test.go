@@ -31,7 +31,7 @@ func (s *VolumeStatusSuite) SetUpTest(c *gc.C) {
 				Pool: "modelscoped", Size: 1024,
 			},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumeAttachments, err := machine.VolumeAttachments()

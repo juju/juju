@@ -1103,7 +1103,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		Storage:          map[string]state.StorageConstraints{},
 	}
 	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application, nil)
 	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", applicationservice.AddApplicationParams{
 		Charm:   s.charm,
 		Storage: nil,
@@ -1236,7 +1236,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Storage:          map[string]state.StorageConstraints{},
 	}
 	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application, nil)
 	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", applicationservice.AddApplicationParams{
 		Charm:   s.charm,
 		Storage: nil,
@@ -1335,7 +1335,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"}, gomock.Any())
 
 	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application,
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application,
 		errors.New("fail"))
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()

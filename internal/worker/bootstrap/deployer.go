@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm/services"
@@ -44,7 +45,7 @@ type SystemState interface {
 	// metadata in the "juju" database "toolsmetadata" collection.
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 	// AddApplication adds an application to the model.
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore, status.StatusHistoryRecorder) (bootstrap.Application, error)
 	// Charm returns the charm with the given name.
 	Charm(string) (bootstrap.Charm, error)
 	// Model returns the model.
@@ -242,8 +243,8 @@ func (s *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Uploaded
 	return s.State.UpdateUploadedCharm(info)
 }
 
-func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
-	a, err := s.State.AddApplication(s.prechecker, args, objectStore)
+func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore, recorder status.StatusHistoryRecorder) (bootstrap.Application, error) {
+	a, err := s.State.AddApplication(s.prechecker, args, objectStore, recorder)
 	if err != nil {
 		return nil, err
 	}

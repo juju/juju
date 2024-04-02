@@ -276,7 +276,7 @@ func (r *Relation) DestroyWithForce(force bool, maxWait time.Duration) ([]error,
 
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
-func (r *Relation) Destroy(_ objectstore.ObjectStore) error {
+func (r *Relation) Destroy(_ objectstore.ObjectStore, _ status.StatusHistoryRecorder) error {
 	errs, err := r.DestroyWithForce(false, time.Duration(0))
 	if len(errs) != 0 {
 		logger.Warningf("operational errors removing relation %v: %v", r.Id(), errs)

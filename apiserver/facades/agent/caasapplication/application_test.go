@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/status"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/internal/storage/provider"
@@ -68,6 +69,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.broker,
 		s.clock,
 		loggo.GetLogger("juju.apiserver.caasaplication"),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -54,7 +55,7 @@ type DeployFromRepository interface {
 // DeployFromRepositoryState defines a common set of functions for retrieving state
 // objects.
 type DeployFromRepositoryState interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore, status.StatusHistoryRecorder) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -80,12 +81,14 @@ type DeployFromRepositoryAPI struct {
 	validator          DeployFromRepositoryValidator
 	stateCharm         func(Charm) *state.Charm
 	applicationService ApplicationService
+	historyRecorder    status.StatusHistoryRecorder
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(
 	state DeployFromRepositoryState, applicationService ApplicationService,
 	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
+	recorder status.StatusHistoryRecorder,
 ) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
 		state:              state,
@@ -93,6 +96,7 @@ func NewDeployFromRepositoryAPI(
 		validator:          validator,
 		stateCharm:         CharmToStateCharm,
 		applicationService: applicationService,
+		historyRecorder:    recorder,
 	}
 }
 
@@ -159,7 +163,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
 		Storage:           stateStorageDirectives(dt.storage),
-	}, api.store)
+	}, api.store, api.historyRecorder)
 
 	if addApplicationErr == nil {
 		unitArgs := make([]applicationservice.AddUnitParams, dt.numUnits)

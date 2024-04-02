@@ -81,7 +81,7 @@ func (s *StatusUnitAgentSuite) TestSetAllocatingStatusAlreadyAssigned(c *gc.C) {
 
 func (s *StatusUnitAgentSuite) TestSetStatusUnassigned(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	agent := u.Agent()
 	for _, value := range []status.Status{status.Idle, status.Executing, status.Rebooting, status.Failed} {
@@ -100,7 +100,7 @@ func (s *StatusUnitAgentSuite) TestSetStatusUnassigned(c *gc.C) {
 
 func (s *StatusUnitAgentSuite) TestSetStatusRunningNonCAAS(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	agent := u.Agent()
 	now := testing.ZeroTime()
@@ -171,7 +171,7 @@ func (s *StatusUnitAgentSuite) checkGetSetStatus(c *gc.C) {
 
 func (s *StatusUnitAgentSuite) TestGetSetStatusDying(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -179,7 +179,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusDying(c *gc.C) {
 
 func (s *StatusUnitAgentSuite) TestGetSetStatusDead(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +191,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusDead(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()

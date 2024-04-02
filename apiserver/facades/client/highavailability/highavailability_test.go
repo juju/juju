@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -68,7 +69,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
+	_, err = st.AddMachines(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder, state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
@@ -350,14 +351,14 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	machine1Cons := constraints.MustParse("mem=8G")
-	_, err := st.AddMachines(s.InstancePrechecker(c, st), state.MachineTemplate{
+	_, err := st.AddMachines(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder, state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: machine1Cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
@@ -398,14 +399,14 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 	controllerConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m1, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	m1, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a1 := network.NewSpaceAddress("192.168.6.6")
 	a1.SpaceID = sp.Id()
 	err = m1.SetProviderAddresses(controllerConfig, a1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m2, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	m2, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a2 := network.NewSpaceAddress("192.168.6.7")
 	a2.SpaceID = sp.Id()
@@ -427,7 +428,7 @@ func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) 
 	_, err = controllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
@@ -455,7 +456,7 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnableHA(0) again will cause us to start another machine
-	c.Assert(machines[2].Destroy(s.store), jc.ErrorIsNil)
+	c.Assert(machines[2].Destroy(s.store, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(machines[2].Refresh(), jc.ErrorIsNil)
 	node, err := st.ControllerNode(machines[2].Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,7 +500,7 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	s.setMachineAddresses(c, "2")
 	s.setMachineAddresses(c, "3")
 	s.setMachineAddresses(c, "4")
-	c.Assert(machines[4].Destroy(s.store), jc.ErrorIsNil)
+	c.Assert(machines[4].Destroy(s.store, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(machines[4].Refresh(), jc.ErrorIsNil)
 	node, err := st.ControllerNode(machines[4].Id())
 	c.Assert(err, jc.ErrorIsNil)

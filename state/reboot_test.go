@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -40,26 +41,26 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	var err error
 
 	// Add machine
-	s.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add first container
 	s.c1, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXD)
+	}, s.machine.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add second container
 	s.c2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, s.c1.Id(), instance.LXD)
+	}, s.c1.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add container on the same level as the first container.
 	s.c3, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXD)
+	}, s.machine.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.w = s.machine.WatchForRebootEvent()

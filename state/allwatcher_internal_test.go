@@ -128,7 +128,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	})
 
 	now := s.currentTime
-	m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+	m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// Ensure there's one and only one controller.
@@ -136,7 +136,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	needController := len(controllerIds) == 0
 	if needController {
-		_, _, err = st.EnableHA(testInstancePrechecker{}, 1, constraints.Value{}, UbuntuBase("20.04"), []string{m.Id()})
+		_, _, err = st.EnableHA(testInstancePrechecker{}, 1, constraints.Value{}, UbuntuBase("20.04"), []string{m.Id()}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := st.ControllerNode(m.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -267,11 +267,11 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	})
 
 	for i := 0; i < units; i++ {
-		wu, err := wordpress.AddUnit(AddUnitParams{})
+		wu, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag().String(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
-		m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+		m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -341,7 +341,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 
 		// Create the subordinate unit as a side-effect of entering
 		// scope in the principal's relation-unit.
-		err = wru.EnterScope(nil)
+		err = wru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 
 		lu, err := st.Unit(fmt.Sprintf("logging/%d", i))
@@ -703,13 +703,14 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "focal", "mysql-k8s")
 			mysql := AddTestingApplicationForBase(c, caasSt, s.objectStore, UbuntuBase("20.04"), "mysql", ch)
-			unit, err := mysql.AddUnit(AddUnitParams{})
+			unit, err := mysql.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			updateUnits := UpdateUnitsOperation{
 				Updates: []*UpdateUnitOperation{
 					unit.UpdateOperation(UnitUpdateProperties{
 						CloudContainerStatus: &status.StatusInfo{Status: status.Maintenance, Message: "setting up"},
+						Recorder:             status.NoopStatusHistoryRecorder,
 					}),
 				},
 			}
@@ -755,13 +756,14 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "focal", "mysql-k8s")
 			mysql := AddTestingApplicationForBase(c, caasSt, s.objectStore, UbuntuBase("20.04"), "mysql", ch)
-			unit, err := mysql.AddUnit(AddUnitParams{})
+			unit, err := mysql.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			updateUnits := UpdateUnitsOperation{
 				Updates: []*UpdateUnitOperation{
 					unit.UpdateOperation(UnitUpdateProperties{
 						CloudContainerStatus: &status.StatusInfo{Status: status.Maintenance, Message: "setting up"},
+						Recorder:             status.NoopStatusHistoryRecorder,
 					}),
 				},
 			}
@@ -836,7 +838,7 @@ func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, s.objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
@@ -945,9 +947,9 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	// Init the test model.
 	wordpress := AddTestingApplication(c, s.state, s.objectStore, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
-	u, err := wordpress.AddUnit(AddUnitParams{})
+	u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.state.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+	m, err := s.state.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1063,7 +1065,7 @@ func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 		},
 	})
 	// 2nd scenario part: destroy the application and signal change.
-	err = app.Destroy(NewObjectStore(c, s.state.ModelUUID()))
+	err = app.Destroy(NewObjectStore(c, s.state.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
 		C:  "applications",
@@ -1597,7 +1599,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -1638,7 +1640,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("22.04"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("22.04"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1729,7 +1731,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -1785,7 +1787,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 
 			hc := &instance.HardwareCharacteristics{}
@@ -1955,7 +1957,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			app := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			unit, err := app.AddUnit(AddUnitParams{})
+			unit, err := app.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("42.47", status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1994,7 +1996,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			app := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			unit, err := app.AddUnit(AddUnitParams{})
+			unit, err := app.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("", status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2034,7 +2036,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			app := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			unit, err := app.AddUnit(AddUnitParams{})
+			unit, err := app.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("42.47", status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2362,9 +2364,9 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2380,7 +2382,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				Message: "failure",
 				Since:   &now,
 			}
-			err = u.SetAgentStatus(sInfo)
+			err = u.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2420,9 +2422,9 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2488,9 +2490,9 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2530,9 +2532,9 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2583,9 +2585,9 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2598,7 +2600,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				Message: "failure",
 				Since:   &now,
 			}
-			err = u.SetAgentStatus(sInfo)
+			err = u.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2706,9 +2708,9 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.AssignToNewMachine(testInstancePrechecker{})
+			err = u.AssignToNewMachine(testInstancePrechecker{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -2716,7 +2718,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				Message: "",
 				Since:   &now,
 			}
-			err = u.SetAgentStatus(sInfo)
+			err = u.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2763,7 +2765,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -2771,9 +2773,9 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				Message: "",
 				Since:   &now,
 			}
-			err = u.AssignToNewMachine(testInstancePrechecker{})
+			err = u.AssignToNewMachine(testInstancePrechecker{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(sInfo)
+			err = u.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			sInfo = status.StatusInfo{
 				Status:  status.Maintenance,
@@ -2827,7 +2829,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -2840,7 +2842,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				Since: &now,
 			}
-			err = u.SetAgentStatus(sInfo)
+			err = u.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2889,7 +2891,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
+			u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -2902,7 +2904,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				Since: &now,
 			}
-			err = u.SetAgentStatus(sInfo)
+			err = u.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2971,9 +2973,9 @@ const (
 func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, controllerConfig controller.Config, runChangeTests func(*gc.C, []changeTestFunc)) {
 	initModel := func(c *gc.C, st *State, objectStore objectstore.ObjectStore, flag initFlag) {
 		wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-		u, err := wordpress.AddUnit(AddUnitParams{})
+		u, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
+		m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		if flag&assignUnit != 0 {
 			// Assign the unit.
@@ -3195,11 +3197,11 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 			c.Assert(mysql.Refresh(), jc.ErrorIsNil)
 
-			wu, err := wordpress.AddUnit(AddUnitParams{})
+			wu, err := wordpress.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			wru, err := rel.Unit(wu)
 			c.Assert(err, jc.ErrorIsNil)
-			err = wru.EnterScope(nil)
+			err = wru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			status, err := mysql.Status()
@@ -3436,7 +3438,7 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 			c.Assert(err, jc.ErrorIsNil)
 
 			app := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := app.AddUnit(AddUnitParams{})
+			u, err := app.AddUnit(AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			c.Assert(branch.AssignUnit(u.Name()), jc.ErrorIsNil)

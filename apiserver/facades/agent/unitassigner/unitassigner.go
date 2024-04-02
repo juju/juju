@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -20,12 +21,13 @@ import (
 // for testing.
 type assignerState interface {
 	WatchForUnitAssignment() state.StringsWatcher
-	AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error)
+	AssignStagedUnits(ids []string, recorder status.StatusHistoryRecorder) ([]state.UnitAssignmentResult, error)
 	AssignedMachineId(unit string) (string, error)
 }
 
 type statusSetter interface {
 	SetStatus(context.Context, params.SetStatus) (params.ErrorResults, error)
+	GetRecorder() status.StatusHistoryRecorder
 }
 
 type machineService interface {
@@ -57,7 +59,7 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 		ids[i] = tag.Id()
 	}
 
-	res, err := a.st.AssignStagedUnits(ids)
+	res, err := a.st.AssignStagedUnits(ids, a.statusSetter.GetRecorder())
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}

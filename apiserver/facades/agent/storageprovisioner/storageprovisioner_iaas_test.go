@@ -139,7 +139,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
 		},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -186,7 +186,7 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 2048},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -483,7 +483,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	}
 
 	// Make the "data" storage volume Dead, releasing.
-	err = unit.Destroy(s.store)
+	err = unit.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(testStorage[0].StorageTag(), true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -609,7 +609,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	}
 
 	// Make the "data" storage filesystem Dead, releasing.
-	err = unit.Destroy(s.store)
+	err = unit.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(testStorage[0].StorageTag(), true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)

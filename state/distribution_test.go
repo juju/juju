@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -39,18 +40,18 @@ func (s *ApplicationMachinesSuite) SetUpTest(c *gc.C) {
 		s.machines[i], err = s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 			Base: state.UbuntuBase("12.10"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
-		})
+		}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	for _, i := range []int{0, 1, 4} {
-		unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
+		unit, err := s.wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, i := range []int{2, 3} {
-		unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+		unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
 		c.Assert(err, jc.ErrorIsNil)

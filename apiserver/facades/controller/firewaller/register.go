@@ -44,6 +44,11 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		serviceFactory.ExternalController(),
 	)
 
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
 	return NewStateFirewallerAPI(
 		stShim,
@@ -52,5 +57,6 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		cloudSpecAPI,
 		controllerConfigAPI,
 		ctx.Logger().Child("firewaller"),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }

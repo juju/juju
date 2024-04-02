@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -34,7 +35,7 @@ func addContainerToMachine(c *gc.C, st *state.State, machine *state.Machine) *st
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := st.AddMachineInsideMachine(containerTemplate, machine.Id(), instance.LXD)
+	container, err := st.AddMachineInsideMachine(containerTemplate, machine.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	return container
 }

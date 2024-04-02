@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	oldstate "github.com/juju/juju/state"
@@ -57,6 +58,11 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 		return nil, errors.Trace(err)
 	}
 
+	modelLogger, err := ctx.ModelLogger(model.UUID(), model.Name(), model.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &HighAvailabilityAPI{
 		st:             st,
 		prechecker:     prechecker,
@@ -67,5 +73,6 @@ func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, erro
 		controllerConfig:   serviceFactory.ControllerConfig(),
 		authorizer:         authorizer,
 		logger:             ctx.Logger().Child("highavailability"),
+		recorder:           common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	}, nil
 }

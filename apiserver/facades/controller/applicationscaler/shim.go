@@ -6,7 +6,9 @@ package applicationscaler
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -25,7 +27,16 @@ func newAPI(ctx facade.ModelContext) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewFacade(backendShim{st: st, prechecker: prechecker}, ctx.Resources(), ctx.Auth())
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model")
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return NewFacade(backendShim{st: st, prechecker: prechecker}, ctx.Resources(), ctx.Auth(), common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger))
 }
 
 // backendShim wraps a *State to implement Backend without pulling in direct
@@ -46,10 +57,10 @@ func (shim backendShim) WatchScaledServices() state.StringsWatcher {
 }
 
 // RescaleService is part of the Backend interface.
-func (shim backendShim) RescaleService(name string) error {
+func (shim backendShim) RescaleService(name string, recorder status.StatusHistoryRecorder) error {
 	service, err := shim.st.Application(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return service.EnsureMinUnits(shim.prechecker)
+	return service.EnsureMinUnits(shim.prechecker, recorder)
 }

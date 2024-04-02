@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -518,7 +519,7 @@ func (s *ApiServerSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) 
 	}
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), jobs...)
+	machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

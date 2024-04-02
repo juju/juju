@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -64,7 +65,7 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(mig.ModelUUID(), gc.Equals, s.State2.ModelUUID())
@@ -110,7 +111,7 @@ func (s *MigrationSuite) TestIsMigrationActive(c *gc.C) {
 
 	check(false)
 
-	_, err := s.State2.CreateMigration(s.stdSpec)
+	_, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	check(true)
@@ -121,22 +122,22 @@ func (s *MigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
 	st3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { st3.Close() })
 
-	mig2, err := st2.CreateMigration(s.stdSpec)
+	mig2, err := st2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	checkIdAndAttempt(c, mig2, 0)
 
-	mig3, err := st3.CreateMigration(s.stdSpec)
+	mig3, err := st3.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	checkIdAndAttempt(c, mig3, 0)
 }
 
 func (s *MigrationSuite) TestIdSequencesIncrement(c *gc.C) {
 	for attempt := 0; attempt < 3; attempt++ {
-		mig, err := s.State2.CreateMigration(s.stdSpec)
+		mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		checkIdAndAttempt(c, mig, attempt)
-		c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
-		c.Check(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+		c.Check(mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
+		c.Check(mig.SetPhase(migration.ABORTDONE, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	}
 }
 
@@ -144,21 +145,21 @@ func (s *MigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 	// Ensure that sequence numbers aren't "used up" unnecessarily
 	// when the create txn is going to fail.
 
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	checkIdAndAttempt(c, mig, 0)
 
 	// This attempt will fail because a migration is already in
 	// progress.
-	_, err = s.State2.CreateMigration(s.stdSpec)
+	_, err = s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, ".+already in progress")
 
 	// Now abort the migration and create another. The Id sequence
 	// should have only incremented by 1.
-	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
-	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORTDONE, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
-	mig, err = s.State2.CreateMigration(s.stdSpec)
+	mig, err = s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	checkIdAndAttempt(c, mig, 1)
 }
@@ -194,7 +195,7 @@ func (s *MigrationSuite) TestSpecValidation(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, test.errorPattern)
 
 		// Ensure that CreateMigration rejects the bad spec too.
-		mig, err := s.State2.CreateMigration(spec)
+		mig, err := s.State2.CreateMigration(spec, status.NoopStatusHistoryRecorder)
 		c.Check(mig, gc.IsNil)
 		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, test.errorPattern)
@@ -203,29 +204,29 @@ func (s *MigrationSuite) TestSpecValidation(c *gc.C) {
 
 func (s *MigrationSuite) TestCreateWithControllerModel(c *gc.C) {
 	// This is the State for the controller
-	mig, err := s.State.CreateMigration(s.stdSpec)
+	mig, err := s.State.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Check(mig, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "controllers can't be migrated")
 }
 
 func (s *MigrationSuite) TestCreateMigrationInProgress(c *gc.C) {
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(mig, gc.Not(gc.IsNil))
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig2, err := s.State2.CreateMigration(s.stdSpec)
+	mig2, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Check(mig2, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "failed to create migration: already in progress")
 }
 
 func (s *MigrationSuite) TestCreateMigrationRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State2, func() {
-		mig, err := s.State2.CreateMigration(s.stdSpec)
+		mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 		c.Assert(mig, gc.Not(gc.IsNil))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Check(mig, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "failed to create migration: already in progress")
 }
@@ -236,7 +237,7 @@ func (s *MigrationSuite) TestCreateMigrationWhenModelNotAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Check(mig, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "failed to create migration: model is not alive")
 }
@@ -245,13 +246,13 @@ func (s *MigrationSuite) TestMigrationToSameController(c *gc.C) {
 	spec := s.stdSpec
 	spec.TargetInfo.ControllerTag = s.State.ControllerTag()
 
-	mig, err := s.State2.CreateMigration(spec)
+	mig, err := s.State2.CreateMigration(spec, status.NoopStatusHistoryRecorder)
 	c.Check(mig, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "model already attached to target controller")
 }
 
 func (s *MigrationSuite) TestLatestMigration(c *gc.C) {
-	mig1, err := s.State2.CreateMigration(s.stdSpec)
+	mig1, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mig2, err := s.State2.LatestMigration()
@@ -271,15 +272,15 @@ func (s *MigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 
 	for i := 0; i < 10; i++ {
 		c.Logf("loop %d", i)
-		_, err := s.State2.CreateMigration(s.stdSpec)
+		_, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 
 		mig, err := s.State2.LatestMigration()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", modelUUID, i))
 
-		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.ABORTDONE, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	}
 }
 
@@ -301,10 +302,10 @@ func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 		migration.DONE,
 	}
 	for i := 0; i < 10; i++ {
-		mig, err := s.State2.CreateMigration(s.stdSpec)
+		mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		for _, phase := range phases {
-			c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+			c.Assert(mig.SetPhase(phase, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 		}
 		state.ResetMigrationMode(c, s.State2)
 	}
@@ -314,7 +315,7 @@ func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 
 	// Start a new migration attempt, which should be reported.
-	migNext, err := s.State2.CreateMigration(s.stdSpec)
+	migNext, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	migNextb, err := s.State2.LatestMigration()
@@ -329,11 +330,11 @@ func (s *MigrationSuite) TestLatestRemovedModelMigration(c *gc.C) {
 	model, err := s.State2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig1, err := s.State2.CreateMigration(s.stdSpec)
+	mig1, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, phase := range migration.SuccessfulMigrationPhases() {
-		c.Assert(mig1.SetPhase(phase), jc.ErrorIsNil)
+		c.Assert(mig1.SetPhase(phase, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	}
 
 	// CompletedMigration should fail as the model docs are still there
@@ -350,7 +351,7 @@ func (s *MigrationSuite) TestLatestRemovedModelMigration(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestMigration(c *gc.C) {
-	mig1, err := s.State2.CreateMigration(s.stdSpec)
+	mig1, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mig2, err := s.State2.Migration(mig1.Id())
@@ -367,13 +368,13 @@ func (s *MigrationSuite) TestMigrationNotFound(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestRefresh(c *gc.C) {
-	mig1, err := s.State2.CreateMigration(s.stdSpec)
+	mig1, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mig2, err := s.State2.LatestMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mig1.SetPhase(migration.IMPORT)
+	err = mig1.SetPhase(migration.IMPORT, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertPhase(c, mig2, migration.QUIESCE)
@@ -385,7 +386,7 @@ func (s *MigrationSuite) TestRefresh(c *gc.C) {
 func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	st := s.State2
 
-	mig, err := st.CreateMigration(s.stdSpec)
+	mig, err := st.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig, gc.NotNil)
 
@@ -396,7 +397,7 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 
 	var successTime time.Time
 	for _, phase := range phases[:len(phases)-1] {
-		err := mig.SetPhase(phase)
+		err := mig.SetPhase(phase, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 
 		assertPhase(c, mig, phase)
@@ -432,20 +433,20 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 
 	// Now move to the final phase (DONE) and ensure fields are set as
 	// expected.
-	err = mig.SetPhase(migration.DONE)
+	err = mig.SetPhase(migration.DONE, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertPhase(c, mig, migration.DONE)
 	s.assertMigrationCleanedUp(c, mig)
 }
 
 func (s *MigrationSuite) TestABORTCleanup(c *gc.C) {
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Clock.Advance(time.Millisecond)
-	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	s.Clock.Advance(time.Millisecond)
-	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORTDONE, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	s.assertMigrationCleanedUp(c, mig)
 
@@ -456,7 +457,7 @@ func (s *MigrationSuite) TestABORTCleanup(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Advance the migration to REAPFAILED.
@@ -471,7 +472,7 @@ func (s *MigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 	}
 	for _, phase := range phases {
 		s.Clock.Advance(time.Millisecond)
-		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(phase, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	}
 
 	s.assertMigrationCleanedUp(c, mig)
@@ -486,37 +487,37 @@ func (s *MigrationSuite) assertMigrationCleanedUp(c *gc.C, mig state.ModelMigrat
 }
 
 func (s *MigrationSuite) TestIllegalPhaseTransition(c *gc.C) {
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mig.SetPhase(migration.SUCCESS)
+	err = mig.SetPhase(migration.SUCCESS, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, "illegal phase change: QUIESCE -> SUCCESS")
 }
 
 func (s *MigrationSuite) TestPhaseChangeRace(c *gc.C) {
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig, gc.Not(gc.IsNil))
 
 	defer state.SetBeforeHooks(c, s.State2, func() {
 		mig, err := s.State2.LatestMigration()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(migration.IMPORT), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.IMPORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	}).Check()
 
-	err = mig.SetPhase(migration.IMPORT)
+	err = mig.SetPhase(migration.IMPORT, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, "phase already changed")
 	assertPhase(c, mig, migration.QUIESCE)
 
 	// After a refresh it the phase change should be ok.
 	c.Assert(mig.Refresh(), jc.ErrorIsNil)
-	err = mig.SetPhase(migration.IMPORT)
+	err = mig.SetPhase(migration.IMPORT, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertPhase(c, mig, migration.IMPORT)
 }
 
 func (s *MigrationSuite) TestStatusMessage(c *gc.C) {
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig, gc.Not(gc.IsNil))
 
@@ -526,7 +527,7 @@ func (s *MigrationSuite) TestStatusMessage(c *gc.C) {
 	c.Check(mig.StatusMessage(), gc.Equals, "starting")
 	c.Check(mig2.StatusMessage(), gc.Equals, "starting")
 
-	err = mig.SetStatusMessage("foo bar")
+	err = mig.SetStatusMessage("foo bar", status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(mig.StatusMessage(), gc.Equals, "foo bar")
@@ -541,16 +542,16 @@ func (s *MigrationSuite) TestWatchForMigration(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Create the migration - should be reported.
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Mere phase changes should not be reported.
-	c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Check(mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Ending the migration should be reported.
-	c.Check(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	c.Check(mig.SetPhase(migration.ABORTDONE, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	workertest.CleanKill(c, w)
@@ -559,7 +560,7 @@ func (s *MigrationSuite) TestWatchForMigration(c *gc.C) {
 
 func (s *MigrationSuite) TestWatchForMigrationInProgress(c *gc.C) {
 	// Create a migration.
-	_, err := s.State2.CreateMigration(s.stdSpec)
+	_, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, s.State2.ModelUUID())
@@ -583,13 +584,13 @@ func (s *MigrationSuite) TestWatchForMigrationMultiModel(c *gc.C) {
 	wc3.AssertOneChange()
 
 	// Create a migration for 2.
-	_, err := s.State2.CreateMigration(s.stdSpec)
+	_, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertOneChange()
 	wc3.AssertNoChange()
 
 	// Create a migration for 3.
-	_, err = state3.CreateMigration(s.stdSpec)
+	_, err = state3.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertNoChange()
 	wc3.AssertOneChange()
@@ -608,27 +609,27 @@ func (s *MigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 	wc.AssertOneChange() // Initial event.
 
 	// Create a migration.
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// End it.
-	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	wc.AssertOneChange()
-	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORTDONE, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Start another.
-	mig2, err := s.State2.CreateMigration(s.stdSpec)
+	mig2, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change phase.
-	c.Assert(mig2.SetPhase(migration.IMPORT), jc.ErrorIsNil)
+	c.Assert(mig2.SetPhase(migration.IMPORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// End it.
-	c.Assert(mig2.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Assert(mig2.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	workertest.CleanKill(c, w)
@@ -637,9 +638,9 @@ func (s *MigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 
 func (s *MigrationSuite) TestWatchMigrationStatusPreexisting(c *gc.C) {
 	// Create an aborted migration.
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	// Ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, s.State2.ModelUUID())
@@ -663,19 +664,19 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	wc3.AssertOneChange() // initial event
 
 	// Create a migration for 2.
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertOneChange()
 	wc3.AssertNoChange()
 
 	// Create a migration for 3.
-	_, err = state3.CreateMigration(s.stdSpec)
+	_, err = state3.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertNoChange()
 	wc3.AssertOneChange()
 
 	// Update the migration for 2.
-	err = mig.SetPhase(migration.ABORT)
+	err = mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertOneChange()
 	wc3.AssertNoChange()
@@ -689,7 +690,7 @@ func (s *MigrationSuite) TestMinionReports(c *gc.C) {
 	m1 := factory2.MakeMachine(c, nil)
 	m2 := factory2.MakeMachine(c, nil)
 
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	const phase = migration.QUIESCE
@@ -714,16 +715,16 @@ func (s *MigrationSuite) TestMinionReportsCAAS(c *gc.C) {
 		Series: "quantal",
 	})
 	a0 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a0", Charm: ch})
-	u1a0, err := a0.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id0")})
+	u1a0, err := a0.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id0")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	a1 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a1", Charm: ch})
-	u1a1, err := a1.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
+	u1a1, err := a1.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	a2 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a2", Charm: ch})
-	u1a2, err := a2.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")})
+	u1a2, err := a2.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig, err := st.CreateMigration(s.stdSpec)
+	mig, err := st.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	const phase = migration.QUIESCE
@@ -741,7 +742,7 @@ func (s *MigrationSuite) TestDuplicateMinionReportsSameSuccess(c *gc.C) {
 	// It should be OK for a minion report to arrive more than once
 	// for the same migration, agent and phase as long as the value of
 	// "success" is the same.
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	tag := names.NewMachineTag("42")
 	c.Check(mig.SubmitMinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
@@ -752,7 +753,7 @@ func (s *MigrationSuite) TestDuplicateMinionReportsDifferingSuccess(c *gc.C) {
 	// It is not OK for a minion report to arrive more than once for
 	// the same migration, agent and phase when the "success" value
 	// changes.
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	tag := names.NewMachineTag("42")
 	c.Check(mig.SubmitMinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
@@ -764,7 +765,7 @@ func (s *MigrationSuite) TestDuplicateMinionReportsDifferingSuccess(c *gc.C) {
 func (s *MigrationSuite) TestMinionReportWithOldPhase(c *gc.C) {
 	// It is OK for a report to arrive for even a migration has moved
 	// on.
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get another reference to the same migration.
@@ -777,7 +778,7 @@ func (s *MigrationSuite) TestMinionReportWithOldPhase(c *gc.C) {
 	c.Check(reports.Succeeded, gc.HasLen, 0)
 
 	// Advance the migration
-	c.Assert(mig.SetPhase(migration.IMPORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.IMPORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	// Submit minion report for the old phase.
 	tag := names.NewMachineTag("42")
@@ -791,7 +792,7 @@ func (s *MigrationSuite) TestMinionReportWithOldPhase(c *gc.C) {
 
 func (s *MigrationSuite) TestMinionReportWithInactiveMigration(c *gc.C) {
 	// Create a migration.
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get another reference to the same migration.
@@ -799,8 +800,8 @@ func (s *MigrationSuite) TestMinionReportWithInactiveMigration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Abort the migration.
-	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
-	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORT, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORTDONE, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	// Confirm that there's no reports when starting.
 	reports, err := mig.MinionReports()
@@ -859,7 +860,7 @@ func (s *MigrationSuite) TestModelUserAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(modelUsers), gc.Not(gc.Equals), 0)
 
-	mig, err := s.State2.CreateMigration(s.stdSpec)
+	mig, err := s.State2.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, modelUser := range modelUsers {
@@ -885,7 +886,7 @@ func (s *MigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
 func (s *MigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
 	state.ModelMigration, statetesting.NotifyWatcherC,
 ) {
-	mig, err := st.CreateMigration(s.stdSpec)
+	mig, err := st.CreateMigration(s.stdSpec, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, st.ModelUUID())

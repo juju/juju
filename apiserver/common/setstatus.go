@@ -167,6 +167,11 @@ type StatusSetter struct {
 	recordHistory status.StatusHistoryRecorder
 }
 
+// GetRecorder returns the status history recorder used by the StatusSetter.
+func (s *StatusSetter) GetRecorder() status.StatusHistoryRecorder {
+	return s.recordHistory
+}
+
 // NewStatusSetter returns a new StatusSetter. The GetAuthFunc will be
 // used on each invocation of SetStatus to determine current
 // permissions.

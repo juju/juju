@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -50,7 +51,8 @@ func (testsuite) TestSetStatus(c *gc.C) {
 	f := &fakeStatusSetter{
 		res: params.ErrorResults{
 			Results: []params.ErrorResult{
-				{Error: &params.Error{Message: "boo"}}}}}
+				{Error: &params.Error{Message: "boo"}}}},
+	}
 	api := API{statusSetter: f}
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{Tag: "foo/0"}},
@@ -83,7 +85,7 @@ func (f *fakeState) WatchForUnitAssignment() state.StringsWatcher {
 	return fakeWatcher{f.ids}
 }
 
-func (f *fakeState) AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error) {
+func (f *fakeState) AssignStagedUnits(ids []string, recorder status.StatusHistoryRecorder) ([]state.UnitAssignmentResult, error) {
 	f.ids = ids
 	return f.results, f.err
 }
@@ -121,4 +123,8 @@ type fakeStatusSetter struct {
 func (f *fakeStatusSetter) SetStatus(_ context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	f.args = args
 	return f.res, f.err
+}
+
+func (f *fakeStatusSetter) GetRecorder() status.StatusHistoryRecorder {
+	return nil
 }

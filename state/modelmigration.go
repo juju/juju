@@ -70,11 +70,11 @@ type ModelMigration interface {
 	// SetPhase sets the phase of the migration. An error will be
 	// returned if the new phase does not follow the current phase or
 	// if the migration is no longer active.
-	SetPhase(nextPhase migration.Phase) error
+	SetPhase(nextPhase migration.Phase, historyRecorder status.StatusHistoryRecorder) error
 
 	// SetStatusMessage sets some human readable text about the
 	// current progress of the migration.
-	SetStatusMessage(text string) error
+	SetStatusMessage(text string, historyRecorder status.StatusHistoryRecorder) error
 
 	// SubmitMinionReport records a report from a migration minion
 	// worker about the success or failure to complete its actions for
@@ -292,7 +292,7 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 }
 
 // SetPhase implements ModelMigration.
-func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
+func (mig *modelMigration) SetPhase(nextPhase migration.Phase, historyRecorder status.StatusHistoryRecorder) error {
 	now := mig.st.clock().Now().UnixNano()
 
 	phase, err := mig.Phase()
@@ -319,7 +319,7 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 		update["success-time"] = now
 	}
 
-	ops, err := migStatusHistoryAndOps(mig.st, nextPhase, now, mig.StatusMessage())
+	ops, err := migStatusHistoryAndOps(mig.st, nextPhase, now, mig.StatusMessage(), historyRecorder)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -369,7 +369,7 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 
 // migStatusHistoryAndOps sets the model's status history and returns ops for
 // setting model status according to the phase and message.
-func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg string) ([]txn.Op, error) {
+func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg string, historyRecorder status.StatusHistoryRecorder) ([]txn.Op, error) {
 	switch phase {
 	case migration.REAP, migration.DONE:
 		// if we're reaping/have reaped the model, setting status on it is both
@@ -398,18 +398,18 @@ func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg str
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, _ = probablyUpdateStatusHistory(st.db(), model.Kind(), globalKey, globalKey, doc, status.NoopStatusHistoryRecorder)
+	_, _ = probablyUpdateStatusHistory(st.db(), model.Kind(), globalKey, globalKey, doc, historyRecorder)
 	return ops, nil
 }
 
 // SetStatusMessage implements ModelMigration.
-func (mig *modelMigration) SetStatusMessage(text string) error {
+func (mig *modelMigration) SetStatusMessage(text string, historyRecorder status.StatusHistoryRecorder) error {
 	phase, err := mig.Phase()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	ops, err := migStatusHistoryAndOps(mig.st, phase, mig.st.clock().Now().UnixNano(), text)
+	ops, err := migStatusHistoryAndOps(mig.st, phase, mig.st.clock().Now().UnixNano(), text, historyRecorder)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -675,7 +675,7 @@ func (spec *MigrationSpec) Validate() error {
 // CreateMigration initialises state that tracks a model migration. It
 // will return an error if there is already a model migration in
 // progress.
-func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
+func (st *State) CreateMigration(spec MigrationSpec, historyRecorder status.StatusHistoryRecorder) (ModelMigration, error) {
 	if st.IsController() {
 		return nil, errors.New("controllers can't be migrated")
 	}
@@ -692,7 +692,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	var statusDoc modelMigStatusDoc
 
 	msg := "starting"
-	ops, err := migStatusHistoryAndOps(st, migration.QUIESCE, now, msg)
+	ops, err := migStatusHistoryAndOps(st, migration.QUIESCE, now, msg, historyRecorder)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

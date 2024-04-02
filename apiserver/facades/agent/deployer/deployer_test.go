@@ -79,10 +79,10 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -98,19 +98,19 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.principal0, err = s.service0.AddUnit(state.AddUnitParams{})
+	s.principal0, err = s.service0.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal0.AssignToMachine(s.machine1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.principal1, err = s.service0.AddUnit(state.AddUnitParams{})
+	s.principal1, err = s.service0.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal1.AssignToMachine(s.machine0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	relUnit0, err := rel.Unit(s.principal0)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit0.EnterScope(nil)
+	err = relUnit0.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.subordinate0, err = st.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)

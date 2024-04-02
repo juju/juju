@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
@@ -533,10 +534,10 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 			AuthTag:         names.NewUserTag("user2"),
 			Password:        "secret",
 		},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, phase := range migration.SuccessfulMigrationPhases() {
-		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(phase, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	}
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)

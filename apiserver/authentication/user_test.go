@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
@@ -39,7 +40,7 @@ var _ = gc.Suite(&userAuthenticatorSuite{})
 
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	// add machine for testing machine agent authentication
-	machine, err := s.ControllerModel(c).State().AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.ControllerModel(c).State().AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,7 +71,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

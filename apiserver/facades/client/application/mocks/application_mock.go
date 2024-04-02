@@ -61,18 +61,18 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddApplication mocks base method.
-func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore) (application.Application, error) {
+func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore, arg2 status.StatusHistoryRecorder) (application.Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1)
+	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(application.Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddApplication indicates an expected call of AddApplication.
-func (mr *MockBackendMockRecorder) AddApplication(arg0, arg1 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddApplication(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockBackend)(nil).AddApplication), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockBackend)(nil).AddApplication), arg0, arg1, arg2)
 }
 
 // AddCharmMetadata mocks base method.
@@ -994,18 +994,18 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 }
 
 // AddUnit mocks base method.
-func (m *MockApplication) AddUnit(arg0 state.AddUnitParams) (application.Unit, error) {
+func (m *MockApplication) AddUnit(arg0 state.AddUnitParams, arg1 status.StatusHistoryRecorder) (application.Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUnit", arg0)
+	ret := m.ctrl.Call(m, "AddUnit", arg0, arg1)
 	ret0, _ := ret[0].(application.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddUnit indicates an expected call of AddUnit.
-func (mr *MockApplicationMockRecorder) AddUnit(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) AddUnit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnit", reflect.TypeOf((*MockApplication)(nil).AddUnit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnit", reflect.TypeOf((*MockApplication)(nil).AddUnit), arg0, arg1)
 }
 
 // AgentTools mocks base method.
@@ -1172,17 +1172,17 @@ func (mr *MockApplicationMockRecorder) Constraints() *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockApplication) Destroy(arg0 objectstore.ObjectStore) error {
+func (m *MockApplication) Destroy(arg0 objectstore.ObjectStore, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy", arg0)
+	ret := m.ctrl.Call(m, "Destroy", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockApplicationMockRecorder) Destroy(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) Destroy(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy), arg0, arg1)
 }
 
 // DestroyOperation mocks base method.
@@ -1766,17 +1766,17 @@ func (mr *MockRelationMockRecorder) ApplicationSettings(arg0 any) *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockRelation) Destroy(arg0 objectstore.ObjectStore) error {
+func (m *MockRelation) Destroy(arg0 objectstore.ObjectStore, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy", arg0)
+	ret := m.ctrl.Call(m, "Destroy", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockRelationMockRecorder) Destroy(arg0 any) *gomock.Call {
+func (mr *MockRelationMockRecorder) Destroy(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockRelation)(nil).Destroy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockRelation)(nil).Destroy), arg0, arg1)
 }
 
 // DestroyWithForce mocks base method.
@@ -1990,31 +1990,31 @@ func (mr *MockUnitMockRecorder) ApplicationName() *gomock.Call {
 }
 
 // AssignWithPlacement mocks base method.
-func (m *MockUnit) AssignWithPlacement(arg0 *instance.Placement) error {
+func (m *MockUnit) AssignWithPlacement(arg0 *instance.Placement, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignWithPlacement", arg0)
+	ret := m.ctrl.Call(m, "AssignWithPlacement", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AssignWithPlacement indicates an expected call of AssignWithPlacement.
-func (mr *MockUnitMockRecorder) AssignWithPlacement(arg0 any) *gomock.Call {
+func (mr *MockUnitMockRecorder) AssignWithPlacement(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignWithPlacement", reflect.TypeOf((*MockUnit)(nil).AssignWithPlacement), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignWithPlacement", reflect.TypeOf((*MockUnit)(nil).AssignWithPlacement), arg0, arg1)
 }
 
 // AssignWithPolicy mocks base method.
-func (m *MockUnit) AssignWithPolicy(arg0 state.AssignmentPolicy) error {
+func (m *MockUnit) AssignWithPolicy(arg0 state.AssignmentPolicy, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignWithPolicy", arg0)
+	ret := m.ctrl.Call(m, "AssignWithPolicy", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AssignWithPolicy indicates an expected call of AssignWithPolicy.
-func (mr *MockUnitMockRecorder) AssignWithPolicy(arg0 any) *gomock.Call {
+func (mr *MockUnitMockRecorder) AssignWithPolicy(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignWithPolicy", reflect.TypeOf((*MockUnit)(nil).AssignWithPolicy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignWithPolicy", reflect.TypeOf((*MockUnit)(nil).AssignWithPolicy), arg0, arg1)
 }
 
 // AssignedMachineId mocks base method.
@@ -2048,17 +2048,17 @@ func (mr *MockUnitMockRecorder) ContainerInfo() *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockUnit) Destroy(arg0 objectstore.ObjectStore) error {
+func (m *MockUnit) Destroy(arg0 objectstore.ObjectStore, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy", arg0)
+	ret := m.ctrl.Call(m, "Destroy", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockUnitMockRecorder) Destroy(arg0 any) *gomock.Call {
+func (mr *MockUnitMockRecorder) Destroy(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockUnit)(nil).Destroy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockUnit)(nil).Destroy), arg0, arg1)
 }
 
 // DestroyOperation mocks base method.

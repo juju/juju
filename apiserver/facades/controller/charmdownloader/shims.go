@@ -52,7 +52,7 @@ type appShim struct {
 
 func (a appShim) CharmPendingToBeDownloaded() bool { return a.app.CharmPendingToBeDownloaded() }
 func (a appShim) SetStatus(info status.StatusInfo, recorder status.StatusHistoryRecorder) error {
-	return a.app.SetStatus(info, nil)
+	return a.app.SetStatus(info, recorder)
 }
 func (a appShim) SetDownloadedIDAndHash(id, hash string) error {
 	return a.app.SetDownloadedIDAndHash(id, hash)

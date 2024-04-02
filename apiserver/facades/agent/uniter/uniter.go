@@ -1189,7 +1189,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 		if len(egressSubnets) > 0 {
 			settings["egress-subnets"] = strings.Join(egressSubnets, ",")
 		}
-		return relUnit.EnterScope(settings)
+		return relUnit.EnterScope(settings, u.historyRecorder)
 	}
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)
@@ -1583,7 +1583,7 @@ func (u *UniterAPI) SetRelationStatus(ctx context.Context, args params.RelationS
 		return rel.SetStatus(status.StatusInfo{
 			Status:  status.Status(arg.Status),
 			Message: message,
-		}, nil)
+		}, u.historyRecorder)
 	}
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {

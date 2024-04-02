@@ -434,7 +434,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	f.MakeUser(c, &factory.UserParams{Name: userTag.Name()})
 	add(taggedUser{tag: userTag})
 
-	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)
+	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
@@ -514,13 +514,13 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 2; i++ {
-		wu, err := wordpress.AddUnit(state.AddUnitParams{})
+		wu, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag(), gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, wu)
 		add(wu)
 
-		m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+		m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag(), gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 		if i == 1 {
@@ -555,13 +555,13 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				Data:    sd,
 				Since:   &now,
 			}
-			err := wu.SetAgentStatus(sInfo)
+			err := wu.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 
 		// Create the subordinate unit as a side-effect of entering
 		// scope in the principal's relation-unit.
-		err = wru.EnterScope(nil)
+		err = wru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 
 		lu, err := st.Unit(fmt.Sprintf("logging/%d", i))

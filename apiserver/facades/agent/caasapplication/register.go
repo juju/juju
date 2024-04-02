@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/state/stateenvirons"
@@ -42,6 +43,10 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		return nil, errors.Trace(err)
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	modelLogger, err := ctx.ModelLogger(model.UUID(), model.Name(), model.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewFacade(
 		resources,
 		authorizer,
@@ -52,5 +57,6 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		broker,
 		ctx.StatePool().Clock(),
 		ctx.Logger().Child("caasapplication"),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }

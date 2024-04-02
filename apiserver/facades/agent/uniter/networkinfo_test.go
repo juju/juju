@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -59,7 +60,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	st := s.ControllerModel(c).State()
 
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,9 +140,9 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 		EndpointBindings: bindings,
 	})
 
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToNewMachine(s.InstancePrechecker(c, st)), jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,9 +200,9 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 		EndpointBindings: bindings,
 	})
 
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToNewMachine(s.InstancePrechecker(c, st)), jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -254,7 +255,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 	st := s.ControllerModel(c).State()
 
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -378,7 +379,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	st := s.ControllerModel(c).State()
 
 	prr := s.newProReqRelationWithBindings(c, charm.ScopeGlobal, bindings, nil)
-	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -420,7 +421,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -452,7 +453,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,7 +484,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -526,7 +527,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
+	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -708,7 +709,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	// These are scoped as local-machine and are fallen back to for CAAS by
 	// unit.PrivateAddress when scope matching returns nothing.
 	addr := "1.2.3.4"
-	err = st.ApplyOperation(prr.ru0.UpdateOperation(state.UnitUpdateProperties{Address: &addr}))
+	err = st.ApplyOperation(prr.ru0.UpdateOperation(state.UnitUpdateProperties{Address: &addr, Recorder: status.NoopStatusHistoryRecorder}))
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.ru0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -769,14 +770,14 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 		EndpointBindings: bindings,
 	})
 
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.AssignToMachine(machine)
@@ -841,14 +842,14 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
 
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.AssignToMachine(machine)
@@ -1068,7 +1069,7 @@ func addRU(
 	// relation's scope as the principal.
 	var u *state.Unit
 	if principal == nil {
-		unit, err := app.AddUnit(state.AddUnitParams{})
+		unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		u = unit
 	} else {
@@ -1076,7 +1077,7 @@ func addRU(
 		c.Assert(err, jc.ErrorIsNil)
 		pru, err := rel.Unit(principal)
 		c.Assert(err, jc.ErrorIsNil)
-		err = pru.EnterScope(nil) // to create the subordinate
+		err = pru.EnterScope(nil, status.NoopStatusHistoryRecorder) // to create the subordinate
 		c.Assert(err, jc.ErrorIsNil)
 		err = pru.LeaveScope() // to reset to initial expected state
 		c.Assert(err, jc.ErrorIsNil)

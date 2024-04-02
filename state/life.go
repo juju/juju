@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -76,7 +77,7 @@ var valueMap = map[life.Value]Life{
 // Living describes state entities with a lifecycle.
 type Living interface {
 	LifeRefresher
-	Destroy(objectstore.ObjectStore) error
+	Destroy(objectstore.ObjectStore, status.StatusHistoryRecorder) error
 }
 
 type LifeRefresher interface {

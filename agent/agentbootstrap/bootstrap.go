@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
@@ -633,7 +634,7 @@ func (b *AgentBootstrap) initBootstrapMachine(
 		HardwareCharacteristics: hardware,
 		Jobs:                    jobs,
 		DisplayName:             stateParams.BootstrapMachineDisplayName,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
 	}

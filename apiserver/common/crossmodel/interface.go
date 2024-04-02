@@ -126,7 +126,7 @@ type Relation interface {
 	status.StatusSetter
 	// Destroy ensures that the relation will be removed at some point; if
 	// no units are currently in scope, it will be removed immediately.
-	Destroy(objectstore.ObjectStore) error
+	Destroy(objectstore.ObjectStore, status.StatusHistoryRecorder) error
 
 	// DestroyWithForce may force the destruction of the relation.
 	// In addition, this function also returns all non-fatal operational errors
@@ -194,7 +194,7 @@ type RelationUnit interface {
 	// EnterScope ensures that the unit has entered its scope in the
 	// relation. When the unit has already entered its scope, EnterScope
 	// will report success but make no changes to state.
-	EnterScope(settings map[string]interface{}) error
+	EnterScope(settings map[string]interface{}, historyRecorder status.StatusHistoryRecorder) error
 
 	// InScope returns whether the relation unit has entered scope and
 	// not left it.
@@ -313,7 +313,7 @@ type RemoteApplication interface {
 	// TerminateOperation returns an operation that will set this
 	// remote application to terminated and leave it in a state
 	// enabling it to be removed cleanly.
-	TerminateOperation(string) state.ModelOperation
+	TerminateOperation(string, status.StatusHistoryRecorder) state.ModelOperation
 
 	// DestroyOperation returns a model operation to destroy remote application.
 	DestroyOperation(bool) state.ModelOperation

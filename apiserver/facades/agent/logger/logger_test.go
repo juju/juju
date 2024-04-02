@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/logger"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -40,7 +41,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine(s.InstancePrechecker(c, s.State), state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.State.AddMachine(s.InstancePrechecker(c, s.State), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent

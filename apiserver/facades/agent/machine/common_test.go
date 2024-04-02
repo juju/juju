@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -33,10 +34,10 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,

@@ -643,9 +643,9 @@ func (m *Machine) PasswordValid(password string) bool {
 // If the machine has assigned units, Destroy will return
 // a HasAssignedUnitsError.  If the machine has containers, Destroy
 // will return HasContainersError.
-func (m *Machine) Destroy(_ objectstore.ObjectStore) error {
+func (m *Machine) Destroy(_ objectstore.ObjectStore, historyRecorder status.StatusHistoryRecorder) error {
 	if m.IsManager() && len(m.doc.Principals) > 0 {
-		return errors.Trace(m.destroyControllerWithPrincipals())
+		return errors.Trace(m.destroyControllerWithPrincipals(historyRecorder))
 	}
 	return errors.Trace(m.advanceLifecycle(Dying, false, false, 0))
 }
@@ -653,7 +653,7 @@ func (m *Machine) Destroy(_ objectstore.ObjectStore) error {
 // destroyControllerWithPrincipals is called if the controller has
 // principal units and they are juju- system charms, then gracefully
 // remove them before destroying the machine.
-func (m *Machine) destroyControllerWithPrincipals() error {
+func (m *Machine) destroyControllerWithPrincipals(historyRecorder status.StatusHistoryRecorder) error {
 	units, err := m.Units()
 	if err != nil {
 		return errors.Trace(err)
@@ -709,7 +709,7 @@ func (m *Machine) destroyControllerWithPrincipals() error {
 	err = m.SetStatus(status.StatusInfo{
 		Status:  status.Stopped,
 		Message: fmt.Sprintf("waiting on dying units %s", strings.Join(evacuablePrincipals, ", ")),
-	}, status.NoopStatusHistoryRecorder)
+	}, historyRecorder)
 	if err != nil {
 		return errors.Trace(err)
 	}

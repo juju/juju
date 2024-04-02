@@ -63,7 +63,7 @@ func (s *machineSuite) TestDestroyMachines(c *gc.C) {
 		},
 	}
 
-	err := common.MockableDestroyMachines(&st, &fakeObjectStore{}, false, dontWait, "1", "2", "3", "4")
+	err := common.MockableDestroyMachines(&st, &fakeObjectStore{}, false, dontWait, status.NoopStatusHistoryRecorder, "1", "2", "3", "4")
 
 	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
 	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsFalse)
@@ -84,7 +84,7 @@ func (s *machineSuite) TestForceDestroyMachines(c *gc.C) {
 			"2": {life: state.Dying},
 		},
 	}
-	err := common.MockableDestroyMachines(&st, &fakeObjectStore{}, true, dontWait, "1", "2")
+	err := common.MockableDestroyMachines(&st, &fakeObjectStore{}, true, dontWait, status.NoopStatusHistoryRecorder, "1", "2")
 
 	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
 	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsTrue)
@@ -396,7 +396,7 @@ func (m *fakeMachine) ForceDestroy(time.Duration) error {
 	return nil
 }
 
-func (m *fakeMachine) Destroy(_ objectstore.ObjectStore) error {
+func (m *fakeMachine) Destroy(_ objectstore.ObjectStore, _ status.StatusHistoryRecorder) error {
 	m.destroyCalled = true
 	if m.destroyErr != nil {
 		return m.destroyErr

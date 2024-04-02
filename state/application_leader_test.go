@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -211,7 +212,7 @@ func (s *ApplicationLeaderSuite) preventRemove(c *gc.C) {
 func (s *ApplicationLeaderSuite) destroyApplication(c *gc.C) {
 	killApplication, err := s.State.Application(s.application.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	err = killApplication.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = killApplication.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

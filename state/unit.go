@@ -373,7 +373,7 @@ func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation 
 	return &UpdateUnitOperation{
 		unit:     &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
 		props:    props,
-		recorder: status.NoopStatusHistoryRecorder,
+		recorder: props.Recorder,
 	}
 }
 
@@ -515,7 +515,7 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // life is just set to Dying; but if a principal unit that is not assigned
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
-func (u *Unit) Destroy(store objectstore.ObjectStore) error {
+func (u *Unit) Destroy(store objectstore.ObjectStore, historyRecorder status.StatusHistoryRecorder) error {
 	_, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
 		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
@@ -1407,7 +1407,7 @@ func (u *Unit) AgentHistory() status.StatusHistoryGetter {
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
 // were not separate entities.
-func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
+func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo, historyRecorder status.StatusHistoryRecorder) error {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	s := status.StatusInfo{
 		Status:  agentStatus.Status,
@@ -1415,7 +1415,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 		Data:    agentStatus.Data,
 		Since:   agentStatus.Since,
 	}
-	return agent.SetStatus(s, status.NoopStatusHistoryRecorder)
+	return agent.SetStatus(s, historyRecorder)
 }
 
 // AgentStatus calls Status for this unit's agent, this call
@@ -2025,6 +2025,7 @@ func (u *Unit) assignToNewMachineOps(
 	template MachineTemplate,
 	parentId string,
 	containerType instance.ContainerType,
+	recorder status.StatusHistoryRecorder,
 ) (*Machine, []txn.Op, error) {
 
 	if u.Life() != Alive {
@@ -2044,7 +2045,7 @@ func (u *Unit) assignToNewMachineOps(
 	)
 	switch {
 	case parentId == "" && containerType == "":
-		mdoc, ops, err = u.st.addMachineOps(prechecker, template)
+		mdoc, ops, err = u.st.addMachineOps(prechecker, template, recorder)
 	case parentId == "":
 		if containerType == "" {
 			return nil, nil, errors.New("assignToNewMachine called without container type (should never happen)")
@@ -2053,9 +2054,9 @@ func (u *Unit) assignToNewMachineOps(
 		// regardless of its child.
 		parentParams := template
 		parentParams.Jobs = []MachineJob{JobHostUnits}
-		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(prechecker, template, parentParams, containerType)
+		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(prechecker, template, parentParams, containerType, recorder)
 	default:
-		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
+		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType, recorder)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -2138,15 +2139,15 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 // AssignToNewMachine assigns the unit to a new machine, with constraints
 // determined according to the application and model constraints at the
 // time of unit creation.
-func (u *Unit) AssignToNewMachine(prechecker environs.InstancePrechecker) (err error) {
+func (u *Unit) AssignToNewMachine(prechecker environs.InstancePrechecker, recorder status.StatusHistoryRecorder) (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")
-	return u.assignToNewMachine(prechecker, "")
+	return u.assignToNewMachine(prechecker, "", recorder)
 }
 
 // assignToNewMachine assigns the unit to a new machine with the
 // optional placement directive, with constraints determined according
 // to the application and model constraints at the time of unit creation.
-func (u *Unit) assignToNewMachine(prechecker environs.InstancePrechecker, placement string) error {
+func (u *Unit) assignToNewMachine(prechecker environs.InstancePrechecker, placement string, recorder status.StatusHistoryRecorder) error {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -2187,7 +2188,7 @@ func (u *Unit) assignToNewMachine(prechecker environs.InstancePrechecker, placem
 		// machine doc that will be added with those operations
 		// (which includes the machine id).
 		var ops []txn.Op
-		m, ops, err = u.assignToNewMachineOps(prechecker, template, "", containerType)
+		m, ops, err = u.assignToNewMachineOps(prechecker, template, "", containerType, recorder)
 		return ops, err
 	}
 	if err := u.st.db().Run(buildTxn); err != nil {

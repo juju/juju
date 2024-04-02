@@ -159,7 +159,7 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 				continue
 			}
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, api.historyRecorder, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, api.historyRecorder, relationTag, applicationTag, change, api.historyRecorder); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

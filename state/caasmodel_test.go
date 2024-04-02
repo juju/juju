@@ -98,7 +98,7 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = model.Destroy(state.DestroyModelParams{})
@@ -291,7 +291,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 		}},
 		Charm: ch,
 	}
-	application2, err := otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()))
+	application2, err := otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -339,9 +339,9 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 	})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
-	_, err := app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
+	_, err := app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")})
+	_, err = app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	containers, err := m.Containers("provider-id1", "provider-id2")
@@ -439,6 +439,7 @@ func setCloudContainerStatus(c *gc.C, unit *state.Unit, statusCode status.Status
 	updateUnits.Updates = []*state.UpdateUnitOperation{
 		unit.UpdateOperation(state.UnitUpdateProperties{
 			CloudContainerStatus: &status.StatusInfo{Status: statusCode, Message: message},
+			Recorder:             status.NoopStatusHistoryRecorder,
 		})}
 	app, err := unit.Application()
 	c.Assert(err, jc.ErrorIsNil)

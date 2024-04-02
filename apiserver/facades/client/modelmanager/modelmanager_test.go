@@ -1819,11 +1819,11 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 			AuthTag:         names.NewUserTag("user2"),
 			Password:        "secret",
 		},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, phase := range migration.SuccessfulMigrationPhases() {
-		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(phase, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	}
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)

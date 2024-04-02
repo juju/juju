@@ -367,7 +367,7 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("spaces=isolated"),
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.IsNil)
 	err = m1.SetLinkLayerDevices(state.LinkLayerDeviceArgs{
 		Name: "enp5s0",
@@ -381,7 +381,7 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 	})
 	c.Assert(err, gc.IsNil)
 
-	u1, err := a.AddUnit(state.AddUnitParams{})
+	u1, err := a.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.IsNil)
 	err = u1.AssignToMachine(m1)
 	c.Assert(err, gc.IsNil)
@@ -543,7 +543,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 			"":       dbSpace.Id(),
 			"server": dbSpace.Id(),
 			"client": clientSpace.Id(),
-		}}, state.NewObjectStore(c, s.State.ModelUUID()))
+		}}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
@@ -712,13 +712,13 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 
 	// Add two mysql units so that peer relations get established and we
 	// can check that we are allowed to break them when we upgrade.
-	_, err = app.AddUnit(state.AddUnitParams{})
+	_, err = app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = app.AddUnit(state.AddUnitParams{})
+	_, err = app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a unit for the other application and establish a relation.
-	_, err = otherApp.AddUnit(state.AddUnitParams{})
+	_, err = otherApp.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(appServerEP, otherServerEP)
 	c.Assert(err, jc.ErrorIsNil)
@@ -746,7 +746,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 		}
 	}
 
-	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -908,7 +908,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 			c.Assert(chConfig, gc.DeepEquals, expected)
 		}
 
-		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -916,9 +916,9 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmWithDyingApplication(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
-	_, err := s.mysql.AddUnit(state.AddUnitParams{})
+	_, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	cfg := state.SetCharmConfig{
@@ -931,16 +931,16 @@ func (s *ApplicationSuite) TestSetCharmWithDyingApplication(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
-	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err = s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
 }
@@ -958,9 +958,9 @@ func (s *ApplicationSuite) TestAssignUnitsRemovedAfterAppDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(unitAssignments), gc.Equals, 1)
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mariadb.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = mariadb.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, mariadb)
 
@@ -990,14 +990,14 @@ resources:
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "cockroachdb/0")
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.ClearResources()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1009,16 +1009,16 @@ resources:
 
 	ch = state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	app = f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
-	unit, err = app.AddUnit(state.AddUnitParams{})
+	unit, err = app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "cockroachdb/0")
 }
 
 func (s *ApplicationSuite) TestSequenceUnitIds(c *gc.C) {
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err = s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
 }
@@ -1027,13 +1027,13 @@ func (s *ApplicationSuite) TestExplicitUnitName(c *gc.C) {
 	name1 := "mysql/100"
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{
 		UnitName: &name1,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, name1)
 	name0 := "mysql/0"
 	unit, err = s.mysql.AddUnit(state.AddUnitParams{
 		UnitName: &name0,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, name0)
 }
@@ -1042,9 +1042,9 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.mysql.AddUnit(state.AddUnitParams{})
+		_, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
 
@@ -1072,7 +1072,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -1090,7 +1090,7 @@ func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		assertRemoved(c, s.State, s.mysql)
 	}).Check()
@@ -1108,9 +1108,9 @@ func (s *ApplicationSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.mysql.AddUnit(state.AddUnitParams{})
+		_, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
 	}).Check()
@@ -1214,9 +1214,9 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				// and newCh settings greater than 0, while the application's
 				// charm URLs change between oldCh and newCh. Ensure
 				// refcounts change as expected.
-				unit1, err := s.mysql.AddUnit(state.AddUnitParams{})
+				unit1, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 				c.Assert(err, jc.ErrorIsNil)
-				unit2, err := s.mysql.AddUnit(state.AddUnitParams{})
+				unit2, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 				c.Assert(err, jc.ErrorIsNil)
 				cfg := state.SetCharmConfig{
 					Charm:       newCh,
@@ -1578,7 +1578,7 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 			expected := s.combinedSettings(sch, appConfig)
 			c.Assert(cfg, gc.DeepEquals, expected)
 		}
-		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -1627,9 +1627,9 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *g
 	defer state.SetTestHooks(c, s.State,
 		jujutxn.TestHook{
 			Before: func() {
-				unit, err := app.AddUnit(state.AddUnitParams{})
+				unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 				c.Assert(err, jc.ErrorIsNil)
-				err = unit.AssignToNewMachine(defaultInstancePrechecker)
+				err = unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 				c.Assert(err, jc.ErrorIsNil)
 
 				ops := []txn.Op{{
@@ -1702,9 +1702,9 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 }
 
 func (s *ApplicationSuite) setupMultiSeriesUnitSubordinate(c *gc.C, app *state.Application, name string) *state.Application {
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToNewMachine(defaultInstancePrechecker)
+	err = unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	return s.setupMultiSeriesUnitSubordinateGivenUnit(c, app, unit, name)
 }
@@ -1719,7 +1719,7 @@ func (s *ApplicationSuite) setupMultiSeriesUnitSubordinateGivenUnit(c *gc.C, app
 
 	ru, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Refresh()
@@ -1910,7 +1910,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 
 	// Adding a unit without a charm URL set does not affect the
 	// refcount.
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	charmURL := u.CharmURL()
 	c.Assert(charmURL, gc.IsNil)
@@ -1941,7 +1941,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 
 	// Finally, after the application is destroyed and removed (since the
 	// last unit's gone), the refcount is again decremented.
-	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, appName, oldCh)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -1950,7 +1950,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// invoke them now and check that the charms are cleaned up
 	// correctly -- and that a storm of cleanups for the same
 	// charm are not a problem.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = oldCh.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -1964,7 +1964,7 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 	appName := "mywp"
 
 	app := s.AddTestingApplication(c, appName, oldCh)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// just before setting the unit charm url, switch the application
@@ -1992,7 +1992,7 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 	appName := "mywp"
 
 	app := s.AddTestingApplication(c, appName, oldCh)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// just before updating the app charm url, set that charm url on
@@ -2056,7 +2056,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 
 	// Trying to destroy the app while there is an offer
 	// succeeds when that offer has no connections
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
@@ -2110,7 +2110,7 @@ func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
@@ -2192,7 +2192,7 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
 	// Check state consistency by attempting to destroy the application.
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -2233,7 +2233,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:minion")
 
 	// Check state consistency by attempting to destroy the application.
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -2461,7 +2461,7 @@ func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 	c.Assert(testch.URL(), gc.DeepEquals, s.charm.URL())
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 }
@@ -2499,9 +2499,9 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 
 	// Make the application Dying and check that ClearExposed and MergeExposeSettings fail.
 	// TODO(fwereade): maybe application destruction should always unexpose?
-	u, err := s.mysql.AddUnit(state.AddUnitParams{})
+	u, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.ClearExposed()
@@ -2651,7 +2651,7 @@ func (s *ApplicationSuite) TestApplicationUnsetExposeEndpoints(c *gc.C) {
 func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	// Check that principal units can be added on their own.
 	c.Assert(s.mysql.UnitCount(), gc.Equals, 0)
-	unitZero, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unitZero, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2661,14 +2661,14 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, s.State.ModelUUID())
 
-	unitOne, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unitOne, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitOne.Name(), gc.Equals, "mysql/1")
 	c.Assert(unitOne.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitOne.SubordinateNames(), gc.HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2677,7 +2677,7 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	// to add a subordinate unit.
 	subCharm := s.AddTestingCharm(c, "logging")
 	logging := s.AddTestingApplication(c, "logging", subCharm)
-	_, err = logging.AddUnit(state.AddUnitParams{})
+	_, err = logging.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "logging": application is a subordinate`)
 
 	// Indirectly create a subordinate unit by adding a relation and entering
@@ -2688,7 +2688,7 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(unitZero)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	subZero, err := s.State.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2705,17 +2705,17 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
-	u, err := s.mysql.AddUnit(state.AddUnitParams{})
+	u, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
-	_, err = s.mysql.AddUnit(state.AddUnitParams{})
+	_, err = s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not found or not alive`)
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(u.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
-	_, err = s.mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
+	_, err = s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application "mysql" not found`)
 }
 
@@ -2729,7 +2729,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
-	unitZero, err := app.AddUnit(state.AddUnitParams{})
+	unitZero, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitZero.Name(), gc.Equals, "gitlab/0")
 	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
@@ -2801,16 +2801,16 @@ func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitWithProviderIdNonCAASModel(c *gc.C) {
-	u, err := s.mysql.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id")})
+	u, err := s.mysql.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = u.ContainerInfo()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestReadUnit(c *gc.C) {
-	_, err := s.mysql.AddUnit(state.AddUnitParams{})
+	_, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.mysql.AddUnit(state.AddUnitParams{})
+	_, err = s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that retrieving a unit from state works correctly.
@@ -2836,10 +2836,10 @@ func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
 	store := state.NewObjectStore(c, s.State.ModelUUID())
 
 	// Test that we can still read units when the application is Dying...
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
-	err = s.mysql.Destroy(store)
+	err = s.mysql.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	_, err = s.mysql.AllUnits()
@@ -2863,7 +2863,7 @@ func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroySimple(c *gc.C) {
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
@@ -2880,7 +2880,7 @@ func (s *ApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(agentInfo), gc.Equals, 2)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentInfo, err = s.mysql.StatusHistory(filter)
@@ -2891,9 +2891,9 @@ func (s *ApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
 
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(objectStore)
+	err = s.mysql.Destroy(objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
@@ -2902,7 +2902,7 @@ func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	c.Assert(unit.Remove(objectStore), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -2910,14 +2910,14 @@ func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
 
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(objectStore)
+	err = s.mysql.Destroy(objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
@@ -2927,7 +2927,7 @@ func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
 
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2936,7 +2936,7 @@ func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	err = unit.Remove(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(objectStore)
+	err = s.mysql.Destroy(objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
@@ -2946,10 +2946,10 @@ func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
 
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(objectStore)
+	err = s.mysql.Destroy(objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
@@ -2964,7 +2964,7 @@ func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	c.Assert(unit.Remove(objectStore), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -2978,7 +2978,7 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 
 	// Destroy a application with no units in relation scope; check application and
 	// unit removed.
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2994,7 +2994,7 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
-	unit0, err := app.AddUnit(state.AddUnitParams{})
+	unit0, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	portRangesUnit0, err := unit0.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3006,7 +3006,7 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portRangesUnit0.UniquePortRanges(), gc.HasLen, 2)
 
-	unit1, err := app.AddUnit(state.AddUnitParams{})
+	unit1, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	portRangesUnit1, err := unit1.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3063,14 +3063,14 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
-	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
 	st, app := s.addCAASSidecarApplication(c)
 	defer st.Close()
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	portRanges, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3141,7 +3141,7 @@ func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
-	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3169,21 +3169,21 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a separate reference to the first relation.
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel0.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Optionally update the application document to get correct relation counts.
 	if refresh {
-		err = s.mysql.Destroy(objectStore)
+		err = s.mysql.Destroy(objectStore, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Destroy, and check that the first relation becomes Dying...
-	c.Assert(s.mysql.Destroy(objectStore), jc.ErrorIsNil)
+	c.Assert(s.mysql.Destroy(objectStore, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	err = rel0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel0.Life(), gc.Equals, state.Dying)
@@ -3195,7 +3195,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	// Drop the last reference to the first relation; check the relation and
 	// the application are are both removed.
 	c.Assert(ru.LeaveScope(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rel0.Refresh()
@@ -3208,7 +3208,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	// Add 5 units; block quick-remove of mysql/1 and mysql/3
 	units := make([]*state.Unit, 5)
 	for i := range units {
-		unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+		unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 		if i%2 != 0 {
@@ -3219,7 +3219,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Destroy mysql, and check units are not touched.
-	err := s.mysql.Destroy(objectStore)
+	err := s.mysql.Destroy(objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	for _, unit := range units {
@@ -3229,7 +3229,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Run the cleanup and check the units.
-	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	for i, unit := range units {
 		if i%2 != 0 {
@@ -3241,7 +3241,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 
 	// Check for queued unit cleanups, and run them.
 	s.assertNeedsCleanup(c)
-	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
@@ -3251,17 +3251,17 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
 
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
 
-	c.Assert(s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+	c.Assert(s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 	assertLife(c, s.mysql, state.Dying)
 
 	// Application.Destroy adds units to cleanup, make it happen now.
-	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), gc.IsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), gc.IsNil)
 
 	c.Assert(unit.Refresh(), jc.ErrorIs, errors.NotFound)
 	assertLife(c, machine, state.Dying)
@@ -3306,7 +3306,7 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesSecretPermissions(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, secrets.RoleView)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.SecretAccess(uri, s.mysql.Tag())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -3327,7 +3327,7 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedSecrets(c *gc.C) {
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -3340,7 +3340,7 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedSecrets(c *gc.C) {
 
 func (s *ApplicationSuite) TestDestroyNoRemoveKeepsOwnedSecrets(c *gc.C) {
 	// Create a relation so destroy does not remove.
-	_, err := s.mysql.AddUnit(state.AddUnitParams{})
+	_, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlep, err := s.mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -3365,7 +3365,7 @@ func (s *ApplicationSuite) TestDestroyNoRemoveKeepsOwnedSecrets(c *gc.C) {
 	_, err = store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3379,19 +3379,19 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetCharmURL(ch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(app.Destroy(objectStore), gc.IsNil)
+	c.Assert(app.Destroy(objectStore, status.NoopStatusHistoryRecorder), gc.IsNil)
 	assertLife(c, app, state.Dying)
 	assertCleanupCount(c, s.State, 2)
 
 	// These next API calls are normally done by the uniter.
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(u.Remove(objectStore), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
@@ -3425,7 +3425,7 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesAppFromActiveBranches(c 
 	c.Assert(ok, jc.IsTrue)
 
 	// destroy the app
-	c.Assert(app.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+	c.Assert(app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 	assertRemoved(c, s.State, app)
 
 	// Check the branch
@@ -3441,7 +3441,7 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 
 	s.assertNoCleanup(c)
 
-	err := s.mysql.Destroy(objectStore)
+	err := s.mysql.Destroy(objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3449,7 +3449,7 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Run the cleanup
-	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check charm removed
@@ -3475,7 +3475,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	c.Assert(objectstoretesting.IsBlobStored(c, store, storagePath), jc.IsTrue)
 
 	// Detroy the application.
-	err = s.mysql.Destroy(store)
+	err = s.mysql.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3484,7 +3484,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	c.Assert(objectstoretesting.IsBlobStored(c, store, storagePath), jc.IsTrue)
 
 	// Run the cleanup.
-	err = s.State.Cleanup(context.Background(), store, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), store, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
@@ -3503,7 +3503,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	c.Assert(outRes.IsPlaceholder(), jc.IsTrue)
 
 	// Detroy the application.
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3514,7 +3514,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// Check that reading a unit after removing the application
 	// fails nicely.
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 	_, err = s.State.Unit("mysql/0")
@@ -3550,7 +3550,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 
 	// Destroy the existing application; there's no way to directly assert
 	// that the constraints are deleted...
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3583,7 +3583,7 @@ func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
 
 	// Destroy the existing application; there's no way to directly assert
 	// that the constraints are deleted...
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3627,9 +3627,9 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
 
 	// Dying.
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 
@@ -3645,7 +3645,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	// Removed (== Dead, for a application).
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(unit.Remove(objectStore), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
 	_, err = s.mysql.Constraints()
@@ -3666,29 +3666,29 @@ func (s *ApplicationSuite) TestSubordinateConstraints(c *gc.C) {
 func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 	store := state.NewObjectStore(c, s.State.ModelUUID())
 	// Alive unit...
-	alive, err := s.mysql.AddUnit(state.AddUnitParams{})
+	alive, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dying unit...
-	dying, err := s.mysql.AddUnit(state.AddUnitParams{})
+	dying, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, dying)
-	err = dying.Destroy(store)
+	err = dying.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead unit...
-	dead, err := s.mysql.AddUnit(state.AddUnitParams{})
+	dead, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, dead)
-	err = dead.Destroy(store)
+	err = dead.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dead.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Gone unit.
-	gone, err := s.mysql.AddUnit(state.AddUnitParams{})
+	gone, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = gone.Destroy(store)
+	err = gone.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except gone unit are reported in initial event.
@@ -3699,7 +3699,7 @@ func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
-	err = alive.Destroy(store)
+	err = alive.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3721,19 +3721,19 @@ func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Create one unit, check one change.
-	quick, err := s.mysql.AddUnit(state.AddUnitParams{})
+	quick, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(quick.Name())
 	wc.AssertNoChange()
 
 	// Destroy that unit (short-circuited to removal), check one change.
-	err = quick.Destroy(store)
+	err = quick.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(quick.Name())
 	wc.AssertNoChange()
 
 	// Create another, check one change.
-	slow, err := s.mysql.AddUnit(state.AddUnitParams{})
+	slow, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(slow.Name())
 	wc.AssertNoChange()
@@ -3743,7 +3743,7 @@ func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Make unit Dying, change detected.
-	err = slow.Destroy(store)
+	err = slow.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(slow.Name())
 	wc.AssertNoChange()
@@ -3793,7 +3793,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Destroy a relation; check change.
-	err = rel0.Destroy(nil)
+	err = rel0.Destroy(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel0.String())
 	wc.AssertNoChange()
@@ -3811,11 +3811,11 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a unit to the new relation; check no change.
-	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	ru2, err := rel2.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru2.EnterScope(nil)
+	err = ru2.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -3823,7 +3823,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	// changes.
 	err = rel2.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel2.Destroy(nil)
+	err = rel2.Destroy(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	rel3 := addRelation()
 	wc.AssertChange(rel2.String(), rel3.String())
@@ -3903,7 +3903,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	wc.AssertClosed()
 
 	// Remove application, start new watch, check single event.
-	err = application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// The destruction needs to have been processed by the txn watcher before the
 	// watcher in the test is started or the destroy notification may come through
@@ -4047,7 +4047,7 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 	})
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Adding a unit will cause the storage to be in-use.
-		_, err := app.AddUnit(state.AddUnitParams{})
+		_, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	cfg := state.SetCharmConfig{
@@ -4070,7 +4070,7 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+oneRequiredStorageMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoRequiredStorageMeta, 3)
 	app := s.AddTestingApplication(c, "test", oldCh)
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{
@@ -4092,7 +4092,7 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+oneRequiredStorageMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoOptionalStorageMeta, 3)
 	app := s.AddTestingApplication(c, "test", oldCh)
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{
@@ -4197,7 +4197,7 @@ func (s *ApplicationSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdd
 
 func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, application *state.Application) {
 	// Removing the application removes the bindings with it.
-	err := application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -4362,7 +4362,7 @@ peers:
 	deployedV = s.mysql.CharmModifiedVersion()
 
 	for i := 0; i < numOfUnits; i++ {
-		_, err = s.mysql.AddUnit(state.AddUnitParams{})
+		_, err = s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -4400,7 +4400,7 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", oldCharm)
 	// Add a unit so when we change the application's charm,
 	// the old charm isn't removed (due to a reference).
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetCharmURL(oldCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -4509,7 +4509,7 @@ func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(cfg, gc.DeepEquals, t.expect)
 		}
-		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -4541,7 +4541,7 @@ func (s *ApplicationSuite) TestUnitStatusesNoUnits(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUnitStatusesWithUnits(c *gc.C) {
-	u1, err := s.mysql.AddUnit(state.AddUnitParams{})
+	u1, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.SetStatus(status.StatusInfo{
 		Status: status.Maintenance,
@@ -4549,7 +4549,7 @@ func (s *ApplicationSuite) TestUnitStatusesWithUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// If Agent status is in error, we see that.
-	u2, err := s.mysql.AddUnit(state.AddUnitParams{})
+	u2, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u2.Agent().SetStatus(status.StatusInfo{
 		Status:  status.Error,
@@ -4589,9 +4589,9 @@ func sampleApplicationConfigSchema() environschema.Fields {
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationConfigWithDyingApplication(c *gc.C) {
-	_, err := s.mysql.AddUnit(state.AddUnitParams{})
+	_, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.UpdateApplicationConfig(config.ConfigAttributes{"title": "value"}, nil, sampleApplicationConfigSchema(), nil)
@@ -4646,14 +4646,14 @@ func (s *CAASApplicationSuite) TestUpdateCAASUnitsApplicationNotALive(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
-	existingUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("unit-uuid")})
+	existingUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("unit-uuid")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	removedUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("removed-unit-uuid")})
+	removedUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("removed-unit-uuid")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	noContainerUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("never-cloud-container")})
+	noContainerUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("never-cloud-container")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	if !aliveApp {
-		err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -4672,7 +4672,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 				Status:  status.Running,
 				Message: "new container running",
 			},
-		}),
+		}, status.NoopStatusHistoryRecorder),
 		s.app.AddOperation(state.UnitUpdateProperties{
 			ProviderId: strPtr("add-never-cloud-container"),
 			AgentStatus: &status.StatusInfo{
@@ -4684,7 +4684,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 				Status:  status.Active,
 				Message: "unit active",
 			},
-		}),
+		}, status.NoopStatusHistoryRecorder),
 	}
 	updateUnits.Updates = []*state.UpdateUnitOperation{
 		noContainerUnit.UpdateOperation(state.UnitUpdateProperties{
@@ -4695,6 +4695,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 				Status:  status.Active,
 				Message: "unit active",
 			},
+			Recorder: status.NoopStatusHistoryRecorder,
 		}),
 		existingUnit.UpdateOperation(state.UnitUpdateProperties{
 			ProviderId: strPtr("unit-uuid"),
@@ -4708,6 +4709,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 				Status:  status.Running,
 				Message: "existing container running",
 			},
+			Recorder: status.NoopStatusHistoryRecorder,
 		})}
 	err = s.app.UpdateUnits(&updateUnits)
 	if !aliveApp {
@@ -4867,7 +4869,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 }
 
 func (s *CAASApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
-	u, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id")})
+	u, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id")}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := u.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4910,7 +4912,7 @@ func (s *CAASApplicationSuite) TestRemoveApplicationDeletesServiceInfo(c *gc.C) 
 
 	err := s.app.UpdateCloudService("id", addrs)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.ClearResources()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5002,7 +5004,7 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -5033,7 +5035,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 	wc.AssertClosed()
 
 	// Remove service by removing app, start new watch, check single event.
-	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = cloudSvc.Watch()
@@ -5097,7 +5099,7 @@ func (s *CAASApplicationSuite) TestClearResources(c *gc.C) {
 	c.Assert(state.GetApplicationHasResources(s.app), jc.IsTrue)
 	err := s.app.ClearResources()
 	c.Assert(err, gc.ErrorMatches, `application "gitlab" is alive`)
-	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertCleanupCount(c, s.caasSt, 1)
 
@@ -5112,7 +5114,7 @@ func (s *CAASApplicationSuite) TestClearResources(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestDestroySimple(c *gc.C) {
-	err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// App not removed since cluster resources not cleaned up yet.
 	c.Assert(s.app.Life(), gc.Equals, state.Dead)
@@ -5137,9 +5139,9 @@ func (s *CAASApplicationSuite) TestForceDestroyQueuesForceCleanup(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.Life(), gc.Equals, state.Dying)
 
@@ -5153,14 +5155,14 @@ func (s *CAASApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.Life(), gc.Equals, state.Dead)
 	// App not removed since cluster resources not cleaned up yet.
@@ -5168,7 +5170,7 @@ func (s *CAASApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5177,7 +5179,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.Life(), gc.Equals, state.Dead)
 	// App not removed since cluster resources not cleaned up yet.
@@ -5185,10 +5187,10 @@ func (s *CAASApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.Life(), gc.Equals, state.Dying)
 	assertLife(c, s.app, state.Dying)
@@ -5214,7 +5216,7 @@ func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 
 	// Destroy a application with no units in relation scope; check application and
 	// unit removed.
-	err = mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5249,21 +5251,21 @@ func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refr
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a separate reference to the first relation.
-	unit, err := mysql.AddUnit(state.AddUnitParams{})
+	unit, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel0.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Optionally update the application document to get correct relation counts.
 	if refresh {
-		err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Destroy, and check that the first relation becomes Dying...
-	c.Assert(s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	assertLife(c, rel0, state.Dying)
 
 	// ...while the second is removed directly.
@@ -5285,7 +5287,7 @@ func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	// Add 5 units; block quick-remove of gitlab/1 and gitlab/3
 	units := make([]*state.Unit, 5)
 	for i := range units {
-		unit, err := s.app.AddUnit(state.AddUnitParams{})
+		unit, err := s.app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 		if i%2 != 0 {
@@ -5299,7 +5301,7 @@ func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	assertDoesNotNeedCleanup(c, s.caasSt)
 
 	// Destroy gitlab, and check units are not touched.
-	err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.app, state.Dying)
 	for _, unit := range units {
@@ -5374,7 +5376,7 @@ func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
 				Channel: "22.04/stable",
 			},
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `.*charm does not define any bases`)
 }
 
@@ -5396,7 +5398,7 @@ func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "riak"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
@@ -5409,7 +5411,7 @@ func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 func (s *ApplicationSuite) TestCAASSidecarCharm(c *gc.C) {
 	st, app := s.addCAASSidecarApplication(c)
 	defer st.Close()
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sidecar, err := unit.IsSidecar()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5495,7 +5497,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 		Name:        "mysql-testing",
 		Charm:       ch3,
 		CharmOrigin: origin,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(appSameCharm.Name())
 	origin.ID = "charm-hub-id"
@@ -5655,15 +5657,16 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 		OrderedScale:              true,
 		OrderedId:                 0,
 		ObservedAttachedVolumeIDs: []string{"pv-database-0"},
+		Recorder:                  status.NoopStatusHistoryRecorder,
 	}
-	unit, err := cockroachdb.UpsertCAASUnit(p)
+	unit, err := cockroachdb.UpsertCAASUnit(p, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `unrequired unit cockroachdb/0 is not assigned`)
 	c.Assert(unit, gc.IsNil)
 
 	err = cockroachdb.SetScale(1, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err = cockroachdb.UpsertCAASUnit(p)
+	unit, err = cockroachdb.UpsertCAASUnit(p, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit, gc.NotNil)
 	c.Assert(unit.UnitTag().Id(), gc.Equals, "cockroachdb/0")
@@ -5674,7 +5677,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(containerInfo.Ports(), jc.SameContents, []string{"80", "443"})
 	c.Assert(containerInfo.Address().Value, gc.Equals, "1.2.3.4")
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = sb.DetachStorage(storageTag, unit.UnitTag(), false, 0)
@@ -5693,17 +5696,17 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit2, err := cockroachdb.UpsertCAASUnit(p)
+	unit2, err := cockroachdb.UpsertCAASUnit(p, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `dead unit "cockroachdb/0" already exists`)
 	c.Assert(unit2, gc.IsNil)
 
 	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = st.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err = cockroachdb.UpsertCAASUnit(p)
+	unit, err = cockroachdb.UpsertCAASUnit(p, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit, gc.NotNil)
 	c.Assert(unit.UnitTag().Id(), gc.Equals, "cockroachdb/0")

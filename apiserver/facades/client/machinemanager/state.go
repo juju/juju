@@ -41,9 +41,9 @@ type Backend interface {
 	Unit(string) (Unit, error)
 	Model() (Model, error)
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
-	AddOneMachine(template state.MachineTemplate) (Machine, error)
-	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (Machine, error)
-	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (Machine, error)
+	AddOneMachine(template state.MachineTemplate, recorder status.StatusHistoryRecorder) (Machine, error)
+	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType, recorder status.StatusHistoryRecorder) (Machine, error)
+	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType, recorder status.StatusHistoryRecorder) (Machine, error)
 	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
@@ -80,7 +80,7 @@ type Machine interface {
 	Tag() names.Tag
 	SetPassword(string) error
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
-	Destroy(objectstore.ObjectStore) error
+	Destroy(objectstore.ObjectStore, status.StatusHistoryRecorder) error
 	ForceDestroy(time.Duration) error
 	Base() state.Base
 	Containers() ([]string, error)
@@ -137,18 +137,18 @@ func (s stateShim) Machine(name string) (Machine, error) {
 	}, nil
 }
 
-func (s stateShim) AddOneMachine(template state.MachineTemplate) (Machine, error) {
-	m, err := s.State.AddOneMachine(s.prechcker, template)
+func (s stateShim) AddOneMachine(template state.MachineTemplate, recorder status.StatusHistoryRecorder) (Machine, error) {
+	m, err := s.State.AddOneMachine(s.prechcker, template, recorder)
 	return machineShim{Machine: m}, err
 }
 
-func (s stateShim) AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (Machine, error) {
-	m, err := s.State.AddMachineInsideNewMachine(s.prechcker, template, parentTemplate, containerType)
+func (s stateShim) AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType, recorder status.StatusHistoryRecorder) (Machine, error) {
+	m, err := s.State.AddMachineInsideNewMachine(s.prechcker, template, parentTemplate, containerType, recorder)
 	return machineShim{Machine: m}, err
 }
 
-func (s stateShim) AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (Machine, error) {
-	m, err := s.State.AddMachineInsideMachine(template, parentId, containerType)
+func (s stateShim) AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType, recorder status.StatusHistoryRecorder) (Machine, error) {
+	m, err := s.State.AddMachineInsideMachine(template, parentId, containerType, recorder)
 	return machineShim{Machine: m}, err
 }
 

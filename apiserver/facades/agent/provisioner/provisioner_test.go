@@ -86,7 +86,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		s.machines = append(s.machines, testing.AddControllerMachine(c, st))
 	}
 	for i := 0; i < 5; i++ {
-		machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -241,7 +241,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	}
 	var containers []*state.Machine
 	for i := 0; i < 3; i++ {
-		container, err := st.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD)
+		container, err := st.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 		c.Check(err, jc.ErrorIsNil)
 		containers = append(containers, container)
 	}
@@ -985,7 +985,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: name}),
 		})
 		for _, m := range machines {
-			unit, err := app.AddUnit(state.AddUnitParams{})
+			unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1017,7 +1017,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 
 	// Add a few controllers, provision two of them.
 	st := s.ControllerModel(c).State()
-	_, _, err = st.EnableHA(state.NoopInstancePrechecker{}, 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = st.EnableHA(state.NoopInstancePrechecker{}, 3, constraints.Value{}, state.UbuntuBase("12.10"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1033,7 +1033,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1127,7 +1127,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: name}),
 		})
 		for _, m := range machines {
-			unit, err := app.AddUnit(state.AddUnitParams{})
+			unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1157,7 +1157,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, _, err = s.ControllerModel(c).State().EnableHA(s.InstancePrechecker(c, s.ControllerModel(c).State()), 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = s.ControllerModel(c).State().EnableHA(s.InstancePrechecker(c, s.ControllerModel(c).State()), 3, constraints.Value{}, state.UbuntuBase("12.10"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1251,7 +1251,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	}
-	consMachine, err := s.ControllerModel(c).State().AddOneMachine(s.InstancePrechecker(c, s.ControllerModel(c).State()), template)
+	consMachine, err := s.ControllerModel(c).State().AddOneMachine(s.InstancePrechecker(c, s.ControllerModel(c).State()), template, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine0Constraints, err := s.machines[0].Constraints()
@@ -1304,7 +1304,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Size: 1000},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{

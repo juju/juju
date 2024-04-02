@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -55,7 +56,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 
 	// add machine for testing machine agent authentication
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +75,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.unit = unit
 	password, err = internalpassword.RandomPassword()

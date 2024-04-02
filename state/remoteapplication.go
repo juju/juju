@@ -442,7 +442,7 @@ func (a *RemoteApplication) SetStatus(info status.StatusInfo, recorder status.St
 // TerminateOperation returns a ModelOperation that will terminate this
 // remote application when applied, ensuring that all units have left
 // scope as well.
-func (a *RemoteApplication) TerminateOperation(message string) ModelOperation {
+func (a *RemoteApplication) TerminateOperation(message string, historyRecorder status.StatusHistoryRecorder) ModelOperation {
 	return &terminateRemoteApplicationOperation{
 		app: a,
 		doc: statusDoc{
@@ -450,7 +450,7 @@ func (a *RemoteApplication) TerminateOperation(message string) ModelOperation {
 			StatusInfo: message,
 			Updated:    a.st.clock().Now().UnixNano(),
 		},
-		recorder: status.NoopStatusHistoryRecorder,
+		recorder: historyRecorder,
 	}
 }
 

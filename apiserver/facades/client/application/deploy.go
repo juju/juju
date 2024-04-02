@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/storage"
@@ -58,7 +59,7 @@ type DeployApplicationParams struct {
 }
 
 type ApplicationDeployer interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore, status.StatusHistoryRecorder) (Application, error)
 	ControllerConfig() (controller.Config, error)
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
@@ -67,7 +68,7 @@ type ApplicationDeployer interface {
 }
 
 type UnitAdder interface {
-	AddUnit(state.AddUnitParams) (Unit, error)
+	AddUnit(state.AddUnitParams, status.StatusHistoryRecorder) (Unit, error)
 }
 
 // MachineService instances save a machine to dqlite state.
@@ -89,6 +90,7 @@ func DeployApplication(
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
+	recorder status.StatusHistoryRecorder,
 ) (Application, error) {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
@@ -159,7 +161,7 @@ func DeployApplication(
 		n := fmt.Sprintf("%s/%d", args.ApplicationName, nextUnitNum+i)
 		unitArgs[i].UnitName = &n
 	}
-	app, err := st.AddApplication(asa, store)
+	app, err := st.AddApplication(asa, store, recorder)
 
 	// Dual write storage directives to dqlite.
 	if err == nil {
@@ -188,7 +190,7 @@ func (api *APIBase) addUnits(
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{
 			AttachStorage: attachStorage,
-		})
+		}, api.recorder)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}
@@ -203,11 +205,11 @@ func (api *APIBase) addUnits(
 
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {
-			if err := unit.AssignWithPolicy(policy); err != nil {
+			if err := unit.AssignWithPolicy(policy, api.recorder); err != nil {
 				return nil, errors.Trace(err)
 			}
 		} else {
-			if err := unit.AssignWithPlacement(placement[i]); err != nil {
+			if err := unit.AssignWithPlacement(placement[i], api.recorder); err != nil {
 				return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
 			}
 		}

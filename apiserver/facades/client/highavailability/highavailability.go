@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
@@ -63,6 +64,7 @@ type HighAvailabilityAPI struct {
 	controllerConfig   ControllerConfigGetter
 	authorizer         facade.Authorizer
 	logger             loggo.Logger
+	recorder           status.StatusHistoryRecorder
 }
 
 // HighAvailabilityAPIV2 implements v2 of the high availability facade.
@@ -152,7 +154,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 
 	// Might be nicer to pass the spec itself to this method.
-	changes, addedUnits, err := st.EnableHA(api.prechecker, spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
+	changes, addedUnits, err := st.EnableHA(api.prechecker, spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement, api.recorder)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}

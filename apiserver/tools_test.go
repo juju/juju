@@ -27,6 +27,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -195,7 +196,7 @@ func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
 func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	// Add a machine and try to login.
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)

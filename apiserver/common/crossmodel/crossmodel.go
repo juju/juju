@@ -31,7 +31,7 @@ var (
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
-func PublishRelationChange(auth authoriser, backend Backend, recorder status.StatusHistoryRecorder, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent) error {
+func PublishRelationChange(auth authoriser, backend Backend, recorder status.StatusHistoryRecorder, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent, historyRecorder status.StatusHistoryRecorder) error {
 	logger.Debugf("publish into model %v change for %v on %v: %#v", backend.ModelUUID(), relationTag, applicationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
@@ -76,7 +76,7 @@ func PublishRelationChange(auth authoriser, backend Backend, recorder status.Sta
 			// If we are forcing cleanup, we can exit early here.
 			return errors.Trace(err)
 		}
-		if err := rel.Destroy(nil); err != nil {
+		if err := rel.Destroy(nil, historyRecorder); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -103,7 +103,7 @@ func PublishRelationChange(auth authoriser, backend Backend, recorder status.Sta
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(handleChangedUnits(change, applicationTag, rel))
+	return errors.Trace(handleChangedUnits(change, applicationTag, rel, recorder))
 }
 
 type authoriser interface {
@@ -199,7 +199,7 @@ func handleDepartedUnits(backend Backend, change params.RemoteRelationChangeEven
 	return nil
 }
 
-func handleChangedUnits(change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
+func handleChangedUnits(change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation, recorder status.StatusHistoryRecorder) error {
 	for _, change := range change.ChangedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), change.UnitId))
 		logger.Debugf("changed unit tag for unit id %v is %v", change.UnitId, unitTag)
@@ -217,7 +217,7 @@ func handleChangedUnits(change params.RemoteRelationChangeEvent, applicationTag 
 		}
 		if !inScope {
 			logger.Debugf("%s entering scope (%v)", unitTag.Id(), settings)
-			err = ru.EnterScope(settings)
+			err = ru.EnterScope(settings, recorder)
 		} else {
 			logger.Debugf("%s updated settings (%v)", unitTag.Id(), settings)
 			err = ru.ReplaceSettings(settings)

@@ -11,6 +11,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -106,6 +107,7 @@ func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit)
 	providerID := fmt.Sprintf("controller-%d", controllerUnit.UnitTag().Number())
 	op := controllerUnit.UpdateOperation(state.UnitUpdateProperties{
 		ProviderId: &providerID,
+		Recorder:   status.NoopStatusHistoryRecorder,
 	})
 
 	if err := d.operationApplier.ApplyOperation(op); err != nil {

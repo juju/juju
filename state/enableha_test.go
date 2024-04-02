@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -32,7 +33,7 @@ func (s *EnableHASuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestHasVote(c *gc.C) {
-	controller, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	controller, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	node, err := s.State.ControllerNode(controller.Id())
@@ -68,23 +69,23 @@ func (s *EnableHASuite) TestHasVote(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHAFailsWithBadCount(c *gc.C) {
 	for _, n := range []int{-1, 2, 6} {
-		changes, units, err := s.State.EnableHA(defaultInstancePrechecker, n, constraints.Value{}, state.Base{}, nil)
+		changes, units, err := s.State.EnableHA(defaultInstancePrechecker, n, constraints.Value{}, state.Base{}, nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, gc.ErrorMatches, "number of controllers must be odd and non-negative")
 		c.Assert(changes.Added, gc.HasLen, 0)
 		c.Assert(units, gc.HasLen, 0)
 	}
-	_, _, err := s.State.EnableHA(defaultInstancePrechecker, controller.MaxPeers+2, constraints.Value{}, state.Base{}, nil)
+	_, _, err := s.State.EnableHA(defaultInstancePrechecker, controller.MaxPeers+2, constraints.Value{}, state.Base{}, nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `controller count is too large \(allowed \d+\)`)
 }
 
 func (s *EnableHASuite) TestEnableHAAddsNewMachines(c *gc.C) {
 	ids := make([]string, 3)
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	ids[0] = m0.Id()
 
 	// Add a non-controller machine just to make sure.
-	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits)
+	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertControllerInfo(c, []string{"0"}, []string{"0"}, nil)
@@ -92,7 +93,7 @@ func (s *EnableHASuite) TestEnableHAAddsNewMachines(c *gc.C) {
 	cons := constraints.Value{
 		Mem: newUint64(100),
 	}
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, cons, state.UbuntuBase("18.04"), nil)
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, cons, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	c.Assert(units, jc.SameContents, []string{"controller/0", "controller/1"})
@@ -116,7 +117,7 @@ func (s *EnableHASuite) TestEnableHAAddsNewMachines(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestEnableHAAddsControllerCharm(c *gc.C) {
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	c.Assert(units, jc.SameContents, []string{"controller/0", "controller/1", "controller/2"})
@@ -134,9 +135,9 @@ func (s *EnableHASuite) TestEnableHAAddsControllerCharm(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestEnableHAAddsControllerCharmToPromoted(c *gc.C) {
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), []string{"0"})
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), []string{"0"}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	c.Assert(changes.Converted, gc.HasLen, 1)
@@ -159,20 +160,20 @@ func (s *EnableHASuite) TestEnableHAAddsControllerCharmToPromoted(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHATo(c *gc.C) {
 	ids := make([]string, 3)
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	ids[0] = m0.Id()
 
 	// Add two non-controller machines.
-	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits)
+	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits)
+	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertControllerInfo(c, []string{"0"}, []string{"0"}, nil)
 
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), []string{"1", "2"})
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), []string{"1", "2"}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 0)
 	c.Assert(changes.Converted, gc.HasLen, 2)
@@ -198,17 +199,17 @@ func (s *EnableHASuite) TestEnableHATo(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHAToPartial(c *gc.C) {
 	ids := make([]string, 3)
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	ids[0] = m0.Id()
 
 	// Add one non-controller machine.
-	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits)
+	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertControllerInfo(c, []string{"0"}, []string{"0"}, nil)
 
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), []string{"1"})
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), []string{"1"}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// One machine is converted (existing machine with placement),
@@ -264,7 +265,7 @@ func (s *EnableHASuite) assertControllerInfo(c *gc.C, expectedIds []string, want
 
 func (s *EnableHASuite) TestEnableHASamePlacementAsNewCount(c *gc.C) {
 	placement := []string{"p1", "p2", "p3"}
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), placement)
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), placement, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, []string{"p1", "p2", "p3"})
@@ -273,7 +274,7 @@ func (s *EnableHASuite) TestEnableHASamePlacementAsNewCount(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHAMorePlacementThanNewCount(c *gc.C) {
 	placement := []string{"p1", "p2", "p3", "p4"}
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), placement)
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), placement, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, []string{"p1", "p2", "p3"})
@@ -282,7 +283,7 @@ func (s *EnableHASuite) TestEnableHAMorePlacementThanNewCount(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHALessPlacementThanNewCount(c *gc.C) {
 	placement := []string{"p1", "p2"}
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), placement)
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), placement, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, []string{"p1", "p2"})
@@ -291,14 +292,14 @@ func (s *EnableHASuite) TestEnableHALessPlacementThanNewCount(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHAMockBootstrap(c *gc.C) {
 	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	c.Assert(changes.Maintained, gc.DeepEquals, []string{"0"})
@@ -307,14 +308,14 @@ func (s *EnableHASuite) TestEnableHAMockBootstrap(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestEnableHADefaultsTo3(c *gc.C) {
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
 	c.Assert(units, jc.SameContents, []string{"controller/0", "controller/1", "controller/2"})
 	// Mark machine 0 as being removed, and then run it again
 	s.progressControllerToDead(c, "0")
-	changes, units, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, units, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.DeepEquals, []string{"3"})
 	c.Assert(units, jc.SameContents, []string{"controller/3"})
@@ -359,7 +360,7 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 	node, err := s.State.ControllerNode(id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("destroying machine 0")
-	c.Assert(m.Destroy(nil), jc.ErrorIsNil)
+	c.Assert(m.Destroy(nil, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Check(node.WantsVote(), jc.IsFalse)
 	// Pretend to be the peergrouper, notice the machine doesn't want to vote, so get rid of its vote, and remove it
@@ -368,12 +369,12 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 	// TODO(HA) - no longer need to refresh once HasVote is moved off machine
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(m.EnsureDead(), jc.ErrorIsNil)
 }
 
 func (s *EnableHASuite) TestEnableHAGoesToNextOdd(c *gc.C) {
-	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, units, err := s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -388,31 +389,31 @@ func (s *EnableHASuite) TestEnableHAGoesToNextOdd(c *gc.C) {
 	// still bring us back to 3
 	s.progressControllerToDead(c, "0")
 	s.assertControllerInfo(c, []string{"1", "2"}, []string{"1", "2"}, nil)
-	changes, units, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, units, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// We should try to get back to 3 again, since we only have 2 voting machines
 	c.Check(changes.Added, gc.DeepEquals, []string{"3"})
 	s.assertControllerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"}, nil)
 	c.Assert(units, jc.SameContents, []string{"controller/3"})
 	// Doing it again with 0, should be a no-op, still going to '3'
-	changes, _, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 0)
 	s.assertControllerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"}, nil)
 	// Now if we go up to 5, and drop down to 4, we should again go to 5
-	changes, _, err = s.State.EnableHA(defaultInstancePrechecker, 5, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err = s.State.EnableHA(defaultInstancePrechecker, 5, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(changes.Added)
 	c.Check(changes.Added, gc.DeepEquals, []string{"4", "5"})
 	s.assertControllerInfo(c, []string{"1", "2", "3", "4", "5"}, []string{"1", "2", "3", "4", "5"}, nil)
 	s.progressControllerToDead(c, "1")
 	s.assertControllerInfo(c, []string{"2", "3", "4", "5"}, []string{"2", "3", "4", "5"}, nil)
-	changes, _, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.DeepEquals, []string{"6"})
 	s.assertControllerInfo(c, []string{"2", "3", "4", "5", "6"}, []string{"2", "3", "4", "5", "6"}, nil)
 	// And again 0 should be treated as 5, and thus a no-op
-	changes, _, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err = s.State.EnableHA(defaultInstancePrechecker, 0, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 0)
 	s.assertControllerInfo(c, []string{"2", "3", "4", "5", "6"}, []string{"2", "3", "4", "5", "6"}, nil)
@@ -420,7 +421,7 @@ func (s *EnableHASuite) TestEnableHAGoesToNextOdd(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHAConcurrentSame(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
-		changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+		changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		// The outer EnableHA call will allocate IDs 0..2,
 		// and the inner one 3..5.
@@ -429,7 +430,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentSame(c *gc.C) {
 		s.assertControllerInfo(c, expected, expected, nil)
 	}).Check()
 
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.DeepEquals, []string{"0", "1", "2"})
 	s.assertControllerInfo(c, []string{"3", "4", "5"}, []string{"3", "4", "5"}, nil)
@@ -441,7 +442,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentSame(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHAConcurrentLess(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
-		changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+		changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes.Added, gc.HasLen, 3)
 		// The outer EnableHA call will initially allocate IDs 0..4,
@@ -454,7 +455,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentLess(c *gc.C) {
 	// machines 0..4, and fail due to the concurrent change. It will then
 	// allocate machines 8..9 to make up the difference from the concurrent
 	// EnableHA call.
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 5, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 5, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	expected := []string{"5", "6", "7", "8", "9"}
@@ -467,7 +468,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentLess(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
-		changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 5, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+		changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 5, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes.Added, gc.HasLen, 5)
 		// The outer EnableHA call will allocate IDs 0..2,
@@ -480,7 +481,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 	// machines 0..2, and fail due to the concurrent change. It will then
 	// find that the number of voting machines in state is greater than
 	// what we're attempting to ensure, and fail.
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, "failed to enable HA with 3 controllers: cannot remove controllers with enable-ha, use remove-machine and chose the controller\\(s\\) to remove")
 	c.Assert(changes.Added, gc.HasLen, 0)
 
@@ -490,7 +491,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
-	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobManageModel)
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
@@ -509,7 +510,7 @@ func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
 		ControllerIds: []string{"0"},
 	})
 
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 
@@ -525,15 +526,15 @@ func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.Destroy(nil)
+	err = m0.Destroy(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	err = m0.Destroy(nil)
+	err = m0.Destroy(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	c.Check(m0.Life(), gc.Equals, state.Dying)
@@ -543,7 +544,7 @@ func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -552,7 +553,7 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	// ForceDestroy must be blocked if there is only 1 machine.
 	err = m0.ForceDestroy(dontWait)
 	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -566,9 +567,9 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -594,7 +595,7 @@ func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 		}
 	}).Check()
 	c.Logf("destroying machine 0")
-	err = m0.Destroy(nil)
+	err = m0.Destroy(nil, status.NoopStatusHistoryRecorder)
 	c.Check(err, gc.ErrorMatches, "controller 0 is the only controller")
 	c.Logf("attempted to destroy machine 0 finished")
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
@@ -606,7 +607,7 @@ func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -626,16 +627,16 @@ func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
-	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), state.JobManageModel)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("18.04"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	c.Assert(m0.Destroy(nil), jc.ErrorIsNil)
+	c.Assert(m0.Destroy(nil, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	err = s.State.RemoveControllerReference(node)
@@ -646,7 +647,7 @@ func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestRemoveControllerMachineVoteRace(c *gc.C) {
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -674,7 +675,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineVoteRace(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestRemoveControllerMachineRace(c *gc.C) {
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("18.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)

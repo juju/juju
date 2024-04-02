@@ -117,7 +117,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 			"foo-bar":   layerTwoSpace.Id(),  // extra-binding to L2
 			"":          wpDefaultSpace.Id(), // explicitly specified default space
 		},
-	}, testing.NewObjectStore(c, s.st.ModelUUID()))
+	}, testing.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
@@ -155,7 +155,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int, prechecker environs.InstancePrechecker) *state.Machine {
-	machine, err := s.st.AddMachine(prechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.st.AddMachine(prechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
@@ -266,7 +266,7 @@ func (s *uniterNetworkInfoSuite) addRelationAndAssertInScope(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	wpRelUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpRelUnit.EnterScope(nil)
+	err = wpRelUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
 }
@@ -451,7 +451,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	rel := s.addRelation(c, "mysql", "wordpress")
 	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
+	err = mysqlRelUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlRelUnit, true)
 
@@ -533,7 +533,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 	rel := s.addRelation(c, "mysql", "wordpress-remote")
 	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
+	err = mysqlRelUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlRelUnit, true)
 
@@ -602,7 +602,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	rel := s.addRelation(c, "mysql-default", "wordpress-remote")
 	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
+	err = mysqlRelUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlRelUnit, true)
 

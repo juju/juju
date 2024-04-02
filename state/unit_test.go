@@ -53,7 +53,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "wordpress")
 	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
 	var err error
-	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
+	s.unit, err = s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 	c.Assert(s.unit.ShouldBeAssigned(), jc.IsTrue)
@@ -647,7 +647,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// unreferenced and be removed. But I'm not testing that behaviour
 	// because it's not very helpful and subject to change.
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("")
 }
@@ -737,7 +737,7 @@ func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(s.unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	subUnit, err := s.State.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -747,7 +747,7 @@ func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	mid, err := u.AssignedMachineId()
 	if errors.Is(err, errors.NotAssigned) {
-		err = u.AssignToNewMachine(defaultInstancePrechecker)
+		err = u.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		mid, err = u.AssignedMachineId()
 	}
@@ -783,7 +783,7 @@ func (s *UnitSuite) TestAllAddresses(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -805,7 +805,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -827,7 +827,7 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -849,7 +849,7 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -886,7 +886,7 @@ func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -920,21 +920,21 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 
 	{
 		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 		result = append(result, tc)
 	}
 	{
 		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
-		colocated, err := s.application.AddUnit(state.AddUnitParams{})
+		colocated, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(colocated.AssignToMachine(tc.host), gc.IsNil)
 
@@ -942,14 +942,14 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has container", destroyed: false}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 			Base: state.UbuntuBase("12.10"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
-		}, tc.host.Id(), instance.LXD)
+		}, tc.host.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 
@@ -957,14 +957,14 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		_, _, err = s.State.EnableHA(defaultInstancePrechecker, 1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()})
+		_, _, err = s.State.EnableHA(defaultInstancePrechecker, 1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := s.State.ControllerNode(tc.host.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(node.SetHasVote(true), gc.IsNil)
-		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 
@@ -972,9 +972,9 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
-		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 		result = append(result, tc)
@@ -988,13 +988,13 @@ func (s *UnitSuite) TestRemoveUnitMachineFastForwardDestroy(c *gc.C) {
 		c.Log(tc.desc)
 		err := tc.host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(tc.target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+		c.Assert(tc.target.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 		if tc.destroyed {
 			assertLife(c, tc.host, state.Dying)
 			c.Assert(tc.host.EnsureDead(), gc.IsNil)
 		} else {
 			assertLife(c, tc.host, state.Alive)
-			c.Assert(tc.host.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.NotNil)
+			c.Assert(tc.host.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.NotNil)
 		}
 	}
 }
@@ -1005,7 +1005,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
 		err := tc.host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		preventUnitDestroyRemove(c, tc.target)
-		c.Assert(tc.target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+		c.Assert(tc.target.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 		c.Assert(tc.target.EnsureDead(), gc.IsNil)
 		assertLife(c, tc.host, state.Alive)
 		c.Assert(tc.target.Remove(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
@@ -1013,7 +1013,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
 			assertLife(c, tc.host, state.Dying)
 		} else {
 			assertLife(c, tc.host, state.Alive)
-			c.Assert(tc.host.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.NotNil)
+			c.Assert(tc.host.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.NotNil)
 		}
 	}
 }
@@ -1022,22 +1022,22 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	charmWithOut := s.AddTestingCharm(c, "mysql")
 	applicationWithOutProfile := s.AddTestingApplication(c, "mysql", charmWithOut)
 
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	target, err := s.application.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
-	colocated, err := applicationWithOutProfile.AddUnit(state.AddUnitParams{})
+	colocated, err := applicationWithOutProfile.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
-	c.Assert(colocated.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+	c.Assert(colocated.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 	assertLife(c, host, state.Alive)
 
-	c.Assert(host.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.NotNil)
+	c.Assert(host.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.NotNil)
 }
 
 func (s *UnitSuite) setControllerVote(c *gc.C, id string, hasVote bool) {
@@ -1056,14 +1056,14 @@ func (s *UnitSuite) demoteController(c *gc.C, m *state.Machine) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setControllerVote(c, host.Id(), true)
-	target, err := s.application.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	flip := jujutxn.TestHook{
@@ -1079,17 +1079,17 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.ErrorMatches, `cannot destroy unit "wordpress/1": state changing too quickly; try again soon`)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.ErrorMatches, `cannot destroy unit "wordpress/1": state changing too quickly; try again soon`)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.application.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
@@ -1097,18 +1097,18 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 		s.setControllerVote(c, host.Id(), true)
 	}).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 	assertLife(c, host, state.Alive)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.application.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	s.setControllerVote(c, host.Id(), true)
@@ -1117,14 +1117,14 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 		s.demoteController(c, host)
 	}, nil).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 	assertLife(c, host, state.Dying)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.application.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
@@ -1132,7 +1132,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 			machine, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Base: state.UbuntuBase("12.10"),
 				Jobs: []state.MachineJob{state.JobHostUnits},
-			}, host.Id(), instance.LXD)
+			}, host.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			assertLife(c, machine, state.Alive)
 
@@ -1145,23 +1145,23 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 		},
 	}).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 	assertLife(c, host, state.Alive)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(defaultInstancePrechecker, 1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.application.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
 	// This unit will be colocated in the transaction hook to cause a retry.
-	colocated, err := s.application.AddUnit(state.AddUnitParams{})
+	colocated, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.setControllerVote(c, host.Id(), true)
@@ -1178,7 +1178,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 		},
 	}).Check()
 
-	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
+	c.Assert(target.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), gc.IsNil)
 	assertLife(c, host, state.Alive)
 }
 
@@ -1187,25 +1187,25 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	mysqlCharm := s.AddTestingCharm(c, "mysql")
 	mysqlApp := s.AddTestingApplication(c, "mysql", mysqlCharm)
-	mysqlUnit, err := mysqlApp.AddUnit(state.AddUnitParams{})
+	mysqlUnit, err := mysqlApp.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysqlUnit.AssignToNewMachine(defaultInstancePrechecker), jc.ErrorIsNil)
+	c.Assert(mysqlUnit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	endpoints, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(endpoints...)
 	c.Assert(err, jc.ErrorIsNil)
 	relationUnit, err := rel.Unit(s.unit)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relationUnit.EnterScope(nil), jc.ErrorIsNil)
-	c.Assert(s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(relationUnit.EnterScope(nil, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
+	c.Assert(s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	assertLife(c, s.application, state.Dying)
-	c.Assert(s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	assertLife(c, s.unit, state.Dying)
 	assertLife(c, s.application, state.Dying)
 	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
 	assertLife(c, s.application, state.Dying)
 	c.Assert(s.unit.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	// Now the application should be gone
 	c.Assert(s.application.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -1262,7 +1262,7 @@ func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 }
 
 func (s *UnitSuite) TestSetCharmURLWithRemovedUnit(c *gc.C) {
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.unit)
 
@@ -1272,7 +1272,7 @@ func (s *UnitSuite) TestSetCharmURLWithRemovedUnit(c *gc.C) {
 
 func (s *UnitSuite) TestSetCharmURLWithDyingUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.unit, state.Dying)
 
@@ -1288,7 +1288,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDeadUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.unit.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1341,7 +1341,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+		err := s.unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1349,13 +1349,13 @@ func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 			Message: "",
 			Since:   &now,
 		}
-		err = s.unit.SetAgentStatus(sInfo)
+		err = s.unit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
 	}).Check()
 
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1367,7 +1367,7 @@ func (s *UnitSuite) TestDestroySetCharmRetry(c *gc.C) {
 		assertRemoved(c, s.State, s.unit)
 	}).Check()
 
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1386,12 +1386,12 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 		assertRemoved(c, s.State, s.unit)
 	}).Check()
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1407,12 +1407,12 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1424,7 +1424,7 @@ func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
 		assertRemoved(c, s.State, s.unit)
 	}).Check()
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1435,13 +1435,13 @@ func (s *UnitSuite) TestDestroyAssignErrorRetry(c *gc.C) {
 		Message: "failed to assign",
 		Since:   &now,
 	}
-	err := s.unit.SetAgentStatus(sInfo)
+	err := s.unit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+		err := s.unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1449,18 +1449,18 @@ func (s *UnitSuite) TestDestroyAssignErrorRetry(c *gc.C) {
 			Message: "",
 			Since:   &now,
 		}
-		err = s.unit.SetAgentStatus(sInfo)
+		err = s.unit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
 	}).Check()
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	// A unit that has not set any status is removed directly.
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.State, s.unit)
@@ -1473,9 +1473,9 @@ func (s *UnitSuite) TestShortCircuitDestroyUnitNotAssigned(c *gc.C) {
 		Status:  status.Error,
 		Message: "cannot assign",
 		Since:   &now,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.State, s.unit)
@@ -1484,16 +1484,16 @@ func (s *UnitSuite) TestShortCircuitDestroyUnitNotAssigned(c *gc.C) {
 func (s *UnitSuite) TestCannotShortCircuitDestroyAssignedUnit(c *gc.C) {
 	// This test is similar to TestShortCircuitDestroyUnitNotAssigned but
 	// the unit is assigned to a machine.
-	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+	err := s.unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	err = s.unit.SetAgentStatus(status.StatusInfo{
 		Status:  status.Error,
 		Message: "some error",
 		Since:   &now,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertLife(c, s.unit, state.Dying)
@@ -1504,15 +1504,15 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.AssignToNewMachine(defaultInstancePrechecker)
+	err = s.unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(s.unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertLife(c, s.unit, state.Dying)
@@ -1532,9 +1532,9 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		status.Rebooting, "blah",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
-		unit, err := s.application.AddUnit(state.AddUnitParams{})
+		unit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.AssignToNewMachine(defaultInstancePrechecker)
+		err = unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -1542,9 +1542,9 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 			Message: test.info,
 			Since:   &now,
 		}
-		err = unit.SetAgentStatus(sInfo)
+		err = unit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(unit.Life(), gc.Equals, state.Dying)
 		assertLife(c, unit, state.Dying)
@@ -1554,7 +1554,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	// A unit assigned to a provisioned machine is still removed directly so
 	// long as it has not set status.
-	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+	err := s.unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	mid, err := s.unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1562,14 +1562,14 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-malive", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.State, s.unit)
 }
 
 func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
-	err := s.unit.AssignToNewMachine(defaultInstancePrechecker)
+	err := s.unit.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	for i := 0; i < 10; i++ {
@@ -1578,7 +1578,7 @@ func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 			Message: fmt.Sprintf("status %d", i),
 			Since:   &now,
 		}
-		err := s.unit.SetAgentStatus(info)
+		err := s.unit.SetAgentStatus(info, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		info.Status = status.Active
 		err = s.unit.SetStatus(info, status.NoopStatusHistoryRecorder)
@@ -1601,7 +1601,7 @@ func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(versionInfo), jc.GreaterThan, 9)
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentInfo, err = s.unit.AgentHistory().StatusHistory(filter)
@@ -1626,7 +1626,7 @@ func assertRemoved(c *gc.C, st *state.State, entity state.Living) {
 	store := state.NewObjectStore(c, st.ModelUUID())
 
 	c.Assert(entity.Refresh(), jc.ErrorIs, errors.NotFound)
-	c.Assert(entity.Destroy(store), jc.ErrorIsNil)
+	c.Assert(entity.Destroy(store, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	if entity, ok := entity.(state.AgentLiving); ok {
 		c.Assert(entity.EnsureDead(), jc.ErrorIsNil)
 		if err := entity.Remove(store); err != nil {
@@ -1643,11 +1643,11 @@ func (s *UnitSuite) TestUnitsInError(c *gc.C) {
 		Status:  status.Error,
 		Message: "some error",
 		Since:   &now,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set a non unit error to ensure it's ignored.
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetStatus(status.StatusInfo{
 		Status:  status.Error,
@@ -1657,12 +1657,12 @@ func (s *UnitSuite) TestUnitsInError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a unit not in error to ensure it's ignored.
-	another, err := s.application.AddUnit(state.AddUnitParams{})
+	another, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = another.SetAgentStatus(status.StatusInfo{
 		Status: status.Allocating,
 		Since:  &now,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := s.State.UnitsInError()
@@ -1694,7 +1694,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 		Message: "gaaah",
 		Since:   &now,
 	}
-	err = s.unit.SetAgentStatus(sInfo)
+	err = s.unit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1749,7 +1749,7 @@ func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 	_, err := s.unit.OpenedPortRanges()
 	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotAssigned)
 
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1843,7 +1843,7 @@ func (s *UnitSuite) assertPortRangesAfterOpenClose(c *gc.C, u *state.Unit, openR
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1891,7 +1891,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1922,14 +1922,14 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
+	otherUnit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = otherUnit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1979,7 +1979,7 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	c.Assert(numDocs, gc.Equals, 1, gc.Commentf("expected a new document for the unit state to be created"))
 
 	// Destroy unit; this should also purge the state doc for the unit
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2038,7 +2038,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, secrets.RoleView)
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	access, err = s.State.SecretAccess(uri, unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2060,13 +2060,13 @@ func (s *UnitSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Create again, no label clash.
-	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
+	s.unit, err = s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	cp.Owner = s.unit.Tag()
 	_, err = store.CreateSecret(uri, cp)
@@ -2075,7 +2075,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 
 func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	_, err := mysql.AddUnit(state.AddUnitParams{})
+	_, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	store := state.NewSecrets(s.State)
@@ -2095,7 +2095,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
 	err = s.State.SaveSecretConsumer(uri, s.unit.UnitTag(), &secrets.SecretConsumerMetadata{CurrentRevision: 666})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.GetSecretConsumer(uri, s.unit.Tag())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2103,7 +2103,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2135,7 +2135,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ru, err := rel.Unit(s.unit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = ru.EnterScope(nil)
+		err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -2158,13 +2158,13 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 
 func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	// Check that units can become dead when they've never had subordinates.
-	u, err := s.application.AddUnit(state.AddUnitParams{})
+	u, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a new unit and add a subordinate.
-	u, err = s.application.AddUnit(state.AddUnitParams{})
+	u, err = s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2174,13 +2174,13 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the unit cannot become Dead, but can become Dying...
 	err = u.EnsureDead()
 	c.Assert(err, gc.Equals, stateerrors.ErrUnitHasSubordinates)
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ...and that it still can't become Dead now it's Dying.
@@ -2211,7 +2211,7 @@ func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(s.unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.unit.Refresh()
@@ -2242,7 +2242,7 @@ func (s *UnitSuite) TestConstraintsDefaultArchNotRelevant(c *gc.C) {
 	})
 	err := app.SetConstraints(constraints.MustParse("instance-type=big"))
 	c.Assert(err, jc.ErrorIsNil)
-	unit0, err := app.AddUnit(state.AddUnitParams{})
+	unit0, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := unit0.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2257,7 +2257,7 @@ func (s *UnitSuite) TestConstraintsDefaultArchNotRelevant(c *gc.C) {
 		}},
 		Constraints: constraints.MustParse("arch=s390x"),
 	})
-	unit1, err := app.AddUnit(state.AddUnitParams{})
+	unit1, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err = unit1.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2275,7 +2275,7 @@ func (s *UnitSuite) TestConstraintsDefaultArch(c *gc.C) {
 	})
 	err := app.SetConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, jc.ErrorIsNil)
-	unit0, err := app.AddUnit(state.AddUnitParams{})
+	unit0, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := unit0.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2285,7 +2285,7 @@ func (s *UnitSuite) TestConstraintsDefaultArch(c *gc.C) {
 func (s *UnitSuite) TestRelations(c *gc.C) {
 	wordpress0 := s.unit
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2317,14 +2317,14 @@ func (s *UnitSuite) TestRelations(c *gc.C) {
 
 	mysql0ru, err := rel.Unit(mysql0)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysql0ru.EnterScope(nil)
+	err = mysql0ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRelations(wordpress0)
 	assertRelations(mysql0, rel)
 
 	wordpress0ru, err := rel.Unit(wordpress0)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress0ru.EnterScope(nil)
+	err = wordpress0ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRelations(wordpress0, rel)
 	assertRelations(mysql0, rel)
@@ -2390,14 +2390,14 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// However, if a unit of the *other* application joins the relation, that
 	// will add an additional reference and prevent the relation -- and
 	// thus wordpress itself -- from being removed when its last unit is.
-	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	mysql0ru, err := rel.Unit(mysql0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysql0ru.EnterScope(nil), jc.ErrorIsNil)
+	c.Assert(mysql0ru.EnterScope(nil, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	// Destroy wordpress, and remove its last unit.
-	c.Assert(wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(wordpress0.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(wordpress0.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
@@ -2408,7 +2408,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// ...but when the unit on the other side departs the relation, the
 	// relation and the other application are cleaned up.
 	c.Assert(mysql0ru.LeaveScope(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(wordpress.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(rel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -2429,15 +2429,15 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// However, if a unit of the *other* application joins the relation, that
 	// will add an additional reference and prevent the relation -- and
 	// thus wordpress itself -- from being removed when its last unit is.
-	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	mysql0ru, err := rel.Unit(mysql0)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysql0ru.EnterScope(nil)
+	err = mysql0ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy wordpress, and remove its last unit.
-	c.Assert(wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(wordpress0.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(wordpress0.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
@@ -2450,7 +2450,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// removal causes the relation and the other application to be cleaned up.
 	c.Assert(mysql0.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(mysql0.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(wordpress.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(rel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -2480,7 +2480,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ru, err := rel.Unit(s.unit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = ru.EnterScope(nil)
+		err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		units, err := subApp.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
@@ -2494,7 +2494,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set one to Dying, check change.
-	err := subUnits[0].Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := subUnits[0].Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(subUnits[0].Name())
 	wc.AssertNoChange()
@@ -2541,10 +2541,10 @@ func (s *UnitSuite) TestWatchUnits(c *gc.C) {
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("wordpress/0")
 
-	u, err := s.application.AddUnit(state.AddUnitParams{})
+	u, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(u.Name())
-	err = u.AssignToNewMachine(defaultInstancePrechecker)
+	err = u.AssignToNewMachine(defaultInstancePrechecker, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(u.Name())
 
@@ -2581,7 +2581,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	// TODO(quiescence): these two changes should be one event.
 	wc.AssertOneChange()
 	preventUnitDestroyRemove(c, unit)
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -2615,7 +2615,7 @@ snapshot:
 `[1:]
 
 	wordpress := s.AddTestingApplication(c, "wordpress-actions", s.AddActionsCharm(c, "wordpress", basicActions, 1))
-	unit1, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit1, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	specs, err := unit1.ActionSpecs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2712,10 +2712,10 @@ action-b-b:
 	// Add simple application and two units
 	dummy := s.AddTestingApplication(c, "dummy", s.AddActionsCharm(c, "dummy", basicActions, 1))
 
-	unit1, err := dummy.AddUnit(state.AddUnitParams{})
+	unit1, err := dummy.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit2, err := dummy.AddUnit(state.AddUnitParams{})
+	unit2, err := dummy.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 3 actions to first unit, and 2 to the second unit
@@ -2755,7 +2755,7 @@ action-b-b:
 func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	ch := state.AddTestingCharm(c, s.State, "dummy")
 	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	version, err := unit.WorkloadVersion()
@@ -2780,18 +2780,18 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	// that's already dying.
 	ch := state.AddTestingCharm(c, s.State, "dummy")
 	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to a machine and set the agent status so
 	// removal can't be short-circuited.
-	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetAgentStatus(status.StatusInfo{
 		Status: status.Idle,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(unit.Life(), gc.Equals, state.Dying)
@@ -2800,7 +2800,7 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, gc.Equals, true)
 
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	needsCleanup, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2824,7 +2824,7 @@ func (s *UnitSuite) TestDestroyWithForceReportsRemoved(c *gc.C) {
 	// that's already dying.
 	ch := state.AddTestingCharm(c, s.State, "dummy")
 	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	removed, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State.ModelUUID()), true, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2877,13 +2877,13 @@ snapshot:
 
 func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	// A unit that has not been allocated is removed directly.
-	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	unit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "20.04/stable"})
 	c.Assert(unit.ShouldBeAssigned(), jc.IsFalse)
 
 	// A unit that has not set any status is removed directly.
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.State, unit)
@@ -2892,13 +2892,13 @@ func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 func (s *CAASUnitSuite) TestCannotShortCircuitDestroyAllocatedUnit(c *gc.C) {
 	// This test is similar to TestShortCircuitDestroyUnit but
 	// the unit has been allocated and a pod created.
-	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	unit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	unitState := state.NewUnitState()
 	unitState.SetUniterState("error")
 	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Life(), gc.Equals, state.Dying)
 	assertLife(c, unit, state.Dying)
@@ -2909,12 +2909,13 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitProviderId(c *gc.C) {
 		ProviderId: strPtr("unit-uuid"),
 		Address:    strPtr("192.168.1.1"),
 		Ports:      &[]string{"80"},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Updates = []*state.UpdateUnitOperation{
 		existingUnit.UpdateOperation(state.UnitUpdateProperties{
 			ProviderId: strPtr("another-uuid"),
+			Recorder:   status.NoopStatusHistoryRecorder,
 		})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2931,12 +2932,13 @@ func (s *CAASUnitSuite) TestAddCAASUnitProviderId(c *gc.C) {
 	existingUnit, err := s.application.AddUnit(state.AddUnitParams{
 		Address: strPtr("192.168.1.1"),
 		Ports:   &[]string{"80"},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Updates = []*state.UpdateUnitOperation{
 		existingUnit.UpdateOperation(state.UnitUpdateProperties{
 			ProviderId: strPtr("another-uuid"),
+			Recorder:   status.NoopStatusHistoryRecorder,
 		})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2955,12 +2957,13 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitAddress(c *gc.C) {
 		ProviderId: strPtr("unit-uuid"),
 		Address:    strPtr("192.168.1.1"),
 		Ports:      &[]string{"80"},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Updates = []*state.UpdateUnitOperation{
 		existingUnit.UpdateOperation(state.UnitUpdateProperties{
-			Address: strPtr("192.168.1.2"),
+			Address:  strPtr("192.168.1.2"),
+			Recorder: status.NoopStatusHistoryRecorder,
 		})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2978,12 +2981,13 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitPorts(c *gc.C) {
 		ProviderId: strPtr("unit-uuid"),
 		Address:    strPtr("192.168.1.1"),
 		Ports:      &[]string{"80"},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Updates = []*state.UpdateUnitOperation{
 		existingUnit.UpdateOperation(state.UnitUpdateProperties{
-			Ports: &[]string{"443"},
+			Ports:    &[]string{"443"},
+			Recorder: status.NoopStatusHistoryRecorder,
 		})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3001,16 +3005,16 @@ func (s *CAASUnitSuite) TestRemoveUnitDeletesContainerInfo(c *gc.C) {
 		ProviderId: strPtr("unit-uuid"),
 		Address:    strPtr("192.168.1.1"),
 		Ports:      &[]string{"80"},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = existingUnit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = existingUnit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASUnitSuite) TestPrivateAddress(c *gc.C) {
-	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.UpdateCloudService("", network.SpaceAddresses{
 		network.NewSpaceAddress("192.168.1.2", network.WithScope(network.ScopeCloudLocal)),
@@ -3024,7 +3028,7 @@ func (s *CAASUnitSuite) TestPrivateAddress(c *gc.C) {
 }
 
 func (s *CAASUnitSuite) TestPublicAddress(c *gc.C) {
-	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.UpdateCloudService("", []network.SpaceAddress{
 		network.NewSpaceAddress("192.168.1.2", network.WithScope(network.ScopeCloudLocal)),
@@ -3038,7 +3042,7 @@ func (s *CAASUnitSuite) TestPublicAddress(c *gc.C) {
 }
 
 func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
-	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.UpdateCloudService("", []network.SpaceAddress{
 		network.NewSpaceAddress("192.168.1.2", network.WithScope(network.ScopeCloudLocal)),
@@ -3049,8 +3053,9 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 	var updateUnits state.UpdateUnitsOperation
 	local := "10.0.0.1"
 	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
-		Address: &local,
-		Ports:   &[]string{"443"},
+		Address:  &local,
+		Ports:    &[]string{"443"},
+		Recorder: status.NoopStatusHistoryRecorder,
 	})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3065,7 +3070,7 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 }
 
 func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
-	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	unit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -3077,7 +3082,8 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	// Change the container port: not reported.
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
-		Ports: &[]string{"443"},
+		Ports:    &[]string{"443"},
+		Recorder: status.NoopStatusHistoryRecorder,
 	})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3086,7 +3092,8 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	// Set container addresses: reported.
 	addr := "10.0.0.1"
 	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
-		Address: &addr,
+		Address:  &addr,
+		Recorder: status.NoopStatusHistoryRecorder,
 	})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3096,7 +3103,8 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	// Set different machine addresses: reported.
 	addr = "10.0.0.2"
 	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
-		Address: &addr,
+		Address:  &addr,
+		Recorder: status.NoopStatusHistoryRecorder,
 	})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3110,7 +3118,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	// Double check the unit is dying and not removed.
@@ -3137,7 +3145,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 }
 
 func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
-	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	unit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.application.WatchServiceAddressesHash()
@@ -3149,7 +3157,8 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"
 	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
-		Address: &addr,
+		Address:  &addr,
+		Recorder: status.NoopStatusHistoryRecorder,
 	})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3172,7 +3181,7 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	// Double check the unit is dying and not removed.
@@ -3189,7 +3198,7 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	// returns an IsNotFound error.
 	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// App removal requires cluster resources to be cleared.
@@ -3209,7 +3218,7 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 }
 
 func (s *CAASUnitSuite) TestOperatorAddAction(c *gc.C) {
-	unit, err := s.operatorApp.AddUnit(state.AddUnitParams{})
+	unit, err := s.operatorApp.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)

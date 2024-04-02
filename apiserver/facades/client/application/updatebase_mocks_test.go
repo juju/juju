@@ -18,6 +18,7 @@ import (
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	objectstore "github.com/juju/juju/core/objectstore"
+	status "github.com/juju/juju/core/status"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
 	tools "github.com/juju/juju/internal/tools"
@@ -52,18 +53,18 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 }
 
 // AddUnit mocks base method.
-func (m *MockApplication) AddUnit(arg0 state.AddUnitParams) (Unit, error) {
+func (m *MockApplication) AddUnit(arg0 state.AddUnitParams, arg1 status.StatusHistoryRecorder) (Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUnit", arg0)
+	ret := m.ctrl.Call(m, "AddUnit", arg0, arg1)
 	ret0, _ := ret[0].(Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddUnit indicates an expected call of AddUnit.
-func (mr *MockApplicationMockRecorder) AddUnit(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) AddUnit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnit", reflect.TypeOf((*MockApplication)(nil).AddUnit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnit", reflect.TypeOf((*MockApplication)(nil).AddUnit), arg0, arg1)
 }
 
 // AgentTools mocks base method.
@@ -230,17 +231,17 @@ func (mr *MockApplicationMockRecorder) Constraints() *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockApplication) Destroy(arg0 objectstore.ObjectStore) error {
+func (m *MockApplication) Destroy(arg0 objectstore.ObjectStore, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy", arg0)
+	ret := m.ctrl.Call(m, "Destroy", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockApplicationMockRecorder) Destroy(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) Destroy(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy), arg0, arg1)
 }
 
 // DestroyOperation mocks base method.

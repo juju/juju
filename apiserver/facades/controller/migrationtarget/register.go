@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -97,6 +98,15 @@ func newFacade(ctx facade.ModelContext, facadeVersions facades.FacadeVersions) (
 	if credentialService != nil {
 		credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)
 	}
+
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model")
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewAPI(
 		ctx,
 		auth,
@@ -112,5 +122,6 @@ func newFacade(ctx facade.ModelContext, facadeVersions facades.FacadeVersions) (
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facadeVersions,
 		ctx.LogDir(),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }

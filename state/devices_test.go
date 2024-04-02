@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -62,7 +63,7 @@ func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c
 				OS:      "ubuntu",
 				Channel: "20.04/stable",
 			}},
-		}, state.NewObjectStore(c, s.st.ModelUUID()))
+		}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	}
 	assertErr := func(devices map[string]state.DeviceConstraints, expect string) {
 		_, err := addApplication(devices)

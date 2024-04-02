@@ -338,8 +338,8 @@ func (u *mockRelationUnit) LeaveScope() error {
 	return nil
 }
 
-func (u *mockRelationUnit) EnterScope(settings map[string]interface{}) error {
-	u.MethodCall(u, "EnterScope", settings)
+func (u *mockRelationUnit) EnterScope(settings map[string]interface{}, recorder status.StatusHistoryRecorder) error {
+	u.MethodCall(u, "EnterScope", settings, recorder)
 	if err := u.NextErr(); err != nil {
 		return err
 	}

@@ -30,6 +30,7 @@ func newDyingEntityStorageCleaner(sb *storageBackend, hostTag names.Tag, manual,
 func (c *dyingEntityStorageCleaner) cleanupStorage(
 	filesystemAttachments []FilesystemAttachment,
 	volumeAttachments []VolumeAttachment,
+	historyRecorder status.StatusHistoryRecorder,
 ) error {
 	filesystems, err := c.destroyNonDetachableFileSystems()
 	if err != nil {
@@ -38,7 +39,7 @@ func (c *dyingEntityStorageCleaner) cleanupStorage(
 
 	// Detach all filesystems from the machine/unit.
 	for _, fsa := range filesystemAttachments {
-		if err := c.detachFileSystem(fsa); err != nil {
+		if err := c.detachFileSystem(fsa, historyRecorder); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -113,7 +114,7 @@ func (c *dyingEntityStorageCleaner) destroyNonDetachableFileSystems() ([]*filesy
 	return filesystems, nil
 }
 
-func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) error {
+func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment, historyRecorder status.StatusHistoryRecorder) error {
 	filesystem := fsa.Filesystem()
 
 	detachable, err := isDetachableFilesystemTag(c.sb.mb.db(), filesystem)
@@ -164,7 +165,7 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 		updateStatus = func() error {
 			return f.SetStatus(status.StatusInfo{
 				Status: status.Detached,
-			}, status.NoopStatusHistoryRecorder)
+			}, historyRecorder)
 		}
 	}
 

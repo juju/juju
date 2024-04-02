@@ -92,6 +92,7 @@ type API struct {
 	getEnviron                      stateenvirons.NewEnvironFunc
 	getCAASBroker                   stateenvirons.NewCAASBrokerFunc
 	requiredMigrationFacadeVersions facades.FacadeVersions
+	recorder                        status.StatusHistoryRecorder
 
 	logDir string
 }
@@ -123,6 +124,7 @@ func NewAPI(
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
 	logDir string,
+	recorder status.StatusHistoryRecorder,
 ) (*API, error) {
 	return &API{
 		state:                           ctx.State(),
@@ -141,6 +143,7 @@ func NewAPI(
 		getCAASBroker:                   getCAASBroker,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 		logDir:                          logDir,
+		recorder:                        recorder,
 	}, nil
 }
 
@@ -282,7 +285,7 @@ func (api *APIV1) Activate(ctx context.Context, args params.ModelArgs) error {
 	}
 	defer release()
 
-	if err := model.SetStatus(status.StatusInfo{Status: status.Available}, nil); err != nil {
+	if err := model.SetStatus(status.StatusInfo{Status: status.Available}, api.recorder); err != nil {
 		return errors.Trace(err)
 	}
 

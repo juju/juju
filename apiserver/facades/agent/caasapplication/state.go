@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -42,7 +43,7 @@ type Model interface {
 type Application interface {
 	Life() state.Life
 	Name() string
-	UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error)
+	UpsertCAASUnit(args state.UpsertCAASUnitParams, recorder status.StatusHistoryRecorder) (Unit, error)
 	GetScale() int
 }
 
@@ -100,8 +101,8 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 	return result, nil
 }
 
-func (a applicationShim) UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error) {
-	u, err := a.Application.UpsertCAASUnit(args)
+func (a applicationShim) UpsertCAASUnit(args state.UpsertCAASUnitParams, recorder status.StatusHistoryRecorder) (Unit, error) {
+	u, err := a.Application.UpsertCAASUnit(args, recorder)
 	if err != nil {
 		return nil, err
 	}

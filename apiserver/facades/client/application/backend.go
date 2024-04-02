@@ -39,7 +39,7 @@ type Backend interface {
 	Application(string) (Application, error)
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore, status.StatusHistoryRecorder) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -85,7 +85,7 @@ type BlockChecker interface {
 // the same names.
 type Application interface {
 	Name() string
-	AddUnit(state.AddUnitParams) (Unit, error)
+	AddUnit(state.AddUnitParams, status.StatusHistoryRecorder) (Unit, error)
 	AllUnits() ([]Unit, error)
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	ApplicationTag() names.ApplicationTag
@@ -95,7 +95,7 @@ type Application interface {
 	ClearExposed() error
 	CharmConfig(string) (charm.Settings, error)
 	Constraints() (constraints.Value, error)
-	Destroy(objectstore.ObjectStore) error
+	Destroy(objectstore.ObjectStore, status.StatusHistoryRecorder) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	ExposedEndpoints() map[string]state.ExposedEndpoint
@@ -165,7 +165,7 @@ type Machine interface {
 type Relation interface {
 	status.StatusSetter
 	Tag() names.Tag
-	Destroy(objectstore.ObjectStore) error
+	Destroy(objectstore.ObjectStore, status.StatusHistoryRecorder) error
 	DestroyWithForce(bool, time.Duration) ([]error, error)
 	Id() int
 	Endpoints() []state.Endpoint
@@ -194,7 +194,7 @@ type Unit interface {
 	Tag() names.Tag
 	UnitTag() names.UnitTag
 	ApplicationName() string
-	Destroy(objectstore.ObjectStore) error
+	Destroy(objectstore.ObjectStore, status.StatusHistoryRecorder) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	IsPrincipal() bool
 	Life() state.Life
@@ -203,8 +203,8 @@ type Unit interface {
 
 	AssignedMachineId() (string, error)
 	WorkloadVersion() (string, error)
-	AssignWithPolicy(state.AssignmentPolicy) error
-	AssignWithPlacement(*instance.Placement) error
+	AssignWithPolicy(state.AssignmentPolicy, status.StatusHistoryRecorder) error
+	AssignWithPlacement(*instance.Placement, status.StatusHistoryRecorder) error
 	ContainerInfo() (state.CloudContainer, error)
 }
 
@@ -325,8 +325,8 @@ func (s stateShim) ReadSequence(name string) (int, error) {
 	return state.ReadSequence(s.State, name)
 }
 
-func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(s.prechecker, args, store)
+func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore, recorder status.StatusHistoryRecorder) (Application, error) {
+	a, err := s.State.AddApplication(s.prechecker, args, store, recorder)
 	if err != nil {
 		return nil, err
 	}
@@ -507,8 +507,8 @@ type stateApplicationShim struct {
 	prechecker environs.InstancePrechecker
 }
 
-func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
-	u, err := a.Application.AddUnit(args)
+func (a stateApplicationShim) AddUnit(args state.AddUnitParams, recorder status.StatusHistoryRecorder) (Unit, error) {
+	u, err := a.Application.AddUnit(args, recorder)
 	if err != nil {
 		return nil, err
 	}
@@ -614,12 +614,12 @@ type stateUnitShim struct {
 	prechecker environs.InstancePrechecker
 }
 
-func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
-	return u.st.AssignUnit(u.prechecker, u.Unit, policy)
+func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy, recorder status.StatusHistoryRecorder) error {
+	return u.st.AssignUnit(u.prechecker, u.Unit, policy, recorder)
 }
 
-func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement) error {
-	return u.st.AssignUnitWithPlacement(u.prechecker, u.Unit, placement)
+func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement, recorder status.StatusHistoryRecorder) error {
+	return u.st.AssignUnitWithPlacement(u.prechecker, u.Unit, placement, recorder)
 }
 
 type Subnet interface {

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
@@ -50,6 +51,7 @@ type Facade struct {
 	clock                   clock.Clock
 	broker                  Broker
 	logger                  loggo.Logger
+	recorder                status.StatusHistoryRecorder
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -63,6 +65,7 @@ func NewFacade(
 	broker Broker,
 	clock clock.Clock,
 	logger loggo.Logger,
+	recorder status.StatusHistoryRecorder,
 ) (*Facade, error) {
 	if !authorizer.AuthApplicationAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -82,6 +85,7 @@ func NewFacade(
 		clock:                   clock,
 		broker:                  broker,
 		logger:                  logger,
+		recorder:                recorder,
 	}, nil
 }
 
@@ -121,7 +125,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	// }
 	deploymentType := caas.DeploymentStateful
 
-	upsert := state.UpsertCAASUnitParams{}
+	upsert := state.UpsertCAASUnitParams{Recorder: f.recorder}
 
 	containerID := args.PodName
 	switch deploymentType {
@@ -174,7 +178,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	passwordHash := password.AgentPasswordHash(pass)
 	upsert.PasswordHash = &passwordHash
 
-	unit, err := application.UpsertCAASUnit(upsert)
+	unit, err := application.UpsertCAASUnit(upsert, f.recorder)
 	if err != nil {
 		return errResp(err)
 	}

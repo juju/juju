@@ -190,7 +190,7 @@ func (s *ModelStatusSuite) TestUnitStatus(c *gc.C) {
 
 	c.Assert(unit.SetWorkloadVersion("42.1", status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
-	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	ms, err := s.model.LoadModelStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,7 +222,7 @@ func (s *ModelStatusSuite) TestUnitStatusWeirdness(c *gc.C) {
 	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(unit.SetAgentStatus(status.StatusInfo{
 		Status:  status.Error,
-		Message: "OMG"}), jc.ErrorIsNil)
+		Message: "OMG"}, status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	ms, err := s.model.LoadModelStatus()
 	c.Assert(err, jc.ErrorIsNil)

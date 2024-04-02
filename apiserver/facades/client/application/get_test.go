@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	storageprovider "github.com/juju/juju/internal/storage/provider"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -81,6 +82,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = api
@@ -221,6 +223,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

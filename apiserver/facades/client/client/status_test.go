@@ -45,7 +45,7 @@ var _ = gc.Suite(&statusSuite{})
 
 func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -398,7 +398,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(pu)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	subordUnit, err := st.Unit("subord/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -429,7 +429,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 }
 
 func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that the timestamp on this version record is different
 	// from the previous one.
@@ -506,7 +506,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
 	application := f.MakeApplication(c, nil)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus := s.checkAppVersion(c, application, "")
 	checkUnitVersion(c, appStatus, unit, "")
@@ -555,7 +555,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
 		},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check initial message.
@@ -563,7 +563,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 
 	// Check status is reported when set.
 	setAndCheckMigStatus := func(message string) {
-		err := mig.SetStatusMessage(message)
+		err := mig.SetStatusMessage(message, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		checkMigStatus(message)
 	}
@@ -849,7 +849,7 @@ func (s *statusUpgradeUnitSuite) AddMachine(c *gc.C, machineId string, job state
 	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{job},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, machineId)
 }
@@ -896,7 +896,7 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 				Risk:  "stable",
 			},
 		},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
+	}, testing.NewObjectStore(c, s.ControllerModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -904,7 +904,7 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 func (s *statusUpgradeUnitSuite) AddUnit(c *gc.C, appName, machineId string) {
 	app, err := s.ControllerModel(c).State().Application(appName)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.ControllerModel(c).State().Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1036,7 +1036,7 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 	// on the principal unit.
 	ru, err := rel.Unit(appBUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

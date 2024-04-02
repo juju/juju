@@ -184,7 +184,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
 			},
 		},
-	}).Return(m1, nil)
+	}, status.NoopStatusHistoryRecorder).Return(m1, nil)
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "666")
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "667/lxd/1")
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "667")
@@ -201,7 +201,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
 			},
 		},
-	}).Return(m2, nil)
+	}, status.NoopStatusHistoryRecorder).Return(m2, nil)
 
 	machines, err := s.api.AddMachines(stdcontext.Background(), params.AddMachines{MachineParams: apiParams})
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,7 +211,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.st.EXPECT().AddOneMachine(gomock.Any()).Return(nil, errors.New("boom"))
+	s.st.EXPECT().AddOneMachine(gomock.Any(), gomock.Any()).Return(nil, errors.New("boom"))
 
 	results, err := s.api.AddMachines(stdcontext.Background(), params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
@@ -323,11 +323,11 @@ func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controlle
 			machine.EXPECT().ForceDestroy(gomock.Any()).Return(nil)
 		} else {
 			if len(containers) > 0 {
-				machine.EXPECT().Destroy(gomock.Any()).Return(stateerrors.NewHasContainersError("0", containers))
+				machine.EXPECT().Destroy(gomock.Any(), gomock.Any()).Return(stateerrors.NewHasContainersError("0", containers))
 			} else if len(units) > 0 {
-				machine.EXPECT().Destroy(gomock.Any()).Return(stateerrors.NewHasAssignedUnitsError("0", []string{"foo/0", "foo/1", "foo/2"}))
+				machine.EXPECT().Destroy(gomock.Any(), gomock.Any()).Return(stateerrors.NewHasAssignedUnitsError("0", []string{"foo/0", "foo/1", "foo/2"}))
 			} else {
-				machine.EXPECT().Destroy(gomock.Any()).Return(nil)
+				machine.EXPECT().Destroy(gomock.Any(), gomock.Any()).Return(nil)
 			}
 		}
 	}

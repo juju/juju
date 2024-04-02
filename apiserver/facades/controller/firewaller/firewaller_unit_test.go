@@ -55,7 +55,7 @@ func (s *RemoteFirewallerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, loggo.GetLogger("juju.apiserver.firewaller"))
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, loggo.GetLogger("juju.apiserver.firewaller"), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
@@ -158,7 +158,7 @@ func (s *FirewallerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, loggo.GetLogger("juju.apiserver.firewaller"))
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, loggo.GetLogger("juju.apiserver.firewaller"), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl

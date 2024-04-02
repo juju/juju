@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -28,14 +29,14 @@ var _ = gc.Suite(&VolumeStateSuite{})
 
 func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "block", "loop-pool")
-	err := s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertMachineVolume(c, unit)
 }
 
 func (s *VolumeStateSuite) TestAssignToMachine(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "block", "loop-pool")
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,7 +94,7 @@ func (s *VolumeStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: testStorage,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -109,7 +110,7 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: testStorage,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -161,7 +162,7 @@ func (s *VolumeStateSuite) TestAddApplicationDefaultPool(c *gc.C) {
 
 func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volume := s.storageInstanceVolume(c, storageTag)
@@ -177,7 +178,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 
 func (s *VolumeStateSuite) TestSetVolumeInfoNoVolumeId(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volume := s.storageInstanceVolume(c, storageTag)
@@ -209,7 +210,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 			Volume: volumeParams,
 		}},
 	}
-	machines, err := s.State.AddMachines(defaultInstancePrechecker, machineTemplate)
+	machines, err := s.State.AddMachines(defaultInstancePrechecker, status.NoopStatusHistoryRecorder, machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	m, err := s.State.Machine(machines[0].Id())
@@ -234,7 +235,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 
 func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
@@ -256,7 +257,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
 
 func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -294,9 +295,9 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+		err = s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	addUnit()
@@ -335,9 +336,9 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 func (s *VolumeStateSuite) TestWatchModelVolumeAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+		err = s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	addUnit()
@@ -366,9 +367,9 @@ func (s *VolumeStateSuite) TestWatchModelVolumeAttachments(c *gc.C) {
 func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block", "machinescoped", "modelscoped")
 	addUnit := func() {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+		err = s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	addUnit()
@@ -407,14 +408,14 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block", "machinescoped", "modelscoped")
 	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
 		var err error
-		u, err = app.AddUnit(state.AddUnitParams{})
+		u, err = app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		if to != nil {
 			err = u.AssignToMachine(to)
 			c.Assert(err, jc.ErrorIsNil)
 			return u, to
 		}
-		err = s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+		err = s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		m = unitMachine(c, s.State, u)
 		return u, m
@@ -499,7 +500,7 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 		}, {
 			Volume: state.VolumeParams{Pool: "static", Size: 2048},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertMachineStorageRefs(c, s.storageBackend, machine.MachineTag())
 
@@ -528,12 +529,12 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 
 func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	volume := s.storageInstanceVolume(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision volume attachment so that detaching the storage
@@ -575,7 +576,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 
 func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	volume := s.storageInstanceVolume(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -583,7 +584,7 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
 	err = s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -598,7 +599,7 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
 
 func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeUnreleasable(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped-unreleasable")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	volume := s.storageInstanceVolume(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -606,7 +607,7 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeUnreleasable(c *gc.C)
 	err = s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, gc.ErrorMatches,
@@ -623,7 +624,7 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeUnreleasable(c *gc.C)
 
 func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -666,7 +667,7 @@ func (s *VolumeStateSuite) TestDestroyVolumeStorageAssigned(c *gc.C) {
 	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, gc.ErrorMatches, "destroying volume 0: volume is assigned to storage data/0")
 
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
@@ -911,7 +912,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 		}, {
 			Volume: state.VolumeParams{Pool: "static", Size: 2048}, // unprovisioned
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-1"}
@@ -936,7 +937,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	}
 	c.Assert(len(allVolumes), jc.GreaterThan, len(persistentVolumes))
 
-	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 
 	// Cannot advance to Dead while there are detachable dynamic volumes.
 	err = machine.EnsureDead()
@@ -965,7 +966,7 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "static", Size: 1024},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addVolume := func() {
@@ -989,7 +990,7 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "static", Size: 1024},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	removeVolume := func() {
@@ -1009,7 +1010,7 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volume := s.volume(c, names.NewVolumeTag("0/0"))
@@ -1023,7 +1024,7 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	c.Assert(volume.Life(), gc.Equals, state.Dead)
 
 	// Remove the machine: this should remove the volume.
-	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1043,7 +1044,7 @@ func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
 
 	// The volume should transition to Dying when the storage is removed.
 	// We must destroy the unit before we can remove the storage.
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	volume = s.volume(c, volume.VolumeTag())
@@ -1052,7 +1053,7 @@ func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
 
 func (s *VolumeStateSuite) setupStorageVolumeAttachment(c *gc.C) (state.Volume, *state.Machine, *state.Unit) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped")
-	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	machine := unitMachine(c, s.State, u)
 	return s.storageInstanceVolume(c, storageTag), machine, u
@@ -1073,7 +1074,7 @@ func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C, pool string) (state.Vo
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: pool, Size: 1024},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeAttachments, err := s.storageBackend.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)

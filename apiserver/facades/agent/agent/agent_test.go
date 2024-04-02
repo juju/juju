@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -52,17 +53,17 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	s.container, err = st.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
+	s.container, err = st.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = common.NewResources()
@@ -107,7 +108,7 @@ func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 }
 
 func (s *agentSuite) TestGetEntities(c *gc.C) {
-	err := s.container.Destroy(s.store)
+	err := s.container.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -136,7 +137,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = s.container.Tag()
-	err := s.container.Destroy(s.store)
+	err := s.container.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := s.agentAPI(c, auth, nil)
@@ -166,14 +167,14 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 
 func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	// Destroy the container first, so we can destroy its parent.
-	err := s.container.Destroy(s.store)
+	err := s.container.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.container.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.container.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine1.Destroy(s.store)
+	err = s.machine1.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

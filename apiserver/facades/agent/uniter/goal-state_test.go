@@ -204,7 +204,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 		},
 	})
 
-	err = newMysqlUnit.Destroy(s.store)
+	err = newMysqlUnit.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testGoalStates(c, s.uniter, args, params.GoalStateResults{
@@ -236,7 +236,7 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit, prechecker environs.Instan
 	// be assigned to a machine.
 	_, err := u.AssignedMachineId()
 	if errors.Is(err, errors.NotAssigned) {
-		err = u.AssignToNewMachine(prechecker)
+		err = u.AssignToNewMachine(prechecker, status.NoopStatusHistoryRecorder)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -245,7 +245,7 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit, prechecker environs.Instan
 		Message: "",
 		Since:   &now,
 	}
-	err = u.SetAgentStatus(sInfo)
+	err = u.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -281,7 +281,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 		},
 	})
 	preventUnitDestroyRemove(c, mysqlUnit, s.InstancePrechecker(c, s.ControllerModel(c).State()))
-	err = mysqlUnit.Destroy(s.store)
+	err = mysqlUnit.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testGoalStates(c, s.uniter, args, params.GoalStateResults{
@@ -456,7 +456,7 @@ func (s *uniterGoalStateSuite) addRelationEnterScope(c *gc.C, unit1 *state.Unit,
 	relationUnit, err := relation.Unit(unit1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = relationUnit.EnterScope(nil)
+	err = relationUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relationUnit, true)
 	return err

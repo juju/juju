@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -40,14 +41,14 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 }
 
 func (s *MachineSuite) TestIsParentLockedForSeriesUpgrade(c *gc.C) {
-	parent, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
+	parent, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("16.04"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	child, err := s.State.AddMachineInsideMachine(template, parent.Id(), "lxd")
+	child, err := s.State.AddMachineInsideMachine(template, parent.Id(), "lxd", status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = parent.CreateUpgradeSeriesLock([]string{}, state.UbuntuBase("18.04"))
@@ -67,10 +68,10 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLockErrorsIfLockExists(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnDyingMachine(c *gc.C) {
-	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mach.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = mach.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.CreateUpgradeSeriesLock([]string{""}, state.UbuntuBase("16.04"))
@@ -78,7 +79,7 @@ func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnDyingMachine(c *gc.C)
 }
 
 func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnSameSeries(c *gc.C) {
-	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.CreateUpgradeSeriesLock([]string{""}, state.UbuntuBase("16.04"))
@@ -105,7 +106,7 @@ func (s *MachineSuite) TestUpgradeSeriesTarget(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
-	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
@@ -119,7 +120,7 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockIsNoOpIfMachineIsNotLocked(c *gc.C) {
-	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
@@ -128,7 +129,7 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockIsNoOpIfMachineIsNotLocked(c *
 }
 
 func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C) {
-	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
@@ -142,7 +143,7 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 	// After a forced destroy an upgrade series lock on a machine should be
 	// marked for cleanup and therefore should be cleaned up if anything
 	// should trigger a state cleanup.
-	s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 
 	// The machine, since it was destroyed, its lock should have been
 	// cleaned up. Checking to see if the machine is not locked, that is,
@@ -239,7 +240,7 @@ func (s *MachineSuite) TestUnitsHaveChangedTrue(c *gc.C) {
 }
 
 func (s *MachineSuite) TestUnitsHaveChangedFalseNoUnits(c *gc.C) {
-	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	changed, err := state.UnitsHaveChanged(mach, []string{})
 	c.Assert(err, jc.ErrorIsNil)

@@ -109,6 +109,7 @@ type APIBase struct {
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
 	deployApplicationFunc DeployApplicationFunc
+	recorder              status.StatusHistoryRecorder
 }
 
 type CaasBrokerInterface interface {
@@ -190,7 +191,14 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		storagePoolGetter:  storagePoolGetter,
 	}
 	applicationService := serviceFactory.Application(registry)
-	repoDeploy := NewDeployFromRepositoryAPI(state, applicationService, ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
+
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	historyRecorder := common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger)
+
+	repoDeploy := NewDeployFromRepositoryAPI(state, applicationService, ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg), historyRecorder)
 
 	return NewAPIBase(
 		state,
@@ -213,11 +221,12 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		resources,
 		caasBroker,
 		ctx.ObjectStore(),
+		historyRecorder,
 	)
 }
 
 // DeployApplicationFunc is a function that deploys an application.
-type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationService, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
+type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationService, objectstore.ObjectStore, DeployApplicationParams, status.StatusHistoryRecorder) (Application, error)
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
@@ -241,6 +250,7 @@ func NewAPIBase(
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
+	recorder status.StatusHistoryRecorder,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -267,6 +277,7 @@ func NewAPIBase(
 		resources:             resources,
 		caasBroker:            caasBroker,
 		store:                 store,
+		recorder:              recorder,
 	}, nil
 }
 
@@ -576,7 +587,7 @@ func (api *APIBase) deployApplication(
 		EndpointBindings:  bindings.Map(),
 		Resources:         args.Resources,
 		Force:             args.Force,
-	})
+	}, api.recorder)
 	return errors.Trace(err)
 }
 
@@ -1865,7 +1876,7 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 	var rel Relation
 	defer func() {
 		if err != nil && rel != nil {
-			if err := rel.Destroy(api.store); err != nil {
+			if err := rel.Destroy(api.store, api.recorder); err != nil {
 				logger.Errorf("cannot destroy aborted relation %q: %v", rel.Tag().Id(), err)
 			}
 		}
@@ -2007,7 +2018,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 		return rel.SetStatus(status.StatusInfo{
 			Status:  statusValue,
 			Message: arg.Message,
-		}, status.NoopStatusHistoryRecorder)
+		}, api.recorder)
 	}
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {

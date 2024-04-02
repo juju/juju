@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -52,7 +53,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// to be numerically consecutive from zero.
 	st := s.ControllerModel(c).State()
 	for i := 0; i <= 2; i++ {
-		machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -67,7 +68,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	})
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
-		unit, err := s.application.AddUnit(state.AddUnitParams{})
+		unit, err := s.application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Check(err, jc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
 		c.Check(err, jc.ErrorIsNil)

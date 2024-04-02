@@ -19,6 +19,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -124,14 +125,14 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, testStorage)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
 	return app, unit, storageTag
 }
 
 func (s *StorageStateSuiteBase) provisionStorageVolume(c *gc.C, u *state.Unit, storageTag names.StorageTag) {
-	err := s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err := s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	machine := unitMachine(c, s.st, u)
 	volume := s.storageInstanceVolume(c, storageTag)
@@ -158,7 +159,7 @@ func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, charm.MustParseURL(ch.URL()).Name, ch, testStorage)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
 	return app, unit, storageTag
@@ -355,7 +356,7 @@ func (s *StorageStateSuiteBase) storageInstanceFilesystem(c *gc.C, tag names.Sto
 func (s *StorageStateSuiteBase) obliterateUnit(c *gc.C, tag names.UnitTag) {
 	u, err := s.st.Unit(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.obliterateUnitStorage(c, tag)
 	err = u.EnsureDead()
@@ -477,7 +478,7 @@ func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
-	}, state.NewObjectStore(c, st.ModelUUID()))
+	}, state.NewObjectStore(c, st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "storage-block": block storage on a container model not supported`)
 }
 
@@ -489,7 +490,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -513,7 +514,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -544,7 +545,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 				Channel: "22.04/stable",
 			}},
 			Storage: storage,
-		}, state.NewObjectStore(c, s.st.ModelUUID()))
+		}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addApplication(storage)
@@ -583,7 +584,7 @@ func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc
 			Channel: "22.04/stable",
 		}},
 		Storage: cons,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -662,7 +663,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 			Channel: "22.04/stable",
 		}},
 		Storage: storageCons,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -679,7 +680,7 @@ func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			Storage: storage,
-		}, state.NewObjectStore(c, s.st.ModelUUID()))
+		}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -707,7 +708,7 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, testStorage)
 	for i := 0; i < 2; i++ {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		storageAttachments, err := s.storageBackend.UnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -785,7 +786,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 
 	// destroying a unit with storage attachments is fine; this is what
 	// will trigger the death and removal of storage attachments.
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// until all storage attachments are removed, the unit cannot be
 	// marked as being dead.
@@ -813,7 +814,7 @@ func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
 
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// until all storage attachments are removed, the unit cannot be
 	// marked as being dead.
@@ -851,7 +852,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 
 	// Mark the storage instance as Dying, so that it will be removed
 	// when the last attachment is removed.
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -880,7 +881,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 	// volume attachment. When the storage is detached from
 	// the unit, the volume should be detached from the
 	// machine.
-	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -888,7 +889,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 
 	// Detaching the storage from the unit will leave the storage
 	// behind, but will clear the ownership.
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -907,7 +908,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 
 func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
@@ -926,7 +927,7 @@ func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 
 func (s *StorageStateSuite) TestAttachStorageIdempotent(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
@@ -944,7 +945,7 @@ func (s *StorageStateSuite) TestAttachStorageIdempotent(c *gc.C) {
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
@@ -955,7 +956,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	// attach the storage to the unit, it will create a volume
 	// and volume attachment.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew)
+		err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -974,7 +975,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc.C) {
 	// Create volume-backed filesystem storage.
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "filesystem", "modelscoped-block")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the first unit to a machine so that we have a
@@ -983,7 +984,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// the storage from the first unit, the volume and
 	// filesystem should be detached from their assigned
 	// machine.
-	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	oldMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1003,7 +1004,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// attach the storage to the unit, it will attach the
 	// existing volume/filesystem to the machine.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew)
+		err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -1021,20 +1022,20 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttached(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit(state.AddUnitParams{})
+	u2, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the first unit to a machine so that we have a
 	// volume and volume attachment initially. When we detach
 	// the storage from the first unit, the volume should be
 	// detached from its assigned machine.
-	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
 	// attach the storage to the unit, it will attach the
 	// existing volume to the machine.
-	err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u2, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage. Leave the volume attachment
@@ -1073,7 +1074,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 		},
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      1,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	app2Units, err := app2.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1102,7 +1103,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C
 		Charm:         ch,
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      2,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "secondwind": AttachStorage is non-empty but NumUnits is 2, must be 1`)
 }
 
@@ -1115,7 +1116,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 	// application creation should fail.
 	var storageTags []names.StorageTag
 	for i := 0; i < 3; i++ {
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		storageTag := names.NewStorageTag("data/" + fmt.Sprint(i+1))
 		storageTags = append(storageTags, storageTag)
@@ -1142,7 +1143,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 		},
 		AttachStorage: storageTags,
 		NumUnits:      1,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot add application "secondwind": `+
 			`attaching 3 storage instances brings the total to 3, exceeding the maximum of 2`)
@@ -1158,7 +1159,7 @@ func (s *StorageStateSuite) TestAddUnitAttachStorage(c *gc.C) {
 	// Add a new unit, attaching the existing storage.
 	u2, err := app.AddUnit(state.AddUnitParams{
 		AttachStorage: []names.StorageTag{storageTag},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance should be attached to the new application unit.
@@ -1174,7 +1175,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1199,7 +1200,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
 
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1240,7 +1241,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1265,7 +1266,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1305,7 +1306,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, testStorage)
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -1339,7 +1340,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1352,9 +1353,9 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 
 func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
-	u, err := app.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1444,9 +1445,9 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	app1 := s.AddTestingApplication(c, "storage-filesystem", ch1)
 	app2 := s.AddTestingApplication(c, "storage-filesystem2", ch2)
 
-	u1, err := app1.AddUnit(state.AddUnitParams{})
+	u1, err := app1.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.st.AssignUnit(defaultInstancePrechecker, u1, state.AssignNew)
+	err = s.st.AssignUnit(defaultInstancePrechecker, u1, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := u1.AssignedMachineId()
@@ -1454,7 +1455,7 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	m, err := s.st.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, err := app2.AddUnit(state.AddUnitParams{})
+	u2, err := app2.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u2.AssignToMachine(m)
 	if expectErr == "" {
@@ -1490,7 +1491,7 @@ func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
 			"data": {Pool: "loop"},
 		},
 	}
-	_, err := s.st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.st.ModelUUID()))
+	_, err := s.st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": invalid storage config: storage provider type "loop" not valid`)
 }
 
@@ -1519,7 +1520,7 @@ func (s *StorageSubordinateStateSuite) SetUpTest(c *gc.C) {
 	storageCharm := s.AddTestingCharm(c, "storage-filesystem-subordinate")
 	s.subordinateApplication = s.AddTestingApplication(c, "storage-filesystem-subordinate", storageCharm)
 	s.mysql = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.mysqlUnit, err = s.mysql.AddUnit(state.AddUnitParams{})
+	s.mysqlUnit, err = s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.st.InferEndpoints("mysql", "storage-filesystem-subordinate")
@@ -1535,7 +1536,7 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
 
-	err := s.mysqlRelunit.EnterScope(nil)
+	err := s.mysqlRelunit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The subordinate unit will have been created, along with its storage.
@@ -1549,16 +1550,16 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned
 
 	// Assigning the principal unit to a machine should cause the subordinate
 	// unit's machine storage to be created.
-	err = s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew)
+	err = s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.storageInstanceFilesystem(c, storageTag)
 }
 
 func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssigned(c *gc.C) {
-	err := s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew)
+	err := s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysqlRelunit.EnterScope(nil)
+	err = s.mysqlRelunit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The subordinate unit will have been created, along with its storage.
@@ -1578,11 +1579,11 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssignRace
 	// and be reattempted with the knowledge of the subordinate, and
 	// add the subordinate's storage.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err := s.mysqlRelunit.EnterScope(nil)
+		err := s.mysqlRelunit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err := s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew)
+	err := s.st.AssignUnit(defaultInstancePrechecker, s.mysqlUnit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.storageInstanceFilesystem(c, names.NewStorageTag("data/0"))
 }

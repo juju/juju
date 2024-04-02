@@ -34,6 +34,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/credential/service"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
@@ -677,6 +678,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		brokerFunc,
 		versions,
 		logDir,
+		status.NoopStatusHistoryRecorder,
 	)
 }
 

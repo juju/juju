@@ -325,6 +325,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 		machineTemplate,
 		parentId,
 		instance.LXD,
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
@@ -383,7 +384,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	if params.Characteristics != nil {
 		machineTemplate.HardwareCharacteristics = *params.Characteristics
 	}
-	machine, err := factory.st.AddOneMachine(factory.prechecker, machineTemplate)
+	machine, err := factory.st.AddOneMachine(factory.prechecker, machineTemplate, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	if setProvisioned {
 		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
@@ -566,7 +567,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
 		Placement:         params.Placement,
-	}, objectStore)
+	}, objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -671,7 +672,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	unit, err := params.Application.AddUnit(state.AddUnitParams{})
+	unit, err := params.Application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Machine != nil {

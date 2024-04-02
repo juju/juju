@@ -21,6 +21,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
@@ -58,6 +59,7 @@ type API struct {
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
 	store                   objectstore.ObjectStore
+	historyRecorder         status.StatusHistoryRecorder
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -76,6 +78,7 @@ func NewAPI(
 	leadership leadership.Reader,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -95,6 +98,7 @@ func NewAPI(
 		leadership:              leadership,
 		credentialService:       credentialService,
 		upgradeService:          upgradeService,
+		historyRecorder:         historyRecorder,
 	}, nil
 }
 
@@ -230,7 +234,7 @@ func (api *API) SetPhase(ctx context.Context, args params.SetMigrationPhaseArgs)
 		return errors.Errorf("invalid phase: %q", args.Phase)
 	}
 
-	err = mig.SetPhase(phase)
+	err = mig.SetPhase(phase, api.historyRecorder)
 	return errors.Annotate(err, "failed to set phase")
 }
 
@@ -268,7 +272,7 @@ func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationSt
 	if err != nil {
 		return errors.Annotate(err, "could not get migration")
 	}
-	err = mig.SetStatusMessage(args.Message)
+	err = mig.SetStatusMessage(args.Message, api.historyRecorder)
 	return errors.Annotate(err, "failed to set status message")
 }
 
@@ -319,7 +323,7 @@ func (api *API) Reap(ctx context.Context) error {
 	// We need to mark the migration as complete here, since removing
 	// the model might kill the worker before it has a chance to set
 	// the phase itself.
-	return errors.Trace(mig.SetPhase(coremigration.DONE))
+	return errors.Trace(mig.SetPhase(coremigration.DONE, api.historyRecorder))
 }
 
 // WatchMinionReports sets up a watcher which reports when a report

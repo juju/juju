@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/internal/migration"
@@ -46,6 +47,15 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 
 	serviceFactory := ctx.ServiceFactory()
 	credentialService := serviceFactory.Credential()
+
+	m, err := modelState.Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model")
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewAPI(
 		controllerState,
 		backend,
@@ -60,5 +70,6 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 		leadership,
 		credentialService,
 		serviceFactory.Upgrade(),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 }

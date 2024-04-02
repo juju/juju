@@ -28,6 +28,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -617,6 +618,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		stubLeadership{},
 		s.credentialService,
 		s.upgradeService,
+		status.NoopStatusHistoryRecorder,
 	)
 }
 

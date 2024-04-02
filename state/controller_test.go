@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -113,9 +114,9 @@ func (s *ControllerSuite) TestControllerInfo(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestSetMachineAddressesControllerCharm(c *gc.C) {
-	controller, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	controller, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	worker, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	worker, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerApp := s.AddTestingApplication(c, "controller", s.AddTestingCharm(c, "juju-controller"))

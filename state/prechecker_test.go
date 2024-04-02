@@ -15,6 +15,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -80,7 +81,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 		Jobs:       []state.MachineJob{state.JobManageModel},
 		Placement:  "anyoldthing",
 	}
-	_, err := s.State.AddOneMachine(s.prechecker, template)
+	_, err := s.State.AddOneMachine(s.prechecker, template, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	// PrecheckInstance should not have been called, as we've
 	// injected a machine with an existing instance.
@@ -96,7 +97,7 @@ func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "intertubes",
 	}
-	_, err := s.State.AddMachineInsideNewMachine(s.prechecker, template, template, instance.LXD)
+	_, err := s.State.AddMachineInsideNewMachine(s.prechecker, template, template, instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, template.Placement)
@@ -120,12 +121,12 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 			"data":    {Count: 1, Pool: "modelscoped"},
 			"allecto": {Count: 1, Pool: "modelscoped"},
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToNewMachine(s.prechecker)
+	err = unit.AssignToNewMachine(s.prechecker, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,7 +155,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, storageTag := range storageTags {
 		err = sb.DetachStorage(storageTag, unit.UnitTag(), false, dontWait)
@@ -180,7 +181,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 			Directive: "whatever",
 		}},
 		AttachStorage: storageTags,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The volume corresponding to the provisioned storage volume (only)
@@ -208,7 +209,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 		}},
 		NumUnits:    1,
 		Constraints: constraints.MustParse("root-disk=20G"),
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
 		Base:        corebase.MakeDefaultBase("ubuntu", "12.10"),
@@ -238,7 +239,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C)
 			instance.MustParsePlacement(m1.Id()),
 			instance.MustParsePlacement(m2.Id()),
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -264,7 +265,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 			{Scope: instance.MachineScope, Directive: m1.Id()},
 			{Scope: s.State.ModelUUID(), Directive: "somewhere"},
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": hey now`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
 		Base:        corebase.MakeDefaultBase("ubuntu", "20.04"),
@@ -289,7 +290,7 @@ func (s *PrecheckerSuite) addMachine(c *gc.C, prechecker environs.InstancePreche
 		Jobs:        oneJob,
 		Placement:   placement,
 	}
-	machine, err := s.State.AddOneMachine(prechecker, template)
+	machine, err := s.State.AddOneMachine(prechecker, template, status.NoopStatusHistoryRecorder)
 	return machine, template, err
 }
 

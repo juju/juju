@@ -69,14 +69,14 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.wordpressUnit.SetAgentStatus(sInfo)
+	err := s.wordpressUnit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Executing,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.mysqlUnit.SetAgentStatus(sInfo)
+	err = s.mysqlUnit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -114,14 +114,14 @@ func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.wordpressUnit.SetAgentStatus(sInfo)
+	err := s.wordpressUnit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Executing,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.mysqlUnit.SetAgentStatus(sInfo)
+	err = s.mysqlUnit.SetAgentStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -202,7 +202,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Life(), gc.Equals, state.Alive)
 	relStatus, err := rel.Status()
@@ -218,12 +218,12 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 
 	// Add another unit, so the service will stay dying when we
 	// destroy it later.
-	extraUnit, err := s.wordpress.AddUnit(state.AddUnitParams{})
+	extraUnit, err := s.wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(extraUnit, gc.NotNil)
 
 	// Make the wordpress service dying.
-	err = s.wordpress.Destroy(s.store)
+	err = s.wordpress.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1228,7 +1228,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 	// wordpress one.
 	err = mysqlRel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRel.Destroy(s.store)
+	err = mysqlRel.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(mysqlRel.Tag().Id())
@@ -1236,7 +1236,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 
 	err = wpRel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpRel.Destroy(s.store)
+	err = wpRel.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -1369,7 +1369,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
 
-	err = rel.Destroy(s.store)
+	err = rel.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(rel.Tag().Id())
@@ -1394,7 +1394,7 @@ func (s *uniterSuite) makeSubordinateRelation(c *gc.C, subApp, principalApp *sta
 	// on the principal unit.
 	ru, err := rel.Unit(principalUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return rel
@@ -1909,17 +1909,17 @@ func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 	// Create logging units for each of the mysql and wp units.
 	mysqlRU, err := mysqlRel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRU.EnterScope(nil)
+	err = mysqlRU.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlLoggingU := findSubordinateUnit(c, logging, s.mysqlUnit)
 	mysqlLoggingRU, err := mysqlRel.Unit(mysqlLoggingU)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlLoggingRU.EnterScope(nil)
+	err = mysqlLoggingRU.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wpRU, err := wpRel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpRU.EnterScope(nil)
+	err = wpRU.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	wpLoggingU := findSubordinateUnit(c, logging, s.wordpressUnit)
 	_, err = wpRel.Unit(wpLoggingU)
@@ -1977,7 +1977,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2023,7 +2023,7 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -2082,7 +2082,7 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.leadershipChecker.isLeader = false
@@ -2098,11 +2098,11 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 
 func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
-	err := rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: "going, going"}, nil)
+	err := rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: "going, going"}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -2115,7 +2115,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	rel2 := s.addRelation(c, "wordpress", "logging")
 	err = rel2.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: ""}, nil)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: ""}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f.MakeApplication(c, &factory.ApplicationParams{
@@ -2167,7 +2167,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2221,7 +2221,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2270,7 +2270,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
 
 	relUnit, err := rel.Unit(riakUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
@@ -2298,7 +2298,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2342,7 +2342,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
 
 	relUnit, err := rel.Unit(riakUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
@@ -2369,7 +2369,7 @@ func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
 		"other":        "things",
 		"invalid-bool": false,
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2393,7 +2393,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2449,7 +2449,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	err = relUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, false)
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2471,7 +2471,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, expect)
 
 	// Now destroy the remote unit, and check its settings can still be read.
-	err = s.mysqlUnit.Destroy(s.store)
+	err = s.mysqlUnit.Destroy(s.store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2496,7 +2496,7 @@ func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 	settings := map[string]interface{}{
 		"some": "settings",
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2542,7 +2542,7 @@ func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 		"other":        "things",
 		"invalid-bool": false,
 	}
-	err = relUnit.EnterScope(settings)
+	err = relUnit.EnterScope(settings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
@@ -2587,7 +2587,7 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 
 	relUnit, err := rel.Unit(riakUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
@@ -2618,14 +2618,14 @@ func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationSide
 	rel, err := cm.State().EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit2, err := app.AddUnit(state.AddUnitParams{})
+	unit2, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	relUnit, err := rel.Unit(unit2)
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(map[string]interface{}{
 		"black midi": "ducter",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
@@ -2651,7 +2651,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	myRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = myRelUnit.EnterScope(nil)
+	err = myRelUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
@@ -2871,7 +2871,7 @@ func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedApp string
 	rel := s.addRelation(c, firstSvc, relatedApp)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = relUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	relatedUnit, err := s.ControllerModel(c).State().Unit(relatedApp + "/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2935,10 +2935,10 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 		Charm:   f.MakeCharm(c, &factory.CharmParams{Name: "storage-block"}),
 		Storage: sCons,
 	})
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
-	err = st.AssignUnit(s.InstancePrechecker(c, st), unit, state.AssignNew)
+	err = st.AssignUnit(s.InstancePrechecker(c, st), unit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3068,7 +3068,7 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	c.Assert(machinePortRanges.UniquePortRanges(), gc.HasLen, 0)
 
 	// Add another mysql unit on machine 0.
-	mysqlUnit1, err := s.mysql.AddUnit(state.AddUnitParams{})
+	mysqlUnit1, err := s.mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysqlUnit1.AssignToMachine(s.machine0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3486,10 +3486,10 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 		Name:  "storage-block2",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "storage-block2"}),
 	})
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
-	err = st.AssignUnit(s.InstancePrechecker(c, st), unit, state.AssignNew)
+	err = st.AssignUnit(s.InstancePrechecker(c, st), unit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3629,14 +3629,15 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wpRelUnit, err := rel.Unit(gitlabUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpRelUnit.EnterScope(nil)
+	err = wpRelUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"
 	updateUnits.Updates = []*state.UpdateUnitOperation{gitlabUnit.UpdateOperation(state.UnitUpdateProperties{
-		Address: &addr,
-		Ports:   &[]string{"443"},
+		Address:  &addr,
+		Ports:    &[]string{"443"},
+		Recorder: status.NoopStatusHistoryRecorder,
 	})}
 	err = gitlab.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3684,8 +3685,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"
 	updateUnits.Updates = []*state.UpdateUnitOperation{wpUnit.UpdateOperation(state.UnitUpdateProperties{
-		Address: &addr,
-		Ports:   &[]string{"443"},
+		Address:  &addr,
+		Ports:    &[]string{"443"},
+		Recorder: status.NoopStatusHistoryRecorder,
 	})}
 	err := wp.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)

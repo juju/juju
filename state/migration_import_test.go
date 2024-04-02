@@ -785,6 +785,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 				Status:  status.Active,
 				Message: "cloud container active",
 			},
+			Recorder: status.NoopStatusHistoryRecorder,
 		})}
 	err = application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -963,7 +964,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the subordinate unit is created.
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tools, err := unit.AgentTools()
@@ -979,7 +980,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ru, err := relation.Unit(u)
 		c.Assert(err, jc.ErrorIsNil)
-		err = ru.EnterScope(nil)
+		err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1110,6 +1111,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 					Status:  status.Active,
 					Message: "cloud container active",
 				},
+				Recorder: status.NoopStatusHistoryRecorder,
 			})}
 		app, err := exported.Application()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1244,7 +1246,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	relSettings := map[string]interface{}{
 		"name": "wordpress/0",
 	}
-	err = ru.EnterScope(relSettings)
+	err = ru.EnterScope(relSettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
@@ -1298,14 +1300,14 @@ func (s *MigrationImportSuite) TestCMRRemoteRelationScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressSettings := map[string]interface{}{"name": "wordpress/0"}
-	err = localRU.EnterScope(wordpressSettings)
+	err = localRU.EnterScope(wordpressSettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remoteRU, err := rel.RemoteUnit("gravy-rainbow/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	gravySettings := map[string]interface{}{"name": "gravy-rainbow/0"}
-	err = remoteRU.EnterScope(gravySettings)
+	err = remoteRU.EnterScope(gravySettings, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
@@ -1340,7 +1342,7 @@ func (s *MigrationImportSuite) assertRelationsMissingStatus(c *gc.C, hasUnits bo
 		relSettings := map[string]interface{}{
 			"name": "wordpress/0",
 		}
-		err = ru.EnterScope(relSettings)
+		err = ru.EnterScope(relSettings, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -2303,7 +2305,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 
 func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
 	_, u, storageTag := s.makeUnitWithStorage(c)
-	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2629,7 +2631,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		pru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = pru.EnterScope(nil)
+		err = pru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		// Need to reload the doc to get the subordinates.
 		err = unit.Refresh()
@@ -2640,7 +2642,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		sub, err := rel.Unit(loggingUnit)
 		c.Assert(err, jc.ErrorIsNil)
-		err = sub.EnterScope(nil)
+		err = sub.EnterScope(nil, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		return rel.String()
 	}

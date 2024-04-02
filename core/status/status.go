@@ -28,6 +28,9 @@ type StatusInfo struct {
 	Since   *time.Time
 }
 
+// StatusHistoryRecorder is a function type that we use to carry around a
+// corelogger.Logger in the closure to record status changes in the backend. See
+// NewStatusHistoryRecorder for an example of how to create one.
 type StatusHistoryRecorder func(statusKind string, statusId string, status Status, statusInfo string)
 
 // NoopStatusHistoryRecorder is a placeholder StatusHistoryRecorder that does

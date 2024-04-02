@@ -7,11 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
 type StateInterface interface {
-	Cleanup(context.Context, objectstore.ObjectStore, state.MachineRemover, state.ApplicationRemover, state.UnitRemover) error
+	Cleanup(context.Context, objectstore.ObjectStore, state.MachineRemover, state.ApplicationRemover, state.UnitRemover, status.StatusHistoryRecorder) error
 	WatchCleanups() state.NotifyWatcher
 }
 

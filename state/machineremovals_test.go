@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
@@ -125,7 +126,7 @@ func (s *MachineRemovalSuite) createRemovalWatcher(c *gc.C, st *state.State) (
 }
 
 func (s *MachineRemovalSuite) makeMachine(c *gc.C, deadAlready bool) *state.Machine {
-	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	if deadAlready {
 		deadenMachine(c, m)

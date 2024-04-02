@@ -219,7 +219,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams, _ status.StatusHistoryRecorder) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -228,6 +228,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		s.caasBroker,
 		s.store,
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -2092,10 +2093,10 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 
 	unitName := "postgresql/99"
 	newUnit := s.expectUnit(ctrl, unitName)
-	newUnit.EXPECT().AssignWithPolicy(state.AssignNew)
+	newUnit.EXPECT().AssignWithPolicy(state.AssignNew, gomock.Any())
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
+	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}, gomock.Any()).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
@@ -2129,12 +2130,12 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 
 	unitName := "postgresql/99"
 	newUnit := s.expectUnit(ctrl, unitName)
-	newUnit.EXPECT().AssignWithPolicy(state.AssignNew)
+	newUnit.EXPECT().AssignWithPolicy(state.AssignNew, gomock.Any())
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AddUnit(state.AddUnitParams{
 		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
-	}).Return(newUnit, nil)
+	}, gomock.Any()).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")

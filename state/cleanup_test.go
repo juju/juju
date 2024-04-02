@@ -50,7 +50,7 @@ func (s *CleanupSuite) SetUpTest(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupDyingApplicationNoUnits(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder), jc.ErrorIsNil)
 	c.Assert(mysql.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
@@ -59,7 +59,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit(state.AddUnitParams{})
+		unit, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -68,7 +68,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 
 	// Destroy the application and check the units are unaffected, but a cleanup
 	// has been scheduled.
-	err := mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
 		err := unit.Refresh()
@@ -102,7 +102,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy the application and check that a cleanup has been scheduled.
-	err = mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
@@ -206,21 +206,21 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 	// Create a controller machine, and manual and non-manual
 	// workload machine, the latter with a container workload machine.
-	stateMachine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
+	stateMachine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	modelMachine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	modelMachine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, modelMachine.Id(), instance.LXD)
+	}, modelMachine.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	manualMachine, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "inst-ance",
 		Nonce:      "manual:foo",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
@@ -229,7 +229,7 @@ func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	preventPeerUnitsDestroyRemove(c, pr)
 
-	err = pr.ru0.EnterScope(nil)
+	err = pr.ru0.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -271,7 +271,7 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit(state.AddUnitParams{})
+		unit, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -328,7 +328,7 @@ func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit(state.AddUnitParams{})
+		unit, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -343,7 +343,7 @@ func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
 	// Prevent short circuit of offer removal.
 	ru, err := rel.Unit(units[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
+	err = ru.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	offers := state.NewApplicationOffers(s.State)
@@ -397,12 +397,12 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	pr := newPeerRelation(c, s.State, s.objectStore)
 	preventPeerUnitsDestroyRemove(c, pr)
 	rel := pr.ru0.Relation()
-	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
+	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy the application, check the relation's still around.
-	err = pr.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = pr.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupCount(c, 2)
 	err = rel.Refresh()
@@ -461,14 +461,14 @@ func (s *CleanupSuite) TestCleanupModelBranches(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
-	manager, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
+	manager, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(manager.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
-	err = manager.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = manager.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
@@ -478,7 +478,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C
 	cons := constraints.Value{
 		Mem: newUint64(100),
 	}
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, cons, state.UbuntuBase("12.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, cons, state.UbuntuBase("12.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 
@@ -501,7 +501,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C
 			node.SetHasVote(true)
 		}
 
-		u, err := app.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		err = u.SetCharmURL(ch.URL())
 		c.Assert(err, jc.ErrorIsNil)
@@ -520,7 +520,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C
 	}
 
 	s.assertDoesNotNeedCleanup(c)
-	err = machines[2].Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machines[2].Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertNeedsCleanup(c)
@@ -536,7 +536,7 @@ const dontWait = time.Duration(0)
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	// Create a machine.
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -546,7 +546,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	preventPeerUnitsDestroyRemove(c, pr)
-	err = pr.ru0.EnterScope(nil)
+	err = pr.ru0.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -568,13 +568,13 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.04"), nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 2)
 	c.Check(changes.Removed, gc.HasLen, 0)
@@ -625,7 +625,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -637,7 +637,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -679,14 +679,14 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// Create a machine with a container.
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, machine.Id(), instance.LXD)
+	}, machine.Id(), instance.LXD, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = container.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -732,7 +732,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -762,7 +762,7 @@ func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
 func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.Refresh(), jc.ErrorIsNil)
 	c.Assert(app.UnitCount(), gc.Equals, 1)
@@ -770,7 +770,7 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 
 	// app `dummyfoo` and its units should not be impacted after app `dummy` was destroyed.
 	appfoo := s.AddTestingApplication(c, "dummyfoo", ch)
-	unitfoo, err := appfoo.AddUnit(state.AddUnitParams{})
+	unitfoo, err := appfoo.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appfoo.Refresh(), jc.ErrorIsNil)
 	c.Assert(appfoo.UnitCount(), gc.Equals, 1)
@@ -800,7 +800,7 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
@@ -834,7 +834,7 @@ func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) 
 }
 
 func (s *CleanupSuite) TestDestroyMachineAssertsNoUpgradeSeriesLock(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
@@ -849,7 +849,7 @@ func (s *CleanupSuite) TestDestroyMachineAssertsNoUpgradeSeriesLock(c *gc.C) {
 
 	// Check that we get an error, but for the transaction assertion failure,
 	// and not for the initial check, which passes.
-	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.Not(gc.ErrorMatches), `machine 1 is locked for series upgrade`)
 
@@ -857,7 +857,7 @@ func (s *CleanupSuite) TestDestroyMachineAssertsNoUpgradeSeriesLock(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineRemovesLinkLayerDevices(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
@@ -899,11 +899,11 @@ func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// Create active unit, in a relation.
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	preventProReqUnitsDestroyRemove(c, prr)
-	err := prr.pru0.EnterScope(nil)
+	err := prr.pru0.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy provider unit 0; check it's Dying, and a cleanup has been scheduled.
-	err = prr.pu0.Destroy(store)
+	err = prr.pu0.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -919,7 +919,7 @@ func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// Destroy the relation, and check it sticks around...
 	err = prr.rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rel.Destroy(nil)
+	err = prr.rel.Destroy(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, prr.rel, state.Dying)
 
@@ -936,11 +936,11 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 	// Create active unit, in a relation.
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	preventProReqUnitsDestroyRemove(c, prr)
-	err := prr.pru0.EnterScope(nil)
+	err := prr.pru0.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy provider unit 0; check it's Dying, and a cleanup has been scheduled.
-	err = prr.pu0.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = prr.pu0.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -952,7 +952,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rel.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = prr.rel.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, prr.rel)
 
@@ -964,7 +964,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	// Create a application with a unit.
 	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit(state.AddUnitParams{})
+	unit, err := dummy.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -984,7 +984,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 2)
 
 	// destroy unit and run cleanups
-	err = dummy.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = dummy.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1010,7 +1010,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
-	for _, status := range []state.ActionStatus{
+	for _, astatus := range []state.ActionStatus{
 		state.ActionCompleted,
 		state.ActionCancelled,
 		state.ActionAborted,
@@ -1018,7 +1018,7 @@ func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 	} {
 		// Create a application with a unit.
 		dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-		unit, err := dummy.AddUnit(state.AddUnitParams{})
+		unit, err := dummy.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertDoesNotNeedCleanup(c)
 
@@ -1028,14 +1028,14 @@ func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 		action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		action, err = action.Finish(state.ActionResults{
-			Status:  status,
+			Status:  astatus,
 			Message: "done",
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(action.Status(), gc.Equals, status)
+		c.Assert(action.Status(), gc.Equals, astatus)
 
 		// Destroy application and run cleanups.
-		err = dummy.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err = dummy.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		// First cleanup marks all units of the application as dying.
 		// Second cleanup clear pending actions.
@@ -1051,7 +1051,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -1065,7 +1065,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
 	// destroy unit and run cleanups; the storage should be detached
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1084,7 +1084,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 		"allecto": makeStorageCons("modelscoped-block", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -1123,9 +1123,9 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 		"data": makeStorageCons("modelscoped", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1133,10 +1133,10 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy the application, so we can destroy the machine.
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
-	err = application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1145,7 +1145,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 
 	// destroy machine and run cleanups; the volume attachment
 	// should be marked dying.
-	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1187,7 +1187,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 
 	assertCleanups := func(n int) {
 		for i := 0; i < 4; i++ {
-			err := st.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+			err := st.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		state.AssertNoCleanups(c, st)
@@ -1214,7 +1214,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 		"data": makeStorageCons("", 1024, 1),
 	}
 	application := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "storage-filesystem", ch, storCons)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application.Refresh(), jc.ErrorIsNil)
 
@@ -1254,7 +1254,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	c.Assert(application.Refresh(), jc.ErrorIsNil)
 
 	c.Log("destroy app")
-	err = application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCleanups(4)
@@ -1309,7 +1309,7 @@ func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -1329,7 +1329,7 @@ func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
 		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "rootfs", Size: 1024},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -1350,7 +1350,7 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy(s.objectStore)
+	err = app.Destroy(s.objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := "application-wp/resources/mug"
@@ -1373,7 +1373,7 @@ func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
 	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy(s.objectStore)
+	err = app.Destroy(s.objectStore, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := "application-wp/resources/mug"
@@ -1394,7 +1394,7 @@ func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {
 func (s *CleanupSuite) TestCleanupIDSanity(c *gc.C) {
 	// Cleanup IDs shouldn't be ObjectIdHex("blah")
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
-	err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	coll := s.Session.DB("juju").C("cleanups")
@@ -1412,14 +1412,14 @@ func (s *CleanupSuite) TestCleanupIDSanity(c *gc.C) {
 func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	ch := s.AddTestingCharm(c, "mysql")
 	application := s.AddTestingApplication(c, "mysql", ch)
-	unit, err := application.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+	err = s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.SetAgentStatus(status.StatusInfo{
 		Status: status.Idle,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State.ModelUUID()), true, time.Minute)
@@ -1457,13 +1457,13 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	prr.allEnterScope(c)
 	for _, principal := range []*state.Unit{prr.pu0, prr.pu1} {
-		err := s.State.AssignUnit(defaultInstancePrechecker, principal, state.AssignNew)
+		err := s.State.AssignUnit(defaultInstancePrechecker, principal, state.AssignNew, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
 		err := unit.SetAgentStatus(status.StatusInfo{
 			Status: status.Idle,
-		})
+		}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1518,11 +1518,11 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	prr.allEnterScope(c)
 	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
-		err := s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew)
+		err := s.State.AssignUnit(defaultInstancePrechecker, unit, state.AssignNew, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.SetAgentStatus(status.StatusInfo{
 			Status: status.Idle,
-		})
+		}, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1558,16 +1558,16 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit(state.AddUnitParams{})
+	u, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetAgentStatus(status.StatusInfo{
 		Status: status.Idle,
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// this tag matches the storage instance created for the unit above.
@@ -1626,12 +1626,12 @@ func (s *CleanupSuite) TestForceDestroyApplicationRemovesUnitsThatAreAlreadyDyin
 	// then you try to force-remove it, it should get cleaned up
 	// correctly.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	unit, err := mysql.AddUnit(state.AddUnitParams{})
+	unit, err := mysql.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1711,7 +1711,7 @@ func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
-	err := s.State.Cleanup(context.Background(), s.objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err := s.State.Cleanup(context.Background(), s.objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

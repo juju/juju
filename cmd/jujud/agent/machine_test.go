@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/status"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
@@ -465,7 +466,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
 	st := s.ControllerModel(c).State()
-	parent, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("20.04"), state.JobHostUnits)
+	parent, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("20.04"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := st.AddMachineInsideMachine(
 		state.MachineTemplate{
@@ -474,6 +475,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 		},
 		parent.Id(),
 		instance.LXD,
+		status.NoopStatusHistoryRecorder,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

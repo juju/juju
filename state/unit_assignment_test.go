@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -28,7 +29,7 @@ func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.
 			Channel: "22.04/stable",
 		}},
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,7 +57,7 @@ func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
 
 	results, err := s.State.AssignStagedUnits(defaultInstancePrechecker, []string{
 		"dummy/0", "dummy/1",
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.SameContents, []state.UnitAssignmentResult{
 		{Unit: "dummy/0"},
@@ -92,14 +93,14 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()
@@ -130,7 +131,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		EndpointBindings: map[string]string{
 			"": specialSpace.Id(),
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := app.AllUnits()
@@ -138,7 +139,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	guestID, err := unit.AssignedMachineId()
@@ -181,7 +182,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		EndpointBindings: map[string]string{
 			"": boundSpace.Id(),
 		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := app.AllUnits()
@@ -189,7 +190,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	guestID, err := unit.AssignedMachineId()
@@ -224,14 +225,14 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, &placement, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()
@@ -271,19 +272,19 @@ func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, place
 		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{placement},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 
 	unit := units[0]
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement, status.NoopStatusHistoryRecorder)
 	c.Assert(err, gc.ErrorMatches, ".* is locked for series upgrade")
 }
 
 func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C, addContainer bool) (*state.Machine, *state.Machine) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var child *state.Machine
@@ -292,7 +293,7 @@ func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C, addContainer bool) (*sta
 			Base: state.UbuntuBase("12.10"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
 		}
-		child, err = s.State.AddMachineInsideMachine(template, machine.Id(), "lxd")
+		child, err = s.State.AddMachineInsideMachine(template, machine.Id(), "lxd", status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

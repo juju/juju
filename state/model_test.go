@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -318,7 +319,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, modelTag)
 
 	// Ensure the model is functional by adding a machine
-	_, err = st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the default model was created.
@@ -452,15 +453,15 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 	// Add a machine/unit/application and destroy it, to
 	// ensure we're only counting entities that are alive.
 	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	err := m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err := m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	one := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "one",
 	})
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
-	err = one.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = one.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -671,7 +672,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	// add some machines and applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherSt.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = otherSt.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -684,7 +685,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()))
+	_, err = otherSt.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, otherSt.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -1125,7 +1126,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
 		c.Assert(model.Life(), gc.Equals, state.Dying)
 
-		err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+		err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(model.UniqueIndexExists(), jc.IsTrue)
@@ -1150,7 +1151,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	// add some machines and applications
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -1163,7 +1164,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, st.ModelUUID()))
+	_, err = st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, st.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
@@ -1208,7 +1209,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 				Size: 123,
 			},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sb, err := state.NewStorageBackend(st)
@@ -1259,7 +1260,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 				Size: 123,
 			},
 		}},
-	})
+	}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sb, err := state.NewStorageBackend(st)
@@ -1556,7 +1557,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	rel, err := ms.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	unit, err := wordpress.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	f := factory.NewFactory(ms, s.StatePool)
 	machine := f.MakeMachine(c, nil)
@@ -1564,12 +1565,12 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	localRelUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = localRelUnit.EnterScope(nil)
+	err = localRelUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remoteRelUnit, err := rel.RemoteUnit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = remoteRelUnit.EnterScope(nil)
+	err = remoteRelUnit.EnterScope(nil, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Refetch the remoteapp to ensure that its relationcount is
@@ -1581,7 +1582,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, remoteApp, state.Dying)
 
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = localRelUnit.LeaveScope()
@@ -1708,7 +1709,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {
-	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

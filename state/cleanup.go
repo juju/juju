@@ -16,6 +16,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -187,6 +188,7 @@ func (st *State) Cleanup(
 	machineRemover MachineRemover,
 	appRemover ApplicationRemover,
 	unitRemover UnitRemover,
+	historyRecorder status.StatusHistoryRecorder,
 ) (err error) {
 	var doc cleanupDoc
 	cleanups, closer := st.db().GetCollection(cleanupsC)
@@ -233,15 +235,15 @@ func (st *State) Cleanup(
 		case cleanupForceRemoveUnit:
 			err = st.cleanupForceRemoveUnit(ctx, store, unitRemover, doc.Prefix, args)
 		case cleanupDyingUnitResources:
-			err = st.cleanupDyingUnitResources(doc.Prefix, args)
+			err = st.cleanupDyingUnitResources(doc.Prefix, args, historyRecorder)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix, args)
 		case cleanupApplicationsForDyingModel:
 			err = st.cleanupApplicationsForDyingModel(ctx, store, appRemover, args)
 		case cleanupDyingMachine:
-			err = st.cleanupDyingMachine(doc.Prefix, args)
+			err = st.cleanupDyingMachine(doc.Prefix, args, historyRecorder)
 		case cleanupForceDestroyedMachine:
-			err = st.cleanupForceDestroyedMachine(ctx, store, unitRemover, machineRemover, doc.Prefix, args)
+			err = st.cleanupForceDestroyedMachine(ctx, store, unitRemover, machineRemover, doc.Prefix, args, historyRecorder)
 		case cleanupForceRemoveMachine:
 			err = st.cleanupForceRemoveMachine(ctx, store, machineRemover, doc.Prefix, args)
 		case cleanupEvacuateMachine:
@@ -1103,7 +1105,7 @@ func (st *State) cleanupForceRemoveUnit(ctx context.Context, store objectstore.O
 	return errors.Trace(err)
 }
 
-func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw, historyRecorder status.StatusHistoryRecorder) error {
 	var force bool
 	var maxWait time.Duration
 	switch n := len(cleanupArgs); n {
@@ -1142,7 +1144,7 @@ func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw
 	}
 
 	cleaner := newDyingEntityStorageCleaner(sb, unitTag, false, force)
-	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments))
+	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments, historyRecorder))
 }
 
 func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool, force bool, maxWait time.Duration) error {
@@ -1256,7 +1258,7 @@ func (st *State) cleanupRemovedUnit(unitId string, cleanupArgs []bson.Raw) error
 
 // cleanupDyingMachine marks resources owned by the machine as dying, to ensure
 // they are cleaned up as well.
-func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw, historyRecorder status.StatusHistoryRecorder) error {
 	var (
 		force   bool
 		maxWait time.Duration
@@ -1284,7 +1286,7 @@ func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) e
 		return errors.Trace(err)
 	}
 
-	err = cleanupDyingMachineResources(machine, force)
+	err = cleanupDyingMachineResources(machine, force, historyRecorder)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1301,7 +1303,7 @@ func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) e
 // cleanupForceDestroyedMachine systematically destroys and removes all entities
 // that depend upon the supplied machine, and removes the machine from state. It's
 // expected to be used in response to destroy-machine --force.
-func (st *State) cleanupForceDestroyedMachine(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, machineId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupForceDestroyedMachine(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, machineId string, cleanupArgs []bson.Raw, historyRecorder status.StatusHistoryRecorder) error {
 	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
@@ -1314,10 +1316,10 @@ func (st *State) cleanupForceDestroyedMachine(ctx context.Context, store objects
 			}
 		}
 	}
-	return st.cleanupForceDestroyedMachineInternal(ctx, store, unitRemover, machineRemover, machineId, maxWait)
+	return st.cleanupForceDestroyedMachineInternal(ctx, store, unitRemover, machineRemover, machineId, maxWait, historyRecorder)
 }
 
-func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, machineID string, maxWait time.Duration) error {
+func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, machineID string, maxWait time.Duration, historyRecorder status.StatusHistoryRecorder) error {
 	// The first thing we want to do is remove any series upgrade machine
 	// locks that might prevent other resources from being removed.
 	// We don't tie the lock cleanup to existence of the machine.
@@ -1350,7 +1352,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store
 	// But machine destruction is unsophisticated, and doesn't allow for
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
-	if err := st.cleanupContainers(ctx, store, unitRemover, machineRemover, machine, maxWait); err != nil {
+	if err := st.cleanupContainers(ctx, store, unitRemover, machineRemover, machine, maxWait, historyRecorder); err != nil {
 		return errors.Trace(err)
 	}
 	for _, unitName := range machine.doc.Principals {
@@ -1362,7 +1364,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store
 			return errors.Trace(err)
 		}
 	}
-	if err := cleanupDyingMachineResources(machine, true); err != nil {
+	if err := cleanupDyingMachineResources(machine, true, historyRecorder); err != nil {
 		return errors.Trace(err)
 	}
 	if machine.IsManager() {
@@ -1534,7 +1536,7 @@ func (st *State) cleanupEvacuateMachine(store objectstore.ObjectStore, machineId
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
 // machine's containers, and removes them from state entirely.
-func (st *State) cleanupContainers(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, machine *Machine, maxWait time.Duration) error {
+func (st *State) cleanupContainers(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, machine *Machine, maxWait time.Duration, historyRecorder status.StatusHistoryRecorder) error {
 	containerIds, err := machine.Containers()
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -1542,7 +1544,7 @@ func (st *State) cleanupContainers(ctx context.Context, store objectstore.Object
 		return err
 	}
 	for _, containerId := range containerIds {
-		if err := st.cleanupForceDestroyedMachineInternal(ctx, store, unitRemover, machineRemover, containerId, maxWait); err != nil {
+		if err := st.cleanupForceDestroyedMachineInternal(ctx, store, unitRemover, machineRemover, containerId, maxWait, historyRecorder); err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
@@ -1561,7 +1563,7 @@ func (st *State) cleanupContainers(ctx context.Context, store objectstore.Object
 	return nil
 }
 
-func cleanupDyingMachineResources(m *Machine, force bool) error {
+func cleanupDyingMachineResources(m *Machine, force bool, historyRecorder status.StatusHistoryRecorder) error {
 	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return errors.Trace(err)
@@ -1595,7 +1597,7 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 	}
 
 	cleaner := newDyingEntityStorageCleaner(sb, m.Tag(), manual, force)
-	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments))
+	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments, historyRecorder))
 }
 
 // obliterateUnit removes a unit from state completely. It is not safe or

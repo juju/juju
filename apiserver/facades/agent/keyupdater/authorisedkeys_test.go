@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -48,9 +49,9 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Create machines to work with
 	var err error
-	s.rawMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.unrelatedMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.unrelatedMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as a controller

@@ -413,8 +413,8 @@ func (r *mockRelation) Tag() names.Tag {
 	return names.NewRelationTag(r.key)
 }
 
-func (r *mockRelation) Destroy(_ objectstore.ObjectStore) error {
-	r.MethodCall(r, "Destroy")
+func (r *mockRelation) Destroy(arg1 objectstore.ObjectStore, arg2 status.StatusHistoryRecorder) error {
+	r.MethodCall(r, "Destroy", arg1, arg2)
 	return r.NextErr()
 }
 
@@ -641,8 +641,8 @@ func (u *mockRelationUnit) LeaveScope() error {
 	return nil
 }
 
-func (u *mockRelationUnit) EnterScope(settings map[string]interface{}) error {
-	u.MethodCall(u, "EnterScope", settings)
+func (u *mockRelationUnit) EnterScope(settings map[string]interface{}, recorder status.StatusHistoryRecorder) error {
+	u.MethodCall(u, "EnterScope", settings, recorder)
 	if err := u.NextErr(); err != nil {
 		return err
 	}

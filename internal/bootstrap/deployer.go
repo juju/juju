@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -153,7 +154,7 @@ type Unit interface {
 // StateBackend is the interface that is used to get information about the
 // state.
 type StateBackend interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore, status.StatusHistoryRecorder) (Application, error)
 	Charm(string) (Charm, error)
 	Model() (Model, error)
 	Unit(string) (Unit, error)
@@ -403,7 +404,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		Constraints:       b.constraints,
 		ApplicationConfig: appCfg,
 		NumUnits:          1,
-	}, b.objectStore)
+	}, b.objectStore, status.NoopStatusHistoryRecorder)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

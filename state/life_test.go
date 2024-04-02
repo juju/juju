@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -96,7 +97,7 @@ func (l *unitLife) id() (coll string, id interface{}) {
 }
 
 func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	l.unit = unit
@@ -121,7 +122,7 @@ func (l *machineLife) id() (coll string, id interface{}) {
 
 func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 	var err error
-	l.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	l.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), status.NoopStatusHistoryRecorder, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return l.machine
 }
@@ -160,7 +161,7 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			s.prepareFixture(living, lfix, v.cached, v.dbinitial, c)
 			switch v.desired {
 			case state.Dying:
-				err := living.Destroy(store)
+				err := living.Destroy(store, status.NoopStatusHistoryRecorder)
 				c.Assert(err, jc.ErrorIsNil)
 
 				// If we're already in the dead state, we can't transition, so
@@ -210,7 +211,7 @@ const (
 
 type lifer interface {
 	EnsureDead() error
-	Destroy(objectstore.ObjectStore) error
+	Destroy(objectstore.ObjectStore, status.StatusHistoryRecorder) error
 	Life() state.Life
 }
 
@@ -231,7 +232,7 @@ func runLifeChecks(c *gc.C, obj lifer, expectErr string, checks []func() error) 
 // in each respective life state.
 func testWhenDying(c *gc.C, store objectstore.ObjectStore, obj lifer, dyingErr, deadErr string, checks ...func() error) {
 	c.Logf("checking life of %v (%T)", obj, obj)
-	err := obj.Destroy(store)
+	err := obj.Destroy(store, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	runLifeChecks(c, obj, dyingErr, checks)
 	err = obj.EnsureDead()

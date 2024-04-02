@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -40,7 +41,7 @@ func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Val
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
-	})
+	}, status.NoopStatusHistoryRecorder)
 }
 
 var setConstraintsTests = []struct {
@@ -249,7 +250,7 @@ func (s *constraintsValidationSuite) TestApplicationConstraints(c *gc.C) {
 		// Set the application deployment constraints.
 		err = application.SetConstraints(constraints.MustParse(t.consToSet))
 		c.Check(err, jc.ErrorIsNil)
-		u, err := application.AddUnit(state.AddUnitParams{})
+		u, err := application.AddUnit(state.AddUnitParams{}, status.NoopStatusHistoryRecorder)
 		c.Check(err, jc.ErrorIsNil)
 		// New unit deployment constraints get merged with the fallbacks.
 		ucons, err := u.Constraints()
@@ -292,7 +293,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [lxd]"))
 }
 
@@ -306,7 +307,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 }
@@ -321,7 +322,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
@@ -334,7 +335,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		}},
 		Charm:       s.testCharm,
 		Constraints: negCons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(negApplication, gc.NotNil)
 
@@ -371,7 +372,7 @@ func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C)
 		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
