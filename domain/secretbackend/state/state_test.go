@@ -800,7 +800,7 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 		},
 	}, &nextRotateTime2)
 
-	backends, err := s.state.ListSecretBackends(context.Background())
+	backends, err := s.state.ListSecretBackends(context.Background(), false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.HasLen, 2)
 	c.Assert(backends, gc.DeepEquals, []*secretbackend.SecretBackend{
@@ -828,7 +828,7 @@ func (s *stateSuite) TestListSecretBackends(c *gc.C) {
 }
 
 func (s *stateSuite) TestListSecretBackendsEmpty(c *gc.C) {
-	backends, err := s.state.ListSecretBackends(context.Background())
+	backends, err := s.state.ListSecretBackends(context.Background(), false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.IsNil)
 }

@@ -4,8 +4,6 @@
 package servicefactory
 
 import (
-	"github.com/juju/clock"
-
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -178,7 +176,6 @@ func (s *ControllerFactory) Access() *accessservice.Service {
 }
 
 func (s *ControllerFactory) SecretBackend(
-	clk clock.Clock,
 	controllerUUID string,
 	registry secretbackendservice.SecretProviderRegistry,
 ) *secretbackendservice.WatchableService {
@@ -194,6 +191,6 @@ func (s *ControllerFactory) SecretBackend(
 			s.controllerDB,
 			s.logger.Child("watcherfactory"),
 		),
-		controllerUUID, clk, registry,
+		controllerUUID,  registry,
 	)
 }

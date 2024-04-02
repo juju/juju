@@ -247,11 +247,13 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 }
 
 // ListSecretBackends returns a list of all secret backends.
-func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error) {
+// If all is true, it returns all secret backends, otherwise it returns only the ones in use.
+func (s *State) ListSecretBackends(ctx context.Context, all bool) ([]*secretbackend.SecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO: implement for inUse. JUJU-5707
 	stmt, err := s.Prepare(`
 SELECT 
     b.uuid                  AS &SecretBackendRow.uuid,

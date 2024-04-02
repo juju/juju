@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -40,7 +41,11 @@ type Service struct {
 }
 
 // NewService creates a new Service for interacting with the secret backend state.
-func NewService(
+func NewService(st State, logger Logger, controllerUUID string, registry SecretProviderRegistry) *Service {
+	return newService(st, logger, controllerUUID, clock.WallClock, registry)
+}
+
+func newService(
 	st State, logger Logger,
 	controllerUUID string,
 	clk clock.Clock,
@@ -119,7 +124,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 		}
 	}
 
-	backends, err := s.st.ListSecretBackends(ctx)
+	backends, err := s.st.ListSecretBackends(ctx, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -147,26 +152,18 @@ func convertConfigToAny(config map[string]string) map[string]interface{} {
 	if len(config) == 0 {
 		return nil
 	}
-	result := make(map[string]interface{}, len(config))
-	for k, v := range config {
-		result[k] = v
-	}
-	return result
+	return transform.Map(config, func(k string, v string) (string, any) {
+		return k, v
+	})
 }
 
 func convertConfigToString(config map[string]interface{}) map[string]string {
 	if len(config) == 0 {
 		return nil
 	}
-	result := make(map[string]string, len(config))
-	for k, v := range config {
-		if s, ok := v.(string); ok {
-			result[k] = s
-			continue
-		}
-		result[k] = fmt.Sprintf("%v", v)
-	}
-	return result
+	return transform.Map(config, func(k string, v interface{}) (string, string) {
+		return k, fmt.Sprintf("%v", v)
+	})
 }
 
 // GetSecretBackendConfigLegacy gets the config needed to create a client to secret backends.
@@ -204,7 +201,7 @@ func (s *Service) BackendSummaryInfo(
 	modelUUID coremodel.UUID, cloud cloud.Cloud, cred cloud.Credential,
 	reveal, all bool, names ...string,
 ) ([]*SecretBackendInfo, error) {
-	backends, err := s.st.ListSecretBackends(ctx)
+	backends, err := s.st.ListSecretBackends(ctx, all)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -221,6 +218,9 @@ func (s *Service) BackendSummaryInfo(
 		})
 	}
 	// If we want all backends, include those which are not in use.
+	// TODO: once the in-use backends feature is implemented, below logic should be updated.
+	// The ListSecretBackends will include the internal and k8s backends. We just need to fill
+	// in the backend configuration for the k8s backend.
 	if all {
 		// The internal (controller) backend.
 		backendInfos = append(backendInfos, &SecretBackendInfo{
@@ -286,16 +286,17 @@ func (s *Service) BackendSummaryInfo(
 			continue
 		}
 		for n, f := range configValidator.ConfigSchema() {
-			if f.Secret && !reveal {
-				delete(b.Config, n)
+			if !f.Secret || reveal {
+				continue
 			}
+			delete(b.Config, n)
 		}
 	}
 	return backendInfos, nil
 }
 
-// CheckSecretBackend checks the secret backend for the given backend ID.
-func (s *Service) CheckSecretBackend(ctx context.Context, backendID string) error {
+// PingSecretBackend checks the secret backend for the given backend ID.
+func (s *Service) PingSecretBackend(ctx context.Context, backendID string) error {
 	backend, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID})
 	if err != nil {
 		return errors.Trace(err)
@@ -551,6 +552,17 @@ type WatchableService struct {
 
 // NewWatchableService creates a new WatchableService for interacting with the secret backend state and watching for changes.
 func NewWatchableService(
+	st State, logger Logger,
+	wf WatcherFactory,
+	controllerUUID string,
+	registry SecretProviderRegistry,
+) *WatchableService {
+	return newWatchableService(
+		st, logger, wf, controllerUUID, clock.WallClock, registry,
+	)
+}
+
+func newWatchableService(
 	st State, logger Logger,
 	wf WatcherFactory,
 	controllerUUID string,

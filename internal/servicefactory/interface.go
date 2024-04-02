@@ -4,8 +4,6 @@
 package servicefactory
 
 import (
-	"github.com/juju/clock"
-
 	accessservice "github.com/juju/juju/domain/access/service"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -62,9 +60,7 @@ type ControllerServiceFactory interface {
 	// controller.
 	Access() *accessservice.Service
 	// SecretBackend returns the secret backend service.
-	SecretBackend(
-		clock.Clock, string, secretbackendservice.SecretProviderRegistry,
-	) *secretbackendservice.WatchableService
+	SecretBackend(string, secretbackendservice.SecretProviderRegistry) *secretbackendservice.WatchableService
 }
 
 // ModelServiceFactory provides access to the services required by the

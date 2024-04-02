@@ -9,6 +9,7 @@ import (
 	"sort"
 	time "time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -120,8 +121,8 @@ type serviceSuite struct {
 	mockSecretProvider, mockSepicalSecretProvider *MockSecretsBackend
 	mockStringWatcher                             *MockStringsWatcher
 
-	mockClock *MockClock
-	logger    Logger
+	clock  testclock.AdvanceableClock
+	logger Logger
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -136,7 +137,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockSepicalSecretProvider = NewMockSecretsBackend(ctrl)
 	s.mockStringWatcher = NewMockStringsWatcher(ctrl)
 
-	s.mockClock = NewMockClock(ctrl)
+	s.clock = testclock.NewDilatedWallClock(0)
 	s.logger = jujutesting.NewCheckLogger(c)
 
 	return ctrl
@@ -161,7 +162,7 @@ func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
 		cred = cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
 	}
 
-	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return([]*secretbackend.SecretBackend{{
+	s.mockState.EXPECT().ListSecretBackends(gomock.Any(), true).Return([]*secretbackend.SecretBackend{{
 		ID:          vaultBackendID,
 		Name:        "myvault",
 		BackendType: vault.BackendType,
@@ -189,8 +190,8 @@ func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
 
 func (s *serviceSuite) TestGetSecretBackendConfigForAdminDefaultIAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return s.mockRegistry, nil
@@ -209,8 +210,8 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminDefaultIAAS(c *gc.C) {
 
 func (s *serviceSuite) TestGetSecretBackendConfigForAdminDefaultCAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return s.mockRegistry, nil
@@ -230,8 +231,8 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminDefaultCAAS(c *gc.C) {
 
 func (s *serviceSuite) TestGetSecretBackendConfigForAdminInternalIAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return s.mockRegistry, nil
@@ -250,8 +251,8 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminInternalIAAS(c *gc.C) {
 
 func (s *serviceSuite) TestGetSecretBackendConfigForAdminInternalCAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return s.mockRegistry, nil
@@ -271,8 +272,8 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminInternalCAAS(c *gc.C) {
 
 func (s *serviceSuite) TestGetSecretBackendConfigForAdminExternalIAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return s.mockRegistry, nil
@@ -291,8 +292,8 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminExternalIAAS(c *gc.C) {
 
 func (s *serviceSuite) TestGetSecretBackendConfigForAdminExternalCAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return s.mockRegistry, nil
@@ -327,7 +328,7 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 	reveal bool, all bool, names []string,
 	expected []*SecretBackendInfo,
 ) {
-	s.mockState.EXPECT().ListSecretBackends(gomock.Any()).Return([]*secretbackend.SecretBackend{
+	s.mockState.EXPECT().ListSecretBackends(gomock.Any(), all).Return([]*secretbackend.SecretBackend{
 		{
 			ID:          vaultBackendID,
 			Name:        "myvault",
@@ -411,8 +412,8 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 
 func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			if backendType != vault.BackendType {
 				return s.mockRegistry, nil
@@ -478,8 +479,8 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 
 func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			if backendType != vault.BackendType {
 				return s.mockRegistry, nil
@@ -530,8 +531,8 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *gc.C) {
 
 func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			if backendType != vault.BackendType {
 				return s.mockRegistry, nil
@@ -563,8 +564,8 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *gc.C) {
 
 func (s *serviceSuite) TestBackendSummaryInfoWithFilterNamesNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			if backendType != vault.BackendType {
 				return s.mockRegistry, nil
@@ -581,10 +582,10 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNamesNotFound(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) TestCheckSecretBackend(c *gc.C) {
+func (s *serviceSuite) TestPingSecretBackend(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return s.mockRegistry, nil
@@ -609,14 +610,14 @@ func (s *serviceSuite) TestCheckSecretBackend(c *gc.C) {
 		},
 	}).Return(s.mockSecretProvider, nil)
 	s.mockSecretProvider.EXPECT().Ping().Return(nil)
-	err := svc.CheckSecretBackend(context.Background(), "backend-uuid")
+	err := svc.PingSecretBackend(context.Background(), "backend-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestCreateSecretBackendFailed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "something")
 			return providerWithConfig{
@@ -661,8 +662,8 @@ func (s *serviceSuite) TestCreateSecretBackendFailed(c *gc.C) {
 
 func (s *serviceSuite) TestCreateSecretBackend(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return providerWithConfig{
@@ -675,8 +676,7 @@ func (s *serviceSuite) TestCreateSecretBackend(c *gc.C) {
 		"endpoint":  "http://vault",
 		"namespace": "foo",
 	}
-	now := time.Now()
-	s.mockClock.EXPECT().Now().Return(now)
+	now := s.clock.Now()
 	s.mockState.EXPECT().CreateSecretBackend(gomock.Any(), secretbackend.CreateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID:   "backend-uuid",
@@ -709,8 +709,8 @@ func (s *serviceSuite) TestCreateSecretBackend(c *gc.C) {
 }
 func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,
@@ -755,8 +755,8 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 
 func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, force bool) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			c.Assert(backendType, gc.Equals, "vault")
 			return providerWithConfig{
@@ -774,8 +774,7 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, force bool) {
 		"namespace":       "foo",
 		"tls-server-name": "server-name",
 	}
-	now := time.Now()
-	s.mockClock.EXPECT().Now().Return(now)
+	now := s.clock.Now()
 	if byName {
 		s.mockState.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{Name: "myvault"}).Return(&secretbackend.SecretBackend{
 			ID:          "backend-uuid",
@@ -846,8 +845,8 @@ func (s *serviceSuite) TestUpdateSecretBackendWithForceByName(c *gc.C) {
 
 func (s *serviceSuite) TestDeleteSecretBackend(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,
@@ -861,8 +860,8 @@ func (s *serviceSuite) TestDeleteSecretBackend(c *gc.C) {
 
 func (s *serviceSuite) TestGetSecretBackendByName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,
@@ -883,8 +882,8 @@ func (s *serviceSuite) TestGetSecretBackendByName(c *gc.C) {
 
 func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,
@@ -911,8 +910,7 @@ func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
 		},
 	}).Return("", nil)
 
-	now := time.Now()
-	s.mockClock.EXPECT().Now().Return(now)
+	now := s.clock.Now()
 	nextRotateTime := now.Add(150 * time.Minute)
 	s.mockState.EXPECT().SecretBackendRotated(gomock.Any(), "backend-uuid", nextRotateTime).Return(nil)
 
@@ -922,8 +920,8 @@ func (s *serviceSuite) TestRotateBackendToken(c *gc.C) {
 
 func (s *serviceSuite) TestRotateBackendTokenRetry(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(
-		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,
@@ -950,8 +948,7 @@ func (s *serviceSuite) TestRotateBackendTokenRetry(c *gc.C) {
 		},
 	}).Return("", errors.New("BOOM"))
 
-	now := time.Now()
-	s.mockClock.EXPECT().Now().Return(now)
+	now := s.clock.Now()
 	// On error, try again after a short time.
 	nextRotateTime := now.Add(2 * time.Minute)
 	s.mockState.EXPECT().SecretBackendRotated(gomock.Any(), "backend-uuid", nextRotateTime).Return(nil)
@@ -968,8 +965,8 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	nextRotateTime1 := time.Now().Add(12 * time.Hour)
 	nextRotateTime2 := time.Now().Add(24 * time.Hour)
 
-	svc := NewWatchableService(
-		s.mockState, s.logger, s.mockWatcherFactory, jujutesting.ControllerTag.Id(), s.mockClock,
+	svc := newWatchableService(
+		s.mockState, s.logger, s.mockWatcherFactory, jujutesting.ControllerTag.Id(), s.clock,
 		func(backendType string) (provider.SecretBackendProvider, error) {
 			return providerWithConfig{
 				SecretBackendProvider: s.mockRegistry,

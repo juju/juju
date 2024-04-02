@@ -40,7 +40,7 @@ func newSecretBackendRotateWatcher(
 }
 
 func (w *secretBackendRotateWatcher) loop() (err error) {
-	// To allow the initial event to sent.
+	// To allow the initial event to be sent.
 	out := w.out
 	var changes []watcher.SecretBackendRotateChange
 	ctx := w.tomb.Context(context.Background())
