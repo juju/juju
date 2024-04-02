@@ -159,14 +159,14 @@ func (s *uniterSuite) TestSetUnitStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.wordpressUnit.SetStatus(sInfo, nil)
+	err := s.wordpressUnit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Terminated,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.mysqlUnit.SetStatus(sInfo, nil)
+	err = s.mysqlUnit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -2990,14 +2990,14 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.wordpressUnit.SetStatus(sInfo, nil)
+	err := s.wordpressUnit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Terminated,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.mysqlUnit.SetStatus(sInfo, nil)
+	err = s.mysqlUnit.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{

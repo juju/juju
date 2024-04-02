@@ -80,14 +80,14 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machine0.SetStatus(sInfo, nil)
+	err := s.machine0.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Stopped,
 		Message: "foo",
 		Since:   &now,
 	}
-	err = s.machine1.SetStatus(sInfo, nil)
+	err = s.machine1.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
