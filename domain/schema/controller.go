@@ -22,11 +22,13 @@ const (
 	tableUpgradeInfoControllerNode
 	tableObjectStoreMetadata
 	tableSecretBackendRotation
+	tableModelMetadata
 )
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() *schema.Schema {
 	patches := []func() schema.Patch{
+		lifeSchema,
 		leaseSchema,
 		changeLogSchema,
 		changeLogControllerNamespacesSchema,
@@ -59,6 +61,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		changeLogTriggersForTableOnColumn("secret_backend_rotation", "backend_uuid", "next_rotation_time", tableSecretBackendRotation),
+		changeLogTriggersForTable("model_metadata", "model_uuid", tableModelMetadata),
 
 		// We need to ensure that the internal and kubernetes backends are immutable after
 		// they are created by the controller during bootstrap time.
@@ -142,7 +145,8 @@ INSERT INTO change_log_namespace VALUES
     (8, 'autocert_cache', 'autocert cache changes based on the UUID'),
     (9, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
     (10, 'object_store_metadata_path', 'object store metadata path changes based on the path'),
-    (11, 'secret_backend_rotation', 'secret backend rotation changes based on the backend UUID and next rotation time');
+    (11, 'secret_backend_rotation', 'secret backend rotation changes based on the backend UUID and next rotation time'),
+    (12, 'model_metadata', 'model metadata changes based on the model UUID');
 `)
 }
 
@@ -390,6 +394,7 @@ CREATE TABLE model_metadata (
     cloud_region_uuid     TEXT,
     cloud_credential_uuid TEXT,
     model_type_id         INT NOT NULL,
+    life_id               INT NOT NULL,
     name                  TEXT NOT NULL,
     owner_uuid            TEXT NOT NULL,
     CONSTRAINT            fk_model_metadata_model
@@ -410,6 +415,9 @@ CREATE TABLE model_metadata (
     CONSTRAINT            fk_model_metadata_owner_uuid
         FOREIGN KEY           (owner_uuid)
         REFERENCES            user(uuid)
+    CONSTRAINT            fk_model_metadata_life_id
+        FOREIGN KEY           (life_id)
+        REFERENCES            life(id)
 );
 
 CREATE UNIQUE INDEX idx_model_metadata_name_owner
@@ -431,7 +439,8 @@ SELECT m.uuid,
        mt.type       AS model_type_type,
        mm.name,
        mm.owner_uuid,
-       u.name        AS owner_name
+       u.name        AS owner_name,
+       l.value       AS life
 FROM model_list m
 INNER JOIN model_metadata mm ON m.uuid = mm.model_uuid
 INNER JOIN cloud c ON mm.cloud_uuid = c.uuid
@@ -440,7 +449,8 @@ LEFT JOIN cloud_credential cc ON mm.cloud_credential_uuid = cc.uuid
 INNER JOIN user cco ON cc.owner_uuid = cco.uuid
 LEFT JOIN cloud ccn ON cc.cloud_uuid = ccn.uuid
 INNER JOIN model_type mt ON mm.model_type_id = mt.id
-INNER JOIN user u ON mm.owner_uuid = u.uuid;
+INNER JOIN user u ON mm.owner_uuid = u.uuid
+INNER JOIN life l ON mm.life_id = l.id;
 `)
 }
 

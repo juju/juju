@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -132,6 +133,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 		Name:      "my-test-model",
 		Owner:     m.userUUID,
 		ModelType: coremodel.IAAS,
+		Life:      life.Alive,
 	})
 }
 

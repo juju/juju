@@ -23,9 +23,9 @@ func (*ModelSuite) TestValidateBranchName(c *gc.C) {
 		branchName string
 		valid      bool
 	}{
-		{"", false},
-		{GenerationMaster, false},
-		{"something else", true},
+		{branchName: "", valid: false},
+		{branchName: GenerationMaster, valid: false},
+		{branchName: "something else", valid: true},
 	} {
 		err := ValidateBranchName(t.branchName)
 		if t.valid {
