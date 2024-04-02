@@ -31,17 +31,7 @@ func NewMultiNotifyWatcher(ctx context.Context, watchers ...Watcher[struct{}]) (
 	return NewMultiWatcher[struct{}](ctx, applier, watchers...)
 }
 
-// NewMultiStringsWatcher creates a StringsWatcher that combines
-// each of the StringsWatcher passed in. Each watcher's initial
-// event is consumed, and a single initial event is sent.
-func NewMultiStringsWatcher(ctx context.Context, watchers ...Watcher[[]string]) (*MultiWatcher[[]string], error) {
-	applier := func(current, additional []string) []string {
-		return append(current, additional...)
-	}
-	return NewMultiWatcher[[]string](ctx, applier, watchers...)
-}
-
-// NewMultiNotifyWatcher creates a NotifyWatcher that combines
+// NewMultiWatcher creates a NotifyWatcher that combines
 // each of the NotifyWatchers passed in. Each watcher's initial
 // event is consumed, and a single initial event is sent.
 // Subsequent events are not coalesced.
@@ -72,7 +62,7 @@ func NewMultiWatcher[T any](ctx context.Context, applier Applier[T], watchers ..
 
 	for _, watcher := range watchers {
 		// Copy events from the watcher to the staging channel.
-		go w.copyEvents(w.staging, watcher.Changes())
+		go w.copyEvents(watcher.Changes())
 	}
 
 	return w, nil
@@ -85,24 +75,24 @@ func (w *MultiWatcher[T]) loop() error {
 	defer close(w.changes)
 
 	out := w.changes
-	var values T
+	var payload T
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case values = <-w.staging:
+		case payload = <-w.staging:
 			out = w.changes
-		case out <- values:
+		case out <- payload:
 			out = nil
 		}
 	}
 }
 
 // copyEvents copies channel events from "in" to "out", coalescing.
-func (w *MultiWatcher[T]) copyEvents(out chan<- T, in <-chan T) {
+func (w *MultiWatcher[T]) copyEvents(in <-chan T) {
 	var (
-		outC   chan<- T
-		values T
+		outC    chan<- T
+		payload T
 	)
 	for {
 		select {
@@ -112,9 +102,9 @@ func (w *MultiWatcher[T]) copyEvents(out chan<- T, in <-chan T) {
 			if !ok {
 				return
 			}
-			values = w.applier(values, v)
-			outC = out
-		case outC <- values:
+			payload = w.applier(payload, v)
+			outC = w.staging
+		case outC <- payload:
 			outC = nil
 		}
 	}
