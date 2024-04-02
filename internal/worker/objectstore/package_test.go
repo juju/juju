@@ -8,6 +8,7 @@ import (
 	"time"
 
 	jujutesting "github.com/juju/testing"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -22,6 +23,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination client_mock_test.go github.com/juju/juju/core/objectstore Client,Session
 
 func TestPackage(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	gc.TestingT(t)
 }
 

@@ -121,8 +121,8 @@ type ManifoldsConfig struct {
 	// worker.
 	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
 
-	// ProviderServiceFactory is used to access the provider service.
-	ProviderServiceFactory modelworkermanager.ProviderServiceFactory
+	// ProviderServiceFactoryGetter is used to access the provider service.
+	ProviderServiceFactoryGetter modelworkermanager.ProviderServiceFactoryGetter
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -155,9 +155,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The provider service factory is used to access the provider service.
 		// It's injected into the model worker manager so that it can be used
 		// by the provider and broker workers.
-		providerServiceFactoryName: dependency.Manifold{
+		providerServiceFactoriesName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.ProviderServiceFactory)
+				return engine.NewValueWorker(config.ProviderServiceFactoryGetter)
 			},
 			Output: engine.ValueWorkerOutput,
 		},
@@ -350,14 +350,16 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.Manifold(providertracker.ManifoldConfig[environs.Environ]{
-			ProviderServiceFactoryName: providerServiceFactoryName,
-			NewWorker:                  providertracker.NewWorker[environs.Environ],
-			GetProviderServiceFactory:  providertracker.GetProviderServiceFactory,
-			Logger:                     config.LoggingContext.GetLogger("juju.worker.providertracker"),
+		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig[environs.Environ]{
+			ProviderServiceFactoriesName:    providerServiceFactoriesName,
+			NewWorker:                       providertracker.NewWorker[environs.Environ],
+			NewTrackerWorker:                providertracker.NewTrackerWorker[environs.Environ],
+			GetProviderServiceFactoryGetter: providertracker.GetProviderServiceFactoryGetter,
 			GetProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 				return config.NewEnvironFunc(ctx, args)
 			}),
+			Logger: config.LoggingContext.GetLogger("juju.worker.providertracker"),
+			Clock:  config.Clock,
 		}))),
 
 		// Everything else should be wrapped in ifResponsible,
@@ -385,8 +387,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
-			APICallerName: apiCallerName,
-
+			APICallerName:                apiCallerName,
 			Clock:                        config.Clock,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.undertaker"),
 			NewFacade:                    undertaker.NewFacade,
@@ -490,14 +491,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		providerTrackerName: ifResponsible(providertracker.Manifold(providertracker.ManifoldConfig[caas.Broker]{
-			ProviderServiceFactoryName: providerServiceFactoryName,
-			NewWorker:                  providertracker.NewWorker[caas.Broker],
-			GetProviderServiceFactory:  providertracker.GetProviderServiceFactory,
-			Logger:                     config.LoggingContext.GetLogger("juju.worker.providertracker"),
+		providerTrackerName: ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig[caas.Broker]{
+			ProviderServiceFactoriesName:    providerServiceFactoriesName,
+			NewWorker:                       providertracker.NewWorker[caas.Broker],
+			NewTrackerWorker:                providertracker.NewTrackerWorker[caas.Broker],
+			GetProviderServiceFactoryGetter: providertracker.GetProviderServiceFactoryGetter,
 			GetProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
 				return config.NewContainerBrokerFunc(ctx, args)
 			}),
+			Logger: config.LoggingContext.GetLogger("juju.worker.providertracker"),
+			Clock:  config.Clock,
 		})),
 
 		// The undertaker is currently the only ifNotAlive worker.
@@ -680,23 +683,23 @@ const (
 	providerUpgradedFlagName = "provider-upgraded-flag"
 	providerUpgraderName     = "provider-upgrader"
 
-	undertakerName             = "undertaker"
-	computeProvisionerName     = "compute-provisioner"
-	storageProvisionerName     = "storage-provisioner"
-	charmDownloaderName        = "charm-downloader"
-	firewallerName             = "firewaller"
-	unitAssignerName           = "unit-assigner"
-	applicationScalerName      = "application-scaler"
-	instancePollerName         = "instance-poller"
-	charmRevisionUpdaterName   = "charm-revision-updater"
-	stateCleanerName           = "state-cleaner"
-	statusHistoryPrunerName    = "status-history-pruner"
-	actionPrunerName           = "action-pruner"
-	machineUndertakerName      = "machine-undertaker"
-	remoteRelationsName        = "remote-relations"
-	loggingConfigUpdaterName   = "logging-config-updater"
-	instanceMutaterName        = "instance-mutater"
-	providerServiceFactoryName = "provider-service-factory"
+	undertakerName               = "undertaker"
+	computeProvisionerName       = "compute-provisioner"
+	storageProvisionerName       = "storage-provisioner"
+	charmDownloaderName          = "charm-downloader"
+	firewallerName               = "firewaller"
+	unitAssignerName             = "unit-assigner"
+	applicationScalerName        = "application-scaler"
+	instancePollerName           = "instance-poller"
+	charmRevisionUpdaterName     = "charm-revision-updater"
+	stateCleanerName             = "state-cleaner"
+	statusHistoryPrunerName      = "status-history-pruner"
+	actionPrunerName             = "action-pruner"
+	machineUndertakerName        = "machine-undertaker"
+	remoteRelationsName          = "remote-relations"
+	loggingConfigUpdaterName     = "logging-config-updater"
+	instanceMutaterName          = "instance-mutater"
+	providerServiceFactoriesName = "provider-service-factories"
 
 	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"

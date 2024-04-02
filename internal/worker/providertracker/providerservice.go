@@ -13,6 +13,25 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
+// ServiceFactoryGetter defines an interface that returns a ServiceFactory
+// for a given model UUID.
+type ServiceFactoryGetter interface {
+	// FactoryForModel returns a ProviderServiceFactory for the given model.
+	FactoryForModel(modelUUID string) ServiceFactory
+}
+
+// ServiceFactory provides access to the services required by the provider.
+type ServiceFactory interface {
+	// Model returns the model service.
+	Model() ModelService
+	// Cloud returns the cloud service.
+	Cloud() CloudService
+	// Config returns the config service.
+	Config() ConfigService
+	// Credential returns the credential service.
+	Credential() CredentialService
+}
+
 // ModelService represents the model service provided by the provider.
 type ModelService interface {
 	// Model returns the read-only default model.

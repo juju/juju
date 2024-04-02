@@ -993,19 +993,19 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 
 	manifoldsCfg := model.ManifoldsConfig{
-		Agent:                       modelAgent,
-		AgentConfigChanged:          a.configChangedVal,
-		Authority:                   cfg.Authority,
-		Clock:                       clock.WallClock,
-		LoggingContext:              loggingContext,
-		RunFlagDuration:             time.Minute,
-		CharmRevisionUpdateInterval: 24 * time.Hour,
-		StatusHistoryPrunerInterval: 5 * time.Minute,
-		ActionPrunerInterval:        24 * time.Hour,
-		NewEnvironFunc:              newEnvirons,
-		NewContainerBrokerFunc:      newCAASBroker,
-		NewMigrationMaster:          migrationmaster.NewWorker,
-		ProviderServiceFactory:      cfg.ProviderServiceFactory,
+		Agent:                        modelAgent,
+		AgentConfigChanged:           a.configChangedVal,
+		Authority:                    cfg.Authority,
+		Clock:                        clock.WallClock,
+		LoggingContext:               loggingContext,
+		RunFlagDuration:              time.Minute,
+		CharmRevisionUpdateInterval:  24 * time.Hour,
+		StatusHistoryPrunerInterval:  5 * time.Minute,
+		ActionPrunerInterval:         24 * time.Hour,
+		NewEnvironFunc:               newEnvirons,
+		NewContainerBrokerFunc:       newCAASBroker,
+		NewMigrationMaster:           migrationmaster.NewWorker,
+		ProviderServiceFactoryGetter: cfg.ProviderServiceFactoryGetter,
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second

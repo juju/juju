@@ -75,15 +75,15 @@ type ModelMetrics interface {
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
-	Authority              pki.Authority
-	ModelName              string
-	ModelOwner             string
-	ModelUUID              string
-	ModelType              state.ModelType
-	ModelLogger            ModelLogger
-	ModelMetrics           MetricSink
-	ControllerConfig       controller.Config
-	ProviderServiceFactory ProviderServiceFactory
+	Authority                    pki.Authority
+	ModelName                    string
+	ModelOwner                   string
+	ModelUUID                    string
+	ModelType                    state.ModelType
+	ModelLogger                  ModelLogger
+	ModelMetrics                 MetricSink
+	ControllerConfig             controller.Config
+	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -278,7 +278,7 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		cfg.ControllerConfig = controllerConfig
 
 		// Get the provider service factory for the model.
-		cfg.ProviderServiceFactory = m.config.ProviderServiceFactoryGetter.FactoryForModel(modelUUID)
+		cfg.ProviderServiceFactoryGetter = m.config.ProviderServiceFactoryGetter
 
 		logSink, err := m.config.LogSink.GetLogger(modelUUID, cfg.ModelName, cfg.ModelOwner)
 		if err != nil {

@@ -6,7 +6,9 @@ package providertracker
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -40,80 +42,110 @@ type ProviderFunc[T Provider] func(ctx context.Context, args environs.OpenParams
 
 // Logger defines the methods used by the pruner worker for logging.
 type Logger interface {
+	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
 	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
 }
 
 // GetProviderFunc is a helper function that gets a provider from the manifold.
 type GetProviderFunc[T Provider] func(context.Context, ProviderConfigGetter) (T, environscloudspec.CloudSpec, error)
 
-// GetProviderServiceFactoryFunc is a helper function that gets a service from
-// the manifold.
-type GetProviderServiceFactoryFunc func(dependency.Getter, string) (ServiceFactory, error)
+// GetProviderServiceFactoryGetterFunc is a helper function that gets a service
+// factory getter from the manifold.
+type GetProviderServiceFactoryGetterFunc func(dependency.Getter, string) (ServiceFactoryGetter, error)
 
 // NewWorkerFunc is a function that creates a new Worker.
-type NewWorkerFunc[T Provider] func(ctx context.Context, cfg Config[T]) (worker.Worker, error)
+type NewWorkerFunc[T Provider] func(cfg Config[T]) (worker.Worker, error)
+
+// NewTrackerWorkerFunc is a function that creates a new TrackerWorker.
+type NewTrackerWorkerFunc[T Provider] func(ctx context.Context, cfg TrackerConfig[T]) (worker.Worker, error)
 
 // ManifoldConfig describes the resources used by a Worker.
 type ManifoldConfig[T Provider] struct {
-	// ProviderServiceFactoryName is the name of the service factory that
-	// provides the services required by the provider.
-	ProviderServiceFactoryName string
+	// ProviderServiceFactoriesName is the name of the service factory getter
+	// that provides the services required by the provider.
+	ProviderServiceFactoriesName string
 	// NewProvider is a function that returns a provider, this can either be
 	// a CAAS broker or IAAS provider.
 	NewProvider ProviderFunc[T]
 	// NewWorker is a function that creates a new Worker.
 	NewWorker NewWorkerFunc[T]
+	// NewTrackerWorker is a function that creates a new TrackerWorker.
+	NewTrackerWorker NewTrackerWorkerFunc[T]
 	// GetProvider is a helper function that gets a provider from the manifold.
 	// This is generalized to allow for different types of providers.
 	GetProvider GetProviderFunc[T]
-	// GetProviderServiceFactory is a helper function that gets a service from
-	// the dependency engine.
-	GetProviderServiceFactory GetProviderServiceFactoryFunc
+	// GetProviderServiceFactoryGetter is a helper function that gets a service
+	// factory getter from the dependency engine.
+	GetProviderServiceFactoryGetter GetProviderServiceFactoryGetterFunc
 	// Logger represents the methods used by the worker to log details.
 	Logger Logger
+	// Clock is used by the runner.
+	Clock clock.Clock
 }
 
 func (cfg ManifoldConfig[T]) Validate() error {
-	if cfg.ProviderServiceFactoryName == "" {
-		return errors.NotValidf("empty ProviderServiceFactoryName")
+	if cfg.ProviderServiceFactoriesName == "" {
+		return errors.NotValidf("empty ProviderServiceFactoriesName")
+	}
+	if cfg.NewProvider == nil {
+		return errors.NotValidf("nil NewProvider")
 	}
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
-	if cfg.Logger == nil {
-		return errors.NotValidf("nil Logger")
+	if cfg.NewTrackerWorker == nil {
+		return errors.NotValidf("nil NewTrackerWorker")
 	}
 	if cfg.GetProvider == nil {
 		return errors.NotValidf("nil GetProvider")
 	}
-	if cfg.GetProviderServiceFactory == nil {
-		return errors.NotValidf("nil GetProviderServiceFactory")
+	if cfg.GetProviderServiceFactoryGetter == nil {
+		return errors.NotValidf("nil GetProviderServiceFactoryGetter")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
 
-// Manifold returns a Manifold that encapsulates a *Worker and exposes it as
+// SingularTrackerManifold creates a new manifold that encapsulates a singular provider
+// tracker. Only one tracker is allowed to exist at a time.
+func SingularTrackerManifold[T Provider](modelTag names.ModelTag, config ManifoldConfig[T]) dependency.Manifold {
+	return manifold[T](SingularType(modelTag.Id()), config)
+}
+
+// MultiTrackerManifold creates a new manifold that encapsulates a singular provider
+// tracker. Only one tracker is allowed to exist at a time.
+func MultiTrackerManifold[T Provider](config ManifoldConfig[T]) dependency.Manifold {
+	return manifold[T](MultiType(), config)
+}
+
+// manifold returns a Manifold that encapsulates a *Worker and exposes it as
 // an environs.Environ resource.
-func Manifold[T Provider](config ManifoldConfig[T]) dependency.Manifold {
+func manifold[T Provider](trackerType TrackerType, config ManifoldConfig[T]) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ProviderServiceFactoryName,
+			config.ProviderServiceFactoriesName,
 		},
 		Output: manifoldOutput[T],
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			serviceFactory, err := config.GetProviderServiceFactory(getter, config.ProviderServiceFactoryName)
+			serviceFactoryGetter, err := config.GetProviderServiceFactoryGetter(getter, config.ProviderServiceFactoriesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			w, err := config.NewWorker(ctx, Config[T]{
-				CloudService:      serviceFactory.Cloud(),
-				ConfigService:     serviceFactory.Config(),
-				CredentialService: serviceFactory.Credential(),
-				ModelService:      serviceFactory.Model(),
-				GetProvider:       config.GetProvider,
-				Logger:            config.Logger,
+			w, err := config.NewWorker(Config[T]{
+				TrackerType:          trackerType,
+				ServiceFactoryGetter: serviceFactoryGetter,
+				GetProvider:          config.GetProvider,
+				NewTrackerWorker:     config.NewTrackerWorker,
+				Logger:               config.Logger,
+				Clock:                config.Clock,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -123,29 +155,29 @@ func Manifold[T Provider](config ManifoldConfig[T]) dependency.Manifold {
 	}
 }
 
-// ServiceFactory provides access to the services required by the provider.
-type ServiceFactory interface {
-	// Model returns the model service.
-	Model() ModelService
-	// Cloud returns the cloud service.
-	Cloud() CloudService
-	// Config returns the config service.
-	Config() ConfigService
-	// Credential returns the credential service.
-	Credential() CredentialService
-}
-
-// GetControllerConfigService is a helper function that gets a service from the
+// GetProviderServiceFactoryGetter is a helper function that gets a service from the
 // manifold.
-func GetProviderServiceFactory(getter dependency.Getter, name string) (ServiceFactory, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory modelworkermanager.ProviderServiceFactory) ServiceFactory {
-		return serviceFactory{
+func GetProviderServiceFactoryGetter(getter dependency.Getter, name string) (ServiceFactoryGetter, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory modelworkermanager.ProviderServiceFactoryGetter) ServiceFactoryGetter {
+		return serviceFactoryGetter{
 			factory: factory,
 		}
 	})
 }
 
-// serviceFactory is a simple implementation of ProviderServiceFactory.
+// serviceFactoryGetter is a simple implementation of ServiceFactoryGetter.
+type serviceFactoryGetter struct {
+	factory modelworkermanager.ProviderServiceFactoryGetter
+}
+
+// FactoryForModel returns a ProviderServiceFactory for the given model.
+func (g serviceFactoryGetter) FactoryForModel(modelUUID string) ServiceFactory {
+	return serviceFactory{
+		factory: g.factory.FactoryForModel(modelUUID),
+	}
+}
+
+// serviceFactory is a simple implementation of ServiceFactory.
 type serviceFactory struct {
 	factory modelworkermanager.ProviderServiceFactory
 }
@@ -212,20 +244,22 @@ func CAASGetProvider(newProvider ProviderFunc[caas.Broker]) func(ctx context.Con
 }
 
 func manifoldOutput[T Provider](in worker.Worker, out any) error {
+	// TODO (stickupkid): Handle non-singular provider interfaces.
+
 	// In order to switch on the type of the provider, we need to use a type
 	// assertion to get the underlying value.
 	switch any(new(T)).(type) {
 	case *environs.Environ:
-		w, ok := in.(*trackerWorker[environs.Environ])
+		w, ok := in.(*providerWorker[environs.Environ])
 		if !ok {
-			return errors.Errorf("expected *trackerWorker, got %T", in)
+			return errors.Errorf("expected *providerWorker, got %T", in)
 		}
 		return iaasOutput(w, out)
 
 	case *caas.Broker:
-		w, ok := in.(*trackerWorker[caas.Broker])
+		w, ok := in.(*providerWorker[caas.Broker])
 		if !ok {
-			return errors.Errorf("expected *trackerWorker, got %T", in)
+			return errors.Errorf("expected *providerWorker, got %T", in)
 		}
 		return caasOutput(w, out)
 
@@ -235,14 +269,19 @@ func manifoldOutput[T Provider](in worker.Worker, out any) error {
 }
 
 // iaasOutput extracts an environs.Environ resource from a *Worker.
-func iaasOutput(in *trackerWorker[environs.Environ], out interface{}) error {
+func iaasOutput(in *providerWorker[environs.Environ], out any) error {
+	provider, err := in.Provider()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	switch result := out.(type) {
 	case *environs.Environ:
-		*result = in.Provider()
+		*result = provider
 	case *environs.CloudDestroyer:
-		*result = in.Provider()
+		*result = provider
 	case *storage.ProviderRegistry:
-		*result = in.Provider()
+		*result = provider
 	default:
 		return errors.Errorf("expected *environs.Environ, *storage.ProviderRegistry, or *environs.CloudDestroyer, got %T", out)
 	}
@@ -250,14 +289,19 @@ func iaasOutput(in *trackerWorker[environs.Environ], out interface{}) error {
 }
 
 // caasOutput extracts a caas.Broker resource from a *Worker.
-func caasOutput(in *trackerWorker[caas.Broker], out interface{}) error {
+func caasOutput(in *providerWorker[caas.Broker], out any) error {
+	provider, err := in.Provider()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	switch result := out.(type) {
 	case *caas.Broker:
-		*result = in.Provider()
+		*result = provider
 	case *environs.CloudDestroyer:
-		*result = in.Provider()
+		*result = provider
 	case *storage.ProviderRegistry:
-		*result = in.Provider()
+		*result = provider
 	default:
 		return errors.Errorf("expected *caas.Broker, *storage.ProviderRegistry or *environs.CloudDestroyer, got %T", out)
 	}
