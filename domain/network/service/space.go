@@ -16,24 +16,24 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// SpaceService provides the API for working with spaces.
-type SpaceService struct {
+// Service provides the API for working with spaces.
+type Service struct {
 	// The space service needs the full state because we make use of the
 	// UpsertSubnets method from the SubnetState.
 	st     State
 	logger Logger
 }
 
-// NewSpaceService returns a new service reference wrapping the input state.
-func NewSpaceService(st State, logger Logger) *SpaceService {
-	return &SpaceService{
+// NewService returns a new service reference wrapping the input state.
+func NewService(st State, logger Logger) *Service {
+	return &Service{
 		st:     st,
 		logger: logger,
 	}
 }
 
 // AddSpace creates and returns a new space.
-func (s *SpaceService) AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error) {
+func (s *Service) AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error) {
 	if !names.IsValidSpace(name) {
 		return "", errors.NotValidf("space name %q", name)
 	}
@@ -50,14 +50,14 @@ func (s *SpaceService) AddSpace(ctx context.Context, name string, providerID net
 }
 
 // UpdateSpace updates the space name identified by the passed uuid.
-func (s *SpaceService) UpdateSpace(ctx context.Context, uuid string, name string) error {
+func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) error {
 	return errors.Trace(s.st.UpdateSpace(ctx, uuid, name))
 }
 
 // Space returns a space from state that matches the input ID.
 // An error is returned if the space does not exist or if there was a problem
 // accessing its information.
-func (s *SpaceService) Space(ctx context.Context, uuid string) (*network.SpaceInfo, error) {
+func (s *Service) Space(ctx context.Context, uuid string) (*network.SpaceInfo, error) {
 	sp, err := s.st.GetSpace(ctx, uuid)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -68,7 +68,7 @@ func (s *SpaceService) Space(ctx context.Context, uuid string) (*network.SpaceIn
 // SpaceByName returns a space from state that matches the input name.
 // An error is returned that satisfied errors.NotFound if the space was not found
 // or an error static any problems fetching the given space.
-func (s *SpaceService) SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error) {
+func (s *Service) SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error) {
 	sp, err := s.st.GetSpaceByName(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -77,7 +77,7 @@ func (s *SpaceService) SpaceByName(ctx context.Context, name string) (*network.S
 }
 
 // GetAllSpaces returns all spaces for the model.
-func (s *SpaceService) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) {
+func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) {
 	spaces, err := s.st.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -86,13 +86,13 @@ func (s *SpaceService) GetAllSpaces(ctx context.Context) (network.SpaceInfos, er
 }
 
 // Remove deletes a space identified by its uuid.
-func (s *SpaceService) Remove(ctx context.Context, uuid string) error {
+func (s *Service) RemoveSpace(ctx context.Context, uuid string) error {
 	return errors.Trace(s.st.DeleteSpace(ctx, uuid))
 }
 
 // SaveProviderSubnets loads subnets into state.
 // Currently it does not delete removed subnets.
-func (s *SpaceService) SaveProviderSubnets(
+func (s *Service) SaveProviderSubnets(
 	ctx context.Context,
 	subnets []network.SubnetInfo,
 	spaceUUID network.Id,

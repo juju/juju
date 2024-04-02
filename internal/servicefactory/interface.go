@@ -75,8 +75,8 @@ type ModelServiceFactory interface {
 	Application(registry storage.ProviderRegistry) *applicationservice.Service
 	// Unit returns the machine service.
 	Unit() *unitservice.Service
-	// Space returns the space service.
-	Space() *networkservice.SpaceService
+	// Network returns the space service.
+	Network() *networkservice.Service
 	// Annotation returns the annotation service.
 	Annotation() *annotationService.Service
 	// Storage returns the storage service.

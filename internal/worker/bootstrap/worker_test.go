@@ -257,7 +257,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		StorageService:          s.storageService,
 		ProviderRegistry:        provider.CommonStorageProviders(),
 		CloudService:            s.cloudService,
-		SpaceService:            s.spaceService,
+		NetworkService:          s.networkService,
 		FlagService:             s.flagService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
@@ -340,7 +340,7 @@ func (s *workerSuite) expectBootstrapFlagSet() {
 }
 
 func (s *workerSuite) expectSetAPIHostPorts() {
-	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.state.EXPECT().SetAPIHostPorts(controller.Config{
 		controller.ControllerUUIDKey: "test-uuid",
 	}, gomock.Any(), gomock.Any())

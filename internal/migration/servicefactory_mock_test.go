@@ -336,6 +336,20 @@ func (mr *MockServiceFactoryMockRecorder) ModelInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelInfo", reflect.TypeOf((*MockServiceFactory)(nil).ModelInfo))
 }
 
+// Network mocks base method.
+func (m *MockServiceFactory) Network() *service14.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Network")
+	ret0, _ := ret[0].(*service14.Service)
+	return ret0
+}
+
+// Network indicates an expected call of Network.
+func (mr *MockServiceFactoryMockRecorder) Network() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Network", reflect.TypeOf((*MockServiceFactory)(nil).Network))
+}
+
 // ObjectStore mocks base method.
 func (m *MockServiceFactory) ObjectStore() *service15.WatchableService {
 	m.ctrl.T.Helper()
@@ -362,20 +376,6 @@ func (m *MockServiceFactory) Secret(arg0 service16.BackendAdminConfigGetter) *se
 func (mr *MockServiceFactoryMockRecorder) Secret(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secret", reflect.TypeOf((*MockServiceFactory)(nil).Secret), arg0)
-}
-
-// Space mocks base method.
-func (m *MockServiceFactory) Space() *service14.SpaceService {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Space")
-	ret0, _ := ret[0].(*service14.SpaceService)
-	return ret0
-}
-
-// Space indicates an expected call of Space.
-func (mr *MockServiceFactoryMockRecorder) Space() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockServiceFactory)(nil).Space))
 }
 
 // Storage mocks base method.

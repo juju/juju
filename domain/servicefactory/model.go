@@ -108,11 +108,11 @@ func (s *ModelFactory) Unit() *unitservice.Service {
 	)
 }
 
-// Space returns the model's space service.
-func (s *ModelFactory) Space() *networkservice.SpaceService {
-	return networkservice.NewSpaceService(
+// Network returns the model's network service.
+func (s *ModelFactory) Network() *networkservice.Service {
+	return networkservice.NewService(
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.logger.Child("space"),
+		s.logger.Child("network"),
 	)
 }
 

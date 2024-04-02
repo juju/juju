@@ -52,10 +52,10 @@ type BridgePolicy struct {
 
 // NewBridgePolicy returns a new BridgePolicy for the input environ config
 // getter and state indirection.
-func NewBridgePolicy(ctx context.Context, cfgGetter environs.ConfigGetter, spaceService SpaceService) (*BridgePolicy, error) {
+func NewBridgePolicy(ctx context.Context, cfgGetter environs.ConfigGetter, networkService NetworkService) (*BridgePolicy, error) {
 	cfg := cfgGetter.Config()
 
-	spaces, err := spaceService.GetAllSpaces(ctx)
+	spaces, err := networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting space infos")
 	}

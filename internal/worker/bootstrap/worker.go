@@ -64,7 +64,7 @@ type WorkerConfig struct {
 	ProviderRegistry        storage.ProviderRegistry
 	ApplicationService      ApplicationService
 	FlagService             FlagService
-	SpaceService            SpaceService
+	NetworkService          NetworkService
 	BootstrapUnlocker       gate.Unlocker
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
@@ -115,8 +115,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.FlagService == nil {
 		return errors.NotValidf("nil FlagService")
 	}
-	if c.SpaceService == nil {
-		return errors.NotValidf("nil SpaceService")
+	if c.NetworkService == nil {
+		return errors.NotValidf("nil NetworkService")
 	}
 	if c.ControllerCharmDeployer == nil {
 		return errors.NotValidf("nil ControllerCharmDeployer")
@@ -314,7 +314,7 @@ func (w *bootstrapWorker) reportInternalState(state string) {
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig controller.Config, pAddrs network.ProviderAddresses, apiPort int) error {
-	allSpaces, err := w.cfg.SpaceService.GetAllSpaces(ctx)
+	allSpaces, err := w.cfg.NetworkService.GetAllSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
