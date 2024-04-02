@@ -201,6 +201,23 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			continue
 		}
 		if err := api.networkService.UpdateSpace(ctx, fromSpace.ID, toTag.Id()); err != nil {
+			// Here we perform a naive rollback of the changes
+			// performed by the previous operation (constraints and
+			// controller settings), by simply inverting the from
+			// and to space names.
+			// TODO(nvinuesa): Same situation as with the orignal
+			// operation, this needs to go when we migrate the
+			// constraints and settings to dqlite.
+			rollbackOperation, err := api.opFactory.NewRenameSpaceOp(toTag.Id(), fromTag.Id())
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
+				continue
+			}
+			if err = api.backing.ApplyOperation(rollbackOperation); err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
+				continue
+			}
+
 			newErr := errors.Annotatef(err, "updating space %q", fromTag.Id())
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
