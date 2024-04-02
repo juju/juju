@@ -18,7 +18,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
-	cloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
@@ -186,9 +185,9 @@ func (s *workerSuite) getConfig(environ environs.Environ) Config[environs.Enviro
 		CloudService:      s.cloudService,
 		ConfigService:     s.configService,
 		CredentialService: s.credentialService,
-		GetProvider: func(ctx context.Context, pcg ProviderConfigGetter) (environs.Environ, cloudspec.CloudSpec, error) {
-			return environ, cloudspec.CloudSpec{}, nil
-		},
+		GetProvider: IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+			return environ, nil
+		}),
 		Logger: s.logger,
 	}
 }
@@ -242,15 +241,6 @@ func (s *workerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
 		Revoked: true,
 	}, nil)
 	s.cloudSpecSetter.EXPECT().SetCloudSpec(gomock.Any(), gomock.Any()).Return(nil)
-}
-
-func (s *workerSuite) expectEnvironSetSpecNoUpdate(c *gc.C) {
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
-		Cloud: "cloud",
-		Owner: "owner",
-		Name:  "name",
-	}).Return(cloud.Credential{}, nil)
 }
 
 func (s *workerSuite) expectConfigWatcher(c *gc.C) chan []string {

@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
 	"github.com/juju/juju/internal/worker/applicationscaler"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
-	"github.com/juju/juju/internal/worker/caasbroker"
 	"github.com/juju/juju/internal/worker/caasenvironupgrader"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
@@ -491,6 +490,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
+		providerTrackerName: ifResponsible(providertracker.Manifold(providertracker.ManifoldConfig[caas.Broker]{
+			ProviderServiceFactoryName: providerServiceFactoryName,
+			NewWorker:                  providertracker.NewWorker[caas.Broker],
+			GetProviderServiceFactory:  providertracker.GetProviderServiceFactory,
+			Logger:                     config.LoggingContext.GetLogger("juju.worker.providertracker"),
+			GetProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
+				return config.NewContainerBrokerFunc(ctx, args)
+			}),
+		})),
+
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,
@@ -504,16 +513,10 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		})),
 
-		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{
-			APICallerName:          apiCallerName,
-			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
-			Logger:                 config.LoggingContext.GetLogger("juju.worker.caas"),
-		})),
-
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
 				APICallerName:  apiCallerName,
-				BrokerName:     caasBrokerTrackerName,
+				BrokerName:     providerTrackerName,
 				ControllerUUID: agentConfig.Controller().Id(),
 				ModelUUID:      agentConfig.Model().Id(),
 				NewClient: func(caller base.APICaller) caasfirewaller.Client {
@@ -527,14 +530,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		caasModelOperatorName: ifResponsible(caasmodeloperator.Manifold(caasmodeloperator.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			BrokerName:    caasBrokerTrackerName,
+			BrokerName:    providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.caasmodeloperator"),
 			ModelUUID:     agentConfig.Model().Id(),
 		})),
 
 		caasmodelconfigmanagerName: ifResponsible(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{
 			APICallerName: apiCallerName,
-			BrokerName:    caasBrokerTrackerName,
+			BrokerName:    providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.caasmodelconfigmanager"),
 			NewWorker:     caasmodelconfigmanager.NewWorker,
 			NewFacade:     caasmodelconfigmanager.NewFacade,
@@ -544,7 +547,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
 			caasapplicationprovisioner.ManifoldConfig{
 				APICallerName: apiCallerName,
-				BrokerName:    caasBrokerTrackerName,
+				BrokerName:    providerTrackerName,
 				ClockName:     clockName,
 				NewWorker:     caasapplicationprovisioner.NewProvisionerWorker,
 				Logger:        config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
@@ -563,7 +566,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:                apiCallerName,
 			Clock:                        config.Clock,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
-			StorageRegistryName:          caasBrokerTrackerName,
+			StorageRegistryName:          providerTrackerName,
 			Model:                        modelTag,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			NewWorker:                    storageprovisioner.NewCaasWorker,
@@ -700,7 +703,6 @@ const (
 	caasmodelconfigmanagerName     = "caas-model-config-manager"
 	caasApplicationProvisionerName = "caas-application-provisioner"
 	caasStorageProvisionerName     = "caas-storage-provisioner"
-	caasBrokerTrackerName          = "caas-broker-tracker"
 
 	secretsPrunerName      = "secrets-pruner"
 	userSecretsDrainWorker = "user-secrets-drain-worker"

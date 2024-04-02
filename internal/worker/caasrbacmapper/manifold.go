@@ -7,10 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"k8s.io/client-go/informers"
+
+	"github.com/juju/juju/caas"
 )
 
 type K8sBroker interface {
