@@ -185,19 +185,10 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 
 	// Ensure that each view is present.
 	expected := set.NewStrings(
-		// Users
 		"v_user_auth",
-
-		// Credentials
 		"v_cloud_credential",
-
-		// Models
 		"v_model",
-
-		// Secret backends
 		"v_model_secret_backend",
-
-		// Permissions
 		"v_permission",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
