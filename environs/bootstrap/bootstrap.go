@@ -489,9 +489,6 @@ func bootstrapIAAS(
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
-		if err = validateUploadAllowed(environ, &bootstrapArch, &bootstrapBase, constraintsValidator); err != nil {
-			return err
-		}
 
 		builtTools, err := args.BuildAgentTarball(args.DevSrcDir, cfg.AgentStream(), bootstrapArch)
 		if err != nil {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
@@ -27,33 +26,6 @@ func localToolsArch() string {
 		toolsArch = arch.HostArch()
 	}
 	return toolsArch
-}
-
-// validateUploadAllowed returns an error if an attempt to upload tools should
-// not be allowed.
-func validateUploadAllowed(env environs.ConfigGetter, toolsArch *string, toolsBase *corebase.Base, validator constraints.Validator) error {
-	// TODO(jujud-controller-snap): reimplement
-	// // Now check that the architecture and series for which we are setting up an
-	// // environment matches that from which we are bootstrapping.
-	// hostArch := localToolsArch()
-	// // We can't build tools for a different architecture if one is specified.
-	// if toolsArch != nil && *toolsArch != hostArch {
-	// 	return fmt.Errorf("cannot use agent built for %q using a machine running on %q", *toolsArch, hostArch)
-	// }
-	// hostOS := coreos.HostOS()
-	// if toolsBase != nil {
-	// 	if !ostype.OSTypeForName(toolsBase.OS).EquivalentTo(hostOS) {
-	// 		return errors.Errorf("cannot use agent built for %q using a machine running %q", toolsBase.String(), hostOS)
-	// 	}
-	// }
-	// // If no architecture is specified, ensure the target provider supports instances matching our architecture.
-	// if _, err := validator.Validate(constraints.Value{Arch: &hostArch}); err != nil {
-	// 	return errors.Errorf(
-	// 		"model %q of type %s does not support instances running on %q",
-	// 		env.Config().Name(), env.Config().Type(), hostArch,
-	// 	)
-	// }
-	return nil
 }
 
 // findPackagedTools returns a list of tools for in simplestreams.

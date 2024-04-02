@@ -29,7 +29,7 @@ BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
 # Build number passed in must be a monotonic int representing
 # the build.
-JUJU_BUILD_NUMBER ?= $(shell cat $(BUILD_DIR)/build.number || (printf 1 | tee $(BUILD_DIR)/build.number))
+JUJU_BUILD_NUMBER ?= $(shell cat $(BUILD_DIR)/build.number 2>/dev/null || printf 1)
 
 # JUJU_VERSION is the JUJU version currently being represented in this
 # repository.
@@ -719,5 +719,6 @@ static-analysis: dqlite-install-if-missing
 .PHONY: rev
 rev:
 ## rev: increase the builder number
+	@mkdir -p $(BUILD_DIR)
 	@printf $$(($(JUJU_BUILD_NUMBER)+1)) > $(BUILD_DIR)/build.number
 	@cat $(BUILD_DIR)/build.number

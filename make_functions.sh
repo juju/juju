@@ -8,7 +8,7 @@ BUILD_DIR=${BUILD_DIR:-${PROJECT_DIR}/_build}
 JUJUD_BIN_DIR=${JUJUD_BIN_DIR:-${BUILD_DIR}/bin}
 
 # Versioning variables
-JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-$(cat ${BUILD_DIR}/build.number)}
+JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-$(cat ${BUILD_DIR}/build.number 2>/dev/null || printf 1)}
 JUJU_DB_VERSION=${JUJU_DB_VERSION:-}
 
 # Docker variables
