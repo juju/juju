@@ -371,6 +371,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sp.ID, gc.Equals, spaceUUID.String())
 	c.Check(sp.Name, gc.Equals, network.SpaceName("space0"))
+	c.Check(sp.Subnets, gc.IsNil)
 }
 
 func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
