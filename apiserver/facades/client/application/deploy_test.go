@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -28,7 +27,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -755,19 +753,11 @@ func (d stateDeployer) AddApplication(args state.AddApplicationArgs, store objec
 }
 
 type fakeDeployer struct {
-	args          state.AddApplicationArgs
-	controllerCfg *controller.Config
+	args state.AddApplicationArgs
 }
 
 func (f *fakeDeployer) ReadSequence(name string) (int, error) {
 	return 0, nil
-}
-
-func (f *fakeDeployer) ControllerConfig() (controller.Config, error) {
-	if f.controllerCfg != nil {
-		return *f.controllerCfg, nil
-	}
-	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 
 func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ objectstore.ObjectStore) (application.Application, error) {

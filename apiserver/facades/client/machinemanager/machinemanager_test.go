@@ -770,7 +770,6 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.st = mocks.NewMockBackend(ctrl)
 
 	s.ctrlSt = mocks.NewMockControllerBackend(ctrl)
-	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)

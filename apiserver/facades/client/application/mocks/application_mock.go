@@ -18,7 +18,6 @@ import (
 	resource "github.com/juju/charm/v13/resource"
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
 	application "github.com/juju/juju/apiserver/facades/client/application"
-	controller "github.com/juju/juju/controller"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	crossmodel "github.com/juju/juju/core/crossmodel"
@@ -241,21 +240,6 @@ func (m *MockBackend) Charm(arg0 string) (application.Charm, error) {
 func (mr *MockBackendMockRecorder) Charm(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockBackend)(nil).Charm), arg0)
-}
-
-// ControllerConfig mocks base method.
-func (m *MockBackend) ControllerConfig() (controller.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackend)(nil).ControllerConfig))
 }
 
 // ControllerTag mocks base method.

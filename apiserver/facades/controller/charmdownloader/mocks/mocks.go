@@ -15,7 +15,6 @@ import (
 
 	charm "github.com/juju/charm/v13"
 	charmdownloader "github.com/juju/juju/apiserver/facades/controller/charmdownloader"
-	controller "github.com/juju/juju/controller"
 	charm0 "github.com/juju/juju/core/charm"
 	status "github.com/juju/juju/core/status"
 	config "github.com/juju/juju/environs/config"
@@ -61,21 +60,6 @@ func (m *MockStateBackend) Application(arg0 string) (charmdownloader.Application
 func (mr *MockStateBackendMockRecorder) Application(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockStateBackend)(nil).Application), arg0)
-}
-
-// ControllerConfig mocks base method.
-func (m *MockStateBackend) ControllerConfig() (controller.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockStateBackendMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockStateBackend)(nil).ControllerConfig))
 }
 
 // ModelUUID mocks base method.
