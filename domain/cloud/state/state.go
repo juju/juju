@@ -108,7 +108,7 @@ func (st *State) ListClouds(ctx context.Context) ([]cloud.Cloud, error) {
 	var result []cloud.Cloud
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		result, err = loadClouds(ctx, tx, "")
+		result, err = LoadClouds(ctx, st, tx, "")
 		return errors.Trace(err)
 	})
 	return result, errors.Trace(err)
@@ -123,7 +123,7 @@ func (st *State) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 
 	var result *cloud.Cloud
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		clouds, err := loadClouds(ctx, tx, name)
+		clouds, err := LoadClouds(ctx, st, tx, name)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -422,7 +422,8 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 	})
 }
 
-func loadClouds(ctx context.Context, tx *sqlair.TX, name string) ([]cloud.Cloud, error) {
+// LoadClouds loads the cloud information from the database for the provided name.
+func LoadClouds(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name string) ([]cloud.Cloud, error) {
 	// First load the basic cloud info and auth types.
 	q := `
 WITH controllers AS (SELECT model_metadata.cloud_uuid
@@ -451,7 +452,7 @@ FROM   cloud
 		q += "WHERE cloud.name = $M.cloud_name"
 	}
 
-	loadCloudStmt, err := sqlair.Prepare(q, sqlair.M{}, Cloud{})
+	LoadCloudStmt, err := st.Prepare(q, sqlair.M{}, Cloud{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -463,7 +464,7 @@ FROM   cloud
 		"controller_user_name": coremodel.ControllerModelOwnerUsername,
 		"cloud_name":           name,
 	}
-	iter := tx.Query(ctx, loadCloudStmt, args).Iter()
+	iter := tx.Query(ctx, LoadCloudStmt, args).Iter()
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(err)
 	}
