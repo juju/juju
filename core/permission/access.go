@@ -373,3 +373,20 @@ func cloudRevoke(a Access) Access {
 		return NoAccess
 	}
 }
+
+// EqualOrGreaterThan returns true if the current access is
+// equal or greater than the passed in access level.
+func (a AccessSpec) EqualOrGreaterThan(access Access) bool {
+	switch a.Target.ObjectType {
+	case Cloud:
+		return a.Access.EqualOrGreaterCloudAccessThan(access)
+	case Controller:
+		return a.Access.EqualOrGreaterControllerAccessThan(access)
+	case Model:
+		return a.Access.EqualOrGreaterModelAccessThan(access)
+	case Offer:
+		return a.Access.EqualOrGreaterOfferAccessThan(access)
+	default:
+		return false
+	}
+}

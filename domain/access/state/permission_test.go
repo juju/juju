@@ -14,6 +14,7 @@ import (
 
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -271,17 +272,6 @@ func (s *permissionStateSuite) TestDeletePermission(c *gc.C) {
 	c.Assert(num, gc.Equals, 0)
 }
 
-func (s *permissionStateSuite) TestDeletePermissionFailUserNotFound(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
-
-	target := corepermission.ID{
-		Key:        "model-uuid",
-		ObjectType: corepermission.Model,
-	}
-	err := st.DeletePermission(context.Background(), "testme", target)
-	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
-}
-
 func (s *permissionStateSuite) TestDeletePermissionDoesNotExist(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
@@ -462,68 +452,188 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeController(c
 	c.Check(userAccess.Access, gc.Equals, corepermission.SuperuserAccess, gc.Commentf("%+v", users))
 }
 
-func (s *permissionStateSuite) printPermissions(c *gc.C) {
-	rows, _ := s.DB().Query(`
-SELECT uuid, permission_type_id, grant_to, grant_on 
-FROM permission
---WHERE grant_to = "bob"
-`)
-	defer func() { _ = rows.Close() }()
-	var (
-		userUuid, grantTo, grantOn string
-		permissionTypeId           int
-	)
-
-	for rows.Next() {
-		err := rows.Scan(&userUuid, &permissionTypeId, &grantTo, &grantOn)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("%q, %d, %q, %q", userUuid, permissionTypeId, grantTo, grantOn)
-	}
-
-}
-
-func (s *permissionStateSuite) printUsers(c *gc.C) {
-	rows, _ := s.DB().Query(`
-SELECT uuid, name, created_by_uuid
-FROM user
-`)
-	defer func() { _ = rows.Close() }()
-	var (
-		rowUUID, name string
-		creatorUUID   user.UUID
-	)
-
-	for rows.Next() {
-		err := rows.Scan(&rowUUID, &name, &creatorUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("%q, %q, %q", rowUUID, name, creatorUUID)
-	}
-
-}
-
-func (s *permissionStateSuite) printClouds(c *gc.C) {
-	rows, _ := s.DB().Query(`
-SELECT uuid, name
-FROM cloud
-`)
-	defer func() { _ = rows.Close() }()
-	var (
-		rowUUID, name string
-	)
-
-	for rows.Next() {
-		err := rows.Scan(&rowUUID, &name)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("%q, %q", rowUUID, name)
-	}
-
-}
-
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
 	_, err := st.ReadAllAccessForUserAndObjectType(context.Background(), "bob", corepermission.Cloud)
 	c.Assert(err, jc.ErrorIs, accesserrors.PermissionNotFound)
+}
+
+func (s *permissionStateSuite) TestUpsertPermissionGrantNewUser(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "admin",
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "default-model",
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "admin",
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        "controller",
+				ObjectType: corepermission.Controller,
+			},
+			Access: corepermission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	target := corepermission.ID{
+		ObjectType: corepermission.Model,
+		Key:        "default-model",
+	}
+	arg := access.UpsertPermissionArgs{
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.WriteAccess,
+		},
+		AddUser: true,
+		ApiUser: "admin",
+		Change:  corepermission.Grant,
+		Subject: "tom",
+	}
+	err = st.UpsertPermission(context.Background(), arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedUserAccess, err := st.ReadUserAccessForTarget(context.Background(), "tom", target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUserAccess.UserTag.Id(), gc.Equals, "tom")
+	c.Check(obtainedUserAccess.UserName, gc.Equals, "tom")
+	c.Check(obtainedUserAccess.CreatedBy.Id(), gc.Equals, "admin")
+	c.Check(obtainedUserAccess.UserID, gc.Not(gc.Equals), "")
+	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.WriteAccess)
+	c.Check(obtainedUserAccess.Object.Id(), gc.Equals, "default-model")
+}
+
+func (s *permissionStateSuite) TestUpsertPermissionGrantExistingUser(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	// Bob starts with Write access on "default-model"
+	s.setupForRead(c, st)
+
+	target := corepermission.ID{
+		ObjectType: corepermission.Model,
+		Key:        "default-model",
+	}
+	arg := access.UpsertPermissionArgs{
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.AdminAccess,
+		},
+		AddUser: true,
+		ApiUser: "admin",
+		Change:  corepermission.Grant,
+		Subject: "bob",
+	}
+	err := st.UpsertPermission(context.Background(), arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedUserAccess, err := st.ReadUserAccessForTarget(context.Background(), "bob", target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUserAccess.UserTag.Id(), gc.Equals, "bob")
+	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.AdminAccess)
+}
+
+func (s *permissionStateSuite) TestUpsertPermissionGrantLessAccess(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	// Bob starts with Write access on "default-model"
+	s.setupForRead(c, st)
+
+	target := corepermission.ID{
+		ObjectType: corepermission.Model,
+		Key:        "default-model",
+	}
+	arg := access.UpsertPermissionArgs{
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.ReadAccess,
+		},
+		AddUser: true,
+		ApiUser: "admin",
+		Change:  corepermission.Grant,
+		Subject: "bob",
+	}
+	err := st.UpsertPermission(context.Background(), arg)
+	c.Assert(err, gc.ErrorMatches, `user "bob" already has "read" access or greater`)
+}
+
+func (s *permissionStateSuite) TestUpsertPermissionNotAuthorized(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+
+	arg := access.UpsertPermissionArgs{
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				ObjectType: corepermission.Model,
+				Key:        "model-uuid",
+			},
+		},
+		AddUser: false,
+		ApiUser: "admin",
+		Change:  corepermission.Grant,
+		Subject: "bub",
+	}
+	err := st.UpsertPermission(context.Background(), arg)
+	c.Assert(err, jc.ErrorIs, accesserrors.PermissionNotValid)
+}
+
+func (s *permissionStateSuite) TestUpsertPermissionRevokeRemovePerm(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	s.setupForRead(c, st)
+	// Bob starts with Admin access on "default-model".
+	// Revoke of Read yields permission removed on the model.
+	target := corepermission.ID{
+		ObjectType: corepermission.Model,
+		Key:        "default-model",
+	}
+	arg := access.UpsertPermissionArgs{
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.ReadAccess,
+		},
+		AddUser: true,
+		ApiUser: "admin",
+		Change:  corepermission.Revoke,
+		Subject: "bob",
+	}
+	err := st.UpsertPermission(context.Background(), arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.ReadUserAccessForTarget(context.Background(), "bob", target)
+	c.Assert(err, jc.ErrorIs, accesserrors.PermissionNotFound)
+}
+
+func (s *permissionStateSuite) TestUpsertPermissionRevoke(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	// Sue starts with Admin access on "test-cloud".
+	// Revoke of Admin yields AddModel on clouds.
+	s.setupForRead(c, st)
+
+	target := corepermission.ID{
+		ObjectType: corepermission.Cloud,
+		Key:        "test-cloud",
+	}
+	arg := access.UpsertPermissionArgs{
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.AdminAccess,
+		},
+		AddUser: false,
+		ApiUser: "admin",
+		Change:  corepermission.Revoke,
+		Subject: "sue",
+	}
+	err := st.UpsertPermission(context.Background(), arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedUserAccess, err := st.ReadUserAccessForTarget(context.Background(), "sue", target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUserAccess.UserTag.Id(), gc.Equals, "sue")
+	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.AddModelAccess)
 }
 
 func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
@@ -593,8 +703,10 @@ func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
 	c.Assert(err, jc.ErrorIsNil)
 	if s.debug {
 		s.printUsers(c)
+		s.printUserAuthentication(c)
 		s.printClouds(c)
 		s.printPermissions(c)
+		s.printRead(c)
 	}
 }
 
@@ -609,7 +721,7 @@ func (s *permissionStateSuite) ensureUser(c *gc.C, userUUID, name, createdByUUID
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user_authentication ( user_uuid, disabled)
+			INSERT INTO user_authentication (user_uuid, disabled)
 			VALUES (?, ?)
 		`, userUUID, false)
 		return err
@@ -637,4 +749,101 @@ func (s *permissionStateSuite) ensureCloud(c *gc.C, uuid, name string) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *permissionStateSuite) printPermissions(c *gc.C) {
+	rows, _ := s.DB().Query(`
+SELECT uuid, permission_type_id, grant_to, grant_on 
+FROM permission
+`)
+	defer func() { _ = rows.Close() }()
+	var (
+		userUuid, grantTo, grantOn string
+		permissionTypeId           int
+	)
+
+	c.Logf("PERMISSIONS")
+	for rows.Next() {
+		err := rows.Scan(&userUuid, &permissionTypeId, &grantTo, &grantOn)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("%q, %d, %q, %q", userUuid, permissionTypeId, grantTo, grantOn)
+	}
+
+}
+
+func (s *permissionStateSuite) printUsers(c *gc.C) {
+	rows, _ := s.DB().Query(`
+SELECT u.uuid, u.name, u.created_by_uuid, u.disabled, u.removed
+FROM v_user_auth u
+`)
+	defer func() { _ = rows.Close() }()
+	var (
+		rowUUID, name     string
+		creatorUUID       user.UUID
+		disabled, removed bool
+	)
+	c.Logf("USERS")
+	for rows.Next() {
+		err := rows.Scan(&rowUUID, &name, &creatorUUID, &disabled, &removed)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("LINE %q, %q, %q, %t, %t", rowUUID, name, creatorUUID, disabled, removed)
+	}
+}
+
+func (s *permissionStateSuite) printUserAuthentication(c *gc.C) {
+	rows, _ := s.DB().Query(`
+SELECT user_uuid, disabled
+FROM user_authentication
+`)
+	defer func() { _ = rows.Close() }()
+	var (
+		userUUID string
+		disabled bool
+	)
+	c.Logf("USERS AUTHENTICATION")
+	for rows.Next() {
+		err := rows.Scan(&userUUID, &disabled)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("LINE %q, %t", userUUID, disabled)
+	}
+}
+
+func (s *permissionStateSuite) printRead(c *gc.C) {
+	q := `
+SELECT  p.uuid, p.grant_on, p.grant_to, p.access_type,
+        u.uuid, u.name, creator.name
+FROM    v_user_auth u
+        LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+        JOIN v_permission p ON u.uuid = p.grant_to
+`
+	rows, _ := s.DB().Query(q)
+	defer func() { _ = rows.Close() }()
+	var (
+		permUUID, grantOn, grantTo, accessType string
+		userUUID, userName, createName         string
+	)
+	c.Logf("READ")
+	for rows.Next() {
+		err := rows.Scan(&permUUID, &grantOn, &grantTo, &accessType, &userUUID, &userName, &createName)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("LINE: %q, %q, %q, %q, %q, %q, %q,", permUUID, grantOn, grantTo, accessType, userUUID, userName, createName)
+	}
+}
+
+func (s *permissionStateSuite) printClouds(c *gc.C) {
+	rows, _ := s.DB().Query(`
+SELECT uuid, name
+FROM cloud
+`)
+	defer func() { _ = rows.Close() }()
+	var (
+		rowUUID, name string
+	)
+
+	c.Logf("CLOUDS")
+	for rows.Next() {
+		err := rows.Scan(&rowUUID, &name)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("%q, %q", rowUUID, name)
+	}
 }
