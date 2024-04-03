@@ -25,7 +25,7 @@ require (
 	github.com/aws/smithy-go v1.17.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/lxd v0.0.0-20230712132802-8d2a42545fd0
-	github.com/canonical/pebble v0.0.0-20230307221844-5842ea68c9c7
+	github.com/canonical/pebble v1.1.1
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.8.3+incompatible
