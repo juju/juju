@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	cloud "github.com/juju/juju/cloud"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
@@ -70,6 +71,22 @@ func (m *MockState) DeleteSecretBackend(arg0 context.Context, arg1 string, arg2 
 func (mr *MockStateMockRecorder) DeleteSecretBackend(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecretBackend", reflect.TypeOf((*MockState)(nil).DeleteSecretBackend), arg0, arg1, arg2)
+}
+
+// GetCloudCredential mocks base method.
+func (m *MockState) GetCloudCredential(arg0 context.Context, arg1 model.UUID) (cloud.Cloud, cloud.Credential, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCloudCredential", arg0, arg1)
+	ret0, _ := ret[0].(cloud.Cloud)
+	ret1, _ := ret[1].(cloud.Credential)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetCloudCredential indicates an expected call of GetCloudCredential.
+func (mr *MockStateMockRecorder) GetCloudCredential(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCloudCredential", reflect.TypeOf((*MockState)(nil).GetCloudCredential), arg0, arg1)
 }
 
 // GetModel mocks base method.

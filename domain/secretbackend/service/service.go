@@ -73,9 +73,7 @@ func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.Ba
 }
 
 // GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user.
-func (s *Service) GetSecretBackendConfigForAdmin(
-	ctx context.Context, modelUUID coremodel.UUID, cloud cloud.Cloud, cred cloud.Credential,
-) (*provider.ModelBackendConfigInfo, error) {
+func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error) {
 	var info provider.ModelBackendConfigInfo
 	m, err := s.st.GetModel(ctx, modelUUID)
 	if err != nil {
@@ -108,6 +106,10 @@ func (s *Service) GetSecretBackendConfigForAdmin(
 	}
 
 	if m.Type == coremodel.CAAS {
+		cloud, cred, err := s.st.GetCloudCredential(ctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		k8sConfig, err := getK8sBackendConfig(cloud, cred)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -197,9 +199,7 @@ func (s *Service) GetSecretBackendConfigForDrain(
 // If we just want a model's in-use backends, it's the caller's
 // resposibility to provide the backendIDs in the filter.
 func (s *Service) BackendSummaryInfo(
-	ctx context.Context,
-	modelUUID coremodel.UUID, cloud cloud.Cloud, cred cloud.Credential,
-	reveal, all bool, names ...string,
+	ctx context.Context, modelUUID coremodel.UUID, reveal, all bool, names ...string,
 ) ([]*SecretBackendInfo, error) {
 	backends, err := s.st.ListSecretBackends(ctx, all)
 	if err != nil {
@@ -236,6 +236,10 @@ func (s *Service) BackendSummaryInfo(
 		}
 		if m.Type == coremodel.CAAS {
 			// The kubernetes backend.
+			cloud, cred, err := s.st.GetCloudCredential(ctx, modelUUID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			k8sConfig, err := getK8sBackendConfig(cloud, cred)
 			if err != nil {
 				return nil, errors.Trace(err)
