@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -94,9 +95,9 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
 	apiHostPortsForAgentsChanged <- struct{}{}
 	modelConfigChanged <- struct{}{}
 
-	results, err := m.api.WatchModelOperatorProvisioningInfo()
+	results, err := m.api.WatchModelOperatorProvisioningInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	res := m.resources.Get("1")
-	c.Assert(res, gc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
+	c.Assert(res, gc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
 }

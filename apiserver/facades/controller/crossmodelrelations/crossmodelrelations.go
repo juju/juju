@@ -22,10 +22,12 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/life"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -33,7 +35,7 @@ import (
 
 type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
 type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
-type offerStatusWatcherFunc func(CrossModelRelationsState, string) (OfferWatcher, error)
+type offerStatusWatcherFunc func(context.Context, CrossModelRelationsState, string) (OfferWatcher, error)
 type consumedSecretsWatcherFunc func(CrossModelRelationsState, string) (state.StringsWatcher, error)
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
@@ -466,7 +468,7 @@ type OfferWatcher interface {
 }
 
 type offerWatcher struct {
-	*common.MultiNotifyWatcher
+	*eventsource.MultiWatcher[struct{}]
 	offerUUID string
 	offerName string
 }
@@ -479,7 +481,7 @@ func (w *offerWatcher) OfferName() string {
 	return w.offerName
 }
 
-func watchOfferStatus(st CrossModelRelationsState, offerUUID string) (OfferWatcher, error) {
+func watchOfferStatus(ctx context.Context, st CrossModelRelationsState, offerUUID string) (OfferWatcher, error) {
 	w1, err := st.WatchOfferStatus(offerUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -489,8 +491,11 @@ func watchOfferStatus(st CrossModelRelationsState, offerUUID string) (OfferWatch
 		return nil, errors.Trace(err)
 	}
 	w2 := st.WatchOffer(offer.OfferName)
-	mw := common.NewMultiNotifyWatcher(w1, w2)
-	return &offerWatcher{mw, offerUUID, offer.OfferName}, nil
+	mw, err := eventsource.NewMultiNotifyWatcher(ctx, w1, w2)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &offerWatcher{MultiWatcher: mw, offerUUID: offerUUID, offerName: offer.OfferName}, nil
 }
 
 func watchConsumedSecrets(st CrossModelRelationsState, appName string) (state.StringsWatcher, error) {
@@ -516,16 +521,16 @@ func (api *CrossModelRelationsAPIv3) WatchOfferStatus(
 			continue
 		}
 
-		w, err := api.offerStatusWatcher(api.st, arg.OfferUUID)
+		w, err := api.offerStatusWatcher(ctx, api.st, arg.OfferUUID)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, ok := <-w.Changes()
-		if !ok {
-			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
+		if _, err := internal.FirstResult[struct{}](ctx, w); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
 		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID, w.OfferName())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)

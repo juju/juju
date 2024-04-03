@@ -14,11 +14,12 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
@@ -63,7 +64,7 @@ func NewAPI(
 
 // WatchModelOperatorProvisioningInfo provides a watcher for changes that affect the
 // information returned by ModelOperatorProvisioningInfo.
-func (a *API) WatchModelOperatorProvisioningInfo() (params.NotifyWatchResult, error) {
+func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 
 	model, err := a.state.Model()
@@ -75,14 +76,21 @@ func (a *API) WatchModelOperatorProvisioningInfo() (params.NotifyWatchResult, er
 	controllerAPIHostPortsWatcher := a.ctrlState.WatchAPIHostPortsForAgents()
 	modelConfigWatcher := model.WatchForModelConfigChanges()
 
-	multiWatcher := common.NewMultiNotifyWatcher(controllerConfigWatcher, controllerAPIHostPortsWatcher, modelConfigWatcher)
+	multiWatcher, err := eventsource.NewMultiNotifyWatcher(ctx,
+		controllerConfigWatcher,
+		controllerAPIHostPortsWatcher,
+		modelConfigWatcher,
+	)
 
-	if _, ok := <-multiWatcher.Changes(); ok {
-		result.NotifyWatcherId = a.resources.Register(multiWatcher)
-	} else {
-		return result, watcher.EnsureErr(multiWatcher)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
 
+	if _, err := internal.FirstResult[struct{}](ctx, multiWatcher); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.NotifyWatcherId = a.resources.Register(multiWatcher)
 	return result, nil
 }
 

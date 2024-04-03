@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/juju/osenv"
@@ -1028,7 +1029,7 @@ func (a *app) Delete() error {
 
 // Watch returns a watcher which notifies when there
 // are changes to the application of the specified application.
-func (a *app) Watch() (watcher.NotifyWatcher, error) {
+func (a *app) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	factory := informers.NewSharedInformerFactoryWithOptions(a.client, 0,
 		informers.WithNamespace(a.namespace),
 		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
@@ -1054,7 +1055,7 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return watcher.NewMultiNotifyWatcher(w1, w2), nil
+	return eventsource.NewMultiNotifyWatcher(ctx, w1, w2)
 }
 
 func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {

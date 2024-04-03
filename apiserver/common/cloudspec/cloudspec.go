@@ -12,11 +12,12 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // CloudSpecer defines the CloudSpec api interface
@@ -199,22 +200,32 @@ func (s CloudSpecAPI) watchCloudSpecChanges(ctx context.Context, tag names.Model
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	var watch *common.MultiNotifyWatcher
+	var watcher eventsource.Watcher[struct{}]
 	if credentialContentWatch != nil {
-		watch = common.NewMultiNotifyWatcher(&watcherAdaptor{cloudWatch}, credentialReferenceWatch, &watcherAdaptor{credentialContentWatch})
+		watcher, err = eventsource.NewMultiNotifyWatcher(ctx,
+			&watcherAdaptor{NotifyWatcher: cloudWatch},
+			credentialReferenceWatch,
+			&watcherAdaptor{NotifyWatcher: credentialContentWatch},
+		)
 	} else {
 		// It's rare but possible that a model does not have a credential.
 		// In this case there is no point trying to 'watch' content changes.
-		watch = common.NewMultiNotifyWatcher(&watcherAdaptor{cloudWatch}, credentialReferenceWatch)
+		watcher, err = eventsource.NewMultiNotifyWatcher(ctx,
+			&watcherAdaptor{NotifyWatcher: cloudWatch},
+			credentialReferenceWatch,
+		)
 	}
-	// Consume the initial event. Technically, API
-	// calls to Watch 'transmit' the initial event
-	// in the Watch response. But NotifyWatchers
-	// have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = s.resources.Register(watch)
-	} else {
-		return result, watcher.EnsureErr(watch)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
+	// Consume the initial result for the API.
+	_, err = internal.FirstResult[struct{}](ctx, watcher)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	// Ensure we register the watcher, once we know it's working.
+	result.NotifyWatcherId = s.resources.Register(watcher)
+
 	return result, nil
 }

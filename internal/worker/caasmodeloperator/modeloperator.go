@@ -21,7 +21,7 @@ import (
 type ModelOperatorAPI interface {
 	SetPassword(password string) error
 	ModelOperatorProvisioningInfo() (caasmodeloperator.ModelOperatorProvisioningInfo, error)
-	WatchModelOperatorProvisioningInfo() (watcher.NotifyWatcher, error)
+	WatchModelOperatorProvisioningInfo(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ModelOperatorBroker describes the caas broker interface needed for installing
@@ -60,7 +60,10 @@ func (m *ModelOperatorManager) Wait() error {
 }
 
 func (m *ModelOperatorManager) loop() error {
-	watcher, err := m.api.WatchModelOperatorProvisioningInfo()
+	ctx, cancel := m.scopedContext()
+	defer cancel()
+
+	watcher, err := m.api.WatchModelOperatorProvisioningInfo(ctx)
 	if err != nil {
 		return errors.Annotate(err, "cannot watch model operator provisioning info")
 	}
@@ -80,6 +83,11 @@ func (m *ModelOperatorManager) loop() error {
 			}
 		}
 	}
+}
+
+func (m *ModelOperatorManager) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return m.catacomb.Context(ctx), cancel
 }
 
 func (m *ModelOperatorManager) update(ctx context.Context) error {

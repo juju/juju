@@ -89,7 +89,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		w.changes <- []string{"db2:db django:db"}
 		return w, nil
 	}
-	offerStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, offerUUID string) (crossmodelrelations.OfferWatcher, error) {
+	offerStatusWatcher := func(_ context.Context, st crossmodelrelations.CrossModelRelationsState, offerUUID string) (crossmodelrelations.OfferWatcher, error) {
 		c.Assert(s.st, gc.Equals, st)
 		s.watchedOffers = []string{offerUUID}
 		w := &mockOfferStatusWatcher{
