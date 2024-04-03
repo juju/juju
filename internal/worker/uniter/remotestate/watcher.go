@@ -440,9 +440,10 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	secretsChanges := secretsw.Changes()
-	if err := w.catacomb.Add(secretsw); err != nil {
-		return errors.Trace(err)
-	}
+	// TODO(secrets) - uncomment when watcher is implemented
+	//if err := w.catacomb.Add(secretsw); err != nil {
+	//	return errors.Trace(err)
+	//}
 	requiredEvents++
 
 	var (
@@ -1115,9 +1116,10 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(obsoleteRevisionsWatcher); err != nil {
-		return errors.Trace(err)
-	}
+	// TODO(secrets) - uncomment when watcher is implemented
+	//if err := w.catacomb.Add(obsoleteRevisionsWatcher); err != nil {
+	//	return errors.Trace(err)
+	//}
 	w.obsoleteRevisionWatcher = obsoleteRevisionsWatcher
 	w.obsoleteRevisionChanges = obsoleteRevisionsWatcher.Changes()
 
