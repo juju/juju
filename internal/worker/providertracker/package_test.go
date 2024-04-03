@@ -16,6 +16,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker ServiceFactory,ModelService,CloudService,ConfigService,CredentialService
 //go:generate go run go.uber.org/mock/mockgen -package providertracker -destination environs_mock_test.go github.com/juju/juju/environs Environ,CloudDestroyer,CloudSpecSetter
 //go:generate go run go.uber.org/mock/mockgen -package providertracker -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
+//go:generate go run go.uber.org/mock/mockgen -package providertracker -destination caas_mock_test.go github.com/juju/juju/caas Broker
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -31,6 +32,7 @@ type baseSuite struct {
 	credentialService *MockCredentialService
 
 	environ          *MockEnviron
+	broker           *MockBroker
 	cloudDestroyer   *MockCloudDestroyer
 	providerRegistry *MockProviderRegistry
 	cloudSpecSetter  *MockCloudSpecSetter
@@ -48,6 +50,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.credentialService = NewMockCredentialService(ctrl)
 
 	s.environ = NewMockEnviron(ctrl)
+	s.broker = NewMockBroker(ctrl)
 	s.cloudDestroyer = NewMockCloudDestroyer(ctrl)
 	s.providerRegistry = NewMockProviderRegistry(ctrl)
 	s.cloudSpecSetter = NewMockCloudSpecSetter(ctrl)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
@@ -100,9 +101,13 @@ func (c ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 		return nil, errors.Trace(err)
 	}
 
-	var broker K8sBroker
+	var broker caas.Broker
 	if err := getter.Get(c.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
+	}
+	k8sBroker, ok := broker.(K8sBroker)
+	if !ok {
+		return nil, errors.Errorf("broker does not implement K8sBroker")
 	}
 
 	var rbacMapper caasrbacmapper.Mapper
@@ -129,9 +134,10 @@ func (c ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 	currentConfig := agent.CurrentConfig()
 	admissionPath := AdmissionPathForModel(currentConfig.Model().Id())
 	admissionCreator, err := NewAdmissionCreator(authority,
-		broker.GetCurrentNamespace(), broker.CurrentModel(),
-		broker.IsLegacyLabels(),
-		broker.EnsureMutatingWebhookConfiguration,
+		k8sBroker.GetCurrentNamespace(),
+		k8sBroker.CurrentModel(),
+		k8sBroker.IsLegacyLabels(),
+		k8sBroker.EnsureMutatingWebhookConfiguration,
 		&admission.ServiceReference{
 			Name:      c.ServiceName,
 			Namespace: c.ServiceNamespace,
@@ -147,7 +153,7 @@ func (c ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 		c.Logger,
 		mux,
 		AdmissionPathForModel(currentConfig.Model().Id()),
-		broker.IsLegacyLabels(),
+		k8sBroker.IsLegacyLabels(),
 		admissionCreator,
 		rbacMapper)
 }

@@ -36,8 +36,8 @@ func (s *workerSuite) TestWorkerStartup(c *gc.C) {
 	// Ensure we can startup with a normal environ.
 
 	s.expectModel(c)
-	cfg := s.expectGetEnviron(c)
-	s.expectEnvironConfig(c, cfg)
+	cfg := s.newCloudSpec(c)
+	s.expectCloudSpec(c, cfg)
 	s.expectConfigWatcher(c)
 
 	// Create the worker.
@@ -56,8 +56,8 @@ func (s *workerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
 	// Ensure we can startup with the cloud spec setter and environ.
 
 	s.expectModel(c)
-	cfg := s.expectGetEnviron(c)
-	s.expectEnvironConfig(c, cfg)
+	cfg := s.newCloudSpec(c)
+	s.expectCloudSpec(c, cfg)
 	s.expectConfigWatcher(c)
 
 	// Now we've got the cloud spec setter, we need to ensure we watch the
@@ -82,8 +82,8 @@ func (s *workerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
 	// Ensure we can startup with a normal environ.
 
 	s.expectModel(c)
-	cfg := s.expectGetEnviron(c)
-	s.expectEnvironConfig(c, cfg)
+	cfg := s.newCloudSpec(c)
+	s.expectCloudSpec(c, cfg)
 	ch := s.expectConfigWatcher(c)
 	s.expectEnvironSetConfig(c, cfg)
 
@@ -111,8 +111,8 @@ func (s *workerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 	// Ensure we can startup with a normal environ.
 
 	s.expectModel(c)
-	cfg := s.expectGetEnviron(c)
-	s.expectEnvironConfig(c, cfg)
+	cfg := s.newCloudSpec(c)
+	s.expectCloudSpec(c, cfg)
 	s.expectConfigWatcher(c)
 
 	// Now we've got the cloud spec setter, we need to ensure we watch the
@@ -132,43 +132,6 @@ func (s *workerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 	s.ensureStartup(c)
 
 	// Send a notification so that a cloud change is picked up.
-
-	select {
-	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("timed out sending config change")
-	}
-
-	workertest.CleanKill(c, w)
-}
-
-func (s *workerSuite) TestWorkerCloudDoesNotUpdateEnviron(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Ensure we can startup with a normal environ.
-
-	s.expectModel(c)
-	cfg := s.expectGetEnviron(c)
-	s.expectEnvironConfig(c, cfg)
-	s.expectConfigWatcher(c)
-
-	// Now we've got the cloud spec setter, we need to ensure we watch the
-	// cloud and credentials.
-
-	ch := s.expectCloudWatcher(c)
-	s.expectCredentialWatcher(c)
-
-	// Nothing has changed, so no cloud spec is updated
-	s.expectEnvironSetSpecNoUpdate(c)
-
-	// Create the worker.
-
-	w, err := s.newWorker(c, s.newCloudSpecEnviron())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Send a notification so that a cloud change is picked up.
-
-	s.ensureStartup(c)
 
 	select {
 	case ch <- struct{}{}:
@@ -185,8 +148,8 @@ func (s *workerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	// Ensure we can startup with a normal environ.
 
 	s.expectModel(c)
-	cfg := s.expectGetEnviron(c)
-	s.expectEnvironConfig(c, cfg)
+	cfg := s.newCloudSpec(c)
+	s.expectCloudSpec(c, cfg)
 	s.expectConfigWatcher(c)
 
 	// Now we've got the cloud spec setter, we need to ensure we watch the
@@ -216,52 +179,15 @@ func (s *workerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerCredentialDoesNotUpdateEnviron(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Ensure we can startup with a normal environ.
-
-	s.expectModel(c)
-	cfg := s.expectGetEnviron(c)
-	s.expectEnvironConfig(c, cfg)
-	s.expectConfigWatcher(c)
-
-	// Now we've got the cloud spec setter, we need to ensure we watch the
-	// cloud and credentials.
-
-	s.expectCloudWatcher(c)
-	ch := s.expectCredentialWatcher(c)
-
-	// Nothing has changed, so no cloud spec is updated
-	s.expectEnvironSetSpecNoUpdate(c)
-
-	// Create the worker.
-
-	w, err := s.newWorker(c, s.newCloudSpecEnviron())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Send a notification so that a credential change is picked up.
-
-	s.ensureStartup(c)
-
-	select {
-	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("timed out sending config change")
-	}
-
-	workertest.CleanKill(c, w)
-}
-
-func (s *workerSuite) getConfig(environ environs.Environ) Config {
-	return Config{
+func (s *workerSuite) getConfig(environ environs.Environ) Config[environs.Environ] {
+	return Config[environs.Environ]{
 		ModelService:      s.modelService,
 		CloudService:      s.cloudService,
 		ConfigService:     s.configService,
 		CredentialService: s.credentialService,
-		NewEnviron: func(ctx context.Context, op environs.OpenParams) (environs.Environ, error) {
+		GetProvider: IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 			return environ, nil
-		},
+		}),
 		Logger: s.logger,
 	}
 }
@@ -281,7 +207,7 @@ func (s *workerSuite) expectModel(c *gc.C) coremodel.UUID {
 	return id
 }
 
-func (s *workerSuite) expectGetEnviron(c *gc.C) *config.Config {
+func (s *workerSuite) newCloudSpec(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -296,7 +222,7 @@ func (s *workerSuite) expectGetEnviron(c *gc.C) *config.Config {
 	return cfg
 }
 
-func (s *workerSuite) expectEnvironConfig(c *gc.C, cfg *config.Config) {
+func (s *workerSuite) expectCloudSpec(c *gc.C, cfg *config.Config) {
 	s.environ.EXPECT().Config().Return(cfg)
 }
 
@@ -315,15 +241,6 @@ func (s *workerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
 		Revoked: true,
 	}, nil)
 	s.cloudSpecSetter.EXPECT().SetCloudSpec(gomock.Any(), gomock.Any()).Return(nil)
-}
-
-func (s *workerSuite) expectEnvironSetSpecNoUpdate(c *gc.C) {
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
-		Cloud: "cloud",
-		Owner: "owner",
-		Name:  "name",
-	}).Return(cloud.Credential{}, nil)
 }
 
 func (s *workerSuite) expectConfigWatcher(c *gc.C) chan []string {
@@ -384,7 +301,7 @@ func (s *workerSuite) expectCredentialWatcher(c *gc.C) chan struct{} {
 	return ch
 }
 
-func (s *workerSuite) newWorker(c *gc.C, environ environs.Environ) (*trackerWorker, error) {
+func (s *workerSuite) newWorker(c *gc.C, environ environs.Environ) (*trackerWorker[environs.Environ], error) {
 	return newWorker(context.Background(), s.getConfig(environ), s.states)
 }
 
