@@ -822,6 +822,9 @@ func (u *UniterAPI) oneCharmArchiveSha256(ctx context.Context, curl string) (str
 				return errors.Trace(err)
 			}
 			sha = sch.BundleSha256()
+			if sha == "" {
+				return errors.NotFoundf("downloaded charm %q", curl)
+			}
 			return nil
 		},
 		IsFatalError: func(err error) bool {

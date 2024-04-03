@@ -775,6 +775,11 @@ func (st *State) Charm(curl string) (*Charm, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO - this is problematic because charmhub charms which are not downloaded are returned regardless.
+	// See - https://pad.lv/2058700 and https://pad.lv/2059990
+	// We could return not found here for any pending charm (not just local), but there's numerous call
+	// sites to consider. The safest approach to fix bug 2059990 is to add a sha == "" check.
+	// We need to take another look at the async deploy logic and fix some fundamental flaws.
 	if (!ch.IsUploaded() && !charm.CharmHub.Matches(parsedURL.Schema)) || ch.IsPlaceholder() {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
