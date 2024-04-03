@@ -60,7 +60,9 @@ type ControllerServiceFactory interface {
 	// controller.
 	Access() *accessservice.Service
 	// SecretBackend returns the secret backend service.
-	SecretBackend(string, secretbackendservice.SecretProviderRegistry) *secretbackendservice.WatchableService
+	SecretBackend(
+		controllerUUID string, registry secretbackendservice.SecretProviderRegistry,
+	) *secretbackendservice.WatchableService
 }
 
 // ModelServiceFactory provides access to the services required by the
