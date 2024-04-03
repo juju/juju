@@ -194,28 +194,54 @@ func (st *PermissionState) ReadUserAccessForTarget(ctx context.Context, subject 
 		return userAccess, errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		user, err := st.findUserByName(ctx, tx, subject)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		userAccess = user.toCoreUserAccess()
+	type input struct {
+		Name    string `db:"name"`
+		GrantOn string `db:"grant_on"`
+	}
 
-		// Based on the grant to and grant from, find the permission,
-		// then the access type of it.
-		accessType, permissionUUID, err := st.findAccessType(ctx, tx, target.Key, user.UUID)
-		if err != nil {
-			return errors.Trace(err)
+	readQuery := `
+SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type) AS (&dbReadUserPermission.*),
+        (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
+        creator.name AS &dbPermissionUser.created_by_name
+FROM    v_user_auth u
+        LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+        JOIN v_permission p ON u.uuid = p.grant_to
+WHERE   u.name = $input.name
+AND     u.disabled = false
+AND     u.removed = false
+AND     p.grant_on = $input.grant_on
+`
+
+	readStmt, err := st.Prepare(readQuery, dbReadUserPermission{}, dbPermissionUser{}, input{})
+	if err != nil {
+		return corepermission.UserAccess{}, errors.Trace(err)
+	}
+
+	var (
+		readUser dbReadUserPermission
+		permUser dbPermissionUser
+	)
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		in := input{
+			Name:    subject,
+			GrantOn: target.Key,
 		}
-		userAccess.Access = corepermission.Access(accessType)
-		userAccess.PermissionID = permissionUUID
-		userAccess.Object = objectTag(target)
+		err = tx.Query(ctx, readStmt, in).Get(&readUser, &permUser)
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", subject, target.Key)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting permission for %q on %q", subject, target.Key)
+		}
+
 		return nil
 	})
 	if err != nil {
-		return corepermission.UserAccess{}, errors.Trace(domain.CoerceError(err))
+		return userAccess, errors.Trace(domain.CoerceError(err))
 	}
-	return userAccess, nil
+
+	readUser.ObjectType = string(target.ObjectType)
+	return readUser.toUserAccess(permUser), nil
 }
 
 // ReadUserAccessLevelForTarget returns the subject's (user) access level
@@ -228,18 +254,7 @@ func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, sub
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		userUUID, err := st.userUUIDForName(ctx, tx, subject)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// Based on the grant to and grant from, find the permission,
-		// then the access type of it.
-		accessType, _, err := st.findAccessType(ctx, tx, target.Key, userUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		userAccessType = corepermission.Access(accessType)
+		userAccessType, err = st.userAccessLevel(ctx, tx, subject, target)
 		return nil
 	})
 	if err != nil {
@@ -712,4 +727,37 @@ WHERE  grant_on = $M.grant_on
 		return usersPermissions, nil
 	}
 	return nil, errors.Annotatef(accesserrors.PermissionNotFound, "for %q", grantOn)
+}
+
+func (st *PermissionState) userAccessLevel(ctx context.Context, tx *sqlair.TX, subject string, target corepermission.ID) (corepermission.Access, error) {
+	type inputOutput struct {
+		Name    string `db:"name"`
+		GrantOn string `db:"grant_on"`
+		Access  string `db:"access_type"`
+	}
+
+	readQuery := `
+SELECT  p.access_type AS &inputOutput.access_type
+FROM    v_permission p
+        LEFT JOIN v_user_auth u ON u.uuid = p.grant_to
+WHERE   u.name = $input.name
+AND     u.disabled = false
+AND     u.removed = false
+AND     p.grant_on = $input.grant_on
+`
+
+	readStmt, err := st.Prepare(readQuery, inputOutput{})
+	if err != nil {
+		return corepermission.NoAccess, errors.Trace(err)
+	}
+
+	inOut := inputOutput{
+		Name:    subject,
+		GrantOn: target.Key,
+	}
+	err = tx.Query(ctx, readStmt, inOut).Get(&inOut)
+	if err != nil {
+		return corepermission.NoAccess, errors.Annotatef(err, "reading user access level for target")
+	}
+	return corepermission.Access(inOut.Access), nil
 }
