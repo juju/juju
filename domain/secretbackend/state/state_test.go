@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -1078,8 +1079,8 @@ WHERE model_uuid = ?`
 func (s *stateSuite) TestSetModelSecretBackendBackendNotFound(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
-	c.Assert(err, jc.ErrorIs, backenderrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `getting secret backend "my-backend": secret backend not found: "my-backend"`)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`not found: either model %q or secret backend "my-backend"`, modelUUID))
 }
 
 func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
@@ -1101,8 +1102,8 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: %q`, modelUUID.String()))
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`not found: either model %q or secret backend "my-backend"`, modelUUID))
 }
 
 func (s *stateSuite) TestGetModelSecretBackend(c *gc.C) {

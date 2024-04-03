@@ -399,28 +399,23 @@ func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.U
 	modelBackendUpsertStmt, err := s.Prepare(`
 INSERT INTO model_secret_backend
 	(model_uuid, secret_backend_uuid)
-VALUES ($M.model_uuid, $M.secret_backend_uuid)
+VALUES (
+	$M.model_uuid,
+	(SELECT uuid FROM secret_backend WHERE name = $M.backend_name)
+)
 ON CONFLICT (model_uuid) DO UPDATE SET
-	secret_backend_uuid = $M.secret_backend_uuid`, sqlair.M{})
+	secret_backend_uuid = EXCLUDED.secret_backend_uuid`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		sb, err := s.getSecretBackend(ctx, tx, "name", backendName)
-		if err != nil {
-			return fmt.Errorf("getting secret backend %q: %w", backendName, err)
-		}
-		if err != nil {
-			return fmt.Errorf("checking if model %q exists: %w", modelUUID, err)
-		}
-
 		err = tx.Query(ctx,
 			modelBackendUpsertStmt,
-			sqlair.M{"model_uuid": modelUUID, "secret_backend_uuid": sb.ID},
+			sqlair.M{"model_uuid": modelUUID, "backend_name": backendName},
 		).Run()
 		if database.IsErrConstraintForeignKey(err) {
-			return fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
+			return fmt.Errorf("%w: either model %q or secret backend %q", errors.NotFound, modelUUID, backendName)
 		}
 		if err != nil {
 			return fmt.Errorf("setting secret backend %q for model %q: %w", backendName, modelUUID, err)

@@ -753,7 +753,7 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
 }
 
-func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, force bool) {
+func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, skipPing bool) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(
 		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
@@ -802,7 +802,7 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, force bool) {
 		Config:              convertConfigToString(updatedConfig),
 	}).Return("", nil)
 	s.mockRegistry.EXPECT().Type().Return("vault").AnyTimes()
-	if !force {
+	if !skipPing {
 		s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{
 			BackendConfig: provider.BackendConfig{
 				BackendType: vault.BackendType,
@@ -813,8 +813,8 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, force bool) {
 	}
 
 	arg := UpdateSecretBackendParams{
-		Force: force,
-		Reset: []string{"namespace"},
+		SkipPing: skipPing,
+		Reset:    []string{"namespace"},
 	}
 	arg.BackendIdentifier = identifier
 	arg.NewName = ptr("new-name")

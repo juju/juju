@@ -20,8 +20,8 @@ type SecretBackendInfo struct {
 // UpdateSecretBackendParams is used to update a secret backend.
 type UpdateSecretBackendParams struct {
 	secretbackend.UpdateSecretBackendParams
-	// Force is used to force the update without validation.
-	Force bool
+	// SkipPing is specified to skip pinging the backend.
+	SkipPing bool
 	// Reset is a list of configs to reset.
 	Reset []string
 }

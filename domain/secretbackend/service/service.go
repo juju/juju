@@ -439,7 +439,7 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 			return fmt.Errorf("%w: config for provider %q: %w", secretbackenderrors.NotValid, existing.BackendType, err)
 		}
 	}
-	if !params.Force {
+	if !params.SkipPing {
 		if err := pingBackend(p, cfgToApply); err != nil {
 			return errors.Trace(err)
 		}
