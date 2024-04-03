@@ -20,6 +20,7 @@ import (
 	userstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -360,7 +361,7 @@ func (st *State) CloudCredentialsForOwner(ctx context.Context, owner, cloudName 
 	var creds []credential.CloudCredentialResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		creds, err = st.loadCloudCredentials(ctx, tx, "", cloudName, owner)
+		creds, err = LoadCloudCredentials(ctx, st, tx, "", cloudName, owner)
 		return errors.Trace(err)
 	})
 	if err != nil {
@@ -383,11 +384,14 @@ func (st *State) CloudCredential(ctx context.Context, key corecredential.Key) (c
 	var creds []credential.CloudCredentialResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		creds, err = st.loadCloudCredentials(ctx, tx, key.Name, key.Cloud, key.Owner)
+		creds, err = LoadCloudCredentials(ctx, st, tx, key.Name, key.Cloud, key.Owner)
 		return errors.Trace(err)
 	})
 	if len(creds) == 0 {
-		return credential.CloudCredentialResult{}, fmt.Errorf("credential %q for cloud %q owned by %q %w", key.Name, key.Cloud, key.Owner, errors.NotFound)
+		return credential.CloudCredentialResult{}, fmt.Errorf(
+			"%w: credential %q for cloud %q owned by %q",
+			credentialerrors.CredentialNotFound, key.Name, key.Cloud, key.Owner,
+		)
 	}
 	if err != nil {
 		return credential.CloudCredentialResult{}, errors.Trace(err)
@@ -400,7 +404,8 @@ func (st *State) CloudCredential(ctx context.Context, key corecredential.Key) (c
 
 type credentialAttrs map[string]string
 
-func (st *State) loadCloudCredentials(ctx context.Context, tx *sqlair.TX, name, cloudName, owner string) ([]credential.CloudCredentialResult, error) {
+// LoadCloudCredentials loads cloud credentials from the database.
+func LoadCloudCredentials(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name, cloudName, owner string) ([]credential.CloudCredentialResult, error) {
 	credQuery := `
 SELECT (cc.uuid, cc.name,
        cc.revoked, cc.invalid, 
@@ -466,7 +471,7 @@ func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) 
 
 	result := make(map[corecredential.Key]credential.CloudCredentialResult)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		infos, err := st.loadCloudCredentials(ctx, tx, "", "", owner)
+		infos, err := LoadCloudCredentials(ctx, st, tx, "", "", owner)
 		for _, info := range infos {
 			result[corecredential.Key{
 				Cloud: info.CloudName,

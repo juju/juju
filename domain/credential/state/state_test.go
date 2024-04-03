@@ -28,6 +28,7 @@ import (
 	userstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
@@ -387,7 +388,7 @@ func (s *credentialSuite) TestRemoveCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.CloudCredential(ctx, key)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, credentialerrors.CredentialNotFound)
 }
 
 func (s *credentialSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
