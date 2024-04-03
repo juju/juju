@@ -452,7 +452,7 @@ FROM   cloud
 		q += "WHERE cloud.name = $M.cloud_name"
 	}
 
-	LoadCloudStmt, err := st.Prepare(q, sqlair.M{}, Cloud{})
+	loadCloudStmt, err := st.Prepare(q, sqlair.M{}, Cloud{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -464,7 +464,7 @@ FROM   cloud
 		"controller_user_name": coremodel.ControllerModelOwnerUsername,
 		"cloud_name":           name,
 	}
-	iter := tx.Query(ctx, LoadCloudStmt, args).Iter()
+	iter := tx.Query(ctx, loadCloudStmt, args).Iter()
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(err)
 	}

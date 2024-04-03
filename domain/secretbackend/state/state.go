@@ -492,7 +492,7 @@ WHERE uuid = $M.uuid`, sqlair.M{}, ModelCloudCredentialRow{})
 		cred.InvalidReason = credInfo.InvalidReason
 		return nil
 	})
-	return cld, cred, errors.Trace(err)
+	return cld, cred, domain.CoerceError(err)
 }
 
 // InitialWatchStatement returns the initial watch statement and the table name to watch.

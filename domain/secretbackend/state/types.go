@@ -185,6 +185,6 @@ type ModelCloudCredentialRow struct {
 	CloudName string `db:"cloud_name"`
 	// CloudCredentialName is the name of the cloud credential.
 	CloudCredentialName string `db:"cloud_credential_name"`
-	// OwnerName is the name of the model owner.
+	// OwnerName is the name of the credential owner.
 	OwnerName string `db:"owner_name"`
 }
