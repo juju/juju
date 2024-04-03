@@ -178,3 +178,13 @@ func (rows SecretBackendRotationRows) toChanges(logger Logger) []watcher.SecretB
 	}
 	return result
 }
+
+// ModelCloudCredentialRow represents a single subset of cloud and credential related data from the v_model view.
+type ModelCloudCredentialRow struct {
+	// CloudName is the name of the cloud.
+	CloudName string `db:"cloud_name"`
+	// CloudCredentialName is the name of the cloud credential.
+	CloudCredentialName string `db:"cloud_credential_name"`
+	// OwnerName is the name of the model owner.
+	OwnerName string `db:"owner_name"`
+}

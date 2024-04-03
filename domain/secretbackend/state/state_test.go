@@ -121,9 +121,7 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 		Regions: []cloud.Region{
-			{
-				Name: "my-region",
-			},
+			{Name: "my-region"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1112,6 +1110,39 @@ func (s *stateSuite) TestGetModelSecretBackend(c *gc.C) {
 	result, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, backendID)
+}
+
+func (s *stateSuite) TestGetCloudCredential(c *gc.C) {
+	modelUUID, _ := s.createModel(c)
+	cld, cred, err := s.state.GetCloudCredential(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cld, gc.DeepEquals, cloud.Cloud{
+		Name:      "my-cloud",
+		Type:      "ec2",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Regions: []cloud.Region{
+			{Name: "my-region"},
+		},
+	})
+	expectedCred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	expectedCred.Label = "foobar"
+	c.Assert(cred, gc.DeepEquals, expectedCred)
+}
+
+func (s *stateSuite) TestGetCloudCredentialModelNotFound(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	_, _, err := s.state.GetCloudCredential(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: %q`, modelUUID))
+}
+
+func (s *stateSuite) TestInitialWatchStatement(c *gc.C) {
+	table, q := s.state.InitialWatchStatement()
+	c.Assert(table, gc.Equals, "secret_backend_rotation")
+	c.Assert(q, gc.Equals, `SELECT backend_uuid FROM secret_backend_rotation`)
 }
 
 func (s *stateSuite) TestGetSecretBackendRotateChanges(c *gc.C) {

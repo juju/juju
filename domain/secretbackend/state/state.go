@@ -13,10 +13,15 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	cloudstate "github.com/juju/juju/domain/cloud/state"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
+	credentialstate "github.com/juju/juju/domain/credential/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -429,6 +434,65 @@ ON CONFLICT (model_uuid) DO UPDATE SET
 func (s *State) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
 	m, err := s.GetModel(ctx, modelUUID)
 	return m.SecretBackendID, errors.Trace(err)
+}
+
+// GetCloudCredential returns the cloud credential for the given model.
+func (s *State) GetCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (cloud.Cloud, cloud.Credential, error) {
+	var (
+		cld  cloud.Cloud
+		cred cloud.Credential
+	)
+
+	db, err := s.DB()
+	if err != nil {
+		return cld, cred, errors.Trace(err)
+	}
+	modelStmt, err := s.Prepare(`
+SELECT &ModelCloudCredentialRow.*
+FROM v_model
+WHERE uuid = $M.uuid`, sqlair.M{}, ModelCloudCredentialRow{})
+	if err != nil {
+		return cld, cred, errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var m ModelCloudCredentialRow
+		err := tx.Query(ctx, modelStmt, sqlair.M{"uuid": modelUUID}).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
+		}
+		if err != nil {
+			return fmt.Errorf("querying model %q: %w", modelUUID, err)
+		}
+
+		clds, err := cloudstate.LoadClouds(ctx, s, tx, m.CloudName)
+		if err != nil {
+			return fmt.Errorf("loading clouds for model %q: %w", modelUUID, err)
+		}
+		if len(clds) == 0 {
+			// This should never happen as the model always has a cloud.
+			return fmt.Errorf("%w: cloud for model %q", clouderrors.NotFound, modelUUID)
+		}
+		cld = clds[0]
+
+		creds, err := credentialstate.LoadCloudCredentials(ctx, s, tx, m.CloudCredentialName, m.CloudName, m.OwnerName)
+		if err != nil {
+			return fmt.Errorf("loading cloud credentials for model %q: %w", modelUUID, err)
+		}
+		if len(creds) == 0 {
+			// This should never happen as the model always has a cloud credential.
+			return fmt.Errorf("%w: cloud credentials for model %q", credentialerrors.CredentialNotFound, modelUUID)
+		}
+		credInfo := creds[0]
+		cred = cloud.NewNamedCredential(
+			credInfo.Label, cloud.AuthType(credInfo.AuthType),
+			credInfo.Attributes, credInfo.Revoked,
+		)
+		cred.Invalid = credInfo.Invalid
+		cred.InvalidReason = credInfo.InvalidReason
+		return nil
+	})
+	return cld, cred, errors.Trace(err)
 }
 
 // InitialWatchStatement returns the initial watch statement and the table name to watch.

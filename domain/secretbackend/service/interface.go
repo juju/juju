@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -15,7 +16,8 @@ import (
 
 // State provides methods for working with secret backends.
 type State interface {
-	GetModel(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error)
+	GetModel(ctx context.Context, modelUUID coremodel.UUID) (secretbackend.ModelSecretBackend, error)
+	GetCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (cloud.Cloud, cloud.Credential, error)
 
 	CreateSecretBackend(ctx context.Context, params secretbackend.CreateSecretBackendParams) (string, error)
 	UpdateSecretBackend(ctx context.Context, params secretbackend.UpdateSecretBackendParams) (string, error)
