@@ -78,7 +78,7 @@ func (e *RequestError) UnmarshalInfo(to interface{}) error {
 	return nil
 }
 
-func (conn *Conn) send(call *Call) {
+func (conn *Conn) send(call *Call) uint64 {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 
@@ -91,7 +91,7 @@ func (conn *Conn) send(call *Call) {
 		call.Error = ErrShutdown
 		conn.mutex.Unlock()
 		call.done()
-		return
+		return 0
 	}
 	conn.reqId++
 	reqId := conn.reqId
@@ -122,6 +122,15 @@ func (conn *Conn) send(call *Call) {
 			call.done()
 		}
 	}
+
+	return reqId
+}
+
+func (conn *Conn) cancel(reqID uint64) {
+	conn.mutex.Lock()
+	conn.tombstones[reqID] = struct{}{}
+	delete(conn.clientPending, reqID)
+	conn.mutex.Unlock()
 }
 
 func (conn *Conn) handleResponse(hdr *Header) error {
@@ -130,6 +139,14 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 	call := conn.clientPending[reqId]
 	delete(conn.clientPending, reqId)
 	conn.mutex.Unlock()
+
+	defer func() {
+		conn.mutex.Lock()
+		// Always remove the tombstone after a call to prevent
+		// unbounded growth.
+		delete(conn.tombstones, reqId)
+		conn.mutex.Unlock()
+	}()
 
 	var err error
 	switch {
@@ -140,6 +157,11 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		// error reading request body. We should still attempt
 		// to read error body, but there's no one to give it to.
 		err = conn.readBody(nil, false)
+
+		// If the request has been canceled just return.
+		if _, ok := conn.tombstones[reqId]; ok {
+			return nil
+		}
 	case hdr.Error != "":
 		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
 		if strings.HasPrefix(hdr.Error, "no such request ") && hdr.ErrorCode == "" {
@@ -189,7 +211,13 @@ func (conn *Conn) Call(ctx context.Context, req Request, params, response interf
 		SpanID:     spanID,
 		TraceFlags: traceFlags,
 	}
-	conn.send(call)
-	result := <-call.Done
-	return errors.Trace(result.Error)
+	reqID := conn.send(call)
+
+	select {
+	case <-ctx.Done():
+		conn.cancel(reqID)
+		return ctx.Err()
+	case result := <-call.Done:
+		return errors.Trace(result.Error)
+	}
 }

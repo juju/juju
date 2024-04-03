@@ -106,9 +106,6 @@ func (v Value) Kill() {
 // Call implements MethodCaller.Call, which calls the method on the
 // root value and then calls the method on the object value.
 func (caller methodCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	obj, err := caller.rootMethod.Call(caller.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/agent/storageprovisioner"
 	apimocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/secrets"
@@ -39,6 +40,59 @@ type watcherSuite struct {
 }
 
 var _ = gc.Suite(&watcherSuite{})
+
+func (s *watcherSuite) TestWatcherStopsOnBlockedNext(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// This test ensures that if there is a blocking call to next, because of
+	// a bad watcher, then we can correctly recover.
+
+	caller := apimocks.NewMockAPICaller(ctrl)
+
+	facadeName := "StringsWatcher"
+	watcherID := "id-666"
+
+	done := make(chan struct{})
+	called := make(chan struct{})
+
+	caller.EXPECT().BestFacadeVersion(facadeName).Return(666).AnyTimes()
+	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
+	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Next", nil, gomock.Any()).DoAndReturn(func(ctx context.Context, _ string, _ int, _ string, _ string, _ any, r *any) error {
+		close(called)
+
+		select {
+		case <-done:
+			return nil
+		case <-ctx.Done():
+			return context.Canceled
+		}
+	})
+
+	result := params.StringsWatchResult{
+		StringsWatcherId: watcherID,
+		Changes:          []string{"unit-1", "unit-3"},
+	}
+	w := watcher.NewStringsWatcher(caller, result)
+
+	wc := watchertest.NewStringsWatcherC(c, w)
+	defer wc.AssertStops()
+
+	// Ensure we consume the initial event.
+	wc.AssertChanges()
+
+	// Wait for the Next call to be made, before killing the worker. We need
+	// to ensure that the worker is blocked on the Next call.
+	select {
+	case <-called:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for Next call")
+	}
+
+	defer close(done)
+
+	workertest.CleanKill(c, w)
+}
 
 func setupWatcher[T any](c *gc.C, caller *apimocks.MockAPICaller, facadeName string) (string, chan T) {
 	caller.EXPECT().BestFacadeVersion(facadeName).Return(666).AnyTimes()
