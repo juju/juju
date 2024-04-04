@@ -55,9 +55,11 @@ func NewSecretsDrainAPI(
 	}, nil
 }
 
-func filterSecret(controllerUUID, activeBackend string, md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
+// shouldDrainRevision returns true if the specified secret revision should be drained.
+func shouldDrainRevision(controllerUUID, activeBackend string, rev *coresecrets.SecretRevisionMetadata) bool {
 	if rev.ValueRef == nil {
 		// Only internal backend secrets have nil ValueRef.
+		// TODO(secrets) - this needs to be fixed when internal backend is in state.
 		if activeBackend == secretsprovider.Internal {
 			return false
 		}
@@ -117,7 +119,7 @@ func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSec
 		}
 
 		for _, r := range revisionMetadata[i] {
-			if !filterSecret(controllerUUID, activeBackend, md, r) {
+			if !shouldDrainRevision(controllerUUID, activeBackend, r) {
 				continue
 			}
 			var valueRef *params.SecretValueRef

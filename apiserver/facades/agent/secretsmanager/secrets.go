@@ -97,6 +97,7 @@ func (s *SecretsManagerAPI) canRead(ctx context.Context, uri *coresecrets.URI, e
 	return hasRole.Allowed(coresecrets.RoleView), nil
 }
 
+// TODO(secrets) - move to the service
 func (s *SecretsManagerAPI) canManage(ctx context.Context, uri *coresecrets.URI) (leadership.Token, error) {
 	return commonsecrets.CanManage(ctx, s.secretsConsumer, s.leadershipChecker, s.authTag, uri)
 }
@@ -798,7 +799,7 @@ func (s *SecretsManagerAPI) UpdateTrackedRevisions(ctx context.Context, uris []s
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) charmSecretOwnerFromArgs(authTag names.Tag, args params.Entities) (secretservice.CharmSecretOwners, error) {
+func (s *SecretsManagerAPI) charmSecretOwnersFromArgs(authTag names.Tag, args params.Entities) (secretservice.CharmSecretOwners, error) {
 	var result secretservice.CharmSecretOwners
 	for _, arg := range args.Entities {
 		ownerTag, err := names.ParseTag(arg.Tag)
@@ -870,7 +871,7 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, arg
 func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entities) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 
-	owner, err := s.charmSecretOwnerFromArgs(s.authTag, args)
+	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -894,7 +895,7 @@ func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entit
 func (s *SecretsManagerAPI) WatchSecretsRotationChanges(ctx context.Context, args params.Entities) (params.SecretTriggerWatchResult, error) {
 	result := params.SecretTriggerWatchResult{}
 
-	owner, err := s.charmSecretOwnerFromArgs(s.authTag, args)
+	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -956,7 +957,7 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(ctx context.Context, args params.Entities) (params.SecretTriggerWatchResult, error) {
 	result := params.SecretTriggerWatchResult{}
 
-	owner, err := s.charmSecretOwnerFromArgs(s.authTag, args)
+	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
