@@ -83,9 +83,6 @@ func (w *commonWatcher) init() {
 func (w *commonWatcher) commonLoop() {
 	defer close(w.in)
 
-	ctx, cancel := context.WithCancel(w.tomb.Context(context.Background()))
-	defer cancel()
-
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -127,6 +124,9 @@ func (w *commonWatcher) commonLoop() {
 			return
 		}
 	}()
+
+	ctx, cancel := context.WithCancel(w.tomb.Context(context.Background()))
+	defer cancel()
 
 	wg.Add(1)
 	go func() {

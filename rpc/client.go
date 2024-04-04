@@ -212,6 +212,11 @@ func (conn *Conn) Call(ctx context.Context, req Request, params, response interf
 		TraceFlags: traceFlags,
 	}
 	reqID := conn.send(call)
+	if reqID == 0 {
+		// If the request ID is 0, the connection is shutting down or has
+		// already shut down, then return the ErrShutdown error.
+		return ErrShutdown
+	}
 
 	select {
 	case <-ctx.Done():

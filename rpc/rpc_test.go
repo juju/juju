@@ -887,7 +887,7 @@ func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
 	start <- "xxx"
 }
 
-func (*rpcSuite) TestCancelsClientCall(c *gc.C) {
+func (*rpcSuite) TestClientCallCancelled(c *gc.C) {
 	ready := make(chan struct{})
 	start := make(chan string)
 	root := &Root{
