@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"flag"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -28,7 +30,27 @@ import (
 var (
 	dbTypeFlag = flag.String("db", "controller", "Database type to use (controller|model)")
 	dbPathFlag = flag.String("db-path", "", "Path to the database")
+
+	// Prevent the SQL commands from being printed to the console on startup.
+	quiteFlag = flag.Bool("q", false, "Quite mode")
+
+	// Having a history of sql commands is useful for debugging and
+	// for re-running commands.
+	history     = flag.Bool("history", true, "Use history")
+	historyFile = flag.String("history-file", historyDir(), "History file location")
 )
+
+func historyDir() string {
+	root := os.Getenv("XDG_DATA_HOME")
+	if root == "" {
+		root = filepath.Join(os.Getenv("HOME"), ".local", "share")
+	}
+	path := filepath.Join(root, "juju", "repl")
+	if err := os.MkdirAll(path, 0755); err != nil {
+		panic(err)
+	}
+	return path
+}
 
 func main() {
 	flag.Parse()
@@ -42,10 +64,22 @@ func main() {
 	default:
 		panic("unknown database type")
 	}
-	schema.Hook(func(i int) error {
-		fmt.Printf("-- Applied patch %d\n", i)
-		return nil
-	})
+	if !*quiteFlag {
+		schema.Hook(func(i int, stmt string) error {
+			fmt.Printf("-- Applied patch %d\n%s\n", i, stmt)
+			return nil
+		})
+	}
+
+	var file *os.File
+	if *history {
+		var err error
+		file, err = os.OpenFile(filepath.Join(*historyFile, ".history"), os.O_CREATE|os.O_RDWR, 0600)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+	}
 
 	var path string
 	if *dbPathFlag == "" {
@@ -101,6 +135,14 @@ func main() {
 		line := liner.NewLiner()
 		defer line.Close()
 
+		// Only load history if the flag is set.
+		if file != nil {
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line.AppendHistory(scanner.Text())
+			}
+		}
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -127,6 +169,12 @@ func main() {
 				if result != "" {
 					fmt.Println()
 					fmt.Println(result)
+				}
+
+				// This can fail, so we don't care if it errors out.
+				if file != nil {
+					fmt.Fprintln(file, input)
+					_ = file.Sync()
 				}
 			}
 		}
