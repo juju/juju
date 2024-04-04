@@ -777,8 +777,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
 		ctxt:              httpCtxt,
+		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
 		objectStoreGetter: srv.shared.objectStoreGetter,
-		LegacyPostHandler: modelCharmsHandler.ServePost,
 	}
 
 	modelToolsUploadHandler := &toolsUploadHandler{
@@ -856,8 +856,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	migrateObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
 		ctxt:              httpCtxt,
+		stateAuthFunc:     httpCtxt.stateForMigrationImporting,
 		objectStoreGetter: srv.shared.objectStoreGetter,
-		LegacyPostHandler: migrateCharmsHandler.ServePost,
 	}
 	migrateToolsUploadHandler := &toolsUploadHandler{
 		ctxt:          httpCtxt,

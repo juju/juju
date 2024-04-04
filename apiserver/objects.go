@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/juju/charm/v13"
@@ -18,6 +17,8 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
 // endpointMethodHandlerFunc desribes the signature for our functions which handle
@@ -32,8 +33,8 @@ type ObjectStoreGetter interface {
 
 type objectsCharmHTTPHandler struct {
 	ctxt              httpContext
+	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
 	objectStoreGetter ObjectStoreGetter
-	LegacyPostHandler endpointMethodHandlerFunc
 }
 
 func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -43,10 +44,6 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		err = errors.Annotate(h.ServeGet(w, r), "cannot retrieve charm")
 	case "PUT":
 		err = errors.Annotate(h.ServePut(w, r), "cannot upload charm")
-		if err == nil {
-			// Chain call to legacy (REST API) charms handler
-			err = h.LegacyPostHandler(w, r)
-		}
 	default:
 		http.Error(w, fmt.Sprintf("http method %s not implemented", r.Method), http.StatusNotImplemented)
 		return
@@ -114,64 +111,109 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 // Since juju's objects (S3) API only acts as a shim, this method will only
 // rewrite the http request for it to be correctly processed by the legacy
 // '/charms' handler.
-//
-// TODO(jack-w-shaw) Implement properly i.e. no longer shim around the legacy handler
 func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "PUT" {
+		return errors.Trace(emitUnsupportedMethodErr(r.Method))
+	}
+
 	// Make sure the content type is zip.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/zip" {
 		return errors.BadRequestf("expected Content-Type: application/zip, got: %v", contentType)
 	}
 
-	query := r.URL.Query()
-	name, shaFromQuery, err := splitNameAndSHAFromQuery(query)
-	if err != nil {
-		return err
-	}
-
-	charmFileName, err := writeCharmToTempFile(r.Body)
+	st, err := h.stateAuthFunc(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer os.Remove(charmFileName)
+	defer st.Release()
+
+	// Add a charm to the store provider.
+	charmURL, err := h.processPut(r, st.State)
+	if err != nil {
+		return errors.NewBadRequest(err, "")
+	}
+	return errors.Trace(sendStatusAndHeadersAndJSON(w, http.StatusOK, map[string]string{"Juju-Curl": charmURL.String()}, &params.CharmsResponse{CharmURL: charmURL.String()}))
+}
+
+func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State) (*charm.URL, error) {
+	query := r.URL.Query()
+	name, shaFromQuery, err := splitNameAndSHAFromQuery(query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	curlStr := r.Header.Get("Juju-Curl")
 	curl, err := charm.ParseURL(curlStr)
 	if err != nil {
-		return errors.BadRequestf("%q is not a valid charm url", curlStr)
+		return nil, errors.BadRequestf("%q is not a valid charm url", curlStr)
 	}
 	curl.Name = name
 
+	schema := curl.Schema
+	if schema != "local" {
+		// charmhub charms may only be uploaded into models
+		// which are being imported during model migrations.
+		// There's currently no other time where it makes sense
+		// to accept repository charms through this endpoint.
+		if isImporting, err := modelIsImporting(st); err != nil {
+			return nil, errors.Trace(err)
+		} else if !isImporting {
+			return nil, errors.New("non-local charms may only be uploaded during model migration import")
+		}
+	}
+
+	// Attempt to get the object store early, so we're not unnecessarily
+	// creating a parsing/reading if we can't get the object store.
+	objectStore, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	charmFileName, err := writeCharmToTempFile(r.Body)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer os.Remove(charmFileName)
+
 	charmSHA, _, err := utils.ReadFileSHA256(charmFileName)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
+
 	// ReadFileSHA256 returns a full 64 char SHA256. However, charm refs
 	// only use the first 7 chars. So truncate the sha to match
 	charmSHA = charmSHA[0:7]
-
 	if charmSHA != shaFromQuery {
-		return errors.BadRequestf("Uploaded charm sha256 (%v) does not match sha in url (%v)", charmSHA, shaFromQuery)
+		return nil, errors.BadRequestf("Uploaded charm sha256 (%v) does not match sha in url (%v)", charmSHA, shaFromQuery)
 	}
 
-	query.Add("schema", curl.Schema)
-	query.Add("name", curl.Name)
-	query.Add("revision", strconv.Itoa(curl.Revision))
-	query.Add("series", curl.Series)
-	query.Add("arch", curl.Architecture)
-	r.URL.RawQuery = query.Encode()
-
-	// We have already read the request body, so we need to refresh it
-	// so it can be read again in future
-	r.Body, err = os.Open(charmFileName)
+	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.BadRequestf("invalid charm archive: %v", err)
 	}
 
-	// The legacy charm uplaod handler expects a POST request
-	r.Method = "POST"
+	if curl.Revision == -1 {
+		curl.Revision = archive.Revision()
+	}
 
-	return nil
+	switch charm.Schema(schema) {
+	case charm.Local:
+		curl, err = st.PrepareLocalCharmUpload(curl.String())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+	case charm.CharmHub:
+		if _, err := st.PrepareCharmUpload(curl.String()); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+	default:
+		return nil, errors.Errorf("unsupported schema %q", schema)
+	}
+
+	return curl, errors.Trace(RepackageAndUploadCharm(r.Context(), objectStore, storageStateShim{State: st}, archive, curl))
 }
 
 func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
