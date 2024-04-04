@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -148,7 +149,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 	result.Credential = modelCredentialTag
 	credential, err := api.credentialService.CloudCredential(ctx, credential.KeyFromTag(modelCredentialTag))
 	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
+		if !errors.Is(err, credentialerrors.CredentialNotFound) {
 			return nil, errors.Trace(err)
 		}
 		// In this situation, a model refers to a credential that does not exist in credentials collection.
