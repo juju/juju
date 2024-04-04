@@ -5,7 +5,6 @@ package secretsmanager
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -19,8 +18,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
@@ -38,7 +39,7 @@ type CrossModelSecretsClient interface {
 type SecretsManagerAPI struct {
 	authorizer        facade.Authorizer
 	leadershipChecker leadership.Checker
-	secretsState      SecretsState
+	secretService     SecretService
 	watcherRegistry   facade.WatcherRegistry
 	secretsTriggers   SecretTriggers
 	secretsConsumer   SecretsConsumer
@@ -63,12 +64,42 @@ type SecretsManagerAPIV1 struct {
 	*SecretsManagerAPI
 }
 
-func (s *SecretsManagerAPI) canRead(uri *coresecrets.URI, entity names.Tag) (bool, error) {
-	return commonsecrets.CanRead(s.secretsConsumer, s.authTag, uri, entity)
+func accessorFromTag(accessorTag names.Tag) secretservice.SecretAccessor {
+	var accessor secretservice.SecretAccessor
+	accessorName := accessorTag.Id()
+	switch kind := accessorTag.Kind(); kind {
+	case names.UnitTagKind:
+		accessor.UnitName = &accessorName
+	case names.ApplicationTagKind:
+		accessor.ApplicationName = &accessorName
+	}
+	return accessor
 }
 
-func (s *SecretsManagerAPI) canManage(uri *coresecrets.URI) (leadership.Token, error) {
-	return commonsecrets.CanManage(s.secretsConsumer, s.leadershipChecker, s.authTag, uri)
+func (s *SecretsManagerAPI) canRead(ctx context.Context, uri *coresecrets.URI, entity names.Tag) (bool, error) {
+	// First try looking up unit access.
+	hasRole, err := s.secretsConsumer.GetSecretAccess(ctx, uri, accessorFromTag(entity))
+	if err != nil {
+		// Typically not found error.
+		return false, errors.Trace(err)
+	}
+	if hasRole.Allowed(coresecrets.RoleView) {
+		return true, nil
+	}
+
+	// All units can read secrets owned by application.
+	appName := commonsecrets.AuthTagApp(s.authTag)
+	hasRole, err = s.secretsConsumer.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{ApplicationName: &appName})
+	if err != nil {
+		// Typically not found error.
+		return false, errors.Trace(err)
+	}
+	return hasRole.Allowed(coresecrets.RoleView), nil
+}
+
+// TODO(secrets) - move to the service
+func (s *SecretsManagerAPI) canManage(ctx context.Context, uri *coresecrets.URI) (leadership.Token, error) {
+	return commonsecrets.CanManage(ctx, s.secretsConsumer, s.leadershipChecker, s.authTag, uri)
 }
 
 // GetSecretStoreConfig is for 3.0.x agents.
@@ -217,8 +248,11 @@ func (s *SecretsManagerAPI) CreateSecretURIs(ctx context.Context, arg params.Cre
 	result := params.StringResults{
 		Results: make([]params.StringResult, arg.Count),
 	}
-	for i := 0; i < arg.Count; i++ {
-		uri := coresecrets.NewURI().WithSource(s.modelUUID)
+	uris, err := s.secretService.CreateSecretURIs(ctx, arg.Count)
+	if err != nil {
+		return params.StringResults{}, errors.Trace(err)
+	}
+	for i, uri := range uris {
 		result.Results[i] = params.StringResult{Result: uri.String()}
 	}
 	return result, nil
@@ -230,7 +264,7 @@ func (s *SecretsManagerAPI) CreateSecrets(ctx context.Context, args params.Creat
 		Results: make([]params.StringResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		id, err := s.createSecret(arg)
+		id, err := s.createSecret(ctx, arg)
 		result.Results[i].Result = id
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
@@ -240,16 +274,17 @@ func (s *SecretsManagerAPI) CreateSecrets(ctx context.Context, args params.Creat
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, error) {
+func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
 	if len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
 		return "", errors.NotValidf("empty secret value")
 	}
-	// A unit can only create secrets owned by its app.
+	// A unit can only create secrets owned by its app
+	// if it is the leader.
 	secretOwner, err := names.ParseTag(arg.OwnerTag)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	token, err := commonsecrets.OwnerToken(s.authTag, secretOwner, s.leadershipChecker)
+	token, err := ownerToken(s.authTag, secretOwner, s.leadershipChecker)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -262,34 +297,29 @@ func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, er
 	} else {
 		uri = coresecrets.NewURI()
 	}
-	var nextRotateTime *time.Time
-	if arg.RotatePolicy.WillRotate() {
-		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
-	}
-	md, err := s.secretsState.CreateSecret(uri, state.CreateSecretParams{
+
+	params := secretservice.CreateSecretParams{
 		Version:            secrets.Version,
-		Owner:              secretOwner,
-		UpdateSecretParams: fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime),
-	})
+		UpdateSecretParams: fromUpsertParams(arg.UpsertSecretArg, token),
+	}
+	switch kind := secretOwner.Kind(); kind {
+	case names.UnitTagKind:
+		unitName := secretOwner.Id()
+		params.UnitOwner = &unitName
+	case names.ApplicationTagKind:
+		appName := secretOwner.Id()
+		params.ApplicationOwner = &appName
+	default:
+		return "", errors.NotValidf("secret owner kind %q", kind)
+	}
+	md, err := s.secretService.CreateSecret(ctx, uri, params)
 	if err != nil {
 		return "", errors.Trace(err)
-	}
-	err = s.secretsConsumer.GrantSecretAccess(uri, state.SecretAccessParams{
-		LeaderToken: token,
-		Scope:       secretOwner,
-		Subject:     secretOwner,
-		Role:        coresecrets.RoleManage,
-	})
-	if err != nil {
-		if _, err2 := s.secretsState.DeleteSecret(uri); err2 != nil {
-			s.logger.Warningf("cleaning up secret %q", uri)
-		}
-		return "", errors.Annotate(err, "granting secret owner permission to manage the secret")
 	}
 	return md.URI.String(), nil
 }
 
-func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRotateTime *time.Time) state.UpdateSecretParams {
+func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token) secretservice.UpdateSecretParams {
 	var valueRef *coresecrets.ValueRef
 	if p.Content.ValueRef != nil {
 		valueRef = &coresecrets.ValueRef{
@@ -297,16 +327,15 @@ func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRota
 			RevisionID: p.Content.ValueRef.RevisionID,
 		}
 	}
-	return state.UpdateSecretParams{
-		LeaderToken:    token,
-		RotatePolicy:   p.RotatePolicy,
-		NextRotateTime: nextRotateTime,
-		ExpireTime:     p.ExpireTime,
-		Description:    p.Description,
-		Label:          p.Label,
-		Params:         p.Params,
-		Data:           p.Content.Data,
-		ValueRef:       valueRef,
+	return secretservice.UpdateSecretParams{
+		LeaderToken:  token,
+		RotatePolicy: p.RotatePolicy,
+		ExpireTime:   p.ExpireTime,
+		Description:  p.Description,
+		Label:        p.Label,
+		Params:       p.Params,
+		Data:         p.Content.Data,
+		ValueRef:     valueRef,
 	}
 }
 
@@ -316,7 +345,7 @@ func (s *SecretsManagerAPI) UpdateSecrets(ctx context.Context, args params.Updat
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		err := s.updateSecret(arg)
+		err := s.updateSecret(ctx, arg)
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
 		}
@@ -325,7 +354,7 @@ func (s *SecretsManagerAPI) UpdateSecrets(ctx context.Context, args params.Updat
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
+func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) error {
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return errors.Trace(err)
@@ -335,33 +364,42 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 		return errors.New("at least one attribute to update must be specified")
 	}
 
-	token, err := s.canManage(uri)
+	token, err := s.canManage(ctx, uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	md, err := s.secretsState.GetSecret(uri)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	var nextRotateTime *time.Time
-	if !md.RotatePolicy.WillRotate() && arg.RotatePolicy.WillRotate() {
-		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
-	}
-	_, err = s.secretsState.UpdateSecret(uri, fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime))
+	_, err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, token))
 	return errors.Trace(err)
 }
 
 // RemoveSecrets removes the specified secrets.
 func (s *SecretsManagerAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	return commonsecrets.RemoveSecretsForAgent(
-		ctx,
-		s.secretsState, s.adminConfigGetter, args,
-		s.modelUUID,
-		func(uri *coresecrets.URI) error {
-			_, err := s.canManage(uri)
-			return errors.Trace(err)
-		},
-	)
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+
+	if len(args.Args) == 0 {
+		return result, nil
+	}
+
+	canDelete := func(uri *coresecrets.URI) error {
+		_, err := s.canManage(ctx, uri)
+		return errors.Trace(err)
+	}
+
+	for i, arg := range args.Args {
+		uri, err := coresecrets.ParseURI(arg.URI)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = s.secretService.DeleteCharmSecret(ctx, uri, arg.Revisions, canDelete)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return result, nil
 }
 
 // GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
@@ -375,7 +413,7 @@ func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(ctx context.Context, 
 		return params.SecretConsumerInfoResults{}, errors.Trace(err)
 	}
 	for i, uri := range args.URIs {
-		data, err := s.getSecretConsumerInfo(consumerTag, uri)
+		data, err := s.getSecretConsumerInfo(ctx, consumerTag, uri)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -388,7 +426,19 @@ func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(ctx context.Context, 
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr string) (*coresecrets.SecretConsumerMetadata, error) {
+func consumerFromTag(consumerTag names.Tag) secretservice.SecretConsumer {
+	var consumer secretservice.SecretConsumer
+	consumerName := consumerTag.Id()
+	switch kind := consumerTag.Kind(); kind {
+	case names.UnitTagKind:
+		consumer.UnitName = &consumerName
+	case names.ApplicationTagKind:
+		consumer.ApplicationName = &consumerName
+	}
+	return consumer
+}
+
+func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, consumerTag names.Tag, uriStr string) (*coresecrets.SecretConsumerMetadata, error) {
 	uri, err := coresecrets.ParseURI(uriStr)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -396,7 +446,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	// We only check read permissions for local secrets.
 	// For CMR secrets, the remote model manages the permissions.
 	if uri.IsLocal(s.modelUUID) {
-		canRead, err := s.canRead(uri, consumerTag)
+		canRead, err := s.canRead(ctx, uri, consumerTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -404,30 +454,80 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 			return nil, apiservererrors.ErrPerm
 		}
 	}
-	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
+	return s.secretsConsumer.GetSecretConsumer(ctx, uri, consumerFromTag(consumerTag))
+}
+
+func secretOwnerFromAuthTag(authTag names.Tag, leadershipChecker leadership.Checker) (secretservice.CharmSecretOwners, error) {
+	ownerName := authTag.Id()
+	owner := secretservice.CharmSecretOwners{
+		UnitName: &ownerName,
+	}
+	// Unit leaders can also get metadata for secrets owned by the app.
+	isLeader, err := isLeaderUnit(authTag, leadershipChecker)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return secretservice.CharmSecretOwners{}, errors.Trace(err)
 	}
-	if consumer.Label != "" {
-		return consumer, nil
+	if isLeader {
+		appName := commonsecrets.AuthTagApp(authTag)
+		owner.ApplicationName = &appName
 	}
-	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, "")
-	if errors.Is(err, errors.NotFound) {
-		// The secret is owned by a different application.
-		return consumer, nil
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get secret metadata for %q", uri)
-	}
-	// We allow units to access the application owned secrets using the application owner label,
-	// so we copy the owner label to consumer metadata.
-	consumer.Label = md.Label
-	return consumer, nil
+	return owner, nil
 }
 
 // GetSecretMetadata returns metadata for the caller's secrets.
 func (s *SecretsManagerAPI) GetSecretMetadata(ctx context.Context) (params.ListSecretResults, error) {
-	return commonsecrets.GetSecretMetadata(s.authTag, s.secretsState, s.leadershipChecker, nil)
+	var result params.ListSecretResults
+	owner, err := secretOwnerFromAuthTag(s.authTag, s.leadershipChecker)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	metadata, revisionMetadata, err := s.secretService.ListCharmSecrets(ctx, owner)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for i, md := range metadata {
+		secretResult := params.ListSecretResult{
+			URI:              md.URI.String(),
+			Version:          md.Version,
+			OwnerTag:         md.OwnerTag,
+			RotatePolicy:     md.RotatePolicy.String(),
+			NextRotateTime:   md.NextRotateTime,
+			Description:      md.Description,
+			Label:            md.Label,
+			LatestRevision:   md.LatestRevision,
+			LatestExpireTime: md.LatestExpireTime,
+			CreateTime:       md.CreateTime,
+			UpdateTime:       md.UpdateTime,
+		}
+		grants, err := s.secretService.GetSecretGrants(ctx, md.URI, coresecrets.RoleView)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, g := range grants {
+			secretResult.Access = append(secretResult.Access, params.AccessInfo{
+				TargetTag: g.Target, ScopeTag: g.Scope, Role: g.Role,
+			})
+		}
+
+		for _, r := range revisionMetadata[i] {
+			var valueRef *params.SecretValueRef
+			if r.ValueRef != nil {
+				valueRef = &params.SecretValueRef{
+					BackendID:  r.ValueRef.BackendID,
+					RevisionID: r.ValueRef.RevisionID,
+				}
+			}
+			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
+				Revision: r.Revision,
+				ValueRef: valueRef,
+			})
+		}
+		if len(secretResult.Revisions) == 0 {
+			continue
+		}
+		result.Results = append(result.Results, secretResult)
+	}
+	return result, nil
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
@@ -489,7 +589,8 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 		return nil, nil, false, errors.NotSupportedf("getting cross model secret for consumer %q", s.authTag)
 	}
 
-	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
+	consumer := consumerFromTag(s.authTag)
+	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(ctx, uri, consumer)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, nil, false, errors.Trace(err)
 	}
@@ -536,7 +637,7 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 		if labelToUpdate != nil {
 			consumerInfo.Label = *labelToUpdate
 		}
-		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumerInfo); err != nil {
+		if err := s.secretsConsumer.SaveSecretConsumer(ctx, uri, consumer, consumerInfo); err != nil {
 			return nil, nil, false, errors.Trace(err)
 		}
 	}
@@ -552,12 +653,12 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 	if err != nil {
 		return params.SecretContentResults{}, errors.Trace(err)
 	}
-	if _, err = s.canManage(uri); err != nil {
+	if _, err = s.canManage(ctx, uri); err != nil {
 		return params.SecretContentResults{}, errors.Trace(err)
 	}
 	for i, rev := range arg.Revisions {
 		// TODO(wallworld) - if pendingDelete is true, mark the revision for deletion
-		val, valueRef, err := s.secretsState.GetSecretValue(uri, rev)
+		val, valueRef, err := s.secretService.GetSecretValue(ctx, uri, rev)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -606,54 +707,20 @@ func (s *SecretsManagerAPI) canUpdateAppOwnedOrUnitOwnedSecretLabel(owner string
 	return true, nil
 }
 
-func (s *SecretsManagerAPI) updateAppOwnedOrUnitOwnedSecretLabel(uri *coresecrets.URI, label, owner string) error {
-	if uri == nil || label == "" {
-		// We have done this check before, but it doesn't hurt to do it again.
-		return errors.New("uri and label cannot be nil")
+func (s *SecretsManagerAPI) checkCallerOwner(owner string) (bool, leadership.Token, error) {
+	isOwner, err := s.canUpdateAppOwnedOrUnitOwnedSecretLabel(owner)
+	if err != nil {
+		return false, nil, errors.Trace(err)
+	}
+	if !isOwner {
+		return false, nil, nil
 	}
 	ownerTag, err := names.ParseTag(owner)
 	if err != nil {
-		return errors.Trace(err)
+		return false, nil, errors.Trace(err)
 	}
-	token, err := commonsecrets.OwnerToken(s.authTag, ownerTag, s.leadershipChecker)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Update the label.
-	_, err = s.secretsState.UpdateSecret(uri, state.UpdateSecretParams{
-		LeaderToken: token,
-		Label:       &label,
-	})
-	return errors.Trace(err)
-}
-
-func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
-	notFoundErr := errors.NotFoundf("secret %q", uri)
-	if label != "" {
-		notFoundErr = errors.NotFoundf("secret with label %q", label)
-	}
-
-	filter := state.SecretsFilter{
-		OwnerTags: []names.Tag{s.authTag},
-	}
-	if s.authTag.Kind() == names.UnitTagKind {
-		// Units can access application owned secrets.
-		appOwner := names.NewApplicationTag(commonsecrets.AuthTagApp(s.authTag))
-		filter.OwnerTags = append(filter.OwnerTags, appOwner)
-	}
-	mds, err := s.secretsState.ListSecrets(filter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, md := range mds {
-		if uri != nil && md.URI.ID == uri.ID {
-			return md, nil
-		}
-		if label != "" && md.Label == label {
-			return md, nil
-		}
-	}
-	return nil, notFoundErr
+	token, err := ownerToken(s.authTag, ownerTag, s.leadershipChecker)
+	return isOwner, token, errors.Trace(err)
 }
 
 func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.GetSecretContentArg) (
@@ -678,62 +745,19 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 		}
 	}
 
-	// arg.Label could be the consumer label for consumers or the owner label for owners.
-	var labelToUpdate *string
-	if arg.Label != "" && uri != nil {
-		labelToUpdate = &arg.Label
+	unitName := s.authTag.Id()
+	uri, labelToUpdate, err := s.secretService.ProcessSecretConsumerLabel(ctx, unitName, uri, arg.Label, s.checkCallerOwner)
+	if err != nil {
+		return nil, nil, false, errors.Trace(err)
 	}
 
-	// For local secrets, check those which may be owned by the caller.
-	if uri == nil || uri.IsLocal(s.modelUUID) {
-		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, nil, false, errors.Trace(err)
-		}
-		if md != nil {
-			// If the label has is to be changed by the secret owner, update the secret metadata.
-			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
-			isOwner := true
-			if labelToUpdate != nil && *labelToUpdate != md.Label {
-				var err error
-				if isOwner, err = s.canUpdateAppOwnedOrUnitOwnedSecretLabel(md.OwnerTag); err != nil {
-					return nil, nil, false, errors.Trace(err)
-				}
-				if isOwner {
-					err = s.updateAppOwnedOrUnitOwnedSecretLabel(uri, *labelToUpdate, md.OwnerTag)
-					if err != nil {
-						return nil, nil, false, errors.Trace(err)
-					}
-				}
-			}
-			// 1. secrets can be accessed by the owner;
-			// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
-			uri = md.URI
-			// We don't update the consumer label in this case since the label comes
-			// from the owner metadata and we don't want to violate uniqueness checks.
-			if isOwner {
-				labelToUpdate = nil
-			}
-		}
-	}
-
-	if uri == nil {
-		var err error
-		uri, err = s.secretsConsumer.GetURIByConsumerLabel(arg.Label, s.authTag)
-		if errors.Is(err, errors.NotFound) {
-			return nil, nil, false, errors.NotFoundf("consumer label %q", arg.Label)
-		}
-		if err != nil {
-			return nil, nil, false, errors.Trace(err)
-		}
-	}
 	s.logger.Debugf("getting secret content for: %s", uri)
 
 	if !uri.IsLocal(s.modelUUID) {
 		return s.getRemoteSecretContent(ctx, uri, arg.Refresh, arg.Peek, labelToUpdate)
 	}
 
-	canRead, err := s.canRead(uri, s.authTag)
+	canRead, err := s.canRead(ctx, uri, s.authTag)
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
@@ -742,12 +766,13 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	}
 
 	// labelToUpdate is the consumer label for consumers.
-	consumedRevision, err := s.getConsumedRevision(uri, arg.Refresh, arg.Peek, labelToUpdate)
+	consumer := consumerFromTag(s.authTag)
+	consumedRevision, err := s.secretsConsumer.GetConsumedRevision(ctx, uri, consumer, arg.Refresh, arg.Peek, labelToUpdate)
 	if err != nil {
 		return nil, nil, false, errors.Annotate(err, "getting latest secret revision")
 	}
 
-	val, valueRef, err := s.secretsState.GetSecretValue(uri, consumedRevision)
+	val, valueRef, err := s.secretService.GetSecretValue(ctx, uri, consumedRevision)
 	content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
 	if err != nil || content.ValueRef == nil {
 		return content, nil, false, errors.Trace(err)
@@ -758,7 +783,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 
 // UpdateTrackedRevisions updates the consumer info to track the latest
 // revisions for the specified secrets.
-func (s *SecretsManagerAPI) UpdateTrackedRevisions(uris []string) (params.ErrorResults, error) {
+func (s *SecretsManagerAPI) UpdateTrackedRevisions(ctx context.Context, uris []string) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(uris)),
 	}
@@ -768,50 +793,35 @@ func (s *SecretsManagerAPI) UpdateTrackedRevisions(uris []string) (params.ErrorR
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, err = s.getConsumedRevision(uri, true, false, nil)
+		_, err = s.secretsConsumer.GetConsumedRevision(ctx, uri, consumerFromTag(s.authTag), true, false, nil)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getConsumedRevision(uri *coresecrets.URI, refresh, peek bool, labelToUpdate *string) (int, error) {
-	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return 0, errors.Trace(err)
-	}
-	refresh = refresh ||
-		err != nil // Not found, so need to create one.
-
-	var wantRevision int
-	if err == nil {
-		wantRevision = consumerInfo.CurrentRevision
-	}
-
-	// Use the latest revision as the current one if --refresh or --peek.
-	if refresh || peek {
-		md, err := s.secretsState.GetSecret(uri)
+func (s *SecretsManagerAPI) charmSecretOwnersFromArgs(authTag names.Tag, args params.Entities) (secretservice.CharmSecretOwners, error) {
+	var result secretservice.CharmSecretOwners
+	for _, arg := range args.Entities {
+		ownerTag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			return 0, errors.Trace(err)
+			return result, errors.Trace(err)
 		}
-		if consumerInfo == nil {
-			consumerInfo = &coresecrets.SecretConsumerMetadata{}
+		if !isSameApplication(authTag, ownerTag) {
+			return result, apiservererrors.ErrPerm
 		}
-		consumerInfo.LatestRevision = md.LatestRevision
-		if refresh {
-			consumerInfo.CurrentRevision = md.LatestRevision
+		// Only unit leaders can watch application secrets.
+		owner := ownerTag.Id()
+		if ownerTag.Kind() == names.ApplicationTagKind {
+			_, err := commonsecrets.LeadershipToken(authTag, s.leadershipChecker)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			result.ApplicationName = &owner
+			continue
 		}
-		wantRevision = md.LatestRevision
+		result.UnitName = &owner
 	}
-	// Save the latest consumer info if required.
-	if refresh || labelToUpdate != nil {
-		if labelToUpdate != nil {
-			consumerInfo.Label = *labelToUpdate
-		}
-		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumerInfo); err != nil {
-			return 0, errors.Trace(err)
-		}
-	}
-	return wantRevision, nil
+	return result, nil
 }
 
 // WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.
@@ -824,10 +834,10 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, arg
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		if !commonsecrets.IsSameApplication(s.authTag, tag) {
+		if !isSameApplication(s.authTag, tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(tag)
+		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(ctx, consumerFromTag(tag))
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
@@ -860,25 +870,13 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, arg
 // secret results are "uri".
 func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entities) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
-	owners := make([]names.Tag, len(args.Entities))
-	for i, arg := range args.Entities {
-		ownerTag, err := names.ParseTag(arg.Tag)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
-			return result, apiservererrors.ErrPerm
-		}
-		// Only unit leaders can watch application secrets.
-		if ownerTag.Kind() == names.ApplicationTagKind {
-			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-		}
-		owners[i] = ownerTag
+
+	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
-	w, err := s.secretsState.WatchObsolete(owners)
+
+	w, err := s.secretsTriggers.WatchObsolete(ctx, owner)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -896,25 +894,13 @@ func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entit
 // WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config.
 func (s *SecretsManagerAPI) WatchSecretsRotationChanges(ctx context.Context, args params.Entities) (params.SecretTriggerWatchResult, error) {
 	result := params.SecretTriggerWatchResult{}
-	owners := make([]names.Tag, len(args.Entities))
-	for i, arg := range args.Entities {
-		ownerTag, err := names.ParseTag(arg.Tag)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
-			return result, apiservererrors.ErrPerm
-		}
-		// Only unit leaders can watch application secrets.
-		if ownerTag.Kind() == names.ApplicationTagKind {
-			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-		}
-		owners[i] = ownerTag
+
+	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
-	w, err := s.secretsTriggers.WatchSecretsRotationChanges(owners)
+
+	w, err := s.secretsTriggers.WatchSecretsRotationChanges(ctx, owner)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -946,7 +932,7 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 		if err != nil {
 			return errors.Trace(err)
 		}
-		md, err := s.secretsState.GetSecret(uri)
+		md, err := s.secretService.GetSecret(ctx, uri)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -957,29 +943,7 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 		if commonsecrets.AuthTagApp(s.authTag) != owner.Id() {
 			return apiservererrors.ErrPerm
 		}
-		if !md.RotatePolicy.WillRotate() {
-			s.logger.Debugf("secret %q was rotated but now is set to not rotate")
-			return nil
-		}
-		lastRotateTime := md.NextRotateTime
-		if lastRotateTime == nil {
-			now := s.clock.Now()
-			lastRotateTime = &now
-		}
-		nextRotateTime := *md.RotatePolicy.NextRotateTime(*lastRotateTime)
-		s.logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ID, arg.OriginalRevision, md.LatestRevision)
-		// If the secret will expire before it is due to be next rotated, rotate sooner to allow
-		// the charm a chance to update it before it expires.
-		willExpire := md.LatestExpireTime != nil && md.LatestExpireTime.Before(nextRotateTime)
-		forcedRotateTime := lastRotateTime.Add(coresecrets.RotateRetryDelay)
-		if willExpire {
-			s.logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.ID, md.LatestRevision)
-		}
-		if willExpire && forcedRotateTime.Before(*md.LatestExpireTime) || !arg.Skip && md.LatestRevision == arg.OriginalRevision {
-			nextRotateTime = forcedRotateTime
-		}
-		s.logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
-		return s.secretsTriggers.SecretRotated(uri, nextRotateTime)
+		return s.secretsTriggers.SecretRotated(ctx, uri, arg.OriginalRevision, arg.Skip)
 	}
 	for i, arg := range args.Args {
 		var result params.ErrorResult
@@ -992,25 +956,13 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 // WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config.
 func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(ctx context.Context, args params.Entities) (params.SecretTriggerWatchResult, error) {
 	result := params.SecretTriggerWatchResult{}
-	owners := make([]names.Tag, len(args.Entities))
-	for i, arg := range args.Entities {
-		ownerTag, err := names.ParseTag(arg.Tag)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
-			return result, apiservererrors.ErrPerm
-		}
-		// Only unit leaders can watch application secrets.
-		if ownerTag.Kind() == names.ApplicationTagKind {
-			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-		}
-		owners[i] = ownerTag
+
+	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
-	w, err := s.secretsTriggers.WatchSecretRevisionsExpiryChanges(owners)
+
+	w, err := s.secretsTriggers.WatchSecretRevisionsExpiryChanges(ctx, owner)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -1033,19 +985,32 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(ctx context.Contex
 	return result, nil
 }
 
-type grantRevokeFunc func(*coresecrets.URI, state.SecretAccessParams) error
+type grantRevokeFunc func(context.Context, *coresecrets.URI, secretservice.SecretAccessParams) error
 
 // SecretsGrant grants access to a secret for the specified subjects.
 func (s *SecretsManagerAPI) SecretsGrant(ctx context.Context, args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
-	return s.secretsGrantRevoke(args, s.secretsConsumer.GrantSecretAccess)
+	return s.secretsGrantRevoke(ctx, args, s.secretsConsumer.GrantSecretAccess)
 }
 
 // SecretsRevoke revokes access to a secret for the specified subjects.
 func (s *SecretsManagerAPI) SecretsRevoke(ctx context.Context, args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
-	return s.secretsGrantRevoke(args, s.secretsConsumer.RevokeSecretAccess)
+	return s.secretsGrantRevoke(ctx, args, s.secretsConsumer.RevokeSecretAccess)
 }
 
-func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs, op grantRevokeFunc) (params.ErrorResults, error) {
+func permissionIDFromTag(tag names.Tag) (permission.ID, error) {
+	switch kind := tag.Kind(); kind {
+	case names.ApplicationTagKind:
+		return permission.ID{ObjectType: permission.Application, Key: tag.Id()}, nil
+	case names.UnitTagKind:
+		return permission.ID{ObjectType: permission.Unit, Key: tag.Id()}, nil
+	case names.RelationTagKind:
+		return permission.ID{ObjectType: permission.Relation, Key: tag.Id()}, nil
+	default:
+		return permission.ID{}, errors.Errorf("tag kind %q not valid for secret permission", kind)
+	}
+}
+
+func (s *SecretsManagerAPI) secretsGrantRevoke(ctx context.Context, args params.GrantRevokeSecretArgs, op grantRevokeFunc) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -1054,10 +1019,13 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 		if err != nil {
 			return errors.Trace(err)
 		}
-		var scopeTag names.Tag
+		var scopeID permission.ID
 		if arg.ScopeTag != "" {
-			var err error
-			scopeTag, err = names.ParseTag(arg.ScopeTag)
+			scopeTag, err := names.ParseTag(arg.ScopeTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			scopeID, err = permissionIDFromTag(scopeTag)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -1066,7 +1034,7 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 		if role != "" && !role.IsValid() {
 			return errors.NotValidf("secret role %q", arg.Role)
 		}
-		token, err := s.canManage(uri)
+		token, err := s.canManage(ctx, uri)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1075,10 +1043,14 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := op(uri, state.SecretAccessParams{
+			subjectID, err := permissionIDFromTag(subjectTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if err := op(ctx, uri, secretservice.SecretAccessParams{
 				LeaderToken: token,
-				Scope:       scopeTag,
-				Subject:     subjectTag,
+				Scope:       scopeID,
+				Subject:     subjectID,
 				Role:        role,
 			}); err != nil {
 				return errors.Annotatef(err, "cannot change access to %q for %q", uri, tagStr)

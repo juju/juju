@@ -57,8 +57,10 @@ func newSecretsAPI(context facade.ModelContext) (*SecretsAPI, error) {
 	backendConfigGetterForUserSecretsWrite := func(ctx stdcontext.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		// User secrets are owned by the model.
 		authTag := model.ModelTag()
+		// TODO(secrets) - use the secret backend service
 		return secrets.BackendConfigInfo(
 			ctx, secrets.SecretsModel(model), true,
+			serviceFactory.Secret(adminBackendConfigGetter),
 			serviceFactory.Cloud(), serviceFactory.Credential(),
 			[]string{backendID}, false, authTag, leadershipChecker,
 		)

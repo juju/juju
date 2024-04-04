@@ -4,12 +4,15 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secretservice "github.com/juju/juju/domain/secret/service"
 )
 
 // AuthTagApp returns the application name of the authenticated entity.
@@ -24,24 +27,20 @@ func AuthTagApp(authTag names.Tag) string {
 	return ""
 }
 
-// IsSameApplication returns true if the authenticated entity and the specified entity are in the same application.
-func IsSameApplication(authTag names.Tag, tag names.Tag) bool {
-	return AuthTagApp(authTag) == AuthTagApp(tag)
-}
-
 // CanManage checks that the authenticated caller can manage the secret, and returns a
 // token to ensure leadership if that is required; ie if the request is for a secret
 // owned by an application, the entity must be the unit leader.
 func CanManage(
-	api SecretsConsumer, leadershipChecker leadership.Checker,
+	ctx context.Context,
+	api SecretConsumer, leadershipChecker leadership.Checker,
 	authTag names.Tag, uri *coresecrets.URI,
 ) (leadership.Token, error) {
 	appName := AuthTagApp(authTag)
-	appTag := names.NewApplicationTag(appName)
 
 	switch authTag.(type) {
 	case names.UnitTag:
-		hasRole, err := api.SecretAccess(uri, authTag)
+		unitName := authTag.Id()
+		hasRole, err := api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{UnitName: &unitName})
 		if err != nil {
 			// Typically not found error.
 			return nil, errors.Trace(err)
@@ -50,7 +49,7 @@ func CanManage(
 			// owner unit.
 			return successfulToken{}, nil
 		}
-		hasRole, err = api.SecretAccess(uri, appTag)
+		hasRole, err = api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{ApplicationName: &appName})
 		if err != nil {
 			// Typically not found error.
 			return nil, errors.Trace(err)
@@ -60,7 +59,8 @@ func CanManage(
 			return LeadershipToken(authTag, leadershipChecker)
 		}
 	case names.ModelTag:
-		hasRole, err := api.SecretAccess(uri, authTag)
+		modelUUID := authTag.Id()
+		hasRole, err := api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{ModelUUID: &modelUUID})
 		if err != nil {
 			// Typically not found error.
 			return nil, errors.Trace(err)
@@ -70,42 +70,6 @@ func CanManage(
 		}
 	}
 	return nil, apiservererrors.ErrPerm
-}
-
-// CanRead returns true if the specified entity can read the secret.
-func CanRead(api SecretsConsumer, authTag names.Tag, uri *coresecrets.URI, entity names.Tag) (bool, error) {
-	// First try looking up unit access.
-	hasRole, err := api.SecretAccess(uri, entity)
-	if err != nil {
-		// Typically not found error.
-		return false, errors.Trace(err)
-	}
-	if hasRole.Allowed(coresecrets.RoleView) {
-		return true, nil
-	}
-
-	// All units can read secrets owned by application.
-	appName := AuthTagApp(authTag)
-	hasRole, err = api.SecretAccess(uri, names.NewApplicationTag(appName))
-	if err != nil {
-		// Typically not found error.
-		return false, errors.Trace(err)
-	}
-	return hasRole.Allowed(coresecrets.RoleView), nil
-}
-
-// OwnerToken returns a token used to determine if the specified entity
-// is owned by the authenticated caller.
-func OwnerToken(authTag names.Tag, ownerTag names.Tag, leadershipChecker leadership.Checker) (leadership.Token, error) {
-	if !IsSameApplication(authTag, ownerTag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	// A unit can create a secret so long as the
-	// secret owner is that unit's app.
-	if authTag.Id() == ownerTag.Id() {
-		return successfulToken{}, nil
-	}
-	return LeadershipToken(authTag, leadershipChecker)
 }
 
 type successfulToken struct{}

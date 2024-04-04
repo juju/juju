@@ -82,13 +82,14 @@ const (
 	Offer       ObjectType = "offer"
 	Application ObjectType = "application"
 	Unit        ObjectType = "unit"
+	Relation    ObjectType = "relation"
 )
 
 // Validate returns an error if the object type is not in the
 // list of valid object types above.
 func (o ObjectType) Validate() error {
 	switch o {
-	case Cloud, Controller, Model, Offer, Application, Unit:
+	case Cloud, Controller, Model, Offer, Application, Unit, Relation:
 	default:
 		return errors.NotValidf("object type %q", o)
 	}

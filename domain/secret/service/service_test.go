@@ -198,4 +198,54 @@ func (s *SecretsManagerSuite) TestSecretsRotatedThenNever(c *gc.C) {
 		Results: []params.ErrorResult{{}},
 	})
 }
+
+func (s *SecretsManagerSuite) TestGetSecretContentForUnitOwnedSecretUpdateLabel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	val := coresecrets.NewSecretValue(data)
+	uri := coresecrets.NewURI()
+	md := coresecrets.SecretMetadata{
+		URI:            uri,
+		LatestRevision: 668,
+		Label:          "foz",
+		OwnerTag:       s.authTag.String(),
+	}
+
+	s.expectSecretAccessQuery(1)
+
+	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "foo", gomock.Any()).Return(uri, nil, nil)
+
+	// Label is updated on owner metadata, not consumer metadata since it is a secret owned by the caller.
+	s.secretService.EXPECT().UpdateSecret(gomock.Any(), uri, gomock.Any()).DoAndReturn(
+		func(_ context.Context, uri *coresecrets.URI, p secretservice.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
+			c.Assert(p.LeaderToken, gc.NotNil)
+			c.Assert(p.LeaderToken.Check(), jc.ErrorIsNil)
+			c.Assert(p.Label, gc.NotNil)
+			c.Assert(*p.Label, gc.Equals, "foo")
+			return nil, nil
+		},
+	)
+
+	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, secretservice.SecretConsumer{
+		UnitName: ptr("mariadb/0"),
+	}, false, false, nil).
+		Return(668, nil)
+
+	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668).Return(
+		val, nil, nil,
+	)
+
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
+		Args: []params.GetSecretContentArg{
+			{URI: uri.String(), Label: "foo"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+		Results: []params.SecretContentResult{{
+			Content: params.SecretContentParams{Data: data},
+		}},
+	})
+}
 */

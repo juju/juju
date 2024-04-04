@@ -34775,10 +34775,7 @@
         "Description": "SecretsDrainAPI is the implementation for the SecretsDrain facade.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
+            "unit-agent"
         ],
         "Schema": {
             "type": "object",
@@ -35103,10 +35100,7 @@
         "Description": "SecretsManagerAPI is the implementation for the SecretsManager facade.",
         "Version": 2,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
+            "unit-agent"
         ],
         "Schema": {
             "type": "object",
