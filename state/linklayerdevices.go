@@ -597,13 +597,14 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 	// Include a single address without an IP, but with a CIDR
 	// to indicate that we know the subnet for this bridge.
 	if len(addrs) > 0 {
-		// Find the first IP which we know the subnet for
-		// this used to check only the first one
-		for addrIdx, addr := range addrs {
-			if askProviderForAddress {
+		if askProviderForAddress {
+			// Find the first IP which we know the subnet for
+			// this used to check only the first one
+			for addrIdx, addr := range addrs {
 				sub, err := addr.Subnet()
 				if err != nil {
-					logger.Warningf("failed retrieving subnet %q used by address %q of host machine device %q (%d addresses left to evaluate)",
+					logger.Warningf("failed retrieving subnet %q used by address %q "+
+						"of host machine device %q (%d addresses left to evaluate)",
 						addr.SubnetCIDR(), addr.Value(), dev.Name(), len(addrs)-addrIdx-1)
 					// Return an error if we have no addresses left to check
 					if addrIdx == len(addrs)-1 {
@@ -620,10 +621,11 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 				newDev.IsDefaultGateway = addr.IsDefaultGateway()
 				newDev.Addresses = network.ProviderAddresses{
 					network.NewMachineAddress("", network.WithCIDR(sub.CIDR())).AsProviderAddress()}
-			} else {
-				newDev.Addresses = network.ProviderAddresses{
-					network.NewMachineAddress("", network.WithCIDR(addr.SubnetCIDR())).AsProviderAddress()}
+				break
 			}
+		} else {
+			newDev.Addresses = network.ProviderAddresses{
+				network.NewMachineAddress("", network.WithCIDR(addrs[0].SubnetCIDR())).AsProviderAddress()}
 		}
 	}
 
