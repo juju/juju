@@ -68,16 +68,6 @@ func NewService(st State, logger Logger, registry storage.ProviderRegistry) *Ser
 
 // CreateApplication creates the specified application and units if required.
 func (s *Service) CreateApplication(ctx context.Context, name string, params AddApplicationParams, units ...AddUnitParams) error {
-	cons := make(map[string]storage.Directive)
-	for n, sc := range params.Storage {
-		cons[n] = sc
-	}
-	if err := s.addDefaultStorageDirectives(ctx, s.modelType, cons, params.Charm.Meta()); err != nil {
-		return errors.Annotate(err, "adding default storage directives")
-	}
-	if err := s.validateStorageDirectives(ctx, s.modelType, cons, params.Charm); err != nil {
-		return errors.Annotate(err, "invalid storage directives")
-	}
 	args := make([]application.AddUnitParams, len(units))
 	for i, u := range units {
 		args[i] = application.AddUnitParams{
@@ -85,6 +75,18 @@ func (s *Service) CreateApplication(ctx context.Context, name string, params Add
 		}
 	}
 	//TODO(storage) - insert storage directive for app
+	cons := make(map[string]storage.Directive)
+	for n, sc := range params.Storage {
+		cons[n] = sc
+	}
+	if params.Charm != nil {
+		if err := s.addDefaultStorageDirectives(ctx, s.modelType, cons, params.Charm.Meta()); err != nil {
+			return errors.Annotate(err, "adding default storage directives")
+		}
+		if err := s.validateStorageDirectives(ctx, s.modelType, cons, params.Charm); err != nil {
+			return errors.Annotate(err, "invalid storage directives")
+		}
+	}
 
 	err := s.st.UpsertApplication(ctx, name, args...)
 	return errors.Annotatef(err, "saving application %q", name)
