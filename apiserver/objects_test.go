@@ -146,11 +146,18 @@ func (s *putObjectsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	// Pretend we upload a zip by setting the Content-Type, so we can
 	// check the error at extraction time later.
 	resp := s.uploadRequest(c, s.objectsCharmsURI("somecharm-"+getCharmHash(c, empty)), "application/zip", "local:somecharm", empty)
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*cannot open charm archive: zip: not a valid zip file$")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*zip: not a valid zip file$")
 
 	// Now try with the default Content-Type.
 	resp = s.uploadRequest(c, s.objectsCharmsURI("somecharm-"+getCharmHash(c, empty)), "application/octet-stream", "local:somecharm", empty)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip, got: application/octet-stream$")
+}
+
+func (s *putObjectsSuite) TestCannotUploadCharmhubCharm(c *gc.C) {
+	// We should run verifications like this before processing the charm.
+	empty := strings.NewReader("")
+	resp := s.uploadRequest(c, s.objectsCharmsURI("somecharm-"+getCharmHash(c, empty)), "application/zip", "ch:somecharm", empty)
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, `.*non-local charms may only be uploaded during model migration import`)
 }
 
 func (s *putObjectsSuite) TestUploadBumpsRevision(c *gc.C) {
