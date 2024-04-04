@@ -218,19 +218,19 @@ func (mr *MockStateMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockState)(nil).GetUserByName), arg0, arg1)
 }
 
-// ReadAllAccessTypeForUser mocks base method.
-func (m *MockState) ReadAllAccessTypeForUser(arg0 context.Context, arg1 string, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
+// ReadAllAccessForUserAndObjectType mocks base method.
+func (m *MockState) ReadAllAccessForUserAndObjectType(arg0 context.Context, arg1 string, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadAllAccessTypeForUser", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ReadAllAccessForUserAndObjectType", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]permission.UserAccess)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ReadAllAccessTypeForUser indicates an expected call of ReadAllAccessTypeForUser.
-func (mr *MockStateMockRecorder) ReadAllAccessTypeForUser(arg0, arg1, arg2 any) *gomock.Call {
+// ReadAllAccessForUserAndObjectType indicates an expected call of ReadAllAccessForUserAndObjectType.
+func (mr *MockStateMockRecorder) ReadAllAccessForUserAndObjectType(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadAllAccessTypeForUser", reflect.TypeOf((*MockState)(nil).ReadAllAccessTypeForUser), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadAllAccessForUserAndObjectType", reflect.TypeOf((*MockState)(nil).ReadAllAccessForUserAndObjectType), arg0, arg1, arg2)
 }
 
 // ReadAllUserAccessForTarget mocks base method.
@@ -639,19 +639,19 @@ func (mr *MockPermissionStateMockRecorder) DeletePermission(arg0, arg1, arg2 any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePermission", reflect.TypeOf((*MockPermissionState)(nil).DeletePermission), arg0, arg1, arg2)
 }
 
-// ReadAllAccessTypeForUser mocks base method.
-func (m *MockPermissionState) ReadAllAccessTypeForUser(arg0 context.Context, arg1 string, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
+// ReadAllAccessForUserAndObjectType mocks base method.
+func (m *MockPermissionState) ReadAllAccessForUserAndObjectType(arg0 context.Context, arg1 string, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadAllAccessTypeForUser", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ReadAllAccessForUserAndObjectType", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]permission.UserAccess)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ReadAllAccessTypeForUser indicates an expected call of ReadAllAccessTypeForUser.
-func (mr *MockPermissionStateMockRecorder) ReadAllAccessTypeForUser(arg0, arg1, arg2 any) *gomock.Call {
+// ReadAllAccessForUserAndObjectType indicates an expected call of ReadAllAccessForUserAndObjectType.
+func (mr *MockPermissionStateMockRecorder) ReadAllAccessForUserAndObjectType(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadAllAccessTypeForUser", reflect.TypeOf((*MockPermissionState)(nil).ReadAllAccessTypeForUser), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadAllAccessForUserAndObjectType", reflect.TypeOf((*MockPermissionState)(nil).ReadAllAccessForUserAndObjectType), arg0, arg1, arg2)
 }
 
 // ReadAllUserAccessForTarget mocks base method.

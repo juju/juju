@@ -337,11 +337,74 @@ func (st *PermissionState) ReadAllUserAccessForTarget(ctx context.Context, targe
 	return userAccess, nil
 }
 
-// ReadAllAccessTypeForUser return a slice of user access for the subject
+// ReadAllAccessForUserAndObjectType return a slice of user access for the subject
 // (user) specified and of the given access type.
 // E.G. All clouds the user has access to.
-func (st *PermissionState) ReadAllAccessTypeForUser(ctx context.Context, subject string, access_type corepermission.ObjectType) ([]corepermission.UserAccess, error) {
-	return nil, errors.NotImplementedf("ReadAllAccessTypeForUser")
+func (st *PermissionState) ReadAllAccessForUserAndObjectType(ctx context.Context, subject string, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var (
+		permissions []dbReadUserPermission
+		actualUser  []dbPermissionUser
+	)
+	var andClause string
+	switch objectType {
+	case corepermission.Controller:
+		andClause = `AND     p.grant_on = ctrl.c`
+	case corepermission.Model:
+		andClause = `AND     m.uuid NOT NULL`
+	case corepermission.Cloud:
+		andClause = `AND     c.name NOT NULL`
+	case corepermission.Offer:
+		// TODO implement for offers
+		return nil, errors.NotImplementedf("ReadAllAccessForUserAndObjectType for offers")
+	default:
+		return nil, errors.NotValidf("object type %q", objectType)
+	}
+	readQuery := fmt.Sprintf(`
+WITH    ctrl AS (SELECT 'controller' AS c)
+SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type) AS (&dbReadUserPermission.*),
+        (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
+        creator.name AS &dbPermissionUser.created_by_name
+FROM    v_user_auth u
+        LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+        JOIN v_permission p ON u.uuid = p.grant_to
+        LEFT JOIN cloud c ON p.grant_on = c.name
+        LEFT JOIN model_list m on p.grant_on = m.uuid
+        LEFT JOIN ctrl ON p.grant_on = ctrl.c
+WHERE   u.name = $M.name
+AND     u.disabled = false
+AND     u.removed = false
+%s
+`, andClause)
+
+	readStmt, err := st.Prepare(readQuery, dbReadUserPermission{}, dbPermissionUser{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, readStmt, sqlair.M{"name": subject}).GetAll(&permissions, &actualUser)
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", subject, objectType)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting permissions for %q on %q", subject, objectType)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+
+	userAccess := make([]corepermission.UserAccess, len(permissions))
+	for i, p := range permissions {
+		p.ObjectType = string(objectType)
+		userAccess[i] = p.toUserAccess(actualUser[i])
+	}
+
+	return userAccess, nil
 }
 
 // findUserByName finds the user provided exists, hasn't been removed and is not
@@ -357,9 +420,9 @@ func (st *PermissionState) findUserByName(
 SELECT (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
        creator.name AS &dbPermissionUser.created_by_name
 FROM   v_user_auth u
-    LEFT JOIN user AS creator
-    ON        u.created_by_uuid = creator.uuid
-WHERE  u.removed = false AND u.name = $M.name`
+       LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+WHERE  u.removed = false
+       AND u.name = $M.name`
 
 	selectUserStmt, err := st.Prepare(getUserQuery, dbPermissionUser{}, sqlair.M{})
 	if err != nil {
@@ -391,9 +454,10 @@ func (st *PermissionState) findUsersByUUID(
 SELECT (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
        creator.name AS &dbPermissionUser.created_by_name
 FROM   v_user_auth u
-    LEFT JOIN user AS creator
-    ON        u.created_by_uuid = creator.uuid
-WHERE  u.removed = false AND u.uuid IN ($S[:])`
+       LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+WHERE  u.removed = false
+       AND u.uuid IN ($S[:])
+`
 
 	userUUIDSlice := sqlair.S(transform.Slice(userUUIDs, func(s string) any { return any(s) }))
 	selectUserStmt, err := st.Prepare(getUserQuery, sqlair.S{}, dbPermissionUser{})
@@ -452,14 +516,12 @@ func objectAccessID(
 	// id of spec.Target.ObjectType from permission_object_type as object_type_id
 	// Use access_type_id and object_type_id to validate row from permission_object_access
 	objectAccessIDExists := `
-SELECT permission_access_type.id AS &M.access_type_id
-FROM permission_object_access
-LEFT JOIN permission_object_type
-	ON permission_object_type.type = $M.object_type
-LEFT JOIN permission_access_type
-	ON permission_access_type.type = $M.access_type
-WHERE permission_object_access.access_type_id = permission_access_type.id
-	AND permission_object_access.object_type_id = permission_object_type.id
+SELECT at.id AS &M.access_type_id
+FROM   permission_access_type at
+       INNER JOIN permission_object_access oa ON oa.access_type_id = at.id
+       INNER JOIN permission_object_type ot ON ot.id = oa.object_type_id
+WHERE  ot.type = $M.object_type
+AND    at.type = $M.access_type
 `
 
 	// Validate the access type is allowed for the target type.
@@ -553,10 +615,10 @@ func (st *PermissionState) findAccessType(
 	grantOn, grantTo string,
 ) (string, string, error) {
 	findAccessTypeQuery := `
-SELECT type AS &dbReadUserPermission.access_type, permission.uuid AS &dbReadUserPermission.uuid
-FROM permission_access_type
-     JOIN permission ON permission_access_type.id = permission.permission_type_id
-WHERE permission.grant_on = $dbReadUserPermission.grant_on AND permission.grant_to = $dbReadUserPermission.grant_to
+SELECT (uuid, access_type) AS (&dbReadUserPermission.*)
+FROM   v_permission
+WHERE  grant_on = $dbReadUserPermission.grant_on
+       AND grant_to = $dbReadUserPermission.grant_to
 `
 	findAccessTypeStmt, err := st.Prepare(findAccessTypeQuery, dbReadUserPermission{})
 	if err != nil {
@@ -584,12 +646,9 @@ func (st *PermissionState) readUsersPermissions(ctx context.Context,
 	grantTo string,
 ) ([]dbReadUserPermission, error) {
 	query := `
-SELECT (permission.uuid, permission.grant_on) AS (&dbReadUserPermission.*),
-       permission_access_type.type AS &dbReadUserPermission.access_type
-FROM permission
-     JOIN permission_access_type
-     ON permission_access_type.id = permission.permission_type_id
-WHERE permission.grant_to = $M.grant_to
+SELECT (uuid, grant_on, grant_to, access_type) AS (&dbReadUserPermission.*)
+FROM   v_permission
+WHERE  grant_to = $M.grant_to
 `
 	// Validate the grant_on target exists.
 	stmt, err := st.Prepare(query, dbReadUserPermission{}, sqlair.M{})
@@ -633,12 +692,9 @@ func (st *PermissionState) targetPermissions(ctx context.Context,
 	grantOn string,
 ) ([]dbReadUserPermission, error) {
 	query := `
-SELECT (permission.uuid, permission.grant_on, permission.grant_to) AS (&dbReadUserPermission.*),
-       permission_access_type.type AS &dbReadUserPermission.access_type
-FROM permission
-     JOIN permission_access_type
-     ON permission_access_type.id = permission.permission_type_id
-WHERE permission.grant_on = $M.grant_on
+SELECT (uuid, grant_on, grant_to, access_type) AS (&dbReadUserPermission.*)
+FROM   v_permission
+WHERE  grant_on = $M.grant_on
 `
 	// Validate the grant_on target exists.
 	stmt, err := st.Prepare(query, dbReadUserPermission{}, sqlair.M{})
@@ -649,7 +705,7 @@ WHERE permission.grant_on = $M.grant_on
 	var usersPermissions = []dbReadUserPermission{}
 	err = tx.Query(ctx, stmt, sqlair.M{"grant_on": grantOn}).GetAll(&usersPermissions)
 	if err != nil {
-		return nil, errors.Annotatef(err, "collecting permissions for %q", grantOn)
+		return nil, errors.Annotatef(err, "collecting permissions on %q", grantOn)
 	}
 
 	if len(usersPermissions) >= 1 {
