@@ -4,6 +4,7 @@
 package watchertest
 
 import (
+	"sort"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -48,6 +49,9 @@ func (c SecretBackendRotateWatcherC) AssertChanges(expect ...watcher.SecretBacke
 		case actual, ok := <-c.Watcher.Changes():
 			c.Logf("Secrets Trigger Watcher.Changes() => %# v", actual)
 			c.Assert(ok, jc.IsTrue)
+			sort.Slice(actual, func(i, j int) bool {
+				return actual[i].Name < actual[j].Name
+			})
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
 				mc := jc.NewMultiChecker()

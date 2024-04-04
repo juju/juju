@@ -12,7 +12,6 @@ package upgradedatabase
 import (
 	reflect "reflect"
 
-	clock "github.com/juju/clock"
 	service "github.com/juju/juju/domain/access/service"
 	service0 "github.com/juju/juju/domain/autocert/service"
 	service1 "github.com/juju/juju/domain/cloud/service"
@@ -207,17 +206,17 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelDefaults() *gomock.Call
 }
 
 // SecretBackend mocks base method.
-func (m *MockControllerServiceFactory) SecretBackend(arg0 clock.Clock, arg1 string, arg2 service10.SecretProviderRegistry) *service10.WatchableService {
+func (m *MockControllerServiceFactory) SecretBackend(arg0 string, arg1 service10.SecretProviderRegistry) *service10.WatchableService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretBackend", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SecretBackend", arg0, arg1)
 	ret0, _ := ret[0].(*service10.WatchableService)
 	return ret0
 }
 
 // SecretBackend indicates an expected call of SecretBackend.
-func (mr *MockControllerServiceFactoryMockRecorder) SecretBackend(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockControllerServiceFactoryMockRecorder) SecretBackend(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretBackend", reflect.TypeOf((*MockControllerServiceFactory)(nil).SecretBackend), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretBackend", reflect.TypeOf((*MockControllerServiceFactory)(nil).SecretBackend), arg0, arg1)
 }
 
 // Upgrade mocks base method.

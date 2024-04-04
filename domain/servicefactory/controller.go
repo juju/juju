@@ -191,6 +191,6 @@ func (s *ControllerFactory) SecretBackend(
 			s.controllerDB,
 			s.logger.Child("watcherfactory"),
 		),
-		controllerUUID,  registry,
+		controllerUUID, registry,
 	)
 }

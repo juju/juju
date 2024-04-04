@@ -8,6 +8,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
@@ -43,9 +44,9 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 
 	watcher, err := svc.WatchSecretBackendRotationChanges()
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, watcher)
 
 	wC := watchertest.NewSecretBackendRotateWatcherC(c, watcher)
-
 	// Wait for the initial change.
 	wC.AssertChanges([]corewatcher.SecretBackendRotateChange(nil)...)
 
