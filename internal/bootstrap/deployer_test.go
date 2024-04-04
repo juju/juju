@@ -25,6 +25,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm/services"
@@ -221,7 +222,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	charmName := "obscura"
 
 	s.stateBackend.EXPECT().Charm(charmName).Return(s.charm, nil)
-	s.stateBackend.EXPECT().AddApplication(gomock.Any(), s.objectStore, gomock.Any()).DoAndReturn(func(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
+	s.stateBackend.EXPECT().AddApplication(gomock.Any(), s.objectStore, gomock.Any()).DoAndReturn(func(args state.AddApplicationArgs, store objectstore.ObjectStore, recorder status.StatusHistoryRecorder) (Application, error) {
 		appCfg, err := coreconfig.NewConfig(nil, configSchema, schema.Defaults{
 			coreapplication.TrustConfigOptionName: true,
 		})

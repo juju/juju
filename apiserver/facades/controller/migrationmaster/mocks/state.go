@@ -15,6 +15,7 @@ import (
 
 	migration "github.com/juju/juju/core/migration"
 	permission "github.com/juju/juju/core/permission"
+	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -186,31 +187,31 @@ func (mr *MockModelMigrationMockRecorder) Refresh() *gomock.Call {
 }
 
 // SetPhase mocks base method.
-func (m *MockModelMigration) SetPhase(arg0 migration.Phase) error {
+func (m *MockModelMigration) SetPhase(arg0 migration.Phase, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetPhase", arg0)
+	ret := m.ctrl.Call(m, "SetPhase", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetPhase indicates an expected call of SetPhase.
-func (mr *MockModelMigrationMockRecorder) SetPhase(arg0 any) *gomock.Call {
+func (mr *MockModelMigrationMockRecorder) SetPhase(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPhase", reflect.TypeOf((*MockModelMigration)(nil).SetPhase), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPhase", reflect.TypeOf((*MockModelMigration)(nil).SetPhase), arg0, arg1)
 }
 
 // SetStatusMessage mocks base method.
-func (m *MockModelMigration) SetStatusMessage(arg0 string) error {
+func (m *MockModelMigration) SetStatusMessage(arg0 string, arg1 status.StatusHistoryRecorder) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatusMessage", arg0)
+	ret := m.ctrl.Call(m, "SetStatusMessage", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetStatusMessage indicates an expected call of SetStatusMessage.
-func (mr *MockModelMigrationMockRecorder) SetStatusMessage(arg0 any) *gomock.Call {
+func (mr *MockModelMigrationMockRecorder) SetStatusMessage(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatusMessage", reflect.TypeOf((*MockModelMigration)(nil).SetStatusMessage), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatusMessage", reflect.TypeOf((*MockModelMigration)(nil).SetStatusMessage), arg0, arg1)
 }
 
 // StartTime mocks base method.

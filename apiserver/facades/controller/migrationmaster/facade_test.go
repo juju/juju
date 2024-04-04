@@ -224,7 +224,7 @@ func (s *Suite) TestSetPhase(c *gc.C) {
 	defer ctrl.Finish()
 
 	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().SetPhase(coremigration.ABORT).Return(nil)
+	mig.EXPECT().SetPhase(coremigration.ABORT, gomock.Any()).Return(nil)
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
@@ -252,7 +252,7 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 	defer ctrl.Finish()
 
 	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().SetPhase(coremigration.ABORT).Return(errors.New("blam"))
+	mig.EXPECT().SetPhase(coremigration.ABORT, gomock.Any()).Return(errors.New("blam"))
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
@@ -265,7 +265,7 @@ func (s *Suite) TestSetStatusMessage(c *gc.C) {
 	defer ctrl.Finish()
 
 	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().SetStatusMessage("foo").Return(nil)
+	mig.EXPECT().SetStatusMessage("foo", gomock.Any()).Return(nil)
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
@@ -287,7 +287,7 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 	defer ctrl.Finish()
 
 	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().SetStatusMessage("foo").Return(errors.New("blam"))
+	mig.EXPECT().SetStatusMessage("foo", gomock.Any()).Return(errors.New("blam"))
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
@@ -460,7 +460,7 @@ func (s *Suite) TestReap(c *gc.C) {
 	// the migration as active in the source controller, which will
 	// prevent the model from being migrated back.
 	exp.RemoveExportingModelDocs().Return(nil)
-	mig.EXPECT().SetPhase(coremigration.DONE).Return(nil)
+	mig.EXPECT().SetPhase(coremigration.DONE, gomock.Any()).Return(nil)
 
 	err := s.mustMakeAPI(c).Reap(context.Background())
 	c.Check(err, jc.ErrorIsNil)

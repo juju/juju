@@ -598,7 +598,7 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) expectSetModificationStat
 		Message: message,
 		Data:    nil,
 		Since:   &now,
-	}, status.NoopStatusHistoryRecorder).Return(err)
+	}, gomock.Any()).Return(err)
 }
 
 type InstanceMutaterAPIWatchMachinesSuite struct {

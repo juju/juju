@@ -70,6 +70,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		MachineTag_:     s.machines[0].Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -91,6 +92,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		MachineTag_:     s.machines[0].Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

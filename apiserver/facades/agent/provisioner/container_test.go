@@ -56,6 +56,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		MachineTag_:     anAuthorizer.Tag,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -111,6 +112,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		MachineTag_:     anAuthorizer.Tag,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

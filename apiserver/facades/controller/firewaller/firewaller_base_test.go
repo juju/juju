@@ -106,6 +106,7 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 		Resources_:      s.resources,
 		State_:          s.ControllerModel(c).State(),
 		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		MachineTag_:     s.machines[0].Tag(),
 	}
 	err := factory(ctx)
 	c.Assert(err, gc.NotNil)

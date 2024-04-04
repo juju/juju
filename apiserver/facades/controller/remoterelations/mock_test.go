@@ -208,7 +208,7 @@ func (a *mockRemoteApplication) ConsumeVersion() int {
 	return 666
 }
 
-func (r *mockRemoteApplication) TerminateOperation(message string) state.ModelOperation {
+func (r *mockRemoteApplication) TerminateOperation(message string, recorder status.StatusHistoryRecorder) state.ModelOperation {
 	r.MethodCall(r, "TerminateOperation", message)
 	r.terminated = true
 	return &mockOperation{message: message}

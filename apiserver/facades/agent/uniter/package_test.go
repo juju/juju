@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -142,6 +143,7 @@ func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    s.DefaultModelServiceFactory(c),
 		ObjectStore_:       testing.NewObjectStore(c, s.ControllerModelUUID()),
+		MachineTag_:        names.NewMachineTag("0"),
 	}
 }
 

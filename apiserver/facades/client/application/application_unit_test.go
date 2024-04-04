@@ -2396,7 +2396,7 @@ func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
 	rel.EXPECT().SetStatus(status.StatusInfo{
 		Status:  status.Suspending,
 		Message: "message",
-	}, status.NoopStatusHistoryRecorder).Return(nil)
+	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Relation(123).Return(rel, nil)
 	s.backend.EXPECT().OfferConnectionForRelation("wordpress:db mysql:db").Return(nil, nil)
 
@@ -2434,7 +2434,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedFalse(c *gc.C) {
 
 	rel := s.expectRelation(ctrl, "wordpress:db mysql:db", true)
 	rel.EXPECT().SetSuspended(false, "").Return(nil)
-	rel.EXPECT().SetStatus(status.StatusInfo{Status: status.Joining}, status.NoopStatusHistoryRecorder).Return(nil)
+	rel.EXPECT().SetStatus(status.StatusInfo{Status: status.Joining}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Relation(123).Return(rel, nil)
 	s.backend.EXPECT().OfferConnectionForRelation("wordpress:db mysql:db").Return(nil, nil)
 

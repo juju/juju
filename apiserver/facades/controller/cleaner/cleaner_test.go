@@ -106,7 +106,7 @@ func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
 	s.st.CheckCallNames(c, "Cleanup")
 	s.st.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Cleanup",
-		Args:     []any{s.machineService, s.applicationService, s.unitService},
+		Args:     []any{s.machineService, s.applicationService, s.unitService, (status.StatusHistoryRecorder)(nil)},
 	}})
 }
 

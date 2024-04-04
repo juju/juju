@@ -704,6 +704,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: serviceFactory,
+		MachineTag_:     anAuthorizer.Tag,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

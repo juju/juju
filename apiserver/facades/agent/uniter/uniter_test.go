@@ -3561,6 +3561,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    s.DefaultModelServiceFactory(c),
+		MachineTag_:        s.machine0.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

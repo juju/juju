@@ -66,6 +66,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		State_:          st,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		MachineTag_:     s.authorizer.Tag,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -551,6 +552,7 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 		State_:          st2,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		MachineTag_:     s.authorizer.Tag,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -613,6 +615,7 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 		State_:          st,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		MachineTag_:     s.authorizer.Tag,
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }

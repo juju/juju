@@ -203,7 +203,7 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 	exp.SetInstanceStatus(status.StatusInfo{
 		Status:  status.Running,
 		Message: msg,
-	}, status.NoopStatusHistoryRecorder).Return(nil)
+	}, gomock.Any()).Return(nil)
 
 	results, err := s.api.SetInstanceStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{

@@ -75,7 +75,7 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolGetter, s.registry, s.store, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"), status.NoopStatusHistoryRecorder)
+		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolGetter, s.registry, s.store, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -85,7 +85,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolGetter, s.registry, s.store, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"), status.NoopStatusHistoryRecorder)
+		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolGetter, s.registry, s.store, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"), nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -404,7 +404,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	s.st.app.CheckCallNames(c, "Life", "SetOperatorStatus", "AllUnits", "UpdateUnits", "Name")
 	now := s.clock.Now()
 	s.st.app.CheckCall(c, 1, "SetOperatorStatus",
-		status.StatusInfo{Status: status.Active, Message: "working", Since: &now})
+		status.StatusInfo{Status: status.Active, Message: "working", Since: &now}, (status.StatusHistoryRecorder)(nil))
 	s.st.app.units[0].CheckCallNames(c, "UpdateOperation")
 	s.st.app.units[0].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("gitlab-0"),

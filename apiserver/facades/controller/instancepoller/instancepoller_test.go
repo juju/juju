@@ -65,7 +65,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.clock = testclock.NewClock(time.Now())
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"), status.NoopStatusHistoryRecorder)
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -653,9 +653,9 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 
 	now := s.clock.Now()
 	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "SetInstanceStatus", status.StatusInfo{Status: "", Since: &now})
+	s.st.CheckCall(c, 1, "SetInstanceStatus", status.StatusInfo{Status: "", Since: &now}, (status.StatusHistoryRecorder)(nil))
 	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "SetInstanceStatus", status.StatusInfo{Status: "new status", Since: &now})
+	s.st.CheckCall(c, 3, "SetInstanceStatus", status.StatusInfo{Status: "new status", Since: &now}, (status.StatusHistoryRecorder)(nil))
 	s.st.CheckMachineCall(c, 4, "42")
 
 	// Ensure machines were updated.
@@ -699,7 +699,7 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckMachineCall(c, 1, "2")
 	now := s.clock.Now()
-	s.st.CheckCall(c, 2, "SetInstanceStatus", status.StatusInfo{Status: "invalid", Since: &now})
+	s.st.CheckCall(c, 2, "SetInstanceStatus", status.StatusInfo{Status: "invalid", Since: &now}, (status.StatusHistoryRecorder)(nil))
 	s.st.CheckMachineCall(c, 3, "3")
 }
 

@@ -128,7 +128,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		s.st, fw, s.resources, s.authorizer,
 		s.authContext, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher,
-		loggo.GetLoggerWithTags("juju.apiserver.crossmodelrelations", corelogger.CMR), status.NoopStatusHistoryRecorder,
+		loggo.GetLoggerWithTags("juju.apiserver.crossmodelrelations", corelogger.CMR), nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -213,12 +213,12 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 		})
 	} else {
 		ru1.CheckCalls(c, []testing.StubCall{
-			{"InScope", []interface{}{}},
-			{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+			{"InScope", []interface{}(nil)},
+			{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}, (status.StatusHistoryRecorder)(nil)}},
 		})
 		if lifeValue == life.Alive {
 			rel.CheckCalls(c, []testing.StubCall{
-				{"Suspended", []interface{}{}},
+				{"Suspended", []interface{}(nil)},
 				{"SetSuspended", []interface{}{}},
 				{"SetStatus", []interface{}{}},
 				{"Tag", []interface{}{}},
@@ -228,7 +228,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 		} else {
 			rel.CheckCalls(c, []testing.StubCall{
 				{"Suspended", []interface{}{}},
-				{"Destroy", []interface{}{}},
+				{"Destroy", []interface{}{interface{}(nil), (status.StatusHistoryRecorder)(nil)}},
 				{"Tag", []interface{}{}},
 				{"RemoteUnit", []interface{}{"db2/2"}},
 				{"RemoteUnit", []interface{}{"db2/1"}},
@@ -694,8 +694,8 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	}
 	s.st.CheckCalls(c, expected)
 	ru1.CheckCalls(c, []testing.StubCall{
-		{"InScope", []interface{}{}},
-		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+		{"InScope", []interface{}(nil)},
+		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}, (status.StatusHistoryRecorder)(nil)}},
 	})
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
@@ -762,8 +762,8 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	}
 	s.st.CheckCalls(c, expected)
 	ru1.CheckCalls(c, []testing.StubCall{
-		{"InScope", []interface{}{}},
-		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+		{"InScope", []interface{}(nil)},
+		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}, (status.StatusHistoryRecorder)(nil)}},
 	})
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},

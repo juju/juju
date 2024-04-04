@@ -45,6 +45,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		Resources_:         resources,
 		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
 		LeadershipChecker_: &fakeLeadershipChecker{isLeader: false},
+		MachineTag_:        names.NewMachineTag("nomatter"),
 	}
 
 	serviceFactory := s.ControllerServiceFactory(c)

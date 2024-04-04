@@ -8,9 +8,11 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/status"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -27,13 +29,17 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	m, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting model")
-	}
-	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
-	if err != nil {
-		return nil, errors.Trace(err)
+	recorder := (status.StatusHistoryRecorder)(nil)
+	if ctx.State() != nil {
+		m, err := ctx.State().Model()
+		if err != nil {
+			return nil, errors.Annotate(err, "getting model")
+		}
+		modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		recorder = common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger)
 	}
 
 	serviceFactory := ctx.ServiceFactory()
@@ -45,6 +51,6 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 		// For removing applications, we don't need a storage registry.
 		appRemover:      serviceFactory.Application(nil),
 		unitRemover:     serviceFactory.Unit(),
-		historyRecorder: common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
+		historyRecorder: recorder,
 	}, nil
 }

@@ -184,7 +184,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
 			},
 		},
-	}, status.NoopStatusHistoryRecorder).Return(m1, nil)
+	}, gomock.Any()).Return(m1, nil)
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "666")
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "667/lxd/1")
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "667")
@@ -201,7 +201,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
 			},
 		},
-	}, status.NoopStatusHistoryRecorder).Return(m2, nil)
+	}, gomock.Any()).Return(m2, nil)
 
 	machines, err := s.api.AddMachines(stdcontext.Background(), params.AddMachines{MachineParams: apiParams})
 	c.Assert(err, jc.ErrorIsNil)
@@ -962,7 +962,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
 	machine0.EXPECT().SetInstanceStatus(statusMatcher{c: c, expected: status.StatusInfo{
 		Status: status.ProvisioningError,
 		Data:   map[string]interface{}{"transient": true},
-	}}, status.NoopStatusHistoryRecorder).Return(nil)
+	}}, gomock.Any()).Return(nil)
 	machine1 := mocks.NewMockMachine(ctrl)
 	machine1.EXPECT().Id().Return("1")
 	s.st.EXPECT().AllMachines().Return([]machinemanager.Machine{machine0, machine1}, nil)
@@ -985,7 +985,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
 	machine0.EXPECT().SetInstanceStatus(statusMatcher{c: c, expected: status.StatusInfo{
 		Status: status.ProvisioningError,
 		Data:   map[string]interface{}{"transient": true},
-	}}, status.NoopStatusHistoryRecorder).Return(nil)
+	}}, gomock.Any()).Return(nil)
 	machine1 := mocks.NewMockMachine(ctrl)
 	machine1.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "pending"}, nil)
 	s.st.EXPECT().AllMachines().Return([]machinemanager.Machine{machine0, machine1}, nil)

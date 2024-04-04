@@ -17,9 +17,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecontroller "github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/logsink"
 	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -69,6 +71,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		machineTag:           names.NewMachineTag("0"),
 		dataDir:              c.MkDir(),
 		logDir:               c.MkDir(),
+		logSink:              logsink.NewModelLogger(func(modelUUID, modelName string) (corelogger.LoggerCloser, error) { return nil, nil }, 0, time.Duration(0), clock.WallClock),
 	}
 }
 

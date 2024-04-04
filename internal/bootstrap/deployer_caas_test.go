@@ -140,9 +140,7 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 	op := &state.UpdateUnitOperation{}
 
 	s.unit.EXPECT().UnitTag().Return(names.NewUnitTag("controller/0"))
-	s.unit.EXPECT().UpdateOperation(state.UnitUpdateProperties{
-		ProviderId: ptr("controller-0"),
-	}).Return(op)
+	s.unit.EXPECT().UpdateOperation(gomock.Any()).Return(op)
 	s.operationApplier.EXPECT().ApplyOperation(op).Return(nil)
 	s.unit.EXPECT().SetPassword(cfg.UnitPassword).Return(nil)
 
