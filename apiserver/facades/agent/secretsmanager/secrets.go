@@ -486,10 +486,15 @@ func (s *SecretsManagerAPI) GetSecretMetadata(ctx context.Context) (params.ListS
 		return result, errors.Trace(err)
 	}
 	for i, md := range metadata {
+		ownerTag, err := commonsecrets.OwnerTagFromOwner(md.Owner)
+		if err != nil {
+			// This should never happen.
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
 		secretResult := params.ListSecretResult{
 			URI:              md.URI.String(),
 			Version:          md.Version,
-			OwnerTag:         md.OwnerTag,
+			OwnerTag:         ownerTag.String(),
 			RotatePolicy:     md.RotatePolicy.String(),
 			NextRotateTime:   md.NextRotateTime,
 			Description:      md.Description,
@@ -693,8 +698,8 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) canUpdateAppOwnedOrUnitOwnedSecretLabel(owner string) (bool, error) {
-	if owner != s.authTag.String() {
+func (s *SecretsManagerAPI) canUpdateAppOwnedOrUnitOwnedSecretLabel(owner coresecrets.Owner) (bool, error) {
+	if owner.ID != s.authTag.Id() || owner.Kind != coresecrets.UnitOwner {
 		isLeaderUnit, err := commonsecrets.IsLeaderUnit(s.authTag, s.leadershipChecker)
 		if err != nil {
 			return false, errors.Trace(err)
@@ -707,7 +712,7 @@ func (s *SecretsManagerAPI) canUpdateAppOwnedOrUnitOwnedSecretLabel(owner string
 	return true, nil
 }
 
-func (s *SecretsManagerAPI) checkCallerOwner(owner string) (bool, leadership.Token, error) {
+func (s *SecretsManagerAPI) checkCallerOwner(owner coresecrets.Owner) (bool, leadership.Token, error) {
 	isOwner, err := s.canUpdateAppOwnedOrUnitOwnedSecretLabel(owner)
 	if err != nil {
 		return false, nil, errors.Trace(err)
@@ -715,9 +720,11 @@ func (s *SecretsManagerAPI) checkCallerOwner(owner string) (bool, leadership.Tok
 	if !isOwner {
 		return false, nil, nil
 	}
-	ownerTag, err := names.ParseTag(owner)
-	if err != nil {
-		return false, nil, errors.Trace(err)
+	var ownerTag names.Tag
+	if owner.Kind == coresecrets.UnitOwner {
+		ownerTag = names.NewUnitTag(owner.ID)
+	} else {
+		ownerTag = names.NewApplicationTag(owner.ID)
 	}
 	token, err := ownerToken(s.authTag, ownerTag, s.leadershipChecker)
 	return isOwner, token, errors.Trace(err)
@@ -936,7 +943,7 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 		if err != nil {
 			return errors.Trace(err)
 		}
-		owner, err := names.ParseTag(md.OwnerTag)
+		owner, err := commonsecrets.OwnerTagFromOwner(md.Owner)
 		if err != nil {
 			return errors.Trace(err)
 		}

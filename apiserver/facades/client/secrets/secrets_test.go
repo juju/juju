@@ -151,7 +151,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	metadata := []*coresecrets.SecretMetadata{{
 		URI:              uri,
 		Version:          1,
-		OwnerTag:         "application-mysql",
+		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
 		RotatePolicy:     coresecrets.RotateHourly,
 		LatestRevision:   2,
 		LatestExpireTime: ptr(now),

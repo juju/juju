@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
-	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -90,7 +89,7 @@ func (s *SecretAddSuite) TestAddSecretExpireDuration(c *gc.C) {
 			Description:  ptr("sssshhhh"),
 			Label:        ptr("foobar"),
 		},
-		OwnerTag: names.NewApplicationTag("u"),
+		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}
 	s.Stub.CheckCallNames(c, "UnitName", "CreateSecret")
 	call := s.Stub.Calls()[1]
@@ -130,7 +129,7 @@ func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *gc.C) {
 			Label:        ptr("foobar"),
 			ExpireTime:   ptr(expectedExpiry),
 		},
-		OwnerTag: names.NewApplicationTag("u"),
+		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
@@ -150,7 +149,7 @@ func (s *SecretAddSuite) TestAddSecretBase64(c *gc.C) {
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: val,
 		},
-		OwnerTag: names.NewUnitTag("u/0"),
+		Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "u/0"},
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
@@ -187,7 +186,7 @@ func (s *SecretAddSuite) TestAddSecretFromFile(c *gc.C) {
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: val,
 		},
-		OwnerTag: names.NewApplicationTag("u"),
+		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")

@@ -592,7 +592,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 		ApplicationName: ptr("mariadb"),
 	}).Return([]*coresecrets.SecretMetadata{{
 		URI:              uri,
-		OwnerTag:         "application-mariadb",
+		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		Description:      "description",
 		Label:            "label",
 		RotatePolicy:     coresecrets.RotateHourly,
@@ -765,9 +765,9 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabelNotLead
 
 	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "foo", gomock.Any()).DoAndReturn(
 		func(
-			ctx context.Context, unitName string, uri *coresecrets.URI, label string, checkCallerOwner func(secretOwner string) (bool, leadership.Token, error),
+			ctx context.Context, unitName string, uri *coresecrets.URI, label string, checkCallerOwner func(secretOwner coresecrets.Owner) (bool, leadership.Token, error),
 		) (*coresecrets.URI, *string, error) {
-			_, _, err := checkCallerOwner("mariadb")
+			_, _, err := checkCallerOwner(coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"})
 			return uri, ptr("foo"), err
 		})
 
@@ -1390,7 +1390,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, 666, false).Return(errors.New("boom"))
 	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		OwnerTag:       "application-mariadb",
+		Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 667,
 	}, nil)
@@ -1422,7 +1422,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, 666, false).Return(errors.New("boom"))
 	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		OwnerTag:       "application-mariadb",
+		Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 666,
 	}, nil)
@@ -1449,7 +1449,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, 666, false).Return(errors.New("boom"))
 	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		OwnerTag:         "application-mariadb",
+		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		RotatePolicy:     coresecrets.RotateHourly,
 		LatestExpireTime: ptr(s.clock.Now().Add(50 * time.Minute)),
 		LatestRevision:   667,
@@ -1519,7 +1519,7 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	s.expectSecretAccessQuery(2)
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		OwnerTag: "application-mariadb",
+		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 	}, nil).AnyTimes()
 	s.secretsConsumer.EXPECT().GrantSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
 		LeaderToken: s.token,
@@ -1563,7 +1563,7 @@ func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	s.expectSecretAccessQuery(2)
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		OwnerTag: "application-mariadb",
+		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 	}, nil).AnyTimes()
 	s.secretsConsumer.EXPECT().RevokeSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
 		LeaderToken: s.token,

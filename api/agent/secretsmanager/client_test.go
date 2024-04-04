@@ -424,7 +424,7 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {
 		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
-		c.Assert(info.Metadata.OwnerTag, gc.Equals, coretesting.ModelTag.String())
+		c.Assert(info.Metadata.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()})
 		c.Assert(info.Metadata.Label, gc.Equals, "label")
 		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)

@@ -115,7 +115,7 @@ func (c *secretInfoGetCommand) Run(ctx *cmd.Context) error {
 			id: {
 				LatestRevision:   md.LatestRevision,
 				Label:            md.Label,
-				Owner:            md.Owner.Kind(),
+				Owner:            string(md.Owner.Kind),
 				Description:      md.Description,
 				RotatePolicy:     md.RotatePolicy,
 				LatestExpireTime: md.LatestExpireTime,

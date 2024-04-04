@@ -7,8 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
@@ -55,13 +57,25 @@ func toGrantInfo(grants []params.AccessInfo) []secrets.AccessInfo {
 
 // ListSecrets lists the available secrets.
 func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDetails, error) {
+	var ownerTag names.Tag
+	if filter.Owner != nil {
+		var err error
+		ownerTag, err = common.OwnerTagFromSecretOwner(*filter.Owner)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+	}
 	arg := params.ListSecretsArgs{
 		ShowSecrets: reveal,
 		Filter: params.SecretsFilter{
-			OwnerTag: filter.OwnerTag,
 			Revision: filter.Revision,
 			Label:    filter.Label,
 		},
+	}
+	if ownerTag != nil {
+		tag := ownerTag.String()
+		arg.Filter.OwnerTag = &tag
 	}
 	if filter.URI != nil {
 		uri := filter.URI.String()
@@ -77,7 +91,6 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 		details := SecretDetails{
 			Metadata: secrets.SecretMetadata{
 				Version:          r.Version,
-				OwnerTag:         r.OwnerTag,
 				RotatePolicy:     secrets.RotatePolicy(r.RotatePolicy),
 				NextRotateTime:   r.NextRotateTime,
 				LatestRevision:   r.LatestRevision,
@@ -92,6 +105,12 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 		uri, err := secrets.ParseURI(r.URI)
 		if err == nil {
 			details.Metadata.URI = uri
+		} else {
+			details.Error = err.Error()
+		}
+		owner, err := common.SecretOwnerFromTag(r.OwnerTag)
+		if err == nil {
+			details.Metadata.Owner = owner
 		} else {
 			details.Error = err.Error()
 		}

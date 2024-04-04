@@ -157,7 +157,7 @@ type ContextUnit interface {
 type SecretCreateArgs struct {
 	SecretUpdateArgs
 
-	OwnerTag names.Tag
+	Owner secrets.Owner
 }
 
 // SecretUpdateArgs specifies args used to update a secret.
@@ -183,7 +183,7 @@ type SecretGrantRevokeArgs struct {
 
 // SecretMetadata holds a secret's metadata.
 type SecretMetadata struct {
-	Owner            names.Tag
+	Owner            secrets.Owner
 	Description      string
 	Label            string
 	RotatePolicy     secrets.RotatePolicy

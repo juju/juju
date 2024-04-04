@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -31,9 +32,13 @@ func processListSecretResult(info params.ListSecretResult) (out coresecrets.Secr
 	if err != nil {
 		return out, errors.NotValidf("secret URI %q", info.URI)
 	}
+	owner, err := common.SecretOwnerFromTag(info.OwnerTag)
+	if err != nil {
+		return out, errors.Trace(err)
+	}
 	return coresecrets.SecretMetadata{
 		URI:              uri,
-		OwnerTag:         info.OwnerTag,
+		Owner:            owner,
 		Description:      info.Description,
 		Label:            info.Label,
 		RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),

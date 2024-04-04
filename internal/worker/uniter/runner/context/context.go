@@ -793,7 +793,7 @@ func (c *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.UR
 		return nil, err
 	}
 	for ID, md := range mds {
-		if md.Label == label && md.Owner.Id() == c.unit.Tag().Id() {
+		if md.Label == label && md.Owner.ID == c.unit.Tag().Id() {
 			return &coresecrets.URI{ID: ID}, nil
 		}
 	}
@@ -905,7 +905,7 @@ func (c *HookContext) getPendingSecretValue(uri *coresecrets.URI, label string, 
 
 // CreateSecret creates a secret with the specified data.
 func (c *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets.URI, error) {
-	if args.OwnerTag.Kind() == names.ApplicationTagKind {
+	if args.Owner.Kind == coresecrets.ApplicationOwner {
 		isLeader, err := c.IsLeader()
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot determine leadership")
@@ -927,7 +927,7 @@ func (c *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets.U
 			Label:        args.Label,
 			Value:        args.Value,
 		},
-		OwnerTag: args.OwnerTag,
+		Owner: args.Owner,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -938,7 +938,7 @@ func (c *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets.U
 // UpdateSecret creates a secret with the specified data.
 func (c *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdateArgs) error {
 	md, ok := c.secretMetadata[uri.ID]
-	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+	if ok && md.Owner.Kind == coresecrets.ApplicationOwner {
 		isLeader, err := c.IsLeader()
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine leadership")
@@ -964,7 +964,7 @@ func (c *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdat
 // RemoveSecret removes a secret with the specified uri.
 func (c *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error {
 	md, ok := c.secretMetadata[uri.ID]
-	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+	if ok && md.Owner.Kind == coresecrets.ApplicationOwner {
 		isLeader, err := c.IsLeader()
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine leadership")
@@ -983,7 +983,7 @@ func (c *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) 
 	result := make(map[string]jujuc.SecretMetadata)
 	for _, c := range c.secretChanges.pendingCreates {
 		md := jujuc.SecretMetadata{
-			Owner:          c.OwnerTag,
+			Owner:          c.Owner,
 			LatestRevision: 1,
 		}
 		if c.Label != nil {
@@ -1040,7 +1040,7 @@ func (c *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrantRe
 	if !ok {
 		return errors.NotFoundf("secret %q", uri.ID)
 	}
-	if md.Owner.Kind() == names.ApplicationTagKind {
+	if md.Owner.Kind == coresecrets.ApplicationOwner {
 		isLeader, err := c.IsLeader()
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine leadership")
@@ -1091,7 +1091,7 @@ func (c *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrantRe
 // RevokeSecret revokes access to a specified secret.
 func (c *HookContext) RevokeSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
 	md, ok := c.secretMetadata[uri.ID]
-	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+	if ok && md.Owner.Kind == coresecrets.ApplicationOwner {
 		isLeader, err := c.IsLeader()
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine leadership")
@@ -1594,7 +1594,10 @@ func (c *HookContext) doFlush(process string) error {
 		pendingTrackLatest = append(pendingTrackLatest, uri)
 	}
 
-	b.AddSecretCreates(pendingCreates)
+	if err := b.AddSecretCreates(pendingCreates); err != nil {
+		// Should never happen.
+		return errors.Trace(err)
+	}
 	b.AddSecretUpdates(pendingUpdates)
 	b.AddSecretDeletes(pendingDeletes)
 	b.AddSecretGrants(pendingGrants)

@@ -3410,14 +3410,15 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 
 	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
 	uri := secrets.NewURI()
-	b.AddSecretCreates([]apiuniter.SecretCreateArg{{
+	err = b.AddSecretCreates([]apiuniter.SecretCreateArg{{
 		SecretUpsertArg: apiuniter.SecretUpsertArg{
 			URI:   uri,
 			Label: ptr("foobar"),
 			Value: secrets.NewSecretValue(map[string]string{"foo": "bar"}),
 		},
-		OwnerTag: s.wordpress.Tag(),
+		Owner: secrets.Owner{Kind: secrets.ApplicationOwner, ID: s.wordpress.Name()},
 	}})
+	c.Assert(err, jc.ErrorIsNil)
 	b.AddSecretUpdates([]apiuniter.SecretUpsertArg{{
 		URI:          uri,
 		RotatePolicy: ptr(secrets.RotateDaily),

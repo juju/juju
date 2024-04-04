@@ -630,7 +630,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 	s.secretMetadata = map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			Label:        "label",
-			Owner:        names.NewApplicationTag("mariadb"),
+			Owner:        coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Description:  "description",
 			RotatePolicy: coresecrets.RotateHourly,
 			Access: []coresecrets.AccessInfo{
@@ -642,7 +642,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			},
 		},
 		uri2.ID: {
-			Owner:       names.NewApplicationTag("mariadb"),
+			Owner:       coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Description: "will be removed",
 		},
 	}
@@ -652,7 +652,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 	c.Assert(md, jc.DeepEquals, map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			Label:        "label",
-			Owner:        names.NewApplicationTag("mariadb"),
+			Owner:        coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Description:  "description",
 			RotatePolicy: coresecrets.RotateHourly,
 			Access: []coresecrets.AccessInfo{
@@ -664,12 +664,12 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			},
 		},
 		uri2.ID: {
-			Owner:       names.NewApplicationTag("mariadb"),
+			Owner:       coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Description: "will be removed",
 		},
 	})
 	uri3, err := ctx.CreateSecret(&jujuc.SecretCreateArgs{
-		OwnerTag: names.NewApplicationTag("foo"),
+		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "foo"},
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Description: ptr("a new one"),
 		},
@@ -692,7 +692,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 	c.Assert(md, jc.DeepEquals, map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			Label:        "label",
-			Owner:        names.NewApplicationTag("mariadb"),
+			Owner:        coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Description:  "another",
 			RotatePolicy: coresecrets.RotateHourly,
 			Access: []coresecrets.AccessInfo{
@@ -700,7 +700,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			},
 		},
 		uri3.ID: {
-			Owner:          names.NewApplicationTag("foo"),
+			Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "foo"},
 			Description:    "a new one",
 			LatestRevision: 1,
 		},
@@ -1028,6 +1028,7 @@ func (s *HookContextSuite) TestClosePortRange(c *gc.C) {
 func (s *HookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockUnit = api.NewMockUnit(ctrl)
+	s.mockUnit.EXPECT().Name().Return("wordpress/0").AnyTimes()
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
 	s.mockUnit.EXPECT().ApplicationName().Return("wordpress").AnyTimes()
 	s.mockLeadership = mocks.NewMockLeadershipContext(ctrl)
@@ -1152,7 +1153,7 @@ func (s *HookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
 func (s *HookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
 	s.assertSecretGetFromPendingChanges(c, false, false,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
-			arg := apiuniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+			arg := apiuniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(value)
@@ -1165,7 +1166,7 @@ func (s *HookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
 func (s *HookContextSuite) TestAppSecretGetFromPendingCreateChanges(c *gc.C) {
 	s.assertSecretGetFromPendingChanges(c, false, true,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
-			arg := uniter.SecretCreateArg{OwnerTag: names.NewApplicationTag(s.mockUnit.ApplicationName())}
+			arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: s.mockUnit.ApplicationName()}}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(value)
@@ -1313,7 +1314,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *
 			context.SetEnvironmentHookContextSecret(
 				ctx, uri.String(),
 				map[string]jujuc.SecretMetadata{
-					uri.ID: {Label: "label", Owner: s.mockUnit.Tag()},
+					uri.ID: {Label: "label", Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}},
 				},
 				client, backend)
 		},
@@ -1323,7 +1324,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *
 func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
-			arg := apiuniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+			arg := apiuniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
@@ -1341,7 +1342,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCreates
 	label := "label-" + uri.String()
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
 
-	arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+	arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 	arg.URI = uri
 	arg.Label = ptr(label)
 	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
@@ -1363,7 +1364,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *g
 	label := "label-" + uri.String()
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
 
-	arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+	arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 	arg.URI = uri
 	arg.Label = ptr(label)
 	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
@@ -1471,14 +1472,14 @@ func ptr[T any](v T) *T {
 }
 
 func (s *HookContextSuite) TestSecretCreateApplicationOwner(c *gc.C) {
-	s.assertSecretCreate(c, names.NewApplicationTag("mariadb"))
+	s.assertSecretCreate(c, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"})
 }
 
 func (s *HookContextSuite) TestSecretCreateUnitOwner(c *gc.C) {
-	s.assertSecretCreate(c, names.NewUnitTag("mariadb/0"))
+	s.assertSecretCreate(c, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mariadb/0"})
 }
 
-func (s *HookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
+func (s *HookContextSuite) assertSecretCreate(c *gc.C, owner coresecrets.Owner) {
 	defer s.setupMocks(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -1500,7 +1501,7 @@ func (s *HookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 		}
 		return nil
 	})
-	if owner.Kind() == names.ApplicationTagKind {
+	if owner.Kind == names.ApplicationTagKind {
 		s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	}
 
@@ -1516,7 +1517,7 @@ func (s *HookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 			Description:  ptr("my secret"),
 			Label:        ptr("foo"),
 		},
-		OwnerTag: owner,
+		Owner: owner,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uri.String(), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
@@ -1530,7 +1531,7 @@ func (s *HookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 				Description:  ptr("my secret"),
 				Label:        ptr("foo"),
 			},
-			OwnerTag: owner,
+			Owner: owner,
 		}})
 }
 
@@ -1566,7 +1567,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
 			Value: value,
 			Label: ptr("foo"),
 		},
-		OwnerTag: names.NewApplicationTag("myapp"),
+		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "myapp"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = hookContext.CreateSecret(&jujuc.SecretCreateArgs{
@@ -1574,7 +1575,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
 			Value: value,
 			Label: ptr("foo"),
 		},
-		OwnerTag: names.NewApplicationTag("myapp"),
+		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "myapp"},
 	})
 	c.Assert(err, gc.ErrorMatches, `secret with label "foo" already exists`)
 }
@@ -1589,7 +1590,7 @@ func (s *HookContextSuite) TestSecretUpdate(c *gc.C) {
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
-		uri.ID: {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
+		uri.ID: {Description: "a secret", LatestRevision: 666, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"}},
 	}, nil, nil)
 	err := hookContext.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
 		Value:        value,
@@ -1622,8 +1623,8 @@ func (s *HookContextSuite) TestSecretRemove(c *gc.C) {
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
-		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
-		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: names.NewUnitTag("mariadb/666")},
+		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"}},
+		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mariadb/666"}},
 	}, nil, nil)
 	err := hookContext.RemoveSecret(uri, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1643,8 +1644,8 @@ func (s *HookContextSuite) TestSecretGrant(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
-		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
-		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: names.NewUnitTag("mariadb/666")},
+		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"}},
+		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mariadb/666"}},
 	}, nil, nil)
 
 	app := "mariadb"
@@ -1699,7 +1700,7 @@ func (s *HookContextSuite) TestSecretGrantNotLeader(c *gc.C) {
 	uri := coresecrets.NewURI()
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
-		uri.ID: {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
+		uri.ID: {Description: "a secret", LatestRevision: 666, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"}},
 	}, nil, nil)
 	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
 
@@ -1721,7 +1722,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *gc.C) {
 		uri.ID: {
 			Description:    "a secret",
 			LatestRevision: 666,
-			Owner:          names.NewApplicationTag("mariadb"),
+			Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Access: []coresecrets.AccessInfo{
 				{
 					Target: "application-gitlab",
@@ -1753,7 +1754,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *gc.C) {
 		uri.ID: {
 			Description:    "a secret",
 			LatestRevision: 666,
-			Owner:          names.NewApplicationTag("mariadb"),
+			Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Access: []coresecrets.AccessInfo{
 				{
 					Target: "unit-gitlab-0",
@@ -1785,7 +1786,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrantedAlr
 		uri.ID: {
 			Description:    "a secret",
 			LatestRevision: 666,
-			Owner:          names.NewApplicationTag("mariadb"),
+			Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Access: []coresecrets.AccessInfo{
 				{
 					Target: "application-gitlab",
@@ -1817,7 +1818,7 @@ func (s *HookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired(c *
 		uri.ID: {
 			Description:    "a secret",
 			LatestRevision: 666,
-			Owner:          names.NewApplicationTag("mariadb"),
+			Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			Access: []coresecrets.AccessInfo{
 				{
 					Target: "unit-gitlab-0",
@@ -1847,8 +1848,8 @@ func (s *HookContextSuite) TestSecretRevoke(c *gc.C) {
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).AnyTimes()
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
-		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
-		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: names.NewUnitTag("mariadb/666")},
+		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"}},
+		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mariadb/666"}},
 	}, nil, nil)
 	app := "mariadb"
 	unit0 := "mariadb/0"

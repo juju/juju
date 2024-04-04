@@ -416,14 +416,10 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
 	for _, v := range info {
 		md := v.Metadata
-		ownerTag, err := names.ParseTag(md.OwnerTag)
-		if err != nil {
-			return err
-		}
 		ctx.secretMetadata[md.URI.ID] = jujuc.SecretMetadata{
 			Description:      md.Description,
 			Label:            md.Label,
-			Owner:            ownerTag,
+			Owner:            md.Owner,
 			RotatePolicy:     md.RotatePolicy,
 			LatestRevision:   md.LatestRevision,
 			LatestExpireTime: md.LatestExpireTime,

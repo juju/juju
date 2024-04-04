@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
@@ -83,7 +82,7 @@ func (rh *runHook) Prepare(ctx stdcontext.Context, state State) (*State, error) 
 		}
 		if uri, err := secrets.ParseURI(rh.info.SecretURI); err == nil {
 			md, ok := secretMetadata[uri.ID]
-			leaderNeeded = ok && md.Owner.Kind() != names.UnitTagKind
+			leaderNeeded = ok && md.Owner.Kind != secrets.UnitOwner
 		}
 	}
 

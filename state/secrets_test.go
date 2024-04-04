@@ -83,6 +83,8 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	mc := jc.NewMultiChecker()
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	owner, err := state.SecretOwnerFromTag(s.owner.Tag().String())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md, mc, &secrets.SecretMetadata{
 		URI:              uri,
 		Version:          1,
@@ -92,7 +94,7 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 		NextRotateTime:   ptr(next),
 		LatestRevision:   1,
 		LatestExpireTime: ptr(expire),
-		OwnerTag:         s.owner.Tag().String(),
+		Owner:            owner,
 		CreateTime:       now,
 		UpdateTime:       now,
 	})
@@ -127,7 +129,7 @@ func (s *SecretsSuite) TestCreateUserSecret(c *gc.C) {
 		Description:    "my secret",
 		Label:          "label-1",
 		LatestRevision: 1,
-		OwnerTag:       s.Model.Tag().String(),
+		Owner:          secrets.Owner{Kind: secrets.ModelOwner, ID: s.Model.UUID()},
 		CreateTime:     now,
 		UpdateTime:     now,
 	})
@@ -388,6 +390,10 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 	_, err = s.store.CreateSecret(uri3, p)
 	c.Assert(err, jc.ErrorIsNil)
 
+	owner, err := state.SecretOwnerFromTag(s.owner.Tag().String())
+	c.Assert(err, jc.ErrorIsNil)
+	anotherOwner, err := state.SecretOwnerFromTag(another.Tag().String())
+	c.Assert(err, jc.ErrorIsNil)
 	expectedList := []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
@@ -395,7 +401,7 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 		LatestRevision:   1,
 		LatestExpireTime: ptr(expire),
 		Version:          1,
-		OwnerTag:         s.owner.Tag().String(),
+		Owner:            owner,
 		Description:      "my secret",
 		Label:            "foobar",
 		CreateTime:       now,
@@ -404,7 +410,7 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 		URI:            uri2,
 		LatestRevision: 1,
 		Version:        1,
-		OwnerTag:       another.Tag().String(),
+		Owner:          anotherOwner,
 		CreateTime:     now2,
 		UpdateTime:     now2,
 	}}
@@ -462,6 +468,8 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	mc := jc.NewMultiChecker()
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	owner, err := state.SecretOwnerFromTag(s.owner.Tag().String())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
@@ -469,7 +477,7 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 		LatestRevision:   1,
 		LatestExpireTime: ptr(expire),
 		Version:          1,
-		OwnerTag:         s.owner.Tag().String(),
+		Owner:            owner,
 		Description:      "my secret",
 		Label:            "foobar",
 		CreateTime:       now,
@@ -512,6 +520,8 @@ func (s *SecretsSuite) TestListByLabel(c *gc.C) {
 	mc := jc.NewMultiChecker()
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	owner, err := state.SecretOwnerFromTag(s.owner.Tag().String())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
@@ -519,7 +529,7 @@ func (s *SecretsSuite) TestListByLabel(c *gc.C) {
 		LatestRevision:   1,
 		LatestExpireTime: ptr(expire),
 		Version:          1,
-		OwnerTag:         s.owner.Tag().String(),
+		Owner:            owner,
 		Description:      "my secret",
 		Label:            "foobar",
 		CreateTime:       now,
@@ -565,11 +575,13 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 	mc := jc.NewMultiChecker()
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	owner, err := state.SecretOwnerFromTag(s.owner.Tag().String())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:            uri,
 		LatestRevision: 1,
 		Version:        1,
-		OwnerTag:       s.owner.Tag().String(),
+		Owner:          owner,
 		Description:    "my secret",
 		CreateTime:     now,
 		UpdateTime:     now,

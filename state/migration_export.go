@@ -1663,6 +1663,18 @@ func (e *exporter) secretBackendID() (string, error) {
 	return backend.ID, nil
 }
 
+func ownerTagFromSecretOwner(owner secrets.Owner) (names.Tag, error) {
+	switch owner.Kind {
+	case secrets.UnitOwner:
+		return names.NewUnitTag(owner.ID), nil
+	case secrets.ApplicationOwner:
+		return names.NewApplicationTag(owner.ID), nil
+	case secrets.ModelOwner:
+		return names.NewModelTag(owner.ID), nil
+	}
+	return nil, errors.NotValidf("owner kind %q", owner.Kind)
+}
+
 func (e *exporter) secrets() error {
 	if e.cfg.SkipSecrets {
 		return nil
@@ -1759,7 +1771,7 @@ func (e *exporter) secrets() error {
 	}
 
 	for _, md := range allSecrets {
-		owner, err := names.ParseTag(md.OwnerTag)
+		owner, err := ownerTagFromSecretOwner(md.Owner)
 		if err != nil {
 			return errors.Trace(err)
 		}
