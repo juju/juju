@@ -172,6 +172,10 @@ type Conn struct {
 	// clientPending holds all pending client requests.
 	clientPending map[uint64]*Call
 
+	// tombstones holds the client request ids that have been
+	// cancelled.
+	tombstones map[uint64]struct{}
+
 	// closing is set when the connection is shutting down via
 	// Close.  When this is set, no more client or server requests
 	// will be initiated.
@@ -204,6 +208,7 @@ func NewConn(codec Codec, factory RecorderFactory) *Conn {
 	return &Conn{
 		codec:           codec,
 		clientPending:   make(map[uint64]*Call),
+		tombstones:      make(map[uint64]struct{}),
 		recorderFactory: ensureFactory(factory),
 	}
 }

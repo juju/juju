@@ -854,7 +854,6 @@ func (*rpcSuite) TestTransformErrors(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "transformed: no error methods",
 	})
-
 }
 
 func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
@@ -886,6 +885,42 @@ func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
 	case <-time.After(25 * time.Millisecond):
 	}
 	start <- "xxx"
+}
+
+func (*rpcSuite) TestClientCallCancelled(c *gc.C) {
+	ready := make(chan struct{})
+	start := make(chan string)
+	root := &Root{
+		delayed: map[string]*DelayedMethods{
+			"1": {
+				ready: ready,
+				done:  start,
+			},
+		},
+	}
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+
+	done := make(chan struct{})
+	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		var r stringVal
+		err := client.Call(ctx, rpc.Request{Type: "DelayedMethods", Version: 0, Id: "1", Action: "Delay"}, nil, &r)
+		c.Check(errors.Cause(err), jc.ErrorIs, context.Canceled)
+
+		done <- struct{}{}
+	}()
+	chanRead(c, ready, "DelayedMethods.Delay ready")
+
+	start <- "xxx"
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for client call to complete")
+	}
 }
 
 func chanRead(c *gc.C, ch <-chan struct{}, what string) {

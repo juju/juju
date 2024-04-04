@@ -6,6 +6,7 @@ package watcher
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -23,6 +24,11 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.api.watcher")
+
+const (
+	// WatcherStopTimeout is the time to wait for a watcher to stop.
+	WatcherStopTimeout = time.Second * 60
+)
 
 // commonWatcher implements common watcher logic in one place to
 // reduce code duplication, but it's not in fact a complete watcher;
@@ -46,14 +52,14 @@ type commonWatcher struct {
 // watcherAPICall wraps up the information about what facade and what watcher
 // Id we are calling, and just gives us a simple way to call a common method
 // with a given return value.
-type watcherAPICall func(method string, result interface{}) error
+type watcherAPICall func(ctx context.Context, method string, result interface{}) error
 
 // makeWatcherAPICaller creates a watcherAPICall function for a given facade name
 // and watcherId.
 func makeWatcherAPICaller(caller base.APICaller, facadeName, watcherId string) watcherAPICall {
 	bestVersion := caller.BestFacadeVersion(facadeName)
-	return func(request string, result interface{}) error {
-		return caller.APICall(context.TODO(), facadeName, bestVersion,
+	return func(ctx context.Context, request string, result interface{}) error {
+		return caller.APICall(ctx, facadeName, bestVersion,
 			watcherId, request, nil, &result)
 	}
 }
@@ -76,6 +82,7 @@ func (w *commonWatcher) init() {
 // tomb when an error occurs.
 func (w *commonWatcher) commonLoop() {
 	defer close(w.in)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -88,15 +95,39 @@ func (w *commonWatcher) commonLoop() {
 		// the watcher will die with all resources cleaned up.
 		defer wg.Done()
 		<-w.tomb.Dying()
-		if err := w.call("Stop", nil); err != nil {
-			// Don't log an error if a watcher is stopped due to an agent restart,
-			// or if the entity being watched is already removed.
-			if !isAgentRestartError(err) &&
-				err.Error() != rpc.ErrShutdown.Error() && !params.IsCodeNotFound(err) {
-				logger.Errorf("error trying to stop watcher: %v", err)
-			}
+
+		// Give a reasonable amount of time for the watcher to stop. If it
+		// doesn't stop in time, log the error and return.
+		ctx, cancel := context.WithTimeout(context.Background(), WatcherStopTimeout)
+		defer cancel()
+
+		// We need to stop the watcher before returning, so that the
+		// server can clean up resources.
+		err := w.call(ctx, "Stop", nil)
+		if err == nil {
+			return
+		}
+
+		// If the deadline is exceeded whilst attempting to stop the watcher,
+		// give up and log the error as debug. This is indicative of a bad
+		// watcher, one that is not responding to the stop request.
+		if errors.Is(err, context.DeadlineExceeded) {
+			logger.Debugf("timeout stopping watcher: %v", err)
+			return
+		}
+
+		// Don't log an error if a watcher is stopped due to an agent restart,
+		// or if the entity being watched is already removed.
+		if !isAgentRestartError(err) &&
+			err.Error() != rpc.ErrShutdown.Error() && !params.IsCodeNotFound(err) {
+			logger.Errorf("error trying to stop watcher: %v", err)
+			return
 		}
 	}()
+
+	ctx, cancel := context.WithCancel(w.tomb.Context(context.Background()))
+	defer cancel()
+
 	wg.Add(1)
 	go func() {
 		// Because Next blocks until there are changes, we need to
@@ -105,9 +136,11 @@ func (w *commonWatcher) commonLoop() {
 		defer wg.Done()
 		for {
 			result := w.newResult()
-			err := w.call("Next", &result)
+			err := w.call(ctx, "Next", &result)
 			if err != nil {
-				if params.IsCodeStopped(err) || params.IsCodeNotFound(err) {
+				// If the call was canceled, stopped or not found, and the
+				// watcher is not alive, report it as a dying error.
+				if params.IsCodeStopped(err) || params.IsCodeNotFound(err) || errors.Is(err, context.Canceled) {
 					if w.tomb.Err() != tomb.ErrStillAlive {
 						// The watcher has been stopped at the client end, so we're
 						// expecting one of the above two kinds of error.
