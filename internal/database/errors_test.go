@@ -37,6 +37,8 @@ func (s *errorSuite) TestIsErrConstraintUnique(c *gc.C) {
 
 func (s *errorSuite) TestIsErrCode(c *gc.C) {
 	c.Check(isErrCode(nil, sqlite3.ErrConstraintCheck), checkers.IsFalse)
+	c.Check(isErrCode(sqlite3.ErrBusy, sqlite3.ErrConstraintCheck), checkers.IsFalse)
+	c.Check(isErrCode(sqlite3.ErrLocked, sqlite3.ErrConstraintCheck), checkers.IsFalse)
 
 	dErr := dqlite.Error{}
 	c.Check(isErrCode(dErr, sqlite3.ErrConstraintCheck), checkers.IsFalse)

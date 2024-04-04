@@ -8,7 +8,6 @@ import (
 
 	dqlite "github.com/canonical/go-dqlite/driver"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -69,57 +68,29 @@ func IsErrNotFound(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }
 
-// TODO (stickupkid): This is a temporary measure to help us debug an issue
-// where the dqlite error code is not being set correctly. This can be removed
-// once the issue is resolved.
-var logger = loggo.GetLogger("juju.database")
-
 func isErrCode(err error, code sqlite3.ErrNoExtended) bool {
 	if err == nil {
 		return false
 	}
 
+	// If the error is locked, or a busy error, then we can't have a extended
+	// error code. In those cases, we just return early and prevent error
+	// unwrapping for common cases.
+	if errors.Is(err, sqlite3.ErrLocked) || errors.Is(err, sqlite3.ErrBusy) {
+		return false
+	}
+
+	// Check if the error is a dqlite error, if so, check the code.
 	var dqliteErr dqlite.Error
 	if errors.As(err, &dqliteErr) {
-		if dqliteErr.Code == int(code) {
-			return true
-		}
-		// We're currently experiencing an issue where the dqlite error code
-		// is not being set correctly, so we need to log the error and the error
-		// code to help us debug the issue.
-		// This can be removed once the issue is resolved.
-		logger.Criticalf("dqlite error, checking for: %v, got: %v", code, dqliteErr.Code)
-		// We know this happens in cases of constraint violations, so we can
-		// log even more information to help us debug the issue.
-		if code == sqlite3.ErrConstraintPrimaryKey || code == sqlite3.ErrConstraintUnique {
-			logger.Criticalf("dqlite error, message: %T %T %v", err, dqliteErr, dqliteErr.Error())
-		}
-		return false
+		return dqliteErr.Code == int(code)
 	}
 
+	// TODO (stickupkid): This is a compatibility layer for sqlite3, we should
+	// remove this once we are only using dqlite.
 	var sqliteErr sqlite3.Error
 	if errors.As(err, &sqliteErr) {
-		logger.Criticalf("unexpected sqlite error")
-		if sqliteErr.ExtendedCode == code {
-			return true
-		}
-
-		// This really, really shouldn't happen in non-test code. If it does,
-		// we need to log the error and the error code to help us debug the
-		// issue.
-		logger.Criticalf("sqlite error, checking for: %v, got: %v", code, sqliteErr.Code)
-		// We know this happens in cases of constraint violations, so we can
-		// log even more information to help us debug the issue.
-		if code == sqlite3.ErrConstraintPrimaryKey || code == sqlite3.ErrConstraintUnique {
-			logger.Criticalf("sqlite error, message: %T %T %v", err, sqliteErr, sqliteErr.Error())
-		}
-		return false
-	}
-
-	// If this happens, then we need to know what the error is and what the
-	// error code is.
-	if code == sqlite3.ErrConstraintPrimaryKey || code == sqlite3.ErrConstraintUnique {
-		logger.Criticalf("unknown error, message: %T %v", err, err.Error())
+		return sqliteErr.ExtendedCode == code
 	}
 
 	return false
