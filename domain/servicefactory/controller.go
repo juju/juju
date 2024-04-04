@@ -29,6 +29,8 @@ import (
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
 )
@@ -170,5 +172,25 @@ func (s *ControllerFactory) Flag() *flagservice.Service {
 func (s *ControllerFactory) Access() *accessservice.Service {
 	return accessservice.NewService(
 		accessstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger.Child("access")),
+	)
+}
+
+func (s *ControllerFactory) SecretBackend(
+	controllerUUID string,
+	registry secretbackendservice.SecretProviderRegistry,
+) *secretbackendservice.WatchableService {
+	logger := s.logger.Child("secretbackend")
+	state := secretbackendstate.NewState(
+		changestream.NewTxnRunnerFactory(s.controllerDB),
+		logger.Child("state"),
+	)
+	return secretbackendservice.NewWatchableService(
+		state,
+		logger.Child("service"),
+		domain.NewWatcherFactory(
+			s.controllerDB,
+			s.logger.Child("watcherfactory"),
+		),
+		controllerUUID, registry,
 	)
 }

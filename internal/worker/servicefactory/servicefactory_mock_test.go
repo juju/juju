@@ -30,9 +30,10 @@ import (
 	service14 "github.com/juju/juju/domain/network/service"
 	service15 "github.com/juju/juju/domain/objectstore/service"
 	service16 "github.com/juju/juju/domain/secret/service"
-	service17 "github.com/juju/juju/domain/storage/service"
-	service18 "github.com/juju/juju/domain/unit/service"
-	service19 "github.com/juju/juju/domain/upgrade/service"
+	service17 "github.com/juju/juju/domain/secretbackend/service"
+	service18 "github.com/juju/juju/domain/storage/service"
+	service19 "github.com/juju/juju/domain/unit/service"
+	service20 "github.com/juju/juju/domain/upgrade/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
@@ -215,11 +216,25 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelDefaults() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelDefaults", reflect.TypeOf((*MockControllerServiceFactory)(nil).ModelDefaults))
 }
 
+// SecretBackend mocks base method.
+func (m *MockControllerServiceFactory) SecretBackend(arg0 string, arg1 service17.SecretProviderRegistry) *service17.WatchableService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(*service17.WatchableService)
+	return ret0
+}
+
+// SecretBackend indicates an expected call of SecretBackend.
+func (mr *MockControllerServiceFactoryMockRecorder) SecretBackend(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretBackend", reflect.TypeOf((*MockControllerServiceFactory)(nil).SecretBackend), arg0, arg1)
+}
+
 // Upgrade mocks base method.
-func (m *MockControllerServiceFactory) Upgrade() *service19.WatchableService {
+func (m *MockControllerServiceFactory) Upgrade() *service20.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service19.WatchableService)
+	ret0, _ := ret[0].(*service20.WatchableService)
 	return ret0
 }
 
@@ -379,10 +394,10 @@ func (mr *MockModelServiceFactoryMockRecorder) Secret(arg0 any) *gomock.Call {
 }
 
 // Storage mocks base method.
-func (m *MockModelServiceFactory) Storage(arg0 storage.ProviderRegistry) *service17.Service {
+func (m *MockModelServiceFactory) Storage(arg0 storage.ProviderRegistry) *service18.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Storage", arg0)
-	ret0, _ := ret[0].(*service17.Service)
+	ret0, _ := ret[0].(*service18.Service)
 	return ret0
 }
 
@@ -393,10 +408,10 @@ func (mr *MockModelServiceFactoryMockRecorder) Storage(arg0 any) *gomock.Call {
 }
 
 // Unit mocks base method.
-func (m *MockModelServiceFactory) Unit() *service18.Service {
+func (m *MockModelServiceFactory) Unit() *service19.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit")
-	ret0, _ := ret[0].(*service18.Service)
+	ret0, _ := ret[0].(*service19.Service)
 	return ret0
 }
 
@@ -709,11 +724,25 @@ func (mr *MockServiceFactoryMockRecorder) Secret(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secret", reflect.TypeOf((*MockServiceFactory)(nil).Secret), arg0)
 }
 
+// SecretBackend mocks base method.
+func (m *MockServiceFactory) SecretBackend(arg0 string, arg1 service17.SecretProviderRegistry) *service17.WatchableService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(*service17.WatchableService)
+	return ret0
+}
+
+// SecretBackend indicates an expected call of SecretBackend.
+func (mr *MockServiceFactoryMockRecorder) SecretBackend(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretBackend", reflect.TypeOf((*MockServiceFactory)(nil).SecretBackend), arg0, arg1)
+}
+
 // Storage mocks base method.
-func (m *MockServiceFactory) Storage(arg0 storage.ProviderRegistry) *service17.Service {
+func (m *MockServiceFactory) Storage(arg0 storage.ProviderRegistry) *service18.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Storage", arg0)
-	ret0, _ := ret[0].(*service17.Service)
+	ret0, _ := ret[0].(*service18.Service)
 	return ret0
 }
 
@@ -724,10 +753,10 @@ func (mr *MockServiceFactoryMockRecorder) Storage(arg0 any) *gomock.Call {
 }
 
 // Unit mocks base method.
-func (m *MockServiceFactory) Unit() *service18.Service {
+func (m *MockServiceFactory) Unit() *service19.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit")
-	ret0, _ := ret[0].(*service18.Service)
+	ret0, _ := ret[0].(*service19.Service)
 	return ret0
 }
 
@@ -738,10 +767,10 @@ func (mr *MockServiceFactoryMockRecorder) Unit() *gomock.Call {
 }
 
 // Upgrade mocks base method.
-func (m *MockServiceFactory) Upgrade() *service19.WatchableService {
+func (m *MockServiceFactory) Upgrade() *service20.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service19.WatchableService)
+	ret0, _ := ret[0].(*service20.WatchableService)
 	return ret0
 }
 

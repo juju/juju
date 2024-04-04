@@ -13,10 +13,15 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	cloudstate "github.com/juju/juju/domain/cloud/state"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
+	credentialstate "github.com/juju/juju/domain/credential/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -247,11 +252,13 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 }
 
 // ListSecretBackends returns a list of all secret backends.
-func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error) {
+// If all is true, it returns all secret backends, otherwise it returns only the ones in use.
+func (s *State) ListSecretBackends(ctx context.Context, all bool) ([]*secretbackend.SecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO: implement for inUse. JUJU-5707
 	stmt, err := s.Prepare(`
 SELECT 
     b.uuid                  AS &SecretBackendRow.uuid,
@@ -288,10 +295,6 @@ ORDER BY b.name`, SecretBackendRow{})
 }
 
 func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, columName string, v string) (*secretbackend.SecretBackend, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	q := fmt.Sprintf(`
 SELECT
     b.uuid                  AS &SecretBackendRow.uuid,
@@ -309,41 +312,24 @@ WHERE b.%s = $M.identifier`, columName)
 	}
 
 	var rows SecretBackendRows
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, sqlair.M{"identifier": v}).GetAll(&rows)
-		if errors.Is(err, sql.ErrNoRows) || len(rows) == 0 {
-			return fmt.Errorf("%w: %q", backenderrors.NotFound, v)
-		}
-		if err != nil {
-			return fmt.Errorf("querying secret backends: %w", err)
-		}
-		return nil
-	})
-	if errors.Is(err, sqlair.ErrNoRows) {
+	err = tx.Query(ctx, stmt, sqlair.M{"identifier": v}).GetAll(&rows)
+	if errors.Is(err, sql.ErrNoRows) || len(rows) == 0 {
 		return nil, fmt.Errorf("%w: %q", backenderrors.NotFound, v)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, fmt.Errorf("querying secret backends: %w", err)
 	}
-	return rows.toSecretBackends()[0], errors.Trace(err)
+	return rows.toSecretBackends()[0], nil
 }
 
-// GetSecretBackendByName returns the secret backend for the given backend name.
-func (s *State) GetSecretBackendByName(ctx context.Context, backendName string) (*secretbackend.SecretBackend, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
+// GetSecretBackend returns the secret backend for the given backend ID or Name.
+func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
+	if params.ID == "" && params.Name == "" {
+		return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
 	}
-	var sb *secretbackend.SecretBackend
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		sb, err = s.getSecretBackend(ctx, tx, "name", backendName)
-		return errors.Trace(err)
-	})
-	return sb, errors.Trace(err)
-}
-
-// GetSecretBackend returns the secret backend for the given backend ID.
-func (s *State) GetSecretBackend(ctx context.Context, backendID string) (*secretbackend.SecretBackend, error) {
+	if params.ID != "" && params.Name != "" {
+		return nil, fmt.Errorf("%w: both ID and name are provided", backenderrors.NotValid)
+	}
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -351,10 +337,14 @@ func (s *State) GetSecretBackend(ctx context.Context, backendID string) (*secret
 
 	var sb *secretbackend.SecretBackend
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		sb, err = s.getSecretBackend(ctx, tx, "uuid", backendID)
+		if params.ID != "" {
+			sb, err = s.getSecretBackend(ctx, tx, "uuid", params.ID)
+		} else {
+			sb, err = s.getSecretBackend(ctx, tx, "name", params.Name)
+		}
 		return errors.Trace(err)
 	})
-	return sb, errors.Trace(err)
+	return sb, domain.CoerceError(err)
 }
 
 // SecretBackendRotated updates the next rotation time for the secret backend.
@@ -402,6 +392,107 @@ WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
 		return nil
 	})
 	return domain.CoerceError(err)
+}
+
+// SetModelSecretBackend sets the secret backend for the given model.
+func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelBackendUpsertStmt, err := s.Prepare(`
+INSERT INTO model_secret_backend
+	(model_uuid, secret_backend_uuid)
+VALUES (
+	$M.model_uuid,
+	(SELECT uuid FROM secret_backend WHERE name = $M.backend_name)
+)
+ON CONFLICT (model_uuid) DO UPDATE SET
+	secret_backend_uuid = EXCLUDED.secret_backend_uuid`, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx,
+			modelBackendUpsertStmt,
+			sqlair.M{"model_uuid": modelUUID, "backend_name": backendName},
+		).Run()
+		if database.IsErrConstraintForeignKey(err) {
+			return fmt.Errorf("%w: either model %q or secret backend %q", errors.NotFound, modelUUID, backendName)
+		}
+		if err != nil {
+			return fmt.Errorf("setting secret backend %q for model %q: %w", backendName, modelUUID, err)
+		}
+		return nil
+	})
+	return domain.CoerceError(err)
+}
+
+// GetModelSecretBackend returns the configured secret backend for the given model.
+func (s *State) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
+	m, err := s.GetModel(ctx, modelUUID)
+	return m.SecretBackendID, errors.Trace(err)
+}
+
+// GetCloudCredential returns the cloud credential for the given model.
+func (s *State) GetCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (cloud.Cloud, cloud.Credential, error) {
+	var (
+		cld  cloud.Cloud
+		cred cloud.Credential
+	)
+
+	db, err := s.DB()
+	if err != nil {
+		return cld, cred, errors.Trace(err)
+	}
+	modelStmt, err := s.Prepare(`
+SELECT &ModelCloudCredentialRow.*
+FROM v_model
+WHERE uuid = $M.uuid`, sqlair.M{}, ModelCloudCredentialRow{})
+	if err != nil {
+		return cld, cred, errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var m ModelCloudCredentialRow
+		err := tx.Query(ctx, modelStmt, sqlair.M{"uuid": modelUUID}).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
+		}
+		if err != nil {
+			return fmt.Errorf("querying model %q: %w", modelUUID, err)
+		}
+
+		clds, err := cloudstate.LoadClouds(ctx, s, tx, m.CloudName)
+		if err != nil {
+			return fmt.Errorf("loading clouds for model %q: %w", modelUUID, err)
+		}
+		if len(clds) == 0 {
+			// This should never happen as the model always has a cloud.
+			return fmt.Errorf("%w: cloud for model %q", clouderrors.NotFound, modelUUID)
+		}
+		cld = clds[0]
+
+		creds, err := credentialstate.LoadCloudCredentials(ctx, s, tx, m.CloudCredentialName, m.CloudName, m.OwnerName)
+		if err != nil {
+			return fmt.Errorf("loading cloud credentials for model %q: %w", modelUUID, err)
+		}
+		if len(creds) == 0 {
+			// This should never happen as the model always has a cloud credential.
+			return fmt.Errorf("%w: cloud credentials for model %q", credentialerrors.CredentialNotFound, modelUUID)
+		}
+		credInfo := creds[0]
+		cred = cloud.NewNamedCredential(
+			credInfo.Label, cloud.AuthType(credInfo.AuthType),
+			credInfo.Attributes, credInfo.Revoked,
+		)
+		cred.Invalid = credInfo.Invalid
+		cred.InvalidReason = credInfo.InvalidReason
+		return nil
+	})
+	return cld, cred, domain.CoerceError(err)
 }
 
 // InitialWatchStatement returns the initial watch statement and the table name to watch.

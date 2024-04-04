@@ -23,7 +23,8 @@ import (
 	service7 "github.com/juju/juju/domain/model/service"
 	service8 "github.com/juju/juju/domain/modeldefaults/service"
 	service9 "github.com/juju/juju/domain/objectstore/service"
-	service10 "github.com/juju/juju/domain/upgrade/service"
+	service10 "github.com/juju/juju/domain/secretbackend/service"
+	service11 "github.com/juju/juju/domain/upgrade/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -204,11 +205,25 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelDefaults() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelDefaults", reflect.TypeOf((*MockControllerServiceFactory)(nil).ModelDefaults))
 }
 
+// SecretBackend mocks base method.
+func (m *MockControllerServiceFactory) SecretBackend(arg0 string, arg1 service10.SecretProviderRegistry) *service10.WatchableService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(*service10.WatchableService)
+	return ret0
+}
+
+// SecretBackend indicates an expected call of SecretBackend.
+func (mr *MockControllerServiceFactoryMockRecorder) SecretBackend(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretBackend", reflect.TypeOf((*MockControllerServiceFactory)(nil).SecretBackend), arg0, arg1)
+}
+
 // Upgrade mocks base method.
-func (m *MockControllerServiceFactory) Upgrade() *service10.WatchableService {
+func (m *MockControllerServiceFactory) Upgrade() *service11.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service10.WatchableService)
+	ret0, _ := ret[0].(*service11.WatchableService)
 	return ret0
 }
 
