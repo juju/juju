@@ -80,21 +80,6 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// AllCharmURLs mocks base method.
-func (m *MockState) AllCharmURLs() ([]*string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllCharmURLs")
-	ret0, _ := ret[0].([]*string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllCharmURLs indicates an expected call of AllCharmURLs.
-func (mr *MockStateMockRecorder) AllCharmURLs() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCharmURLs", reflect.TypeOf((*MockState)(nil).AllCharmURLs))
-}
-
 // HasUpgradeSeriesLocks mocks base method.
 func (m *MockState) HasUpgradeSeriesLocks() (bool, error) {
 	m.ctrl.T.Helper()

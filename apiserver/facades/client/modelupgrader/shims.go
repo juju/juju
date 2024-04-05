@@ -32,7 +32,6 @@ type State interface {
 	MongoCurrentStatus() (*replicaset.Status, error)
 	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error
 	ControllerConfig() (controller.Config, error)
-	AllCharmURLs() ([]*string, error)
 }
 
 type SystemState interface {
@@ -126,10 +125,6 @@ func (s stateShim) MongoCurrentStatus() (*replicaset.Status, error) {
 		s.mgosession = s.PooledState.MongoSession()
 	}
 	return replicaset.CurrentStatus(s.mgosession)
-}
-
-func (s stateShim) AllCharmURLs() ([]*string, error) {
-	return s.PooledState.AllCharmURLs()
 }
 
 type modelShim struct {
