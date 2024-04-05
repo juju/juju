@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
@@ -194,3 +195,67 @@ type dummyOp struct {
 
 func (d dummyOp) Build(attempt int) ([]txn.Op, error) { return nil, nil }
 func (d dummyOp) Done(_ error) error                  { return nil }
+
+type kvmMachineUpgradeStepsSuite struct {
+	upgradeStepsSuite
+
+	tag1    names.Tag
+	machine *MockMachine
+}
+
+var _ = gc.Suite(&kvmMachineUpgradeStepsSuite{})
+
+func (s *kvmMachineUpgradeStepsSuite) SetUpTest(c *gc.C) {
+	s.upgradeStepsSuite.SetUpTest(c)
+	s.tag1 = names.NewMachineTag("0")
+}
+
+func (s *kvmMachineUpgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
+	ctlr := s.upgradeStepsSuite.setup(c)
+
+	s.expectAuthCalls()
+	s.machine = NewMockMachine(ctlr)
+	return ctlr
+}
+
+func (s *kvmMachineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleNoop(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthCalls()
+	s.setupFacadeAPI(c)
+	api := &upgradesteps.UpgradeStepsAPIV2{s.api}
+
+	s.expectFindEntityMachine(instance.LXD)
+
+	result, err := api.ResetKVMMachineModificationStatusIdle(context.Background(), params.Entity{Tag: s.tag1.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *kvmMachineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleKVMUnsupported(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthCalls()
+	s.setupFacadeAPI(c)
+	api := &upgradesteps.UpgradeStepsAPIV2{s.api}
+
+	s.expectFindEntityMachine("kvm")
+
+	_, err := api.ResetKVMMachineModificationStatusIdle(context.Background(), params.Entity{Tag: s.tag1.String()})
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+}
+
+func (s *kvmMachineUpgradeStepsSuite) expectFindEntityMachine(t instance.ContainerType) {
+	s.machine.EXPECT().ContainerType().Return(t)
+	m := machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+	}
+
+	s.state.EXPECT().FindEntity(s.tag1.(names.MachineTag)).Return(m, nil)
+}
+
+type machineEntityShim struct {
+	upgradesteps.Machine
+	state.Entity
+}

@@ -45553,7 +45553,7 @@
     },
     {
         "Name": "UpgradeSteps",
-        "Description": "UpgradeStepsAPI implements version 2 of the Upgrade Steps API,\nwhich adds WriteUniterState.",
+        "Description": "UpgradeStepsAPI implements version 3 of the Upgrade Steps API,\nwhich adds WriteUniterState.",
         "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",

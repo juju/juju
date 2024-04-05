@@ -16,19 +16,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// UpgradeStepsV3 defines the methods on the version 2 facade for the
-// upgrade steps API endpoint.
-type UpgradeSteps interface {
-	WriteAgentState(context.Context, params.SetUnitStateArgs) (params.ErrorResults, error)
-}
-
 // Logger represents the logging methods used by the upgrade steps.
 type Logger interface {
 	Criticalf(string, ...any)
 	Warningf(string, ...any)
 }
 
-// UpgradeStepsAPI implements version 2 of the Upgrade Steps API,
+// UpgradeStepsAPI implements version 3 of the Upgrade Steps API,
 // which adds WriteUniterState.
 type UpgradeStepsAPI struct {
 	st                 UpgradeStepsState
@@ -40,8 +34,15 @@ type UpgradeStepsAPI struct {
 	logger             Logger
 }
 
-// UpgradeStepsAPIV1 implements version 1 of the Upgrade Steps API.
-type UpgradeStepsAPIV1 struct {
+// UpgradeStepsAPIV2 implements version 2 of the Uppgrade Steps API.
+// We need this gavade for migrations from 3.x. This api includes the method
+// ResetKVMMachineModificationStatusIdle dropped in v3. KVM is not supported
+// in Juju 4.x, so this method is a simple no-op for non-KVM, and errors out
+// for KVM
+//
+// TODO(jack-w-shaw): As soon as we no longer need to support migrations
+// from 3.x, drop this facade
+type UpgradeStepsAPIV2 struct {
 	*UpgradeStepsAPI
 }
 
@@ -67,6 +68,30 @@ func NewUpgradeStepsAPI(
 		getUnitAuthFunc:    getUnitAuthFunc,
 		logger:             logger,
 	}, nil
+}
+
+// ResetKVMMachineModificationStatusIdle is a legacy method required to support
+// UpgradeSteps facade v2. Either no-op for non-KVM machines, or error out
+func (api *UpgradeStepsAPIV2) ResetKVMMachineModificationStatusIdle(ctx context.Context, arg params.Entity) (params.ErrorResult, error) {
+	var result params.ErrorResult
+
+	mTag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	entity, err := api.st.FindEntity(mTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	machine, ok := entity.(Machine)
+	if !ok {
+		return result, errors.NotValidf("machine entity")
+	}
+	if machine.ContainerType() != "kvm" {
+		// no-op
+		return result, nil
+	}
+	return result, errors.NotSupportedf("kvm container type")
 }
 
 // WriteAgentState writes the agent state for the set of units provided. This
