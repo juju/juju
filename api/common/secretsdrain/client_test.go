@@ -68,7 +68,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *gc.C) {
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {
 		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
-		c.Assert(info.Metadata.OwnerTag, gc.Equals, "application-mariadb")
+		c.Assert(info.Metadata.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"})
 		c.Assert(info.Metadata.Label, gc.Equals, "label")
 		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)

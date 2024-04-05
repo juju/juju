@@ -169,11 +169,12 @@ func (c *secretAddCommand) Init(args []string) error {
 // Run implements cmd.Command.
 func (c *secretAddCommand) Run(ctx *cmd.Context) error {
 	unitName := c.ctx.UnitName()
-	var ownerTag names.Tag
 	appName, _ := names.UnitApplication(unitName)
-	ownerTag = names.NewApplicationTag(appName)
+	var owner secrets.Owner
 	if c.owner == "unit" {
-		ownerTag = names.NewUnitTag(unitName)
+		owner = secrets.Owner{Kind: secrets.UnitOwner, ID: unitName}
+	} else {
+		owner = secrets.Owner{Kind: secrets.ApplicationOwner, ID: appName}
 	}
 	updateArgs := c.marshallArg()
 	if updateArgs.Value.IsEmpty() {
@@ -181,7 +182,7 @@ func (c *secretAddCommand) Run(ctx *cmd.Context) error {
 	}
 	arg := &SecretCreateArgs{
 		SecretUpdateArgs: *updateArgs,
-		OwnerTag:         ownerTag,
+		Owner:            owner,
 	}
 	uri, err := c.ctx.CreateSecret(arg)
 	if err != nil {

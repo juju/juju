@@ -401,7 +401,7 @@ func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0, arg1 any) *gomoc
 }
 
 // ProcessSecretConsumerLabel mocks base method.
-func (m *MockSecretService) ProcessSecretConsumerLabel(ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(string) (bool, leadership.Token, error)) (*secrets.URI, *string, error) {
+func (m *MockSecretService) ProcessSecretConsumerLabel(ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secrets.Owner) (bool, leadership.Token, error)) (*secrets.URI, *string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessSecretConsumerLabel", ctx, unitName, uri, label, checkCallerOwner)
 	ret0, _ := ret[0].(*secrets.URI)

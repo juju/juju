@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	commonsecretbackends "github.com/juju/juju/api/common/secretbackends"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -161,9 +162,13 @@ func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 		if err != nil {
 			return nil, errors.NotValidf("secret URI %q", info.URI)
 		}
+		owner, err := common.SecretOwnerFromTag(info.OwnerTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		md := coresecrets.SecretMetadata{
 			URI:              uri,
-			OwnerTag:         info.OwnerTag,
+			Owner:            owner,
 			Description:      info.Description,
 			Label:            info.Label,
 			RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),

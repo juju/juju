@@ -134,7 +134,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 			ApplicationName: ptr("mariadb"),
 		}).Return([]*coresecrets.SecretMetadata{{
 		URI:              uri,
-		OwnerTag:         "application-mariadb",
+		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		Label:            "label",
 		RotatePolicy:     coresecrets.RotateHourly,
 		LatestRevision:   666,

@@ -90,14 +90,15 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		return nil
 	})
 	client := apisecrets.NewClient(apiCaller)
+	owner := secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mysql"}
 	result, err := client.ListSecrets(true, secrets.Filter{
-		URI: uri, OwnerTag: ptr("application-mysql"), Revision: ptr(666)})
+		URI: uri, Owner: ptr(owner), Revision: ptr(666)})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
 		Metadata: secrets.SecretMetadata{
 			URI:              uri,
 			Version:          1,
-			OwnerTag:         "application-mysql",
+			Owner:            owner,
 			RotatePolicy:     secrets.RotateHourly,
 			LatestRevision:   2,
 			LatestExpireTime: ptr(now),

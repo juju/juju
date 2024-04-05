@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v4/exec"
 
@@ -340,7 +339,7 @@ func (mock *MockContext) SecretMetadata() (map[string]jujuc.SecretMetadata, erro
 		"9m4e2mr0ui3e8a215n4g": {
 			Description:    "description",
 			Label:          "label",
-			Owner:          names.NewApplicationTag("mariadb"),
+			Owner:          secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"},
 			RotatePolicy:   secrets.RotateHourly,
 			LatestRevision: 666,
 		},

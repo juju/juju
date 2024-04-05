@@ -45,7 +45,7 @@ type SecretService interface {
 	GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	ListCharmSecrets(context.Context, secretservice.CharmSecretOwners) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	ProcessSecretConsumerLabel(
-		ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner string) (bool, leadership.Token, error),
+		ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner secrets.Owner) (bool, leadership.Token, error),
 	) (*secrets.URI, *string, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)

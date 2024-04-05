@@ -156,8 +156,14 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 		if err != nil {
 			return errors.Maskf(err, "invalid owner %q", c.owner)
 		}
-		owner := ownerTag.String()
-		filter.OwnerTag = &owner
+		switch ownerTag.Kind() {
+		case names.ApplicationTagKind:
+			filter.Owner = &secrets.Owner{Kind: secrets.ApplicationOwner, ID: ownerTag.Id()}
+		case names.UnitTagKind:
+			filter.Owner = &secrets.Owner{Kind: secrets.UnitOwner, ID: ownerTag.Id()}
+		default:
+			return errors.Errorf("invalid owner %q", c.owner)
+		}
 	}
 	result, err := api.ListSecrets(c.revealSecrets, filter)
 	if err != nil {
@@ -165,6 +171,18 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	}
 	details := gatherSecretInfo(result, c.revealSecrets, false, false)
 	return c.out.Write(ctxt, details)
+}
+
+func ownerTagFromOwner(owner secrets.Owner) (names.Tag, error) {
+	switch owner.Kind {
+	case secrets.UnitOwner:
+		return names.NewUnitTag(owner.ID), nil
+	case secrets.ApplicationOwner:
+		return names.NewApplicationTag(owner.ID), nil
+	case secrets.ModelOwner:
+		return names.NewModelTag(owner.ID), nil
+	}
+	return nil, errors.NotValidf("owner kind %q", owner.Kind)
 }
 
 func gatherSecretInfo(
@@ -175,7 +193,7 @@ func gatherSecretInfo(
 		ownerId := ""
 		name := ""
 		label := m.Metadata.Label
-		if owner, err := names.ParseTag(m.Metadata.OwnerTag); err == nil {
+		if owner, err := ownerTagFromOwner(m.Metadata.Owner); err == nil {
 			ownerId = owner.Id()
 			if owner.Kind() == names.ModelTagKind {
 				// Model owned (user) secrets have a name, not a label.

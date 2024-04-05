@@ -847,7 +847,7 @@ type SecretUpsertArg struct {
 // SecretCreateArg holds parameters for creating a secret.
 type SecretCreateArg struct {
 	SecretUpsertArg
-	OwnerTag names.Tag
+	Owner secrets.Owner
 }
 
 // SecretUpdateArg holds parameters for updating a secret.
@@ -863,9 +863,9 @@ type SecretDeleteArg struct {
 }
 
 // AddSecretCreates records requests to create secrets.
-func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
+func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) error {
 	if len(creates) == 0 {
-		return
+		return nil
 	}
 	b.arg.SecretCreates = make([]params.CreateSecretArg, len(creates))
 	for i, c := range creates {
@@ -887,6 +887,10 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 			}
 		}
 
+		ownerTag, err := common.OwnerTagFromSecretOwner(c.Owner)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		b.arg.SecretCreates[i] = params.CreateSecretArg{
 			UpsertSecretArg: params.UpsertSecretArg{
 				RotatePolicy: c.RotatePolicy,
@@ -899,9 +903,10 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 				},
 			},
 			URI:      &uriStr,
-			OwnerTag: c.OwnerTag.String(),
+			OwnerTag: ownerTag.String(),
 		}
 	}
+	return nil
 }
 
 // AddSecretUpdates records requests to update secrets.

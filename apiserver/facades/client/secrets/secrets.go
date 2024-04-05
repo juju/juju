@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
@@ -124,10 +125,15 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 	}
 	result.Results = make([]params.ListSecretResult, len(metadata))
 	for i, m := range metadata {
+		ownerTag, err := commonsecrets.OwnerTagFromOwner(m.Owner)
+		if err != nil {
+			// This should never happen.
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
 		secretResult := params.ListSecretResult{
 			URI:              m.URI.String(),
 			Version:          m.Version,
-			OwnerTag:         m.OwnerTag,
+			OwnerTag:         ownerTag.String(),
 			Description:      m.Description,
 			Label:            m.Label,
 			RotatePolicy:     string(m.RotatePolicy),

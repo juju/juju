@@ -63,10 +63,10 @@ var (
 	ApplicationGlobalKey          = applicationGlobalKey
 	CloudGlobalKey                = cloudGlobalKey
 	ModelGlobalKey                = modelGlobalKey
-	DBCollectionSizeToInt         = dbCollectionSizeToInt
 	NewEntityWatcher              = newEntityWatcher
 	ApplicationHasConnectedOffers = applicationHasConnectedOffers
 	NewActionNotificationWatcher  = newActionNotificationWatcher
+	SecretOwnerFromTag            = secretOwnerFromTag
 )
 
 type (

@@ -530,8 +530,28 @@ func (st *State) nextRotateTime(docID string) (*time.Time, error) {
 	return &rotateDoc.NextRotateTime, nil
 }
 
+func secretOwnerFromTag(ownerTag string) (secrets.Owner, error) {
+	owner, err := names.ParseTag(ownerTag)
+	if err != nil {
+		return secrets.Owner{}, errors.Trace(err)
+	}
+	switch owner.Kind() {
+	case names.ApplicationTagKind:
+		return secrets.Owner{Kind: secrets.ApplicationOwner, ID: owner.Id()}, nil
+	case names.UnitTagKind:
+		return secrets.Owner{Kind: secrets.UnitOwner, ID: owner.Id()}, nil
+	case names.ModelTagKind:
+		return secrets.Owner{Kind: secrets.ModelOwner, ID: owner.Id()}, nil
+	}
+	return secrets.Owner{}, errors.NotValidf("owner tag kind %q", owner.Kind())
+}
+
 func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *time.Time) (*secrets.SecretMetadata, error) {
 	uri, err := secrets.ParseURI(s.st.localID(doc.DocID))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	owner, err := secretOwnerFromTag(doc.OwnerTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -544,7 +564,7 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *
 		LatestExpireTime: doc.LatestExpireTime,
 		Description:      doc.Description,
 		Label:            doc.Label,
-		OwnerTag:         doc.OwnerTag,
+		Owner:            owner,
 		AutoPrune:        doc.AutoPrune,
 		CreateTime:       doc.CreateTime,
 		UpdateTime:       doc.UpdateTime,
@@ -2096,7 +2116,7 @@ func (s *secretsStore) WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatc
 			logger.Warningf("cannot get secret %q, err %#v", uri, err)
 			return false
 		}
-		if s.st.modelTag.String() != md.OwnerTag {
+		if s.st.modelTag.Id() != md.Owner.ID || md.Owner.Kind != secrets.ModelOwner {
 			// Only prune secrets owned by this model (user secrets).
 			return false
 		}

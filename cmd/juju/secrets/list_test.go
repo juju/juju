@@ -54,16 +54,16 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
-				LatestRevision: 2, OwnerTag: "application-mysql"},
+				LatestRevision: 2, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"}},
 		}, {
 			Metadata: coresecrets.SecretMetadata{
 				URI:            uri2,
-				LatestRevision: 1, OwnerTag: "application-mariadb"},
+				LatestRevision: 1, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"}},
 		}, {
 			Metadata: coresecrets.SecretMetadata{
 				URI:            uri3,
 				Label:          "my-secret",
-				LatestRevision: 1, OwnerTag: coretesting.ModelTag.String()},
+				LatestRevision: 1, Owner: coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()}},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -90,19 +90,19 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, LatestRevision: 2,
 				Description: "my secret",
-				OwnerTag:    "application-mysql",
+				Owner:       coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
 				Label:       "foobar",
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri2, Version: 1, LatestRevision: 1, OwnerTag: "application-mariadb",
+				URI: uri2, Version: 1, LatestRevision: 1, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			},
 			Error: "boom",
 		}, {
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri3, Version: 1, LatestRevision: 1,
-				Label: "my-secret", OwnerTag: coretesting.ModelTag.String(),
+				Label: "my-secret", Owner: coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()},
 			},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
@@ -142,7 +142,7 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI:     uri,
-				Version: 1, LatestRevision: 2, OwnerTag: "application-mariadb",
+				Version: 1, LatestRevision: 2, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)

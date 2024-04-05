@@ -104,10 +104,15 @@ func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSec
 
 	var result params.ListSecretResults
 	for i, md := range metadata {
+		ownerTag, err := OwnerTagFromOwner(md.Owner)
+		if err != nil {
+			// This should never happen.
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
 		secretResult := params.ListSecretResult{
 			URI:              md.URI.String(),
 			Version:          md.Version,
-			OwnerTag:         md.OwnerTag,
+			OwnerTag:         ownerTag.String(),
 			RotatePolicy:     md.RotatePolicy.String(),
 			NextRotateTime:   md.NextRotateTime,
 			Description:      md.Description,
@@ -140,6 +145,18 @@ func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSec
 		result.Results = append(result.Results, secretResult)
 	}
 	return result, nil
+}
+
+func OwnerTagFromOwner(owner coresecrets.Owner) (names.Tag, error) {
+	switch owner.Kind {
+	case coresecrets.UnitOwner:
+		return names.NewUnitTag(owner.ID), nil
+	case coresecrets.ApplicationOwner:
+		return names.NewApplicationTag(owner.ID), nil
+	case coresecrets.ModelOwner:
+		return names.NewModelTag(owner.ID), nil
+	}
+	return nil, errors.NotValidf("owner kind %q", owner.Kind)
 }
 
 // isLeaderUnit returns true if the authenticated caller is the unit leader of its application.

@@ -4,8 +4,6 @@
 package jujuctesting
 
 import (
-	"github.com/juju/names/v5"
-
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
@@ -50,7 +48,7 @@ func (c *ContextSecrets) SecretMetadata() (map[string]jujuc.SecretMetadata, erro
 		"9m4e2mr0ui3e8a215n4g": {
 			LatestRevision: 666,
 			Label:          "label",
-			Owner:          names.NewApplicationTag("mariadb"),
+			Owner:          secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"},
 			Description:    "description",
 			RotatePolicy:   secrets.RotateHourly,
 			Access:         c.Access,

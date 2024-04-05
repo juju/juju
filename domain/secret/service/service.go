@@ -179,7 +179,7 @@ func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, re
 // If the uri is empty, the label and consumer are used to lookup the consumed secret uri.
 // This method returns the resulting uri, and optionally the label to update for the consumer.
 func (s *SecretService) ProcessSecretConsumerLabel(
-	ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner string) (bool, leadership.Token, error),
+	ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner secrets.Owner) (bool, leadership.Token, error),
 ) (*secrets.URI, *string, error) {
 	// TODO
 	var modelUUID string
@@ -205,7 +205,7 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 					token leadership.Token
 					err   error
 				)
-				if isOwner, token, err = checkCallerOwner(md.OwnerTag); err != nil {
+				if isOwner, token, err = checkCallerOwner(md.Owner); err != nil {
 					return nil, nil, errors.Trace(err)
 				}
 				if isOwner {

@@ -286,7 +286,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	uri2 := secrets.NewURI()
 
 	s.secretMetadata = map[string]jujuc.SecretMetadata{
-		uri.ID: {Description: "some secret", LatestRevision: 1, Owner: names.NewApplicationTag("mariadb")},
+		uri.ID: {Description: "some secret", LatestRevision: 1, Owner: secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"}},
 	}
 
 	ctrl := gomock.NewController(c)

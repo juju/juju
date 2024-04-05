@@ -144,6 +144,22 @@ func (u *URI) String() string {
 	return urlValue.String()
 }
 
+// OwnerKind represents the kind of a secret owner entity.
+type OwnerKind string
+
+// These represent the kinds of secret owner.
+const (
+	ApplicationOwner OwnerKind = "application"
+	UnitOwner        OwnerKind = "unit"
+	ModelOwner       OwnerKind = "model"
+)
+
+// Owner is the owner of a secret.
+type Owner struct {
+	Kind OwnerKind
+	ID   string
+}
+
 // SecretMetadata holds metadata about a secret.
 type SecretMetadata struct {
 	// Read only after creation.
@@ -160,8 +176,8 @@ type SecretMetadata struct {
 
 	// Set by service on creation/update.
 
-	// OwnerTag is the entity which created the secret.
-	OwnerTag string
+	// Owner is the entity which created the secret.
+	Owner Owner
 
 	CreateTime time.Time
 	UpdateTime time.Time
@@ -235,5 +251,5 @@ type Filter struct {
 	URI      *URI
 	Label    *string
 	Revision *int
-	OwnerTag *string
+	Owner    *Owner
 }
