@@ -26,7 +26,6 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -275,9 +274,6 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, objectStore objectsto
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
 	curl := charm.MustParseURL(ch.URL())
-	series := curl.Series
-	base, err := corebase.GetBaseFromSeries(series)
-	c.Assert(err, jc.ErrorIsNil)
 	var source string
 	switch curl.Schema {
 	case "local":
@@ -290,8 +286,8 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstor
 	origin := &CharmOrigin{
 		Source: source,
 		Platform: &Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
+			OS:      "ubuntu",
+			Channel: "12.10",
 		},
 	}
 	return addTestingApplication(c, objectStore, addTestingApplicationParams{
@@ -337,8 +333,6 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 	origin := params.origin
 	curl := charm.MustParseURL(params.ch.URL())
 	if origin == nil {
-		base, err := corebase.GetBaseFromSeries(curl.Series)
-		c.Assert(err, jc.ErrorIsNil)
 		var channel *Channel
 		// local charms cannot have a channel
 		if charm.CharmHub.Matches(curl.Schema) {
@@ -357,8 +351,8 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 			Channel: channel,
 			Source:  source,
 			Platform: &Platform{
-				OS:      base.OS,
-				Channel: base.Channel.String(),
+				OS:      "ubuntu",
+				Channel: "12.10",
 			},
 		}
 	}
