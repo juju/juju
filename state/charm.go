@@ -1140,28 +1140,3 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 	}
 	return ch, nil
 }
-
-// AllCharmURLs returns a slice of strings representing charm.URLs for every
-// charm deployed in this model.
-func (st *State) AllCharmURLs() ([]*string, error) {
-	applications, closer := st.db().GetCollection(charmsC)
-	defer closer()
-
-	var docs []struct {
-		CharmURL *string `bson:"url"`
-	}
-	err := applications.Find(bson.D{}).All(&docs)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charms")
-	}
-	if err != nil {
-		return nil, errors.Errorf("cannot get all charm URLs")
-	}
-
-	curls := make([]*string, len(docs))
-	for i, v := range docs {
-		curls[i] = v.CharmURL
-	}
-
-	return curls, nil
-}

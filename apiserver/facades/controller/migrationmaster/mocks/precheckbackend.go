@@ -72,21 +72,6 @@ func (mr *MockPrecheckBackendMockRecorder) AllApplications() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllApplications", reflect.TypeOf((*MockPrecheckBackend)(nil).AllApplications))
 }
 
-// AllCharmURLs mocks base method.
-func (m *MockPrecheckBackend) AllCharmURLs() ([]*string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllCharmURLs")
-	ret0, _ := ret[0].([]*string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllCharmURLs indicates an expected call of AllCharmURLs.
-func (mr *MockPrecheckBackendMockRecorder) AllCharmURLs() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCharmURLs", reflect.TypeOf((*MockPrecheckBackend)(nil).AllCharmURLs))
-}
-
 // AllMachines mocks base method.
 func (m *MockPrecheckBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	m.ctrl.T.Helper()

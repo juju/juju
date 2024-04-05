@@ -1056,10 +1056,6 @@ func (b *fakeBackend) MongoCurrentStatus() (*replicaset.Status, error) {
 	return b.mongoCurrentStatus, b.mongoCurrentStatusErr
 }
 
-func (b *fakeBackend) AllCharmURLs() ([]*string, error) {
-	return nil, errors.NotFoundf("charms")
-}
-
 type fakePool struct {
 	models []migration.PrecheckModel
 }

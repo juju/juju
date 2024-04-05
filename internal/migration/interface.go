@@ -31,7 +31,6 @@ type PrecheckBackend interface {
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
-	AllCharmURLs() ([]*string, error)
 	ControllerBackend() (PrecheckBackend, error)
 	HasUpgradeSeriesLocks() (bool, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
