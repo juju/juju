@@ -1238,10 +1238,6 @@ func (f *fakeDeployAPI) ResolveBundleURL(url *charm.URL, preferredChannel common
 ) {
 	results := f.MethodCall(f, "ResolveBundleURL", url, preferredChannel)
 	if results == nil {
-		if url.Series == "bundle" {
-			return nil, commoncharm.Origin{}, errors.Errorf(
-				"cannot resolve URL %q: bundle not found", url)
-		}
 		return nil, commoncharm.Origin{}, errors.NotValidf("charmstore bundle %q", url)
 	}
 	return results[0].(*charm.URL),

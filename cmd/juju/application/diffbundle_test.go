@@ -96,7 +96,6 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 		Schema:   "ch",
 		Name:     "prometheus",
 		Revision: 23,
-		Series:   "xenial",
 	}
 	s.apiRoot.responses["ModelConfig.ModelGet"] = params.ModelConfigResults{
 		Config: map[string]params.ConfigValue{
@@ -230,7 +229,6 @@ func (s *diffSuite) TestCharmSeriesBundle(c *gc.C) {
 	s.charmHub.url = &charm.URL{
 		Schema: "ch",
 		Name:   "my-bundle",
-		Series: "bundle",
 	}
 	s.charmHub.bundle = &mockBundle{data: bundleData}
 
@@ -281,7 +279,6 @@ func (s *diffSuite) TestCharmHubBundle(c *gc.C) {
 	s.charmHub.url = &charm.URL{
 		Schema: "ch",
 		Name:   "my-bundle",
-		Series: "bundle",
 	}
 	s.charmHub.bundle = &mockBundle{data: bundleData}
 

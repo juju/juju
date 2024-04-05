@@ -169,7 +169,7 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *gc.C) {
 
 	url, origin, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "ch:arm64/jammy/juju-controller-0")
+	c.Assert(url, gc.Equals, "ch:arm64/juju-controller-0")
 	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
 		Source:  corecharm.CharmHub,
 		Type:    "charm",
@@ -196,7 +196,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *gc.C) {
 
 	url, origin, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "ch:arm64/jammy/inferi-0")
+	c.Assert(url, gc.Equals, "ch:arm64/inferi-0")
 	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
 		Source:  corecharm.CharmHub,
 		Type:    "charm",
@@ -346,7 +346,6 @@ func (s *deployerSuite) expectCharmhubCharmUpload(c *gc.C, name string) {
 		Schema:       string(charm.CharmHub),
 		Name:         name,
 		Revision:     0,
-		Series:       "jammy",
 		Architecture: "arm64",
 	}
 	origin := corecharm.Origin{

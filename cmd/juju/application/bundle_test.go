@@ -78,20 +78,13 @@ func (s *BundleDeploySuite) setupCharm(c *gc.C, url, name string, b base.Base) c
 
 func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abase base.Base, arc string, force bool) charm.Charm {
 	baseURL := charm.MustParseURL(url)
-	baseURL.Series = ""
-	deployURL := charm.MustParseURL(url)
 	resolveURL := charm.MustParseURL(url)
 	if resolveURL.Revision < 0 {
 		resolveURL.Revision = 1
 	}
 	noRevisionURL := charm.MustParseURL(url)
-	noRevisionURL.Series = resolveURL.Series
 	noRevisionURL.Revision = -1
 	charmHubURL := charm.MustParseURL(fmt.Sprintf("ch:%s", baseURL.Name))
-	seriesURL := charm.MustParseURL(url)
-	aseries, err := base.GetSeriesFromBase(abase)
-	c.Assert(err, jc.ErrorIsNil)
-	seriesURL.Series = aseries
 	// In order to replicate what the charmstore does in terms of matching, we
 	// brute force (badly) the various types of charm urls.
 	// TODO (stickupkid): This is terrible, the fact that you're bruteforcing
@@ -102,18 +95,10 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 		baseURL,
 		resolveURL,
 		noRevisionURL,
-		deployURL,
 		charmHubURL,
-		seriesURL,
 	}
 	for _, url := range charmURLs {
-		for _, serie := range []string{"", url.Series, aseries} {
-			var b base.Base
-			if serie != "" {
-				var err error
-				b, err = base.GetBaseFromSeries(serie)
-				c.Assert(err, jc.ErrorIsNil)
-			}
+		for _, b := range []base.Base{{}, abase} {
 			for _, a := range []string{"", arc, arch.DefaultArchitecture} {
 				platform := corecharm.Platform{
 					Architecture: a,
@@ -144,33 +129,27 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 	}
 
 	var chDir charm.Charm
-	chDir, err = charm.ReadCharmDir(testcharms.RepoWithSeries(aseries).CharmDirPath(name))
+	chDir, err := charm.ReadCharmDir(testcharms.RepoWithSeries("bionic").CharmDirPath(name))
 	if err != nil {
 		if !os.IsNotExist(errors.Cause(err)) {
 			c.Fatal(err)
 			return nil
 		}
-		chDir = testcharms.RepoForSeries(aseries).CharmArchive(c.MkDir(), "dummy")
+		chDir = testcharms.RepoForSeries("bionic").CharmArchive(c.MkDir(), "dummy")
 	}
 	return chDir
 }
 
-func (s *BundleDeploySuite) setupBundle(c *gc.C, url, name string, allSeries ...string) {
+func (s *BundleDeploySuite) setupBundle(c *gc.C, url, name string, allBase ...base.Base) {
 	bundleResolveURL := charm.MustParseURL(url)
 	baseURL := *bundleResolveURL
 	baseURL.Revision = -1
 	withCharmRepoResolvable(s.fakeAPI, &baseURL, "")
-	bundleDir := testcharms.RepoWithSeries(allSeries[0]).BundleArchive(c.MkDir(), name)
+	bundleDir := testcharms.RepoWithSeries("bionic").BundleArchive(c.MkDir(), name)
 
 	// Resolve a bundle with no revision and return a url with a version.  Ensure
 	// GetBundle expects the url with revision.
-	for _, serie := range append([]string{"", baseURL.Series}, allSeries...) {
-		var b base.Base
-		if serie != "" && serie != "bundle" {
-			var err error
-			b, err = base.GetBaseFromSeries(serie)
-			c.Assert(err, jc.ErrorIsNil)
-		}
+	for _, b := range allBase {
 		origin, err := apputils.MakeOrigin(charm.Schema(bundleResolveURL.Schema), bundleResolveURL.Revision, charm.Channel{}, corecharm.Platform{
 			OS: b.OS, Channel: b.Channel.Track})
 		c.Assert(err, jc.ErrorIsNil)
@@ -191,16 +170,18 @@ func (s *BundleDeploySuite) runDeploy(c *gc.C, args ...string) error {
 }
 
 func (s *BundleDeploySuite) TestDeployBundleInvalidFlags(c *gc.C) {
-	s.setupCharm(c, "ch:xenial/mysql-42", "mysql", base.MustParseBaseFromString("ubuntu@18.04"))
-	s.setupCharm(c, "ch:xenial/wordpress-47", "wordpress", base.MustParseBaseFromString("ubuntu@18.04"))
-	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic", "xenial")
+	s.setupCharm(c, "ch:mysql-42", "mysql", base.MustParseBaseFromString("ubuntu@18.04"))
+	s.setupCharm(c, "ch:wordpress-47", "wordpress", base.MustParseBaseFromString("ubuntu@18.04"))
+	s.setupBundle(c, "ch:wordpress-simple-1", "wordpress-simple", base.Base{}, base.MustParseBaseFromString("ubuntu@18.04"), base.MustParseBaseFromString("ubuntu@16.04"))
 
-	err := s.runDeploy(c, "ch:bundle/wordpress-simple", "--config", "config.yaml")
+	err := s.runDeploy(c, "ch:wordpress-simple", "--config", "config.yaml")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
-	err = s.runDeploy(c, "ch:bundle/wordpress-simple", "-n", "2")
+	err = s.runDeploy(c, "ch:wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
-	err = s.runDeploy(c, "ch:bundle/wordpress-simple", "--series", "xenial")
+	err = s.runDeploy(c, "ch:wordpress-simple", "--series", "xenial")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
+	err = s.runDeploy(c, "ch:wordpress-simple", "--base", "ubuntu@18.04")
+	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --base")
 }
 
 func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {

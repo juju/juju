@@ -229,21 +229,6 @@ func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
 	return addCharm(c, st, series, getCharmRepo(series).CharmDir(name))
 }
 
-func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
-	ch := getCharmRepo(series).CharmDir(name)
-	ident := fmt.Sprintf("amd64/%s/%s-%d", series, name, ch.Revision())
-	curl := "ch:" + ident
-	info := CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      ident + "-sha256",
-	}
-	sch, err := st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	return sch
-}
-
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
