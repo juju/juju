@@ -126,12 +126,7 @@ func (s *State) UpdateSecretBackend(ctx context.Context, params secretbackend.Up
 		return "", errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var existing *secretbackend.SecretBackend
-		if params.Name != "" {
-			existing, err = s.getSecretBackend(ctx, tx, "name", params.Name)
-		} else {
-			existing, err = s.getSecretBackend(ctx, tx, "uuid", params.ID)
-		}
+		existing, err := s.getSecretBackend(ctx, tx, params.BackendIdentifier)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -154,7 +149,7 @@ func (s *State) UpdateSecretBackend(ctx context.Context, params secretbackend.Up
 		if params.TokenRotateInterval != nil {
 			upsertParams.TokenRotateInterval = params.TokenRotateInterval
 		}
-		_, err := s.upsertSecretBackend(ctx, tx, upsertParams)
+		_, err = s.upsertSecretBackend(ctx, tx, upsertParams)
 		return errors.Trace(err)
 	})
 	return params.ID, domain.CoerceError(err)
@@ -195,7 +190,7 @@ func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params u
 }
 
 // DeleteSecretBackend deletes the secret backend for the given backend ID.
-func (s *State) DeleteSecretBackend(ctx context.Context, backendID string, force bool) error {
+func (s *State) DeleteSecretBackend(ctx context.Context, identifier secretbackend.BackendIdentifier, force bool) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -229,22 +224,30 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 		return errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		arg := sqlair.M{"uuid": backendID}
+		if identifier.ID == "" {
+			sb, err := s.getSecretBackend(ctx, tx, identifier)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			identifier.ID = sb.ID
+		}
+
+		arg := sqlair.M{"uuid": identifier.ID}
 		if err := tx.Query(ctx, cfgStmt, arg).Run(); err != nil {
-			return fmt.Errorf("deleting secret backend config for %q: %w", backendID, err)
+			return fmt.Errorf("deleting secret backend config for %q: %w", identifier.ID, err)
 		}
 		if err := tx.Query(ctx, rotationStmt, arg).Run(); err != nil {
-			return fmt.Errorf("deleting secret backend rotation for %q: %w", backendID, err)
+			return fmt.Errorf("deleting secret backend rotation for %q: %w", identifier.ID, err)
 		}
 		if err = tx.Query(ctx, modelSecretBackendStmt, arg).Run(); err != nil {
-			return fmt.Errorf("resetting secret backend %q to NULL for models: %w", backendID, err)
+			return fmt.Errorf("resetting secret backend %q to NULL for models: %w", identifier.ID, err)
 		}
 		err = tx.Query(ctx, backendStmt, arg).Run()
 		if database.IsErrConstraintTrigger(err) {
-			return fmt.Errorf("%w: %q is immutable", backenderrors.Forbidden, backendID)
+			return fmt.Errorf("%w: %q is immutable", backenderrors.Forbidden, identifier.ID)
 		}
 		if err != nil {
-			return fmt.Errorf("deleting secret backend for %q: %w", backendID, err)
+			return fmt.Errorf("deleting secret backend for %q: %w", identifier.ID, err)
 		}
 		return nil
 	})
@@ -294,7 +297,20 @@ ORDER BY b.name`, SecretBackendRow{})
 	return rows.toSecretBackends(), errors.Trace(err)
 }
 
-func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, columName string, v string) (*secretbackend.SecretBackend, error) {
+func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, identifier secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
+	if identifier.ID == "" && identifier.Name == "" {
+		return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
+	}
+	if identifier.ID != "" && identifier.Name != "" {
+		return nil, fmt.Errorf("%w: both ID and name are provided", backenderrors.NotValid)
+	}
+	columName := "uuid"
+	v := identifier.ID
+	if identifier.Name != "" {
+		columName = "name"
+		v = identifier.Name
+	}
+
 	q := fmt.Sprintf(`
 SELECT
     b.uuid                  AS &SecretBackendRow.uuid,
@@ -337,11 +353,7 @@ func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.Backe
 
 	var sb *secretbackend.SecretBackend
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if params.ID != "" {
-			sb, err = s.getSecretBackend(ctx, tx, "uuid", params.ID)
-		} else {
-			sb, err = s.getSecretBackend(ctx, tx, "name", params.Name)
-		}
+		sb, err = s.getSecretBackend(ctx, tx, params)
 		return errors.Trace(err)
 	})
 	return sb, domain.CoerceError(err)

@@ -21,7 +21,7 @@ type State interface {
 
 	CreateSecretBackend(ctx context.Context, params secretbackend.CreateSecretBackendParams) (string, error)
 	UpdateSecretBackend(ctx context.Context, params secretbackend.UpdateSecretBackendParams) (string, error)
-	DeleteSecretBackend(ctx context.Context, backendID string, force bool) error
+	DeleteSecretBackend(ctx context.Context, _ secretbackend.BackendIdentifier, force bool) error
 	ListSecretBackends(ctx context.Context, all bool) ([]*secretbackend.SecretBackend, error)
 	GetSecretBackend(context.Context, secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error)
 	SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error
