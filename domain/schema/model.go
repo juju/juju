@@ -61,9 +61,9 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
 		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
 		changeLogTriggersForTableOnColumn(
-			"secret", "uuid", "auto_prune", tableSecretAutoPrune),
+			"secret", "id", "auto_prune", tableSecretAutoPrune),
 		changeLogTriggersForTableOnColumn(
-			"secret_rotation", "secret_uuid", "next_rotation_time", tableSecretRotation),
+			"secret_rotation", "secret_id", "next_rotation_time", tableSecretRotation),
 		changeLogTriggersForTableOnColumn(
 			"secret_revision", "uuid", "obsolete", tableSecretRevisionObsolete),
 		changeLogTriggersForTableOnColumn(

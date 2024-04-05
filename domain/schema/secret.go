@@ -120,7 +120,7 @@ INSERT INTO secret_rotate_policy VALUES
 
 CREATE TABLE
     secret (
-        uuid TEXT PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         version INT,
         description TEXT,
         rotate_policy TEXT,
@@ -134,11 +134,11 @@ CREATE TABLE
 
 CREATE TABLE
     secret_rotation (
-        secret_uuid TEXT PRIMARY KEY,
+        secret_id TEXT PRIMARY KEY,
         next_rotation_time DATETIME NOT NULL,
-        CONSTRAINT fk_secret_rotation_secret_uuid
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid)
+        CONSTRAINT fk_secret_rotation_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id)
     );
 
 -- 1:1
@@ -175,7 +175,7 @@ CREATE INDEX idx_secret_content_revision_uuid ON secret_content (revision_uuid);
 CREATE TABLE
     secret_revision (
         uuid TEXT PRIMARY KEY,
-        secret_uuid TEXT NOT NULL,
+        secret_id TEXT NOT NULL,
         revision INT NOT NULL,
         obsolete BOOLEAN NOT NULL DEFAULT (FALSE),
         -- pending_delete is true if the revision is to be deleted.
@@ -183,12 +183,12 @@ CREATE TABLE
         pending_delete BOOLEAN NOT NULL DEFAULT (FALSE),
         create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
         update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-        CONSTRAINT fk_secret_revision_secret_uuid 
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid)
+        CONSTRAINT fk_secret_revision_secret_id 
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id)
     );
 
-CREATE UNIQUE INDEX idx_secret_revision_secret_uuid_revision ON secret_revision (secret_uuid,revision);
+CREATE UNIQUE INDEX idx_secret_revision_secret_id_revision ON secret_revision (secret_id,revision);
 
 CREATE TABLE
     secret_revision_expire (
@@ -201,12 +201,12 @@ CREATE TABLE
 
 CREATE TABLE
     secret_application_owner (
-        secret_uuid TEXT PRIMARY KEY,
+        secret_id TEXT PRIMARY KEY,
         application_uuid TEXT NOT NULL,
         label TEXT,
-        CONSTRAINT fk_secret_application_owner_secret_uuid
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid),
+        CONSTRAINT fk_secret_application_owner_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id),
         CONSTRAINT fk_secret_application_owner_application_uuid
             FOREIGN KEY (application_uuid)
             REFERENCES application (uuid)
@@ -217,12 +217,12 @@ CREATE UNIQUE INDEX idx_secret_application_owner_label ON secret_application_own
 
 CREATE TABLE
     secret_unit_owner (
-        secret_uuid TEXT PRIMARY KEY,
+        secret_id TEXT PRIMARY KEY,
         unit_uuid TEXT NOT NULL,
         label TEXT,
-        CONSTRAINT fk_secret_unit_owner_secret_uuid
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid),
+        CONSTRAINT fk_secret_unit_owner_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id),
         CONSTRAINT fk_secret_unit_owner_unit_uuid
             FOREIGN KEY (unit_uuid)
             REFERENCES unit (uuid)
@@ -233,11 +233,11 @@ CREATE UNIQUE INDEX idx_secret_unit_owner_label ON secret_unit_owner (label,unit
 
 CREATE TABLE
     secret_model_owner (
-        secret_uuid TEXT PRIMARY KEY,
+        secret_id TEXT PRIMARY KEY,
         label TEXT,
-        CONSTRAINT fk_secret_model_owner_secret_uuid
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid)
+        CONSTRAINT fk_secret_model_owner_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id)
     );
 
 CREATE UNIQUE INDEX idx_secret_model_owner_label ON secret_model_owner (label);
@@ -245,69 +245,69 @@ CREATE UNIQUE INDEX idx_secret_model_owner_label ON secret_model_owner (label);
 CREATE TABLE
     secret_application_consumer (
         uuid TEXT PRIMARY KEY,
-        secret_uuid TEXT NOT NULL,
+        secret_id TEXT NOT NULL,
         application_uuid TEXT NOT NULL,
         label TEXT,
         current_revision INT NOT NULL,
-        CONSTRAINT fk_secret_application_consumer_secret_uuid
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid),
+        CONSTRAINT fk_secret_application_consumer_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id),
         CONSTRAINT fk_secret_application_consumer_application_uuid
             FOREIGN KEY (application_uuid)
             REFERENCES application (uuid)
     );
-CREATE UNIQUE INDEX idx_secret_application_consumer_secret_uuid_application_uuid ON secret_application_consumer (secret_uuid,application_uuid);
+CREATE UNIQUE INDEX idx_secret_application_consumer_secret_id_application_uuid ON secret_application_consumer (secret_id,application_uuid);
 CREATE UNIQUE INDEX idx_secret_application_consumer_label ON secret_application_consumer (label,application_uuid);
 
 CREATE TABLE
     secret_unit_consumer (
         uuid TEXT PRIMARY KEY,
-        secret_uuid TEXT NOT NULL,
+        secret_id TEXT NOT NULL,
         unit_uuid TEXT NOT NULL,
         label TEXT,
         current_revision INT NOT NULL, 
-        CONSTRAINT fk_secret_unit_consumer_secret_uuid
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid),
+        CONSTRAINT fk_secret_unit_consumer_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id),
         CONSTRAINT fk_secret_unit_consumer_unit_uuid
             FOREIGN KEY (unit_uuid)
             REFERENCES unit (uuid)
     );
 
-CREATE UNIQUE INDEX idx_secret_unit_consumer_secret_uuid_unit_uuid ON secret_unit_consumer (secret_uuid,unit_uuid);
+CREATE UNIQUE INDEX idx_secret_unit_consumer_secret_id_unit_uuid ON secret_unit_consumer (secret_id,unit_uuid);
 CREATE UNIQUE INDEX idx_secret_unit_consumer_label ON secret_unit_consumer (label,unit_uuid);
 
 CREATE TABLE
     secret_remote_application_consumer (
         uuid TEXT PRIMARY KEY,
-        secret_uuid TEXT NOT NULL,
+        secret_id TEXT NOT NULL,
         application_uuid TEXT NOT NULL,
         current_revision INT NOT NULL,
-        CONSTRAINT fk_secret_remote_application_consumer_secret_uuid
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid),
+        CONSTRAINT fk_secret_remote_application_consumer_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id),
         CONSTRAINT fk_secret_remote_application_consumer_application_uuid
             FOREIGN KEY (application_uuid)
             REFERENCES application (uuid)
     );
 
-CREATE UNIQUE INDEX idx_secret_remote_application_consumer_secret_uuid_application_uuid ON secret_remote_application_consumer (secret_uuid,application_uuid);
+CREATE UNIQUE INDEX idx_secret_remote_application_consumer_secret_id_application_uuid ON secret_remote_application_consumer (secret_id,application_uuid);
 
 CREATE TABLE
     secret_remote_unit_consumer (
         uuid TEXT PRIMARY KEY,
-        secret_uuid TEXT NOT NULL,
+        secret_id TEXT NOT NULL,
         unit_uuid TEXT NOT NULL,
         current_revision INT NOT NULL,
-        CONSTRAINT fk_secret_remote_unit_consumer_secret_uuid
-            FOREIGN KEY (secret_uuid)
-            REFERENCES secret (uuid),
+        CONSTRAINT fk_secret_remote_unit_consumer_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id),
         CONSTRAINT fk_secret_remote_unit_consumer_unit_uuid
             FOREIGN KEY (unit_uuid)
             REFERENCES unit (uuid)
     );
 
-CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_uuid_unit_uuid ON secret_remote_unit_consumer (secret_uuid,unit_uuid);
+CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_uuid ON secret_remote_unit_consumer (secret_id,unit_uuid);
 
 CREATE TABLE
     secret_role (
