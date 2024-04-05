@@ -153,10 +153,11 @@ func (st *PermissionState) DeletePermission(ctx context.Context, subject string,
 }
 
 // UpsertPermission updates the permission on the target for the given
-// subject (user). The api user must have Admin permission on the target. If a
-// subject does not exist, it is created using the subject and api user. Access
-// can be granted or revoked.
-func (st *PermissionState) UpsertPermission(ctx context.Context, args access.UpsertPermissionArgs) error {
+// subject (user). The api user must have Superuser access or Admin access
+// on the target. If a subject does not exist, it is created using the subject
+// and api user. Access can be granted or revoked. Revoking Read access will
+// delete the permission.
+func (st *PermissionState) UpsertPermission(ctx context.Context, args access.UpdatePermissionArgs) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -810,7 +811,7 @@ AND     u.removed = false
 	return apiUserUUID, accesserrors.PermissionNotValid
 }
 
-func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, args access.UpsertPermissionArgs) error {
+func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, args access.UpdatePermissionArgs) error {
 	userAccessLevel, err := st.userAccessLevel(ctx, tx, args.Subject, args.AccessSpec.Target)
 	if err != nil {
 		return errors.Annotatef(err, "getting current access for grant")
@@ -829,7 +830,7 @@ func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, a
 	return nil
 }
 
-func (st *PermissionState) revokePermission(ctx context.Context, tx *sqlair.TX, args access.UpsertPermissionArgs) error {
+func (st *PermissionState) revokePermission(ctx context.Context, tx *sqlair.TX, args access.UpdatePermissionArgs) error {
 	newAccess := args.AccessSpec.RevokeAccess()
 	if newAccess == corepermission.NoAccess {
 		err := st.deletePermission(ctx, tx, args.Subject, args.AccessSpec.Target)

@@ -16,7 +16,7 @@ type typesSuite struct{}
 var _ = gc.Suite(&typesSuite{})
 
 func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
-	argsToTest := []UpsertPermissionArgs{
+	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject
 			ApiUser: "admin",
 		}, { // Missing Target

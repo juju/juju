@@ -9,9 +9,9 @@ import (
 	"github.com/juju/juju/core/permission"
 )
 
-// UpsertPermissionArgs are necessary arguments to run
+// UpdatePermissionArgs are necessary arguments to run
 // UpdatePermissionOnTarget.
-type UpsertPermissionArgs struct {
+type UpdatePermissionArgs struct {
 	// AccessSpec is what the permission access should change to
 	// combined with the target the subject's permission to is being
 	// updated on.
@@ -27,7 +27,7 @@ type UpsertPermissionArgs struct {
 	Subject string
 }
 
-func (args UpsertPermissionArgs) Validate() error {
+func (args UpdatePermissionArgs) Validate() error {
 	if args.ApiUser == "" {
 		return errors.Trace(errors.NotValidf("empty api user"))
 	}

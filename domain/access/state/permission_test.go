@@ -488,7 +488,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantNewUser(c *gc.C) {
 		ObjectType: corepermission.Model,
 		Key:        "default-model",
 	}
-	arg := access.UpsertPermissionArgs{
+	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.WriteAccess,
@@ -520,7 +520,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantExistingUser(c *gc.C) {
 		ObjectType: corepermission.Model,
 		Key:        "default-model",
 	}
-	arg := access.UpsertPermissionArgs{
+	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.AdminAccess,
@@ -548,7 +548,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantLessAccess(c *gc.C) {
 		ObjectType: corepermission.Model,
 		Key:        "default-model",
 	}
-	arg := access.UpsertPermissionArgs{
+	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.ReadAccess,
@@ -565,7 +565,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantLessAccess(c *gc.C) {
 func (s *permissionStateSuite) TestUpsertPermissionNotAuthorized(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
-	arg := access.UpsertPermissionArgs{
+	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
 				ObjectType: corepermission.Model,
@@ -590,7 +590,7 @@ func (s *permissionStateSuite) TestUpsertPermissionRevokeRemovePerm(c *gc.C) {
 		ObjectType: corepermission.Model,
 		Key:        "default-model",
 	}
-	arg := access.UpsertPermissionArgs{
+	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.ReadAccess,
@@ -617,7 +617,7 @@ func (s *permissionStateSuite) TestUpsertPermissionRevoke(c *gc.C) {
 		ObjectType: corepermission.Cloud,
 		Key:        "test-cloud",
 	}
-	arg := access.UpsertPermissionArgs{
+	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.AdminAccess,

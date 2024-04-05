@@ -350,7 +350,7 @@ func (mr *MockStateMockRecorder) UpdateLastLogin(arg0, arg1 any) *gomock.Call {
 }
 
 // UpsertPermission mocks base method.
-func (m *MockState) UpsertPermission(arg0 context.Context, arg1 access.UpsertPermissionArgs) error {
+func (m *MockState) UpsertPermission(arg0 context.Context, arg1 access.UpdatePermissionArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpsertPermission", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -715,7 +715,7 @@ func (mr *MockPermissionStateMockRecorder) ReadUserAccessLevelForTarget(arg0, ar
 }
 
 // UpsertPermission mocks base method.
-func (m *MockPermissionState) UpsertPermission(arg0 context.Context, arg1 access.UpsertPermissionArgs) error {
+func (m *MockPermissionState) UpsertPermission(arg0 context.Context, arg1 access.UpdatePermissionArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpsertPermission", arg0, arg1)
 	ret0, _ := ret[0].(error)

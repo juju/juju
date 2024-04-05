@@ -122,12 +122,13 @@ func (s *PermissionService) ReadAllAccessForUserAndObjectType(ctx context.Contex
 	return userAccess, errors.Trace(err)
 }
 
-// UpsertPermission updates the permission on the target for the given
-// subject (user). The api user must have Admin permission on the target. If a
-// subject does not exist, it is created using the subject and api user. Access
-// can be granted or revoked. Revoking the permission on a user which does not
-// exist, is a no-op, AddUser will be ignored.
-func (s *PermissionService) UpsertPermission(ctx context.Context, args access.UpsertPermissionArgs) error {
+// UpdatePermission updates the permission on the target for the given
+// subject (user). The api user must have Superuser access or Admin access
+// on the target. If a subject does not exist and the args specify, it is
+// created using the subject and api user. Adding the user would typically
+// only happen for updates to model access. Access can be granted or revoked.
+// Revoking Read access will delete the permission.
+func (s *PermissionService) UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error {
 	if err := args.Validate(); err != nil {
 		return errors.Trace(err)
 	}
