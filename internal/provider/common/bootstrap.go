@@ -88,27 +88,9 @@ func BootstrapInstance(
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	supportedBootstrapBase := make([]corebase.Base, len(args.SupportedBootstrapSeries))
-	for i, b := range args.SupportedBootstrapSeries.SortedValues() {
-		sb, err := corebase.GetBaseFromSeries(b)
-		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
-		}
-		supportedBootstrapBase[i] = sb
-	}
-
-	var bootstrapBase corebase.Base
-	if args.BootstrapSeries != "" {
-		b, err := corebase.GetBaseFromSeries(args.BootstrapSeries)
-		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
-		}
-		bootstrapBase = b
-	}
-
 	requestedBootstrapBase, err := corebase.ValidateBase(
-		supportedBootstrapBase,
-		bootstrapBase,
+		args.SupportedBootstrapBases,
+		args.BootstrapBase,
 		config.PreferredBase(env.Config()),
 	)
 	if !args.Force && err != nil {

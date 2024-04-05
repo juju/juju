@@ -89,7 +89,8 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	var series = jujuversion.DefaultSupportedLTS()
+	series, err := base.GetSeriesFromBase(jujuversion.DefaultSupportedLTSBase())
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := s.getArgs(c)
 	hostname := args.Host
@@ -132,7 +133,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	_, err := sshprovisioner.ProvisionMachine(args)
+	_, err = sshprovisioner.ProvisionMachine(args)
 	c.Assert(err, gc.Equals, manual.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
@@ -146,8 +147,11 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
+	series, err := base.GetSeriesFromBase(jujuversion.DefaultSupportedLTSBase())
+	c.Assert(err, jc.ErrorIsNil)
+
 	defer fakeSSH{
-		Series:         jujuversion.DefaultSupportedLTS(),
+		Series:         series,
 		Arch:           arch.AMD64,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
@@ -178,7 +182,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		Version: version.MustParseBinary("6.6.6-ubuntu-amd64"),
 		URL:     "https://example.org",
 	}}
-	err := icfg.SetTools(tools)
+	err = icfg.SetTools(tools)
 	c.Assert(err, jc.ErrorIsNil)
 
 	script, err := sshprovisioner.ProvisioningScript(icfg)

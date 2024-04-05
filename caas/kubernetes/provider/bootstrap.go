@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -1632,24 +1631,15 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		c.broker.randomPrefix,
 	)
 
-	chSeries := version.DefaultSupportedLTS()
-	os, err := corebase.GetOSFromSeries(chSeries)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	ver, err := corebase.SeriesVersion(chSeries)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	defaultBase := version.DefaultSupportedLTSBase()
 	repo, err := docker.NewImageRepoDetails(c.pcfg.Controller.CAASImageRepo())
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
 	charmBaseImage, err := podcfg.ImageForBase(repo.Repository, charm.Base{
-		Name: strings.ToLower(os.String()),
+		Name: strings.ToLower(defaultBase.OS),
 		Channel: charm.Channel{
-			Track: ver,
+			Track: defaultBase.Channel.Track,
 			Risk:  charm.Stable,
 		},
 	})
