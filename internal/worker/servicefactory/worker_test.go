@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -55,16 +56,18 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 func (s *workerSuite) getConfig() Config {
 	return Config{
-		DBGetter:  s.dbGetter,
-		DBDeleter: s.dbDeleter,
-		Logger:    s.logger,
-		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn) servicefactory.ServiceFactoryGetter {
+		DBGetter:        s.dbGetter,
+		DBDeleter:       s.dbDeleter,
+		ProviderFactory: s.providerFactory,
+		BrokerFactory:   s.providerFactory,
+		Logger:          s.logger,
+		NewServiceFactoryGetter: func(_ servicefactory.ControllerServiceFactory, _ changestream.WatchableDBGetter, _ Logger, _ ModelServiceFactoryFn, _, _ providertracker.ProviderFactory) servicefactory.ServiceFactoryGetter {
 			return s.serviceFactoryGetter
 		},
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
 			return s.controllerServiceFactory
 		},
-		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(_ coremodel.UUID, _ changestream.WatchableDBGetter, _, _ providertracker.ProviderFactory, _ Logger) servicefactory.ModelServiceFactory {
 			return s.modelServiceFactory
 		},
 	}

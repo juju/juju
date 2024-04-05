@@ -5,6 +5,8 @@ package servicefactory
 
 import (
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
@@ -33,19 +35,28 @@ import (
 
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
-	logger  Logger
-	modelDB changestream.WatchableDBFactory
+	logger          Logger
+	modelUUID       model.UUID
+	modelDB         changestream.WatchableDBFactory
+	providerFactory providertracker.ProviderFactory
+	brokerFactory   providertracker.ProviderFactory
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
 // function to obtain a model database.
 func NewModelFactory(
+	modelUUID model.UUID,
 	modelDB changestream.WatchableDBFactory,
+	providerFactory providertracker.ProviderFactory,
+	brokerFactory providertracker.ProviderFactory,
 	logger Logger,
 ) *ModelFactory {
 	return &ModelFactory{
-		logger:  logger,
-		modelDB: modelDB,
+		logger:          logger,
+		modelUUID:       modelUUID,
+		modelDB:         modelDB,
+		providerFactory: providerFactory,
+		brokerFactory:   brokerFactory,
 	}
 }
 
@@ -110,9 +121,10 @@ func (s *ModelFactory) Unit() *unitservice.Service {
 }
 
 // Network returns the model's network service.
-func (s *ModelFactory) Network() *networkservice.Service {
-	return networkservice.NewService(
+func (s *ModelFactory) Network() *networkservice.ProviderService {
+	return networkservice.NewProviderService(
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		providertracker.ProviderRunner[networkservice.Provider](s.providerFactory, s.modelUUID.String()),
 		s.logger.Child("network"),
 	)
 }

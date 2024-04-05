@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
@@ -93,6 +94,7 @@ import (
 	"github.com/juju/juju/internal/worker/peergrouper"
 	prworker "github.com/juju/juju/internal/worker/presence"
 	"github.com/juju/juju/internal/worker/providerservicefactory"
+	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	psworker "github.com/juju/juju/internal/worker/pubsub"
@@ -280,9 +282,13 @@ type ManifoldsConfig struct {
 
 	// S3HTTPClient is the HTTP client used for S3 API requests.
 	S3HTTPClient HTTPClient
+
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
 	NewEnvironFunc func(context.Context, environs.OpenParams) (environs.Environ, error)
+
+	// NewCAASBrokerFunc is a function opens a CAAS broker.
+	NewCAASBrokerFunc func(context.Context, environs.OpenParams) (caas.Broker, error)
 }
 
 type HTTPClient interface {
@@ -722,11 +728,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		serviceFactoryName: workerservicefactory.Manifold(workerservicefactory.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
+			ProviderFactoryName:         iaasProviderTrackerName,
+			BrokerFactoryName:           caasProviderTrackerName,
 			Logger:                      workerservicefactory.NewLogger("juju.worker.servicefactory"),
 			NewWorker:                   workerservicefactory.NewWorker,
 			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
 			NewControllerServiceFactory: workerservicefactory.NewControllerServiceFactory,
-			NewModelServiceFactory:      workerservicefactory.NewModelServiceFactory,
+			NewModelServiceFactory:      workerservicefactory.NewProviderTrackerModelServiceFactory,
 		}),
 
 		providerServiceFactoryName: providerservicefactory.Manifold(providerservicefactory.ManifoldConfig{
@@ -864,6 +872,30 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                      config.Clock,
 			GetControllerConfigService: objectstores3caller.GetControllerConfigService,
 			NewWorker:                  objectstores3caller.NewWorker,
+		})),
+
+		caasProviderTrackerName: ifDatabaseUpgradeComplete(providertracker.MultiTrackerManifold[caas.Broker](providertracker.ManifoldConfig[caas.Broker]{
+			ProviderServiceFactoriesName:    providerServiceFactoryName,
+			NewWorker:                       providertracker.NewWorker[caas.Broker],
+			NewTrackerWorker:                providertracker.NewTrackerWorker[caas.Broker],
+			GetProviderServiceFactoryGetter: providertracker.GetProviderServiceFactoryGetter,
+			GetProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
+				return config.NewCAASBrokerFunc(ctx, args)
+			}),
+			Logger: loggo.GetLogger("juju.worker.caasprovidertracker"),
+			Clock:  config.Clock,
+		})),
+
+		iaasProviderTrackerName: ifDatabaseUpgradeComplete(providertracker.MultiTrackerManifold[environs.Environ](providertracker.ManifoldConfig[environs.Environ]{
+			ProviderServiceFactoriesName:    providerServiceFactoryName,
+			NewWorker:                       providertracker.NewWorker[environs.Environ],
+			NewTrackerWorker:                providertracker.NewTrackerWorker[environs.Environ],
+			GetProviderServiceFactoryGetter: providertracker.GetProviderServiceFactoryGetter,
+			GetProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+				return config.NewEnvironFunc(ctx, args)
+			}),
+			Logger: loggo.GetLogger("juju.worker.iaasprovidertracker"),
+			Clock:  config.Clock,
 		})),
 	}
 
@@ -1327,6 +1359,8 @@ const (
 	leaseManagerName              = "lease-manager"
 	stateConverterName            = "state-converter"
 	serviceFactoryName            = "service-factory"
+	caasProviderTrackerName       = "caas-provider-tracker"
+	iaasProviderTrackerName       = "iaas-provider-tracker"
 	providerServiceFactoryName    = "provider-service-factory"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	controllerAgentConfigName     = "controller-agent-config"

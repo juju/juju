@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
@@ -31,6 +32,8 @@ type Logger interface {
 type ManifoldConfig struct {
 	DBAccessorName              string
 	ChangeStreamName            string
+	ProviderFactoryName         string
+	BrokerFactoryName           string
 	Logger                      Logger
 	NewWorker                   func(Config) (worker.Worker, error)
 	NewServiceFactoryGetter     ServiceFactoryGetterFn
@@ -44,6 +47,8 @@ type ServiceFactoryGetterFn func(
 	changestream.WatchableDBGetter,
 	Logger,
 	ModelServiceFactoryFn,
+	providertracker.ProviderFactory,
+	providertracker.ProviderFactory,
 ) servicefactory.ServiceFactoryGetter
 
 // ControllerServiceFactoryFn is a function that returns a controller service
@@ -58,6 +63,8 @@ type ControllerServiceFactoryFn func(
 type ModelServiceFactoryFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
+	providertracker.ProviderFactory,
+	providertracker.ProviderFactory,
 	Logger,
 ) servicefactory.ModelServiceFactory
 
@@ -68,6 +75,12 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.ProviderFactoryName == "" {
+		return errors.NotValidf("empty ProviderFactoryName")
+	}
+	if config.BrokerFactoryName == "" {
+		return errors.NotValidf("empty BrokerFactoryName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -87,14 +100,15 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-// Manifold returns a dependency.Manifold that will run an apiserver
-// worker. The manifold outputs an *apiserverhttp.Mux, for other workers
-// to register handlers against.
+// Manifold returns a dependency.Manifold that will run a service factory
+// worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.ChangeStreamName,
 			config.DBAccessorName,
+			config.ProviderFactoryName,
+			config.BrokerFactoryName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -117,9 +131,21 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var providerFactory providertracker.ProviderFactory
+	if err := getter.Get(config.ProviderFactoryName, &providerFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var brokerFactory providertracker.ProviderFactory
+	if err := getter.Get(config.BrokerFactoryName, &brokerFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
 		DBDeleter:                   dbDeleter,
+		ProviderFactory:             providerFactory,
+		BrokerFactory:               brokerFactory,
 		Logger:                      config.Logger,
 		NewServiceFactoryGetter:     config.NewServiceFactoryGetter,
 		NewControllerServiceFactory: config.NewControllerServiceFactory,
@@ -164,14 +190,39 @@ func NewControllerServiceFactory(
 	)
 }
 
+// NewProviderTrackerModelServiceFactory returns a new model service factory
+// with a provider tracker.
+func NewProviderTrackerModelServiceFactory(
+	modelUUID coremodel.UUID,
+	dbGetter changestream.WatchableDBGetter,
+	providerFactory providertracker.ProviderFactory,
+	brokerFactory providertracker.ProviderFactory,
+	logger Logger,
+) servicefactory.ModelServiceFactory {
+	return domainservicefactory.NewModelFactory(
+		modelUUID,
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
+		providerFactory,
+		brokerFactory,
+		serviceFactoryLogger{
+			Logger: logger,
+		},
+	)
+}
+
 // NewModelServiceFactory returns a new model service factory.
+// This creates a model service factory without a provider tracker. The provider
+// tracker will return not supported errors for all methods.
 func NewModelServiceFactory(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	logger Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
+		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
+		NoopProviderFactory{},
+		NoopProviderFactory{},
 		serviceFactoryLogger{
 			Logger: logger,
 		},
@@ -184,11 +235,21 @@ func NewServiceFactoryGetter(
 	dbGetter changestream.WatchableDBGetter,
 	logger Logger,
 	newModelServiceFactory ModelServiceFactoryFn,
+	providerFactory providertracker.ProviderFactory,
+	brokerFactory providertracker.ProviderFactory,
 ) servicefactory.ServiceFactoryGetter {
 	return &serviceFactoryGetter{
 		ctrlFactory:            ctrlFactory,
 		dbGetter:               dbGetter,
 		logger:                 logger,
 		newModelServiceFactory: newModelServiceFactory,
+		providerFactory:        providerFactory,
+		brokerFactory:          brokerFactory,
 	}
+}
+
+type NoopProviderFactory struct{}
+
+func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
+	return nil, errors.NotSupportedf("provider")
 }
