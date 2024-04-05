@@ -45,9 +45,8 @@ func (st State) CreateUserSecret(ctx context.Context, version int, uri *coresecr
 		return errors.Trace(err)
 	}
 
-	checkExistsSQL := "SELECT &secretOwner.secret_id FROM secret_model_owner WHERE label = $secretOwner.label"
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.createSecret(ctx, tx, version, uri, secret, revisionUUID, checkExistsSQL); err != nil {
+		if err := st.createSecret(ctx, tx, version, uri, secret, revisionUUID, st.checkUserSecretLabelExists); err != nil {
 			return errors.Annotatef(err, "inserting secret records for secret %q", uri)
 		}
 
@@ -60,9 +59,13 @@ func (st State) CreateUserSecret(ctx context.Context, version int, uri *coresecr
 	return errors.Trace(domain.CoerceError(err))
 }
 
-// checkSecretExists returns an error if the secret with the given label already exists.
-func (st State) checkSecretExists(ctx context.Context, tx *sqlair.TX, label, checkExistsSQL string) error {
-	checkExistsStmt, err := st.Prepare(checkExistsSQL, secretOwner{})
+// checkSecretUserLabelExists returns an error if a user secret with the given label already exists.
+func (st State) checkUserSecretLabelExists(ctx context.Context, tx *sqlair.TX, label string) error {
+	checkLabelExistsSQL := `
+SELECT &secretOwner.secret_id
+FROM   secret_model_owner
+WHERE  label = $secretOwner.label`
+	checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, secretOwner{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -72,15 +75,23 @@ func (st State) checkSecretExists(ctx context.Context, tx *sqlair.TX, label, che
 		return errors.Trace(domain.CoerceError(err))
 	}
 	if err == nil {
-		return fmt.Errorf("secret with label %q %w", label, secreterrors.SecretAlreadyExists)
+		return fmt.Errorf("secret with label %q already exists%w", label, errors.Hide(secreterrors.SecretLabelAlreadyExists))
 	}
 	return nil
 }
 
+type checkExistsFunc = func(ctx context.Context, tx *sqlair.TX, label string) error
+
 // createSecret creates the records needed to store secret data, excluding secret owner records.
-func (st State) createSecret(ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams, revisionUUID uuid.UUID, checkExistsSQL string) error {
-	if err := st.checkSecretExists(ctx, tx, secret.Label, checkExistsSQL); err != nil {
-		return errors.Trace(err)
+func (st State) createSecret(
+	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI,
+	secret domainsecret.UpsertSecretParams, revisionUUID uuid.UUID,
+	checkExists checkExistsFunc,
+) error {
+	if secret.Label != "" {
+		if err := checkExists(ctx, tx, secret.Label); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	if len(secret.Data) == 0 && secret.ValueRef == nil {
@@ -129,11 +140,12 @@ func (st State) upsertSecret(ctx context.Context, tx *sqlair.TX, dbSecret secret
 	insertQuery := `
 INSERT INTO secret (*)
 VALUES ($secretMetadata.*)
-ON CONFLICT(id) DO UPDATE SET version=excluded.version,
-                              description=excluded.description,
-                              rotate_policy=excluded.rotate_policy,
-                              auto_prune=excluded.auto_prune,
-                              update_time=excluded.update_time
+ON CONFLICT(id) DO UPDATE SET 
+    version=excluded.version,
+    description=excluded.description,
+    rotate_policy=excluded.rotate_policy,
+    auto_prune=excluded.auto_prune,
+    update_time=excluded.update_time
 `
 
 	insertStmt, err := st.Prepare(insertQuery, secretMetadata{})
@@ -148,7 +160,7 @@ ON CONFLICT(id) DO UPDATE SET version=excluded.version,
 	return nil
 }
 
-func (st State) upsertSecretModelOwner(ctx context.Context, tx *sqlair.TX, secret secretOwner) error {
+func (st State) upsertSecretModelOwner(ctx context.Context, tx *sqlair.TX, owner secretOwner) error {
 	insertQuery := `
 INSERT INTO secret_model_owner (secret_id, label)
 VALUES      ($secretOwner.*)
@@ -160,7 +172,7 @@ ON CONFLICT(secret_id) DO UPDATE SET label=excluded.label
 		return errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, secret).Run()
+	err = tx.Query(ctx, insertStmt, owner).Run()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,9 +183,10 @@ func (st State) upsertSecretRevision(ctx context.Context, tx *sqlair.TX, dbRevis
 	insertQuery := `
 INSERT INTO secret_revision (*)
 VALUES (    $secretRevision.*)
-ON CONFLICT(uuid) DO UPDATE SET obsolete=excluded.obsolete,
-                                pending_delete=excluded.pending_delete,
-                                update_time=excluded.update_time
+ON CONFLICT(uuid) DO UPDATE SET
+    obsolete=excluded.obsolete,
+    pending_delete=excluded.pending_delete,
+    update_time=excluded.update_time
 `
 
 	insertStmt, err := st.Prepare(insertQuery, secretRevision{})
@@ -192,8 +205,9 @@ func (st State) upsertSecretValueRef(ctx context.Context, tx *sqlair.TX, revisio
 	insertQuery := `
 INSERT INTO secret_value_ref (*)
 VALUES      ($secretValueRef.*)
-ON CONFLICT(revision_uuid) DO UPDATE SET backend_uuid=excluded.backend_uuid,
-                                         revision_id=excluded.revision_id
+ON CONFLICT(revision_uuid) DO UPDATE SET
+    backend_uuid=excluded.backend_uuid,
+    revision_id=excluded.revision_id
 `
 
 	insertStmt, err := st.Prepare(insertQuery, secretValueRef{})
@@ -202,9 +216,9 @@ ON CONFLICT(revision_uuid) DO UPDATE SET backend_uuid=excluded.backend_uuid,
 	}
 
 	err = tx.Query(ctx, insertStmt, secretValueRef{
-		ID:          revisionUUID,
-		BackendUUID: valueRef.BackendID,
-		RevisionID:  valueRef.RevisionID,
+		RevisionUUID: revisionUUID,
+		BackendUUID:  valueRef.BackendID,
+		RevisionID:   valueRef.RevisionID,
 	}).Run()
 	if err != nil {
 		return errors.Trace(err)
@@ -234,8 +248,9 @@ VALUES (
     $secretContent.name,
     $secretContent.content
 )
-ON CONFLICT(revision_uuid, name) DO UPDATE SET name=excluded.name,
-                                               content=excluded.content
+ON CONFLICT(revision_uuid, name) DO UPDATE SET
+    name=excluded.name,
+    content=excluded.content
 `
 	insertStmt, err := st.Prepare(insertQuery, secretContent{})
 	if err != nil {
@@ -251,9 +266,9 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET name=excluded.name,
 	}
 	for key, value := range content {
 		if err := tx.Query(ctx, insertStmt, secretContent{
-			ID:      revisionUUID,
-			Name:    key,
-			Content: value,
+			RevisionUUID: revisionUUID,
+			Name:         key,
+			Content:      value,
 		}).Run(); err != nil {
 			return errors.Trace(err)
 		}
@@ -272,27 +287,31 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 
 	query := fmt.Sprintf(`
 SELECT 
-   id AS &secretInfo.id,
-   version as &secretInfo.version,
-   description as &secretInfo.description,
-   auto_prune as &secretInfo.auto_prune,
-   create_time as &secretInfo.create_time,
-   update_time as &secretInfo.update_time,
-   -- TODO(secrets) - sqlair doesn't like this
-   -- (SELECT MAX(revision) FROM secret_revision rev WHERE rev.secret_id = secret.id) AS &secretInfo.latest_revision,
-   so.owner_kind AS &secretOwner.owner_kind,
-   so.owner_id AS &secretOwner.owner_id,
-   so.label AS &secretOwner.label
-FROM   secret
+     id AS &secretInfo.id,
+     version as &secretInfo.version,
+     description as &secretInfo.description,
+     auto_prune as &secretInfo.auto_prune,
+     create_time as &secretInfo.create_time,
+     update_time as &secretInfo.update_time,
+     -- TODO(secrets) - sqlair doesn't like this
+     -- (SELECT MAX(revision) FROM secret_revision rev WHERE rev.secret_id = secret.id) AS &secretInfo.latest_revision,
+     so.owner_kind AS &secretOwner.owner_kind,
+     so.owner_id AS &secretOwner.owner_id,
+     so.label AS &secretOwner.label
+FROM secret
        LEFT JOIN (
-          SELECT '%s' AS owner_kind, (SELECT uuid FROM model) AS owner_id, label FROM secret_model_owner so WHERE so.secret_id = $M.id
+          SELECT '%s' AS owner_kind, (SELECT uuid FROM model) AS owner_id, label
+          FROM   secret_model_owner so
+          WHERE  so.secret_id = $M.id
        UNION
-          SELECT '%s' AS owner_kind, application.name AS owner_id, label FROM secret_application_owner so
+          SELECT '%s' AS owner_kind, application.name AS owner_id, label
+          FROM   secret_application_owner so
           JOIN   application
           WHERE  application.uuid = so.application_uuid
           AND    so.secret_id = $M.id
        UNION
-          SELECT '%s' AS owner_kind, unit.unit_id AS owner_id, label FROM secret_unit_owner so
+          SELECT '%s' AS owner_kind, unit.unit_id AS owner_id, label
+          FROM   secret_unit_owner so
           JOIN   unit
           WHERE  unit.uuid = so.unit_uuid
           AND    so.secret_id = $M.id
@@ -345,9 +364,7 @@ WHERE  secret_id = $secretRevision.secret_id AND revision = $secretRevision.revi
 		return nil, errors.Trace(err)
 	}
 
-	var (
-		dbSecretRevisions secretRevisions
-	)
+	var dbSecretRevisions secretRevisions
 	want := secretRevision{SecretID: uri.ID, Revision: revision}
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryStmt, want).GetAll(&dbSecretRevisions)
@@ -420,7 +437,7 @@ WHERE  rev.secret_id = $secretRevision.secret_id AND rev.revision = $secretRevis
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Annotatef(err, "rrrrretrieving secret value ref for %q revision %d", uri, revision)
+		return errors.Annotatef(err, "retrieving secret value ref for %q revision %d", uri, revision)
 	}); err != nil {
 		return nil, nil, errors.Annotate(err, "querying secret value")
 	}
@@ -429,14 +446,14 @@ WHERE  rev.secret_id = $secretRevision.secret_id AND rev.revision = $secretRevis
 	if len(dbSecretValues) > 0 {
 		content, err := dbSecretValues.toSecretData()
 		if err != nil {
-			return nil, nil, errors.Annotatef(err, "composing secret contentfor secret %q revision %d from database", uri, revision)
+			return nil, nil, errors.Annotatef(err, "composing secret content for secret %q revision %d from database", uri, revision)
 		}
 		return content, nil, nil
 	}
 
 	// Process any value reference.
 	if len(dbSecretValueRefs) == 0 {
-		return nil, nil, fmt.Errorf("secret value for %q revision %d not found%w", uri, revision, errors.Hide(secreterrors.SecretRevisionNotFound))
+		return nil, nil, fmt.Errorf("secret value ref for %q revision %d not found%w", uri, revision, errors.Hide(secreterrors.SecretRevisionNotFound))
 	}
 	if len(dbSecretValueRefs) != 1 {
 		return nil, nil, fmt.Errorf("unexpected secret value refs for %q revision %d: got %d values", uri, revision, len(dbSecretValues))

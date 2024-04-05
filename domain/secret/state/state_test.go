@@ -63,7 +63,7 @@ func (s *stateSuite) TestGetSecretRevisionNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
 }
 
-func (s *stateSuite) TestCreateUserSecretAlreadyExists(c *gc.C) {
+func (s *stateSuite) TestCreateUserSecretLabelAlreadyExists(c *gc.C) {
 	s.setupModel(c)
 
 	st := newSecretState(s.TxnRunnerFactory())
@@ -79,7 +79,7 @@ func (s *stateSuite) TestCreateUserSecretAlreadyExists(c *gc.C) {
 	err := st.CreateUserSecret(ctx, 1, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.CreateUserSecret(ctx, 1, uri, sp)
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretAlreadyExists)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
 func (s *stateSuite) assertSecret(c *gc.C, st *State, uri *coresecrets.URI, sp domainsecret.UpsertSecretParams, revision int, owner coresecrets.Owner) {
@@ -125,6 +125,39 @@ func (s *stateSuite) TestCreateUserSecretWithContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+}
+
+func (s *stateSuite) TestCreateManyUserSecretsNoLabelClash(c *gc.C) {
+	modelUUID := s.setupModel(c)
+
+	st := newSecretState(s.TxnRunnerFactory())
+
+	createAndCheck := func(label string) {
+		content := label
+		if content == "" {
+			content = "empty"
+		}
+		sp := domainsecret.UpsertSecretParams{
+			Description: "my secretMetadata",
+			Label:       label,
+			Data:        coresecrets.SecretData{"foo": content},
+			AutoPrune:   true,
+		}
+		uri := coresecrets.NewURI()
+		ctx := context.Background()
+		err := st.CreateUserSecret(ctx, 1, uri, sp)
+		c.Assert(err, jc.ErrorIsNil)
+		owner := coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: modelUUID}
+		s.assertSecret(c, st, uri, sp, 1, owner)
+		data, ref, err := st.GetSecretValue(ctx, uri, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ref, gc.IsNil)
+		c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": content})
+	}
+	createAndCheck("my label")
+	createAndCheck("")
+	createAndCheck("")
+	createAndCheck("another label")
 }
 
 func (s *stateSuite) TestCreateUserSecretWithValueReference(c *gc.C) {

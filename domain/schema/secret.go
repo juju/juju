@@ -213,7 +213,7 @@ CREATE TABLE
     );
 
 -- We need to ensure the label is unique per the application.
-CREATE UNIQUE INDEX idx_secret_application_owner_label ON secret_application_owner (label,application_uuid);
+CREATE UNIQUE INDEX idx_secret_application_owner_label ON secret_application_owner (label,application_uuid) WHERE label != '';
 
 CREATE TABLE
     secret_unit_owner (
@@ -229,7 +229,7 @@ CREATE TABLE
     );
 
 -- We need to ensure the label is unique per unit.
-CREATE UNIQUE INDEX idx_secret_unit_owner_label ON secret_unit_owner (label,unit_uuid);
+CREATE UNIQUE INDEX idx_secret_unit_owner_label ON secret_unit_owner (label,unit_uuid) WHERE label != '';
 
 CREATE TABLE
     secret_model_owner (
@@ -240,7 +240,7 @@ CREATE TABLE
             REFERENCES secret (id)
     );
 
-CREATE UNIQUE INDEX idx_secret_model_owner_label ON secret_model_owner (label);
+CREATE UNIQUE INDEX idx_secret_model_owner_label ON secret_model_owner (label) WHERE label != '';
 
 CREATE TABLE
     secret_application_consumer (

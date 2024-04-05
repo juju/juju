@@ -52,31 +52,21 @@ type secretRevision struct {
 }
 
 type secretContent struct {
-	// ID holds the cloud uuid.
-	ID string `db:"revision_uuid"`
-
-	// Key is the key value.
-	Name string `db:"name"`
-
-	// Value is the value associated with key.
-	Content string `db:"content"`
+	RevisionUUID string `db:"revision_uuid"`
+	Name         string `db:"name"`
+	Content      string `db:"content"`
 }
 
 type secretValueRef struct {
-	// ID holds the cloud uuid.
-	ID string `db:"revision_uuid"`
-
-	// Key is the key value.
-	BackendUUID string `db:"backend_uuid"`
-
-	// Value is the value associated with key.
-	RevisionID string `db:"revision_id"`
+	RevisionUUID string `db:"revision_uuid"`
+	BackendUUID  string `db:"backend_uuid"`
+	RevisionID   string `db:"revision_id"`
 }
 
 type secrets []secretInfo
 
 func (rows secrets) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets.SecretMetadata, error) {
-	if n := len(rows); n != len(secretOwners) {
+	if len(rows) != len(secretOwners) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing secret results")
 	}
