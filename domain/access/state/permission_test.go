@@ -813,7 +813,7 @@ func (s *permissionStateSuite) printRead(c *gc.C) {
 SELECT  p.uuid, p.grant_on, p.grant_to, p.access_type,
         u.uuid, u.name, creator.name
 FROM    v_user_auth u
-        LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+        JOIN user AS creator ON u.created_by_uuid = creator.uuid
         JOIN v_permission p ON u.uuid = p.grant_to
 `
 	rows, _ := s.DB().Query(q)

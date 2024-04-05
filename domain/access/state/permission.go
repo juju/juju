@@ -225,7 +225,7 @@ SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type) AS (&dbReadUserPermissio
         (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
         creator.name AS &dbPermissionUser.created_by_name
 FROM    v_user_auth u
-        LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+        JOIN user AS creator ON u.created_by_uuid = creator.uuid
         JOIN v_permission p ON u.uuid = p.grant_to
 WHERE   u.name = $input.name
 AND     u.disabled = false
@@ -405,7 +405,7 @@ SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type) AS (&dbReadUserPermissio
         (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
         creator.name AS &dbPermissionUser.created_by_name
 FROM    v_user_auth u
-        LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+        JOIN user AS creator ON u.created_by_uuid = creator.uuid
         JOIN v_permission p ON u.uuid = p.grant_to
         LEFT JOIN cloud c ON p.grant_on = c.name
         LEFT JOIN model_list m on p.grant_on = m.uuid
@@ -456,7 +456,7 @@ func (st *PermissionState) findUserByName(
 SELECT (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
        creator.name AS &dbPermissionUser.created_by_name
 FROM   v_user_auth u
-       LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+       JOIN user AS creator ON u.created_by_uuid = creator.uuid
 WHERE  u.removed = false
        AND u.name = $M.name`
 
@@ -490,7 +490,7 @@ func (st *PermissionState) findUsersByUUID(
 SELECT (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
        creator.name AS &dbPermissionUser.created_by_name
 FROM   v_user_auth u
-       LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
+       JOIN user AS creator ON u.created_by_uuid = creator.uuid
 WHERE  u.removed = false
        AND u.uuid IN ($S[:])
 `
@@ -851,14 +851,12 @@ func (st *PermissionState) deletePermission(ctx context.Context, tx *sqlair.TX, 
 	// unique, thus it is all that is deleted to select the row to be
 	// deleted.
 	deletePermission := `
-DELETE
-FROM   permission
-WHERE  uuid IN (
-       SELECT p.uuid
-       FROM   permission p
-              LEFT JOIN user AS u ON u.uuid = p.grant_to
-       WHERE  u.name = $input.name
-       AND    p.grant_on = $input.grant_on
+DELETE FROM permission
+WHERE  grant_on = $input.grant_on
+AND    grant_to IN (
+       SELECT uuid
+       FROM   user
+       WHERE  name = $input.name
 )
 `
 	deletePermissionStmt, err := sqlair.Prepare(deletePermission, input{})
@@ -891,10 +889,14 @@ SET    permission_type_id = (
            FROM   permission_access_type 
            WHERE  type = $input.access
        ) 
-FROM   permission p
-       LEFT JOIN user u ON u.uuid = p.grant_to
-WHERE  p.grant_on = $input.grant_on
-AND    u.name = $input.name
+WHERE  grant_on = $input.grant_on
+AND    grant_to IN (
+       SELECT uuid
+       FROM   v_user_auth
+       WHERE  name = $input.name
+       AND    removed = false
+       AND    disabled = false
+)
 `
 	updateQueryStmt, err := st.Prepare(updateQuery, input{})
 	if err != nil {
