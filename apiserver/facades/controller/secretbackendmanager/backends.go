@@ -5,7 +5,6 @@ package secretbackendmanager
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -14,12 +13,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // SecretBackendsManagerAPI is the implementation for the SecretsManager facade.
@@ -30,16 +26,15 @@ type SecretBackendsManagerAPI struct {
 	modelUUID      string
 	modelName      string
 
-	backendRotate BackendRotate
-	backendState  BackendState
-	clock         clock.Clock
-	logger        loggo.Logger
+	backendService BackendService
+	clock          clock.Clock
+	logger         loggo.Logger
 }
 
 // WatchSecretBackendsRotateChanges sets up a watcher to notify of changes to secret backend rotations.
 func (s *SecretBackendsManagerAPI) WatchSecretBackendsRotateChanges(ctx context.Context) (params.SecretBackendRotateWatchResult, error) {
 	result := params.SecretBackendRotateWatchResult{}
-	w, err := s.backendRotate.WatchSecretBackendRotationChanges()
+	w, err := s.backendService.WatchSecretBackendRotationChanges()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -75,61 +70,8 @@ func (s *SecretBackendsManagerAPI) RotateBackendTokens(ctx context.Context, args
 		Results: make([]params.ErrorResult, len(args.BackendIDs)),
 	}
 	for i, backendID := range args.BackendIDs {
-		backendInfo, err := s.backendState.GetSecretBackendByID(backendID)
-		if err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-		p, err := GetProvider(backendInfo.BackendType)
-		if err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-		if !provider.HasAuthRefresh(p) {
-			continue
-		}
-
-		if backendInfo.TokenRotateInterval == nil || *backendInfo.TokenRotateInterval == 0 {
-			s.logger.Warningf("not rotating token for secret backend %q", backendInfo.Name)
-			continue
-		}
-
-		s.logger.Debugf("refresh token for backend %v", backendInfo.Name)
-		cfg := provider.BackendConfig{
-			BackendType: backendInfo.BackendType,
-			Config:      backendInfo.Config,
-		}
-
-		var nextRotateTime time.Time
-		auth, err := p.(provider.SupportAuthRefresh).RefreshAuth(cfg, *backendInfo.TokenRotateInterval)
-		if err != nil {
-			s.logger.Errorf("refreshing auth token for %q: %v", backendInfo.Name, err)
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			// If there's a permission error, we can't recover from that.
-			if errors.Is(err, secrets.PermissionDenied) {
-				continue
-			}
-		} else {
-			err = s.backendState.UpdateSecretBackend(state.UpdateSecretBackendParams{
-				ID:     backendID,
-				Config: auth.Config,
-			})
-			if err != nil {
-				results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			} else {
-				next, _ := coresecrets.NextBackendRotateTime(s.clock.Now(), *backendInfo.TokenRotateInterval)
-				nextRotateTime = *next
-			}
-		}
-
-		if nextRotateTime.IsZero() {
-			nextRotateTime = s.clock.Now().Add(2 * time.Minute)
-		}
-		s.logger.Debugf("updating token rotation for %q, next: %s", backendInfo.Name, nextRotateTime)
-		err = s.backendState.SecretBackendRotated(backendID, nextRotateTime)
-		if err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-		}
+		err := s.backendService.RotateBackendToken(ctx, backendID)
+		results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 	return results, nil
 }

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -33,11 +33,9 @@ func NewUserSecretsManager(ctx facade.ModelContext) (*UserSecretsManager, error)
 	}
 
 	serviceFactory := ctx.ServiceFactory()
+	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 	backendConfigGetter := func(ctx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.AdminBackendConfigInfo(
-			ctx, secrets.SecretsModel(model),
-			serviceFactory.Cloud(), serviceFactory.Credential(),
-		)
+		return backendService.GetSecretBackendConfigForAdmin(ctx, coremodel.UUID(model.UUID()))
 	}
 
 	return &UserSecretsManager{

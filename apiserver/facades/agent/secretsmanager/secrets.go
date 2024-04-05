@@ -49,7 +49,6 @@ type SecretsManagerAPI struct {
 	modelUUID         string
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
-	adminConfigGetter   commonsecrets.BackendAdminConfigGetter
 	drainConfigGetter   commonsecrets.BackendDrainConfigGetter
 	remoteClientGetter  func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error)
 

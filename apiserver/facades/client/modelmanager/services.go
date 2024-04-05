@@ -17,6 +17,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
@@ -92,6 +93,11 @@ type UserService interface {
 	GetUserByName(context.Context, string) (coreuser.User, error)
 }
 
+// SecretBackendService is an interface for interacting with secret backend service.
+type SecretBackendService interface {
+	BackendSummaryInfo(ctx context.Context, reveal, all bool, names ...string) ([]*secretbackendservice.SecretBackendInfo, error)
+}
+
 // Services holds the services needed by the model manager api.
 type Services struct {
 	ServiceFactoryGetter ServiceFactoryGetter
@@ -101,6 +107,7 @@ type Services struct {
 	ModelDefaultsService ModelDefaultsService
 	UserService          UserService
 	ObjectStore          objectstore.ObjectStore
+	SecretBackendService SecretBackendService
 }
 
 type serviceFactoryGetter struct {

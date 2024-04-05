@@ -5,22 +5,24 @@ package secretbackends
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain/secretbackend"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // SecretBackendsAPI is the server implementation for the SecretBackends facade.
@@ -28,10 +30,12 @@ type SecretBackendsAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
 
-	clock        clock.Clock
-	backendState SecretsBackendState
-	secretState  SecretsState
-	statePool    StatePool
+	clock       clock.Clock
+	secretState SecretsState
+	statePool   StatePool
+	model       Model
+
+	backendService SecretsBackendService
 }
 
 func (s *SecretBackendsAPI) checkCanAdmin() error {
@@ -47,65 +51,24 @@ func (s *SecretBackendsAPI) AddSecretBackends(ctx context.Context, args params.A
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		err := s.createBackend(arg.ID, arg.SecretBackend)
+		if arg.ID == "" {
+			uuid, err := uuid.NewUUID()
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			arg.ID = uuid.String()
+		}
+		err := s.backendService.CreateSecretBackend(ctx, secrets.SecretBackend{
+			ID:                  arg.ID,
+			Name:                arg.Name,
+			BackendType:         arg.BackendType,
+			TokenRotateInterval: arg.TokenRotateInterval,
+			Config:              arg.Config,
+		})
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-func (s *SecretBackendsAPI) createBackend(id string, arg params.SecretBackend) error {
-	if arg.Name == "" {
-		return errors.NotValidf("missing backend name")
-	}
-	if arg.Name == juju.BackendName || arg.Name == provider.Auto {
-		return errors.NotValidf("backend %q")
-	}
-	p, err := commonsecrets.GetProvider(arg.BackendType)
-	if err != nil {
-		return errors.Annotatef(err, "creating backend provider type %q", arg.BackendType)
-	}
-	configValidator, ok := p.(provider.ProviderConfig)
-	if ok {
-		defaults := configValidator.ConfigDefaults()
-		if arg.Config == nil && len(defaults) > 0 {
-			arg.Config = make(map[string]interface{})
-		}
-		for k, v := range defaults {
-			if _, ok := arg.Config[k]; !ok {
-				arg.Config[k] = v
-			}
-		}
-		err = configValidator.ValidateConfig(nil, arg.Config)
-		if err != nil {
-			return errors.Annotatef(err, "invalid config for provider %q", arg.BackendType)
-		}
-	}
-	if err := commonsecrets.PingBackend(p, arg.Config); err != nil {
-		return errors.Trace(err)
-	}
-
-	var nextRotateTime *time.Time
-	if arg.TokenRotateInterval != nil && *arg.TokenRotateInterval > 0 {
-		if !provider.HasAuthRefresh(p) {
-			return errors.NotSupportedf("token refresh on secret backend of type %q", p.Type())
-		}
-		nextRotateTime, err = secrets.NextBackendRotateTime(s.clock.Now(), *arg.TokenRotateInterval)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	_, err = s.backendState.CreateSecretBackend(state.CreateSecretBackendParams{
-		ID:                  id,
-		Name:                arg.Name,
-		BackendType:         arg.BackendType,
-		TokenRotateInterval: arg.TokenRotateInterval,
-		NextRotateTime:      nextRotateTime,
-		Config:              arg.Config,
-	})
-	if errors.Is(err, errors.AlreadyExists) {
-		return errors.AlreadyExistsf("secret backend with ID %q", id)
-	}
-	return errors.Trace(err)
 }
 
 // UpdateSecretBackends updates secret backends.
@@ -117,94 +80,57 @@ func (s *SecretBackendsAPI) UpdateSecretBackends(ctx context.Context, args param
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		err := s.updateBackend(arg)
+		params := secretbackendservice.UpdateSecretBackendParams{
+			UpdateSecretBackendParams: secretbackend.UpdateSecretBackendParams{
+				BackendIdentifier: secretbackend.BackendIdentifier{
+					Name: arg.Name,
+				},
+				NewName:             arg.NameChange,
+				TokenRotateInterval: arg.TokenRotateInterval,
+			},
+			SkipPing: arg.Force,
+			Reset:    arg.Reset,
+		}
+		if len(arg.Config) > 0 {
+			params.Config = transform.Map(arg.Config, func(k string, v interface{}) (string, string) {
+				return k, fmt.Sprintf("%v", v)
+			})
+		}
+		err := s.backendService.UpdateSecretBackend(ctx, params)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *SecretBackendsAPI) updateBackend(arg params.UpdateSecretBackendArg) error {
-	if arg.Name == "" {
-		return errors.NotValidf("missing backend name")
-	}
-	if arg.Name == juju.BackendName || arg.Name == provider.Auto {
-		return errors.NotValidf("backend %q")
-	}
-	existing, err := s.backendState.GetSecretBackend(arg.Name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	p, err := commonsecrets.GetProvider(existing.BackendType)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	cfg := make(map[string]interface{})
-	for k, v := range existing.Config {
-		cfg[k] = v
-	}
-	for k, v := range arg.Config {
-		cfg[k] = v
-	}
-	for _, k := range arg.Reset {
-		delete(cfg, k)
-	}
-	configValidator, ok := p.(provider.ProviderConfig)
-	if ok {
-		defaults := configValidator.ConfigDefaults()
-		for _, k := range arg.Reset {
-			if defaultVal, ok := defaults[k]; ok {
-				cfg[k] = defaultVal
-			}
-		}
-		err = configValidator.ValidateConfig(existing.Config, cfg)
-		if err != nil {
-			return errors.Annotatef(err, "invalid config for provider %q", existing.BackendType)
-		}
-	}
-	if !arg.Force {
-		if err := commonsecrets.PingBackend(p, cfg); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	var nextRotateTime *time.Time
-	if arg.TokenRotateInterval != nil && *arg.TokenRotateInterval > 0 {
-		if !provider.HasAuthRefresh(p) {
-			return errors.NotSupportedf("token refresh on secret backend of type %q", p.Type())
-		}
-		nextRotateTime, err = secrets.NextBackendRotateTime(s.clock.Now(), *arg.TokenRotateInterval)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	err = s.backendState.UpdateSecretBackend(state.UpdateSecretBackendParams{
-		ID:                  existing.ID,
-		NameChange:          arg.NameChange,
-		TokenRotateInterval: arg.TokenRotateInterval,
-		NextRotateTime:      nextRotateTime,
-		Config:              cfg,
-	})
-	if errors.Is(err, errors.NotFound) {
-		return errors.NotFoundf("secret backend %q", arg.Name)
-	}
-	return err
-}
-
 // ListSecretBackends lists available secret backends.
 func (s *SecretBackendsAPI) ListSecretBackends(ctx context.Context, arg params.ListSecretBackendsArgs) (params.ListSecretBackendsResults, error) {
-	result := params.ListSecretBackendsResults{}
 	if arg.Reveal {
 		if err := s.checkCanAdmin(); err != nil {
-			return result, errors.Trace(err)
+			return params.ListSecretBackendsResults{}, errors.Trace(err)
 		}
 	}
 
-	results, err := commonsecrets.BackendSummaryInfo(
-		s.statePool, s.backendState, s.secretState, s.controllerUUID, arg.Reveal, commonsecrets.BackendFilter{Names: arg.Names, All: true})
+	backends, err := s.backendService.BackendSummaryInfo(ctx, arg.Reveal, true, arg.Names...)
 	if err != nil {
 		return params.ListSecretBackendsResults{}, errors.Trace(err)
 	}
-	result.Results = results
+	result := params.ListSecretBackendsResults{
+		Results: make([]params.SecretBackendResult, len(backends)),
+	}
+	for i, backend := range backends {
+		result.Results[i] = params.SecretBackendResult{
+			ID:         backend.ID,
+			NumSecrets: backend.NumSecrets,
+			Status:     backend.Status,
+			Message:    backend.Message,
+			Result: params.SecretBackend{
+				Name:                backend.Name,
+				BackendType:         backend.BackendType,
+				TokenRotateInterval: backend.TokenRotateInterval,
+				Config:              backend.Config,
+			},
+		}
+	}
 	return result, nil
 }
 
@@ -217,18 +143,22 @@ func (s *SecretBackendsAPI) RemoveSecretBackends(ctx context.Context, args param
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		err := s.removeBackend(arg)
+		if arg.Name == "" {
+			err := errors.NotValidf("missing backend name")
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if arg.Name == juju.BackendName || arg.Name == provider.Auto {
+			err := errors.NotValidf("backend %q", arg.Name)
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err := s.backendService.DeleteSecretBackend(ctx,
+			secretbackendservice.DeleteSecretBackendParams{
+				BackendIdentifier: secretbackend.BackendIdentifier{Name: arg.Name},
+				Force:             arg.Force,
+			})
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-func (s *SecretBackendsAPI) removeBackend(arg params.RemoveSecretBackendArg) error {
-	if arg.Name == "" {
-		return errors.NotValidf("missing backend name")
-	}
-	if arg.Name == juju.BackendName || arg.Name == provider.Auto {
-		return errors.NotValidf("backend %q")
-	}
-	return s.backendState.DeleteSecretBackend(arg.Name, arg.Force)
 }

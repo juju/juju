@@ -18,6 +18,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/worker/apicaller"
@@ -62,14 +63,17 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 	cloudService := serviceFactory.Cloud()
 	credentialSerivce := serviceFactory.Credential()
 
+	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.AdminBackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce)
+		return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(model.UUID()))
 	}
 	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
 	secretBackendConfigGetter := func(stdCtx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+		// TODO: this method in backend service is a TODO.
 		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), true, secretService, cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	secretBackendDrainConfigGetter := func(stdCtx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
+		// TODO: this method in backend service is a TODO.
 		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), secretService, cloudService, credentialSerivce, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	controllerAPI := common.NewControllerConfigAPI(
@@ -115,7 +119,6 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 		controllerUUID:      ctx.State().ControllerUUID(),
 		modelUUID:           ctx.State().ModelUUID(),
 		backendConfigGetter: secretBackendConfigGetter,
-		adminConfigGetter:   secretBackendAdminConfigGetter,
 		drainConfigGetter:   secretBackendDrainConfigGetter,
 		remoteClientGetter:  remoteClientGetter,
 		crossModelState:     ctx.State().RemoteEntities(),
