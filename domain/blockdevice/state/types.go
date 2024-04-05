@@ -16,7 +16,7 @@ type BlockDevice struct {
 	MachineUUID string `db:"machine_uuid"`
 
 	DeviceName     string `db:"name"`
-	Label          string `db:"label"`
+	Label          string `db:"label,omitempty"`
 	DeviceUUID     string `db:"device_uuid"`
 	HardwareId     string `db:"hardware_id"`
 	WWN            string `db:"wwn"`

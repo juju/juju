@@ -5,9 +5,12 @@ package schema
 
 import (
 	"github.com/juju/juju/core/database/schema"
+	"github.com/juju/juju/domain/schema/controller"
 )
 
-type tableNamespaceID int
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers.gen.go -package=controller -tables=cloud,cloud_credential,external_controller,controller_config,controller_node,model_migration_status,model_migration_minion_sync,upgrade_info,upgrade_info_controller_node,object_store_metadata_path,secret_backend_rotation,model
+
+type tableNamespaceID = int
 
 const (
 	tableExternalController tableNamespaceID = iota
@@ -49,20 +52,24 @@ func ControllerDDL() *schema.Schema {
 		secretBackendSchema,
 	}
 
+	// Changestream triggers.
 	patches = append(patches,
-		changeLogTriggersForTable("cloud", "uuid", tableCloud),
-		changeLogTriggersForTable("cloud_credential", "uuid", tableCloudCredential),
-		changeLogTriggersForTable("external_controller", "uuid", tableExternalController),
-		changeLogTriggersForTable("controller_config", "key", tableControllerConfig),
-		changeLogTriggersForTable("controller_node", "controller_id", tableControllerNode),
-		changeLogTriggersForTable("model_migration_status", "uuid", tableModelMigrationStatus),
-		changeLogTriggersForTable("model_migration_minion_sync", "uuid", tableModelMigrationMinionSync),
-		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
-		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
-		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
-		changeLogTriggersForTable("secret_backend_rotation", "backend_uuid", tableSecretBackendRotation),
-		changeLogTriggersForTable("model", "uuid", tableModelMetadata),
+		controller.ChangeLogTriggersForCloud("uuid", tableCloud),
+		controller.ChangeLogTriggersForCloudCredential("uuid", tableCloudCredential),
+		controller.ChangeLogTriggersForExternalController("uuid", tableExternalController),
+		controller.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
+		controller.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
+		controller.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
+		controller.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
+		controller.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
+		controller.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
+		controller.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),
+		controller.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
+		controller.ChangeLogTriggersForModel("uuid", tableModelMetadata),
+	)
 
+	// Generic triggers.
+	patches = append(patches,
 		// We need to ensure that the internal and kubernetes backends are immutable after
 		// they are created by the controller during bootstrap time.
 		// 0 is 'controller', 1 is 'kubernetes'.

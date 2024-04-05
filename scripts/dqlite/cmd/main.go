@@ -104,23 +104,6 @@ func main() {
 		panic(err)
 	}
 
-	if err := dbApp.Ready(context.Background()); err != nil {
-		panic(err)
-	}
-
-	db, err := dbApp.Open(context.Background(), *dbTypeFlag)
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := schema.Ensure(context.Background(), &txnRunner{
-		db: db,
-	}); err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("Opening database at %s\n", path)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -130,9 +113,23 @@ func main() {
 		defer cancel()
 
 		<-ch
-		db.Close()
 		dbApp.Close()
 	}()
+
+	if err := dbApp.Ready(ctx); err != nil {
+		panic(err)
+	}
+
+	db, err := dbApp.Open(ctx, *dbTypeFlag)
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := schema.Ensure(ctx, &txnRunner{
+		db: db,
+	}); err != nil {
+		panic(err)
+	}
 
 	go func() {
 		defer cancel()

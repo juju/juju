@@ -7,7 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/database/schema"
+	"github.com/juju/juju/domain/schema/model"
 )
+
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers.gen.go -package=model -tables=block_device,model_config,object_store_metadata_path,storage_attachment,storage_filesystem,storage_filesystem_attachment,storage_volume,storage_volume_attachment,storage_volume_attachment_plan,secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference,subnet,subnet_association
 
 const (
 	tableModelConfig tableNamespaceID = iota
@@ -50,24 +53,28 @@ func ModelDDL() *schema.Schema {
 		annotationModelSchema,
 	}
 
+	// Changestream triggers.
 	patches = append(patches,
-		changeLogTriggersForTable("block_device", "machine_uuid", tableBlockDeviceMachine),
-		changeLogTriggersForTable("model_config", "key", tableModelConfig),
-		changeLogTriggersForTable("object_store_metadata_path", "path", tableModelObjectStoreMetadata),
-		changeLogTriggersForTable("storage_attachment", "storage_instance_uuid", tableStorageAttachment),
-		changeLogTriggersForTable("storage_filesystem", "uuid", tableFileSystem),
-		changeLogTriggersForTable("storage_filesystem_attachment", "uuid", tableFileSystemAttachment),
-		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
-		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
-		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
-		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretMetadataAutoPrune),
-		changeLogTriggersForTable("secret_rotation", "secret_id", tableSecretRotation),
-		changeLogTriggersForTable("secret_revision_obsolete", "revision_uuid", tableSecretRevisionObsolete),
-		changeLogTriggersForTable("secret_revision_expire", "revision_uuid", tableSecretRevisionExpire),
-		changeLogTriggersForTable("secret_revision", "uuid", tableSecretRevision),
-		changeLogTriggersForTable("secret_reference", "secret_id", tableSecretReference),
-		changeLogTriggersForTable("subnet", "uuid", tableSubnet),
+		model.ChangeLogTriggersForBlockDevice("machine_uuid", tableBlockDeviceMachine),
+		model.ChangeLogTriggersForModelConfig("key", tableModelConfig),
+		model.ChangeLogTriggersForObjectStoreMetadataPath("path", tableModelObjectStoreMetadata),
+		model.ChangeLogTriggersForStorageAttachment("storage_instance_uuid", tableStorageAttachment),
+		model.ChangeLogTriggersForStorageFilesystem("uuid", tableFileSystem),
+		model.ChangeLogTriggersForStorageFilesystemAttachment("uuid", tableFileSystemAttachment),
+		model.ChangeLogTriggersForStorageVolume("uuid", tableVolume),
+		model.ChangeLogTriggersForStorageVolumeAttachment("uuid", tableVolumeAttachment),
+		model.ChangeLogTriggersForStorageVolumeAttachmentPlan("uuid", tableVolumeAttachmentPlan),
+		model.ChangeLogTriggersForSecretMetadata("secret_id", tableSecretMetadataAutoPrune),
+		model.ChangeLogTriggersForSecretRotation("secret_id", tableSecretRotation),
+		model.ChangeLogTriggersForSecretRevisionObsolete("revision_uuid", tableSecretRevisionObsolete),
+		model.ChangeLogTriggersForSecretRevisionExpire("revision_uuid", tableSecretRevisionExpire),
+		model.ChangeLogTriggersForSecretRevision("uuid", tableSecretRevision),
+		model.ChangeLogTriggersForSecretReference("secret_id", tableSecretReference),
+		model.ChangeLogTriggersForSubnet("uuid", tableSubnet),
+	)
 
+	// Generic triggers.
+	patches = append(patches,
 		triggersForImmutableTable("model", "", "model table is immutable"),
 
 		// Secret permissions do not allow subject or scope to be updated.
