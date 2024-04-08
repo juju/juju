@@ -116,24 +116,6 @@ func (r *CharmRepo) ClonedDir(dst, name string) *charm.CharmDir {
 	return ch
 }
 
-// ClonedURL makes a copy of the charm directory. It will create a directory
-// with the series name if it does not exist, and then clone the charm named
-// name into that directory. The return value is a URL pointing at the local
-// charm.
-func (r *CharmRepo) ClonedURL(dst, series, name string) *charm.URL {
-	dst = filepath.Join(dst, series)
-	if err := os.MkdirAll(dst, os.FileMode(0777)); err != nil {
-		panic(fmt.Errorf("cannot make destination directory: %v", err))
-	}
-	clone(dst, r.CharmDirPath(name))
-	return &charm.URL{
-		Schema:   "local",
-		Name:     name,
-		Revision: -1,
-		Series:   series,
-	}
-}
-
 // CharmArchivePath returns the path to a new charm archive file
 // in the directory dst, created from the charm directory named name.
 func (r *CharmRepo) CharmArchivePath(dst, name string) string {

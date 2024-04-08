@@ -114,7 +114,6 @@ func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectCharmResolutionCall(curl, "edge", nil)
 
-	curl.Series = "bionic"
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginCharmHub,
 		Risk:   "edge",

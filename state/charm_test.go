@@ -776,7 +776,6 @@ var _ = gc.Suite(&CharmTestHelperSuite{})
 func assertCustomCharm(
 	c *gc.C,
 	ch *state.Charm,
-	series string,
 	meta *charm.Meta,
 	config *charm.Config,
 	revision int,
@@ -788,7 +787,6 @@ func assertCustomCharm(
 
 	// Test URL matches charm and expected series.
 	url := charm.MustParseURL(ch.URL())
-	c.Assert(url.Series, gc.Equals, series)
 	c.Assert(url.Revision, gc.Equals, ch.Revision())
 
 	// Ignore the StoragePath and BundleSHA256 methods, they're irrelevant.
@@ -811,10 +809,10 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 		revision := chd.Revision()
 
 		ch := s.AddTestingCharm(c, name)
-		assertCustomCharm(c, ch, "quantal", meta, config, revision)
+		assertCustomCharm(c, ch, meta, config, revision)
 
 		ch = s.AddSeriesCharm(c, name, "bionic")
-		assertCustomCharm(c, ch, "bionic", meta, config, revision)
+		assertCustomCharm(c, ch, meta, config, revision)
 	})
 }
 
@@ -834,7 +832,7 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, 123)
+		assertCustomCharm(c, ch, meta, config, 123)
 	})
 }
 
@@ -871,7 +869,7 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, 123)
+		assertCustomCharm(c, ch, meta, config, 123)
 	})
 }
 

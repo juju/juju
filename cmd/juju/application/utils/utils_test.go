@@ -219,7 +219,7 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string),
 ) {
-	newCharmURL := &charm.URL{Schema: "local", Name: "snappass-test", Revision: 0, Series: "focal"}
+	newCharmURL := &charm.URL{Schema: "local", Name: "snappass-test", Revision: 0}
 	cliResources := map[string]string{
 		"snappass-image": "snappass-test",
 		"redis-image":    "redis",

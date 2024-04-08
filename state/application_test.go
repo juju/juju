@@ -5734,12 +5734,10 @@ func defaultCharmOrigin(curlStr string) *state.CharmOrigin {
 		source = corecharm.Local.String()
 	}
 
-	base, _ := corebase.GetBaseFromSeries(curl.Series)
-
 	platform := &state.Platform{
 		Architecture: corearch.DefaultArchitecture,
-		OS:           base.OS,
-		Channel:      base.Channel.String(),
+		OS:           "ubuntu",
+		Channel:      "12.10",
 	}
 
 	return &state.CharmOrigin{

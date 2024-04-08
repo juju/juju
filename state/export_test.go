@@ -26,7 +26,6 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -229,21 +228,6 @@ func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
 	return addCharm(c, st, series, getCharmRepo(series).CharmDir(name))
 }
 
-func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
-	ch := getCharmRepo(series).CharmDir(name)
-	ident := fmt.Sprintf("amd64/%s/%s-%d", series, name, ch.Revision())
-	curl := "ch:" + ident
-	info := CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      ident + "-sha256",
-	}
-	sch, err := st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	return sch
-}
-
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
@@ -290,9 +274,6 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, objectStore objectsto
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
 	curl := charm.MustParseURL(ch.URL())
-	series := curl.Series
-	base, err := corebase.GetBaseFromSeries(series)
-	c.Assert(err, jc.ErrorIsNil)
 	var source string
 	switch curl.Schema {
 	case "local":
@@ -305,8 +286,8 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstor
 	origin := &CharmOrigin{
 		Source: source,
 		Platform: &Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
+			OS:      "ubuntu",
+			Channel: "12.10",
 		},
 	}
 	return addTestingApplication(c, objectStore, addTestingApplicationParams{
@@ -352,8 +333,6 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 	origin := params.origin
 	curl := charm.MustParseURL(params.ch.URL())
 	if origin == nil {
-		base, err := corebase.GetBaseFromSeries(curl.Series)
-		c.Assert(err, jc.ErrorIsNil)
 		var channel *Channel
 		// local charms cannot have a channel
 		if charm.CharmHub.Matches(curl.Schema) {
@@ -372,8 +351,8 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 			Channel: channel,
 			Source:  source,
 			Platform: &Platform{
-				OS:      base.OS,
-				Channel: base.Channel.String(),
+				OS:      "ubuntu",
+				Channel: "12.10",
 			},
 		}
 	}

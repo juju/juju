@@ -3460,12 +3460,7 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 		channel = "stable"
 	}
 
-	series := curl.Series
-	if series == "" {
-		series = "quantal"
-	}
-	base, err := corebase.GetBaseFromSeries(series)
-	c.Assert(err, jc.ErrorIsNil)
+	base := corebase.MustParseBaseFromString("ubuntu@12.10")
 	now := time.Now()
 	app := params.ApplicationStatus{
 		Charm:        info.url,
