@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets/mocks"
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -36,8 +37,7 @@ type CrossModelSecretsSuite struct {
 	coretesting.BaseSuite
 
 	resources       *common.Resources
-	secretsState    *mocks.MockSecretsState
-	secretsConsumer *mocks.MockSecretsConsumer
+	secretService   *mocks.MockSecretService
 	crossModelState *mocks.MockCrossModelState
 	stateBackend    *mocks.MockStateBackend
 
@@ -100,13 +100,12 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
 func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.secretsState = mocks.NewMockSecretsState(ctrl)
-	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
+	s.secretService = mocks.NewMockSecretService(ctrl)
 	s.crossModelState = mocks.NewMockCrossModelState(ctrl)
 	s.stateBackend = mocks.NewMockStateBackend(ctrl)
 
-	secretsStateGetter := func(modelUUID string) (crossmodelsecrets.SecretsState, crossmodelsecrets.SecretsConsumer, func() bool, error) {
-		return s.secretsState, s.secretsConsumer, func() bool { return false }, nil
+	secretsStateGetter := func(modelUUID string) crossmodelsecrets.SecretService {
+		return s.secretService
 	}
 	backendConfigGetter := func(_ context.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
 		c.Assert(sameController, jc.IsFalse)
@@ -161,7 +160,6 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 
 	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())
 	app := names.NewApplicationTag("remote-app")
-	consumer := names.NewUnitTag("remote-app/666")
 	relation := names.NewRelationTag("remote-app:foo local-app:foo")
 	s.crossModelState.EXPECT().GetRemoteApplicationTag("token").Return(app, nil)
 	s.stateBackend.EXPECT().HasEndpoint(relation.Id(), "remote-app").Return(true, nil)
@@ -171,21 +169,24 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 	s.crossModelState.EXPECT().GetRemoteApplicationTag("token2").Return(app2, nil)
 	s.stateBackend.EXPECT().HasEndpoint(relation.Id(), "remote-app2").Return(false, nil)
 
-	consumerTag := names.NewUnitTag("remote-app/666")
-	if newConsumer {
-		s.secretsConsumer.EXPECT().GetSecretRemoteConsumer(uri, consumerTag).Return(nil, errors.NotFoundf(""))
-	} else {
-		s.secretsConsumer.EXPECT().GetSecretRemoteConsumer(uri, consumerTag).Return(&coresecrets.SecretConsumerMetadata{CurrentRevision: 69}, nil)
+	consumer := secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   "remote-app/666",
 	}
-	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+	if newConsumer {
+		s.secretService.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/666").Return(nil, errors.NotFoundf(""))
+	} else {
+		s.secretService.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/666").Return(&coresecrets.SecretConsumerMetadata{CurrentRevision: 69}, nil)
+	}
+	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
 		LatestRevision: 667,
 	}, nil)
-	s.secretsConsumer.EXPECT().SaveSecretRemoteConsumer(uri, consumerTag, &coresecrets.SecretConsumerMetadata{
+	s.secretService.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app/666", &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 667,
 		LatestRevision:  667,
 	}).Return(nil)
-	s.secretsConsumer.EXPECT().SecretAccess(uri, consumer).Return(coresecrets.RoleView, nil)
-	s.secretsState.EXPECT().GetSecretValue(uri, 667).Return(
+	s.secretService.EXPECT().GetSecretAccess(gomock.Any(), uri, consumer).Return(coresecrets.RoleView, nil)
+	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 667).Return(
 		nil,
 		&coresecrets.ValueRef{
 			BackendID:  "backend-id",

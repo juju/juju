@@ -287,7 +287,7 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 
 	if uri == nil {
 		var err error
-		uri, err = s.GetURIByConsumerLabel(ctx, label, SecretConsumer{UnitName: &unitName})
+		uri, err = s.GetURIByConsumerLabel(ctx, label, unitName)
 		if errors.Is(err, errors.NotFound) {
 			return nil, nil, errors.NotFoundf("consumer label %q", label)
 		}

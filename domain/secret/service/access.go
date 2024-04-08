@@ -19,7 +19,7 @@ func (s *SecretService) GetSecretAccess(ctx context.Context, uri *secrets.URI, c
 	return secrets.RoleManage, nil
 }
 
-func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.URI) (SecretConsumer, error) {
+func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.URI, consumer SecretAccessor) (SecretAccessScope, error) {
 	//TODO implement me
 	panic("implement me")
 }

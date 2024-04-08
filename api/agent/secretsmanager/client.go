@@ -136,7 +136,7 @@ func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) 
 	for i, latest := range results.Results {
 		if err := results.Results[i].Error; err != nil {
 			// If deleted or now unauthorised, do not report any info for this url.
-			if err.Code == params.CodeNotFound || err.Code == params.CodeUnauthorized {
+			if err.Code == params.CodeSecretNotFound || err.Code == params.CodeSecretConsumerNotFound || err.Code == params.CodeUnauthorized {
 				continue
 			}
 			return nil, errors.Annotatef(err, "finding latest info for secret %q", uris[i])

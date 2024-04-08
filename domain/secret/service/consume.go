@@ -12,8 +12,8 @@ import (
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
-func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI, consumer SecretConsumer) (*secrets.SecretConsumerMetadata, error) {
-	return nil, errors.NotFound
+func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error) {
+	return nil, secreterrors.SecretConsumerNotFound
 	/*
 		consumerMetadata, err := getConsumerMetadata(...)
 		//if consumerMetadata.Label != "" {
@@ -34,21 +34,29 @@ func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI,
 	*/
 }
 
-func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string, consumer SecretConsumer) (*secrets.URI, error) {
-	return nil, errors.NotFound
+func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error {
+	return nil
 }
 
-func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, consumer SecretConsumer, md *secrets.SecretConsumerMetadata) error {
+func (s *SecretService) GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error) {
+	return nil, secreterrors.SecretConsumerNotFound
+}
+
+func (s *SecretService) SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error {
 	return nil
+}
+
+func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error) {
+	return nil, secreterrors.SecretNotFound
 }
 
 // GetConsumedRevision returns the secret revision number for the specified consumer, possibly updating
 // the label associated with the secret for the consumer.
 // Only one of consumer app or unit name must be specified.
 // TODO(secrets) - test
-func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, consumer SecretConsumer, refresh, peek bool, labelToUpdate *string) (int, error) {
-	consumerInfo, err := s.GetSecretConsumer(ctx, uri, consumer)
-	if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
+func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh, peek bool, labelToUpdate *string) (int, error) {
+	consumerInfo, err := s.GetSecretConsumer(ctx, uri, unitName)
+	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
 		return 0, errors.Trace(err)
 	}
 	refresh = refresh ||
@@ -79,16 +87,16 @@ func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.UR
 		if labelToUpdate != nil {
 			consumerInfo.Label = *labelToUpdate
 		}
-		if err := s.SaveSecretConsumer(ctx, uri, consumer, consumerInfo); err != nil {
+		if err := s.SaveSecretConsumer(ctx, uri, unitName, consumerInfo); err != nil {
 			return 0, errors.Trace(err)
 		}
 	}
 	return wantRevision, nil
 }
 
-// ListConsumedSecrets returns the secret metadata and revision metadata for any secrets matching the specified consumer.
-// The result contains secrets consumed by any of the non nil consumer attributes.
+// ListGrantedSecrets returns the secret metadata and revision metadata for any secrets
+// for which the specified consumers have been granted view access.
 // The count of secret and revisions in the result must match.
-func (s *SecretService) ListConsumedSecrets(ctx context.Context, consumer SecretConsumer) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+func (s *SecretService) ListGrantedSecrets(ctx context.Context, consumers ...SecretAccessor) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	return nil, nil, nil
 }

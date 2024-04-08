@@ -287,9 +287,12 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
 		},
 	}}, nil)
-	secretService.EXPECT().ListConsumedSecrets(gomock.Any(), secretservice.SecretConsumer{
-		ApplicationName: ptr("gitlab"),
-		UnitName:        ptr(unitTag.Id()),
+	secretService.EXPECT().ListGrantedSecrets(gomock.Any(), secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   unitTag.Id(),
+	}, secretservice.SecretAccessor{
+		Kind: secretservice.ApplicationAccessor,
+		ID:   "gitlab",
 	}).Return(read, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 1,
@@ -400,9 +403,12 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
 		},
 	}}, nil)
-	secretService.EXPECT().ListConsumedSecrets(gomock.Any(), secretservice.SecretConsumer{
-		UnitName:        ptr(unitTag.Id()),
-		ApplicationName: ptr("gitlab"),
+	secretService.EXPECT().ListGrantedSecrets(gomock.Any(), secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   unitTag.Id(),
+	}, secretservice.SecretAccessor{
+		Kind: secretservice.ApplicationAccessor,
+		ID:   "gitlab",
 	}).Return(read, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 1,
@@ -514,9 +520,12 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
 		},
 	}}, nil)
-	secretService.EXPECT().ListConsumedSecrets(gomock.Any(), secretservice.SecretConsumer{
-		UnitName:        ptr(unitTag.Id()),
-		ApplicationName: ptr("gitlab"),
+	secretService.EXPECT().ListGrantedSecrets(gomock.Any(), secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   unitTag.Id(),
+	}, secretservice.SecretAccessor{
+		Kind: secretservice.ApplicationAccessor,
+		ID:   "gitlab",
 	}).Return(read, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 1,

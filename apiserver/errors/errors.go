@@ -104,7 +104,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 	case params.CodeNotFound,
 		params.CodeUserNotFound,
 		params.CodeModelNotFound,
-		params.CodeSecretNotFound:
+		params.CodeSecretNotFound,
+		params.CodeSecretConsumerNotFound:
 		status = http.StatusNotFound
 	case params.CodeBadRequest:
 		status = http.StatusBadRequest
@@ -170,6 +171,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUserNotFound
 	case errors.Is(err, secreterrors.SecretNotFound):
 		code = params.CodeSecretNotFound
+	case errors.Is(err, secreterrors.SecretConsumerNotFound):
+		code = params.CodeSecretConsumerNotFound
 	case errors.Is(err, errors.AlreadyExists):
 		code = params.CodeAlreadyExists
 	case errors.Is(err, errors.NotAssigned):

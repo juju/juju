@@ -40,7 +40,8 @@ func CanManage(
 	switch authTag.(type) {
 	case names.UnitTag:
 		unitName := authTag.Id()
-		hasRole, err := api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{UnitName: &unitName})
+		hasRole, err := api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor, ID: unitName})
 		if err != nil {
 			// Typically not found error.
 			return nil, errors.Trace(err)
@@ -49,7 +50,8 @@ func CanManage(
 			// owner unit.
 			return successfulToken{}, nil
 		}
-		hasRole, err = api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{ApplicationName: &appName})
+		hasRole, err = api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
+			Kind: secretservice.ApplicationAccessor, ID: appName})
 		if err != nil {
 			// Typically not found error.
 			return nil, errors.Trace(err)
@@ -60,7 +62,8 @@ func CanManage(
 		}
 	case names.ModelTag:
 		modelUUID := authTag.Id()
-		hasRole, err := api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{ModelUUID: &modelUUID})
+		hasRole, err := api.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
+			Kind: secretservice.ModelAccessor, ID: modelUUID})
 		if err != nil {
 			// Typically not found error.
 			return nil, errors.Trace(err)

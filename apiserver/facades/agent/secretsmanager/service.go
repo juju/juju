@@ -22,13 +22,13 @@ type SecretTriggers interface {
 
 // SecretsConsumer instances provide secret consumer apis.
 type SecretsConsumer interface {
-	GetSecretConsumer(ctx context.Context, uri *secrets.URI, consumer secretservice.SecretConsumer) (*secrets.SecretConsumerMetadata, error)
-	GetURIByConsumerLabel(ctx context.Context, label string, consumer secretservice.SecretConsumer) (*secrets.URI, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, consumer secretservice.SecretConsumer, md *secrets.SecretConsumerMetadata) error
+	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error)
+	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
+	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetConsumedRevision(
-		ctx context.Context, uri *secrets.URI, consumer secretservice.SecretConsumer,
+		ctx context.Context, uri *secrets.URI, unitName string,
 		refresh, peek bool, labelToUpdate *string) (int, error)
-	WatchConsumedSecretsChanges(ctx context.Context, consumer secretservice.SecretConsumer) (watcher.StringsWatcher, error)
+	WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error)
 	GrantSecretAccess(context.Context, *secrets.URI, secretservice.SecretAccessParams) error
 	RevokeSecretAccess(context.Context, *secrets.URI, secretservice.SecretAccessParams) error
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, consumer secretservice.SecretAccessor) (secrets.SecretRole, error)

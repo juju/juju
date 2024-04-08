@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
-func (s *SecretService) WatchConsumedSecretsChanges(ctx context.Context, consumer SecretConsumer) (watcher.StringsWatcher, error) {
+func (s *SecretService) WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error) {
 	ch := make(chan []string, 1)
 	ch <- []string{}
 	return watchertest.NewMockStringsWatcher(ch), nil
