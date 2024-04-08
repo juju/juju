@@ -169,10 +169,10 @@ func isLeaderUnit(authTag names.Tag, leadershipChecker leadership.Checker) (bool
 }
 
 func (s *SecretsDrainAPI) getCharmSecrets(ctx context.Context) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
-	ownerName := s.authTag.Id()
-	owner := secretservice.CharmSecretOwners{
-		UnitName: &ownerName,
-	}
+	owners := []secretservice.CharmSecretOwner{{
+		Kind: secretservice.UnitOwner,
+		ID:   s.authTag.Id(),
+	}}
 	// Unit leaders can also get metadata for secrets owned by the app.
 	isLeader, err := isLeaderUnit(s.authTag, s.leadershipChecker)
 	if err != nil {
@@ -180,9 +180,12 @@ func (s *SecretsDrainAPI) getCharmSecrets(ctx context.Context) ([]*coresecrets.S
 	}
 	if isLeader {
 		appName := AuthTagApp(s.authTag)
-		owner.ApplicationName = &appName
+		owners = append(owners, secretservice.CharmSecretOwner{
+			Kind: secretservice.ApplicationOwner,
+			ID:   appName,
+		})
 	}
-	return s.secretService.ListCharmSecrets(ctx, owner)
+	return s.secretService.ListCharmSecrets(ctx, owners...)
 }
 
 // ChangeSecretBackend updates the backend for the specified secret after migration done.

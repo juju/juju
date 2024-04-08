@@ -26,6 +26,11 @@ type State interface {
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
+	ListSecrets(ctx context.Context, uri *secrets.URI,
+		revisions domainsecret.Revisions,
+		labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
+		unitOwners domainsecret.UnitOwners, wantUser bool,
+	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -92,6 +97,12 @@ func value[T any](v *T) T {
 // satisfying [secreterrors.SecretLabelAlreadyExists] if the secret owner already has
 // a secret with the same label.
 func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, params CreateSecretParams) error {
+	if !params.UserSecret && params.CharmOwner == nil {
+		return errors.New("must specify a charm secret owner or user secret")
+	}
+	if params.UserSecret && params.CharmOwner != nil {
+		return errors.New("cannot specify both a charm secret owner and a user secret")
+	}
 	if params.LeaderToken != nil {
 		if err := params.LeaderToken.Check(); err != nil {
 			return errors.Trace(err)
@@ -110,8 +121,7 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 			p.Data[k] = v
 		}
 	}
-	switch params.Owner.Kind {
-	case secrets.ModelOwner:
+	if params.UserSecret {
 		err := s.st.CreateUserSecret(ctx, params.Version, uri, p)
 		return errors.Annotatef(err, "creating user secret %q", uri.ID)
 	}
@@ -175,17 +185,18 @@ func (s *SecretService) UpdateSecret(ctx context.Context, uri *secrets.URI, para
 func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	revisions domainsecret.Revisions,
 	labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
-	unitOwners domainsecret.UnitOwners, modelOwners domainsecret.ModelOwners,
+	unitOwners domainsecret.UnitOwners, wantUser bool,
 ) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	return nil, nil, nil
+	return s.st.ListSecrets(ctx, uri, revisions, labels, appOwners, unitOwners, wantUser)
 }
 
 // ListCharmSecrets returns the secret metadata and revision metadata for any secrets matching the specified owner.
 // The result contains secrets owned by any of the non nil owner attributes.
 // The count of secret and revisions in the result must match.
-func (s *SecretService) ListCharmSecrets(ctx context.Context, owner CharmSecretOwners) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	// TODO(secrets)
-	return nil, nil, nil
+func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+	return s.st.ListSecrets(
+		ctx, nil, domainsecret.NilRevisions, domainsecret.NilLabels,
+		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners, false)
 }
 
 // GetSecret returns the secret with the specified URI.
@@ -203,8 +214,9 @@ func (s *SecretService) GetUserSecretByLabel(ctx context.Context, label string) 
 // ListUserSecrets returns the secret metadata and revision metadata for any user secrets in the current model.
 // The count of secret and revisions in the result must match.
 func (s *SecretService) ListUserSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	// TODO(secrets)
-	return nil, nil, nil
+	return s.st.ListSecrets(
+		ctx, nil, domainsecret.NilRevisions, domainsecret.NilLabels,
+		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners, true)
 }
 
 // GetSecretValue returns the value of the specified secret revision.
@@ -297,11 +309,14 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 		// Should never happen.
 		return nil, errors.Trace(err)
 	}
-	owner := CharmSecretOwners{
-		UnitName:        &unitName,
-		ApplicationName: &appName,
-	}
-	metadata, _, err := s.ListCharmSecrets(ctx, owner)
+	owners := []CharmSecretOwner{{
+		Kind: ApplicationOwner,
+		ID:   appName,
+	}, {
+		Kind: UnitOwner,
+		ID:   unitName,
+	}}
+	metadata, _, err := s.ListCharmSecrets(ctx, owners...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

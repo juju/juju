@@ -83,13 +83,13 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 		}
 	}
 	var (
-		err         error
-		uri         *coresecrets.URI
-		labels      domainsecret.Labels
-		appOwners   domainsecret.ApplicationOwners
-		unitOwners  domainsecret.UnitOwners
-		modelOwners domainsecret.ModelOwners
-		revisions   domainsecret.Revisions
+		err        error
+		uri        *coresecrets.URI
+		labels     domainsecret.Labels
+		appOwners  domainsecret.ApplicationOwners
+		unitOwners domainsecret.UnitOwners
+		wantUser   bool
+		revisions  domainsecret.Revisions
 	)
 	if arg.Filter.URI != nil {
 		uri, err = coresecrets.ParseURI(*arg.Filter.URI)
@@ -113,13 +113,12 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			appOwners = append(appOwners, tag.Id())
 		case names.UnitTagKind:
 			unitOwners = append(unitOwners, tag.Id())
-		case names.ModelTagKind:
-			modelOwners = append(modelOwners, tag.Id())
 		default:
 			return result, errors.NotValidf("secret owner tag kind %q", kind)
 		}
 	}
-	metadata, revisionMetadata, err := s.secretService.ListSecrets(ctx, uri, revisions, labels, appOwners, unitOwners, modelOwners)
+	wantUser = len(appOwners) == 0 && len(unitOwners) == 0
+	metadata, revisionMetadata, err := s.secretService.ListSecrets(ctx, uri, revisions, labels, appOwners, unitOwners, wantUser)
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
@@ -336,7 +335,7 @@ func (s *SecretsAPI) createSecret(ctx context.Context, backend provider.SecretsB
 
 	err = s.secretService.CreateSecret(ctx, uri, secretservice.CreateSecretParams{
 		Version:            secrets.Version,
-		Owner:              coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID},
+		UserSecret:         true,
 		UpdateSecretParams: fromUpsertParams(nil, arg.UpsertSecretArg),
 	})
 	if err != nil {

@@ -14,9 +14,9 @@ import (
 
 // SecretTriggers instances provide secret rotation/expiry apis.
 type SecretTriggers interface {
-	WatchSecretRevisionsExpiryChanges(ctx context.Context, owner secretservice.CharmSecretOwners) (watcher.SecretTriggerWatcher, error)
-	WatchSecretsRotationChanges(ctx context.Context, owner secretservice.CharmSecretOwners) (watcher.SecretTriggerWatcher, error)
-	WatchObsolete(ctx context.Context, owner secretservice.CharmSecretOwners) (watcher.StringsWatcher, error)
+	WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.SecretTriggerWatcher, error)
+	WatchSecretsRotationChanges(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.SecretTriggerWatcher, error)
+	WatchObsolete(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.StringsWatcher, error)
 	SecretRotated(ctx context.Context, uri *secrets.URI, originalRev int, skip bool) error
 }
 
@@ -42,7 +42,7 @@ type SecretService interface {
 	DeleteCharmSecret(ctx context.Context, uri *secrets.URI, revisions []int, canDelete func(uri *secrets.URI) error) error
 	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
-	ListCharmSecrets(context.Context, secretservice.CharmSecretOwners) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
+	ListCharmSecrets(context.Context, ...secretservice.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	ProcessSecretConsumerLabel(
 		ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner secrets.Owner) (bool, leadership.Token, error),
 	) (*secrets.URI, *string, error)

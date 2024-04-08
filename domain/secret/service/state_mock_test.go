@@ -115,3 +115,19 @@ func (mr *MockStateMockRecorder) GetSecretValue(arg0, arg1, arg2 any) *gomock.Ca
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockState)(nil).GetSecretValue), arg0, arg1, arg2)
 }
+
+// ListSecrets mocks base method.
+func (m *MockState) ListSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 secret.Revisions, arg3 secret.Labels, arg4 secret.ApplicationOwners, arg5 secret.UnitOwners, arg6 bool) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecrets", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret0, _ := ret[0].([]*secrets.SecretMetadata)
+	ret1, _ := ret[1].([][]*secrets.SecretRevisionMetadata)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListSecrets indicates an expected call of ListSecrets.
+func (mr *MockStateMockRecorder) ListSecrets(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockState)(nil).ListSecrets), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+}

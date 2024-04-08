@@ -224,9 +224,10 @@ func backendConfigInfo(
 		unitName := authTag.Id()
 		// Find secrets owned by the agent
 		// (or its app if the agent is a leader).
-		owner := secretservice.CharmSecretOwners{
-			UnitName: &unitName,
-		}
+		owners := []secretservice.CharmSecretOwner{{
+			Kind: secretservice.UnitOwner,
+			ID:   unitName,
+		}}
 		appName := AuthTagApp(t)
 		token := leadershipChecker.LeadershipCheck(appName, t.Id())
 		err := token.Check()
@@ -235,14 +236,18 @@ func backendConfigInfo(
 		}
 		if err == nil {
 			// Leader unit owns application level secrets.
-			owner.ApplicationName = &appName
+			owners = append(owners, secretservice.CharmSecretOwner{
+				Kind: secretservice.ApplicationOwner,
+				ID:   appName,
+			})
 		} else {
 			// Non leader units can read application level secrets.
 			// Find secrets owned by the application.
-			readOnlyOwner := secretservice.CharmSecretOwners{
-				ApplicationName: &appName,
-			}
-			secrets, revisionMetadata, err := secretService.ListCharmSecrets(ctx, readOnlyOwner)
+			readOnlyOwners := []secretservice.CharmSecretOwner{{
+				Kind: secretservice.ApplicationOwner,
+				ID:   appName,
+			}}
+			secrets, revisionMetadata, err := secretService.ListCharmSecrets(ctx, readOnlyOwners...)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -250,7 +255,7 @@ func backendConfigInfo(
 				return nil, errors.Trace(err)
 			}
 		}
-		secrets, revisionMetadata, err := secretService.ListCharmSecrets(ctx, owner)
+		secrets, revisionMetadata, err := secretService.ListCharmSecrets(ctx, owners...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

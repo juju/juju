@@ -306,6 +306,45 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET
 	return nil
 }
 
+// ListSecrets returns the secrets matching the specified criteria.
+// If all terms are empty, then all secrets are returned.
+func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
+	// TODO(secrets) - use all filter terms
+	revisions domainsecret.Revisions,
+	labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
+	unitOwners domainsecret.UnitOwners, wantUser bool,
+) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	var (
+		secrets        []*coresecrets.SecretMetadata
+		revisionResult [][]*coresecrets.SecretRevisionMetadata
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		secrets, err = st.listSecrets(ctx, tx, uri)
+		if err != nil {
+			return errors.Annotate(err, "querying secrets")
+		}
+		revisionResult = make([][]*coresecrets.SecretRevisionMetadata, len(secrets))
+		for i, secret := range secrets {
+			secretRevisions, err := st.listSecretRevisions(ctx, tx, secret.URI, nil)
+			if err != nil {
+				return errors.Annotatef(err, "querying secret revisions for %q", secret.URI.ID)
+			}
+			revisionResult[i] = secretRevisions
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, errors.Trace(domain.CoerceError(err))
+	}
+
+	return secrets, revisionResult, nil
+}
+
 // GetSecret returns the secret with the given URI, returning an error satisfying [secreterrors.SecretNotFound]
 // if the secret does not exist.
 // TODO(secrets) - fill in Access etc
@@ -315,7 +354,27 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 		return nil, errors.Trace(err)
 	}
 
+	var secrets []*coresecrets.SecretMetadata
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		secrets, err = st.listSecrets(ctx, tx, uri)
+		return errors.Annotatef(err, "querying secret for %q", uri.ID)
+	}); err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+
+	if len(secrets) == 0 {
+		return nil, fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
+	}
+	return secrets[0], nil
+}
+
+func (st State) listSecrets(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) ([]*coresecrets.SecretMetadata, error) {
 	query := fmt.Sprintf(`
+WITH rev AS
+    (SELECT  secret_id, MAX(revision) AS latest_revision
+    FROM     secret_revision
+    GROUP BY secret_id)
 SELECT 
      id AS &secretInfo.id,
      version as &secretInfo.version,
@@ -323,33 +382,40 @@ SELECT
      auto_prune as &secretInfo.auto_prune,
      create_time as &secretInfo.create_time,
      update_time as &secretInfo.update_time,
-     -- TODO(secrets) - sqlair doesn't like this
-     -- (SELECT MAX(revision) FROM secret_revision rev WHERE rev.secret_id = secret.id) AS &secretInfo.latest_revision,
+     rev.latest_revision AS &secretInfo.latest_revision,
      so.owner_kind AS &secretOwner.owner_kind,
      so.owner_id AS &secretOwner.owner_id,
      so.label AS &secretOwner.label
 FROM secret
+       JOIN rev ON rev.secret_id = secret.id
        LEFT JOIN (
-          SELECT '%s' AS owner_kind, (SELECT uuid FROM model) AS owner_id, label
+          SELECT '%s' AS owner_kind, (SELECT uuid FROM model) AS owner_id, label, secret_id
           FROM   secret_model_owner so
-          WHERE  so.secret_id = $M.id
        UNION
-          SELECT '%s' AS owner_kind, application.name AS owner_id, label
+          SELECT '%s' AS owner_kind, application.name AS owner_id, label, secret_id
           FROM   secret_application_owner so
           JOIN   application
           WHERE  application.uuid = so.application_uuid
-          AND    so.secret_id = $M.id
        UNION
-          SELECT '%s' AS owner_kind, unit.unit_id AS owner_id, label
+          SELECT '%s' AS owner_kind, unit.unit_id AS owner_id, label, secret_id
           FROM   secret_unit_owner so
           JOIN   unit
           WHERE  unit.uuid = so.unit_uuid
-          AND    so.secret_id = $M.id
-       ) so
-WHERE secret.id = $M.id
+       ) so ON so.secret_id = secret.id
 `, coresecrets.ModelOwner, coresecrets.ApplicationOwner, coresecrets.UnitOwner)
 
-	queryStmt, err := st.Prepare(query, sqlair.M{}, secretInfo{}, secretOwner{})
+	queryTypes := []any{
+		secretInfo{},
+		secretOwner{},
+	}
+	queryParams := []any{}
+	if uri != nil {
+		queryTypes = append(queryTypes, sqlair.M{})
+		query = query + "\nWHERE secret.id = $M.id"
+		queryParams = append(queryParams, sqlair.M{"id": uri.ID})
+	}
+
+	queryStmt, err := st.Prepare(query, queryTypes...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -358,21 +424,11 @@ WHERE secret.id = $M.id
 		dbSecrets      secrets
 		dbsecretOwners []secretOwner
 	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt, sqlair.M{"id": uri.ID}).GetAll(&dbSecrets, &dbsecretOwners)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
-		}
-		return errors.Annotatef(err, "retrieving secret %q", uri)
-	}); err != nil {
+	err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbsecretOwners)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Annotate(err, "querying secrets")
 	}
-
-	secretMetadata, err := dbSecrets.toSecretMetadata(dbsecretOwners)
-	if err != nil {
-		return nil, errors.Annotatef(err, "composing secret %q from database", uri)
-	}
-	return secretMetadata[0], nil
+	return dbSecrets.toSecretMetadata(dbsecretOwners)
 }
 
 // GetSecretRevision returns the secret revision with the given URI and revision number,
@@ -383,11 +439,32 @@ func (st State) GetSecretRevision(ctx context.Context, uri *coresecrets.URI, rev
 		return nil, errors.Trace(err)
 	}
 
+	var secretRevisions []*coresecrets.SecretRevisionMetadata
+	if err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		secretRevisions, err = st.listSecretRevisions(ctx, tx, uri, &revision)
+		return errors.Annotatef(err, "querying secret revision %d for %q", revision, uri.ID)
+	}); err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+
+	if len(secretRevisions) == 0 {
+		return nil, fmt.Errorf("secret revision %d for %q not found%w", revision, uri, errors.Hide(secreterrors.SecretRevisionNotFound))
+	}
+	return secretRevisions[0], nil
+}
+
+func (st State) listSecretRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revision *int) ([]*coresecrets.SecretRevisionMetadata, error) {
 	query := `
 SELECT (*) AS (&secretRevision.*)
 FROM   secret_revision
-WHERE  secret_id = $secretRevision.secret_id AND revision = $secretRevision.revision
+WHERE  secret_id = $secretRevision.secret_id
 `
+	want := secretRevision{SecretID: uri.ID}
+	if revision != nil {
+		query = query + "\nAND revision = $secretRevision.revision"
+		want.Revision = *revision
+	}
 
 	queryStmt, err := st.Prepare(query, secretRevision{})
 	if err != nil {
@@ -395,22 +472,12 @@ WHERE  secret_id = $secretRevision.secret_id AND revision = $secretRevision.revi
 	}
 
 	var dbSecretRevisions secretRevisions
-	want := secretRevision{SecretID: uri.ID, Revision: revision}
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt, want).GetAll(&dbSecretRevisions)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("secret revision %d for %q not found%w", revision, uri, errors.Hide(secreterrors.SecretRevisionNotFound))
-		}
-		return errors.Annotatef(err, "retrieving secret revision %d for %q", revision, uri)
-	}); err != nil {
-		return nil, errors.Annotate(err, "querying secret revisions")
+	err = tx.Query(ctx, queryStmt, want).GetAll(&dbSecretRevisions)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Annotatef(err, "retrieving secret revisions for %q", uri)
 	}
 
-	secretRevisions, err := dbSecretRevisions.toSecretRevisions()
-	if err != nil {
-		return nil, errors.Annotatef(err, "composing secret revision %d for secret %q from database", revision, uri)
-	}
-	return secretRevisions[0], nil
+	return dbSecretRevisions.toSecretRevisions()
 }
 
 // GetSecretValue returns the contents - either data or value reference - of a given secret revision,

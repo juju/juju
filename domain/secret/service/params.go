@@ -16,7 +16,9 @@ type CreateSecretParams struct {
 	UpdateSecretParams
 	Version int
 
-	Owner secrets.Owner
+	// Either a charm secret owner is needed, or a user secret is needed.
+	CharmOwner *CharmSecretOwner
+	UserSecret bool
 }
 
 // UpdateSecretParams are used to update a secret.
@@ -62,10 +64,18 @@ type SecretAccessor struct {
 	ModelUUID       *string
 }
 
-// CharmSecretOwners represents the owners of a secret created by a charm.
-// At least one owner is required to be non nil.
+// CharmSecretOwnerKind represents the kind of a charm secret owner entity.
+type CharmSecretOwnerKind string
+
+// These represent the kinds of charm secret owner.
+const (
+	ApplicationOwner CharmSecretOwnerKind = "application"
+	UnitOwner        CharmSecretOwnerKind = "unit"
+)
+
+// CharmSecretOwner is the owner of a secret.
 // This is used to query or watch secrets for specified owners.
-type CharmSecretOwners struct {
-	UnitName        *string
-	ApplicationName *string
+type CharmSecretOwner struct {
+	Kind CharmSecretOwnerKind
+	ID   string
 }
