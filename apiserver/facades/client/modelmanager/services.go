@@ -50,14 +50,20 @@ type ModelConfigService interface {
 type ModelService interface {
 	// CreateModel creates a model.
 	CreateModel(context.Context, model.ModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
+
 	// DefaultModelCloudNameAndCredential returns the default cloud name and
 	// credential that should be used for newly created models that haven't had
 	// either cloud or credential specified.
 	DefaultModelCloudNameAndCredential(context.Context) (string, credential.Key, error)
-	// ModelType returns the type of the given model.
-	ModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
+
 	// DeleteModel deletes the give model.
 	DeleteModel(context.Context, coremodel.UUID) error
+
+	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
+	ListAllModels(context.Context) ([]coremodel.Model, error)
+
+	// ModelType returns the type for for a given model id.
+	ModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 }
 
 // ModelDefaultsService defines a interface for interacting with the model

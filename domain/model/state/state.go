@@ -211,6 +211,7 @@ SELECT name,
        cloud_region_name,
        model_type,
        owner_uuid,
+	   owner_name,
        cloud_credential_cloud_name,
        cloud_credential_owner_name,
        cloud_credential_name,
@@ -235,6 +236,7 @@ WHERE uuid = ?
 		&cloudRegion,
 		&modelType,
 		&userUUID,
+		&model.OwnerName,
 		&credKey.Cloud,
 		&credKey.Owner,
 		&credKey.Name,
@@ -543,9 +545,85 @@ SELECT type FROM model_type;
 	})
 }
 
-// List returns a list of all model UUIDs in the system that have not been
+// ListAllModels returns a slice of all models in the controller. If no models
+// exist an empty slice is returned.
+func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelStmt := `
+SELECT uuid,
+       name,
+       cloud_name,
+       cloud_region_name,
+	   model_type,
+	   owner_uuid,
+	   owner_name,
+	   cloud_credential_name,
+	   cloud_credential_owner_name,
+	   cloud_credential_cloud_name,
+	   life
+FROM v_model
+`
+
+	rval := []coremodel.Model{}
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, modelStmt)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		defer func() { _ = rows.Close() }()
+
+		var (
+			// cloudRegion could be null
+			cloudRegion sql.NullString
+			modelType   string
+			userUUID    string
+			credKey     credential.Key
+			model       coremodel.Model
+		)
+
+		for rows.Next() {
+			err := rows.Scan(
+				&model.UUID,
+				&model.Name,
+				&model.Cloud,
+				&cloudRegion,
+				&modelType,
+				&userUUID,
+				&model.OwnerName,
+				&credKey.Name,
+				&credKey.Owner,
+				&credKey.Cloud,
+				&model.Life,
+			)
+			if err != nil {
+				return err
+			}
+
+			model.CloudRegion = cloudRegion.String
+			model.ModelType = coremodel.ModelType(modelType)
+			model.Owner = user.UUID(userUUID)
+			model.Credential = credKey
+			rval = append(rval, model)
+		}
+
+		return rows.Err()
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("getting all models: %w", domain.CoerceError(err))
+	}
+
+	return rval, nil
+}
+
+// ListModelIDs returns a list of all model UUIDs in the system that have not been
 // deleted.
-func (s *State) List(ctx context.Context) ([]coremodel.UUID, error) {
+func (s *State) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -573,6 +651,91 @@ func (s *State) List(ctx context.Context) ([]coremodel.UUID, error) {
 		return nil
 	})
 	return models, errors.Trace(err)
+}
+
+// ListModelsForUser returns a slice of models owned or accessible by the user
+// specified by the user id. If No user or models are found an empty slice is
+// returned.
+func (s *State) ListModelsForUser(
+	ctx context.Context,
+	userID user.UUID,
+) ([]coremodel.Model, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelStmt := `
+SELECT uuid,
+       name,
+       cloud_name,
+       cloud_region_name,
+	   model_type,
+	   owner_uuid,
+	   owner_name,
+	   cloud_credential_name,
+	   cloud_credential_owner_name,
+	   cloud_credential_cloud_name,
+	   life
+FROM v_model
+WHERE owner_uuid = ?
+OR uuid IN (SELECT grant_on
+            FROM permission
+            WHERE grant_to = ?
+            AND access_type_id IN (0, 1, 3))
+`
+
+	rval := []coremodel.Model{}
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, modelStmt, userID, userID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		defer func() { _ = rows.Close() }()
+
+		var (
+			// cloudRegion could be null
+			cloudRegion sql.NullString
+			modelType   string
+			userUUID    string
+			credKey     credential.Key
+			model       coremodel.Model
+		)
+
+		for rows.Next() {
+			err := rows.Scan(
+				&model.UUID,
+				&model.Name,
+				&model.Cloud,
+				&cloudRegion,
+				&modelType,
+				&userUUID,
+				&model.OwnerName,
+				&credKey.Name,
+				&credKey.Owner,
+				&credKey.Cloud,
+				&model.Life,
+			)
+			if err != nil {
+				return err
+			}
+
+			model.CloudRegion = cloudRegion.String
+			model.ModelType = coremodel.ModelType(modelType)
+			model.Owner = user.UUID(userUUID)
+			model.Credential = credKey
+			rval = append(rval, model)
+		}
+
+		return rows.Err()
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("getting models owned by user %q: %w", userID, domain.CoerceError(err))
+	}
+
+	return rval, nil
 }
 
 // ModelCloudNameAndCredential returns the cloud name and credential id for a

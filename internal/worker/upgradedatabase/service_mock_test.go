@@ -198,17 +198,17 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
 }
 
-// ModelList mocks base method.
-func (m *MockModelService) ModelList(arg0 context.Context) ([]model.UUID, error) {
+// ListModelIDs mocks base method.
+func (m *MockModelService) ListModelIDs(arg0 context.Context) ([]model.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelList", arg0)
+	ret := m.ctrl.Call(m, "ListModelIDs", arg0)
 	ret0, _ := ret[0].([]model.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ModelList indicates an expected call of ModelList.
-func (mr *MockModelServiceMockRecorder) ModelList(arg0 any) *gomock.Call {
+// ListModelIDs indicates an expected call of ListModelIDs.
+func (mr *MockModelServiceMockRecorder) ListModelIDs(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelList", reflect.TypeOf((*MockModelService)(nil).ModelList), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelIDs", reflect.TypeOf((*MockModelService)(nil).ListModelIDs), arg0)
 }

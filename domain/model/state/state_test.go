@@ -6,6 +6,8 @@ package state
 import (
 	"context"
 	"database/sql"
+	"slices"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -19,6 +21,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	userstate "github.com/juju/juju/domain/access/state"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -245,6 +248,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 		},
 		Name:      "my-test-model",
 		Owner:     m.userUUID,
+		OwnerName: "test-user",
 		ModelType: coremodel.IAAS,
 		Life:      life.Alive,
 	})
@@ -550,7 +554,7 @@ func (m *stateSuite) TestDeleteModel(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUUIDS, err := modelSt.List(context.Background())
+	modelUUIDS, err := modelSt.ListModelIDs(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(modelUUIDS, gc.HasLen, 0)
 }
@@ -562,9 +566,9 @@ func (m *stateSuite) TestDeleteModelNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-// TestListModels is testing that once we have created several models calling
+// TestListModelIDs is testing that once we have created several models calling
 // list returns all of the models created.
-func (m *stateSuite) TestListModels(c *gc.C) {
+func (m *stateSuite) TestListModelIDs(c *gc.C) {
 	uuid1 := modeltesting.GenModelUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
@@ -610,7 +614,7 @@ func (m *stateSuite) TestListModels(c *gc.C) {
 	err = modelSt.Finalise(context.Background(), uuid2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuids, err := modelSt.List(context.Background())
+	uuids, err := modelSt.ListModelIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuids, gc.HasLen, 3)
 
@@ -671,4 +675,142 @@ func (m *stateSuite) TestNamespaceForModelDeleted(c *gc.C) {
 	namespace, err := st.NamespaceForModel(context.Background(), m.uuid)
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 	c.Check(namespace, gc.Equals, "")
+}
+
+// TestModelsOwnedByUser is asserting that all models owned by a given user are
+// returned in the resultant list.
+func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
+	uuid1 := modeltesting.GenModelUUID(c)
+	modelSt := NewState(m.TxnRunnerFactory())
+	err := modelSt.Create(
+		context.Background(),
+		uuid1,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:  "owned1",
+			Owner: m.userUUID,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelSt.Finalise(context.Background(), uuid1), jc.ErrorIsNil)
+
+	uuid2 := modeltesting.GenModelUUID(c)
+	err = modelSt.Create(
+		context.Background(),
+		uuid2,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:  "owned2",
+			Owner: m.userUUID,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelSt.Finalise(context.Background(), uuid2), jc.ErrorIsNil)
+
+	models, err := modelSt.ListModelsForUser(context.Background(), m.userUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(models), gc.Equals, 3)
+	slices.SortFunc(models, func(a, b coremodel.Model) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	c.Check(models, gc.DeepEquals, []coremodel.Model{
+		{
+			Name:        "my-test-model",
+			UUID:        m.uuid,
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			ModelType:   coremodel.IAAS,
+			Owner:       m.userUUID,
+			OwnerName:   "test-user",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Life: life.Alive,
+		},
+		{
+			Name:        "owned1",
+			UUID:        uuid1,
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			ModelType:   coremodel.IAAS,
+			Owner:       m.userUUID,
+			OwnerName:   "test-user",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Life: life.Alive,
+		},
+		{
+			Name:        "owned2",
+			UUID:        uuid2,
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			ModelType:   coremodel.IAAS,
+			Owner:       m.userUUID,
+			OwnerName:   "test-user",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Life: life.Alive,
+		},
+	})
+}
+
+// TestModelsOwnedByNonExistantUser tests that if we ask for models from a non
+// existent user we get back an empty model list.
+func (m *stateSuite) TestModelsOwnedByNonExistantUser(c *gc.C) {
+	userID := usertesting.GenUserUUID(c)
+	modelSt := NewState(m.TxnRunnerFactory())
+
+	models, err := modelSt.ListModelsForUser(context.Background(), userID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(models), gc.Equals, 0)
+}
+
+func (m *stateSuite) TestAllModels(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	models, err := modelSt.ListAllModels(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(models, gc.DeepEquals, []coremodel.Model{
+		{
+			Name:        "my-test-model",
+			UUID:        m.uuid,
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			ModelType:   coremodel.IAAS,
+			Owner:       m.userUUID,
+			OwnerName:   "test-user",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Life: life.Alive,
+		},
+	})
 }
