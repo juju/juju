@@ -187,7 +187,7 @@ func (h *objectsCharmHandler) processPut(r *http.Request, st *state.State) (*cha
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	return curl, errors.Trace(RepackageAndUploadCharm(st, archive, curl))
+	return curl, errors.Trace(RepackageAndUploadCharm(st, archive, curl.String(), curl.Revision))
 }
 
 func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {

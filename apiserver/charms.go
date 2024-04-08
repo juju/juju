@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -117,7 +118,7 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return errors.NewBadRequest(err, "")
 	}
-	return errors.Trace(sendStatusAndHeadersAndJSON(w, http.StatusOK, map[string]string{"Juju-Curl": charmURL.String()}, &params.CharmsResponse{CharmURL: charmURL.String()}))
+	return errors.Trace(sendStatusAndHeadersAndJSON(w, http.StatusOK, map[string]string{"Juju-Curl": charmURL}, &params.CharmsResponse{CharmURL: charmURL}))
 }
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
@@ -217,7 +218,7 @@ func (h *charmsHandler) archiveSender(w http.ResponseWriter, r *http.Request, bu
 }
 
 // processPost handles a charm upload POST request after authentication.
-func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.URL, error) {
+func (h *charmsHandler) processPost(r *http.Request, st *state.State) (string, error) {
 	query := r.URL.Query()
 	schema := query.Get("schema")
 	if schema == "" {
@@ -229,32 +230,25 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		// There's currently no other time where it makes sense
 		// to accept repository charms through this endpoint.
 		if isImporting, err := modelIsImporting(st); err != nil {
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		} else if !isImporting {
-			return nil, errors.New("charms may only be uploaded during model migration import")
-		}
-	}
-
-	series := query.Get("series")
-	if series != "" {
-		if err := charm.ValidateSeries(series); err != nil {
-			return nil, errors.NewBadRequest(err, "")
+			return "", errors.New("charms may only be uploaded during model migration import")
 		}
 	}
 
 	charmFileName, err := writeCharmToTempFile(r.Body)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	defer os.Remove(charmFileName)
 
 	err = h.processUploadedArchive(charmFileName)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
-		return nil, errors.BadRequestf("invalid charm archive: %v", err)
+		return "", errors.BadRequestf("invalid charm archive: %v", err)
 	}
 
 	// Use the name from the query string. If we're dealing with an older client
@@ -264,50 +258,74 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		name = archive.Meta().Name
 	}
 	if err := charm.ValidateName(name); err != nil {
-		return nil, errors.NewBadRequest(err, "")
+		return "", errors.NewBadRequest(err, "")
+	}
+
+	var revision int
+	if revisionStr := query.Get("revision"); revisionStr != "" {
+		revision, err = strconv.Atoi(revisionStr)
+		if err != nil {
+			return "", errors.NewBadRequest(errors.NewNotValid(err, "revision"), "")
+		}
+	} else {
+		revision = archive.Revision()
 	}
 
 	// We got it, now let's reserve a charm URL for it in state.
-	curl := &charm.URL{
-		Schema:       schema,
-		Architecture: query.Get("arch"),
-		Name:         name,
-		Revision:     archive.Revision(),
-		Series:       series,
-	}
+	curlStr := curlString(schema, query.Get("arch"), name, query.Get("series"), revision)
 
 	switch charm.Schema(schema) {
 	case charm.Local:
-		curl, err = st.PrepareLocalCharmUpload(curl.String())
+		curl, err := st.PrepareLocalCharmUpload(curlStr)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
+		curlStr = curl.String()
 
 	case charm.CharmHub:
-		// If a revision argument is provided, it takes precedence
-		// over the revision in the charm archive. This is required to
-		// handle the revision differences between unpublished and
-		// published charms in the charm store.
-		revisionStr := query.Get("revision")
-		if revisionStr != "" {
-			curl.Revision, err = strconv.Atoi(revisionStr)
-			if err != nil {
-				return nil, errors.NewBadRequest(errors.NewNotValid(err, "revision"), "")
-			}
-		}
-		if _, err := st.PrepareCharmUpload(curl.String()); err != nil {
-			return nil, errors.Trace(err)
+		if _, err := st.PrepareCharmUpload(curlStr); err != nil {
+			return "", errors.Trace(err)
 		}
 
 	default:
-		return nil, errors.Errorf("unsupported schema %q", schema)
+		return "", errors.Errorf("unsupported schema %q", schema)
 	}
 
-	err = RepackageAndUploadCharm(st, archive, curl)
+	err = RepackageAndUploadCharm(st, archive, curlStr, revision)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	return curl, nil
+	return curlStr, nil
+}
+
+// curlString takes the constituent parts of a charm url and renders the url as a string.
+// This is required since, to support migrations from legacy controllers, we need to support
+// charm urls with series since controllers do not allow migrations to mutate charm urls during
+// migration.
+//
+// This is the only place in Juju 4 where series in a charm url needs to be processed. As such,
+// instead of dragging support for series with us into 4.0, in this one place we string-hack the
+// url
+func curlString(schema, arch, name, series string, revision int) string {
+	if series == "" {
+		curl := &charm.URL{
+			Schema:       schema,
+			Architecture: arch,
+			Name:         name,
+			Revision:     revision,
+		}
+		return curl.String()
+	}
+	var curl string
+	if arch == "" {
+		curl = fmt.Sprintf("%s:%s/%s", schema, series, name)
+	} else {
+		curl = fmt.Sprintf("%s:%s/%s/%s", schema, arch, series, name)
+	}
+	if revision != -1 {
+		curl = fmt.Sprintf("%s-%d", curl, revision)
+	}
+	return curl
 }
 
 // processUploadedArchive opens the given charm archive from path,
@@ -400,7 +418,7 @@ func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 // RepackageAndUploadCharm expands the given charm archive to a
 // temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
+func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl string, charmRevision int) error {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
@@ -409,8 +427,8 @@ func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl 
 	defer os.RemoveAll(tempDir)
 	extractPath := filepath.Join(tempDir, "extracted")
 
-	// Expand and repack it with the revision specified by curl.
-	archive.SetRevision(curl.Revision)
+	// Expand and repack it with the specified revision
+	archive.SetRevision(charmRevision)
 	if err := archive.ExpandTo(extractPath); err != nil {
 		return errors.Annotate(err, "cannot extract uploaded charm")
 	}
@@ -453,7 +471,7 @@ func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl 
 		},
 	})
 
-	return charmStorage.Store(curl.String(), downloader.DownloadedCharm{
+	return charmStorage.Store(curl, downloader.DownloadedCharm{
 		Charm:        archive,
 		CharmData:    &repackagedArchive,
 		CharmVersion: version,
