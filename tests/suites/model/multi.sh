@@ -28,8 +28,8 @@ deploy_stack() {
 
 	juju switch "${name}"
 
-	juju deploy juju-qa-dummy-source --series jammy
-	juju deploy juju-qa-dummy-sink --series jammy
+	juju deploy juju-qa-dummy-source --base ubuntu@22.04
+	juju deploy juju-qa-dummy-sink --base ubuntu@22.04
 
 	juju integrate dummy-source dummy-sink
 	juju expose dummy-sink

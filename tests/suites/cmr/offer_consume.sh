@@ -22,7 +22,7 @@ run_offer_consume() {
 	ensure "model-offer" "${file}"
 
 	echo "Deploy consumed workload and create the offer"
-	juju deploy juju-qa-dummy-source --series jammy
+	juju deploy juju-qa-dummy-source --base ubuntu@22.04
 	juju offer dummy-source:sink dummy-offer
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
@@ -33,7 +33,7 @@ run_offer_consume() {
 	echo "Deploy workload in consume model"
 	juju add-model "model-consume"
 	juju switch "model-consume"
-	juju deploy juju-qa-dummy-sink --series jammy
+	juju deploy juju-qa-dummy-sink --base ubuntu@22.04
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
@@ -91,7 +91,7 @@ run_offer_consume_cross_controller() {
 
 	echo "Deploy consumed workload and create the offer"
 	juju switch "${offer_controller}"
-	juju deploy juju-qa-dummy-source --series jammy
+	juju deploy juju-qa-dummy-source --base ubuntu@22.04
 	juju offer dummy-source:sink
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
@@ -100,7 +100,7 @@ run_offer_consume_cross_controller() {
 	juju switch "controller-consume"
 	juju add-model "model-consume"
 	juju switch "model-consume"
-	juju deploy juju-qa-dummy-sink --series jammy
+	juju deploy juju-qa-dummy-sink --base ubuntu@22.04
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
