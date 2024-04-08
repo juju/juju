@@ -6,16 +6,18 @@ package providertracker
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/caas"
+	caas "github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/servicefactory"
@@ -35,7 +37,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.ProviderServiceFactoryName = ""
+	cfg.ProviderServiceFactoriesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -47,26 +49,41 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.NewTrackerWorker = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.GetProviderServiceFactoryGetter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.GetProviderServiceFactory = nil
+	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig[environs.Environ] {
 	return ManifoldConfig[environs.Environ]{
-		ProviderServiceFactoryName: "provider-service-factory",
-		Logger:                     s.logger,
-		NewWorker: func(ctx context.Context, cfg Config[environs.Environ]) (worker.Worker, error) {
+		ProviderServiceFactoriesName: "provider-service-factory",
+		Logger:                       s.logger,
+		Clock:                        clock.WallClock,
+		NewWorker: func(cfg Config[environs.Environ]) (worker.Worker, error) {
 			return newStubWorker(), nil
+		},
+		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig[environs.Environ]) (worker.Worker, error) {
+			return newStubWorker(), nil
+		},
+		NewProvider: func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+			return s.environ, nil
 		},
 		GetProvider: func(ctx context.Context, pcg ProviderConfigGetter) (environs.Environ, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
-		GetProviderServiceFactory: func(getter dependency.Getter, name string) (ServiceFactory, error) {
-			return s.serviceFactory, nil
+		GetProviderServiceFactoryGetter: func(getter dependency.Getter, name string) (ServiceFactoryGetter, error) {
+			return s.serviceFactoryGetter, nil
 		},
 	}
 }
@@ -81,18 +98,13 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 var expectedInputs = []string{"provider-service-factory"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
+	c.Assert(MultiTrackerManifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.serviceFactory.EXPECT().Cloud().Return(s.cloudService)
-	s.serviceFactory.EXPECT().Config().Return(s.configService)
-	s.serviceFactory.EXPECT().Credential().Return(s.credentialService)
-	s.serviceFactory.EXPECT().Model().Return(s.modelService)
-
-	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
+	w, err := MultiTrackerManifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
@@ -100,12 +112,37 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := &trackerWorker[environs.Environ]{
-		provider: s.environ,
-	}
+	s.expectServiceFactory("hunter2")
+
+	w, err := newWorker(Config[environs.Environ]{
+		TrackerType:          SingularType("hunter2"),
+		ServiceFactoryGetter: s.serviceFactoryGetter,
+		GetProvider: func(ctx context.Context, pcg ProviderConfigGetter) (environs.Environ, cloudspec.CloudSpec, error) {
+			return s.environ, cloudspec.CloudSpec{}, nil
+		},
+		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig[environs.Environ]) (worker.Worker, error) {
+			w := &trackerWorker[environs.Environ]{
+				provider: s.environ,
+			}
+			err := catacomb.Invoke(catacomb.Plan{
+				Site: &w.catacomb,
+				Work: func() error {
+					<-w.catacomb.Dying()
+					return w.catacomb.ErrDying()
+				},
+			})
+			return w, err
+		},
+		Logger: s.logger,
+		Clock:  clock.WallClock,
+	}, s.states)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
 
 	var environ environs.Environ
-	err := manifoldOutput[environs.Environ](w, &environ)
+	err = manifoldOutput[environs.Environ](w, &environ)
 	c.Check(err, jc.ErrorIsNil)
 
 	var destroyer environs.CloudDestroyer
@@ -124,12 +161,37 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := &trackerWorker[caas.Broker]{
-		provider: s.broker,
-	}
+	s.expectServiceFactory("hunter2")
+
+	w, err := newWorker(Config[caas.Broker]{
+		TrackerType:          SingularType("hunter2"),
+		ServiceFactoryGetter: s.serviceFactoryGetter,
+		GetProvider: func(ctx context.Context, pcg ProviderConfigGetter) (caas.Broker, cloudspec.CloudSpec, error) {
+			return s.broker, cloudspec.CloudSpec{}, nil
+		},
+		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig[caas.Broker]) (worker.Worker, error) {
+			w := &trackerWorker[caas.Broker]{
+				provider: s.broker,
+			}
+			err := catacomb.Invoke(catacomb.Plan{
+				Site: &w.catacomb,
+				Work: func() error {
+					<-w.catacomb.Dying()
+					return w.catacomb.ErrDying()
+				},
+			})
+			return w, err
+		},
+		Logger: s.logger,
+		Clock:  clock.WallClock,
+	}, s.states)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
 
 	var broker caas.Broker
-	err := manifoldOutput[caas.Broker](w, &broker)
+	err = manifoldOutput[caas.Broker](w, &broker)
 	c.Check(err, jc.ErrorIsNil)
 
 	var destroyer environs.CloudDestroyer

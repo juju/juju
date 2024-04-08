@@ -551,6 +551,8 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExit
 }
 
 func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
+	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
+
 	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, a *MachineAgent) {
 		// Create an application and unit, and destroy the app.
 		f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -589,6 +591,8 @@ func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
 }
 
 func (s *MachineLegacySuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
+	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
+
 	s.assertJob(c, state.JobManageModel, nil, func(_ agent.Config, _ *MachineAgent) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add an application, set its minimum

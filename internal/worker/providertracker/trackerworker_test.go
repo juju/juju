@@ -22,15 +22,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type workerSuite struct {
+type trackerWorkerSuite struct {
 	baseSuite
-
-	states chan string
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = gc.Suite(&trackerWorkerSuite{})
 
-func (s *workerSuite) TestWorkerStartup(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerStartup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -50,7 +48,7 @@ func (s *workerSuite) TestWorkerStartup(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with the cloud spec setter and environ.
@@ -76,7 +74,7 @@ func (s *workerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -105,7 +103,7 @@ func (s *workerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -142,7 +140,7 @@ func (s *workerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -179,8 +177,8 @@ func (s *workerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) getConfig(environ environs.Environ) Config[environs.Environ] {
-	return Config[environs.Environ]{
+func (s *trackerWorkerSuite) getConfig(environ environs.Environ) TrackerConfig[environs.Environ] {
+	return TrackerConfig[environs.Environ]{
 		ModelService:      s.modelService,
 		CloudService:      s.cloudService,
 		ConfigService:     s.configService,
@@ -192,7 +190,7 @@ func (s *workerSuite) getConfig(environ environs.Environ) Config[environs.Enviro
 	}
 }
 
-func (s *workerSuite) expectModel(c *gc.C) coremodel.UUID {
+func (s *trackerWorkerSuite) expectModel(c *gc.C) coremodel.UUID {
 	id := modeltesting.GenModelUUID(c)
 
 	s.modelService.EXPECT().Model(gomock.Any()).Return(coremodel.ReadOnlyModel{
@@ -207,7 +205,7 @@ func (s *workerSuite) expectModel(c *gc.C) coremodel.UUID {
 	return id
 }
 
-func (s *workerSuite) newCloudSpec(c *gc.C) *config.Config {
+func (s *trackerWorkerSuite) newCloudSpec(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -222,16 +220,16 @@ func (s *workerSuite) newCloudSpec(c *gc.C) *config.Config {
 	return cfg
 }
 
-func (s *workerSuite) expectCloudSpec(c *gc.C, cfg *config.Config) {
+func (s *trackerWorkerSuite) expectCloudSpec(c *gc.C, cfg *config.Config) {
 	s.environ.EXPECT().Config().Return(cfg)
 }
 
-func (s *workerSuite) expectEnvironSetConfig(c *gc.C, cfg *config.Config) {
+func (s *trackerWorkerSuite) expectEnvironSetConfig(c *gc.C, cfg *config.Config) {
 	s.configService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 	s.environ.EXPECT().SetConfig(cfg)
 }
 
-func (s *workerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
+func (s *trackerWorkerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
 	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
 		Cloud: "cloud",
@@ -243,7 +241,7 @@ func (s *workerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
 	s.cloudSpecSetter.EXPECT().SetCloudSpec(gomock.Any(), gomock.Any()).Return(nil)
 }
 
-func (s *workerSuite) expectConfigWatcher(c *gc.C) chan []string {
+func (s *trackerWorkerSuite) expectConfigWatcher(c *gc.C) chan []string {
 	ch := make(chan []string)
 	// Seed the initial event.
 	go func() {
@@ -261,7 +259,7 @@ func (s *workerSuite) expectConfigWatcher(c *gc.C) chan []string {
 	return ch
 }
 
-func (s *workerSuite) expectCloudWatcher(c *gc.C) chan struct{} {
+func (s *trackerWorkerSuite) expectCloudWatcher(c *gc.C) chan struct{} {
 	ch := make(chan struct{})
 	// Seed the initial event.
 	go func() {
@@ -279,7 +277,7 @@ func (s *workerSuite) expectCloudWatcher(c *gc.C) chan struct{} {
 	return ch
 }
 
-func (s *workerSuite) expectCredentialWatcher(c *gc.C) chan struct{} {
+func (s *trackerWorkerSuite) expectCredentialWatcher(c *gc.C) chan struct{} {
 	ch := make(chan struct{})
 	// Seed the initial event.
 	go func() {
@@ -301,31 +299,14 @@ func (s *workerSuite) expectCredentialWatcher(c *gc.C) chan struct{} {
 	return ch
 }
 
-func (s *workerSuite) newWorker(c *gc.C, environ environs.Environ) (*trackerWorker[environs.Environ], error) {
-	return newWorker(context.Background(), s.getConfig(environ), s.states)
+func (s *trackerWorkerSuite) newWorker(c *gc.C, environ environs.Environ) (*trackerWorker[environs.Environ], error) {
+	return newTrackerWorker(context.Background(), s.getConfig(environ), s.states)
 }
 
-func (s *workerSuite) newCloudSpecEnviron() *cloudSpecEnviron {
+func (s *trackerWorkerSuite) newCloudSpecEnviron() *cloudSpecEnviron {
 	return &cloudSpecEnviron{
 		Environ:         s.environ,
 		CloudSpecSetter: s.cloudSpecSetter,
-	}
-}
-
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
-	// Ensure we buffer the channel, this is because we might miss the
-	// event if we're too quick at starting up.
-	s.states = make(chan string, 1)
-
-	return s.baseSuite.setupMocks(c)
-}
-
-func (s *workerSuite) ensureStartup(c *gc.C) {
-	select {
-	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
-	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for startup")
 	}
 }
 

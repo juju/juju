@@ -25,11 +25,8 @@ const (
 	stateStarted = "started"
 )
 
-// Config describes the dependencies of a Worker.
-//
-// It's arguable that it should be called WorkerConfig, because of the heavy
-// use of model config in this package.
-type Config[T Provider] struct {
+// TrackerConfig describes the dependencies of a Worker.
+type TrackerConfig[T Provider] struct {
 	ModelService      ModelService
 	CloudService      CloudService
 	ConfigService     ConfigService
@@ -39,7 +36,7 @@ type Config[T Provider] struct {
 }
 
 // Validate returns an error if the config cannot be used to start a Worker.
-func (config Config[T]) Validate() error {
+func (config TrackerConfig[T]) Validate() error {
 	if config.CloudService == nil {
 		return errors.NotValidf("nil CloudService")
 	}
@@ -64,7 +61,7 @@ type trackerWorker[T Provider] struct {
 	catacomb       catacomb.Catacomb
 	internalStates chan string
 
-	config           Config[T]
+	config           TrackerConfig[T]
 	model            coremodel.ReadOnlyModel
 	provider         T
 	currentCloudSpec environscloudspec.CloudSpec
@@ -72,14 +69,14 @@ type trackerWorker[T Provider] struct {
 	providerGetter providerGetter
 }
 
-// NewWorker loads a provider from the observer and returns a new Worker,
+// NewTrackerWorker loads a provider from the observer and returns a new Worker,
 // or an error if anything goes wrong. If a tracker is returned, its Environ()
 // method is immediately usable.
-func NewWorker[T Provider](ctx context.Context, config Config[T]) (worker.Worker, error) {
-	return newWorker(ctx, config, nil)
+func NewTrackerWorker[T Provider](ctx context.Context, config TrackerConfig[T]) (worker.Worker, error) {
+	return newTrackerWorker(ctx, config, nil)
 }
 
-func newWorker[T Provider](ctx context.Context, config Config[T], internalStates chan string) (*trackerWorker[T], error) {
+func newTrackerWorker[T Provider](ctx context.Context, config TrackerConfig[T], internalStates chan string) (*trackerWorker[T], error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -119,7 +116,7 @@ func newWorker[T Provider](ctx context.Context, config Config[T], internalStates
 	return t, nil
 }
 
-// Environ returns the encapsulated Environ. It will continue to be updated in
+// Provider returns the encapsulated Environ. It will continue to be updated in
 // the background for as long as the Worker continues to run.
 func (t *trackerWorker[T]) Provider() T {
 	return t.provider
@@ -173,10 +170,10 @@ func (t *trackerWorker[T]) loop() (err error) {
 		t.config.Logger.Warningf("cloud type %v doesn't support dynamic changing of cloud spec", cfg.Type())
 	}
 
-	logger := t.config.Logger
-
 	// Report the initial started state.
 	t.reportInternalState(stateStarted)
+
+	logger := t.config.Logger
 
 	for {
 		select {

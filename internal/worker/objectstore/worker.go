@@ -107,8 +107,7 @@ func NewWorker(cfg WorkerConfig) (*objectStoreWorker, error) {
 }
 
 func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker, error) {
-	var err error
-	if err = cfg.Validate(); err != nil {
+	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -126,7 +125,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 		objectStoreRequests: make(chan objectStoreRequest),
 	}
 
-	if err = catacomb.Invoke(catacomb.Plan{
+	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{
@@ -228,7 +227,9 @@ func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	if tracked == nil {
+		return nil, errors.NotFoundf("objectstore")
+	}
 	return tracked.(coreobjectstore.ObjectStore), nil
 }
 
@@ -237,7 +238,7 @@ func (w *objectStoreWorker) workerFromCache(namespace string) (coreobjectstore.O
 	if objectStore, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
 		return objectStore.(coreobjectstore.ObjectStore), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
-		// Handle the case where the DB runner is dead due to this worker dying.
+		// Handle the case where the runner is dead due to this worker dying.
 		select {
 		case <-w.catacomb.Dying():
 			return nil, w.catacomb.ErrDying()

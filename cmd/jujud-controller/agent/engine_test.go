@@ -26,7 +26,7 @@ var (
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
-		"provider-service-factory",
+		"provider-service-factories",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
 		"valid-credential-flag",
