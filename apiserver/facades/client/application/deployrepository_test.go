@@ -243,6 +243,55 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 	})
 }
 
+func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	// resolveCharm
+	curl := charm.MustParseURL("testcharm")
+	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
+		Revision: intptr(4),
+	}
+	// getCharm
+	charmID := corecharm.CharmID{URL: curl, Origin: origin}
+	resolvedData := getResolvedData(resultURL, resolvedOrigin)
+	s.repo.EXPECT().ResolveForDeploy(charmID).Return(resolvedData, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+	s.model.EXPECT().UUID().Return("")
+
+	// state bindings
+	endpointMap := map[string]string{"to": "from"}
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
+	s.state.EXPECT().Charm(gomock.Any()).Return(nil, errors.NotFoundf("charm"))
+
+	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repo, nil).AnyTimes()
+	v := &deployFromRepositoryValidator{
+		model:       s.model,
+		state:       s.state,
+		repoFactory: s.repoFactory,
+		newStateBindings: func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error) {
+			return nil, errors.NotFoundf("space")
+		},
+	}
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName:        "testcharm",
+		EndpointBindings: endpointMap,
+	}
+	_, errs := v.validate(arg)
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], jc.ErrorIs, errors.NotFound)
+}
+
 func (s *validatorSuite) expectSimpleValidate() {
 	// createOrigin
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)

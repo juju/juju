@@ -76,6 +76,7 @@ const (
 var (
 	containerAgentPebbleVersion = version.MustParse("2.9.37")
 	profileDirVersion           = version.MustParse("3.5-beta1")
+	pebbleCopyOnceVersion       = version.MustParse("3.5-beta1")
 )
 
 type app struct {
@@ -1501,6 +1502,20 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		}
 	}
 
+	containerExtraEnv := []corev1.EnvVar{{
+		Name:  "PEBBLE_SOCKET",
+		Value: "/charm/container/pebble.socket",
+	}}
+	if agentVersionNoBuild.Compare(pebbleCopyOnceVersion) >= 0 {
+		containerExtraEnv = append(containerExtraEnv, corev1.EnvVar{
+			Name:  "PEBBLE",
+			Value: "/charm/container/pebble",
+		}, corev1.EnvVar{
+			Name:  "PEBBLE_COPY_ONCE",
+			Value: constants.DefaultPebbleDir,
+		})
+	}
+
 	containerSpecs := []corev1.Container{charmContainer}
 	for i, v := range containers {
 		container := corev1.Container{
@@ -1515,16 +1530,10 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				"--http", fmt.Sprintf(":%s", pebble.WorkloadHealthCheckPort(i)),
 				"--verbose",
 			},
-			Env: []corev1.EnvVar{{
+			Env: append([]corev1.EnvVar{{
 				Name:  "JUJU_CONTAINER_NAME",
 				Value: v.Name,
-			}, {
-				Name:  "PEBBLE_SOCKET",
-				Value: "/charm/container/pebble.socket",
-			}, {
-				Name:  "PEBBLE",
-				Value: "/charm/container/pebble",
-			}},
+			}}, containerExtraEnv...),
 			LivenessProbe: &corev1.Probe{
 				ProbeHandler:        pebble.LivenessHandler(pebble.WorkloadHealthCheckPort(i)),
 				InitialDelaySeconds: containerProbeInitialDelay,

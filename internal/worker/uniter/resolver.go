@@ -62,7 +62,14 @@ func (s *uniterResolver) NextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
-) (operation.Operation, error) {
+) (_ operation.Operation, err error) {
+	badge := "<unspecified>"
+	defer func() {
+		if err != nil && errors.Cause(err) != resolver.ErrNoOperation && err != resolver.ErrRestart {
+			s.config.Logger.Debugf("next %q operation could not be resolved: %v", badge, err)
+		}
+	}()
+
 	if remoteState.Life == life.Dead || localState.Removed {
 		return nil, resolver.ErrUnitDead
 	}
@@ -71,6 +78,7 @@ func (s *uniterResolver) NextOp(
 	// Operations for series-upgrade need to be resolved early,
 	// in particular because no other operations should be run when the unit
 	// has completed preparation and is waiting for upgrade completion.
+	badge = "upgrade series"
 	op, err := s.config.UpgradeSeries.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		if errors.Cause(err) == resolver.ErrDoNotProceed {
@@ -80,12 +88,14 @@ func (s *uniterResolver) NextOp(
 	}
 
 	// Check if we need to notify the charms because a reboot was detected.
+	badge = "reboot"
 	op, err = s.config.Reboot.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
 	if localState.Kind == operation.Upgrade {
+		badge = "upgrade"
 		if localState.Conflicted {
 			return s.nextOpConflicted(ctx, localState, remoteState, opFactory)
 		}
@@ -109,16 +119,19 @@ func (s *uniterResolver) NextOp(
 		s.retryHookTimerStarted = false
 	}
 
+	badge = "relations"
 	op, err = s.config.CreatedRelations.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
+	badge = "leadership"
 	op, err = s.config.Leadership.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
+	badge = "optional"
 	for _, r := range s.config.OptionalResolvers {
 		op, err = r.NextOp(ctx, localState, remoteState, opFactory)
 		if errors.Cause(err) != resolver.ErrNoOperation {
@@ -126,21 +139,25 @@ func (s *uniterResolver) NextOp(
 		}
 	}
 
+	badge = "secrets"
 	op, err = s.config.Secrets.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
+	badge = "actions"
 	op, err = s.config.Actions.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
+	badge = "commands"
 	op, err = s.config.Commands.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
+	badge = "storage"
 	op, err = s.config.Storage.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
@@ -148,6 +165,7 @@ func (s *uniterResolver) NextOp(
 
 	// If we are to shut down, we don't want to start running any more queued/pending hooks.
 	if remoteState.Shutdown {
+		badge = "shutdown"
 		logger.Debugf("unit agent is shutting down, will not run pending/queued hooks")
 		return s.nextOp(ctx, localState, remoteState, opFactory)
 	}
@@ -160,10 +178,12 @@ func (s *uniterResolver) NextOp(
 		}
 		switch step {
 		case operation.Pending:
+			badge = "resolve hook"
 			logger.Infof("awaiting error resolution for %q hook", localState.Hook.Kind)
 			return s.nextOpHookError(ctx, localState, remoteState, opFactory)
 
 		case operation.Queued:
+			badge = "queued hook"
 			logger.Infof("found queued %q hook", localState.Hook.Kind)
 			if localState.Hook.Kind == hooks.Install {
 				// Special case: handle install in nextOp,
@@ -176,6 +196,7 @@ func (s *uniterResolver) NextOp(
 			// Only check for the wrench if trace logging is enabled. Otherwise,
 			// we'd have to parse the charm url every time just to check to see
 			// if a wrench existed.
+			badge = "commit hook"
 			if localState.CharmURL != "" && logger.IsTraceEnabled() {
 				// If it's set, the charm url will parse.
 				curl := jujucharm.MustParseURL(localState.CharmURL)
@@ -193,6 +214,7 @@ func (s *uniterResolver) NextOp(
 		}
 
 	case operation.Continue:
+		badge = "idle"
 		logger.Debugf("no operations in progress; waiting for changes")
 		return s.nextOp(ctx, localState, remoteState, opFactory)
 

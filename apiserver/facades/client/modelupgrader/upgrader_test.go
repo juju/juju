@@ -543,7 +543,7 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
-func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
+func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers string, dryRun bool) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -572,18 +572,19 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
 	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
-	model.EXPECT().Type().Return(state.ModelTypeIAAS)
-	model.EXPECT().IsControllerModel().Return(false)
+	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
 	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil)
-	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
-		Number:        version.MustParse("3.9.99"),
-		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
-		[]*coretools.Tools{
-			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
-		}, nil,
-	)
-	model.EXPECT().IsControllerModel().Return(false).Times(2)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse(ctrlModelVers), nil)
+	if ctrlModelVers != "3.9.99" {
+		model.EXPECT().Type().Return(state.ModelTypeIAAS)
+		s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
+			Number:        version.MustParse("3.9.99"),
+			ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
+			[]*coretools.Tools{
+				{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+			}, nil,
+		)
+	}
 
 	// - check no upgrade series in process.
 	st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
@@ -615,11 +616,15 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 }
 
 func (s *modelUpgradeSuite) TestUpgradeModelJuju3(c *gc.C) {
-	s.assertUpgradeModelJuju3(c, false)
+	s.assertUpgradeModelJuju3(c, "3.10.0", false)
+}
+
+func (s *modelUpgradeSuite) TestUpgradeModelJuju3SameAsController(c *gc.C) {
+	s.assertUpgradeModelJuju3(c, "3.9.99", false)
 }
 
 func (s *modelUpgradeSuite) TestUpgradeModelJuju3DryRun(c *gc.C) {
-	s.assertUpgradeModelJuju3(c, true)
+	s.assertUpgradeModelJuju3(c, "3.10.0", true)
 }
 
 func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
@@ -651,9 +656,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().Type().Return(state.ModelTypeIAAS)
-	model.EXPECT().IsControllerModel().Return(false)
+	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
 	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.10.0"), nil)
 	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:        version.MustParse("3.9.99"),
 		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
@@ -661,7 +666,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
 		}, nil,
 	)
-	model.EXPECT().IsControllerModel().Return(false).Times(2)
 
 	// - check no upgrade series in process.
 	st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil)
@@ -695,6 +699,39 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - unexpected upgrade series lock found
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
+}
+
+func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	api := s.newFacade(c)
+
+	modelUUID := coretesting.ModelTag.Id()
+	model := mocks.NewMockModel(ctrl)
+	st := mocks.NewMockState(ctrl)
+	st.EXPECT().Release().AnyTimes()
+
+	s.statePool.EXPECT().Get(modelUUID).AnyTimes().Return(st, nil)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+	ctrlModel := mocks.NewMockModel(ctrl)
+
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+
+	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	model.EXPECT().Life().Return(state.Alive)
+	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	model.EXPECT().IsControllerModel().Return(false)
+	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil)
+
+	_, err := api.UpgradeModel(stdcontext.Background(),
+		params.UpgradeModelParams{
+			ModelTag:      coretesting.ModelTag.String(),
+			TargetVersion: version.MustParse("3.12.0"),
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade to a version "3.12.0" greater than that of the controller "3.9.99"`)
 }
 
 func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {

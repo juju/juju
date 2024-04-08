@@ -372,6 +372,7 @@ func (w *RemoteStateWatcher) setUp(ctx context.Context, unitTag names.UnitTag) (
 			}
 		}
 	}
+	w.logger.Debugf("starting remote state watcher, actions for %s; blocked=%v", w.unit.Tag(), w.current.ActionsBlocked)
 	return nil
 }
 
@@ -1314,6 +1315,7 @@ func (w *RemoteStateWatcher) actionsChanged(actions []string) {
 
 func (w *RemoteStateWatcher) containerRunningStatus(runningStatus ContainerRunningStatus) {
 	w.mu.Lock()
+	w.logger.Debugf("running status update for %s(provider-id=%s): %+v", w.unit.Tag(), w.current.ProviderID, runningStatus)
 	w.current.ActionsBlocked = !runningStatus.Running
 	w.current.ContainerRunningStatus = &runningStatus
 	w.mu.Unlock()

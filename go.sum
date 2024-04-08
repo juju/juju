@@ -152,8 +152,8 @@ github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 h1:zGaJEJI9qPVy
 github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8/go.mod h1:ZZFeR9K9iGgpwOaLYF9PdT44/+lfSJ9sQz3B+SsGsYU=
 github.com/canonical/lxd v0.0.0-20231214113525-e676fc63c50a h1:Tfo/MzXK5GeG7gzSHqxGeY/669Mhh5ea43dn1mRDnk8=
 github.com/canonical/lxd v0.0.0-20231214113525-e676fc63c50a/go.mod h1:UxfHGKFoRjgu1NUA9EFiR++dKvyAiT0h9HT0ffMlzjc=
-github.com/canonical/pebble v1.9.0 h1:FWVEh1fg3aaW2HNue2Z2eYMwkJEQT8mgMFW3R5Iocn4=
-github.com/canonical/pebble v1.9.0/go.mod h1:9Qkjmq298g0+9SvM2E5eekkEN4pjHDWhgg9eB2I0tjk=
+github.com/canonical/pebble v1.10.2 h1:TG0RYLqH+WEjnxsTB1JbaW0wzeygG0/dPHEEFQKn2JE=
+github.com/canonical/pebble v1.10.2/go.mod h1:BXpt85cFqrBgACeVRrTQ7JxZIdnGILv32V7mAfDcGFc=
 github.com/canonical/sqlair v0.0.0-20240319123511-a48b89bb30aa h1:eRRgzybbMhVtJXwIyrTCTuS66n46Mq0Li/tQF3ZtHtU=
 github.com/canonical/sqlair v0.0.0-20240319123511-a48b89bb30aa/go.mod h1:T+40I2sXshY3KRxx0QQpqqn6hCibSKJ2KHzjBvJj8T4=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b h1:Da2fardddn+JDlVEYtrzBLTtyzoyU3nIS0Cf0GvjmwU=
@@ -496,8 +496,8 @@ github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a/go.mod h1:JWeZdyt
 github.com/juju/collections v1.0.0/go.mod h1:JWeZdyttIEbkR51z2S13+J+aCuHVe0F6meRy+P0YGDo=
 github.com/juju/collections v1.0.4 h1:GjL+aN512m2rVDqhPII7P6qB0e+iYFubz8sqBhZaZtk=
 github.com/juju/collections v1.0.4/go.mod h1:hVrdB0Zwq9wIU1Fl6ItD2+UETeNeOEs+nGvJufVe+0c=
-github.com/juju/description/v5 v5.0.3 h1:YrFPByKv7aBb8PxQPKeMIVe2OPCbR4ED6+RgNnZm91I=
-github.com/juju/description/v5 v5.0.3/go.mod h1:TQsp2Z56EVab7onQY2/O6tLHznovAcckyLz/DgDfVPY=
+github.com/juju/description/v5 v5.0.4 h1:qA35hRglZ47j1mmo9zUM9R+2WSDCH5dvL5ik7gA2aVE=
+github.com/juju/description/v5 v5.0.4/go.mod h1:TQsp2Z56EVab7onQY2/O6tLHznovAcckyLz/DgDfVPY=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20200330140219-3fe23663418f/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff/go.mod h1:i1eL7XREII6aHpQ2gApI/v6FkVUDEBremNkcBCKYAcY=
@@ -1077,8 +1077,8 @@ golang.org/x/net v0.0.0-20220722155237-a158d28d115b/go.mod h1:XRhObCWvk6IyKnWLug
 golang.org/x/net v0.1.0/go.mod h1:Cx3nUiGt4eDBEyega/BKRp+/AlGL8hYe7U9odMt2Cco=
 golang.org/x/net v0.6.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
 golang.org/x/net v0.10.0/go.mod h1:0qNGK6F8kojg2nk9dLZ2mShWaEBan6FAoqfSigmmuDg=
-golang.org/x/net v0.21.0 h1:AQyQV4dYCvJ7vGmJyKki9+PBdyvhkSd8EIx/qb0AYv4=
-golang.org/x/net v0.21.0/go.mod h1:bIjVDfnllIU7BJ2DNgfnXvpSvtn8VRwhlsaeUTyUS44=
+golang.org/x/net v0.22.0 h1:9sGLhx7iRIHEiX0oAJ3MRZMUCElJgy7Br1nO+AMN3Tc=
+golang.org/x/net v0.22.0/go.mod h1:JKghWKKOSdJwpW2GEx0Ja7fmaKnMsbu+MWVZTokSYmg=
 golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
 golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421/go.mod h1:gOpvHmFTYa4IltrdGE7lF6nIHvwfUNPOp7c8zoXwtLw=
 golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45/go.mod h1:gOpvHmFTYa4IltrdGE7lF6nIHvwfUNPOp7c8zoXwtLw=
