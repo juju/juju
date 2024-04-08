@@ -11,4 +11,12 @@ const (
 	// SecretNotFound describes an error that occurs when the secret being operated on
 	// does not exist.
 	SecretNotFound = errors.ConstError("secret not found")
+
+	// SecretLabelAlreadyExists describes an error that occurs when there's already a secret label for
+	// a specified secret owner.
+	SecretLabelAlreadyExists = errors.ConstError("secret label already exists")
+
+	// SecretRevisionNotFound describes an error that occurs when the secret revision being operated on
+	// does not exist.
+	SecretRevisionNotFound = errors.ConstError("secret revision not found")
 )
