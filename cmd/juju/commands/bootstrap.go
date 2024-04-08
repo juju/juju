@@ -119,9 +119,6 @@ An error is emitted if the determined base is not supported. Using the
 
     juju bootstrap --bootstrap-base=ubuntu@22.04 --force
 
-The '--bootstrap-series' flag can be still used, but is deprecated in favour
-of '--bootstrap-base'.
-
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
 
@@ -217,7 +214,6 @@ type bootstrapCommand struct {
 	ConstraintsStr           string
 	BootstrapConstraints     constraints.Value
 	BootstrapConstraintsStr  string
-	BootstrapSeries          string
 	BootstrapBase            string
 	BootstrapImage           string
 	BuildAgent               bool
@@ -317,7 +313,6 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
 	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
-	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-base)")
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture)")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
@@ -342,7 +337,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		"Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
-	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
+	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported base")
 	f.StringVar(&c.ControllerCharmPath, "controller-charm-path", "", "Path to a locally built controller charm")
 	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
@@ -357,19 +352,6 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 
-	if c.BootstrapSeries != "" && c.BootstrapBase != "" {
-		return errors.New("cannot specify both --bootstrap-series and --bootstrap-base")
-	}
-
-	if c.BootstrapSeries != "" {
-		base, err := corebase.GetBaseFromSeries(c.BootstrapSeries)
-		if err != nil {
-			return errors.Errorf("cannot determine base for series %q", c.BootstrapSeries)
-		}
-
-		c.BootstrapBase = base.String()
-		c.BootstrapSeries = ""
-	}
 	// Validate the bootstrap base looks like a base.
 	if c.BootstrapBase != "" {
 		if _, err := corebase.ParseBaseFromString(c.BootstrapBase); err != nil {

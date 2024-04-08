@@ -1600,14 +1600,6 @@ func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ambiguousDetectedCredentialError.Error())
 }
 
-func (s *BootstrapSuite) TestBootstrapWithBootstrapSeries(c *gc.C) {
-	s.patchVersionAndSeries(c, "jammy")
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--bootstrap-series", "spock",
-	)
-	c.Assert(err, gc.ErrorMatches, `cannot determine base for series "spock"`)
-}
-
 func (s *BootstrapSuite) TestBootstrapWithDeprecatedBase(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 	_, err := cmdtesting.RunCommand(
@@ -1623,16 +1615,6 @@ func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillF
 		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-base=spock",
 	)
 	c.Assert(err, gc.ErrorMatches, `invalid default base "spock".*`)
-}
-
-func (s *BootstrapSuite) TestBootstrapWithBootstrapSeriesDoesNotUseFallbackButStillFails(c *gc.C) {
-	s.patchVersionAndSeries(c, "jammy")
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl",
-		"--bootstrap-series", "spock",
-		"--config", "default-base=kirk",
-	)
-	c.Assert(err, gc.ErrorMatches, `cannot determine base for series "spock"`)
 }
 
 func (s *BootstrapSuite) TestBootstrapBaseWithNoBootstrapSeriesUsesFallbackButStillFails(c *gc.C) {
