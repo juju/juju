@@ -178,8 +178,6 @@ func (s *BundleDeploySuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
 	err = s.runDeploy(c, "ch:wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
-	err = s.runDeploy(c, "ch:wordpress-simple", "--series", "xenial")
-	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
 	err = s.runDeploy(c, "ch:wordpress-simple", "--base", "ubuntu@18.04")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --base")
 }

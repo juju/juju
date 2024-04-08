@@ -255,10 +255,6 @@ type DeployCommand struct {
 	// Revision is the revision of the charm to deploy.
 	Revision int
 
-	// Series is the series of the charm to deploy.
-	// DEPRECATED: Use --base instead.
-	Series string
-
 	// Base is the base of the charm to deploy.
 	Base string
 
@@ -641,7 +637,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
-	f.StringVar(&c.Series, "series", "", "The series on which to deploy. DEPRECATED: use --base")
 	f.StringVar(&c.Base, "base", "", "The base on which to deploy")
 	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
@@ -657,9 +652,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init validates the flags.
 func (c *DeployCommand) Init(args []string) error {
-	if c.Base != "" && c.Series != "" {
-		return errors.New("--series and --base cannot be specified together")
-	}
 	// NOTE: For deploying a charm with the revision flag, a channel is
 	// also required. It's required to ensure that juju knows which channel
 	// should be used for refreshing/upgrading the charm in the future.However
@@ -788,16 +780,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		base corebase.Base
 		err  error
 	)
-	// Note: we validated that both series and base cannot be specified in
-	// Init(), so it's safe to assume that only one of them is set here.
-	if c.Series != "" {
-		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = corebase.GetBaseFromSeries(c.Series); err != nil {
-			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
-		}
-		c.Base = base.String()
-		c.Series = ""
-	}
 	if c.Base != "" {
 		if base, err = corebase.ParseBaseFromString(c.Base); err != nil {
 			return errors.Trace(err)
