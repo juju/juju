@@ -11,7 +11,6 @@ package state
 import (
 	"crypto/rand"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -36,20 +35,6 @@ func userIDFromGlobalKey(key string) string {
 	return strings.TrimPrefix(key, prefix)
 }
 
-func (st *State) checkUserExists(name string) (bool, error) {
-	lowercaseName := strings.ToLower(name)
-
-	users, closer := st.db().GetCollection(usersC)
-	defer closer()
-
-	var count int
-	var err error
-	if count, err = users.FindId(lowercaseName).Count(); err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
 // AddUser adds a user to the database.
 func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
 	return st.addUser(name, displayName, password, creator, nil)
@@ -57,7 +42,7 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 
 // AddUserWithSecretKey adds the user with the specified name, and assigns it
 // a randomly generated secret key. This secret key may be used for the user
-// and controller to mutually authenticate one another, without without relying
+// and controller to mutually authenticate one another, without relying
 // on TLS certificates.
 //
 // The new user will not have a password. A password must be set, clearing the
@@ -367,50 +352,6 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 	return user, nil
 }
 
-// AllUsers returns a slice of state.User. This includes all active users. If
-// includeDeactivated is true it also returns inactive users. At this point it
-// never returns deleted users.
-func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
-	var result []*User
-
-	users, closer := st.db().GetCollection(usersC)
-	defer closer()
-
-	var query bson.D
-	// TODO(redir): Provide option to retrieve deleted users in future PR.
-	// e.g. if !includeDelted.
-	// Ensure the query checks for users without the deleted attribute, and
-	// also that if it does that the value is not true. fwereade wanted to be
-	// sure we cannot miss users that previously existed without the deleted
-	// attr. Since this will only be in 2.0 that should never happen, but...
-	// belt and suspenders.
-	query = append(query, bson.DocElem{
-		"deleted", bson.D{{"$ne", true}},
-	})
-
-	// As above, in the case that a user previously existed and doesn't have a
-	// deactivated attribute, we make sure the query checks for the existence
-	// of the attribute, and if it exists that it is not true.
-	if !includeDeactivated {
-		query = append(query, bson.DocElem{
-			"deactivated", bson.D{{"$ne", true}},
-		})
-	}
-	iter := users.Find(query).Iter()
-	defer iter.Close()
-
-	var doc userDoc
-	for iter.Next(&doc) {
-		result = append(result, &User{st: st, doc: doc})
-	}
-	if err := iter.Close(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Always return a predictable order, sort by Name.
-	sort.Sort(userList(result))
-	return result, nil
-}
-
 // User represents a local user in the database.
 type User struct {
 	st           *State
@@ -678,14 +619,14 @@ func (u *User) ResetPassword() ([]byte, error) {
 		update := bson.D{
 			{
 				"$set", bson.D{
-					{"secretkey", key},
-				},
+				{"secretkey", key},
+			},
 			},
 			{
 				"$unset", bson.D{
-					{"passwordhash", ""},
-					{"passwordsalt", ""},
-				},
+				{"passwordhash", ""},
+				{"passwordsalt", ""},
+			},
 			},
 		}
 		lowercaseName := strings.ToLower(u.Name())
@@ -713,10 +654,3 @@ func generateSecretKey() ([]byte, error) {
 	}
 	return secretKey[:], nil
 }
-
-// userList type is used to provide the methods for sorting.
-type userList []*User
-
-func (u userList) Len() int           { return len(u) }
-func (u userList) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
-func (u userList) Less(i, j int) bool { return u[i].Name() < u[j].Name() }
