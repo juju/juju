@@ -518,7 +518,7 @@ func CharmStorageParams(
 	}
 
 	providerType, attrs, err := poolStorageProvider(ctx, storagePoolGetter, registry, maybePoolName)
-	if err != nil && (!errors.Is(err, errors.NotFound) || poolName != "") {
+	if err != nil && (!errors.Is(err, storageerrors.PoolNotFoundError) || poolName != "") {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {

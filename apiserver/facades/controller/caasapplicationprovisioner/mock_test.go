@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
@@ -160,6 +161,9 @@ func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name str
 	m.MethodCall(m, "GetStoragePoolByName", name)
 	if err := m.NextErr(); err != nil {
 		return nil, err
+	}
+	if name == "notpool" {
+		return nil, storageerrors.PoolNotFoundError
 	}
 	return storage.NewConfig(name, k8sconstants.StorageProviderType, map[string]interface{}{"foo": "bar"})
 }
