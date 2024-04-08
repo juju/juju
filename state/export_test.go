@@ -71,7 +71,6 @@ var (
 type (
 	CharmDoc       charmDoc
 	ApplicationDoc = applicationDoc
-	ConstraintsDoc = constraintsDoc
 
 	StorageBackend         = storageBackend
 	DeviceBackend          = deviceBackend
@@ -81,10 +80,6 @@ type (
 var (
 	IsDying = isDying
 )
-
-func NewStateSettingsForCollection(backend modelBackend, collection string) *StateSettings {
-	return &StateSettings{backend, globalSettingsC}
-}
 
 // EnsureWorkersStarted ensures that all the automatically
 // started state workers are running, so that tests which
@@ -204,10 +199,6 @@ func SecretBackendRefCount(st *State, backendID string) (int, error) {
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
-}
-
-func AddTestingCharmFromRepo(c *gc.C, st *State, name string, repo *repo.CharmRepo) *Charm {
-	return addCharm(c, st, "quantal", repo.CharmDir(name))
 }
 
 func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *Charm {
@@ -402,11 +393,6 @@ func AddCustomCharmWithManifest(c *gc.C, st *State, name, filename, content, ser
 	return addCustomCharmWithManifest(c, st, testcharms.RepoForSeries(series), name, filename, content, series, revision, true)
 }
 
-func AddCustomCharmForSeries(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	// Copy charm from `series` dir.
-	return addCustomCharm(c, st, testcharms.RepoForSeries(series), name, filename, content, series, revision)
-}
-
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
 	return addCustomCharm(c, st, getCharmRepo(series), name, filename, content, series, revision)
 }
@@ -462,15 +448,6 @@ func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interfac
 
 func NowToTheSecond(st *State) time.Time {
 	return st.nowToTheSecond()
-}
-
-// Return the PasswordSalt that goes along with the PasswordHash
-func GetUserPasswordSaltAndHash(u *User) (string, string) {
-	return u.doc.PasswordSalt, u.doc.PasswordHash
-}
-
-func CheckUserExists(st *State, name string) (bool, error) {
-	return st.checkUserExists(name)
 }
 
 func WatcherMergeIds(changeset *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
@@ -590,8 +567,7 @@ func (m MockGlobalEntity) Tag() names.Tag {
 }
 
 var (
-	_                    GlobalEntity = (*MockGlobalEntity)(nil)
-	TagToCollectionAndId              = (*State).tagToCollectionAndId
+	_ GlobalEntity = (*MockGlobalEntity)(nil)
 )
 
 func AssertAddressConversion(c *gc.C, netAddr network.SpaceAddress) {
@@ -945,12 +921,6 @@ func GetApplicationConfig(st *State, app *Application) *Settings {
 // GetApplicationHasResources returns the app's HasResources value.
 func GetApplicationHasResources(app *Application) bool {
 	return app.doc.HasResources
-}
-
-// GetControllerSettings allows access to settings collection for
-// the controller.
-func GetControllerSettings(st *State) *Settings {
-	return newSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
 }
 
 // GetPopulatedSettings returns a reference to settings with the input values
