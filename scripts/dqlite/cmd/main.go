@@ -16,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/canonical/go-dqlite/client"
 	"github.com/canonical/sqlair"
 	"github.com/gosuri/uitable"
 	"github.com/juju/errors"
@@ -96,16 +97,20 @@ func main() {
 
 	fmt.Printf("Opening database at %s\n", path)
 
-	dbApp, err := app.New(path)
+	dial := client.DefaultDialFunc
+
+	dbApp, err := app.New(path, app.WithAddress("127.0.0.1:9001"))
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Printf("0x%x %s\n", dbApp.ID(), dbApp.Address())
 
 	if err := dbApp.Ready(context.Background()); err != nil {
 		panic(err)
 	}
 
-	db, err := dbApp.Open(context.Background(), *dbTypeFlag)
+	db, err := dbApp.Open(context.Background(), "tmp")
 	if err != nil {
 		panic(err)
 	}
@@ -114,6 +119,11 @@ func main() {
 		db: db,
 	}); err != nil {
 		panic(err)
+	}
+
+	address := dbApp.Address()
+	if address == "" {
+		address = "127.0.0.1:9001"
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -157,13 +167,20 @@ func main() {
 				}
 				return
 			}
-			if input == "exit" {
+			if input == ".exit" {
+				return
+			}
+			if strings.Index(input, ".dump") == 0 {
+				path := strings.TrimSpace(input[5:])
+				if err := dumpDB(ctx, dial, db, address, path); err != nil {
+					fmt.Fprintln(os.Stderr, "Error: ", err)
+				}
 				return
 			}
 
 			result, err := processQuery(ctx, db, input)
 			if err != nil {
-				fmt.Println("Error: ", err)
+				fmt.Fprintln(os.Stderr, "Error: ", err)
 			} else {
 				line.AppendHistory(input)
 				if result != "" {
@@ -181,6 +198,42 @@ func main() {
 	}()
 
 	<-ctx.Done()
+}
+
+func dumpDB(ctx context.Context, dial client.DialFunc, db *sql.DB, address, dir string) error {
+	cli, err := client.New(ctx, address, client.WithDialFunc(dial))
+	if err != nil {
+		return fmt.Errorf("client.New failed %w", err)
+	}
+
+	if dir == "" {
+		var err error
+		dir, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("os.Getwd() failed %w", err)
+		}
+		dir = filepath.Join(dir, "dump")
+
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("os.MkdirAll() failed %w", err)
+	}
+
+	files, err := cli.Dump(ctx, "tmp")
+	if err != nil {
+		return fmt.Errorf("dump failed")
+	}
+
+	for _, file := range files {
+		path := filepath.Join(dir, file.Name)
+
+		err := os.WriteFile(path, file.Data, 0600)
+		if err != nil {
+			return fmt.Errorf("WriteFile failed on path %s", path)
+		}
+	}
+
+	return nil
 }
 
 func controllerSchema() *databaseschema.Schema {
