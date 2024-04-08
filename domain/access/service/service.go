@@ -140,7 +140,7 @@ type PermissionState interface {
 	// subject (user). The api user must have Admin permission on the target. If a
 	// subject does not exist, it is created using the subject and api user. Access
 	// can be granted or revoked.
-	UpsertPermission(ctx context.Context, args access.UpsertPermissionArgs) error
+	UpsertPermission(ctx context.Context, args access.UpdatePermissionArgs) error
 
 	// ReadUserAccessForTarget returns the subject's (user) access for the
 	// given user on the given target.

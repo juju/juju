@@ -16,29 +16,33 @@ type typesSuite struct{}
 var _ = gc.Suite(&typesSuite{})
 
 func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
-	argsToTest := []UpsertPermissionArgs{
+	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject
 			ApiUser: "admin",
 		}, { // Missing Target
 			ApiUser: "admin",
 			Subject: "testme",
 		}, { // Target and Access don't mesh
-			Access:  permission.AddModelAccess,
+			AccessSpec: permission.AccessSpec{
+				Access: permission.AddModelAccess,
+				Target: permission.ID{
+					ObjectType: permission.Cloud,
+					Key:        "aws",
+				},
+			},
 			ApiUser: "admin",
 			Subject: "testme",
-			Target: permission.ID{
-				ObjectType: permission.Cloud,
-				Key:        "aws",
-			},
 		}, { // Invalid Change
-			Access:  permission.AddModelAccess,
+			AccessSpec: permission.AccessSpec{
+				Access: permission.AddModelAccess,
+				Target: permission.ID{
+					ObjectType: permission.Model,
+					Key:        "aws",
+				},
+			},
 			ApiUser: "admin",
 			Change:  "testing",
 			Subject: "testme",
-			Target: permission.ID{
-				ObjectType: permission.Model,
-				Key:        "aws",
-			},
 		}}
 	for i, args := range argsToTest {
 		c.Logf("Test %d", i)

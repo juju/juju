@@ -28,6 +28,24 @@ func (u AccessSpec) Validate() error {
 	return nil
 }
 
+// RevokeAccess returns the new access level based on the revoking the current
+// value setting. E.g. revoking SuperuserAccess sets LoginAccess for
+// controllers.
+func (a AccessSpec) RevokeAccess() Access {
+	switch a.Target.ObjectType {
+	case Cloud:
+		return cloudRevoke(a.Access)
+	case Controller:
+		return controllerRevoke(a.Access)
+	case Model:
+		return modelRevoke(a.Access)
+	case Offer:
+		return offerRevoke(a.Access)
+	default:
+		return NoAccess
+	}
+}
+
 // UserAccessSpec defines the attributes that can be set when adding a new
 // user access.
 type UserAccessSpec struct {

@@ -88,20 +88,22 @@ func (s *serviceSuite) TestDeletePermissionError(c *gc.C) {
 
 func (s *serviceSuite) TestUpsertPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().UpsertPermission(gomock.Any(), gomock.AssignableToTypeOf(access.UpsertPermissionArgs{})).Return(nil)
+	s.state.EXPECT().UpsertPermission(gomock.Any(), gomock.AssignableToTypeOf(access.UpdatePermissionArgs{})).Return(nil)
 
-	err := NewPermissionService(s.state).UpsertPermission(
+	err := NewPermissionService(s.state).UpdatePermission(
 		context.Background(),
-		access.UpsertPermissionArgs{
-			Access:  corepermission.AddModelAccess,
+		access.UpdatePermissionArgs{
+			AccessSpec: corepermission.AccessSpec{
+				Access: corepermission.AddModelAccess,
+				Target: corepermission.ID{
+					ObjectType: corepermission.Cloud,
+					Key:        "aws",
+				},
+			},
 			AddUser: false,
 			ApiUser: "admin",
 			Change:  corepermission.Grant,
 			Subject: "testme",
-			Target: corepermission.ID{
-				ObjectType: corepermission.Cloud,
-				Key:        "aws",
-			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

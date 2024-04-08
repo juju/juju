@@ -315,3 +315,78 @@ func (a Access) GreaterOfferAccessThan(access Access) bool {
 	}
 	return v1 > v2
 }
+
+// modelRevoke provides the logic of revoking
+// model access. Revoking:
+// * AddModel gets you Write
+// * Write gets you Read
+// * Read gets you NoAccess
+func modelRevoke(a Access) Access {
+	switch a {
+	case AddModelAccess:
+		return WriteAccess
+	case WriteAccess:
+		return ReadAccess
+	default:
+		return NoAccess
+	}
+}
+
+// offerRevoke provides the logic of revoking
+// offer access. Revoking:
+// * Admin gets you Consume
+// * Consume gets you Read
+// * Read gets you NoAccess
+func offerRevoke(a Access) Access {
+	switch a {
+	case AdminAccess:
+		return ConsumeAccess
+	case ConsumeAccess:
+		return ReadAccess
+	default:
+		return NoAccess
+	}
+}
+
+// controllerRevoke provides the logic of revoking
+// controller access. Revoking:
+// * Superuser gets you Login
+// * Login gets you NoAccess
+func controllerRevoke(a Access) Access {
+	switch a {
+	case SuperuserAccess:
+		return LoginAccess
+	default:
+		return NoAccess
+	}
+}
+
+// cloudRevoke provides the logic of revoking
+// cloud access. Revoking:
+// * Admin gets you AddModel
+// * AddModel gets you NoAccess
+func cloudRevoke(a Access) Access {
+	switch a {
+	case AdminAccess:
+		return AddModelAccess
+	default:
+		return NoAccess
+	}
+}
+
+// EqualOrGreaterThan returns true if the current access is
+// equal or greater than the passed in access level.
+func (a AccessSpec) EqualOrGreaterThan(access Access) bool {
+	switch a.Target.ObjectType {
+	case Cloud:
+		return a.Access.EqualOrGreaterCloudAccessThan(access)
+	case Controller:
+		return a.Access.EqualOrGreaterControllerAccessThan(access)
+	case Model:
+		return a.Access.EqualOrGreaterModelAccessThan(access)
+	case Offer:
+		return a.Access.EqualOrGreaterOfferAccessThan(access)
+	default:
+		return false
+	}
+}
