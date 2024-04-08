@@ -14,6 +14,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -30,6 +31,36 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
+}
+
+// GetModelUUID returns the uuid of the model,
+// or an error satisfying [modelerrors.NotFound]
+func (st State) GetModelUUID(ctx context.Context) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	getModelUUIDSQL := "SELECT &M.uuid FROM model"
+	getModelUUIDStmt, err := st.Prepare(getModelUUIDSQL, sqlair.M{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var modelUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result := sqlair.M{}
+		err = tx.Query(ctx, getModelUUIDStmt).Get(&result)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return modelerrors.NotFound
+			} else {
+				return errors.Annotatef(err, "looking up model UUID")
+			}
+		}
+		modelUUID = result["uuid"].(string)
+		return nil
+	})
+	return modelUUID, errors.Trace(domain.CoerceError(err))
 }
 
 // CreateUserSecret creates a user secret, returning an error satisfying [secreterrors.SecretAlreadyExists]
@@ -88,14 +119,13 @@ func (st State) createSecret(
 	secret domainsecret.UpsertSecretParams, revisionUUID uuid.UUID,
 	checkExists checkExistsFunc,
 ) error {
+	if len(secret.Data) == 0 && secret.ValueRef == nil {
+		return errors.Errorf("cannot create a secret without content")
+	}
 	if secret.Label != "" {
 		if err := checkExists(ctx, tx, secret.Label); err != nil {
 			return errors.Trace(err)
 		}
-	}
-
-	if len(secret.Data) == 0 && secret.ValueRef == nil {
-		return errors.Errorf("cannot create a secret without any data")
 	}
 
 	now := time.Now()

@@ -251,8 +251,8 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	p := secretservice.CreateSecretParams{
-		Version:          secrets.Version,
-		ApplicationOwner: ptr("mariadb"),
+		Version: secrets.Version,
+		Owner:   coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		UpdateSecretParams: secretservice.UpdateSecretParams{
 			LeaderToken:  s.token,
 			RotatePolicy: ptr(coresecrets.RotateDaily),
@@ -267,13 +267,9 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.secretService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), p).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, p secretservice.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
+		func(ctx context.Context, uri *coresecrets.URI, p secretservice.CreateSecretParams) error {
 			gotURI = uri
-			md := &coresecrets.SecretMetadata{
-				URI:            uri,
-				LatestRevision: 1,
-			}
-			return md, nil
+			return nil
 		},
 	)
 
@@ -315,8 +311,8 @@ func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	p := secretservice.CreateSecretParams{
-		Version:          secrets.Version,
-		ApplicationOwner: ptr("mariadb"),
+		Version: secrets.Version,
+		Owner:   coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		UpdateSecretParams: secretservice.UpdateSecretParams{
 			LeaderToken: s.token,
 			Label:       ptr("foobar"),
@@ -326,7 +322,7 @@ func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.secretService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), p).Return(
-		nil, fmt.Errorf("dup label %w", state.LabelExists),
+		fmt.Errorf("dup label %w", state.LabelExists),
 	)
 
 	results, err := s.facade.CreateSecrets(context.Background(), params.CreateSecretArgs{

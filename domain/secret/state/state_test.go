@@ -46,6 +46,16 @@ func (s *stateSuite) setupModel(c *gc.C) string {
 	return modelUUID.String()
 }
 
+func (s *stateSuite) TestGetModelUUID(c *gc.C) {
+	modelUUID := s.setupModel(c)
+
+	st := newSecretState(s.TxnRunnerFactory())
+
+	got, err := st.GetModelUUID(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.Equals, modelUUID)
+}
+
 func (s *stateSuite) TestGetSecretNotFound(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 

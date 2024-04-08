@@ -334,15 +334,15 @@ func (s *SecretsAPI) createSecret(ctx context.Context, backend provider.SecretsB
 		}
 	}
 
-	md, err := s.secretService.CreateSecret(ctx, uri, secretservice.CreateSecretParams{
+	err = s.secretService.CreateSecret(ctx, uri, secretservice.CreateSecretParams{
 		Version:            secrets.Version,
-		ModelOwner:         &s.modelUUID,
+		Owner:              coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID},
 		UpdateSecretParams: fromUpsertParams(nil, arg.UpsertSecretArg),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return md.URI.String(), nil
+	return uri.String(), nil
 }
 
 func fromUpsertParams(autoPrune *bool, p params.UpsertSecretArg) secretservice.UpdateSecretParams {

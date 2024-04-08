@@ -280,12 +280,11 @@ func (mr *MockSecretServiceMockRecorder) ChangeSecretBackend(ctx, uri, revision,
 }
 
 // CreateSecret mocks base method.
-func (m *MockSecretService) CreateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.CreateSecretParams) (*secrets.SecretMetadata, error) {
+func (m *MockSecretService) CreateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.CreateSecretParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*secrets.SecretMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // CreateSecret indicates an expected call of CreateSecret.
@@ -351,21 +350,6 @@ func (m *MockSecretService) GetSecretGrants(ctx context.Context, uri *secrets.UR
 func (mr *MockSecretServiceMockRecorder) GetSecretGrants(ctx, uri, role any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretGrants", reflect.TypeOf((*MockSecretService)(nil).GetSecretGrants), ctx, uri, role)
-}
-
-// GetSecretRevision mocks base method.
-func (m *MockSecretService) GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretRevision", ctx, uri, revision)
-	ret0, _ := ret[0].(*secrets.SecretRevisionMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretRevision indicates an expected call of GetSecretRevision.
-func (mr *MockSecretServiceMockRecorder) GetSecretRevision(ctx, uri, revision any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRevision", reflect.TypeOf((*MockSecretService)(nil).GetSecretRevision), ctx, uri, revision)
 }
 
 // GetSecretValue mocks base method.

@@ -333,11 +333,11 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
 			Return("rev-id", nil)
 	}
-	s.secretService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
+	s.secretService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.CreateSecretParams) error {
 		c.Assert(arg1, gc.DeepEquals, uri)
 		c.Assert(params.Version, gc.Equals, 1)
-		c.Assert(params.ModelOwner, gc.NotNil)
-		c.Assert(*params.ModelOwner, gc.Equals, coretesting.ModelTag.Id())
+		c.Assert(params.Owner.Kind, gc.Equals, coresecrets.ModelOwner)
+		c.Assert(params.Owner.ID, gc.Equals, coretesting.ModelTag.Id())
 		c.Assert(params.UpdateSecretParams.Description, gc.DeepEquals, ptr("this is a user secret."))
 		c.Assert(params.UpdateSecretParams.Label, gc.DeepEquals, ptr("label"))
 		if isInternal {
@@ -351,9 +351,9 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 			c.Assert(params.UpdateSecretParams.Data, gc.IsNil)
 		}
 		if finalStepFailed {
-			return nil, errors.New("some error")
+			return errors.New("some error")
 		}
-		return &coresecrets.SecretMetadata{URI: uri}, nil
+		return nil
 	})
 	if finalStepFailed && !isInternal {
 		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)

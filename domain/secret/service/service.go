@@ -18,7 +18,15 @@ import (
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
-type State interface{}
+// State describes retrieval and persistence methods needed for
+// the secrets domain service.
+type State interface {
+	GetModelUUID(ctx context.Context) (string, error)
+	CreateUserSecret(ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
+	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
+	GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
+	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
+}
 
 // Logger facilitates emitting log messages.
 type Logger interface {
@@ -55,27 +63,64 @@ type SecretService struct {
 	adminConfigGetter BackendAdminConfigGetter
 }
 
+// CreateSecretURIs returns the specified number of new secret URIs.
 func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error) {
 	if count <= 0 {
 		return nil, errors.NotValidf("secret URi count %d", count)
 	}
 
-	// TODO(secrets)
-	modelUUID := ""
+	modelUUID, err := s.st.GetModelUUID(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model uuid")
+	}
 	result := make([]*secrets.URI, count)
 	for i := 0; i < count; i++ {
 		result[i] = secrets.NewURI().WithSource(modelUUID)
 	}
 	return result, nil
 }
-func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, params CreateSecretParams) (*secrets.SecretMetadata, error) {
-	return nil, errors.NotImplemented
-	/*
-		var nextRotateTime *time.Time
-		if params.RotatePolicy.WillRotate() {
-			nextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
+
+// TODO(secrets) - we need to tweak the upsert params to avoid this
+func value[T any](v *T) T {
+	if v == nil {
+		return *new(T)
+	}
+	return *v
+}
+
+// CreateSecret creates a secret with the specified parameters, returning an error
+// satisfying [secreterrors.SecretLabelAlreadyExists] if the secret owner already has
+// a secret with the same label.
+func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, params CreateSecretParams) error {
+	if params.LeaderToken != nil {
+		if err := params.LeaderToken.Check(); err != nil {
+			return errors.Trace(err)
 		}
-	*/
+	}
+
+	p := domainsecret.UpsertSecretParams{
+		Description: value(params.Description),
+		Label:       value(params.Label),
+		ValueRef:    params.ValueRef,
+		AutoPrune:   value(params.AutoPrune),
+	}
+	if len(params.Data) > 0 {
+		p.Data = make(map[string]string)
+		for k, v := range params.Data {
+			p.Data[k] = v
+		}
+	}
+	switch params.Owner.Kind {
+	case secrets.ModelOwner:
+		err := s.st.CreateUserSecret(ctx, params.Version, uri, p)
+		return errors.Annotatef(err, "creating user secret %q", uri.ID)
+	}
+	// TODO(secrets) - charm secrets
+	//var nextRotateTime *time.Time
+	//if params.RotatePolicy.WillRotate() {
+	//	nextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
+	//}
+	return errors.NotImplemented
 	// also grant manage access to owner
 }
 
@@ -146,14 +191,7 @@ func (s *SecretService) ListCharmSecrets(ctx context.Context, owner CharmSecretO
 // GetSecret returns the secret with the specified URI.
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error) {
-	return nil, errors.NotFound
-}
-
-// GetSecretRevision returns the secret revision for the specified URI.
-// If returns [secreterrors.SecretNotFound] is there's no such secret.
-// If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
-func (s *SecretService) GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error) {
-	return nil, errors.NotFound
+	return s.st.GetSecret(ctx, uri)
 }
 
 // GetUserSecretByLabel returns the user secret with the specified label.
@@ -172,7 +210,8 @@ func (s *SecretService) ListUserSecrets(ctx context.Context) ([]*secrets.SecretM
 // GetSecretValue returns the value of the specified secret revision.
 // If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
 func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int) (secrets.SecretValue, *secrets.ValueRef, error) {
-	return nil, nil, errors.NotFound
+	data, ref, err := s.st.GetSecretValue(ctx, uri, rev)
+	return secrets.NewSecretValue(data), ref, errors.Trace(err)
 }
 
 // ProcessSecretConsumerLabel takes a secret consumer and a uri and label which have been used to consumer the secret.

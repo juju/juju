@@ -23,6 +23,7 @@ import (
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretstate "github.com/juju/juju/domain/secret/state"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	unitservice "github.com/juju/juju/domain/unit/service"
@@ -135,7 +136,7 @@ func (s *ModelFactory) Storage(registry storage.ProviderRegistry) *storageservic
 // Secret returns the model's secret service.
 func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfigGetter) *secretservice.SecretService {
 	return secretservice.NewSecretService(
-		nil, // TODO(secrets)
+		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("secret"),
 		adminConfigGetter,
 	)

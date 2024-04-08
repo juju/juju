@@ -304,19 +304,17 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	}
 	switch kind := secretOwner.Kind(); kind {
 	case names.UnitTagKind:
-		unitName := secretOwner.Id()
-		params.UnitOwner = &unitName
+		params.Owner = coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: secretOwner.Id()}
 	case names.ApplicationTagKind:
-		appName := secretOwner.Id()
-		params.ApplicationOwner = &appName
+		params.Owner = coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: secretOwner.Id()}
 	default:
 		return "", errors.NotValidf("secret owner kind %q", kind)
 	}
-	md, err := s.secretService.CreateSecret(ctx, uri, params)
+	err = s.secretService.CreateSecret(ctx, uri, params)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return md.URI.String(), nil
+	return uri.String(), nil
 }
 
 func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token) secretservice.UpdateSecretParams {

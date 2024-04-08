@@ -86,7 +86,7 @@ func (s *SecretService) deleteSecret(
 			}
 		} else {
 			for _, rev := range revisions {
-				revMeta, err := s.GetSecretRevision(ctx, uri, rev)
+				revMeta, err := s.st.GetSecretRevision(ctx, uri, rev)
 				if err != nil {
 					return errors.Trace(err)
 				}

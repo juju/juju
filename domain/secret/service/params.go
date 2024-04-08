@@ -16,11 +16,7 @@ type CreateSecretParams struct {
 	UpdateSecretParams
 	Version int
 
-	// One owner must be non-nil.
-
-	UnitOwner        *string
-	ApplicationOwner *string
-	ModelOwner       *string
+	Owner secrets.Owner
 }
 
 // UpdateSecretParams are used to update a secret.
