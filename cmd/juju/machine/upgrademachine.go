@@ -9,7 +9,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
@@ -34,9 +33,6 @@ const (
 	PrepareCommand  = "prepare"
 	CompleteCommand = "complete"
 )
-
-// For testing.
-var SupportedJujuSeries = corebase.WorkloadSeries
 
 var upgradeMachineConfirmationMsg = `
 WARNING: This command will mark machine %q as being upgraded to %q.
@@ -236,24 +232,6 @@ func (c *upgradeMachineCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *upgradeMachineCommand) parseBase(ctx *cmd.Context, arg string) (corebase.Base, error) {
-	// If this doesn't contain an @ then it's a series and not a base.
-	if strings.Contains(arg, "@") {
-		return corebase.ParseBaseFromString(arg)
-	}
-
-	ctx.Warningf("series argument is deprecated, use base instead")
-	workloadSeries, err := SupportedJujuSeries(time.Now(), arg, "")
-	if err != nil {
-		return corebase.Base{}, errors.Trace(err)
-	}
-	s, err := checkSeries(workloadSeries.Values(), arg)
-	if err != nil {
-		return corebase.Base{}, err
-	}
-	return corebase.GetBaseFromSeries(s)
-}
-
 func (c *upgradeMachineCommand) trapInterrupt(ctx *cmd.Context) func() {
 	// Handle Ctrl-C during upgrade machine.
 	interrupted := make(chan os.Signal, 1)
@@ -288,7 +266,7 @@ func (c *upgradeMachineCommand) trapInterrupt(ctx *cmd.Context) func() {
 // dependency this function should contain minimal logic other than gathering an
 // API handle and making the API call.
 func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
-	base, err := c.parseBase(ctx, c.releaseArg)
+	base, err := corebase.ParseBaseFromString(c.releaseArg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -557,14 +535,4 @@ func checkSubCommands(validCommands []string, argCommand string) (string, error)
 
 	return "", errors.Errorf("%q is an invalid upgrade-machine command; valid commands are: %s.",
 		argCommand, strings.Join(validCommands, ", "))
-}
-
-func checkSeries(supportedSeries []string, seriesArgument string) (string, error) {
-	for _, s := range supportedSeries {
-		if strings.EqualFold(s, seriesArgument) {
-			return s, nil
-		}
-	}
-
-	return "", errors.Errorf("%q is an unsupported series", seriesArgument)
 }
