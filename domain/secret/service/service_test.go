@@ -4,15 +4,115 @@
 package service
 
 import (
+	"context"
+
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	coresecrets "github.com/juju/juju/core/secrets"
+	domainsecret "github.com/juju/juju/domain/secret"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type serviceSuite struct {
 	testing.IsolationSuite
+
+	state *MockState
 }
 
 var _ = gc.Suite(&serviceSuite{})
+
+func (s *serviceSuite) service() *SecretService {
+	return NewSecretService(s.state, loggo.GetLogger("test"), NotImplementedBackendConfigGetter)
+}
+
+type successfulToken struct{}
+
+func (t successfulToken) Check() error {
+	return nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *serviceSuite) TestCreateUserSecretURIs(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
+
+	got, err := s.service().CreateSecretURIs(context.Background(), 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.HasLen, 2)
+	c.Assert(got[0].SourceUUID, gc.Equals, coretesting.ModelTag.Id())
+	c.Assert(got[1].SourceUUID, gc.Equals, coretesting.ModelTag.Id())
+}
+
+func (s *serviceSuite) TestCreateUserSecret(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	p := domainsecret.UpsertSecretParams{
+		Description: "a secret",
+		Label:       "my secret",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   true,
+	}
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().CreateUserSecret(gomock.Any(), 1, uri, p).Return(nil)
+
+	err := s.service().CreateSecret(context.Background(), uri, CreateSecretParams{
+		UpdateSecretParams: UpdateSecretParams{
+			LeaderToken: successfulToken{},
+			Description: ptr("a secret"),
+			Label:       ptr("my secret"),
+			Data:        map[string]string{"foo": "bar"},
+			AutoPrune:   ptr(true),
+		},
+		Version: 1,
+		Owner:   coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetSecret(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	md := &coresecrets.SecretMetadata{
+		URI:   uri,
+		Label: "my secret",
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecret(gomock.Any(), uri).Return(md, nil)
+
+	got, err := s.service().GetSecret(context.Background(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, md)
+}
+
+func (s *serviceSuite) TestGetSecretValue(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(coresecrets.SecretData{"foo": "bar"}, nil, nil)
+
+	data, ref, err := s.service().GetSecretValue(context.Background(), uri, 666)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ref, gc.IsNil)
+	c.Assert(data, jc.DeepEquals, coresecrets.NewSecretValue(map[string]string{"foo": "bar"}))
+}
 
 /*
 // TODO(secrets) - tests copied from facade which need to be re-implemented here
