@@ -251,8 +251,8 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	p := secretservice.CreateSecretParams{
-		Version: secrets.Version,
-		Owner:   coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
+		Version:    secrets.Version,
+		CharmOwner: &secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: "mariadb"},
 		UpdateSecretParams: secretservice.UpdateSecretParams{
 			LeaderToken:  s.token,
 			RotatePolicy: ptr(coresecrets.RotateDaily),
@@ -311,8 +311,8 @@ func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	p := secretservice.CreateSecretParams{
-		Version: secrets.Version,
-		Owner:   coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
+		Version:    secrets.Version,
+		CharmOwner: &secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: "mariadb"},
 		UpdateSecretParams: secretservice.UpdateSecretParams{
 			LeaderToken: s.token,
 			Label:       ptr("foobar"),
@@ -583,10 +583,13 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 
 	now := time.Now()
 	uri := coresecrets.NewURI()
-	s.secretService.EXPECT().ListCharmSecrets(gomock.Any(), secretservice.CharmSecretOwners{
-		UnitName:        ptr("mariadb/0"),
-		ApplicationName: ptr("mariadb"),
-	}).Return([]*coresecrets.SecretMetadata{{
+	s.secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
+		Kind: secretservice.UnitOwner,
+		ID:   "mariadb/0",
+	}, {
+		Kind: secretservice.ApplicationOwner,
+		ID:   "mariadb",
+	}}).Return([]*coresecrets.SecretMetadata{{
 		URI:              uri,
 		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		Description:      "description",
@@ -1313,10 +1316,13 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.secretTriggers.EXPECT().WatchObsolete(gomock.Any(), secretservice.CharmSecretOwners{
-		ApplicationName: ptr("mariadb"),
-		UnitName:        ptr("mariadb/0"),
-	}).Return(
+	s.secretTriggers.EXPECT().WatchObsolete(gomock.Any(), []secretservice.CharmSecretOwner{{
+		Kind: secretservice.UnitOwner,
+		ID:   "mariadb/0",
+	}, {
+		Kind: secretservice.ApplicationOwner,
+		ID:   "mariadb",
+	}}).Return(
 		s.secretsWatcher, nil,
 	)
 	s.watcherRegistry.EXPECT().Register(s.secretsWatcher).Return("1", nil)
@@ -1346,10 +1352,13 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.secretTriggers.EXPECT().WatchSecretsRotationChanges(gomock.Any(),
-		secretservice.CharmSecretOwners{
-			UnitName:        ptr("mariadb/0"),
-			ApplicationName: ptr("mariadb"),
-		}).Return(
+		[]secretservice.CharmSecretOwner{{
+			Kind: secretservice.UnitOwner,
+			ID:   "mariadb/0",
+		}, {
+			Kind: secretservice.ApplicationOwner,
+			ID:   "mariadb",
+		}}).Return(
 		s.secretsTriggerWatcher, nil,
 	)
 	s.watcherRegistry.EXPECT().Register(s.secretsTriggerWatcher).Return("1", nil)
@@ -1473,10 +1482,13 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.secretTriggers.EXPECT().WatchSecretRevisionsExpiryChanges(gomock.Any(),
-		secretservice.CharmSecretOwners{
-			UnitName:        ptr("mariadb/0"),
-			ApplicationName: ptr("mariadb"),
-		}).Return(
+		[]secretservice.CharmSecretOwner{{
+			Kind: secretservice.UnitOwner,
+			ID:   "mariadb/0",
+		}, {
+			Kind: secretservice.ApplicationOwner,
+			ID:   "mariadb",
+		}}).Return(
 		s.secretsTriggerWatcher, nil,
 	)
 	s.watcherRegistry.EXPECT().Register(s.secretsTriggerWatcher).Return("1", nil)

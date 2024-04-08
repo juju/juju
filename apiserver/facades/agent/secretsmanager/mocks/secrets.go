@@ -58,48 +58,63 @@ func (mr *MockSecretTriggersMockRecorder) SecretRotated(ctx, uri, originalRev, s
 }
 
 // WatchObsolete mocks base method.
-func (m *MockSecretTriggers) WatchObsolete(ctx context.Context, owner service.CharmSecretOwners) (watcher.StringsWatcher, error) {
+func (m *MockSecretTriggers) WatchObsolete(ctx context.Context, owners ...service.CharmSecretOwner) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsolete", ctx, owner)
+	varargs := []any{ctx}
+	for _, a := range owners {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchObsolete", varargs...)
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchObsolete indicates an expected call of WatchObsolete.
-func (mr *MockSecretTriggersMockRecorder) WatchObsolete(ctx, owner any) *gomock.Call {
+func (mr *MockSecretTriggersMockRecorder) WatchObsolete(ctx any, owners ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretTriggers)(nil).WatchObsolete), ctx, owner)
+	varargs := append([]any{ctx}, owners...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretTriggers)(nil).WatchObsolete), varargs...)
 }
 
 // WatchSecretRevisionsExpiryChanges mocks base method.
-func (m *MockSecretTriggers) WatchSecretRevisionsExpiryChanges(ctx context.Context, owner service.CharmSecretOwners) (watcher.SecretTriggerWatcher, error) {
+func (m *MockSecretTriggers) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...service.CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchSecretRevisionsExpiryChanges", ctx, owner)
+	varargs := []any{ctx}
+	for _, a := range owners {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchSecretRevisionsExpiryChanges", varargs...)
 	ret0, _ := ret[0].(watcher.SecretTriggerWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchSecretRevisionsExpiryChanges indicates an expected call of WatchSecretRevisionsExpiryChanges.
-func (mr *MockSecretTriggersMockRecorder) WatchSecretRevisionsExpiryChanges(ctx, owner any) *gomock.Call {
+func (mr *MockSecretTriggersMockRecorder) WatchSecretRevisionsExpiryChanges(ctx any, owners ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretRevisionsExpiryChanges", reflect.TypeOf((*MockSecretTriggers)(nil).WatchSecretRevisionsExpiryChanges), ctx, owner)
+	varargs := append([]any{ctx}, owners...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretRevisionsExpiryChanges", reflect.TypeOf((*MockSecretTriggers)(nil).WatchSecretRevisionsExpiryChanges), varargs...)
 }
 
 // WatchSecretsRotationChanges mocks base method.
-func (m *MockSecretTriggers) WatchSecretsRotationChanges(ctx context.Context, owner service.CharmSecretOwners) (watcher.SecretTriggerWatcher, error) {
+func (m *MockSecretTriggers) WatchSecretsRotationChanges(ctx context.Context, owners ...service.CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchSecretsRotationChanges", ctx, owner)
+	varargs := []any{ctx}
+	for _, a := range owners {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchSecretsRotationChanges", varargs...)
 	ret0, _ := ret[0].(watcher.SecretTriggerWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchSecretsRotationChanges indicates an expected call of WatchSecretsRotationChanges.
-func (mr *MockSecretTriggersMockRecorder) WatchSecretsRotationChanges(ctx, owner any) *gomock.Call {
+func (mr *MockSecretTriggersMockRecorder) WatchSecretsRotationChanges(ctx any, owners ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretsRotationChanges", reflect.TypeOf((*MockSecretTriggers)(nil).WatchSecretsRotationChanges), ctx, owner)
+	varargs := append([]any{ctx}, owners...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretsRotationChanges", reflect.TypeOf((*MockSecretTriggers)(nil).WatchSecretsRotationChanges), varargs...)
 }
 
 // MockSecretsConsumer is a mock of SecretsConsumer interface.
@@ -369,9 +384,13 @@ func (mr *MockSecretServiceMockRecorder) GetSecretValue(arg0, arg1, arg2 any) *g
 }
 
 // ListCharmSecrets mocks base method.
-func (m *MockSecretService) ListCharmSecrets(arg0 context.Context, arg1 service.CharmSecretOwners) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+func (m *MockSecretService) ListCharmSecrets(arg0 context.Context, arg1 ...service.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCharmSecrets", arg0, arg1)
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListCharmSecrets", varargs...)
 	ret0, _ := ret[0].([]*secrets.SecretMetadata)
 	ret1, _ := ret[1].([][]*secrets.SecretRevisionMetadata)
 	ret2, _ := ret[2].(error)
@@ -379,9 +398,10 @@ func (m *MockSecretService) ListCharmSecrets(arg0 context.Context, arg1 service.
 }
 
 // ListCharmSecrets indicates an expected call of ListCharmSecrets.
-func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0, arg1 any) *gomock.Call {
+func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecrets", reflect.TypeOf((*MockSecretService)(nil).ListCharmSecrets), arg0, arg1)
+	varargs := append([]any{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecrets", reflect.TypeOf((*MockSecretService)(nil).ListCharmSecrets), varargs...)
 }
 
 // ProcessSecretConsumerLabel mocks base method.

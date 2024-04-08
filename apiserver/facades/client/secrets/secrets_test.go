@@ -176,7 +176,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 		}},
 	}
 
-	s.secretService.EXPECT().ListSecrets(gomock.Any(), nil, secret.NilRevisions, secret.NilLabels, secret.NilApplicationOwners, secret.NilUnitOwners, secret.NilModelOwners).Return(
+	s.secretService.EXPECT().ListSecrets(gomock.Any(), nil, secret.NilRevisions, secret.NilLabels, secret.NilApplicationOwners, secret.NilUnitOwners, true).Return(
 		metadata, revisions, nil,
 	)
 	s.secretService.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{
@@ -336,8 +336,8 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 	s.secretService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.CreateSecretParams) error {
 		c.Assert(arg1, gc.DeepEquals, uri)
 		c.Assert(params.Version, gc.Equals, 1)
-		c.Assert(params.Owner.Kind, gc.Equals, coresecrets.ModelOwner)
-		c.Assert(params.Owner.ID, gc.Equals, coretesting.ModelTag.Id())
+		c.Assert(params.UserSecret, jc.IsTrue)
+		c.Assert(params.CharmOwner, gc.IsNil)
 		c.Assert(params.UpdateSecretParams.Description, gc.DeepEquals, ptr("this is a user secret."))
 		c.Assert(params.UpdateSecretParams.Label, gc.DeepEquals, ptr("label"))
 		if isInternal {

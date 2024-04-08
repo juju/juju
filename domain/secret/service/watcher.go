@@ -28,7 +28,7 @@ func (s *SecretService) WatchConsumedSecretsChanges(ctx context.Context, consume
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (s *SecretService) WatchObsolete(ctx context.Context, owner CharmSecretOwners) (watcher.StringsWatcher, error) {
+func (s *SecretService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
 	ch := make(chan []string, 1)
 	ch <- []string{}
 	return watchertest.NewMockStringsWatcher(ch), nil
@@ -70,13 +70,13 @@ func (w *mockSecretTriggerWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (s *SecretService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owner CharmSecretOwners) (watcher.SecretTriggerWatcher, error) {
+func (s *SecretService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	ch := make(chan []watcher.SecretTriggerChange, 1)
 	ch <- []watcher.SecretTriggerChange{}
 	return newMockTriggerWatcher(ch), nil
 }
 
-func (s *SecretService) WatchSecretsRotationChanges(ctx context.Context, owner CharmSecretOwners) (watcher.SecretTriggerWatcher, error) {
+func (s *SecretService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	ch := make(chan []watcher.SecretTriggerChange, 1)
 	ch <- []watcher.SecretTriggerChange{}
 	return newMockTriggerWatcher(ch), nil

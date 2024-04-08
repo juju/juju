@@ -75,8 +75,8 @@ func (s *serviceSuite) TestCreateUserSecret(c *gc.C) {
 			Data:        map[string]string{"foo": "bar"},
 			AutoPrune:   ptr(true),
 		},
-		Version: 1,
-		Owner:   coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()},
+		Version:    1,
+		UserSecret: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

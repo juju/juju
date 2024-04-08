@@ -304,9 +304,9 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	}
 	switch kind := secretOwner.Kind(); kind {
 	case names.UnitTagKind:
-		params.Owner = coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: secretOwner.Id()}
+		params.CharmOwner = &secretservice.CharmSecretOwner{Kind: secretservice.UnitOwner, ID: secretOwner.Id()}
 	case names.ApplicationTagKind:
-		params.Owner = coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: secretOwner.Id()}
+		params.CharmOwner = &secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: secretOwner.Id()}
 	default:
 		return "", errors.NotValidf("secret owner kind %q", kind)
 	}
@@ -455,31 +455,34 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, consumerT
 	return s.secretsConsumer.GetSecretConsumer(ctx, uri, consumerFromTag(consumerTag))
 }
 
-func secretOwnerFromAuthTag(authTag names.Tag, leadershipChecker leadership.Checker) (secretservice.CharmSecretOwners, error) {
-	ownerName := authTag.Id()
-	owner := secretservice.CharmSecretOwners{
-		UnitName: &ownerName,
-	}
+func secretOwnersFromAuthTag(authTag names.Tag, leadershipChecker leadership.Checker) ([]secretservice.CharmSecretOwner, error) {
+	owners := []secretservice.CharmSecretOwner{{
+		Kind: secretservice.UnitOwner,
+		ID:   authTag.Id(),
+	}}
 	// Unit leaders can also get metadata for secrets owned by the app.
 	isLeader, err := isLeaderUnit(authTag, leadershipChecker)
 	if err != nil {
-		return secretservice.CharmSecretOwners{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if isLeader {
 		appName := commonsecrets.AuthTagApp(authTag)
-		owner.ApplicationName = &appName
+		owners = append(owners, secretservice.CharmSecretOwner{
+			Kind: secretservice.ApplicationOwner,
+			ID:   appName,
+		})
 	}
-	return owner, nil
+	return owners, nil
 }
 
 // GetSecretMetadata returns metadata for the caller's secrets.
 func (s *SecretsManagerAPI) GetSecretMetadata(ctx context.Context) (params.ListSecretResults, error) {
 	var result params.ListSecretResults
-	owner, err := secretOwnerFromAuthTag(s.authTag, s.leadershipChecker)
+	owners, err := secretOwnersFromAuthTag(s.authTag, s.leadershipChecker)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	metadata, revisionMetadata, err := s.secretService.ListCharmSecrets(ctx, owner)
+	metadata, revisionMetadata, err := s.secretService.ListCharmSecrets(ctx, owners...)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -804,8 +807,8 @@ func (s *SecretsManagerAPI) UpdateTrackedRevisions(ctx context.Context, uris []s
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) charmSecretOwnersFromArgs(authTag names.Tag, args params.Entities) (secretservice.CharmSecretOwners, error) {
-	var result secretservice.CharmSecretOwners
+func (s *SecretsManagerAPI) charmSecretOwnersFromArgs(authTag names.Tag, args params.Entities) ([]secretservice.CharmSecretOwner, error) {
+	var result []secretservice.CharmSecretOwner
 	for _, arg := range args.Entities {
 		ownerTag, err := names.ParseTag(arg.Tag)
 		if err != nil {
@@ -814,17 +817,19 @@ func (s *SecretsManagerAPI) charmSecretOwnersFromArgs(authTag names.Tag, args pa
 		if !isSameApplication(authTag, ownerTag) {
 			return result, apiservererrors.ErrPerm
 		}
+		owner := secretservice.CharmSecretOwner{
+			Kind: secretservice.UnitOwner,
+			ID:   ownerTag.Id(),
+		}
 		// Only unit leaders can watch application secrets.
-		owner := ownerTag.Id()
 		if ownerTag.Kind() == names.ApplicationTagKind {
 			_, err := commonsecrets.LeadershipToken(authTag, s.leadershipChecker)
 			if err != nil {
 				return result, errors.Trace(err)
 			}
-			result.ApplicationName = &owner
-			continue
+			owner.Kind = secretservice.ApplicationOwner
 		}
-		result.UnitName = &owner
+		result = append(result, owner)
 	}
 	return result, nil
 }
@@ -876,12 +881,12 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, arg
 func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entities) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 
-	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
+	owners, err := s.charmSecretOwnersFromArgs(s.authTag, args)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	w, err := s.secretsTriggers.WatchObsolete(ctx, owner)
+	w, err := s.secretsTriggers.WatchObsolete(ctx, owners...)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -900,12 +905,12 @@ func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entit
 func (s *SecretsManagerAPI) WatchSecretsRotationChanges(ctx context.Context, args params.Entities) (params.SecretTriggerWatchResult, error) {
 	result := params.SecretTriggerWatchResult{}
 
-	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
+	owners, err := s.charmSecretOwnersFromArgs(s.authTag, args)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	w, err := s.secretsTriggers.WatchSecretsRotationChanges(ctx, owner)
+	w, err := s.secretsTriggers.WatchSecretsRotationChanges(ctx, owners...)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -962,12 +967,12 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(ctx context.Context, args params.Entities) (params.SecretTriggerWatchResult, error) {
 	result := params.SecretTriggerWatchResult{}
 
-	owner, err := s.charmSecretOwnersFromArgs(s.authTag, args)
+	owners, err := s.charmSecretOwnersFromArgs(s.authTag, args)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	w, err := s.secretsTriggers.WatchSecretRevisionsExpiryChanges(ctx, owner)
+	w, err := s.secretsTriggers.WatchSecretRevisionsExpiryChanges(ctx, owners...)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

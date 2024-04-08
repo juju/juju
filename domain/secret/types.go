@@ -8,7 +8,6 @@ type (
 	Labels            []string
 	ApplicationOwners []string
 	UnitOwners        []string
-	ModelOwners       []string
 	Revisions         []int
 )
 
@@ -17,6 +16,5 @@ var (
 	NilLabels            = Labels(nil)
 	NilApplicationOwners = ApplicationOwners(nil)
 	NilUnitOwners        = UnitOwners(nil)
-	NilModelOwners       = ModelOwners(nil)
 	NilRevisions         = Revisions(nil)
 )

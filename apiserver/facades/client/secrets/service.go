@@ -26,7 +26,7 @@ type SecretService interface {
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revisions domainsecret.Revisions,
 		labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
-		unitOwners domainsecret.UnitOwners, modelOwners domainsecret.ModelOwners,
+		unitOwners domainsecret.UnitOwners, wantUser bool,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 
 	// Delete secrets.

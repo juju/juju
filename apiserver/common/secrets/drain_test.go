@@ -129,10 +129,13 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().ListCharmSecrets(
 		gomock.Any(),
-		secretservice.CharmSecretOwners{
-			UnitName:        ptr("mariadb/0"),
-			ApplicationName: ptr("mariadb"),
-		}).Return([]*coresecrets.SecretMetadata{{
+		[]secretservice.CharmSecretOwner{{
+			Kind: secretservice.UnitOwner,
+			ID:   "mariadb/0",
+		}, {
+			Kind: secretservice.ApplicationOwner,
+			ID:   "mariadb",
+		}}).Return([]*coresecrets.SecretMetadata{{
 		URI:              uri,
 		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 		Label:            "label",

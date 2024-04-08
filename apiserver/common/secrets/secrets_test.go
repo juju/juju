@@ -272,10 +272,13 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
 	token.EXPECT().Check().Return(nil)
 
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), secretservice.CharmSecretOwners{
-		UnitName:        ptr(unitTag.Id()),
-		ApplicationName: ptr("gitlab"),
-	}).Return(owned, [][]*coresecrets.SecretRevisionMetadata{{
+	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
+		Kind: secretservice.UnitOwner,
+		ID:   unitTag.Id(),
+	}, {
+		Kind: secretservice.ApplicationOwner,
+		ID:   "gitlab",
+	}}).Return(owned, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 1,
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
@@ -370,9 +373,10 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
 	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
 
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), secretservice.CharmSecretOwners{
-		UnitName: ptr(unitTag.Id()),
-	}).Return(unitOwned, [][]*coresecrets.SecretRevisionMetadata{{
+	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
+		Kind: secretservice.UnitOwner,
+		ID:   unitTag.Id(),
+	}}).Return(unitOwned, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 1,
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
@@ -381,9 +385,10 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
 		},
 	}}, nil)
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), secretservice.CharmSecretOwners{
-		ApplicationName: ptr("gitlab"),
-	}).Return(appOwned, [][]*coresecrets.SecretRevisionMetadata{{
+	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
+		Kind: secretservice.ApplicationOwner,
+		ID:   "gitlab",
+	}}).Return(appOwned, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 1,
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-1"},
@@ -482,9 +487,10 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
 	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
 
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), secretservice.CharmSecretOwners{
-		UnitName: ptr(unitTag.Id()),
-	}).Return(unitOwned, [][]*coresecrets.SecretRevisionMetadata{{
+	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
+		Kind: secretservice.UnitOwner,
+		ID:   unitTag.Id(),
+	}}).Return(unitOwned, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 1,
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
@@ -493,9 +499,10 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
 		},
 	}}, nil)
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), secretservice.CharmSecretOwners{
-		ApplicationName: ptr("gitlab"),
-	}).Return(appOwned, [][]*coresecrets.SecretRevisionMetadata{{
+	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
+		Kind: secretservice.ApplicationOwner,
+		ID:   "gitlab",
+	}}).Return(appOwned, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 1,
 			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-1"},

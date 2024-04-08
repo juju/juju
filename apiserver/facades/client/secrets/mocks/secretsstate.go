@@ -146,7 +146,7 @@ func (mr *MockSecretServiceMockRecorder) GrantSecretAccess(arg0, arg1, arg2 any)
 }
 
 // ListSecrets mocks base method.
-func (m *MockSecretService) ListSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 secret.Revisions, arg3 secret.Labels, arg4 secret.ApplicationOwners, arg5 secret.UnitOwners, arg6 secret.ModelOwners) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+func (m *MockSecretService) ListSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 secret.Revisions, arg3 secret.Labels, arg4 secret.ApplicationOwners, arg5 secret.UnitOwners, arg6 bool) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSecrets", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].([]*secrets.SecretMetadata)
