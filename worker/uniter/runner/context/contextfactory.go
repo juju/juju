@@ -288,7 +288,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		ctx.workloadName = hookInfo.WorkloadName
 		hookName = fmt.Sprintf("%s-%s", hookInfo.WorkloadName, hookName)
 		switch hookInfo.Kind {
-		case hooks.PebbleCustomNotice:
+		case hooks.PebbleCustomNotice, hooks.PebbleChangeUpdated:
 			ctx.noticeID = hookInfo.NoticeID
 			ctx.noticeType = hookInfo.NoticeType
 			ctx.noticeKey = hookInfo.NoticeKey
