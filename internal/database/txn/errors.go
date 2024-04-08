@@ -17,7 +17,6 @@ import (
 // See: https://github.com/canonical/go-dqlite/issues/220
 func IsErrRetryable(err error) bool {
 	var dErr *driver.Error
-
 	if errors.As(err, &dErr) && dErr.Code == driver.ErrBusy {
 		return true
 	}

@@ -107,12 +107,12 @@ func BootstrapDqlite(
 		return errors.Annotatef(err, "waiting for Dqlite readiness")
 	}
 
-	controller, err := runMigration(ctx, dqlite, coredatabase.ControllerNS, schema.ControllerDDL(), controllerBootstrapInit)
+	controller, err := runMigration(ctx, dqlite, coredatabase.ControllerNS, schema.ControllerDDL(), controllerBootstrapInit, logger)
 	if err != nil {
 		return errors.Annotate(err, "running controller migration")
 	}
 
-	model, err := runMigration(ctx, dqlite, uuid.String(), schema.ModelDDL(), emptyInit)
+	model, err := runMigration(ctx, dqlite, uuid.String(), schema.ModelDDL(), emptyInit, logger)
 	if err != nil {
 		return errors.Annotate(err, "running model migration")
 	}
@@ -126,7 +126,7 @@ func BootstrapDqlite(
 	return nil
 }
 
-func runMigration(ctx context.Context, dqlite *app.App, namespace string, schema Schema, init bootstrapInit) (coredatabase.TxnRunner, error) {
+func runMigration(ctx context.Context, dqlite *app.App, namespace string, schema Schema, init bootstrapInit, logger Logger) (coredatabase.TxnRunner, error) {
 	db, err := dqlite.Open(ctx, namespace)
 	if err != nil {
 		return nil, errors.Annotatef(err, "opening database for namespace %q", namespace)
