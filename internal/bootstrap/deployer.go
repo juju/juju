@@ -442,7 +442,7 @@ func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, 
 
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = apiserver.RepackageAndUploadCharm(ctx, objectStore, uploader, archive, curl)
+	err = apiserver.RepackageAndUploadCharm(ctx, objectStore, uploader, archive, curl.String(), archive.Revision())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
