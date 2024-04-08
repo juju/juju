@@ -39,8 +39,7 @@ the OS, separated by @. For example, --base ubuntu@22.04.
 By default, the latest revision in the default channel will be
 downloaded. To download the latest revision from another channel,
 use --channel. To download a specific revision, use --revision,
-which cannot be used together with --arch, --base, --channel or
---series.
+which cannot be used together with --arch, --base or --channel.
 
 Adding a hyphen as the second argument allows the download to be piped
 to stdout.
@@ -95,7 +94,6 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "specify a series. DEPRECATED use --base")
 	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
 	f.IntVar(&c.revision, "revision", -1, "specify a revision of the charm to download")
@@ -106,16 +104,11 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the download command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *downloadCommand) Init(args []string) error {
-	if c.base != "" && (c.series != "" && c.series != SeriesAll) {
-		return errors.New("--series and --base cannot be specified together")
-	}
-
 	hasArch := c.arch != ArchAll && c.arch != ""
 	hasBase := c.base != ""
 	hasChannel := c.channel != ""
-	hasSeries := c.series != SeriesAll && c.series != ""
-	if c.revision != -1 && (hasArch || hasBase || hasChannel || hasSeries) {
-		return errors.New("--revision cannot be specified together with --arch, --base, --channel or --series")
+	if c.revision != -1 && (hasArch || hasBase || hasChannel) {
+		return errors.New("--revision cannot be specified together with --arch, --base or --channel")
 	}
 
 	if err := c.charmHubCommand.Init(args); err != nil {
@@ -161,18 +154,6 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		base corebase.Base
 		err  error
 	)
-	// Note: we validated that both series and base cannot be specified in
-	// Init(), so it's safe to assume that only one of them is set here.
-	if c.series == SeriesAll {
-		c.series = ""
-	} else if c.series != "" {
-		cmdContext.Warningf("series flag is deprecated, use --base instead")
-		if base, err = corebase.GetBaseFromSeries(c.series); err != nil {
-			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
-		}
-		c.base = base.String()
-		c.series = ""
-	}
 	if c.base != "" {
 		if base, err = corebase.ParseBaseFromString(c.base); err != nil {
 			return errors.Trace(err)

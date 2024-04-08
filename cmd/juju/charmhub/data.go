@@ -8,8 +8,6 @@ import (
 )
 
 const (
-	// SeriesAll defines a platform that targets all series.
-	SeriesAll = "all"
 	// ArchAll defines a platform that targets all architectures.
 	ArchAll = "all"
 )

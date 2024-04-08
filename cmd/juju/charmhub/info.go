@@ -79,7 +79,6 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "specify a series. DEPRECATED use --base")
 	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
 	f.BoolVar(&c.config, "config", false, "display config for this charm")
@@ -94,10 +93,6 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the info command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *infoCommand) Init(args []string) error {
-	if c.base != "" && (c.series != "" && c.series != SeriesAll) {
-		return errors.New("--series and --base cannot be specified together")
-	}
-
 	if err := c.charmHubCommand.Init(args); err != nil {
 		return errors.Trace(err)
 	}
@@ -140,18 +135,6 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 		base corebase.Base
 		err  error
 	)
-	// Note: we validated that both series and base cannot be specified in
-	// Init(), so it's safe to assume that only one of them is set here.
-	if c.series == SeriesAll {
-		c.series = ""
-	} else if c.series != "" {
-		cmdContext.Warningf("series flag is deprecated, use --base instead")
-		if base, err = corebase.GetBaseFromSeries(c.series); err != nil {
-			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
-		}
-		c.base = base.String()
-		c.series = ""
-	}
 	if c.base != "" {
 		if base, err = corebase.ParseBaseFromString(c.base); err != nil {
 			return errors.Trace(err)
