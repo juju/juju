@@ -465,9 +465,6 @@ FROM   cloud
 		"cloud_name":           name,
 	}
 	iter := tx.Query(ctx, loadCloudStmt, args).Iter()
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Trace(err)
-	}
 	defer func() { _ = iter.Close() }()
 
 	clouds := make(map[string]*cloud.Cloud)

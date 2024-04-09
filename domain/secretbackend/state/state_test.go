@@ -616,7 +616,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 	c.Assert(configuredBackendUUID.Valid, jc.IsTrue)
 	c.Assert(configuredBackendUUID.String, gc.Equals, backendID)
 
-	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID}, false)
 	c.Assert(err, gc.IsNil)
 
 	row = db.QueryRow(`
@@ -672,7 +672,7 @@ func (s *stateSuite) TestDeleteSecretBackendWithNoConfigNoNextRotationTime(c *gc
 		TokenRotateInterval: &rotateInternal,
 	}, nil)
 
-	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID}, false)
 	c.Assert(err, gc.IsNil)
 
 	db := s.DB()
@@ -713,7 +713,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForInternalBackend(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID}, false)
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
 }
@@ -729,7 +729,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForKubernetesBackend(c *gc.C) 
 	})
 	c.Assert(err, gc.IsNil)
 
-	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID}, false)
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
 }

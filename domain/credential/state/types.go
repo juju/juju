@@ -49,9 +49,9 @@ type Credential struct {
 	InvalidReason string `db:"invalid_reason"`
 }
 
-// credentialAttribute represents the persistent credential attributes schema
+// CredentialAttribute represents the persistent credential attributes schema
 // in the database.
-type credentialAttribute struct {
+type CredentialAttribute struct {
 	// CredentialUUID holds the parent cloud credential document key.
 	CredentialUUID string `db:"cloud_credential_uuid"`
 
@@ -64,7 +64,8 @@ type credentialAttribute struct {
 
 type Credentials []Credential
 
-func (rows Credentials) toCloudCredentials(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []credentialAttribute) ([]credential.CloudCredentialResult, error) {
+// ToCloudCredentials converts the given credentials to a slice of cloud credentials.
+func (rows Credentials) ToCloudCredentials(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []CredentialAttribute) ([]credential.CloudCredentialResult, error) {
 	if n := len(rows); n != len(authTypes) || n != len(keyValues) || n != len(clouds) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")

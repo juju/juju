@@ -204,20 +204,20 @@ WHERE        cloud_credential_uuid = $M.uuid
 	insertQuery := `
 INSERT INTO cloud_credential_attributes
 VALUES (
-    $credentialAttribute.cloud_credential_uuid,
-    $credentialAttribute.key,
-    $credentialAttribute.value
+    $CredentialAttribute.cloud_credential_uuid,
+    $CredentialAttribute.key,
+    $CredentialAttribute.value
 )
 ON CONFLICT(cloud_credential_uuid, key) DO UPDATE SET key=excluded.key,
                                                       value=excluded.value
 `
-	insertStmt, err := sqlair.Prepare(insertQuery, credentialAttribute{})
+	insertStmt, err := sqlair.Prepare(insertQuery, CredentialAttribute{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for key, value := range attr {
-		if err := tx.Query(ctx, insertStmt, credentialAttribute{
+		if err := tx.Query(ctx, insertStmt, CredentialAttribute{
 			CredentialUUID: credentialUUID,
 			Key:            key,
 			Value:          value,
@@ -413,7 +413,7 @@ SELECT (cc.uuid, cc.name,
        cc.owner_uuid) AS (&Credential.*),
        auth_type.type AS &AuthType.*,
        cloud.name AS &Cloud.*,
-       (cc_attr.key, cc_attr.value) AS (&credentialAttribute.*)
+       (cc_attr.key, cc_attr.value) AS (&CredentialAttribute.*)
 FROM   cloud_credential cc
        JOIN auth_type ON cc.auth_type_id = auth_type.id
        JOIN cloud ON cc.cloud_uuid = cloud.uuid
@@ -431,7 +431,7 @@ FROM   cloud_credential cc
 		Credential{},
 		dbcloud.AuthType{},
 		dbcloud.Cloud{},
-		credentialAttribute{},
+		CredentialAttribute{},
 	}
 	var queryArgs []any
 	if len(args) > 0 {
@@ -449,7 +449,7 @@ FROM   cloud_credential cc
 		dbRows      Credentials
 		dbAuthTypes []dbcloud.AuthType
 		dbclouds    []dbcloud.Cloud
-		keyValues   []credentialAttribute
+		keyValues   []CredentialAttribute
 	)
 	err = tx.Query(ctx, credStmt, queryArgs...).GetAll(&dbRows, &dbAuthTypes, &dbclouds, &keyValues)
 	if err != nil {
@@ -458,7 +458,7 @@ FROM   cloud_credential cc
 		}
 		return nil, errors.Annotate(err, "loading cloud credentials")
 	}
-	return dbRows.toCloudCredentials(dbAuthTypes, dbclouds, keyValues)
+	return dbRows.ToCloudCredentials(dbAuthTypes, dbclouds, keyValues)
 }
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller

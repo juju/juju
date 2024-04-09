@@ -327,7 +327,6 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 	reveal bool, all bool, names []string,
 	expected []*SecretBackendInfo,
 ) {
-	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
 	s.mockState.EXPECT().ListSecretBackends(gomock.Any(), all).Return([]*secretbackend.SecretBackend{
 		{
 			ID:          vaultBackendID,
@@ -347,16 +346,15 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 			},
 		},
 	}, nil)
-
+	controllerUUID := coremodel.UUID(jujutesting.ControllerTag.Id())
 	if all {
-		s.mockState.EXPECT().GetModel(gomock.Any(), modelUUID).
+		s.mockState.EXPECT().GetModel(gomock.Any(), controllerUUID).
 			Return(secretbackend.ModelSecretBackend{
-				ID:   modelUUID,
+				ID:   controllerUUID,
 				Name: "fred",
 				Type: modelType,
 			}, nil)
 	}
-
 	s.mockRegistry.EXPECT().Type().Return(vault.BackendType).AnyTimes()
 	if set.NewStrings(names...).Contains("myvault") || all {
 		s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{
@@ -395,9 +393,9 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 			IsControllerCloud: true,
 		}
 		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
-		s.mockState.EXPECT().GetCloudCredential(gomock.Any(), modelUUID).Return(cld, cred, nil)
+		s.mockState.EXPECT().GetCloudCredential(gomock.Any(), controllerUUID).Return(cld, cred, nil)
 	}
-	info, err := svc.BackendSummaryInfo(context.Background(), modelUUID, reveal, all, names...)
+	info, err := svc.BackendSummaryInfo(context.Background(), reveal, all, names...)
 	sort.Slice(info, func(i, j int) bool {
 		return info[i].Name < info[j].Name
 	})
@@ -441,7 +439,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 			},
 			{
 				SecretBackend: coresecrets.SecretBackend{
-					ID:          "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+					ID:          jujutesting.ControllerTag.Id(),
 					Name:        "fred-local",
 					BackendType: "kubernetes",
 					Config: map[string]interface{}{
@@ -591,7 +589,7 @@ func (s *serviceSuite) TestPingSecretBackend(c *gc.C) {
 			return s.mockRegistry, nil
 		},
 	)
-	s.mockState.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{ID: "backend-uuid"}).Return(&secretbackend.SecretBackend{
+	s.mockState.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{Name: "myvault"}).Return(&secretbackend.SecretBackend{
 		ID:          "backend-uuid",
 		Name:        "myvault",
 		BackendType: vault.BackendType,
@@ -610,7 +608,7 @@ func (s *serviceSuite) TestPingSecretBackend(c *gc.C) {
 		},
 	}).Return(s.mockSecretProvider, nil)
 	s.mockSecretProvider.EXPECT().Ping().Return(nil)
-	err := svc.PingSecretBackend(context.Background(), "backend-uuid")
+	err := svc.PingSecretBackend(context.Background(), "myvault")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -853,8 +851,11 @@ func (s *serviceSuite) TestDeleteSecretBackend(c *gc.C) {
 			}, nil
 		},
 	)
-	s.mockState.EXPECT().DeleteSecretBackend(gomock.Any(), "backend-uuid", false).Return(nil)
-	err := svc.DeleteSecretBackend(context.Background(), "backend-uuid", false)
+	s.mockState.EXPECT().DeleteSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{ID: "backend-uuid"}, false).Return(nil)
+	err := svc.DeleteSecretBackend(context.Background(), DeleteSecretBackendParams{
+		BackendIdentifier: secretbackend.BackendIdentifier{ID: "backend-uuid"},
+		Force:             false,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

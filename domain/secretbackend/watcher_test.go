@@ -142,9 +142,9 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	)
 
 	// NOT triggered - delete the backend.
-	err = state.DeleteSecretBackend(context.Background(), backendID1, false)
+	err = state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID1}, false)
 	c.Assert(err, gc.IsNil)
-	err = state.DeleteSecretBackend(context.Background(), backendID2, false)
+	err = state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID2}, false)
 	c.Assert(err, gc.IsNil)
 
 	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID1})
