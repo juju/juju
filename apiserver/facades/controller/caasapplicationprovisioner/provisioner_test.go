@@ -24,6 +24,7 @@ import (
 	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/eventsource"
+	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -679,4 +680,21 @@ func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.ProvisionerConfig, gc.NotNil)
 	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, gc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
+}
+
+func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *gc.C) {
+	cfg, err := envconfig.New(envconfig.NoDefaults, coretesting.FakeConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	p, err := caasapplicationprovisioner.CharmStorageParams(
+		context.Background(), coretesting.ControllerTag.Id(),
+		"notpool", cfg, "", s.storagePoolGetter, s.registry,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(p, jc.DeepEquals, &params.KubernetesFilesystemParams{
+		StorageName: "charm",
+		Size:        1024,
+		Provider:    "kubernetes",
+		Attributes:  map[string]any{"storage-class": "notpool"},
+		Tags:        map[string]string{"juju-controller-uuid": coretesting.ControllerTag.Id(), "juju-model-uuid": coretesting.ModelTag.Id()},
+	})
 }
