@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
+// SecretBackendService defines the methods that the secret backend service
 type SecretBackendService interface {
 	GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error)
 }
