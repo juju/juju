@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
@@ -22,11 +21,6 @@ import (
 // rebootWaiterShim wraps the functions required by RebootWaiter
 // to facilitate mock testing.
 type rebootWaiterShim struct {
-}
-
-// HostSeries returns the series of the current host.
-func (r rebootWaiterShim) HostSeries() (string, error) {
-	return series.HostSeries()
 }
 
 // ListServices returns a list of names of services running
