@@ -28,6 +28,10 @@ import (
 	"github.com/juju/juju/internal/database/txn"
 )
 
+const (
+	unixSocketAddress = "@dqlite-repl"
+)
+
 var (
 	dbTypeFlag = flag.String("db", "controller", "Database type to use (controller|model)")
 	dbPathFlag = flag.String("db-path", "", "Path to the database")
@@ -95,22 +99,16 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("Opening database at %s\n", path)
-
-	dial := client.DefaultDialFunc
-
-	dbApp, err := app.New(path, app.WithAddress("127.0.0.1:9001"))
+	dbApp, err := app.New(path, app.WithAddress(unixSocketAddress))
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Printf("0x%x %s\n", dbApp.ID(), dbApp.Address())
 
 	if err := dbApp.Ready(context.Background()); err != nil {
 		panic(err)
 	}
 
-	db, err := dbApp.Open(context.Background(), "tmp")
+	db, err := dbApp.Open(context.Background(), *dbTypeFlag)
 	if err != nil {
 		panic(err)
 	}
@@ -121,10 +119,7 @@ func main() {
 		panic(err)
 	}
 
-	address := dbApp.Address()
-	if address == "" {
-		address = "127.0.0.1:9001"
-	}
+	fmt.Printf("Opening database at %s\n", path)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -171,13 +166,13 @@ func main() {
 				return
 			}
 			if strings.Index(input, ".dump") == 0 {
-				path := strings.TrimSpace(input[5:])
-				if err := dumpDB(ctx, dial, db, address, path); err != nil {
+				if err := dumpDB(ctx, db, path, *dbTypeFlag); err != nil {
 					fmt.Fprintln(os.Stderr, "Error: ", err)
 				}
 				return
 			}
 
+			// Process the input query.
 			result, err := processQuery(ctx, db, input)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "Error: ", err)
@@ -200,36 +195,24 @@ func main() {
 	<-ctx.Done()
 }
 
-func dumpDB(ctx context.Context, dial client.DialFunc, db *sql.DB, address, dir string) error {
-	cli, err := client.New(ctx, address, client.WithDialFunc(dial))
+func dumpDB(ctx context.Context, db *sql.DB, path, name string) error {
+	cli, err := client.New(ctx, unixSocketAddress)
 	if err != nil {
 		return fmt.Errorf("client.New failed %w", err)
 	}
 
-	if dir == "" {
-		var err error
-		dir, err = os.Getwd()
-		if err != nil {
-			return fmt.Errorf("os.Getwd() failed %w", err)
-		}
-		dir = filepath.Join(dir, "dump")
-
-	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("os.MkdirAll() failed %w", err)
-	}
-
-	files, err := cli.Dump(ctx, "tmp")
+	files, err := cli.Dump(ctx, name)
 	if err != nil {
 		return fmt.Errorf("dump failed")
 	}
 
 	for _, file := range files {
-		path := filepath.Join(dir, file.Name)
+		filePath := filepath.Join(path, file.Name)
+		fmt.Println("Dumping file", path)
 
-		err := os.WriteFile(path, file.Data, 0600)
+		err := os.WriteFile(filePath, file.Data, 0600)
 		if err != nil {
-			return fmt.Errorf("WriteFile failed on path %s", path)
+			return fmt.Errorf("WriteFile failed on path %s", filePath)
 		}
 	}
 
