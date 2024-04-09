@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/upgrade"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -105,7 +106,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		params.CodeUserNotFound,
 		params.CodeModelNotFound,
 		params.CodeSecretNotFound,
-		params.CodeSecretConsumerNotFound:
+		params.CodeSecretConsumerNotFound,
+		params.CodeSecretBackendNotFound:
 		status = http.StatusNotFound
 	case params.CodeBadRequest:
 		status = http.StatusBadRequest
@@ -115,7 +117,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		// This should really be http.StatusForbidden but earlier versions
 		// of juju clients rely on the 400 status, so we leave it like that.
 		status = http.StatusBadRequest
-	case params.CodeForbidden:
+	case params.CodeForbidden,
+		params.CodeSecretBackendForbidden:
 		status = http.StatusForbidden
 	case params.CodeDischargeRequired:
 		status = http.StatusUnauthorized
@@ -173,8 +176,12 @@ func ServerError(err error) *params.Error {
 		code = params.CodeSecretNotFound
 	case errors.Is(err, secreterrors.SecretConsumerNotFound):
 		code = params.CodeSecretConsumerNotFound
+	case errors.Is(err, secretbackenderrors.NotFound):
+		code = params.CodeSecretBackendNotFound
 	case errors.Is(err, errors.AlreadyExists):
 		code = params.CodeAlreadyExists
+	case errors.Is(err, secretbackenderrors.AlreadyExists):
+		code = params.CodeSecretBackendAlreadyExists
 	case errors.Is(err, errors.NotAssigned):
 		code = params.CodeNotAssigned
 	case errors.Is(err, stateerrors.HasAssignedUnitsError):
@@ -204,6 +211,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeModelNotFound
 	case errors.Is(err, errors.NotSupported):
 		code = params.CodeNotSupported
+	case errors.Is(err, secretbackenderrors.NotSupported):
+		code = params.CodeSecretBackendNotSupported
 	case errors.Is(err, errors.BadRequest):
 		code = params.CodeBadRequest
 	case errors.Is(err, errors.MethodNotAllowed):
@@ -212,8 +221,12 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotImplemented
 	case errors.Is(err, errors.Forbidden):
 		code = params.CodeForbidden
+	case errors.Is(err, secretbackenderrors.Forbidden):
+		code = params.CodeSecretBackendForbidden
 	case errors.Is(err, errors.NotValid):
 		code = params.CodeNotValid
+	case errors.Is(err, secretbackenderrors.NotValid):
+		code = params.CodeSecretBackendNotValid
 	case errors.Is(err, IncompatibleBaseError), errors.Is(err, stateerrors.IncompatibleBaseError):
 		code = params.CodeIncompatibleBase
 	case errors.As(err, &dischargeRequiredError):
