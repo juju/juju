@@ -112,7 +112,7 @@ type dbAddUserPermission struct {
 	UUID string `db:"uuid"`
 
 	// PermissionType is the type of permission.
-	PermissionType int64 `db:"permission_type_id"`
+	Access string `db:"access"`
 
 	// GrantOn is the tag that the permission is granted on.
 	GrantOn string `db:"grant_on"`

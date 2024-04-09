@@ -92,34 +92,41 @@ type AddUserPermissionArgs struct {
 }
 
 // AddUserPermission adds a permission for the given user on the given target.
+// Validates that the target exists and that the Access level is appropriate
+// for the target before insert.
 func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissionArgs) error {
+	// Validate the access is appropriate for the target.
+	if err := spec.Target.ValidateAccess(spec.Access); err != nil {
+		return fmt.Errorf("%q for %q %w ", spec.Access, spec.Target.Key, accesserrors.PermissionAccessInvalid)
+	}
+	// Validate the target exists.
+	if err := targetExists(ctx, tx, spec.Target.Key); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Insert a permission doc with
 	// * permissionObjectAccess as permission_type_id
 	// * uuid of the user (spec.User) as grant_to
 	// * spec.Target.Key as grant_on
 	newPermission := `
-INSERT INTO permission (*)
-VALUES ($dbAddUserPermission.*)
+INSERT INTO permission (uuid, permission_type_id, grant_to, grant_on)
+SELECT $dbAddUserPermission.uuid, t.id AS permission_type_id, u.uuid, $dbAddUserPermission.grant_on
+FROM   v_user_auth u, permission_access_type t
+WHERE  u.uuid = $dbAddUserPermission.grant_to
+--AND    u.disabled = false
+AND    u.removed = false
+AND    t.type = $dbAddUserPermission.access
 `
+
 	insertPermissionStmt, err := sqlair.Prepare(newPermission, dbAddUserPermission{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	perm := dbAddUserPermission{
 		UUID:    spec.PermissionUUID,
 		GrantOn: spec.Target.Key,
 		GrantTo: spec.UserUUID,
-	}
-
-	accessTypeID, err := objectAccessID(ctx, tx, spec.Access, spec.Target.ObjectType)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	perm.PermissionType = accessTypeID
-
-	if _, err = objectType(ctx, tx, spec.Target.Key); err != nil {
-		return errors.Trace(err)
+		Access:  string(spec.Access),
 	}
 
 	// No IsErrConstraintForeignKey should be seen as both foreign keys
@@ -130,7 +137,6 @@ VALUES ($dbAddUserPermission.*)
 	} else if err != nil {
 		return errors.Annotatef(err, "adding permission %q for %q on %q", spec.Access, spec.UserUUID, spec.Target.Key)
 	}
-
 	return nil
 }
 
@@ -251,7 +257,7 @@ AND     p.grant_on = $input.grant_on
 		}
 		err = tx.Query(ctx, readStmt, in).Get(&readUser, &permUser)
 		if err != nil && errors.Is(err, sql.ErrNoRows) {
-			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", subject, target.Key)
+			return fmt.Errorf("%w for %q on %q", accesserrors.PermissionNotFound, subject, target.Key)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting permission for %q on %q", subject, target.Key)
 		}
@@ -294,22 +300,39 @@ func (st *PermissionState) ReadAllUserAccessForUser(ctx context.Context, subject
 	}
 	var (
 		permissions []dbReadUserPermission
-		user        dbPermissionUser
+		users       []dbPermissionUser
 	)
+	query := `
+WITH what AS (
+    select 'cloud' AS type, name AS grant_on FROM cloud
+    UNION
+    select 'model' AS type, uuid AS grant_on FROM model_list
+    UNION
+    select 'controller' AS type, 'controller' AS grant_on
+)
+SELECT (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
+       creator.name AS &dbPermissionUser.created_by_name,
+       w.type AS &dbReadUserPermission.object_type,
+       (p.uuid, p.grant_on, p.grant_to, p.access_type) AS (&dbReadUserPermission.*)
+FROM   v_user_auth u
+       JOIN user AS creator ON u.created_by_uuid = creator.uuid
+       JOIN v_permission p ON u.uuid = p.grant_to
+       JOIN what AS w ON p.grant_on = w.grant_on
+WHERE  u.removed = false
+       AND u.name = $M.name
+`
+
+	queryStmt, err := st.Prepare(query, dbPermissionUser{}, dbReadUserPermission{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing select all access for user query")
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		user, err = st.findUserByName(ctx, tx, subject)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		userPermissions, err := st.readUsersPermissions(ctx, tx, user.UUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		permissions, err = grantOnType(ctx, tx, userPermissions)
-		if err != nil {
-			return errors.Trace(err)
+		err = tx.Query(ctx, queryStmt, sqlair.M{"name": subject}).GetAll(&permissions, &users)
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(accesserrors.UserNotFound, "%q", subject)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting user with name %q", subject)
 		}
 		return nil
 	})
@@ -319,7 +342,10 @@ func (st *PermissionState) ReadAllUserAccessForUser(ctx context.Context, subject
 
 	userAccess := make([]corepermission.UserAccess, len(permissions))
 	for i, p := range permissions {
-		userAccess[i] = p.toUserAccess(user)
+		if users[i].Disabled {
+			return nil, errors.Annotatef(accesserrors.UserAuthenticationDisabled, "%q", subject)
+		}
+		userAccess[i] = p.toUserAccess(users[i])
 	}
 
 	return userAccess, nil
@@ -465,7 +491,6 @@ WHERE  u.removed = false
 	if err != nil {
 		return result, errors.Annotate(err, "preparing select getUser query")
 	}
-
 	err = tx.Query(ctx, selectUserStmt, sqlair.M{"name": userName}).Get(&result)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		return result, errors.Annotatef(accesserrors.UserNotFound, "%q", userName)
@@ -550,54 +575,13 @@ AND     u.removed = false
 	return result, nil
 }
 
-func objectAccessID(
-	ctx context.Context,
-	tx *sqlair.TX,
-	access corepermission.Access,
-	objectType corepermission.ObjectType,
-) (int64, error) {
-	// id of spec.Access from permission_access_type as access_type_id
-	// id of spec.Target.ObjectType from permission_object_type as object_type_id
-	// Use access_type_id and object_type_id to validate row from permission_object_access
-	objectAccessIDExists := `
-SELECT at.id AS &M.access_type_id
-FROM   permission_access_type at
-       INNER JOIN permission_object_access oa ON oa.access_type_id = at.id
-       INNER JOIN permission_object_type ot ON ot.id = oa.object_type_id
-WHERE  ot.type = $M.object_type
-AND    at.type = $M.access_type
-`
-
-	// Validate the access type is allowed for the target type.
-	objectAccessIDStmt, err := sqlair.Prepare(objectAccessIDExists, sqlair.M{})
-	if err != nil {
-		return -1, errors.Trace(err)
+// targetExists returns an error if the target does not exist in neither the
+// cloud nor model_list tables and is not a controller.
+func targetExists(ctx context.Context, tx *sqlair.TX, target string) error {
+	if target == coredatabase.ControllerNS {
+		return nil
 	}
 
-	var resultM = sqlair.M{}
-	err = tx.Query(ctx, objectAccessIDStmt, sqlair.M{"access_type": access, "object_type": objectType}).Get(&resultM)
-	if err != nil && errors.Is(err, sql.ErrNoRows) {
-		return -1, errors.Annotatef(err, "mismatch in %q, %q", access, objectType)
-	} else if err != nil {
-		return -1, errors.Annotatef(err, "getting id for pair %q, %q", access, objectType)
-	}
-	return resultM["access_type_id"].(int64), nil
-}
-
-// objectType validates that the target of the permission exists and returns
-// its object type. An error is returned if not. Unless we have a controller
-// target, search for grant_on as a cloud.name and a model_list.uuid.
-// It must be one of those.
-func objectType(
-	ctx context.Context,
-	tx *sqlair.TX,
-	targetKey string,
-) (string, error) {
-	if targetKey == coredatabase.ControllerNS {
-		return string(corepermission.Controller), nil
-	}
-	// TODO: (hml) 6-Mar-24
-	// Add application offers check here when added to DDL.
 	targetExists := `
 SELECT &M.found_it FROM (
     SELECT "cloud" AS found_it FROM cloud WHERE cloud.name = $M.grant_on
@@ -605,10 +589,10 @@ SELECT &M.found_it FROM (
     SELECT "model" AS found_it FROM model_list WHERE model_list.uuid = $M.grant_on
 )
 `
-	// Validate the grant_on target exists.
+
 	targetExistsStmt, err := sqlair.Prepare(targetExists, sqlair.M{})
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	// Check that 1 row exists if the grant_on value is not ControllerNS.
@@ -617,21 +601,21 @@ SELECT &M.found_it FROM (
 	// a slice length of zero. New behavior: if the length is 0, return
 	// ErrNoRows.
 	var foundIt = []sqlair.M{}
-	err = tx.Query(ctx, targetExistsStmt, sqlair.M{"grant_on": targetKey}).GetAll(&foundIt)
+	err = tx.Query(ctx, targetExistsStmt, sqlair.M{"grant_on": target}).GetAll(&foundIt)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Annotatef(err, "verifying %q target exists", targetKey)
+		return errors.Annotatef(err, "verifying %q target exists", target)
 	}
 
 	if len(foundIt) == 1 {
-		return foundIt[0]["found_it"].(string), nil
+		return nil
 	}
 
-	// Any answer other than 1 is an error. The targetKey should exist
+	// Any answer other than 1 is an error. The target should exist
 	// as a unique identifier across the controller namespace.
 	if len(foundIt) == 0 {
-		return "", fmt.Errorf("%q %w", targetKey, accesserrors.PermissionTargetInvalid)
+		return fmt.Errorf("%q %w", target, accesserrors.PermissionTargetInvalid)
 	}
-	return "", fmt.Errorf("%q %w", targetKey, accesserrors.UniqueIdentifierIsNotUnique)
+	return fmt.Errorf("%q %w", target, accesserrors.UniqueIdentifierIsNotUnique)
 }
 
 // objectTag returns a names.Tag for the given ID.
@@ -648,50 +632,6 @@ func objectTag(id corepermission.ID) (result names.Tag) {
 		result = names.NewApplicationOfferTag(id.Key)
 	}
 	return
-}
-
-// readUsersPermissions returns all permissions for the grantTo, a user UUID.
-func (st *PermissionState) readUsersPermissions(ctx context.Context,
-	tx *sqlair.TX,
-	grantTo string,
-) ([]dbReadUserPermission, error) {
-	query := `
-SELECT (uuid, grant_on, grant_to, access_type) AS (&dbReadUserPermission.*)
-FROM   v_permission
-WHERE  grant_to = $M.grant_to
-`
-	// Validate the grant_on target exists.
-	stmt, err := st.Prepare(query, dbReadUserPermission{}, sqlair.M{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var usersPermissions = []dbReadUserPermission{}
-	err = tx.Query(ctx, stmt, sqlair.M{"grant_to": grantTo}).GetAll(&usersPermissions)
-	if err != nil {
-		return nil, errors.Annotatef(err, "collecting permissions for %q", grantTo)
-	}
-
-	if len(usersPermissions) >= 1 {
-		return usersPermissions, nil
-	}
-	return nil, errors.Annotatef(accesserrors.PermissionNotFound, "for %q", grantTo)
-}
-
-func grantOnType(ctx context.Context,
-	tx *sqlair.TX,
-	permissions []dbReadUserPermission,
-) ([]dbReadUserPermission, error) {
-	for _, p := range permissions {
-		// TODO: can we make objectType work on a slice of GrantOn
-		// in both use cases?
-		objectType, err := objectType(ctx, tx, p.GrantOn)
-		if err != nil {
-			return nil, errors.Annotatef(err, "finding type for %q", p.GrantOn)
-		}
-		p.ObjectType = objectType
-	}
-	return permissions, nil
 }
 
 // targetPermissions returns a slice of dbReadUserPermission for

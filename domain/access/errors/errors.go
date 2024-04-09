@@ -53,6 +53,10 @@ const (
 	// permission is invalid.
 	PermissionTargetInvalid = errors.ConstError("permission target invalid")
 
+	// PermissionAccessInvalid describes an error that occurs when the access of the
+	// permission is invalid for the given target.
+	PermissionAccessInvalid = errors.ConstError("permission access invalid")
+
 	// ActivationKeyNotFound describes an error that occurs when the
 	// activation key is not found.
 	ActivationKeyNotFound = errors.ConstError("activation key not found")

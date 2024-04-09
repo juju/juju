@@ -152,33 +152,22 @@ func (s *permissionStateSuite) TestCreatePermissionForControllerWithBadInfo(c *g
 
 func (s *permissionStateSuite) checkPermissionRow(c *gc.C, access corepermission.Access, expectedGrantTo, expectedGrantON string) {
 	db := s.DB()
-	// Find the id for access
-	accessRow := db.QueryRow(`
-SELECT id
-FROM permission_access_type
-WHERE type = ?
-`, access)
-	c.Assert(accessRow.Err(), jc.ErrorIsNil)
-	var accessTypeID int
-	err := accessRow.Scan(&accessTypeID)
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Find the permission
 	row := db.QueryRow(`
-SELECT uuid, permission_type_id, grant_to, grant_on
-FROM permission
+SELECT uuid, access_type, grant_to, grant_on
+FROM v_permission
 `)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	var (
-		userUuid, grantTo, grantOn string
-		permissionTypeId           int
+		accessType, userUuid, grantTo, grantOn string
 	)
-	err = row.Scan(&userUuid, &permissionTypeId, &grantTo, &grantOn)
+	err := row.Scan(&userUuid, &accessType, &grantTo, &grantOn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify the permission as expected.
 	c.Check(userUuid, gc.Not(gc.Equals), "")
-	c.Check(permissionTypeId, gc.Equals, accessTypeID)
+	c.Check(accessType, gc.Equals, string(access))
 	c.Check(grantTo, gc.Equals, expectedGrantTo)
 	c.Check(grantOn, gc.Equals, expectedGrantON)
 }
