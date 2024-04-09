@@ -24,6 +24,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/access"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -33,9 +34,8 @@ import (
 type cloudSuite struct {
 	jujutesting.LoggingCleanupSuite
 
-	userService            *mocks.MockUserService
 	modelCredentialService *mocks.MockModelCredentialService
-	cloudPermissionService *mocks.MockCloudPermissionService
+	cloudPermissionService *mocks.MockCloudAccessService
 	cloudService           *mocks.MockCloudService
 	credService            *mocks.MockCredentialService
 	api                    *cloud.CloudAPI
@@ -50,16 +50,16 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: userTag,
 	}
-	s.userService = mocks.NewMockUserService(ctrl)
+
 	s.modelCredentialService = mocks.NewMockModelCredentialService(ctrl)
-	s.cloudPermissionService = mocks.NewMockCloudPermissionService(ctrl)
+	s.cloudPermissionService = mocks.NewMockCloudAccessService(ctrl)
 	s.cloudService = mocks.NewMockCloudService(ctrl)
 	s.credService = mocks.NewMockCredentialService(ctrl)
 	s.credentialValidator = mocks.NewMockCredentialValidator(ctrl)
 
 	api, err := cloud.NewCloudAPI(
 		coretesting.ControllerTag, "dummy",
-		s.userService, s.modelCredentialService,
+		s.modelCredentialService,
 		s.cloudService, s.cloudPermissionService, s.credService,
 		s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,10 +116,10 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 
 	cloudPermissionService := s.cloudPermissionService.EXPECT()
 
-	cloudPermissionService.GetCloudAccess("my-cloud",
-		bruce).Return(permission.AddModelAccess, nil)
-	cloudPermissionService.GetCloudAccess("your-cloud",
-		bruce).Return(permission.NoAccess, nil)
+	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(),
+		bruce.Id(), permission.ID{ObjectType: permission.Cloud, Key: "my-cloud"}).Return(permission.AddModelAccess, nil)
+	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(),
+		bruce.Id(), permission.ID{ObjectType: permission.Cloud, Key: "your-cloud"}).Return(permission.NoAccess, nil)
 
 	backend := s.cloudService.EXPECT()
 	backend.ListAll(gomock.Any()).Return([]jujucloud.Cloud{
@@ -152,9 +152,15 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 	defer ctrl.Finish()
 
 	cloudPermissionService := s.cloudPermissionService.EXPECT()
-	userPerm := map[string]permission.Access{"fred": permission.AddModelAccess,
-		"mary": permission.AdminAccess}
-	cloudPermissionService.GetCloudUsers("my-cloud").Return(userPerm,
+	userPerm := []permission.UserAccess{
+		{UserID: "fred", DisplayName: "display-fred", Access: permission.AddModelAccess},
+		{UserID: "mary", DisplayName: "display-mary", Access: permission.AdminAccess},
+	}
+	target := permission.ID{
+		ObjectType: permission.Cloud,
+		Key:        "my-cloud",
+	}
+	cloudPermissionService.ReadAllUserAccessForTarget(gomock.Any(), target).Return(userPerm,
 		nil)
 
 	cloudService := s.cloudService.EXPECT()
@@ -164,17 +170,6 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}, nil)
-
-	mary := mocks.NewMockUser(ctrl)
-	fred := mocks.NewMockUser(ctrl)
-	mary.EXPECT().DisplayName().Return("display-mary")
-	fred.EXPECT().DisplayName().Return("display-fred")
-
-	userService := s.userService.EXPECT()
-	maryTag := names.NewUserTag("mary")
-	userService.User(maryTag).Return(mary, nil)
-	fredTag := names.NewUserTag("fred")
-	userService.User(fredTag).Return(fred, nil)
 
 	result, err := s.api.CloudInfo(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "cloud-my-cloud",
@@ -210,19 +205,20 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 	ctrl := s.setup(c, fredTag)
 	defer ctrl.Finish()
 
-	fred := mocks.NewMockUser(ctrl)
-	fred.EXPECT().DisplayName().Return("display-fred")
-
 	cloudPermissionService := s.cloudPermissionService.EXPECT()
-	cloudPermissionService.GetCloudAccess("my-cloud",
-		fredTag).Return(permission.AddModelAccess, nil)
-	userPerm := map[string]permission.Access{"fred": permission.AddModelAccess,
-		"mary": permission.AdminAccess}
-	cloudPermissionService.GetCloudUsers("my-cloud").Return(userPerm,
+	permID := permission.ID{
+		ObjectType: permission.Cloud,
+		Key:        "my-cloud",
+	}
+	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(), fredTag.Id(),
+		permID).Return(permission.AddModelAccess, nil)
+	userPerm := []permission.UserAccess{
+		{UserID: "fred", DisplayName: "display-fred", Access: permission.AddModelAccess},
+		{UserID: "mary", DisplayName: "display-mary", Access: permission.AdminAccess},
+	}
+	cloudPermissionService.ReadAllUserAccessForTarget(gomock.Any(), permID).Return(userPerm,
 		nil)
 
-	userService := s.userService.EXPECT()
-	userService.User(fredTag).Return(fred, nil)
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "my-cloud").Return(&jujucloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",
@@ -259,6 +255,12 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
+	cloudservice := s.cloudService.EXPECT()
+	cloud := jujucloud.Cloud{
+		Name: "newcloudname",
+		Type: "maas",
+	}
+	cloudservice.Cloud(gomock.Any(), "dummy").Return(&cloud, nil)
 	newCloud := jujucloud.Cloud{
 		Name:      "newcloudname",
 		Type:      "maas",
@@ -266,17 +268,7 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}
-
-	cloud := jujucloud.Cloud{
-		Name: "newcloudname",
-		Type: "maas",
-	}
-
-	cloudPermissionService := s.cloudPermissionService.EXPECT()
-	cloudPermissionService.CreateCloudAccess("newcloudname", adminTag, permission.AdminAccess).Return(nil)
-	cloudservice := s.cloudService.EXPECT()
-	cloudservice.Cloud(gomock.Any(), "dummy").Return(&cloud, nil)
-	cloudservice.UpsertCloud(gomock.Any(), newCloud).Return(nil)
+	cloudservice.UpsertCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -331,6 +323,12 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
+	cloudService := s.cloudService.EXPECT()
+	cloud := jujucloud.Cloud{
+		Name: "newcloudname",
+		Type: "maas",
+	}
+	cloudService.Cloud(gomock.Any(), "dummy").Return(&cloud, nil)
 	newCloud := jujucloud.Cloud{
 		Name:      "newcloudname",
 		Type:      "fake",
@@ -338,16 +336,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}
-
-	cloud := jujucloud.Cloud{
-		Name: "newcloudname",
-		Type: "maas",
-	}
-
-	s.cloudPermissionService.EXPECT().CreateCloudAccess("newcloudname", adminTag, permission.AdminAccess).Return(nil)
-	cloudService := s.cloudService.EXPECT()
-	cloudService.Cloud(gomock.Any(), "dummy").Return(&cloud, nil)
-	cloudService.UpsertCloud(gomock.Any(), newCloud).Return(nil)
+	cloudService.UpsertCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
 
 	force := true
 	addCloudArg := createAddCloudParam("")
@@ -377,9 +366,7 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 		Endpoint:  "fake-endpoint",
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}
-
-	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), cloud).Return(nil).Times(2)
-	s.cloudPermissionService.EXPECT().CreateCloudAccess("newcloudname", adminTag, permission.AdminAccess).Return(nil).Times(2)
+	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), adminTag.Id(), cloud).Return(nil).Times(2)
 
 	addCloudArg := createAddCloudParam(string(k8sconstants.CAASProviderType))
 
@@ -407,15 +394,13 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
 		}},
 	}
 
+	cloudService := s.cloudService.EXPECT()
 	cloud := jujucloud.Cloud{
 		Name: "newcloudname",
 		Type: "maas",
 	}
-
-	s.cloudPermissionService.EXPECT().CreateCloudAccess("newcloudname", adminTag, permission.AdminAccess).Return(nil)
-	cloudService := s.cloudService.EXPECT()
 	cloudService.Cloud(gomock.Any(), "dummy").Return(&cloud, nil)
-	cloudService.UpsertCloud(gomock.Any(), newCloud).Return(nil)
+	cloudService.UpsertCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -425,7 +410,6 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
 		}}
 	err := s.api.AddCloud(stdcontext.Background(), paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
-
 }
 
 func (s *cloudSuite) TestAddCloudNoAdminPerms(c *gc.C) {
@@ -455,7 +439,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), dummyCloud).Return(nil)
+	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), "", dummyCloud).Return(nil)
 
 	updatedCloud := jujucloud.Cloud{
 		Name:      "dummy",
@@ -507,7 +491,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), dummyCloud).Return(errors.New("cloud \"nope\" not found"))
+	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), "", dummyCloud).Return(errors.New("cloud \"nope\" not found"))
 
 	updatedCloud := jujucloud.Cloud{
 		Name:      "nope",
@@ -894,20 +878,35 @@ func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
-	cloud := jujucloud.Cloud{
-		Name:      "fluffy",
-		Type:      "fluffy",
-		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
-		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-	}
-
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "fluffy").Return(&cloud, nil).Times(2)
 	cloudPermissionService := s.cloudPermissionService.EXPECT()
-	fred := names.NewUserTag("fred")
-	mary := names.NewUserTag("mary")
-	cloudPermissionService.CreateCloudAccess("fluffy", fred,
-		permission.AddModelAccess).Return(nil)
-	cloudPermissionService.RemoveCloudAccess("fluffy", mary).Return(nil)
+	fredSpec := access.UpdatePermissionArgs{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Cloud,
+				Key:        "fluffy",
+			},
+			Access: permission.AddModelAccess,
+		},
+		Subject: "fred",
+		Change:  permission.Grant,
+		ApiUser: adminTag.Id(),
+		AddUser: false,
+	}
+	cloudPermissionService.UpdatePermission(gomock.Any(), fredSpec).Return(nil)
+	marySpec := access.UpdatePermissionArgs{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Cloud,
+				Key:        "fluffy",
+			},
+			Access: permission.AddModelAccess,
+		},
+		Subject: "mary",
+		Change:  permission.Revoke,
+		ApiUser: adminTag.Id(),
+		AddUser: false,
+	}
+	cloudPermissionService.UpdatePermission(gomock.Any(), marySpec).Return(nil)
 
 	results, err := s.api.ModifyCloudAccess(stdcontext.Background(), params.ModifyCloudAccessRequest{
 		Changes: []params.ModifyCloudAccess{
@@ -927,80 +926,6 @@ func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
 		{}, {},
-	})
-}
-
-func (s *cloudSuite) TestModifyCloudUpdateAccess(c *gc.C) {
-	adminTag := names.NewUserTag("admin")
-	defer s.setup(c, adminTag).Finish()
-
-	cloud := jujucloud.Cloud{
-		Name:      "fluffy",
-		Type:      "fluffy",
-		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
-		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-	}
-
-	fredTag := names.NewUserTag("fred")
-
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "fluffy").Return(&cloud, nil)
-	cloudPermissionService := s.cloudPermissionService.EXPECT()
-	cloudPermissionService.CreateCloudAccess("fluffy", fredTag,
-		permission.AdminAccess).Return(errors.AlreadyExistsf("access %s", permission.AdminAccess))
-	cloudPermissionService.GetCloudAccess("fluffy", fredTag).Return(permission.AddModelAccess,
-		nil)
-	cloudPermissionService.UpdateCloudAccess("fluffy", fredTag,
-		permission.AdminAccess).Return(nil)
-
-	results, err := s.api.ModifyCloudAccess(stdcontext.Background(), params.ModifyCloudAccessRequest{
-		Changes: []params.ModifyCloudAccess{
-			{
-				Action:   params.GrantCloudAccess,
-				CloudTag: names.NewCloudTag("fluffy").String(),
-				UserTag:  names.NewUserTag("fred").String(),
-				Access:   "admin",
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
-		{},
-	})
-}
-
-func (s *cloudSuite) TestModifyCloudAlreadyHasAccess(c *gc.C) {
-	adminTag := names.NewUserTag("admin")
-	defer s.setup(c, adminTag).Finish()
-
-	cloud := jujucloud.Cloud{
-		Name:      "fluffy",
-		Type:      "fluffy",
-		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
-		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-	}
-
-	fredTag := names.NewUserTag("fred")
-
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "fluffy").Return(&cloud, nil)
-	cloudPermissionService := s.cloudPermissionService.EXPECT()
-	cloudPermissionService.CreateCloudAccess("fluffy", fredTag,
-		permission.AdminAccess).Return(errors.AlreadyExistsf("access %s", permission.AdminAccess))
-	cloudPermissionService.GetCloudAccess("fluffy", fredTag).Return(permission.AdminAccess,
-		nil)
-
-	results, err := s.api.ModifyCloudAccess(stdcontext.Background(), params.ModifyCloudAccessRequest{
-		Changes: []params.ModifyCloudAccess{
-			{
-				Action:   params.GrantCloudAccess,
-				CloudTag: names.NewCloudTag("fluffy").String(),
-				UserTag:  names.NewUserTag("fred").String(),
-				Access:   "admin",
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
-		{Error: &params.Error{Message: `could not grant cloud access: user already has "admin" access or greater`}},
 	})
 }
 

@@ -10,33 +10,27 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/permission"
+	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/access"
 	credentialservice "github.com/juju/juju/domain/credential/service"
-	"github.com/juju/juju/state"
 )
 
 // CloudService provides access to clouds.
 type CloudService interface {
 	ListAll(stdcontext.Context) ([]cloud.Cloud, error)
 	Cloud(stdcontext.Context, string) (*cloud.Cloud, error)
-	UpsertCloud(ctx stdcontext.Context, cld cloud.Cloud) error
+	UpsertCloud(ctx stdcontext.Context, userName string, cld cloud.Cloud) error
 	DeleteCloud(ctx stdcontext.Context, name string) error
 }
 
-// CloudPermissionService provides access to cloud permissions.
-type CloudPermissionService interface {
-	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
-	GetCloudUsers(cloud string) (map[string]permission.Access, error)
-	CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
-	UpdateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
-	RemoveCloudAccess(cloud string, user names.UserTag) error
-	CloudsForUser(user names.UserTag) ([]cloud.CloudAccess, error)
-}
-
-// UserService provides access to users.
-type UserService interface {
-	User(tag names.UserTag) (User, error)
+// CloudAccessService provides access to cloud permissions.
+type CloudAccessService interface {
+	ReadUserAccessLevelForTarget(ctx stdcontext.Context, subject string, target corepermission.ID) (corepermission.Access, error)
+	ReadAllUserAccessForTarget(ctx stdcontext.Context, target corepermission.ID) ([]corepermission.UserAccess, error)
+	CreatePermission(ctx stdcontext.Context, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error)
+	UpdatePermission(ctx stdcontext.Context, args access.UpdatePermissionArgs) error
+	ReadAllAccessForUserAndObjectType(ctx stdcontext.Context, subject string, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error)
 }
 
 // ModelCredentialService provides access to model credential info.
@@ -54,16 +48,4 @@ type CredentialService interface {
 	WatchCredential(ctx stdcontext.Context, key credential.Key) (watcher.NotifyWatcher, error)
 	CheckAndUpdateCredential(ctx stdcontext.Context, key credential.Key, cred cloud.Credential, force bool) ([]credentialservice.UpdateCredentialModelResult, error)
 	CheckAndRevokeCredential(ctx stdcontext.Context, key credential.Key, force bool) error
-}
-
-type User interface {
-	DisplayName() string
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s stateShim) User(tag names.UserTag) (User, error) {
-	return s.State.User(tag)
 }
