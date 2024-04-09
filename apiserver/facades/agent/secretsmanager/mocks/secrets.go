@@ -141,18 +141,18 @@ func (m *MockSecretsConsumer) EXPECT() *MockSecretsConsumerMockRecorder {
 }
 
 // GetConsumedRevision mocks base method.
-func (m *MockSecretsConsumer) GetConsumedRevision(ctx context.Context, uri *secrets.URI, consumer service.SecretConsumer, refresh, peek bool, labelToUpdate *string) (int, error) {
+func (m *MockSecretsConsumer) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh, peek bool, labelToUpdate *string) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetConsumedRevision", ctx, uri, consumer, refresh, peek, labelToUpdate)
+	ret := m.ctrl.Call(m, "GetConsumedRevision", ctx, uri, unitName, refresh, peek, labelToUpdate)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetConsumedRevision indicates an expected call of GetConsumedRevision.
-func (mr *MockSecretsConsumerMockRecorder) GetConsumedRevision(ctx, uri, consumer, refresh, peek, labelToUpdate any) *gomock.Call {
+func (mr *MockSecretsConsumerMockRecorder) GetConsumedRevision(ctx, uri, unitName, refresh, peek, labelToUpdate any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumedRevision", reflect.TypeOf((*MockSecretsConsumer)(nil).GetConsumedRevision), ctx, uri, consumer, refresh, peek, labelToUpdate)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumedRevision", reflect.TypeOf((*MockSecretsConsumer)(nil).GetConsumedRevision), ctx, uri, unitName, refresh, peek, labelToUpdate)
 }
 
 // GetSecretAccess mocks base method.
@@ -171,33 +171,33 @@ func (mr *MockSecretsConsumerMockRecorder) GetSecretAccess(ctx, uri, consumer an
 }
 
 // GetSecretConsumer mocks base method.
-func (m *MockSecretsConsumer) GetSecretConsumer(ctx context.Context, uri *secrets.URI, consumer service.SecretConsumer) (*secrets.SecretConsumerMetadata, error) {
+func (m *MockSecretsConsumer) GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretConsumer", ctx, uri, consumer)
+	ret := m.ctrl.Call(m, "GetSecretConsumer", ctx, uri, unitName)
 	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretConsumer indicates an expected call of GetSecretConsumer.
-func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(ctx, uri, consumer any) *gomock.Call {
+func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(ctx, uri, unitName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumer), ctx, uri, consumer)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumer), ctx, uri, unitName)
 }
 
 // GetURIByConsumerLabel mocks base method.
-func (m *MockSecretsConsumer) GetURIByConsumerLabel(ctx context.Context, label string, consumer service.SecretConsumer) (*secrets.URI, error) {
+func (m *MockSecretsConsumer) GetURIByConsumerLabel(ctx context.Context, label, unitName string) (*secrets.URI, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetURIByConsumerLabel", ctx, label, consumer)
+	ret := m.ctrl.Call(m, "GetURIByConsumerLabel", ctx, label, unitName)
 	ret0, _ := ret[0].(*secrets.URI)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetURIByConsumerLabel indicates an expected call of GetURIByConsumerLabel.
-func (mr *MockSecretsConsumerMockRecorder) GetURIByConsumerLabel(ctx, label, consumer any) *gomock.Call {
+func (mr *MockSecretsConsumerMockRecorder) GetURIByConsumerLabel(ctx, label, unitName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetURIByConsumerLabel", reflect.TypeOf((*MockSecretsConsumer)(nil).GetURIByConsumerLabel), ctx, label, consumer)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetURIByConsumerLabel", reflect.TypeOf((*MockSecretsConsumer)(nil).GetURIByConsumerLabel), ctx, label, unitName)
 }
 
 // GrantSecretAccess mocks base method.
@@ -229,32 +229,32 @@ func (mr *MockSecretsConsumerMockRecorder) RevokeSecretAccess(arg0, arg1, arg2 a
 }
 
 // SaveSecretConsumer mocks base method.
-func (m *MockSecretsConsumer) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, consumer service.SecretConsumer, md *secrets.SecretConsumerMetadata) error {
+func (m *MockSecretsConsumer) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSecretConsumer", ctx, uri, consumer, md)
+	ret := m.ctrl.Call(m, "SaveSecretConsumer", ctx, uri, unitName, md)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SaveSecretConsumer indicates an expected call of SaveSecretConsumer.
-func (mr *MockSecretsConsumerMockRecorder) SaveSecretConsumer(ctx, uri, consumer, md any) *gomock.Call {
+func (mr *MockSecretsConsumerMockRecorder) SaveSecretConsumer(ctx, uri, unitName, md any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).SaveSecretConsumer), ctx, uri, consumer, md)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).SaveSecretConsumer), ctx, uri, unitName, md)
 }
 
 // WatchConsumedSecretsChanges mocks base method.
-func (m *MockSecretsConsumer) WatchConsumedSecretsChanges(ctx context.Context, consumer service.SecretConsumer) (watcher.StringsWatcher, error) {
+func (m *MockSecretsConsumer) WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchConsumedSecretsChanges", ctx, consumer)
+	ret := m.ctrl.Call(m, "WatchConsumedSecretsChanges", ctx, unitName)
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchConsumedSecretsChanges indicates an expected call of WatchConsumedSecretsChanges.
-func (mr *MockSecretsConsumerMockRecorder) WatchConsumedSecretsChanges(ctx, consumer any) *gomock.Call {
+func (mr *MockSecretsConsumerMockRecorder) WatchConsumedSecretsChanges(ctx, unitName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchConsumedSecretsChanges", reflect.TypeOf((*MockSecretsConsumer)(nil).WatchConsumedSecretsChanges), ctx, consumer)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchConsumedSecretsChanges", reflect.TypeOf((*MockSecretsConsumer)(nil).WatchConsumedSecretsChanges), ctx, unitName)
 }
 
 // MockSecretService is a mock of SecretService interface.

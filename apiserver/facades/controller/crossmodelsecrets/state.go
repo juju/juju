@@ -7,23 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/state"
 )
 
 // The following interfaces are used to access backend state.
-
-type SecretsState interface {
-	GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, error)
-	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
-}
-
-type SecretsConsumer interface {
-	GetSecretRemoteConsumer(*secrets.URI, names.Tag) (*secrets.SecretConsumerMetadata, error)
-	SaveSecretRemoteConsumer(*secrets.URI, names.Tag, *secrets.SecretConsumerMetadata) error
-	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
-	SecretAccessScope(uri *secrets.URI, subject names.Tag) (names.Tag, error)
-}
 
 type CrossModelState interface {
 	GetRemoteApplicationTag(string) (names.Tag, error)

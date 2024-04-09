@@ -64,21 +64,12 @@ type SecretsManagerAPIV1 struct {
 	*SecretsManagerAPI
 }
 
-func accessorFromTag(accessorTag names.Tag) secretservice.SecretAccessor {
-	var accessor secretservice.SecretAccessor
-	accessorName := accessorTag.Id()
-	switch kind := accessorTag.Kind(); kind {
-	case names.UnitTagKind:
-		accessor.UnitName = &accessorName
-	case names.ApplicationTagKind:
-		accessor.ApplicationName = &accessorName
-	}
-	return accessor
-}
-
-func (s *SecretsManagerAPI) canRead(ctx context.Context, uri *coresecrets.URI, entity names.Tag) (bool, error) {
+func (s *SecretsManagerAPI) canRead(ctx context.Context, uri *coresecrets.URI, unit names.UnitTag) (bool, error) {
 	// First try looking up unit access.
-	hasRole, err := s.secretsConsumer.GetSecretAccess(ctx, uri, accessorFromTag(entity))
+	hasRole, err := s.secretsConsumer.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   unit.Id(),
+	})
 	if err != nil {
 		// Typically not found error.
 		return false, errors.Trace(err)
@@ -89,7 +80,10 @@ func (s *SecretsManagerAPI) canRead(ctx context.Context, uri *coresecrets.URI, e
 
 	// All units can read secrets owned by application.
 	appName := commonsecrets.AuthTagApp(s.authTag)
-	hasRole, err = s.secretsConsumer.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{ApplicationName: &appName})
+	hasRole, err = s.secretsConsumer.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
+		Kind: secretservice.ApplicationAccessor,
+		ID:   appName,
+	})
 	if err != nil {
 		// Typically not found error.
 		return false, errors.Trace(err)
@@ -410,8 +404,12 @@ func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(ctx context.Context, 
 	if err != nil {
 		return params.SecretConsumerInfoResults{}, errors.Trace(err)
 	}
+	unitConsumer, ok := consumerTag.(names.UnitTag)
+	if !ok {
+		return params.SecretConsumerInfoResults{}, errors.Errorf("expected unit tag for consumer %q, got %T", consumerTag, consumerTag)
+	}
 	for i, uri := range args.URIs {
-		data, err := s.getSecretConsumerInfo(ctx, consumerTag, uri)
+		data, err := s.getSecretConsumerInfo(ctx, unitConsumer, uri)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -424,19 +422,7 @@ func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(ctx context.Context, 
 	return result, nil
 }
 
-func consumerFromTag(consumerTag names.Tag) secretservice.SecretConsumer {
-	var consumer secretservice.SecretConsumer
-	consumerName := consumerTag.Id()
-	switch kind := consumerTag.Kind(); kind {
-	case names.UnitTagKind:
-		consumer.UnitName = &consumerName
-	case names.ApplicationTagKind:
-		consumer.ApplicationName = &consumerName
-	}
-	return consumer
-}
-
-func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, consumerTag names.Tag, uriStr string) (*coresecrets.SecretConsumerMetadata, error) {
+func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, unitTag names.UnitTag, uriStr string) (*coresecrets.SecretConsumerMetadata, error) {
 	uri, err := coresecrets.ParseURI(uriStr)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -444,7 +430,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, consumerT
 	// We only check read permissions for local secrets.
 	// For CMR secrets, the remote model manages the permissions.
 	if uri.IsLocal(s.modelUUID) {
-		canRead, err := s.canRead(ctx, uri, consumerTag)
+		canRead, err := s.canRead(ctx, uri, unitTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -452,7 +438,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, consumerT
 			return nil, apiservererrors.ErrPerm
 		}
 	}
-	return s.secretsConsumer.GetSecretConsumer(ctx, uri, consumerFromTag(consumerTag))
+	return s.secretsConsumer.GetSecretConsumer(ctx, uri, unitTag.Id())
 }
 
 func secretOwnersFromAuthTag(authTag names.Tag, leadershipChecker leadership.Checker) ([]secretservice.CharmSecretOwner, error) {
@@ -595,8 +581,8 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 		return nil, nil, false, errors.NotSupportedf("getting cross model secret for consumer %q", s.authTag)
 	}
 
-	consumer := consumerFromTag(s.authTag)
-	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(ctx, uri, consumer)
+	unitName := s.authTag.Id()
+	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(ctx, uri, unitName)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, nil, false, errors.Trace(err)
 	}
@@ -643,7 +629,7 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 		if labelToUpdate != nil {
 			consumerInfo.Label = *labelToUpdate
 		}
-		if err := s.secretsConsumer.SaveSecretConsumer(ctx, uri, consumer, consumerInfo); err != nil {
+		if err := s.secretsConsumer.SaveSecretConsumer(ctx, uri, unitName, consumerInfo); err != nil {
 			return nil, nil, false, errors.Trace(err)
 		}
 	}
@@ -765,7 +751,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 		return s.getRemoteSecretContent(ctx, uri, arg.Refresh, arg.Peek, labelToUpdate)
 	}
 
-	canRead, err := s.canRead(ctx, uri, s.authTag)
+	canRead, err := s.canRead(ctx, uri, s.authTag.(names.UnitTag))
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
@@ -774,8 +760,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	}
 
 	// labelToUpdate is the consumer label for consumers.
-	consumer := consumerFromTag(s.authTag)
-	consumedRevision, err := s.secretsConsumer.GetConsumedRevision(ctx, uri, consumer, arg.Refresh, arg.Peek, labelToUpdate)
+	consumedRevision, err := s.secretsConsumer.GetConsumedRevision(ctx, uri, s.authTag.Id(), arg.Refresh, arg.Peek, labelToUpdate)
 	if err != nil {
 		return nil, nil, false, errors.Annotate(err, "getting latest secret revision")
 	}
@@ -801,7 +786,7 @@ func (s *SecretsManagerAPI) UpdateTrackedRevisions(ctx context.Context, uris []s
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, err = s.secretsConsumer.GetConsumedRevision(ctx, uri, consumerFromTag(s.authTag), true, false, nil)
+		_, err = s.secretsConsumer.GetConsumedRevision(ctx, uri, s.authTag.Id(), true, false, nil)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -840,14 +825,14 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, arg
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
 	one := func(arg params.Entity) (string, []string, error) {
-		tag, err := names.ParseTag(arg.Tag)
+		tag, err := names.ParseUnitTag(arg.Tag)
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
 		if !isSameApplication(s.authTag, tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(ctx, consumerFromTag(tag))
+		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(ctx, tag.Id())
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}

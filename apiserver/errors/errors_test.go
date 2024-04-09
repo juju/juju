@@ -54,6 +54,11 @@ var errorTransformTests = []struct {
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeSecretNotFound,
 }, {
+	err:        secreterrors.SecretConsumerNotFound,
+	code:       params.CodeSecretConsumerNotFound,
+	status:     http.StatusNotFound,
+	helperFunc: params.IsCodeSecretConsumerNotFound,
+}, {
 	err:        errors.Unauthorized,
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,

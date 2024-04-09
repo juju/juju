@@ -265,11 +265,14 @@ func backendConfigInfo(
 
 		// Granted secrets can be consumed in application level for all units.
 		// We include secrets shared with the app or just the specified unit.
-		consumer := secretservice.SecretConsumer{
-			UnitName:        &unitName,
-			ApplicationName: &appName,
-		}
-		secrets, revisionMetadata, err = secretService.ListConsumedSecrets(ctx, consumer)
+		consumers := []secretservice.SecretAccessor{{
+			Kind: secretservice.UnitAccessor,
+			ID:   unitName,
+		}, {
+			Kind: secretservice.ApplicationAccessor,
+			ID:   appName,
+		}}
+		secrets, revisionMetadata, err = secretService.ListGrantedSecrets(ctx, consumers...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

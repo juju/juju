@@ -18,10 +18,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *secretsSuite) TestCanManageOwnerUnit(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -32,7 +28,7 @@ func (s *secretsSuite) TestCanManageOwnerUnit(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	secretsConsumer.EXPECT().GetSecretAccess(gomock.Any(), uri, secretservice.SecretAccessor{
-		UnitName: ptr("mariadb/0"),
+		Kind: secretservice.UnitAccessor, ID: "mariadb/0",
 	}).Return(coresecrets.RoleManage, nil)
 
 	t, err := secrets.CanManage(context.Background(), secretsConsumer, leadershipChecker, authTag, uri)
@@ -51,10 +47,10 @@ func (s *secretsSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	secretsConsumer.EXPECT().GetSecretAccess(gomock.Any(), uri, secretservice.SecretAccessor{
-		UnitName: ptr("mariadb/0"),
+		Kind: secretservice.UnitAccessor, ID: "mariadb/0",
 	}).Return(coresecrets.RoleNone, nil)
 	secretsConsumer.EXPECT().GetSecretAccess(gomock.Any(), uri, secretservice.SecretAccessor{
-		ApplicationName: ptr("mariadb"),
+		Kind: secretservice.ApplicationAccessor, ID: "mariadb",
 	}).Return(coresecrets.RoleManage, nil)
 	leadershipChecker.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(token)
 	token.EXPECT().Check().Return(nil)
@@ -73,7 +69,7 @@ func (s *secretsSuite) TestCanManageUserSecrets(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	secretsConsumer.EXPECT().GetSecretAccess(gomock.Any(), uri, secretservice.SecretAccessor{
-		ModelUUID: ptr(coretesting.ModelTag.Id()),
+		Kind: secretservice.ModelAccessor, ID: coretesting.ModelTag.Id(),
 	}).Return(coresecrets.RoleManage, nil)
 
 	t, err := secrets.CanManage(context.Background(), secretsConsumer, leadershipChecker, authTag, uri)

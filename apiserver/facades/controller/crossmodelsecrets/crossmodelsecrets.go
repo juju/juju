@@ -18,13 +18,14 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 )
 
 type backendConfigGetter func(ctx stdcontext.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error)
-type secretStateGetter func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error)
+type secretServiceGetter func(modelUUID string) SecretService
 
 // CrossModelSecretsAPI provides access to the CrossModelSecrets API facade.
 type CrossModelSecretsAPI struct {
@@ -35,7 +36,7 @@ type CrossModelSecretsAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	secretsStateGetter  secretStateGetter
+	secretServiceGetter secretServiceGetter
 	backendConfigGetter backendConfigGetter
 	crossModelState     CrossModelState
 	stateBackend        StateBackend
@@ -48,7 +49,7 @@ func NewCrossModelSecretsAPI(
 	authContext *crossmodel.AuthContext,
 	controllerUUID string,
 	modelUUID string,
-	secretsStateGetter secretStateGetter,
+	secretServiceGetter secretServiceGetter,
 	backendConfigGetter backendConfigGetter,
 	crossModelState CrossModelState,
 	stateBackend StateBackend,
@@ -59,7 +60,7 @@ func NewCrossModelSecretsAPI(
 		authCtxt:            authContext,
 		controllerUUID:      controllerUUID,
 		modelUUID:           modelUUID,
-		secretsStateGetter:  secretsStateGetter,
+		secretServiceGetter: secretServiceGetter,
 		backendConfigGetter: backendConfigGetter,
 		crossModelState:     crossModelState,
 		stateBackend:        stateBackend,
@@ -73,7 +74,7 @@ func (s *CrossModelSecretsAPI) GetSecretAccessScope(ctx stdcontext.Context, args
 		Results: make([]params.StringResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		token, err := s.getSecretAccessScope(arg)
+		token, err := s.getSecretAccessScope(ctx, arg)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -83,7 +84,7 @@ func (s *CrossModelSecretsAPI) GetSecretAccessScope(ctx stdcontext.Context, args
 	return result, nil
 }
 
-func (s *CrossModelSecretsAPI) getSecretAccessScope(arg params.GetRemoteSecretAccessArg) (string, error) {
+func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx stdcontext.Context, arg params.GetRemoteSecretAccessArg) (string, error) {
 	if arg.URI == "" {
 		return "", errors.NewNotValid(nil, "empty uri")
 	}
@@ -103,12 +104,8 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(arg params.GetRemoteSecretAc
 
 	s.logger.Debugf("consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
 
-	_, secretsConsumer, closer, err := s.secretsStateGetter(uri.SourceUUID)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer closer()
-	scopeTag, err := s.accessScope(secretsConsumer, uri, consumerUnit)
+	secretService := s.secretServiceGetter(uri.SourceUUID)
+	scopeTag, err := s.accessScope(ctx, secretService, uri, consumerUnit)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -195,13 +192,9 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 		return nil, nil, 0, errors.Trace(err)
 	}
 
-	secretState, secretsConsumer, closer, err := s.secretsStateGetter(uri.SourceUUID)
-	if err != nil {
-		return nil, nil, 0, errors.Trace(err)
-	}
-	defer closer()
+	secretService := s.secretServiceGetter(uri.SourceUUID)
 
-	if !s.canRead(secretsConsumer, uri, consumer) {
+	if !s.canRead(ctx, secretService, uri, consumer) {
 		return nil, nil, 0, apiservererrors.ErrPerm
 	}
 
@@ -212,7 +205,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 	// Use the latest revision as the current one if --peek.
 	if arg.Peek || arg.Refresh {
 		var err error
-		latestRevision, err = s.updateConsumedRevision(secretState, secretsConsumer, consumer, uri, arg.Refresh)
+		latestRevision, err = s.updateConsumedRevision(ctx, secretService, consumer, uri, arg.Refresh)
 		if err != nil {
 			return nil, nil, 0, errors.Trace(err)
 		}
@@ -221,7 +214,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 		wantRevision = *arg.Revision
 	}
 
-	val, valueRef, err := secretState.GetSecretValue(uri, wantRevision)
+	val, valueRef, err := secretService.GetSecretValue(ctx, uri, wantRevision)
 	content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
 	if err != nil || content.ValueRef == nil {
 		return content, nil, latestRevision, errors.Trace(err)
@@ -236,15 +229,15 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 	return content, backend, latestRevision, errors.Trace(err)
 }
 
-func (s *CrossModelSecretsAPI) updateConsumedRevision(secretsState SecretsState, secretsConsumer SecretsConsumer, consumer names.Tag, uri *coresecrets.URI, refresh bool) (int, error) {
-	consumerInfo, err := secretsConsumer.GetSecretRemoteConsumer(uri, consumer)
+func (s *CrossModelSecretsAPI) updateConsumedRevision(ctx stdcontext.Context, secretService SecretService, consumer names.UnitTag, uri *coresecrets.URI, refresh bool) (int, error) {
+	consumerInfo, err := secretService.GetSecretRemoteConsumer(ctx, uri, consumer.Id())
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return 0, errors.Trace(err)
 	}
 	refresh = refresh ||
 		err != nil // Not found, so need to create one.
 
-	md, err := secretsState.GetSecret(uri)
+	md, err := secretService.GetSecret(ctx, uri)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
@@ -255,7 +248,7 @@ func (s *CrossModelSecretsAPI) updateConsumedRevision(secretsState SecretsState,
 		}
 		consumerInfo.LatestRevision = md.LatestRevision
 		consumerInfo.CurrentRevision = md.LatestRevision
-		if err := secretsConsumer.SaveSecretRemoteConsumer(uri, consumer, consumerInfo); err != nil {
+		if err := secretService.SaveSecretRemoteConsumer(ctx, uri, consumer.Id(), consumerInfo); err != nil {
 			return 0, errors.Trace(err)
 		}
 	}
@@ -285,28 +278,49 @@ func (s *CrossModelSecretsAPI) getBackend(ctx stdcontext.Context, modelUUID stri
 }
 
 // canRead returns true if the specified entity can read the secret.
-func (s *CrossModelSecretsAPI) canRead(secretsConsumer SecretsConsumer, uri *coresecrets.URI, entity names.Tag) bool {
-	s.logger.Debugf("check %s can read secret %s", entity, uri.ID)
-	hasRole, _ := secretsConsumer.SecretAccess(uri, entity)
+func (s *CrossModelSecretsAPI) canRead(ctx stdcontext.Context, secretService SecretService, uri *coresecrets.URI, unit names.UnitTag) bool {
+	s.logger.Debugf("check %s can read secret %s", unit, uri.ID)
+	hasRole, _ := secretService.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   unit.Id(),
+	})
 	if hasRole.Allowed(coresecrets.RoleView) {
 		return true
 	}
 
-	// Unit access not granted, see if app access is granted.
-	if entity.Kind() != names.UnitTagKind {
-		return false
-	}
-	appName, _ := names.UnitApplication(entity.Id())
-	hasRole, _ = secretsConsumer.SecretAccess(uri, names.NewApplicationTag(appName))
+	appName, _ := names.UnitApplication(unit.Id())
+	hasRole, _ = secretService.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
+		Kind: secretservice.ApplicationAccessor,
+		ID:   appName,
+	})
 	return hasRole.Allowed(coresecrets.RoleView)
 }
 
-func (s *CrossModelSecretsAPI) accessScope(secretsConsumer SecretsConsumer, uri *coresecrets.URI, entity names.Tag) (names.Tag, error) {
-	s.logger.Debugf("scope for %q on secret %s", entity, uri.ID)
-	scope, err := secretsConsumer.SecretAccessScope(uri, entity)
-	if err == nil || !errors.Is(err, errors.NotFound) || entity.Kind() != names.UnitTagKind {
-		return scope, errors.Trace(err)
+func tagFromAccessScope(scope secretservice.SecretAccessScope) names.Tag {
+	switch scope.Kind {
+	case secretservice.ApplicationAccessScope:
+		return names.NewApplicationTag(scope.ID)
+	case secretservice.UnitAccessScope:
+		return names.NewUnitTag(scope.ID)
+	case secretservice.RelationAccessScope:
+		return names.NewRelationTag(scope.ID)
 	}
-	appName, _ := names.UnitApplication(entity.Id())
-	return secretsConsumer.SecretAccessScope(uri, names.NewApplicationTag(appName))
+	return nil
+}
+
+func (s *CrossModelSecretsAPI) accessScope(ctx stdcontext.Context, secretService SecretService, uri *coresecrets.URI, unit names.UnitTag) (names.Tag, error) {
+	s.logger.Debugf("scope for %q on secret %s", unit, uri.ID)
+	scope, err := secretService.GetSecretAccessScope(ctx, uri, secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   unit.Id(),
+	})
+	if err == nil || !errors.Is(err, errors.NotFound) {
+		return tagFromAccessScope(scope), errors.Trace(err)
+	}
+	appName, _ := names.UnitApplication(unit.Id())
+	scope, err = secretService.GetSecretAccessScope(ctx, uri, secretservice.SecretAccessor{
+		Kind: secretservice.ApplicationAccessor,
+		ID:   appName,
+	})
+	return tagFromAccessScope(scope), errors.Trace(err)
 }

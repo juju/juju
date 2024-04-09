@@ -19,4 +19,7 @@ const (
 	// SecretRevisionNotFound describes an error that occurs when the secret revision being operated on
 	// does not exist.
 	SecretRevisionNotFound = errors.ConstError("secret revision not found")
+
+	// SecretConsumerNotFound describes an error that occurs when the secret consumer being operated on is not found.
+	SecretConsumerNotFound = errors.ConstError("secret consumer not found")
 )

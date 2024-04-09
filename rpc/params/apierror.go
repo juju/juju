@@ -152,6 +152,7 @@ const (
 	CodeUserNotFound              = "user not found"
 	CodeModelNotFound             = "model not found"
 	CodeSecretNotFound            = "secret not found"
+	CodeSecretConsumerNotFound    = "secret consumer not found"
 	CodeUnauthorized              = "unauthorized access"
 	CodeLoginExpired              = "login expired"
 	CodeNoCreds                   = "no credentials provided"
@@ -212,6 +213,8 @@ func TranslateWellKnownError(err error) error {
 		return errors.NewUserNotFound(err, "")
 	case CodeSecretNotFound:
 		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secreterrors.SecretNotFound))
+	case CodeSecretConsumerNotFound:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secreterrors.SecretConsumerNotFound))
 	case CodeUnauthorized:
 		return errors.NewUnauthorized(err, "")
 	case CodeNotImplemented:
@@ -273,6 +276,10 @@ func IsCodeModelNotFound(err error) bool {
 
 func IsCodeSecretNotFound(err error) bool {
 	return ErrCode(err) == CodeSecretNotFound
+}
+
+func IsCodeSecretConsumerNotFound(err error) bool {
+	return ErrCode(err) == CodeSecretConsumerNotFound
 }
 
 func IsCodeUnauthorized(err error) bool {

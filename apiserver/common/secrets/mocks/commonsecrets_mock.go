@@ -260,20 +260,25 @@ func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0 any, arg1 ...any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecrets", reflect.TypeOf((*MockSecretService)(nil).ListCharmSecrets), varargs...)
 }
 
-// ListConsumedSecrets mocks base method.
-func (m *MockSecretService) ListConsumedSecrets(arg0 context.Context, arg1 service.SecretConsumer) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+// ListGrantedSecrets mocks base method.
+func (m *MockSecretService) ListGrantedSecrets(arg0 context.Context, arg1 ...service.SecretAccessor) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListConsumedSecrets", arg0, arg1)
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListGrantedSecrets", varargs...)
 	ret0, _ := ret[0].([]*secrets.SecretMetadata)
 	ret1, _ := ret[1].([][]*secrets.SecretRevisionMetadata)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// ListConsumedSecrets indicates an expected call of ListConsumedSecrets.
-func (mr *MockSecretServiceMockRecorder) ListConsumedSecrets(arg0, arg1 any) *gomock.Call {
+// ListGrantedSecrets indicates an expected call of ListGrantedSecrets.
+func (mr *MockSecretServiceMockRecorder) ListGrantedSecrets(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListConsumedSecrets", reflect.TypeOf((*MockSecretService)(nil).ListConsumedSecrets), arg0, arg1)
+	varargs := append([]any{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGrantedSecrets", reflect.TypeOf((*MockSecretService)(nil).ListGrantedSecrets), varargs...)
 }
 
 // ListUserSecrets mocks base method.

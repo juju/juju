@@ -49,19 +49,36 @@ type ChangeSecretBackendParams struct {
 	Data        secrets.SecretData
 }
 
-// SecretConsumer represents the consumer of a secret.
-// Exactly one of ApplicationName or UnitName must be non nil.
-type SecretConsumer struct {
-	ApplicationName *string
-	UnitName        *string
-}
+// SecretAccessorKind represents the kind of an entity which can access a secret.
+type SecretAccessorKind string
+
+// These represent the kinds of secret accessor.
+const (
+	ApplicationAccessor SecretAccessorKind = "application"
+	UnitAccessor        SecretAccessorKind = "unit"
+	ModelAccessor       SecretAccessorKind = "model"
+)
 
 // SecretAccessor represents an entity that can access a secret.
-// Exactly one of ApplicationName, UnitName, or ModelUUID must be non nil.
 type SecretAccessor struct {
-	ApplicationName *string
-	UnitName        *string
-	ModelUUID       *string
+	Kind SecretAccessorKind
+	ID   string
+}
+
+// SecretAccessScopeKind represents the kind of an access scope for a secret permission.
+type SecretAccessScopeKind string
+
+// These represent the kinds of secret accessor.
+const (
+	ApplicationAccessScope SecretAccessScopeKind = "application"
+	UnitAccessScope        SecretAccessScopeKind = "unit"
+	RelationAccessScope    SecretAccessScopeKind = "relation"
+)
+
+// SecretAccessScope represents the scope of a secret permission.
+type SecretAccessScope struct {
+	Kind SecretAccessScopeKind
+	ID   string
 }
 
 // CharmSecretOwnerKind represents the kind of a charm secret owner entity.

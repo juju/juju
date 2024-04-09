@@ -90,11 +90,11 @@ func (s *secretsDrainSuite) expectAuthUnitAgent() {
 func (s *secretsDrainSuite) expectSecretAccessQuery(n int) {
 	s.secretService.EXPECT().GetSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, uri *coresecrets.URI, accessor secretservice.SecretAccessor) (coresecrets.SecretRole, error) {
-			if accessor.UnitName != nil && *accessor.UnitName == s.authTag.Id() {
+			if accessor.Kind == secretservice.UnitAccessor && accessor.ID == s.authTag.Id() {
 				return coresecrets.RoleView, nil
 			}
 			appName, _ := names.UnitApplication(s.authTag.Id())
-			if accessor.ApplicationName != nil && *accessor.ApplicationName == appName {
+			if accessor.Kind == secretservice.ApplicationAccessor && accessor.ID == appName {
 				return coresecrets.RoleManage, nil
 			}
 			return coresecrets.RoleNone, errors.NotFoundf("role")
