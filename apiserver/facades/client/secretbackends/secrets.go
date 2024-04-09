@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -29,12 +28,6 @@ import (
 type SecretBackendsAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
-
-	clock       clock.Clock
-	secretState SecretsState
-	statePool   StatePool
-	model       Model
-
 	backendService SecretsBackendService
 }
 
