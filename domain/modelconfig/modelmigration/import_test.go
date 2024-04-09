@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/config"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs/config"
 )
 
 type importSuite struct {

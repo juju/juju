@@ -124,6 +124,20 @@ func (mr *MockReadOnlyModelServiceMockRecorder) CreateModel(arg0, arg1 any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockReadOnlyModelService)(nil).CreateModel), arg0, arg1)
 }
 
+// DeleteModel mocks base method.
+func (m *MockReadOnlyModelService) DeleteModel(arg0 context.Context, arg1 model.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteModel", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteModel indicates an expected call of DeleteModel.
+func (mr *MockReadOnlyModelServiceMockRecorder) DeleteModel(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteModel", reflect.TypeOf((*MockReadOnlyModelService)(nil).DeleteModel), arg0, arg1)
+}
+
 // MockUserService is a mock of UserService interface.
 type MockUserService struct {
 	ctrl     *gomock.Controller

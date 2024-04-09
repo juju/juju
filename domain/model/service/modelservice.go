@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model"
 )
 
@@ -14,6 +15,9 @@ import (
 type ModelState interface {
 	// Create creates a new model with all of its associated metadata.
 	Create(context.Context, model.ReadOnlyModelCreationArgs) error
+
+	// Delete deletes a model.
+	Delete(ctx context.Context, uuid coremodel.UUID) error
 }
 
 // ModelService defines a service for interacting with the underlying model
@@ -43,4 +47,15 @@ func (s *ModelService) CreateModel(
 	}
 
 	return s.st.Create(ctx, args)
+}
+
+// DeleteModel is responsible for removing a model from the system.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
+func (s *ModelService) DeleteModel(
+	ctx context.Context,
+	uuid coremodel.UUID,
+) error {
+	return s.st.Delete(ctx, uuid)
 }

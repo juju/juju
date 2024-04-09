@@ -57,6 +57,9 @@ type ReadOnlyModelService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
 	CreateModel(context.Context, domainmodel.ReadOnlyModelCreationArgs) error
+
+	// DeleteModel is responsible for removing a read only model from the system.
+	DeleteModel(context.Context, coremodel.UUID) error
 }
 
 // UserService defines the user service used for model migration.
@@ -222,6 +225,14 @@ func (i importOperation) Rollback(ctx context.Context, model description.Model) 
 	if err := i.modelService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return fmt.Errorf(
 			"rollback of model %q with uuid %q during migration: %w",
+			modelName, uuid, err,
+		)
+	}
+
+	// If the read only model isn't found, we can simply ignore the error.
+	if err := i.readOnlyModelService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return fmt.Errorf(
+			"rollback of read only model %q with uuid %q during migration: %w",
 			modelName, uuid, err,
 		)
 	}

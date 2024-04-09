@@ -36,6 +36,8 @@ type exportOperation struct {
 	service ExportService
 }
 
+// Setup the export operation, this will ensure the service is created
+// and ready to be used.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewService(
 		// We shouldn't be using model defaults during export, so we use a

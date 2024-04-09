@@ -733,7 +733,7 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 func (s *Suite) expectImportModel(c *gc.C) {
 	s.serviceFactoryGetter.EXPECT().FactoryForModel(gomock.Any()).Return(s.serviceFactory)
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
-		scope := func(coremodel.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
+		scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
 		controller := state.NewController(s.StatePool)
 		return migration.NewModelImporter(
 			controller, scope, s.controllerConfigService, s.serviceFactoryGetter, cloudSchemaSource,

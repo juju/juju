@@ -56,6 +56,36 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 	})
 }
 
+func (s *modelSuite) TestDeleteModel(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner)
+
+	id := modeltesting.GenModelUUID(c)
+	cid := modeltesting.GenModelUUID(c)
+	args := model.ReadOnlyModelCreationArgs{
+		UUID:            id,
+		ControllerUUID:  cid,
+		Name:            "my-awesome-model",
+		Type:            coremodel.IAAS,
+		Cloud:           "aws",
+		CloudRegion:     "myregion",
+		CredentialOwner: "myowner",
+		CredentialName:  "mycredential",
+	}
+	err := state.Create(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = state.Delete(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = state.Delete(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+
+	// Check that it was written correctly.
+	_, err = state.Model(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
 func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner)

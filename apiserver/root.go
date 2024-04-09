@@ -892,7 +892,7 @@ var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderReg
 func (ctx *facadeContext) ModelExporter(backend facade.LegacyStateExporter) facade.ModelExporter {
 	return migration.NewModelExporter(
 		backend,
-		ctx.migrationScope(model.UUID(ctx.State().ModelUUID())),
+		ctx.migrationScope(ctx.State().ModelUUID()),
 		storageRegistryGetter(ctx),
 	)
 }
@@ -970,11 +970,11 @@ func (ctx *facadeContext) modelDB(modelUUID string) (changestream.WatchableDB, e
 // migrationScope is a protected method, do not expose this directly in to the
 // facade context. It is expect that users of the facade context will use the
 // higher level abstractions.
-func (ctx *facadeContext) migrationScope(modelUUID model.UUID) modelmigration.Scope {
+func (ctx *facadeContext) migrationScope(modelUUID string) modelmigration.Scope {
 	return modelmigration.NewScope(
 		changestream.NewTxnRunnerFactory(ctx.controllerDB),
 		changestream.NewTxnRunnerFactory(func() (changestream.WatchableDB, error) {
-			return ctx.modelDB(modelUUID.String())
+			return ctx.modelDB(modelUUID)
 		}),
 	)
 }

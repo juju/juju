@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/model"
 )
 
 // BaseOperation is a base implementation of the Operation interface.
@@ -66,7 +65,7 @@ type Scope struct {
 }
 
 // ScopeForModel returns a Scope for the given model UUID.
-type ScopeForModel func(modelUUID model.UUID) Scope
+type ScopeForModel func(modelUUID string) Scope
 
 // NewScope creates a new scope with the given database txn runners.
 func NewScope(controllerDB, modelDB database.TxnRunnerFactory) Scope {

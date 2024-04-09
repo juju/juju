@@ -24,6 +24,11 @@ func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCr
 	return nil
 }
 
+func (d *dummyModelState) Delete(ctx context.Context, modelUUID coremodel.UUID) error {
+	delete(d.models, modelUUID)
+	return nil
+}
+
 type modelServiceSuite struct {
 	testing.IsolationSuite
 
@@ -55,4 +60,25 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 	got, exists := s.state.models[id]
 	c.Assert(exists, jc.IsTrue)
 	c.Check(got, gc.Equals, args)
+}
+
+func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
+	svc := NewModelService(s.state)
+
+	id := modeltesting.GenModelUUID(c)
+	args := model.ReadOnlyModelCreationArgs{
+		UUID:        id,
+		Name:        "my-awesome-model",
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Type:        coremodel.IAAS,
+	}
+	err := svc.CreateModel(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = svc.DeleteModel(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, exists := s.state.models[id]
+	c.Assert(exists, jc.IsFalse)
 }

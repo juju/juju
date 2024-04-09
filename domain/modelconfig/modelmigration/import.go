@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
+	"github.com/juju/juju/environs/config"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -27,6 +28,7 @@ func RegisterImport(coordinator Coordinator, defaultsProvider service.ModelDefau
 	})
 }
 
+// ImportService represents the service methods needed for model config.
 type ImportService interface {
 	// SetModelConfig will remove any existing model config for the model and
 	// replace with the new config provided. The new config will also be hydrated
@@ -44,6 +46,8 @@ type importOperation struct {
 	defaultsProvider service.ModelDefaultsProvider
 }
 
+// Setup the import operation, this will ensure the service is created
+// and ready to be used.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
@@ -55,15 +59,20 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the model config description.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	config := model.Config()
+	attrs := model.Config()
 
 	// If we don't have any model config, then there is something seriously
 	// wrong. In this case, we should return an error.
-	if len(config) == 0 {
+	if len(attrs) == 0 {
 		return errors.NotValidf("model config")
 	}
 
-	if err := i.service.SetModelConfig(ctx, config); err != nil {
+	config, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := i.service.SetModelConfig(ctx, config.SafeModelAttrs()); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
