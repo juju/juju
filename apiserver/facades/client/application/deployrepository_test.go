@@ -264,8 +264,8 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 	// getCharm
 	charmID := corecharm.CharmID{URL: curl, Origin: origin}
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
-	s.repo.EXPECT().ResolveForDeploy(charmID).Return(resolvedData, nil)
-	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, nil)
+	s.repo.EXPECT().ResolveResources(gomock.Any(), nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
 	s.model.EXPECT().UUID().Return("")
 
 	// state bindings
@@ -273,12 +273,12 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 	s.state.EXPECT().Charm(gomock.Any()).Return(nil, errors.NotFoundf("charm"))
 
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repo, nil).AnyTimes()
+	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repo, nil).AnyTimes()
 	v := &deployFromRepositoryValidator{
 		model:       s.model,
 		state:       s.state,
 		repoFactory: s.repoFactory,
-		newStateBindings: func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error) {
+		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return nil, errors.NotFoundf("space")
 		},
 	}
@@ -287,7 +287,7 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 		CharmName:        "testcharm",
 		EndpointBindings: endpointMap,
 	}
-	_, errs := v.validate(arg)
+	_, errs := v.validate(context.Background(), arg)
 	c.Assert(errs, gc.HasLen, 1)
 	c.Assert(errs[0], jc.ErrorIs, errors.NotFound)
 }
