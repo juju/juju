@@ -13,7 +13,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 )
@@ -21,10 +20,6 @@ import (
 // SecretBackendsManagerAPI is the implementation for the SecretsManager facade.
 type SecretBackendsManagerAPI struct {
 	watcherRegistry facade.WatcherRegistry
-
-	controllerUUID string
-	modelUUID      string
-	modelName      string
 
 	backendService BackendService
 	clock          clock.Clock
@@ -39,7 +34,7 @@ func (s *SecretBackendsManagerAPI) WatchSecretBackendsRotateChanges(ctx context.
 		return result, errors.Trace(err)
 	}
 
-	id, backendChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretBackendRotateChange](ctx, s.watcherRegistry, w)
+	id, backendChanges, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil

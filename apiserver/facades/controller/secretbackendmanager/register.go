@@ -35,10 +35,7 @@ func NewSecretBackendsManagerAPI(ctx facade.ModelContext) (*SecretBackendsManage
 	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 	return &SecretBackendsManagerAPI{
 		watcherRegistry: ctx.WatcherRegistry(),
-		controllerUUID:  model.ControllerUUID(),
-		modelUUID:       model.UUID(),
-		modelName:       model.Name(),
-		backendService:  backendService,
+		backendService:  &serviceShim{backendService},
 		clock:           clock.WallClock,
 		logger:          ctx.Logger().Child("secretbackendmanager"),
 	}, nil
