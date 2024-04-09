@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
@@ -170,22 +171,25 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
 
-	// TODO (stickupkid): We don't need to get a whole service factory here, we
-	// only need the cloud type to get the config schema source.
-	serviceFactory := i.serviceFactoryGetter.FactoryForModel(model.Tag().Id())
+	modelUUID := coremodel.UUID(model.Tag().Id())
+
+	serviceFactory := i.serviceFactoryGetter.FactoryForModel(modelUUID.String())
 	configSchemaSource := i.configSchemaSourceProvider(serviceFactory.Cloud())
 	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, configSchemaSource)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
+	modelDefaults := serviceFactory.ModelDefaults()
+	modelDefaultsProvider := modelDefaults.ModelDefaultsProvider(modelUUID)
+
 	registry, err := i.storageRegistryGetter()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	coordinator := modelmigration.NewCoordinator()
-	migrations.ImportOperations(coordinator, logger, registry)
-	if err := coordinator.Perform(ctx, i.scope(model.Tag().Id()), model); err != nil {
+	migrations.ImportOperations(coordinator, logger, modelDefaultsProvider, registry)
+	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
