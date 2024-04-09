@@ -9,8 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend
-
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/service_mock.go github.com/juju/juju/apiserver/facades/client/modelconfig SecretBackendService
 func Test(t *testing.T) {
 	gc.TestingT(t)
 }

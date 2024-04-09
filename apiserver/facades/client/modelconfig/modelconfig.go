@@ -41,9 +41,10 @@ func NewModelConfigAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 	client := &ModelConfigAPI{
-		backend: backend,
-		auth:    authorizer,
-		check:   common.NewBlockChecker(backend),
+		backend:        backend,
+		backendService: backendService,
+		auth:           authorizer,
+		check:          common.NewBlockChecker(backend),
 	}
 	return &ModelConfigAPIV3{client}, nil
 }
