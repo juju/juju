@@ -144,6 +144,7 @@ func (api *KeyManagerAPI) currentKeyDataForAdd(ctx context.Context) (keys []stri
 		fingerprint, _, err := ssh.KeyFingerprint(key)
 		if err != nil {
 			api.logger.Warningf("ignoring invalid ssh key %q: %v", key, err)
+			continue
 		}
 		fingerprints.Add(fingerprint)
 	}
@@ -293,25 +294,33 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 	return params.ErrorResults{Results: results}, nil
 }
 
+type keyDataForDelete struct {
+	allKeys       []string
+	byFingerprint map[string]string
+	byComment     map[string]string
+	invalidKeys   map[string]string
+}
+
 // currentKeyDataForDelete gathers data used when deleting ssh keys.
-func (api *KeyManagerAPI) currentKeyDataForDelete(ctx context.Context) (
-	currentKeys []string, byFingerprint map[string]string, byComment map[string]string, err error) {
+func (api *KeyManagerAPI) currentKeyDataForDelete(ctx context.Context) (keyDataForDelete, error) {
 
 	cfg, err := api.model.ModelConfig(ctx)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("reading current key data: %v", err)
+		return keyDataForDelete{}, fmt.Errorf("reading current key data: %v", err)
 	}
 	// For now, authorised keys are global, common to all users.
-	currentKeys = ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
+	currentKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 
 	// Make two maps that index keys by fingerprint and by comment for fast
 	// lookup of keys to delete which may be given as either.
-	byFingerprint = make(map[string]string)
-	byComment = make(map[string]string)
+	byFingerprint := make(map[string]string)
+	byComment := make(map[string]string)
+	invalidKeys := make(map[string]string)
 	for _, key := range currentKeys {
 		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
-			api.logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
+			api.logger.Debugf("invalid existing ssh key %q: %v", key, err)
+			invalidKeys[key] = key
 			continue
 		}
 		byFingerprint[fingerprint] = key
@@ -319,7 +328,13 @@ func (api *KeyManagerAPI) currentKeyDataForDelete(ctx context.Context) (
 			byComment[comment] = key
 		}
 	}
-	return currentKeys, byFingerprint, byComment, nil
+	data := keyDataForDelete{
+		allKeys:       currentKeys,
+		byFingerprint: byFingerprint,
+		byComment:     byComment,
+		invalidKeys:   invalidKeys,
+	}
+	return data, nil
 }
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
@@ -334,7 +349,7 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{}, nil
 	}
 
-	allKeys, byFingerprint, byComment, err := api.currentKeyDataForDelete(ctx)
+	keyData, err := api.currentKeyDataForDelete(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
@@ -344,13 +359,13 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 
 	results := transform.Slice(arg.Keys, func(keyId string) params.ErrorResult {
 		// Is given keyId a fingerprint?
-		key, ok := byFingerprint[keyId]
+		key, ok := keyData.byFingerprint[keyId]
 		if ok {
 			keysToDelete.Add(key)
 			return params.ErrorResult{}
 		}
 		// Not a fingerprint, is it a comment?
-		key, ok = byComment[keyId]
+		key, ok = keyData.byComment[keyId]
 		if ok {
 			if jujuKeyCommentIdentifiers.Contains(keyId) {
 				return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))}
@@ -358,13 +373,19 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 			keysToDelete.Add(key)
 			return params.ErrorResult{}
 		}
-		return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))}
+		// Allow invalid keys to be deleted by writing out key verbatim.
+		key, ok = keyData.invalidKeys[keyId]
+		if ok {
+			keysToDelete.Add(key)
+			return params.ErrorResult{}
+		}
+		return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("key not found: %s", keyId))}
 	})
 
 	var keysToWrite []string
 
 	// Add back only the keys that are not deleted, preserving the order.
-	for _, key := range allKeys {
+	for _, key := range keyData.allKeys {
 		if !keysToDelete.Contains(key) {
 			keysToWrite = append(keysToWrite, key)
 		}

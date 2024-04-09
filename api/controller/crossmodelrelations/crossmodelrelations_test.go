@@ -722,9 +722,9 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.BestVersionCaller{APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
-		c.Check(version, gc.Equals, 0)
+		c.Check(version, gc.Equals, 3)
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, jc.DeepEquals, params.WatchRemoteSecretChangesArgs{Args: []params.WatchRemoteSecretChangesArg{{
 			ApplicationToken: appToken, RelationToken: relToken, Macaroons: macaroon.Slice{mac},
@@ -739,7 +739,7 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		}
 		callCount++
 		return nil
-	})
+	}), BestVersion: 3}
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
 	_, err = client.WatchConsumedSecretsChanges(context.Background(), appToken, relToken, mac)
 	c.Check(err, gc.ErrorMatches, "FAIL")
@@ -758,7 +758,7 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 		callCount    int
 		dischargeMac macaroon.Slice
 	)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.BestVersionCaller{APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		var resultErr *params.Error
 		switch callCount {
 		case 2, 3: //Watcher Next, Stop
@@ -781,7 +781,7 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 		s.fillResponse(c, result, resp)
 		callCount++
 		return nil
-	})
+	}), BestVersion: 3}
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)

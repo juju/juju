@@ -119,6 +119,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 	s.setAuthorizedKeys(c, key1, key2, "bad key")
 
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
+	newLineKey := sshtesting.ValidKeyFour.Key + " line1\nline2"
 
 	newAttrs := map[string]interface{}{
 		config.AuthorizedKeysKey: strings.Join([]string{key1, key2, "bad key", newKey}, "\n"),
@@ -127,7 +128,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").Name(),
-		Keys: []string{key2, newKey, newKey, "invalid-key"},
+		Keys: []string{key2, newKey, newKey, "invalid-key", newLineKey},
 	}
 	results, err := s.api.AddKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,6 +139,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 			{Error: nil},
 			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", newKey))},
 			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
+			{Error: apiservertesting.ServerError(fmt.Sprintf("invalid ssh key: %s", newLineKey))},
 		},
 	})
 }
@@ -207,24 +209,25 @@ func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 func (s *keyManagerSuite) assertDeleteKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
-	s.setAuthorizedKeys(c, key1, key2, "bad key")
+	s.setAuthorizedKeys(c, key1, key2, "bad key 1", "bad key 2")
 
 	newAttrs := map[string]interface{}{
-		config.AuthorizedKeysKey: strings.Join([]string{key1, "bad key"}, "\n"),
+		config.AuthorizedKeysKey: strings.Join([]string{key1, "bad key 1"}, "\n"),
 	}
 	s.model.EXPECT().UpdateModelConfig(gomock.Any(), newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").String(),
-		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
+		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key", "bad key 2"},
 	}
 	results, err := s.api.DeleteKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
-			{Error: apiservertesting.ServerError("invalid ssh key: " + sshtesting.ValidKeyThree.Fingerprint)},
-			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
+			{Error: apiservertesting.ServerError("key not found: " + sshtesting.ValidKeyThree.Fingerprint)},
+			{Error: apiservertesting.ServerError("key not found: invalid-key")},
+			{Error: nil},
 		},
 	})
 }

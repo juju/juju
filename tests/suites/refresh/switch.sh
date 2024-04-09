@@ -25,7 +25,7 @@ run_refresh_switch_local_to_ch_channel() {
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
-	wait_for "ubuntu" "$(charm_channel "ubuntu" "edge")"
+	wait_for "ubuntu" "$(charm_channel "ubuntu" "latest/edge")"
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	destroy_model "${model_name}"

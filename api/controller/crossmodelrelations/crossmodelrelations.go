@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -498,7 +497,7 @@ func (c *Client) WatchConsumedSecretsChanges(ctx context.Context, applicationTok
 		// Reset the results struct before each api call.
 		results = params.SecretRevisionWatchResults{}
 		if err := c.facade.FacadeCall(context.TODO(), "WatchConsumedSecretsChanges", args, &results); err != nil {
-			return errors.Trace(err)
+			return params.TranslateWellKnownError(err)
 		}
 		if len(results.Results) != 1 {
 			return errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -528,7 +527,7 @@ func (c *Client) WatchConsumedSecretsChanges(ctx context.Context, applicationTok
 		result = results.Results[0]
 	}
 	if result.Error != nil {
-		return nil, apiservererrors.RestoreError(result.Error)
+		return nil, params.TranslateWellKnownError(result.Error)
 	}
 
 	w := apiwatcher.NewSecretsRevisionWatcher(c.facade.RawAPICaller(), result)

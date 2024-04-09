@@ -7,7 +7,10 @@ run_secrets() {
 	juju --show-log add-model "$model_name" --config secret-backend=auto
 
 	juju --show-log deploy hello-kubecon hello
-	juju --show-log deploy nginx-ingress-integrator nginx
+	# TODO(anvial): remove the revision flag once we update hello-kubecon charm
+	#  (https://discourse.charmhub.io/t/old-ingress-relation-removal/12944)
+	#  or we choose an alternative pair of charms to integrate.
+	juju --show-log deploy nginx-ingress-integrator nginx --channel=latest/stable --revision=83
 	juju --show-log integrate nginx hello
 	juju --show-log trust nginx --scope=cluster
 

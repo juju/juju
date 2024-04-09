@@ -410,8 +410,9 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
 		if err != nil {
 			errs = append(errs, err)
+		} else {
+			dt.endpoints = bindings.Map()
 		}
-		dt.endpoints = bindings.Map()
 	}
 	// resolve and validate resources
 	resources, pendingResourceUploads, resolveResErr := v.resolveResources(ctx, dt.charmURL, dt.origin, dt.resources, resolvedCharm.Meta().Resources)

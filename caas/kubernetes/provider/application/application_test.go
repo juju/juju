@@ -649,6 +649,10 @@ func getPodSpec() corev1.PodSpec {
 					Name:  "PEBBLE",
 					Value: "/charm/container/pebble",
 				},
+				{
+					Name:  "PEBBLE_COPY_ONCE",
+					Value: "/var/lib/pebble/default",
+				},
 			},
 			LivenessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -715,6 +719,10 @@ func getPodSpec() corev1.PodSpec {
 				{
 					Name:  "PEBBLE",
 					Value: "/charm/container/pebble",
+				},
+				{
+					Name:  "PEBBLE_COPY_ONCE",
+					Value: "/var/lib/pebble/default",
 				},
 			},
 			LivenessProbe: &corev1.Probe{

@@ -24,7 +24,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
 	github.com/canonical/go-dqlite v1.21.0
 	github.com/canonical/lxd v0.0.0-20231214113525-e676fc63c50a
-	github.com/canonical/pebble v1.9.0
+	github.com/canonical/pebble v1.10.2
 	github.com/canonical/sqlair v0.0.0-20240319123511-a48b89bb30aa
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
@@ -48,7 +48,7 @@ require (
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v4 v4.0.0
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v5 v5.0.3
+	github.com/juju/description/v5 v5.0.4
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
@@ -77,7 +77,7 @@ require (
 	github.com/juju/testing v1.2.0
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647
-	github.com/juju/utils/v4 v4.0.1
+	github.com/juju/utils/v4 v4.0.2
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
@@ -112,7 +112,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.4.0
 	golang.org/x/crypto v0.21.0
-	golang.org/x/net v0.21.0
+	golang.org/x/net v0.22.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sync v0.5.0
 	golang.org/x/sys v0.18.0
