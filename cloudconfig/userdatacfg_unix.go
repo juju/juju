@@ -241,6 +241,10 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// To keep postruncmd at the end of any runcmd's that juju adds,
 	// this block must stay at the top.
 	if postruncmds, ok := w.icfg.CloudInitUserData["postruncmd"].([]interface{}); ok {
+
+		// revert the `set -xe` shell flag which was set after preruncmd
+		// LP: #1978454
+		w.conf.AddRunCmd("set +xe")
 		cmds := make([]string, len(postruncmds))
 		for i, v := range postruncmds {
 			cmd, err := runCmdToString(v)
