@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
@@ -55,7 +54,6 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
 	s.callCtx = &context.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
