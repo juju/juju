@@ -8,12 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/envcontext"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -57,7 +55,6 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return base.GetSeriesFromBase(version.DefaultSupportedLTSBase()) })
 	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.invalidCredential = true
 		return nil

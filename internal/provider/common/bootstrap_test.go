@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
@@ -652,7 +651,6 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "xenial", nil })
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	var innerInstanceConfig *instancecfg.InstanceConfig
