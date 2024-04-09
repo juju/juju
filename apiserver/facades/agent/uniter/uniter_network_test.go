@@ -48,7 +48,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	serviceFactory := s.ControllerServiceFactory(c)
 	cloudService := serviceFactory.Cloud()
-	err := cloudService.UpsertCloud(context.Background(), testing.DefaultCloud)
+	err := cloudService.UpsertCloud(context.Background(), "", testing.DefaultCloud)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)

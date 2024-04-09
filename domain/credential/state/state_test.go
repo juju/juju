@@ -48,7 +48,7 @@ func (s *credentialSuite) SetUpTest(c *gc.C) {
 	s.userName = "test-user"
 	s.userUUID = s.addOwner(c, s.userName)
 
-	s.addCloud(c, cloud.Cloud{
+	s.addCloud(c, s.userName, cloud.Cloud{
 		Name:      "stratus",
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
@@ -71,10 +71,10 @@ func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 	return userUUID
 }
 
-func (s *credentialSuite) addCloud(c *gc.C, cloud cloud.Cloud) string {
+func (s *credentialSuite) addCloud(c *gc.C, userName string, cloud cloud.Cloud) string {
 	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
-	err := cloudSt.UpsertCloud(ctx, cloud)
+	err := cloudSt.UpsertCloud(ctx, userName, cloud)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
@@ -406,7 +406,7 @@ func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, key corecred
 		"bar": "bar val",
 	}
 
-	s.addCloud(c, cloud.Cloud{
+	s.addCloud(c, "", cloud.Cloud{
 		Name:      key.Cloud,
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},

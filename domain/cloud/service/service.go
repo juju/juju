@@ -25,7 +25,7 @@ type State interface {
 	ProviderState
 
 	// UpsertCloud persists the input cloud entity.
-	UpsertCloud(context.Context, cloud.Cloud) error
+	UpsertCloud(context.Context, string, cloud.Cloud) error
 
 	// DeleteCloud deletes the input cloud entity.
 	DeleteCloud(context.Context, string) error
@@ -47,8 +47,8 @@ func NewService(st State) *Service {
 }
 
 // UpsertCloud inserts or updates the specified cloud.
-func (s *Service) UpsertCloud(ctx context.Context, cloud cloud.Cloud) error {
-	err := s.st.UpsertCloud(ctx, cloud)
+func (s *Service) UpsertCloud(ctx context.Context, userName string, cloud cloud.Cloud) error {
+	err := s.st.UpsertCloud(ctx, userName, cloud)
 	return errors.Annotatef(err, "updating cloud %q", cloud.Name)
 }
 

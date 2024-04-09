@@ -39,7 +39,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.adminUserUUID = uuid
 
 	s.cloudName = "test"
-	fn = cloudbootstrap.InsertCloud(cloud.Cloud{
+	fn = cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
 		Name:      s.cloudName,
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},

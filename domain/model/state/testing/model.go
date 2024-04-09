@@ -47,16 +47,17 @@ func CreateTestModel(
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSt := cloudstate.NewState(txnRunner)
-	err = cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
-		Name:      "my-cloud",
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		Regions: []cloud.Region{
-			{
-				Name: "my-region",
+	err = cloudSt.UpsertCloud(context.Background(), "test-user",
+		cloud.Cloud{
+			Name:      "my-cloud",
+			Type:      "ec2",
+			AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+			Regions: []cloud.Region{
+				{
+					Name: "my-region",
+				},
 			},
-		},
-	})
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := credential.CloudCredentialInfo{

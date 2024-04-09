@@ -631,7 +631,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return cloudstate.CreateCloud(ctx, tx, cloudUUID.String(), cloud.Cloud{
+		return cloudstate.CreateCloud(ctx, tx, "admin", cloudUUID.String(), cloud.Cloud{
 			Name:      "caascloud",
 			Type:      "kubernetes",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},

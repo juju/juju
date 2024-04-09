@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	coreuser "github.com/juju/juju/core/user"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/cloud/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -23,7 +24,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestInsertCloud(c *gc.C) {
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
-	err := InsertCloud(cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err := InsertCloud(coreuser.AdminUserName, cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var name string
@@ -56,7 +57,7 @@ func (s *bootstrapSuite) TestSetCloudDefaults(c *gc.C) {
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType},
 	}
-	err := InsertCloud(cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err := InsertCloud(coreuser.AdminUserName, cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
 	set := SetCloudDefaults("cirrus", map[string]any{
@@ -82,7 +83,7 @@ func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *gc.C) {
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType},
 	}
-	err := InsertCloud(cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err := InsertCloud(coreuser.AdminUserName, cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
 	set := SetCloudDefaults("cirrus", map[string]any{

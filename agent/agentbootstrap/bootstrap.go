@@ -259,7 +259,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		// requires being owned by a Juju user.
 		addAdminUser,
 		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
-		cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
+		cloudbootstrap.InsertCloud(b.adminUser.Name(), stateParams.ControllerCloud),
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		controllerModelCreateFunc,

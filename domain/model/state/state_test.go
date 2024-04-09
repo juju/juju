@@ -62,7 +62,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err = cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
+	err = cloudSt.UpsertCloud(context.Background(), m.userName, cloud.Cloud{
 		Name:      "my-cloud",
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
@@ -353,7 +353,7 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 
 func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err := cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
+	err := cloudSt.UpsertCloud(context.Background(), "", cloud.Cloud{
 		Name:      "my-cloud2",
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
@@ -404,7 +404,7 @@ func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 // logic assuming that a cloud region was always set for a model.
 func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err := cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
+	err := cloudSt.UpsertCloud(context.Background(), "", cloud.Cloud{
 		Name:      "minikube",
 		Type:      "kubernetes",
 		AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType},

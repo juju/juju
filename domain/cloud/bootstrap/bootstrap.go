@@ -20,14 +20,14 @@ import (
 )
 
 // InsertCloud inserts the initial cloud during bootstrap.
-func InsertCloud(cloud cloud.Cloud) internaldatabase.BootstrapOpt {
+func InsertCloud(ownerName string, cloud cloud.Cloud) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		cloudUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			if err := state.CreateCloud(ctx, tx, cloudUUID.String(), cloud); err != nil {
+			if err := state.CreateCloud(ctx, tx, ownerName, cloudUUID.String(), cloud); err != nil {
 				return errors.Annotate(err, "creating bootstrap cloud")
 			}
 			return nil

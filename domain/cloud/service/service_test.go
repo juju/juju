@@ -27,9 +27,9 @@ func (s *serviceSuite) TestUpsertCloudSuccess(c *gc.C) {
 	cloud := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().UpsertCloud(gomock.Any(), cloud).Return(nil)
+	s.state.EXPECT().UpsertCloud(gomock.Any(), "owner-name", cloud).Return(nil)
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpsertCloud(context.Background(), cloud)
+	err := NewWatchableService(s.state, s.watcherFactory).UpsertCloud(context.Background(), "owner-name", cloud)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -39,9 +39,9 @@ func (s *serviceSuite) TestUpsertCloudError(c *gc.C) {
 	cloud := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().UpsertCloud(gomock.Any(), cloud).Return(errors.New("boom"))
+	s.state.EXPECT().UpsertCloud(gomock.Any(), "owner-name", cloud).Return(errors.New("boom"))
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpsertCloud(context.Background(), cloud)
+	err := NewWatchableService(s.state, s.watcherFactory).UpsertCloud(context.Background(), "owner-name", cloud)
 	c.Assert(err, gc.ErrorMatches, `updating cloud "fluffy": boom`)
 }
 
