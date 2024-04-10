@@ -50,7 +50,7 @@ build() {
     sudo ln -s /usr/include/linux /usr/local/musl/include/linux || true
 
     # Grab the queue.h file that does not ship with musl
-    sudo wget https://dev.midipix.org/compat/musl-compat/raw/main/f/include/sys/queue.h -O /usr/local/musl/include/sys/queue.h
+    sudo wget https://raw.githubusercontent.com/juju/musl-compat/main/include/sys/queue.h -O /usr/local/musl/include/sys/queue.h
 
     # Install compile dependencies for statically linking everything:
     # --------------------------------------------------------------
