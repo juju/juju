@@ -269,16 +269,13 @@ func (s *downloadSuite) TestRunWithRevisionAndOtherArgs(c *gc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--arch=amd64", "--revision=99"})
-	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base, --channel or --series`)
+	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base or --channel`)
 
 	err = cmdtesting.InitCommand(command, []string{"test", "--base=ubuntu@22.04", "--revision=99"})
-	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base, --channel or --series`)
+	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base or --channel`)
 
 	err = cmdtesting.InitCommand(command, []string{"test", "--channel=edge", "--revision=99"})
-	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base, --channel or --series`)
-
-	err = cmdtesting.InitCommand(command, []string{"test", "--series=jammy", "--revision=99"})
-	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base, --channel or --series`)
+	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base or --channel`)
 }
 
 func (s *downloadSuite) newCharmHubCommand() *charmHubCommand {

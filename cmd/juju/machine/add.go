@@ -156,10 +156,7 @@ type addCommand struct {
 	baseMachinesCommand
 	modelConfigAPI    ModelConfigAPI
 	machineManagerAPI MachineManagerAPI
-	// Series defines the series the machine should use instead of the
-	// default-series. DEPRECATED use --base
-	Series string
-	// Base defines the series the machine should use instead of the
+	// Base defines the base the machine should use instead of the
 	// default-base.
 	Base string
 	// If specified, these constraints are merged with those already in the model.
@@ -197,7 +194,6 @@ func (c *addCommand) Info() *cmd.Info {
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.Series, "series", "", "The operating system series to install on the new machine(s). DEPRECATED use --base")
 	f.StringVar(&c.Base, "base", "", "The operating system base to install on the new machine(s)")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Machine constraints that overwrite those available from 'juju model-constraints' and provider's defaults")
@@ -207,9 +203,6 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *addCommand) Init(args []string) error {
-	if c.Base != "" && c.Series != "" {
-		return errors.New("--series and --base cannot be specified together")
-	}
 	if c.Constraints.Container != nil {
 		return errors.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
@@ -285,16 +278,6 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		base corebase.Base
 		err  error
 	)
-	// Note: we validated that both series and base cannot be specified in
-	// Init(), so it's safe to assume that only one of them is set here.
-	if c.Series != "" {
-		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = corebase.GetBaseFromSeries(c.Series); err != nil {
-			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
-		}
-		c.Base = base.String()
-		c.Series = ""
-	}
 	if c.Base != "" {
 		if base, err = corebase.ParseBaseFromString(c.Base); err != nil {
 			return errors.Trace(err)

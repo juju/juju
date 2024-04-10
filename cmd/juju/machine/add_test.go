@@ -126,11 +126,6 @@ func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, add, args...)
 }
 
-func (s *AddMachineSuite) TestSeriesAndBaseError(c *gc.C) {
-	_, err := s.run(c, "--series=jammy", "--base=ubuntu@22.04")
-	c.Assert(err, gc.ErrorMatches, "--series and --base cannot be specified together")
-}
-
 func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)

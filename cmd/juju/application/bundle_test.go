@@ -144,7 +144,7 @@ func (s *BundleDeploySuite) setupBundle(c *gc.C, url, name string, allBase ...ba
 	bundleResolveURL := charm.MustParseURL(url)
 	baseURL := *bundleResolveURL
 	baseURL.Revision = -1
-	withCharmRepoResolvable(s.fakeAPI, &baseURL, "")
+	withCharmRepoResolvable(s.fakeAPI, &baseURL, base.Base{})
 	bundleDir := testcharms.RepoWithSeries("bionic").BundleArchive(c.MkDir(), name)
 
 	// Resolve a bundle with no revision and return a url with a version.  Ensure
@@ -178,8 +178,6 @@ func (s *BundleDeploySuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
 	err = s.runDeploy(c, "ch:wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
-	err = s.runDeploy(c, "ch:wordpress-simple", "--series", "xenial")
-	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
 	err = s.runDeploy(c, "ch:wordpress-simple", "--base", "ubuntu@18.04")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --base")
 }
@@ -622,7 +620,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithChannel(c *gc.C) {
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
 	ubURL := charm.MustParseURL("ch:ubuntu")
-	withCharmRepoResolvable(s.fakeAPI, ubURL, "")
+	withCharmRepoResolvable(s.fakeAPI, ubURL, base.Base{})
 
 	withCharmDeployable(
 		s.fakeAPI, ubURL, defaultBase,
@@ -646,8 +644,8 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
 	inURL := charm.MustParseURL("ch:aws-integrator")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "")
+	withCharmRepoResolvable(s.fakeAPI, inURL, base.MustParseBaseFromString("ubuntu@22.04"))
+	withCharmRepoResolvable(s.fakeAPI, inURL, base.Base{})
 
 	// The aws-integrator charm requires trust and since the operator passes
 	// --trust we expect to see a "trust: true" config value in the yaml
@@ -691,8 +689,8 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
 	ubURL := charm.MustParseURL("ch:ubuntu")
-	withCharmRepoResolvable(s.fakeAPI, ubURL, "jammy")
-	withCharmRepoResolvable(s.fakeAPI, ubURL, "")
+	withCharmRepoResolvable(s.fakeAPI, ubURL, base.MustParseBaseFromString("ubuntu@22.04"))
+	withCharmRepoResolvable(s.fakeAPI, ubURL, base.Base{})
 	withCharmDeployable(
 		s.fakeAPI, ubURL, defaultBase,
 		&charm.Meta{Name: "ubuntu", Series: []string{"jammy"}},
@@ -713,8 +711,8 @@ func (s *BundleDeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
 	inURL := charm.MustParseURL("ch:apache2")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "")
+	withCharmRepoResolvable(s.fakeAPI, inURL, base.MustParseBaseFromString("ubuntu@22.04"))
+	withCharmRepoResolvable(s.fakeAPI, inURL, base.Base{})
 
 	withCharmDeployable(
 		s.fakeAPI, inURL, defaultBase,
@@ -780,8 +778,8 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
 	inURL := charm.MustParseURL("ch:wordpress")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "")
+	withCharmRepoResolvable(s.fakeAPI, inURL, base.MustParseBaseFromString("ubuntu@22.04"))
+	withCharmRepoResolvable(s.fakeAPI, inURL, base.Base{})
 
 	withCharmDeployable(
 		s.fakeAPI, inURL, defaultBase,

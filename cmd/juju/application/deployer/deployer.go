@@ -734,7 +734,7 @@ func (d *factory) validateBundleFlags() error {
 func CharmOnlyFlags() []string {
 	charmOnlyFlags := []string{
 		"bind", "config", "constraints", "n", "num-units",
-		"series", "base", "to", "resource", "attach-storage",
+		"base", "to", "resource", "attach-storage",
 	}
 
 	return charmOnlyFlags

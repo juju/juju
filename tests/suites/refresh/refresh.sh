@@ -45,7 +45,7 @@ run_refresh_local_resources() {
 	# a bug in charm, opening the resource file throws:
 	# TypeError: invalid file
 	# The charm is using python 3. No error in ubuntu 20.04.
-	juju deploy "${charm_name}" juju-qa-test --series focal --resource foo-file="./tests/suites/resources/foo-file.txt"
+	juju deploy "${charm_name}" juju-qa-test --base ubuntu@20.04 --resource foo-file="./tests/suites/resources/foo-file.txt"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	juju refresh juju-qa-test --path "${charm_name}"
@@ -120,7 +120,7 @@ run_refresh_revision() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy juju-qa-test --revision 22 --channel stable --series focal
+	juju deploy juju-qa-test --revision 22 --channel stable --base ubuntu@20.04
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	# refresh to a revision not at the tip of the stable channel

@@ -10,7 +10,7 @@ run_branch() {
 
 	juju branch | check 'Active branch is "master"'
 
-	juju deploy juju-qa-dummy-source --series jammy --config token=a
+	juju deploy juju-qa-dummy-source --base ubuntu@22.04 --config token=a
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 

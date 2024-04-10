@@ -7,11 +7,9 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
-	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -67,16 +65,6 @@ func (s *UpgradeMachineSuite) SetUpTest(c *gc.C) {
 	}
 	s.prepareExpectation = &upgradeMachinePrepareExpectation{gomock.Any(), gomock.Any(), gomock.Any()}
 	s.completeExpectation = &upgradeMachineCompleteExpectation{gomock.Any()}
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&machine.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos9", "genericlinux",
-				"jammy", "focal", "bionic", "xenial",
-			), nil
-		},
-	)
 }
 
 const (
@@ -176,16 +164,10 @@ func (s *UpgradeMachineSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArg
 	c.Assert(err, gc.ErrorMatches, "\"machine5\" is an invalid machine name")
 }
 
-func (s *UpgradeMachineSuite) TestPrepareCommandShouldOnlyAcceptSupportedSeries(c *gc.C) {
-	badSeries := "Combative Caribou"
+func (s *UpgradeMachineSuite) TestPrepareCommandShouldOnlyAcceptBases(c *gc.C) {
+	badSeries := "jammy"
 	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, badSeries)
-	c.Assert(err, gc.ErrorMatches, ".* is an unsupported series")
-}
-
-func (s *UpgradeMachineSuite) TestPrepareCommandShouldSupportSeriesRegardlessOfCase(c *gc.C) {
-	capitalizedCaseXenial := "Xenial"
-	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, capitalizedCaseXenial)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "expected base string to contain os and channel separated by '@'")
 }
 
 func (s *UpgradeMachineSuite) TestCompleteCommand(c *gc.C) {

@@ -7,8 +7,8 @@ run_deploy_aks_charms() {
 	juju add-model "test-deploy-aks-charms"
 
 	echo "Deploy some charms"
-	juju deploy juju-qa-dummy-sink --series jammy
-	juju deploy juju-qa-dummy-source --series jammy
+	juju deploy juju-qa-dummy-sink --base ubuntu@22.04
+	juju deploy juju-qa-dummy-source --base ubuntu@22.04
 
 	juju relate dummy-sink dummy-source
 

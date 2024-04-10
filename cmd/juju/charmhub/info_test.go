@@ -212,7 +212,7 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 
-	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--series", "xenial"})
+	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--base", "ubuntu@16.04"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
@@ -462,7 +462,7 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 
-	err := cmdtesting.InitCommand(command, []string{"test", "--series", "focal", "--format", "json"})
+	err := cmdtesting.InitCommand(command, []string{"test", "--base", "ubuntu@20.04", "--format", "json"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)

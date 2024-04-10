@@ -41,7 +41,7 @@ run_deploy_charm_unsupported_series() {
 
 	# The charm in 3.0/stable only supports jammy and only
 	# one charm has been released to that channel.
-	juju deploy juju-qa-test --channel 3.0/stable --series focal | grep -q 'charm or bundle not found for channel' || true
+	juju deploy juju-qa-test --channel 3.0/stable --base ubuntu@20.04 | grep -q 'charm or bundle not found for channel' || true
 
 	destroy_model "${testname}"
 }
@@ -82,7 +82,7 @@ run_deploy_lxd_profile_charm() {
 	# This charm deploys to Xenial by default, which doesn't
 	# always result in a machine which becomes fully deployed
 	# with the lxd provider.
-	juju deploy juju-qa-lxd-profile-without-devices --series jammy
+	juju deploy juju-qa-lxd-profile-without-devices --base ubuntu@22.04
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
 	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "juju-test-deploy-lxd-profile-lxd-profile"
@@ -100,7 +100,7 @@ run_deploy_lxd_profile_charm_container() {
 	# This charm deploys to Xenial by default, which doesn't
 	# always result in a machine which becomes fully deployed
 	# with the lxd provider.
-	juju deploy juju-qa-lxd-profile-without-devices --to lxd --series jammy
+	juju deploy juju-qa-lxd-profile-without-devices --to lxd --base ubuntu@22.04
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
 	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
@@ -170,7 +170,7 @@ run_deploy_lxd_to_machine() {
 
 	ensure "${model_name}" "${file}"
 
-	juju add-machine -n 2 --series=jammy
+	juju add-machine -n 2 --base ubuntu@22.04
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
 	juju deploy "${charm}" --to 0 --base ubuntu@22.04

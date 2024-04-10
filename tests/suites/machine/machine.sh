@@ -6,7 +6,7 @@ test_log_permissions() {
 	file="${TEST_DIR}/test_log_permissions.log"
 	ensure "correct-log" "${file}"
 
-	juju deploy juju-qa-test source --series focal
+	juju deploy juju-qa-test source --base ubuntu@20.04
 
 	wait_for "started" '.machines."0"."juju-status".current'
 

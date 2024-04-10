@@ -124,7 +124,7 @@ func (c *setApplicationBase) Run(ctx *cmd.Context) error {
 			defer func() { _ = c.apiClient.Close() }()
 		}
 
-		base, err := c.parseBase(ctx, c.releaseArg)
+		base, err := corebase.ParseBaseFromString(c.releaseArg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -150,18 +150,4 @@ func (c *setApplicationBase) updateApplicationBase(base corebase.Base) error {
 		block.BlockChange)
 
 	return err
-}
-
-func (c *setApplicationBase) parseBase(ctx *cmd.Context, arg string) (corebase.Base, error) {
-	// If this doesn't contain an @ then it's a series and not a base.
-	if strings.Contains(arg, "@") {
-		return corebase.ParseBaseFromString(arg)
-	}
-
-	ctx.Warningf("series argument is deprecated, use base instead")
-	_, err := corebase.GetOSFromSeries(arg)
-	if err != nil {
-		return corebase.Base{}, errors.Trace(err)
-	}
-	return corebase.GetBaseFromSeries(arg)
 }

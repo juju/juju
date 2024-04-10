@@ -832,7 +832,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c *gc.C) {
 	curl := charm.MustParseURL("ch:wordpress-extra-bindings")
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("wordpress-extra-bindings")
-	withCharmRepoResolvable(s.fakeAPI, curl, "")
+	withCharmRepoResolvable(s.fakeAPI, curl, corebase.Base{})
 	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 1, nil, nil)
 
 	origin := commoncharm.Origin{
@@ -1702,10 +1702,8 @@ func withCharmDeployableWithDevicesAndStorage(
 func withCharmRepoResolvable(
 	fakeAPI *fakeDeployAPI,
 	url *charm.URL,
-	aseries string,
+	base corebase.Base,
 ) {
-	base, _ := corebase.GetBaseFromSeries(aseries)
-
 	for _, risk := range []string{"", "stable"} {
 		origin := commoncharm.Origin{
 			Source:       commoncharm.OriginCharmHub,
