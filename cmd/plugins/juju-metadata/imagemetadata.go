@@ -69,7 +69,6 @@ type imageMetadataCommand struct {
 	modelcmd.ControllerCommandBase
 
 	Dir            string
-	Series         string
 	Base           string
 	Arch           string
 	ImageId        string
@@ -105,7 +104,6 @@ func (c *imageMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Series, "s", "", "the charm series. DEPRECATED use --base")
 	f.StringVar(&c.Base, "base", "", "the charm base")
 	f.StringVar(&c.Arch, "a", arch.AMD64, "the image architecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
@@ -118,9 +116,6 @@ func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *imageMetadataCommand) Init(args []string) error {
-	if c.Series != "" && c.Base != "" {
-		return errors.Errorf("cannot specify both base and series (series is deprecated)")
-	}
 	return nil
 }
 
@@ -218,16 +213,6 @@ func (c *imageMetadataCommand) Run(ctx *cmd.Context) error {
 		base corebase.Base
 		err  error
 	)
-	// Note: we validated that both series and base cannot be specified in
-	// Init(), so it's safe to assume that only one of them is set here.
-	if c.Series != "" {
-		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = corebase.GetBaseFromSeries(c.Series); err != nil {
-			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
-		}
-		c.Base = base.String()
-		c.Series = ""
-	}
 	if c.Base != "" {
 		if base, err = corebase.ParseBaseFromString(c.Base); err != nil {
 			return errors.Trace(err)

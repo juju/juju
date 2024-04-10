@@ -36,7 +36,6 @@ type addImageMetadataCommand struct {
 
 	ImageId         string
 	Region          string
-	Series          string
 	Base            string
 	Version         string
 	Arch            string
@@ -48,9 +47,6 @@ type addImageMetadataCommand struct {
 
 // Init implements Command.Init.
 func (c *addImageMetadataCommand) Init(args []string) (err error) {
-	if c.Base != "" && c.Series != "" {
-		return errors.New("--series and --base cannot be specified together")
-	}
 	if len(args) == 0 {
 		return errors.New("image id must be supplied when adding image metadata")
 	}
@@ -75,7 +71,6 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.cloudImageMetadataCommandBase.SetFlags(f)
 
 	f.StringVar(&c.Region, "region", "", "image cloud region")
-	f.StringVar(&c.Series, "series", "", "image series. DEPRECATED, use --base")
 	f.StringVar(&c.Base, "base", "", "image base")
 	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
@@ -90,16 +85,6 @@ func (c *addImageMetadataCommand) Run(ctx *cmd.Context) error {
 		base corebase.Base
 		err  error
 	)
-	// Note: we validated that both series and base cannot be specified in
-	// Init(), so it's safe to assume that only one of them is set here.
-	if c.Series != "" {
-		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = corebase.GetBaseFromSeries(c.Series); err != nil {
-			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
-		}
-		c.Base = base.String()
-		c.Series = ""
-	}
 	if c.Base != "" {
 		if base, err = corebase.ParseBaseFromString(c.Base); err != nil {
 			return errors.Trace(err)
