@@ -435,6 +435,10 @@ FROM secret
 // GetUserSecretURIByLabel returns the URI for the user secret with the specified label,
 // or an error satisfying [secreterrors.SecretNotFound] if the secret does not exist.
 func (st State) GetUserSecretURIByLabel(ctx context.Context, label string) (*coresecrets.URI, error) {
+	if label == "" {
+		return nil, errors.NotValidf("empty secret label")
+	}
+
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -601,16 +605,18 @@ WHERE  rev.secret_id = $secretRevision.secret_id AND rev.revision = $secretRevis
 }
 
 // checkExistsIfLocal returns an error satisfying [secreterrors.SecretNotFound] if the specified
-// secret URI is from this model and does not exist in the model.
+// secret URI is from this model and the secret it refers to does not exist in the model.
 func (st *State) checkExistsIfLocal(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
 	query := `
 SELECT ok as &M.ok FROM (
-    SELECT True as ok FROM secret WHERE 
-        (EXISTS (SELECT uuid FROM MODEL WHERE uuid = $M.uuid) OR $M.uuid = '')
+    SELECT True as ok FROM secret
+    WHERE 
+        (EXISTS (SELECT uuid FROM model WHERE uuid = $M.uuid) OR $M.uuid = '')
         AND secret.id = $M.secret_id
     UNION
-    SELECT True as ok FROM model WHERE
-        NOT EXISTS (SELECT uuid FROM MODEL WHERE uuid = $M.uuid)
+    SELECT True as ok FROM model
+    WHERE
+        NOT EXISTS (SELECT uuid FROM model WHERE uuid = $M.uuid)
 )
 `
 	queryStmt, err := st.Prepare(query, sqlair.M{})

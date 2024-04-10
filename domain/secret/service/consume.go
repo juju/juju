@@ -31,7 +31,7 @@ func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *sec
 	// so we copy the owner label to consumer metadata.
 	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(ctx, uri, unitName, "")
 	if errors.Is(err, secreterrors.SecretNotFound) {
-		// The secret is owned by a different application.
+		// The secret is owned by a different application; the named unit is the consumer.
 		return consumerMetadata, latestRevision, nil
 	}
 	if err != nil {
