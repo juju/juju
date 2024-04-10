@@ -15,6 +15,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/providertracker"
 	coreuser "github.com/juju/juju/core/user"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
@@ -54,6 +55,12 @@ type ServiceFactorySuite struct {
 	// DefaultModelUUID is the unique id for the default model. If not set
 	// will be set during test set up.
 	DefaultModelUUID coremodel.UUID
+
+	// ProviderTracker is the provider tracker to use in the service factory.
+	ProviderTracker providertracker.ProviderFactory
+
+	// BrokerTracker is the broker tracker to use in the service factory.
+	BrokerTracker providertracker.ProviderFactory
 }
 
 type stubDBDeleter struct {
@@ -170,8 +177,11 @@ func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetter
 	return func(modelUUID string) servicefactory.ServiceFactory {
 		return domainservicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.TxnRunner()),
+			coremodel.UUID(modelUUID),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID)),
 			stubDBDeleter{DB: s.DB()},
+			s.ProviderTracker,
+			s.BrokerTracker,
 			NewCheckLogger(c),
 		)
 	}

@@ -888,15 +888,8 @@ func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
 }
 
 func (*rpcSuite) TestClientCallCancelled(c *gc.C) {
-	ready := make(chan struct{})
-	start := make(chan string)
 	root := &Root{
-		delayed: map[string]*DelayedMethods{
-			"1": {
-				ready: ready,
-				done:  start,
-			},
-		},
+		simple: make(map[string]*SimpleMethods),
 	}
 	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
@@ -906,15 +899,11 @@ func (*rpcSuite) TestClientCallCancelled(c *gc.C) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		var r stringVal
-		err := client.Call(ctx, rpc.Request{Type: "DelayedMethods", Version: 0, Id: "1", Action: "Delay"}, nil, &r)
-		c.Check(errors.Cause(err), jc.ErrorIs, context.Canceled)
+		err := client.Call(ctx, rpc.Request{Type: "SimpleMethods", Version: 0, Id: "0", Action: "Call"}, nil, nil)
+		c.Check(err, jc.ErrorIs, context.Canceled)
 
-		done <- struct{}{}
+		close(done)
 	}()
-	chanRead(c, ready, "DelayedMethods.Delay ready")
-
-	start <- "xxx"
 
 	select {
 	case <-done:

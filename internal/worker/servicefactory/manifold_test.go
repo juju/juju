@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -37,6 +38,14 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 	cfg = s.getConfig()
 	cfg.DBAccessorName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ProviderFactoryName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.BrokerFactoryName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -62,18 +71,22 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	getter := map[string]any{
-		"dbaccessor":   s.dbDeleter,
-		"changestream": s.dbGetter,
+		"dbaccessor":      s.dbDeleter,
+		"changestream":    s.dbGetter,
+		"providerfactory": s.providerFactory,
+		"brokerfactory":   s.providerFactory,
 	}
 
 	manifold := Manifold(ManifoldConfig{
 		DBAccessorName:              "dbaccessor",
 		ChangeStreamName:            "changestream",
+		ProviderFactoryName:         "providerfactory",
+		BrokerFactoryName:           "brokerfactory",
 		Logger:                      s.logger,
 		NewWorker:                   NewWorker,
 		NewServiceFactoryGetter:     NewServiceFactoryGetter,
 		NewControllerServiceFactory: NewControllerServiceFactory,
-		NewModelServiceFactory:      NewModelServiceFactory,
+		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
 	})
 	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,9 +100,11 @@ func (s *manifoldSuite) TestOutputControllerServiceFactory(c *gc.C) {
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
+		ProviderFactory:             s.providerFactory,
+		BrokerFactory:               s.providerFactory,
 		NewServiceFactoryGetter:     NewServiceFactoryGetter,
 		NewControllerServiceFactory: NewControllerServiceFactory,
-		NewModelServiceFactory:      NewModelServiceFactory,
+		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -106,9 +121,11 @@ func (s *manifoldSuite) TestOutputServiceFactoryGetter(c *gc.C) {
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
+		ProviderFactory:             s.providerFactory,
+		BrokerFactory:               s.providerFactory,
 		NewServiceFactoryGetter:     NewServiceFactoryGetter,
 		NewControllerServiceFactory: NewControllerServiceFactory,
-		NewModelServiceFactory:      NewModelServiceFactory,
+		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -125,9 +142,11 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
+		ProviderFactory:             s.providerFactory,
+		BrokerFactory:               s.providerFactory,
 		NewServiceFactoryGetter:     NewServiceFactoryGetter,
 		NewControllerServiceFactory: NewControllerServiceFactory,
-		NewModelServiceFactory:      NewModelServiceFactory,
+		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -155,7 +174,7 @@ func (s *manifoldSuite) TestNewModelServiceFactory(c *gc.C) {
 
 func (s *manifoldSuite) TestNewServiceFactoryGetter(c *gc.C) {
 	ctrlFactory := NewControllerServiceFactory(s.dbGetter, s.dbDeleter, s.logger)
-	factory := NewServiceFactoryGetter(ctrlFactory, s.dbGetter, s.logger, NewModelServiceFactory)
+	factory := NewServiceFactoryGetter(ctrlFactory, s.dbGetter, s.logger, NewProviderTrackerModelServiceFactory, nil, nil)
 	c.Assert(factory, gc.NotNil)
 
 	modelFactory := factory.FactoryForModel("model")
@@ -164,19 +183,21 @@ func (s *manifoldSuite) TestNewServiceFactoryGetter(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		DBAccessorName:   "dbaccessor",
-		ChangeStreamName: "changestream",
-		Logger:           s.logger,
+		DBAccessorName:      "dbaccessor",
+		ChangeStreamName:    "changestream",
+		ProviderFactoryName: "providerfactory",
+		BrokerFactoryName:   "brokerfactory",
+		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn) servicefactory.ServiceFactoryGetter {
+		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn, providertracker.ProviderFactory, providertracker.ProviderFactory) servicefactory.ServiceFactoryGetter {
 			return nil
 		},
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
 			return nil
 		},
-		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, providertracker.ProviderFactory, Logger) servicefactory.ModelServiceFactory {
 			return nil
 		},
 	}

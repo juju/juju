@@ -6,6 +6,8 @@ package servicefactory
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 )
 
 // ServiceFactory provides access to the services required by the apiserver.
@@ -18,15 +20,21 @@ type ServiceFactory struct {
 // get new services from.
 func NewServiceFactory(
 	controllerDB changestream.WatchableDBFactory,
+	modelUUID model.UUID,
 	modelDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
+	providerTracker providertracker.ProviderFactory,
+	brokerTracker providertracker.ProviderFactory,
 	logger Logger,
 ) *ServiceFactory {
 	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)
 	return &ServiceFactory{
 		ControllerFactory: controllerFactory,
 		ModelFactory: NewModelFactory(
+			modelUUID,
 			modelDB,
+			providerTracker,
+			brokerTracker,
 			logger,
 		),
 	}

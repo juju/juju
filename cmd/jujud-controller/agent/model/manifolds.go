@@ -354,7 +354,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ProviderServiceFactoriesName:    providerServiceFactoriesName,
 			NewWorker:                       providertracker.NewWorker[environs.Environ],
 			NewTrackerWorker:                providertracker.NewTrackerWorker[environs.Environ],
-			GetProviderServiceFactoryGetter: providertracker.GetProviderServiceFactoryGetter,
+			GetProviderServiceFactoryGetter: providertracker.GetModelProviderServiceFactoryGetter,
 			GetProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 				return config.NewEnvironFunc(ctx, args)
 			}),
@@ -495,7 +495,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ProviderServiceFactoriesName:    providerServiceFactoriesName,
 			NewWorker:                       providertracker.NewWorker[caas.Broker],
 			NewTrackerWorker:                providertracker.NewTrackerWorker[caas.Broker],
-			GetProviderServiceFactoryGetter: providertracker.GetProviderServiceFactoryGetter,
+			GetProviderServiceFactoryGetter: providertracker.GetModelProviderServiceFactoryGetter,
 			GetProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
 				return config.NewContainerBrokerFunc(ctx, args)
 			}),

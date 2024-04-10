@@ -106,7 +106,7 @@ func newWorker[T Provider](config Config[T], internalStates chan string) (*provi
 	return w, nil
 }
 
-// Provider returns the encapsulated Environ. It will continue to be updated in
+// Provider returns the encapsulated provider. It will continue to be updated in
 // the background for as long as the Worker continues to run. If the worker
 // is not a singular worker, then an error will be returned.
 func (w *providerWorker[T]) Provider() (res T, err error) {
@@ -137,7 +137,7 @@ func (w *providerWorker[T]) Provider() (res T, err error) {
 	}
 }
 
-// ProviderForModel returns the encapsulated Environ for a given model
+// ProviderForModel returns the encapsulated provider for a given model
 // namespace. It will continue to be updated in the background for as long as
 // the Worker continues to run. If the worker is not a singular worker, then an
 // error will be returned.

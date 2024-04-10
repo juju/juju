@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 )
@@ -24,6 +25,13 @@ type Config struct {
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter changestream.WatchableDBGetter
 
+	// ProviderFactory is used to get provider instances.
+	ProviderFactory providertracker.ProviderFactory
+
+	// BrokerFactory is used to get broker instances.
+	BrokerFactory providertracker.ProviderFactory
+
+	// Logger is used to log messages.
 	Logger Logger
 
 	NewServiceFactoryGetter     ServiceFactoryGetterFn
@@ -38,6 +46,12 @@ func (config Config) Validate() error {
 	}
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
+	}
+	if config.ProviderFactory == nil {
+		return errors.NotValidf("nil ProviderFactory")
+	}
+	if config.BrokerFactory == nil {
+		return errors.NotValidf("nil BrokerFactory")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -62,8 +76,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	ctrlFactory := config.NewControllerServiceFactory(config.DBGetter, config.DBDeleter, config.Logger)
 	w := &serviceFactoryWorker{
-		ctrlFactory:   ctrlFactory,
-		factoryGetter: config.NewServiceFactoryGetter(ctrlFactory, config.DBGetter, config.Logger, config.NewModelServiceFactory),
+		ctrlFactory: ctrlFactory,
+		factoryGetter: config.NewServiceFactoryGetter(
+			ctrlFactory,
+			config.DBGetter,
+			config.Logger,
+			config.NewModelServiceFactory,
+			config.ProviderFactory,
+			config.BrokerFactory,
+		),
 	}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -123,6 +144,8 @@ type serviceFactoryGetter struct {
 	dbGetter               changestream.WatchableDBGetter
 	logger                 Logger
 	newModelServiceFactory ModelServiceFactoryFn
+	providerFactory        providertracker.ProviderFactory
+	brokerFactory          providertracker.ProviderFactory
 }
 
 // FactoryForModel returns a service factory for the given model uuid.
@@ -131,7 +154,9 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.
 	return &serviceFactory{
 		ControllerServiceFactory: s.ctrlFactory,
 		ModelServiceFactory: s.newModelServiceFactory(
-			coremodel.UUID(modelUUID), s.dbGetter, s.logger,
+			coremodel.UUID(modelUUID), s.dbGetter,
+			s.providerFactory, s.brokerFactory,
+			s.logger,
 		),
 	}
 }

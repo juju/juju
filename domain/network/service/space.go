@@ -13,6 +13,8 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -136,22 +138,21 @@ func (s *Service) SaveProviderSubnets(
 				continue
 			}
 			fanSubnetID := generateFanSubnetID(subnetNet.String(), subnet.ProviderId.String())
-			if overlaySegment != nil {
-				// Add the fan subnet to the upsert list.
-				fanSubnetToUpsert := subnet
-				fanSubnetToUpsert.ProviderId = network.Id(fanSubnetID)
-				fanSubnetToUpsert.SetFan(fanSubnetToUpsert.CIDR, fan.Overlay.String())
-				fanSubnetToUpsert.SpaceID = spaceUUID.String()
 
-				fanInfo := &network.FanCIDRs{
-					FanLocalUnderlay: fanSubnetToUpsert.CIDR,
-					FanOverlay:       fan.Overlay.String(),
-				}
-				fanSubnetToUpsert.FanInfo = fanInfo
-				fanSubnetToUpsert.CIDR = overlaySegment.String()
+			// Add the fan subnet to the upsert list.
+			fanSubnetToUpsert := subnet
+			fanSubnetToUpsert.ProviderId = network.Id(fanSubnetID)
+			fanSubnetToUpsert.SetFan(fanSubnetToUpsert.CIDR, fan.Overlay.String())
+			fanSubnetToUpsert.SpaceID = spaceUUID.String()
 
-				subnetsToUpsert = append(subnetsToUpsert, fanSubnetToUpsert)
+			fanInfo := &network.FanCIDRs{
+				FanLocalUnderlay: fanSubnetToUpsert.CIDR,
+				FanOverlay:       fan.Overlay.String(),
 			}
+			fanSubnetToUpsert.FanInfo = fanInfo
+			fanSubnetToUpsert.CIDR = overlaySegment.String()
+
+			subnetsToUpsert = append(subnetsToUpsert, fanSubnetToUpsert)
 		}
 	}
 
@@ -168,4 +169,27 @@ func (s *Service) SaveProviderSubnets(
 func generateFanSubnetID(subnetNetwork, providerID string) string {
 	subnetWithDashes := strings.Replace(strings.Replace(subnetNetwork, ".", "-", -1), "/", "-", -1)
 	return fmt.Sprintf("%s-%s-%s", providerID, network.InFan, subnetWithDashes)
+}
+
+// Provider is the interface that the network service requires to be able to
+// interact with the underlying provider.
+type Provider interface {
+	environs.Networking
+}
+
+// ProviderService provides the API for working with network spaces.
+type ProviderService struct {
+	Service
+	provider func(context.Context) (Provider, error)
+}
+
+// NewProviderService returns a new service reference wrapping the input state.
+func NewProviderService(st State, provider providertracker.ProviderGetter[Provider], logger Logger) *ProviderService {
+	return &ProviderService{
+		Service: Service{
+			st:     st,
+			logger: logger,
+		},
+		provider: provider,
+	}
 }
