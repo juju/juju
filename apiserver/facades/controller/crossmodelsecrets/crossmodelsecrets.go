@@ -246,9 +246,8 @@ func (s *CrossModelSecretsAPI) updateConsumedRevision(ctx stdcontext.Context, se
 		if consumerInfo == nil {
 			consumerInfo = &coresecrets.SecretConsumerMetadata{}
 		}
-		consumerInfo.LatestRevision = md.LatestRevision
 		consumerInfo.CurrentRevision = md.LatestRevision
-		if err := secretService.SaveSecretRemoteConsumer(ctx, uri, consumer.Id(), consumerInfo); err != nil {
+		if err := secretService.SaveSecretRemoteConsumer(ctx, uri, md.LatestRevision, consumer.Id(), consumerInfo); err != nil {
 			return 0, errors.Trace(err)
 		}
 	}

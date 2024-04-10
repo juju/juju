@@ -2125,7 +2125,7 @@ func (s changeSecret) step(c *gc.C, ctx *testContext) {
 	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(
 		ctx.unit.Name(), []string{ctx.createdSecretURI.String()},
 	).Return(map[string]secrets.SecretRevisionInfo{
-		ctx.createdSecretURI.String(): {Revision: 666},
+		ctx.createdSecretURI.String(): {LatestRevision: 666},
 	}, nil)
 	ctx.sendStrings(c, ctx.consumedSecretsCh, "secret change", ctx.createdSecretURI.String())
 	done := make(chan bool)

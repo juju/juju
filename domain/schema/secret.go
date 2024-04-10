@@ -243,55 +243,20 @@ CREATE TABLE
 CREATE UNIQUE INDEX idx_secret_model_owner_label ON secret_model_owner (label) WHERE label != '';
 
 CREATE TABLE
-    secret_application_consumer (
-        uuid TEXT PRIMARY KEY,
-        secret_id TEXT NOT NULL,
-        application_uuid TEXT NOT NULL,
-        label TEXT,
-        current_revision INT NOT NULL,
-        CONSTRAINT fk_secret_application_consumer_secret_id
-            FOREIGN KEY (secret_id)
-            REFERENCES secret (id),
-        CONSTRAINT fk_secret_application_consumer_application_uuid
-            FOREIGN KEY (application_uuid)
-            REFERENCES application (uuid)
-    );
-CREATE UNIQUE INDEX idx_secret_application_consumer_secret_id_application_uuid ON secret_application_consumer (secret_id,application_uuid);
-CREATE UNIQUE INDEX idx_secret_application_consumer_label ON secret_application_consumer (label,application_uuid);
-
-CREATE TABLE
     secret_unit_consumer (
-        uuid TEXT PRIMARY KEY,
+        -- There's no FK to secret because cross model secrets
+        -- don't exist in this database.
         secret_id TEXT NOT NULL,
         unit_uuid TEXT NOT NULL,
         label TEXT,
         current_revision INT NOT NULL, 
-        CONSTRAINT fk_secret_unit_consumer_secret_id
-            FOREIGN KEY (secret_id)
-            REFERENCES secret (id),
         CONSTRAINT fk_secret_unit_consumer_unit_uuid
             FOREIGN KEY (unit_uuid)
             REFERENCES unit (uuid)
     );
 
 CREATE UNIQUE INDEX idx_secret_unit_consumer_secret_id_unit_uuid ON secret_unit_consumer (secret_id,unit_uuid);
-CREATE UNIQUE INDEX idx_secret_unit_consumer_label ON secret_unit_consumer (label,unit_uuid);
-
-CREATE TABLE
-    secret_remote_application_consumer (
-        uuid TEXT PRIMARY KEY,
-        secret_id TEXT NOT NULL,
-        application_uuid TEXT NOT NULL,
-        current_revision INT NOT NULL,
-        CONSTRAINT fk_secret_remote_application_consumer_secret_id
-            FOREIGN KEY (secret_id)
-            REFERENCES secret (id),
-        CONSTRAINT fk_secret_remote_application_consumer_application_uuid
-            FOREIGN KEY (application_uuid)
-            REFERENCES application (uuid)
-    );
-
-CREATE UNIQUE INDEX idx_secret_remote_application_consumer_secret_id_application_uuid ON secret_remote_application_consumer (secret_id,application_uuid);
+CREATE UNIQUE INDEX idx_secret_unit_consumer_label ON secret_unit_consumer (label,unit_uuid) WHERE label != '';
 
 CREATE TABLE
     secret_remote_unit_consumer (

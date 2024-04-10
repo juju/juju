@@ -21,7 +21,7 @@ type SecretService interface {
 	// View and fetch secrets.
 
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
-	GetUserSecretByLabel(ctx context.Context, label string) (*secrets.SecretMetadata, error)
+	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revisions domainsecret.Revisions,

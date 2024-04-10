@@ -114,6 +114,74 @@ func (s *serviceSuite) TestGetSecretValue(c *gc.C) {
 	c.Assert(data, jc.DeepEquals, coresecrets.NewSecretValue(map[string]string{"foo": "bar"}))
 }
 
+func (s *serviceSuite) TestGetSecretConsumer(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my secret",
+		CurrentRevision: 666,
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mysql/0").Return(consumer, 666, nil)
+
+	got, err := s.service().GetSecretConsumer(context.Background(), uri, "mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, consumer)
+}
+
+func (s *serviceSuite) TestGetSecretConsumerAndLatest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my secret",
+		CurrentRevision: 666,
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mysql/0").Return(consumer, 666, nil)
+
+	got, latest, err := s.service().GetSecretConsumerAndLatest(context.Background(), uri, "mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, consumer)
+	c.Assert(latest, gc.Equals, 666)
+}
+
+func (s *serviceSuite) TestSaveSecretConsumer(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my secret",
+		CurrentRevision: 666,
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mysql/0", consumer).Return(nil)
+
+	err := s.service().SaveSecretConsumer(context.Background(), uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetUserSecretURIByLabel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetUserSecretURIByLabel(gomock.Any(), "my label").Return(uri, nil)
+
+	got, err := s.service().GetUserSecretURIByLabel(context.Background(), "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, uri)
+}
+
 /*
 // TODO(secrets) - tests copied from facade which need to be re-implemented here
 func (s *serviceSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {

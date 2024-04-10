@@ -16,7 +16,7 @@ type SecretService interface {
 	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error)
-	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, latestRevision int, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, consumer secretservice.SecretAccessor) (secrets.SecretRole, error)
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor secretservice.SecretAccessor) (secretservice.SecretAccessScope, error)
 }

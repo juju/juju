@@ -77,7 +77,7 @@ func (s *Secrets) init() error {
 		}
 		updated := make(map[string]int)
 		for u, v := range info {
-			updated[u] = v.Revision
+			updated[u] = v.LatestRevision
 		}
 		changed = !reflect.DeepEqual(updated, s.secretsState.ConsumedSecretInfo)
 		if changed {

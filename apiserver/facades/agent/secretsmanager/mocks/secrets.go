@@ -185,6 +185,22 @@ func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(ctx, uri, unitName 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumer), ctx, uri, unitName)
 }
 
+// GetSecretConsumerAndLatest mocks base method.
+func (m *MockSecretsConsumer) GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretConsumerAndLatest", ctx, uri, unitName)
+	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetSecretConsumerAndLatest indicates an expected call of GetSecretConsumerAndLatest.
+func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumerAndLatest(ctx, uri, unitName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumerAndLatest", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumerAndLatest), ctx, uri, unitName)
+}
+
 // GetURIByConsumerLabel mocks base method.
 func (m *MockSecretsConsumer) GetURIByConsumerLabel(ctx context.Context, label, unitName string) (*secrets.URI, error) {
 	m.ctrl.T.Helper()

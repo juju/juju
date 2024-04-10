@@ -59,7 +59,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 	)}, nil)
 	s.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo("foo/0",
 		[]string{"secret:666e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g"}).Return(
-		map[string]coresecrets.SecretRevisionInfo{"secret:9m4e2mr0ui3e8a215n4g": {Revision: 667}}, nil,
+		map[string]coresecrets.SecretRevisionInfo{"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 667}}, nil,
 	)
 	s.secretsClient.EXPECT().SecretMetadata().Return(nil, nil)
 
@@ -150,8 +150,8 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
 	s.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo("foo/0",
 		[]string{"secret:666e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g"}).Return(
 		map[string]coresecrets.SecretRevisionInfo{
-			"secret:666e2mr0ui3e8a215n4g": {Revision: 666},
-			"secret:9m4e2mr0ui3e8a215n4g": {Revision: 667},
+			"secret:666e2mr0ui3e8a215n4g": {LatestRevision: 666},
+			"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 667},
 		}, nil,
 	)
 	s.secretsClient.EXPECT().SecretMetadata().Return(

@@ -31,6 +31,9 @@ type State interface {
 		labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
 		unitOwners domainsecret.UnitOwners, wantUser bool,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
+	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
+	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -205,10 +208,10 @@ func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secre
 	return s.st.GetSecret(ctx, uri)
 }
 
-// GetUserSecretByLabel returns the user secret with the specified label.
+// GetUserSecretURIByLabel returns the user secret URI with the specified label.
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
-func (s *SecretService) GetUserSecretByLabel(ctx context.Context, label string) (*secrets.SecretMetadata, error) {
-	return nil, errors.NotFound
+func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error) {
+	return s.st.GetUserSecretURIByLabel(ctx, label)
 }
 
 // ListUserSecrets returns the secret metadata and revision metadata for any user secrets in the current model.

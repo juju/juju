@@ -142,8 +142,8 @@ func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) 
 			return nil, errors.Annotatef(err, "finding latest info for secret %q", uris[i])
 		}
 		info[uris[i]] = coresecrets.SecretRevisionInfo{
-			Revision: latest.Revision,
-			Label:    latest.Label,
+			LatestRevision: latest.Revision,
+			Label:          latest.Label,
 		}
 	}
 	return info, err

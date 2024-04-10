@@ -436,11 +436,11 @@ func (s *SecretsAPI) secretURI(ctx context.Context, uriStr, label string) (*core
 	if uriStr != "" {
 		return coresecrets.ParseURI(uriStr)
 	}
-	md, err := s.secretService.GetUserSecretByLabel(ctx, label)
+	uri, err := s.secretService.GetUserSecretURIByLabel(ctx, label)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting user secret for label %q", label)
 	}
-	return md.URI, nil
+	return uri, nil
 }
 
 // RemoveSecrets isn't on the v1 API.
