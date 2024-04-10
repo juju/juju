@@ -201,7 +201,7 @@ CREATE TABLE
 
 CREATE TABLE
     secret_application_owner (
-        secret_id TEXT PRIMARY KEY,
+        secret_id TEXT NOT NULL,
         application_uuid TEXT NOT NULL,
         label TEXT,
         CONSTRAINT fk_secret_application_owner_secret_id
@@ -210,6 +210,7 @@ CREATE TABLE
         CONSTRAINT fk_secret_application_owner_application_uuid
             FOREIGN KEY (application_uuid)
             REFERENCES application (uuid)
+        PRIMARY KEY (secret_id, application_uuid)
     );
 
 -- We need to ensure the label is unique per the application.
@@ -217,7 +218,7 @@ CREATE UNIQUE INDEX idx_secret_application_owner_label ON secret_application_own
 
 CREATE TABLE
     secret_unit_owner (
-        secret_id TEXT PRIMARY KEY,
+        secret_id TEXT NOT NULL,
         unit_uuid TEXT NOT NULL,
         label TEXT,
         CONSTRAINT fk_secret_unit_owner_secret_id
@@ -226,6 +227,7 @@ CREATE TABLE
         CONSTRAINT fk_secret_unit_owner_unit_uuid
             FOREIGN KEY (unit_uuid)
             REFERENCES unit (uuid)
+        PRIMARY KEY (secret_id, unit_uuid)
     );
 
 -- We need to ensure the label is unique per unit.
