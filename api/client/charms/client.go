@@ -69,13 +69,6 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 			SwitchCharm: ch.SwitchCharm,
 		}
 	}
-	if c.BestAPIVersion() < 7 {
-		var result params.ResolveCharmWithChannelResultsV6
-		if err := c.facade.FacadeCall(context.TODO(), "ResolveCharms", args, &result); err != nil {
-			return nil, errors.Trace(apiservererrors.RestoreError(err))
-		}
-		return transform.Slice(result.Results, c.resolveCharmV6), nil
-	}
 
 	var result params.ResolveCharmWithChannelResults
 	if err := c.facade.FacadeCall(context.TODO(), "ResolveCharms", args, &result); err != nil {
@@ -100,29 +93,6 @@ func (c *Client) resolveCharm(r params.ResolveCharmWithChannelResult) ResolvedCh
 	supportedBases, err := transform.SliceOrErr(r.SupportedBases, func(in params.Base) (corebase.Base, error) {
 		return corebase.ParseBase(in.Name, in.Channel)
 	})
-	if err != nil {
-		return ResolvedCharm{Error: apiservererrors.RestoreError(err)}
-	}
-	return ResolvedCharm{
-		URL:            curl,
-		Origin:         origin,
-		SupportedBases: supportedBases,
-	}
-}
-
-func (c *Client) resolveCharmV6(r params.ResolveCharmWithChannelResultV6) ResolvedCharm {
-	if r.Error != nil {
-		return ResolvedCharm{Error: apiservererrors.RestoreError(r.Error)}
-	}
-	curl, err := charm.ParseURL(r.URL)
-	if err != nil {
-		return ResolvedCharm{Error: apiservererrors.RestoreError(err)}
-	}
-	origin, err := apicharm.APICharmOrigin(r.Origin)
-	if err != nil {
-		return ResolvedCharm{Error: apiservererrors.RestoreError(err)}
-	}
-	supportedBases, err := transform.SliceOrErr(r.SupportedSeries, corebase.GetBaseFromSeries)
 	if err != nil {
 		return ResolvedCharm{Error: apiservererrors.RestoreError(err)}
 	}

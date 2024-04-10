@@ -46,7 +46,7 @@ var facadeVersions = facades.FacadeVersions{
 	"CAASUnitProvisioner":          {2},
 	"CharmDownloader":              {1},
 	"CharmRevisionUpdater":         {2},
-	"Charms":                       {5, 6, 7},
+	"Charms":                       {7},
 	"Cleaner":                      {2},
 	"Client":                       {6, 7},
 	"Cloud":                        {7},
