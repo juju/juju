@@ -50,19 +50,6 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	s.secrets = &mockSecrets{}
 	s.PatchValue(&GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
 
-	// secretBackendConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
-	// 	return &provider.ModelBackendConfigInfo{
-	// 		ActiveID: "backend-id",
-	// 		Configs: map[string]provider.ModelBackendConfig{
-	// 			"backend-id": {
-	// 				ModelUUID: "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
-	// 				BackendConfig: provider.BackendConfig{
-	// 					BackendType: "some-backend",
-	// 				},
-	// 			},
-	// 		},
-	// 	}, secretsConfigError
-	// }
 	api, err := newUndertakerAPI(st, nil, authorizer, nil, s.mockSecretBackendService)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api, ctrl

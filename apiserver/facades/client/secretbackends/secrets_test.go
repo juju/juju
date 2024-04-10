@@ -21,8 +21,6 @@ import (
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/secrets/provider"
-	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -35,7 +33,7 @@ type SecretsSuite struct {
 	testing.IsolationSuite
 
 	authorizer         *facademocks.MockAuthorizer
-	mockBackendService *MockSecretsBackendService
+	mockBackendService *MockSecretBackendService
 }
 
 var _ = gc.Suite(&SecretsSuite{})
@@ -45,7 +43,7 @@ func (s *SecretsSuite) setup(c *gc.C) (*SecretBackendsAPI, *gomock.Controller) {
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.authorizer.EXPECT().AuthClient().Return(true)
-	s.mockBackendService = NewMockSecretsBackendService(ctrl)
+	s.mockBackendService = NewMockSecretBackendService(ctrl)
 	api, err := NewTestAPI(s.authorizer, s.mockBackendService)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
@@ -313,31 +311,4 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
 
 	_, err := facade.RemoveSecretBackends(context.Background(), params.RemoveSecretBackendArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *SecretsSuite) TestRemoveSecretBackendsInvalidArg(c *gc.C) {
-	facade, ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
-
-	results, err := facade.RemoveSecretBackends(context.Background(), params.RemoveSecretBackendArgs{
-		Args: []params.RemoveSecretBackendArg{
-			{},
-			{Name: juju.BackendName},
-			{Name: provider.Auto},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
-		{Error: &params.Error{
-			Code:    "not valid",
-			Message: `missing backend name not valid`}},
-		{Error: &params.Error{
-			Code:    "not valid",
-			Message: `backend "internal" not valid`}},
-		{Error: &params.Error{
-			Code:    "not valid",
-			Message: `backend "auto" not valid`}},
-	})
 }

@@ -13,7 +13,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package secretbackends -destination mock_service.go github.com/juju/juju/apiserver/facades/client/secretbackends SecretsBackendService
+//go:generate go run go.uber.org/mock/mockgen -package secretbackends -destination mock_service.go github.com/juju/juju/apiserver/facades/client/secretbackends SecretBackendService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -21,7 +21,7 @@ func TestPackage(t *testing.T) {
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
-	backendService SecretsBackendService,
+	backendService SecretBackendService,
 ) (*SecretBackendsAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

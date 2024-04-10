@@ -106,6 +106,7 @@ func (u *UndertakerAPI) RemoveModel(ctx context.Context) error {
 	return u.st.RemoveDyingModel()
 }
 
+// TODO(secret): all these logic should be moved to secret service.
 func (u *UndertakerAPI) removeModelSecrets(ctx context.Context) error {
 	model, err := u.st.Model()
 	if err != nil {

@@ -17,9 +17,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
-	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,7 +26,7 @@ import (
 type SecretBackendsAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
-	backendService SecretsBackendService
+	backendService SecretBackendService
 }
 
 func (s *SecretBackendsAPI) checkCanAdmin() error {
@@ -136,20 +134,10 @@ func (s *SecretBackendsAPI) RemoveSecretBackends(ctx context.Context, args param
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		if arg.Name == "" {
-			err := errors.NotValidf("missing backend name")
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if arg.Name == juju.BackendName || arg.Name == provider.Auto {
-			err := errors.NotValidf("backend %q", arg.Name)
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 		err := s.backendService.DeleteSecretBackend(ctx,
 			secretbackendservice.DeleteSecretBackendParams{
 				BackendIdentifier: secretbackend.BackendIdentifier{Name: arg.Name},
-				Force:             arg.Force,
+				DeleteInUse:       arg.Force,
 			})
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

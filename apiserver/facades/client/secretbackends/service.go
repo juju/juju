@@ -10,8 +10,8 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
-// SecretsBackendService is an interface for interacting with secret backend service.
-type SecretsBackendService interface {
+// SecretBackendService is an interface for interacting with secret backend service.
+type SecretBackendService interface {
 	CreateSecretBackend(context.Context, coresecrets.SecretBackend) error
 	UpdateSecretBackend(context.Context, secretbackendservice.UpdateSecretBackendParams) error
 	DeleteSecretBackend(context.Context, secretbackendservice.DeleteSecretBackendParams) error
