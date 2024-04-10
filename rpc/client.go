@@ -201,6 +201,14 @@ func (call *Call) done() {
 // The params value may be nil if no parameters are provided; the response value
 // may be nil to indicate that any result should be discarded.
 func (conn *Conn) Call(ctx context.Context, req Request, params, response interface{}) error {
+	// Before sending the request, check if the context has been canceled.
+	// This is done to prevent any unnecessary work from being done if the
+	// context has been canceled.
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	// Extract the tracing information from the context.
 	traceID, spanID, traceFlags := TracingFromContext(ctx)
 	call := &Call{
 		Request:    req,
