@@ -276,12 +276,12 @@ func (s *SecretsSuite) TestRemoveSecretBackends(c *gc.C) {
 		s.mockBackendService.EXPECT().DeleteSecretBackend(gomock.Any(),
 			secretbackendservice.DeleteSecretBackendParams{
 				BackendIdentifier: secretbackend.BackendIdentifier{Name: "myvault"},
-				Force:             true,
+				DeleteInUse:       true,
 			}).Return(nil),
 		s.mockBackendService.EXPECT().DeleteSecretBackend(gomock.Any(),
 			secretbackendservice.DeleteSecretBackendParams{
 				BackendIdentifier: secretbackend.BackendIdentifier{Name: "myvault2"},
-				Force:             false,
+				DeleteInUse:       false,
 			}).Return(errors.NotSupportedf("remove with revisions")),
 	)
 

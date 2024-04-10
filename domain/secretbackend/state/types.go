@@ -9,7 +9,6 @@ import (
 	"sort"
 	"time"
 
-	jujucloud "github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
@@ -207,33 +206,12 @@ type CloudRow struct {
 	// Endpoint holds the cloud's primary endpoint URL.
 	Endpoint string `db:"endpoint"`
 
-	// IdentityEndpoint holds the cloud's identity endpoint URK.
-	IdentityEndpoint string `db:"identity_endpoint"`
-
-	// StorageEndpoint holds the cloud's storage endpoint URL.
-	StorageEndpoint string `db:"storage_endpoint"`
-
 	// SkipTLSVerify indicates if the client should skip cert validation.
 	SkipTLSVerify bool `db:"skip_tls_verify"`
 
-	// IsControllerCloud indicates if the cloud is hosting the controller model.
-	IsControllerCloud bool `db:"is_controller_cloud"`
+	// ModelName holds the name of the model of the cloud.
+	ModelName string `db:"model_name"`
 
-	// CACertificates holds the CA certificates for the cloud.
-	CACertificates []string `db:"ca_cert"`
-}
-
-func (cr CloudRow) toCloud() jujucloud.Cloud {
-	c := jujucloud.Cloud{
-		Name:              cr.Name,
-		Type:              cr.CloudType,
-		AuthTypes:         []jujucloud.AuthType{jujucloud.AuthType(cr.AuthType)},
-		Endpoint:          cr.Endpoint,
-		IdentityEndpoint:  cr.IdentityEndpoint,
-		StorageEndpoint:   cr.StorageEndpoint,
-		SkipTLSVerify:     cr.SkipTLSVerify,
-		IsControllerCloud: cr.IsControllerCloud,
-		CACertificates:    cr.CACertificates,
-	}
-	return c
+	// ModelOwnerUserName holds the name of the user who owns the model.
+	ModelOwnerUserName string `db:"model_owner_user_name"`
 }

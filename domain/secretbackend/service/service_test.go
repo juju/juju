@@ -854,7 +854,7 @@ func (s *serviceSuite) TestDeleteSecretBackend(c *gc.C) {
 	s.mockState.EXPECT().DeleteSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{ID: "backend-uuid"}, false).Return(nil)
 	err := svc.DeleteSecretBackend(context.Background(), DeleteSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{ID: "backend-uuid"},
-		Force:             false,
+		DeleteInUse:       false,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

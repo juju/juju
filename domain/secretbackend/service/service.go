@@ -229,48 +229,16 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal, all bool, name
 				BackendType: juju.BackendType,
 			},
 		})
-		fillInK8sBackend := func() error {
-			controllerUUID := coremodel.UUID(s.controllerUUID)
-			m, err := s.st.GetModel(ctx, controllerUUID)
-			if errors.Is(err, modelerrors.NotFound) {
-				// TODO: we skip it for now because we the controller model's backend configured
-				// in the model_secret_backend table yet.
-				return nil
-			}
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if m.Type == coremodel.CAAS {
-				// The kubernetes backend.
-				cloud, cred, err := s.st.GetCloudCredential(ctx, controllerUUID)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				k8sConfig, err := getK8sBackendConfig(cloud, cred)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				k8sBackend := &SecretBackendInfo{
-					SecretBackend: coresecrets.SecretBackend{
-						ID:          m.ID.String(),
-						Name:        kubernetes.BuiltInName(m.Name),
-						BackendType: kubernetes.BackendType,
-						Config:      k8sConfig.Config,
-					},
-					// TODO: implement secret count for secret backend.
-					// For now, we just set it to 1 to indicate that the backend is in use.
-					NumSecrets: 1,
-				}
-				// For local k8s secrets, corresponding to every hosted model,
-				// do not include the result if there are no secrets.
-				if k8sBackend.NumSecrets > 0 || !all {
-					backendInfos = append(backendInfos, k8sBackend)
-				}
-			}
-			return nil
-		}
-		if err := fillInK8sBackend(); err != nil {
+		k8sBackend, err := tryGetK8sBackend(ctx, s.st, coremodel.UUID(s.controllerUUID))
+		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		if k8sBackend != nil {
+			// For local k8s secrets, corresponding to every hosted model,
+			// do not include the result if there are no secrets.
+			if k8sBackend.NumSecrets > 0 || !all {
+				backendInfos = append(backendInfos, k8sBackend)
+			}
 		}
 	}
 	wanted := set.NewStrings(names...)
@@ -310,6 +278,42 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal, all bool, name
 	return backendInfos, nil
 }
 
+// tryGetK8sBackend returns the k8s backend info for the given controller UUID if it's possible.
+func tryGetK8sBackend(ctx context.Context, st State, controllerUUID coremodel.UUID) (*SecretBackendInfo, error) {
+	m, err := st.GetModel(ctx, controllerUUID)
+	if errors.Is(err, modelerrors.NotFound) {
+		// TODO: we skip it for now because we the controller model's backend configured
+		// in the model_secret_backend table yet.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if m.Type != coremodel.CAAS {
+		return nil, nil
+	}
+	// The kubernetes backend.
+	cloud, cred, err := st.GetCloudCredential(ctx, controllerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	k8sConfig, err := getK8sBackendConfig(cloud, cred)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &SecretBackendInfo{
+		SecretBackend: coresecrets.SecretBackend{
+			ID:          m.ID.String(),
+			Name:        kubernetes.BuiltInName(m.Name),
+			BackendType: kubernetes.BackendType,
+			Config:      k8sConfig.Config,
+		},
+		// TODO: implement secret count for secret backend.
+		// For now, we just set it to 1 to indicate that the backend is in use.
+		NumSecrets: 1,
+	}, nil
+}
+
 // PingSecretBackend checks the secret backend for the given backend name.
 func (s *Service) PingSecretBackend(ctx context.Context, name string) error {
 	backend, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: name})
@@ -320,7 +324,11 @@ func (s *Service) PingSecretBackend(ctx context.Context, name string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return pingBackend(p, convertConfigToAny(backend.Config))
+	err = pingBackend(p, convertConfigToAny(backend.Config))
+	if err != nil {
+		return fmt.Errorf("cannot ping secret backend %q: %w", name, err)
+	}
+	return nil
 }
 
 // pingBackend instantiates a backend and pings it.
@@ -476,7 +484,7 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 
 // DeleteSecretBackend deletes a secret backend.
 func (s *Service) DeleteSecretBackend(ctx context.Context, params DeleteSecretBackendParams) error {
-	return s.st.DeleteSecretBackend(ctx, params.BackendIdentifier, params.Force)
+	return s.st.DeleteSecretBackend(ctx, params.BackendIdentifier, params.DeleteInUse)
 }
 
 // GetSecretBackendByName returns the secret backend for the given backend name.

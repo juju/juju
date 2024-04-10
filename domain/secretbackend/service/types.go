@@ -29,7 +29,6 @@ type UpdateSecretBackendParams struct {
 // DeleteSecretBackendParams is used to delete a secret backend.
 type DeleteSecretBackendParams struct {
 	secretbackend.BackendIdentifier
-	// Force is specified to force deletion.
-	// So the backend will be deleted even if it is in use.
-	Force bool
+	// DeleteInUse is specified to delete the backend even if it is in use.
+	DeleteInUse bool
 }
