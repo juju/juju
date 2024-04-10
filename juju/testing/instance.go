@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/arch"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -187,11 +186,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	preferredBase := config.PreferredBase(env.Config())
 
 	if params.ImageMetadata == nil {
-		preferredSeries, err := corebase.GetSeriesFromBase(preferredBase)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		vers, err := imagemetadata.ImageRelease(preferredSeries)
+		vers, err := imagemetadata.ImageRelease(preferredBase)
 		if err != nil {
 			return errors.Trace(err)
 		}

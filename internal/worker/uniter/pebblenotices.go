@@ -136,6 +136,8 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 	switch notice.Type {
 	case client.CustomNotice:
 		eventType = container.CustomNoticeEvent
+	case client.ChangeUpdateNotice:
+		eventType = container.ChangeUpdatedEvent
 	default:
 		n.logger.Debugf("container %q: ignoring %s notice", containerName, notice.Type)
 		return nil

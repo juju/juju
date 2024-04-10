@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -33,8 +34,8 @@ func init() {
 	simplestreams.RegisterStructTags(OvaFileMetadata{})
 }
 
-func findImageMetadata(ctx context.Context, env environs.Environ, arch string, series string) (*OvaFileMetadata, error) {
-	vers, err := imagemetadata.ImageRelease(series)
+func findImageMetadata(ctx context.Context, env environs.Environ, arch string, b base.Base) (*OvaFileMetadata, error) {
+	vers, err := imagemetadata.ImageRelease(b)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

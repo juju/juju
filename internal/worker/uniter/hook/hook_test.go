@@ -53,6 +53,12 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.PebbleCustomNotice, WorkloadName: "test"},
 		`"pebble-custom-notice" hook requires a notice ID, type, and key`,
 	}, {
+		hook.Info{Kind: hooks.PebbleChangeUpdated},
+		`"pebble-change-updated" hook requires a workload name`,
+	}, {
+		hook.Info{Kind: hooks.PebbleChangeUpdated, WorkloadName: "test"},
+		`"pebble-change-updated" hook requires a notice ID, type, and key`,
+	}, {
 		hook.Info{Kind: hooks.PreSeriesUpgrade},
 		`"pre-series-upgrade" hook requires a target base`,
 	}, {
