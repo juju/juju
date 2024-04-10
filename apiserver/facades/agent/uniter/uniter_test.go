@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -51,6 +52,12 @@ type uniterSuite struct {
 }
 
 var _ = gc.Suite(&uniterSuite{})
+
+func (s *uniterSuite) controllerConfig(c *gc.C) (controller.Config, error) {
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerConfigService := controllerServiceFactory.ControllerConfig()
+	return controllerConfigService.ControllerConfig(context.Background())
+}
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
@@ -378,10 +385,8 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 		},
 	})
 
-	// Now set it an try again.
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	// Now set it and try again.
+	controllerConfig, err := s.controllerConfig(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine0.SetProviderAddresses(
@@ -425,9 +430,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	})
 
 	// Now set it and try again.
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := s.controllerConfig(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine0.SetProviderAddresses(
@@ -453,9 +456,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 // TestNetworkInfoSpaceless is in uniterSuite and not uniterNetworkInfoSuite since we don't want
 // all the spaces set up.
 func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := s.controllerConfig(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine0.SetProviderAddresses(
@@ -1841,9 +1842,7 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := s.controllerConfig(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine0.SetProviderAddresses(
@@ -2775,9 +2774,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := s.controllerConfig(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
@@ -3141,9 +3138,7 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.RelationUnit) {
 	s.makeRemoteWordpress(c)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := s.controllerConfig(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set mysql's addresses first.
@@ -3195,9 +3190,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 
 	thisUniter := s.makeMysqlUniter(c)
 
-	controllerServiceFactory := s.ControllerServiceFactory(c)
-	controllerConfigService := controllerServiceFactory.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := s.controllerConfig(c)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set mysql's addresses - no public address.
