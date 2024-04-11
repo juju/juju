@@ -85,6 +85,22 @@ func (mr *MockStateMockRecorder) GetSecret(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockState)(nil).GetSecret), arg0, arg1)
 }
 
+// GetSecretConsumer mocks base method.
+func (m *MockState) GetSecretConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string) (*secrets.SecretConsumerMetadata, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretConsumer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetSecretConsumer indicates an expected call of GetSecretConsumer.
+func (mr *MockStateMockRecorder) GetSecretConsumer(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockState)(nil).GetSecretConsumer), arg0, arg1, arg2)
+}
+
 // GetSecretRevision mocks base method.
 func (m *MockState) GetSecretRevision(arg0 context.Context, arg1 *secrets.URI, arg2 int) (*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
@@ -116,6 +132,21 @@ func (mr *MockStateMockRecorder) GetSecretValue(arg0, arg1, arg2 any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockState)(nil).GetSecretValue), arg0, arg1, arg2)
 }
 
+// GetUserSecretURIByLabel mocks base method.
+func (m *MockState) GetUserSecretURIByLabel(arg0 context.Context, arg1 string) (*secrets.URI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserSecretURIByLabel", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.URI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserSecretURIByLabel indicates an expected call of GetUserSecretURIByLabel.
+func (mr *MockStateMockRecorder) GetUserSecretURIByLabel(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserSecretURIByLabel", reflect.TypeOf((*MockState)(nil).GetUserSecretURIByLabel), arg0, arg1)
+}
+
 // ListSecrets mocks base method.
 func (m *MockState) ListSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 secret.Revisions, arg3 secret.Labels, arg4 secret.ApplicationOwners, arg5 secret.UnitOwners, arg6 bool) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
@@ -130,4 +161,18 @@ func (m *MockState) ListSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 se
 func (mr *MockStateMockRecorder) ListSecrets(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockState)(nil).ListSecrets), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+}
+
+// SaveSecretConsumer mocks base method.
+func (m *MockState) SaveSecretConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 *secrets.SecretConsumerMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveSecretConsumer", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveSecretConsumer indicates an expected call of SaveSecretConsumer.
+func (mr *MockStateMockRecorder) SaveSecretConsumer(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretConsumer", reflect.TypeOf((*MockState)(nil).SaveSecretConsumer), arg0, arg1, arg2, arg3)
 }

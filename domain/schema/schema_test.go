@@ -292,9 +292,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_application_owner",
 		"secret_model_owner",
 		"secret_unit_owner",
-		"secret_application_consumer",
 		"secret_unit_consumer",
-		"secret_remote_application_consumer",
 		"secret_remote_unit_consumer",
 		"secret_permission",
 		"secret_role",
@@ -378,17 +376,9 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_object_store_metadata_path_update",
 		"trg_log_object_store_metadata_path_delete",
 
-		"trg_log_secret_application_consumer_current_revision_insert",
-		"trg_log_secret_application_consumer_current_revision_update",
-		"trg_log_secret_application_consumer_current_revision_delete",
-
 		"trg_log_secret_auto_prune_insert",
 		"trg_log_secret_auto_prune_update",
 		"trg_log_secret_auto_prune_delete",
-
-		"trg_log_secret_remote_application_consumer_current_revision_insert",
-		"trg_log_secret_remote_application_consumer_current_revision_update",
-		"trg_log_secret_remote_application_consumer_current_revision_delete",
 
 		"trg_log_secret_remote_unit_consumer_current_revision_insert",
 		"trg_log_secret_remote_unit_consumer_current_revision_update",
@@ -405,10 +395,6 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_rotation_next_rotation_time_insert",
 		"trg_log_secret_rotation_next_rotation_time_update",
 		"trg_log_secret_rotation_next_rotation_time_delete",
-
-		"trg_log_secret_unit_consumer_current_revision_insert",
-		"trg_log_secret_unit_consumer_current_revision_update",
-		"trg_log_secret_unit_consumer_current_revision_delete",
 
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",
@@ -446,7 +432,7 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_model_immutable_update",
 	)
 
-	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.Union(additional).SortedValues())
+	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.DeepEquals, expected.Union(additional).SortedValues())
 }
 
 func (s *schemaSuite) assertChangeLogCount(c *gc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
@@ -564,51 +550,6 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, "", netNodeUUID)
 	unitUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id) VALUES (?, 0, ?, ?, 0);`, "", unitUUID, appUUID, netNodeUUID)
-
-	// secret_application_consumer table triggers.
-	applicationConsumerUUID := utils.MustNewUUID().String()
-	s.assertChangeLogCount(c, 1, tableSecretApplicationConsumerCurrentRevision, 0)
-	s.assertChangeLogCount(c, 2, tableSecretApplicationConsumerCurrentRevision, 0)
-	s.assertChangeLogCount(c, 4, tableSecretApplicationConsumerCurrentRevision, 0)
-
-	s.assertExecSQL(c, `
-INSERT INTO secret_application_consumer (uuid, secret_id, application_uuid, current_revision) VALUES
-	(?, ?, ?, 1);
-`, "", applicationConsumerUUID, secretURI.ID, appUUID)
-	s.assertExecSQL(c, `UPDATE secret_application_consumer SET current_revision = 2 WHERE uuid = ?;`, "", applicationConsumerUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_application_consumer WHERE uuid = ?;`, "", applicationConsumerUUID)
-
-	s.assertChangeLogCount(c, 1, tableSecretApplicationConsumerCurrentRevision, 1)
-	s.assertChangeLogCount(c, 2, tableSecretApplicationConsumerCurrentRevision, 1)
-	s.assertChangeLogCount(c, 4, tableSecretApplicationConsumerCurrentRevision, 1)
-
-	// secret_unit_consumer table triggers.
-	unitConsumerUUID := utils.MustNewUUID().String()
-	s.assertChangeLogCount(c, 1, tableSecretUnitConsumerCurrentRevision, 0)
-	s.assertChangeLogCount(c, 2, tableSecretUnitConsumerCurrentRevision, 0)
-	s.assertChangeLogCount(c, 4, tableSecretUnitConsumerCurrentRevision, 0)
-
-	s.assertExecSQL(c, `INSERT INTO secret_unit_consumer (uuid, secret_id, unit_uuid, current_revision) VALUES (?, ?, ?, 1);`, "", unitConsumerUUID, secretURI.ID, unitUUID)
-	s.assertExecSQL(c, `UPDATE secret_unit_consumer SET current_revision = 2 WHERE uuid = ?;`, "", unitConsumerUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_unit_consumer WHERE uuid = ?;`, "", unitConsumerUUID)
-
-	s.assertChangeLogCount(c, 1, tableSecretUnitConsumerCurrentRevision, 1)
-	s.assertChangeLogCount(c, 2, tableSecretUnitConsumerCurrentRevision, 1)
-	s.assertChangeLogCount(c, 4, tableSecretUnitConsumerCurrentRevision, 1)
-
-	// secret_remote_application_consumer table triggers.
-	remoteAppConsumerUUID := utils.MustNewUUID().String()
-	s.assertChangeLogCount(c, 1, tableSecretRemoteApplicationConsumerCurrentRevision, 0)
-	s.assertChangeLogCount(c, 2, tableSecretRemoteApplicationConsumerCurrentRevision, 0)
-	s.assertChangeLogCount(c, 4, tableSecretRemoteApplicationConsumerCurrentRevision, 0)
-
-	s.assertExecSQL(c, `INSERT INTO secret_remote_application_consumer (uuid, secret_id, application_uuid, current_revision) VALUES (?, ?, ?, 1);`, "", remoteAppConsumerUUID, secretURI.ID, appUUID)
-	s.assertExecSQL(c, `UPDATE secret_remote_application_consumer SET current_revision = 2 WHERE uuid = ?;`, "", remoteAppConsumerUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_remote_application_consumer WHERE uuid = ?;`, "", remoteAppConsumerUUID)
-
-	s.assertChangeLogCount(c, 1, tableSecretRemoteApplicationConsumerCurrentRevision, 1)
-	s.assertChangeLogCount(c, 2, tableSecretRemoteApplicationConsumerCurrentRevision, 1)
-	s.assertChangeLogCount(c, 4, tableSecretRemoteApplicationConsumerCurrentRevision, 1)
 
 	// secret_remote_unit_consumer table triggers.
 	remoteUnitConsumerUUID := utils.MustNewUUID().String()

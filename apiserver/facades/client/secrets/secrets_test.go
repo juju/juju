@@ -413,9 +413,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInte
 	if uri == nil {
 		existingLabel = "my-secret"
 		uri = coresecrets.NewURI()
-		s.secretService.EXPECT().GetUserSecretByLabel(gomock.Any(), "my-secret").Return(&coresecrets.SecretMetadata{
-			URI: uri,
-		}, nil)
+		s.secretService.EXPECT().GetUserSecretURIByLabel(gomock.Any(), "my-secret").Return(uri, nil)
 	} else {
 		uriString = uri.String()
 	}
@@ -662,9 +660,7 @@ func (s *SecretsSuite) TestGrantSecretByName(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
-	s.secretService.EXPECT().GetUserSecretByLabel(gomock.Any(), "my-secret").Return(&coresecrets.SecretMetadata{
-		URI: uri,
-	}, nil)
+	s.secretService.EXPECT().GetUserSecretURIByLabel(gomock.Any(), "my-secret").Return(uri, nil)
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secretservice.SecretAccessParams) error {
 			c.Assert(arg, gc.DeepEquals, uri)

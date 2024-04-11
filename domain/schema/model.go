@@ -23,9 +23,6 @@ const (
 	tableSecretRotation
 	tableSecretRevisionObsolete
 	tableSecretRevisionExpire
-	tableSecretApplicationConsumerCurrentRevision
-	tableSecretUnitConsumerCurrentRevision
-	tableSecretRemoteApplicationConsumerCurrentRevision
 	tableSecretRemoteUnitConsumerCurrentRevision
 )
 
@@ -68,12 +65,6 @@ func ModelDDL() *schema.Schema {
 			"secret_revision", "uuid", "obsolete", tableSecretRevisionObsolete),
 		changeLogTriggersForTableOnColumn(
 			"secret_revision_expire", "revision_uuid", "next_expire_time", tableSecretRevisionExpire),
-		changeLogTriggersForTableOnColumn(
-			"secret_application_consumer", "uuid", "current_revision", tableSecretApplicationConsumerCurrentRevision),
-		changeLogTriggersForTableOnColumn(
-			"secret_unit_consumer", "uuid", "current_revision", tableSecretUnitConsumerCurrentRevision),
-		changeLogTriggersForTableOnColumn(
-			"secret_remote_application_consumer", "uuid", "current_revision", tableSecretRemoteApplicationConsumerCurrentRevision),
 		changeLogTriggersForTableOnColumn(
 			"secret_remote_unit_consumer", "uuid", "current_revision", tableSecretRemoteUnitConsumerCurrentRevision),
 
@@ -140,10 +131,8 @@ INSERT INTO change_log_namespace VALUES
     (10, 'secret_rotation', 'Secret rotation changes based on UUID'),
     (11, 'secret_revision', 'Secret revision obsolete changes based on UUID'),
     (12, 'secret_revision_expire', 'Secret revision next expire time changes based on UUID'),
-    (13, 'secret_application_consumer', 'Secret application consumer current revision changes based on UUID'),
-    (14, 'secret_unit_consumer', 'Secret unit consumer current revision changes based on UUID'),
-    (15, 'secret_remote_application_consumer', 'Secret remote application consumer current revision changes based on UUID'),
-    (16, 'secret_remote_unit_consumer', 'Secret remote unit consumer current revision changes based on UUID');
+    (13, 'secret_unit_consumer', 'Secret unit consumer current revision changes based on UUID'),
+    (14, 'secret_remote_unit_consumer', 'Secret remote unit consumer current revision changes based on UUID');
 `)
 }
 

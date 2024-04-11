@@ -70,12 +70,12 @@ func (s *secretsResolver) NextOp(
 	}
 	for uri, info := range remoteState.ConsumedSecretInfo {
 		existing := s.secretsTracker.ConsumedSecretRevision(uri)
-		s.logger.Debugf("%s: current=%d, new=%d", uri, existing, info.Revision)
-		if existing != info.Revision {
+		s.logger.Debugf("%s: current=%d, new=%d", uri, existing, info.LatestRevision)
+		if existing != info.LatestRevision {
 			op, err := opFactory.NewRunHook(hook.Info{
 				Kind:           hooks.SecretChanged,
 				SecretURI:      uri,
-				SecretRevision: info.Revision,
+				SecretRevision: info.LatestRevision,
 				SecretLabel:    info.Label,
 			})
 			return op, err

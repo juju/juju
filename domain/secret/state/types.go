@@ -63,6 +63,13 @@ type secretValueRef struct {
 	RevisionID   string `db:"revision_id"`
 }
 
+type secretUnitConsumer struct {
+	UnitUUID        string `db:"unit_uuid"`
+	SecretID        string `db:"secret_id"`
+	Label           string `db:"label"`
+	CurrentRevision int    `db:"current_revision"`
+}
+
 type secrets []secretInfo
 
 func (rows secrets) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets.SecretMetadata, error) {
@@ -118,6 +125,19 @@ func (rows secretValues) toSecretData() (coresecrets.SecretData, error) {
 	result := make(coresecrets.SecretData)
 	for _, row := range rows {
 		result[row.Name] = row.Content
+	}
+	return result, nil
+}
+
+type secretUnitConsumers []secretUnitConsumer
+
+func (rows secretUnitConsumers) toSecretConsumers() ([]*coresecrets.SecretConsumerMetadata, error) {
+	result := make([]*coresecrets.SecretConsumerMetadata, len(rows))
+	for i, row := range rows {
+		result[i] = &coresecrets.SecretConsumerMetadata{
+			Label:           row.Label,
+			CurrentRevision: row.CurrentRevision,
+		}
 	}
 	return result, nil
 }

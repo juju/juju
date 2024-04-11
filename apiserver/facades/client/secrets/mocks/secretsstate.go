@@ -116,19 +116,19 @@ func (mr *MockSecretServiceMockRecorder) GetSecretValue(arg0, arg1, arg2 any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretService)(nil).GetSecretValue), arg0, arg1, arg2)
 }
 
-// GetUserSecretByLabel mocks base method.
-func (m *MockSecretService) GetUserSecretByLabel(arg0 context.Context, arg1 string) (*secrets.SecretMetadata, error) {
+// GetUserSecretURIByLabel mocks base method.
+func (m *MockSecretService) GetUserSecretURIByLabel(arg0 context.Context, arg1 string) (*secrets.URI, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserSecretByLabel", arg0, arg1)
-	ret0, _ := ret[0].(*secrets.SecretMetadata)
+	ret := m.ctrl.Call(m, "GetUserSecretURIByLabel", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.URI)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUserSecretByLabel indicates an expected call of GetUserSecretByLabel.
-func (mr *MockSecretServiceMockRecorder) GetUserSecretByLabel(arg0, arg1 any) *gomock.Call {
+// GetUserSecretURIByLabel indicates an expected call of GetUserSecretURIByLabel.
+func (mr *MockSecretServiceMockRecorder) GetUserSecretURIByLabel(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserSecretByLabel", reflect.TypeOf((*MockSecretService)(nil).GetUserSecretByLabel), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserSecretURIByLabel", reflect.TypeOf((*MockSecretService)(nil).GetUserSecretURIByLabel), arg0, arg1)
 }
 
 // GrantSecretAccess mocks base method.

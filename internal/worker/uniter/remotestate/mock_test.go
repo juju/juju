@@ -444,8 +444,8 @@ func (m *mockSecretsClient) GetConsumerSecretsRevisionInfo(unitName string, uris
 			continue
 		}
 		result[uri] = secrets.SecretRevisionInfo{
-			Revision: 665 + i,
-			Label:    "label-" + uri,
+			LatestRevision: 665 + i,
+			Label:          "label-" + uri,
 		}
 	}
 	return result, nil

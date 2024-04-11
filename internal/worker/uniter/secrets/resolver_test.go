@@ -261,7 +261,7 @@ func (s *changeSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 		},
 	}
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
+		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
 	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
@@ -280,7 +280,7 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *gc.C) {
 		},
 	}
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
+		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -300,7 +300,7 @@ func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *gc.C) {
 		},
 	}
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
+		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -320,7 +320,7 @@ func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
 		},
 	}
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
+		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
 	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)

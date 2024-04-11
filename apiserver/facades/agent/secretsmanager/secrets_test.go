@@ -479,11 +479,10 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLa
 
 	s.expectSecretAccessQuery(1)
 	uri := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(
+	s.secretsConsumer.EXPECT().GetSecretConsumerAndLatest(gomock.Any(), uri, "mariadb/0").Return(
 		&coresecrets.SecretConsumerMetadata{
-			LatestRevision: 666,
-			Label:          "label",
-		}, nil)
+			Label: "label",
+		}, 666, nil)
 
 	results, err := s.facade.GetConsumerSecretsRevisionInfo(context.Background(), params.GetSecretConsumerInfoArgs{
 		ConsumerTag: "unit-mariadb/0",
@@ -503,10 +502,10 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingNoConsumer
 
 	s.expectSecretAccessQuery(1)
 	uri := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(
+	s.secretsConsumer.EXPECT().GetSecretConsumerAndLatest(gomock.Any(), uri, "mariadb/0").Return(
 		&coresecrets.SecretConsumerMetadata{
-			LatestRevision: 666,
-		}, nil)
+			CurrentRevision: 665,
+		}, 666, nil)
 
 	results, err := s.facade.GetConsumerSecretsRevisionInfo(context.Background(), params.GetSecretConsumerInfoArgs{
 		ConsumerTag: "unit-mariadb/0",
@@ -525,11 +524,11 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAcce
 
 	s.expectSecretAccessQuery(1)
 	uri := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(
+	s.secretsConsumer.EXPECT().GetSecretConsumerAndLatest(gomock.Any(), uri, "mariadb/0").Return(
 		&coresecrets.SecretConsumerMetadata{
-			LatestRevision: 666,
-			Label:          "owner-label",
-		}, nil)
+			CurrentRevision: 665,
+			Label:           "owner-label",
+		}, 666, nil)
 
 	results, err := s.facade.GetConsumerSecretsRevisionInfo(context.Background(), params.GetSecretConsumerInfoArgs{
 		ConsumerTag: "unit-mariadb/0",
@@ -1075,7 +1074,6 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 		}, 666, true, nil)
 
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mariadb/0", &coresecrets.SecretConsumerMetadata{
-		LatestRevision:  666,
 		CurrentRevision: 666,
 	})
 
@@ -1121,7 +1119,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C)
 	s.remoteClient.EXPECT().Close().Return(nil)
 
 	s.crossModelState.EXPECT().GetToken(names.NewApplicationTag("mariadb")).Return("token", nil)
-	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(nil, errors.NotFoundf(""))
+	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(nil, secreterrors.SecretConsumerNotFound)
 	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 
 	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
@@ -1145,7 +1143,6 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C)
 		}, 666, true, nil)
 
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mariadb/0", &coresecrets.SecretConsumerMetadata{
-		LatestRevision:  666,
 		CurrentRevision: 666,
 	})
 

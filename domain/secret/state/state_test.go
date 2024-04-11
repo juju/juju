@@ -14,9 +14,11 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	uniterrors "github.com/juju/juju/domain/unit/errors"
 	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -306,4 +308,202 @@ func (s *stateSuite) TestListSecretsByURI(c *gc.C) {
 	c.Assert(revs[0].Revision, gc.Equals, 1)
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
 	c.Assert(revs[0].UpdateTime, jc.Almost, now)
+}
+
+func (s *stateSuite) setupUnit(c *gc.C, appName string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		applicationUUID := uuid.MustNewUUID().String()
+		_, err := tx.ExecContext(context.Background(), `
+INSERT INTO application (uuid, name, life_id)
+VALUES (?, ?, ?)
+`, applicationUUID, appName, life.Alive)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIsNil)
+
+		netNodeUUID := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		machineUUID := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(context.Background(), `
+INSERT INTO unit (uuid, life_id, unit_id, net_node_uuid, application_uuid)
+VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
+`, machineUUID, life.Alive, appName+"/0", netNodeUUID, appName)
+		c.Assert(err, jc.ErrorIsNil)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestSaveSecretConsumer(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnit(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
+		AutoPrune:   true,
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 666,
+	}
+
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, latest, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, consumer)
+	c.Assert(latest, gc.Equals, 1)
+}
+
+func (s *stateSuite) TestSaveSecretConsumerSecretNotExists(c *gc.C) {
+	modelUUID := s.setupModel(c)
+
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnit(c, "mysql")
+
+	uri := coresecrets.NewURI().WithSource(modelUUID)
+	ctx := context.Background()
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 666,
+	}
+
+	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *stateSuite) TestSaveSecretConsumerUnitNotExists(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
+		AutoPrune:   true,
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 666,
+	}
+
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+}
+
+func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
+	s.setupModel(c)
+
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnit(c, "mysql")
+
+	uri := coresecrets.NewURI().WithSource("some-other-model")
+	ctx := context.Background()
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 666,
+	}
+
+	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, consumer)
+}
+
+func (s *stateSuite) TestGetSecretConsumerFirstTime(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnit(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
+		AutoPrune:   true,
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, latest, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretConsumerNotFound)
+	c.Assert(latest, gc.Equals, 1)
+}
+
+func (s *stateSuite) TestGetSecretConsumerSecretNotExists(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	uri := coresecrets.NewURI()
+
+	_, _, err := st.GetSecretConsumer(context.Background(), uri, "mysql/0")
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *stateSuite) TestGetSecretConsumerUnitNotExists(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
+		AutoPrune:   true,
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = st.GetSecretConsumer(ctx, uri, "mysql/0")
+	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+}
+
+func (s *stateSuite) TestGetUserSecretURIByLabel(c *gc.C) {
+	s.setupModel(c)
+
+	st := newSecretState(s.TxnRunnerFactory())
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   true,
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetUserSecretURIByLabel(ctx, "my label")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got.ID, gc.Equals, uri.ID)
+}
+
+func (s *stateSuite) TestGetUserSecretURIByLabelSecretNotExists(c *gc.C) {
+	s.setupModel(c)
+
+	st := newSecretState(s.TxnRunnerFactory())
+
+	_, err := st.GetUserSecretURIByLabel(context.Background(), "my label")
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }

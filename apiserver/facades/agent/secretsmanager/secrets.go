@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
@@ -409,36 +410,36 @@ func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(ctx context.Context, 
 		return params.SecretConsumerInfoResults{}, errors.Errorf("expected unit tag for consumer %q, got %T", consumerTag, consumerTag)
 	}
 	for i, uri := range args.URIs {
-		data, err := s.getSecretConsumerInfo(ctx, unitConsumer, uri)
+		data, latestRevision, err := s.getSecretConsumerInfo(ctx, unitConsumer, uri)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result.Results[i] = params.SecretConsumerInfoResult{
-			Revision: data.LatestRevision,
+			Revision: latestRevision,
 			Label:    data.Label,
 		}
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, unitTag names.UnitTag, uriStr string) (*coresecrets.SecretConsumerMetadata, error) {
+func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, unitTag names.UnitTag, uriStr string) (*coresecrets.SecretConsumerMetadata, int, error) {
 	uri, err := coresecrets.ParseURI(uriStr)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, 0, errors.Trace(err)
 	}
 	// We only check read permissions for local secrets.
 	// For CMR secrets, the remote model manages the permissions.
 	if uri.IsLocal(s.modelUUID) {
 		canRead, err := s.canRead(ctx, uri, unitTag)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, 0, errors.Trace(err)
 		}
 		if !canRead {
-			return nil, apiservererrors.ErrPerm
+			return nil, 0, apiservererrors.ErrPerm
 		}
 	}
-	return s.secretsConsumer.GetSecretConsumer(ctx, uri, unitTag.Id())
+	return s.secretsConsumer.GetSecretConsumerAndLatest(ctx, uri, unitTag.Id())
 }
 
 func secretOwnersFromAuthTag(authTag names.Tag, leadershipChecker leadership.Checker) ([]secretservice.CharmSecretOwner, error) {
@@ -583,7 +584,7 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 
 	unitName := s.authTag.Id()
 	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(ctx, uri, unitName)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
 		return nil, nil, false, errors.Trace(err)
 	}
 	var wantRevision int
@@ -623,7 +624,6 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 	}
 	if refresh || labelToUpdate != nil {
 		if refresh {
-			consumerInfo.LatestRevision = latestRevision
 			consumerInfo.CurrentRevision = latestRevision
 		}
 		if labelToUpdate != nil {
