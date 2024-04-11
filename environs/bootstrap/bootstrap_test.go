@@ -16,7 +16,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
-	osseries "github.com/juju/os/v2/series"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -369,7 +368,6 @@ func intPtr(i uint64) *uint64 {
 }
 
 func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
-	s.PatchValue(&osseries.HostSeries, func() (string, error) { return "jammy", nil })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	metadataDir, metadata := createImageMetadata(c)
@@ -452,7 +450,6 @@ type testImageMetadata struct {
 // setupImageMetadata returns architecture for which metadata was setup
 func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
 	testArch := arch.S390X
-	s.PatchValue(&osseries.HostSeries, func() (string, error) { return "jammy", nil })
 	s.PatchValue(&arch.HostArch, func() string { return testArch })
 
 	metadataDir, metadata := createImageMetadataForArch(c, testArch)
@@ -562,7 +559,6 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 	defer server.Close()
 
 	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, server.URL)
-	s.PatchValue(&osseries.HostSeries, func() (string, error) { return "raring", nil })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	// Ensure that we can find at least one image metadata
@@ -687,6 +683,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		c.Fatal("should not call FindTools if BuildAgent is specified")
@@ -776,6 +773,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
@@ -797,6 +795,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
@@ -1300,6 +1299,7 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C
 }
 
 func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&arch.HostArch, func() string {
 		return arch.S390X
 	})
