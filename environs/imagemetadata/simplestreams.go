@@ -157,12 +157,8 @@ const (
 	ReleasedStream = "released"
 )
 
-// ImageRelease maps a legacy series to an image version.
-func ImageRelease(imSeries string) (string, error) {
-	base, err := corebase.GetBaseFromSeries(imSeries)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
+// ImageRelease maps a base to an image version.
+func ImageRelease(base corebase.Base) (string, error) {
 	if base.OS != "centos" {
 		return base.Channel.Track, nil
 	}

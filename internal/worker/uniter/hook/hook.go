@@ -94,7 +94,7 @@ func (hi Info) Validate() error {
 			return errors.Errorf("%q hook has a remote unit but no application", hi.Kind)
 		}
 		return nil
-	case hooks.PebbleCustomNotice:
+	case hooks.PebbleCustomNotice, hooks.PebbleChangeUpdated:
 		if hi.WorkloadName == "" {
 			return errors.Errorf("%q hook requires a workload name", hi.Kind)
 		}

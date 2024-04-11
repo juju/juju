@@ -39,7 +39,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/interact"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -2289,12 +2288,7 @@ func (e *Environ) AgentMetadataLookupParams(region string) (*simplestreams.Metad
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *Environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	base := config.PreferredBase(e.ecfg())
-	baseSeries, err := corebase.GetSeriesFromBase(base)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	release, err := imagemetadata.ImageRelease(baseSeries)
+	release, err := imagemetadata.ImageRelease(base)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
