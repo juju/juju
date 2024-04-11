@@ -64,5 +64,8 @@ func ReadOSRelease(f string) (map[string]string, error) {
 	if _, ok := values["ID"]; !ok {
 		return nil, errors.New("OS release file is missing ID")
 	}
+	if _, ok := values["VERSION_ID"]; !ok {
+		return nil, errors.New("OS release file is missing VERSION_ID")
+	}
 	return values, nil
 }
