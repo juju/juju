@@ -60,6 +60,10 @@ func (st *PermissionState) CreatePermission(ctx context.Context, newPermissionUU
 			return errors.Trace(err)
 		}
 
+		if user.Disabled {
+			return fmt.Errorf("%w: %q", accesserrors.UserAuthenticationDisabled, user.Name)
+		}
+
 		if err := AddUserPermission(ctx, tx, AddUserPermissionArgs{
 			PermissionUUID: newPermissionUUID.String(),
 			UserUUID:       user.UUID,
@@ -113,7 +117,7 @@ INSERT INTO permission (uuid, permission_type_id, grant_to, grant_on)
 SELECT $dbAddUserPermission.uuid, t.id AS permission_type_id, u.uuid, $dbAddUserPermission.grant_on
 FROM   v_user_auth u, permission_access_type t
 WHERE  u.uuid = $dbAddUserPermission.grant_to
---AND    u.disabled = false
+AND    u.disabled = false
 AND    u.removed = false
 AND    t.type = $dbAddUserPermission.access
 `

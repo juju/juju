@@ -21,6 +21,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/database"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type userStateSuite struct {
@@ -142,6 +143,38 @@ WHERE uuid = ?
 	c.Check(displayName, gc.Equals, "admin")
 	c.Check(creatorUUID, gc.Equals, adminUUID)
 	c.Check(createdAt, gc.NotNil)
+}
+
+// TestAddUser asserts a new user is added, enabled, and has
+// the provided permission.
+func (s *userStateSuite) TestAddUser(c *gc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	loginAccess := controllerLoginAccess()
+	err = st.AddUser(
+		context.Background(), adminUUID,
+		"admin", "admin",
+		adminUUID, loginAccess,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newUser, err := st.GetUser(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newUser.Name, gc.Equals, "admin")
+	c.Check(newUser.UUID, gc.Equals, adminUUID)
+	c.Check(newUser.Disabled, jc.IsFalse)
+	c.Check(newUser.CreatorUUID, gc.Equals, adminUUID)
+
+	pSt := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	newUserAccess, err := pSt.ReadUserAccessForTarget(context.Background(), "admin", loginAccess.Target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newUserAccess.Access, gc.Equals, loginAccess.Access)
+	c.Check(newUserAccess.UserName, gc.Equals, newUser.Name)
+	c.Check(newUserAccess.Object.Id(), gc.Equals, loginAccess.Target.Key)
 }
 
 // TestAddUserAlreadyExists asserts that we get an error when we try to add a
