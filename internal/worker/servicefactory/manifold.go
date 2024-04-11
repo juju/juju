@@ -23,6 +23,7 @@ import (
 type Logger interface {
 	Tracef(string, ...interface{})
 	Debugf(message string, args ...any)
+	Infof(message string, args ...any)
 	Warningf(message string, args ...any)
 	Child(string) Logger
 }

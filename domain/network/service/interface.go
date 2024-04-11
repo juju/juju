@@ -7,7 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 )
+
+// Provider is the interface that the network service requires to be able to
+// interact with the underlying provider.
+type Provider interface {
+	environs.Networking
+}
 
 // State describes retrieval and persistence methods needed for the network
 // domain service.
@@ -55,5 +62,7 @@ type SubnetState interface {
 
 // Logger facilitates emitting log messages.
 type Logger interface {
+	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
 }
