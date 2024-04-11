@@ -24,10 +24,10 @@ type SecretService interface {
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
-		revisions domainsecret.Revisions,
-		labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
-		unitOwners domainsecret.UnitOwners, wantUser bool,
+		revision *int,
+		labels domainsecret.Labels,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
+	ListCharmSecrets(ctx context.Context, owners ...secretservice.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 
 	// Delete secrets.
 

@@ -145,10 +145,31 @@ func (mr *MockSecretServiceMockRecorder) GrantSecretAccess(arg0, arg1, arg2 any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecretAccess", reflect.TypeOf((*MockSecretService)(nil).GrantSecretAccess), arg0, arg1, arg2)
 }
 
-// ListSecrets mocks base method.
-func (m *MockSecretService) ListSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 secret.Revisions, arg3 secret.Labels, arg4 secret.ApplicationOwners, arg5 secret.UnitOwners, arg6 bool) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+// ListCharmSecrets mocks base method.
+func (m *MockSecretService) ListCharmSecrets(arg0 context.Context, arg1 ...service.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSecrets", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListCharmSecrets", varargs...)
+	ret0, _ := ret[0].([]*secrets.SecretMetadata)
+	ret1, _ := ret[1].([][]*secrets.SecretRevisionMetadata)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListCharmSecrets indicates an expected call of ListCharmSecrets.
+func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0 any, arg1 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecrets", reflect.TypeOf((*MockSecretService)(nil).ListCharmSecrets), varargs...)
+}
+
+// ListSecrets mocks base method.
+func (m *MockSecretService) ListSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 *int, arg3 secret.Labels) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecrets", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]*secrets.SecretMetadata)
 	ret1, _ := ret[1].([][]*secrets.SecretRevisionMetadata)
 	ret2, _ := ret[2].(error)
@@ -156,9 +177,9 @@ func (m *MockSecretService) ListSecrets(arg0 context.Context, arg1 *secrets.URI,
 }
 
 // ListSecrets indicates an expected call of ListSecrets.
-func (mr *MockSecretServiceMockRecorder) ListSecrets(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
+func (mr *MockSecretServiceMockRecorder) ListSecrets(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretService)(nil).ListSecrets), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretService)(nil).ListSecrets), arg0, arg1, arg2, arg3)
 }
 
 // RevokeSecretAccess mocks base method.

@@ -83,13 +83,10 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 		}
 	}
 	var (
-		err        error
-		uri        *coresecrets.URI
-		labels     domainsecret.Labels
-		appOwners  domainsecret.ApplicationOwners
-		unitOwners domainsecret.UnitOwners
-		wantUser   bool
-		revisions  domainsecret.Revisions
+		err    error
+		uri    *coresecrets.URI
+		labels domainsecret.Labels
+		owner  *secretservice.CharmSecretOwner
 	)
 	if arg.Filter.URI != nil {
 		uri, err = coresecrets.ParseURI(*arg.Filter.URI)
@@ -100,9 +97,6 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 	if arg.Filter.Label != nil {
 		labels = append(labels, *arg.Filter.Label)
 	}
-	if arg.Filter.Revision != nil {
-		revisions = append(revisions, *arg.Filter.Revision)
-	}
 	if arg.Filter.OwnerTag != nil {
 		tag, err := names.ParseTag(*arg.Filter.OwnerTag)
 		if err != nil {
@@ -110,15 +104,28 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 		}
 		switch kind := tag.Kind(); kind {
 		case names.ApplicationTagKind:
-			appOwners = append(appOwners, tag.Id())
+			owner = &secretservice.CharmSecretOwner{
+				Kind: secretservice.ApplicationOwner,
+				ID:   tag.Id(),
+			}
 		case names.UnitTagKind:
-			unitOwners = append(unitOwners, tag.Id())
+			owner = &secretservice.CharmSecretOwner{
+				Kind: secretservice.UnitOwner,
+				ID:   tag.Id(),
+			}
 		default:
 			return result, errors.NotValidf("secret owner tag kind %q", kind)
 		}
 	}
-	wantUser = len(appOwners) == 0 && len(unitOwners) == 0
-	metadata, revisionMetadata, err := s.secretService.ListSecrets(ctx, uri, revisions, labels, appOwners, unitOwners, wantUser)
+	var (
+		metadata         []*coresecrets.SecretMetadata
+		revisionMetadata [][]*coresecrets.SecretRevisionMetadata
+	)
+	if owner == nil {
+		metadata, revisionMetadata, err = s.secretService.ListSecrets(ctx, uri, arg.Filter.Revision, labels)
+	} else {
+		metadata, revisionMetadata, err = s.secretService.ListCharmSecrets(ctx, *owner)
+	}
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
