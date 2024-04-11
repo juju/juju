@@ -145,7 +145,7 @@ func (st State) CreateCharmApplicationSecret(ctx context.Context, version int, u
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.ApplicationNotFound
 			} else {
-				return errors.Annotatef(err, "looking up napplication UUID for %q", appName)
+				return errors.Annotatef(err, "looking up application UUID for %q", appName)
 			}
 		}
 		dbSecretOwner.ApplicationUUID = result["uuid"].(string)
@@ -169,11 +169,24 @@ func (st State) checkApplicationSecretLabelExists(appName, app_uuid string) chec
 			return nil
 		}
 
+		// TODO(secrets) - we check using 2 queries, but should do in DDL
 		checkLabelExistsSQL := `
-SELECT &secretApplicationOwner.secret_id
+SELECT secret_id AS &secretApplicationOwner.secret_id
+FROM   (
+SELECT secret_id
 FROM   secret_application_owner
 WHERE  label = $secretApplicationOwner.label
-AND    application_uuid = $secretApplicationOwner.application_uuid`
+AND    application_uuid = $secretApplicationOwner.application_uuid
+UNION
+SELECT secret_id
+FROM   secret_unit_owner
+WHERE  label = $secretApplicationOwner.label
+AND    unit_uuid IN (
+           SELECT uuid FROM unit
+           WHERE  application_uuid = $secretApplicationOwner.application_uuid
+       )
+)
+`
 
 		checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, secretApplicationOwner{})
 		if err != nil {
@@ -185,7 +198,7 @@ AND    application_uuid = $secretApplicationOwner.application_uuid`
 			return errors.Trace(domain.CoerceError(err))
 		}
 		if err == nil {
-			return fmt.Errorf("secret with label %q already exists for application %q%w", label, appName, errors.Hide(secreterrors.SecretLabelAlreadyExists))
+			return fmt.Errorf("secret with label %q already exists for application %q or one of its units%w", label, appName, errors.Hide(secreterrors.SecretLabelAlreadyExists))
 		}
 		return nil
 	}
@@ -246,11 +259,27 @@ func (st State) checkUnitSecretLabelExists(unitName, unit_uuid string) checkExis
 			return nil
 		}
 
+		// TODO(secrets) - we check using 2 queries, but should do in DDL
 		checkLabelExistsSQL := `
-SELECT &secretUnitOwner.secret_id
-FROM   secret_unit_owner
+SELECT secret_id AS &secretUnitOwner.secret_id
+FROM (
+SELECT secret_id
+FROM   secret_application_owner
 WHERE  label = $secretUnitOwner.label
-AND    unit_uuid = $secretUnitOwner.unit_uuid`
+AND    application_uuid = (
+           SELECT application_uuid FROM unit
+           WHERE  uuid = $secretUnitOwner.unit_uuid
+       )
+UNION
+SELECT secret_id
+FROM   secret_unit_owner suo
+WHERE  label = $secretUnitOwner.label
+AND    suo.unit_uuid IN (SELECT uuid FROM unit WHERE application_uuid = (
+           SELECT application_uuid FROM unit
+           WHERE  uuid = $secretUnitOwner.unit_uuid
+       ))
+)
+`
 
 		checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, secretUnitOwner{})
 		if err != nil {
@@ -262,7 +291,7 @@ AND    unit_uuid = $secretUnitOwner.unit_uuid`
 			return errors.Trace(domain.CoerceError(err))
 		}
 		if err == nil {
-			return fmt.Errorf("secret with label %q already exists for unit %q%w", label, unitName, errors.Hide(secreterrors.SecretLabelAlreadyExists))
+			return fmt.Errorf("secret with label %q already exists for unit %q or its application%w", label, unitName, errors.Hide(secreterrors.SecretLabelAlreadyExists))
 		}
 		return nil
 	}
@@ -573,16 +602,16 @@ WITH rev AS
     FROM     secret_revision
     GROUP BY secret_id)
 SELECT 
-     id AS &secretInfo.id,
-     version as &secretInfo.version,
-     description as &secretInfo.description,
-     auto_prune as &secretInfo.auto_prune,
-     create_time as &secretInfo.create_time,
-     update_time as &secretInfo.update_time,
-     rev.latest_revision AS &secretInfo.latest_revision,
-     so.owner_kind AS &secretOwner.owner_kind,
-     so.owner_id AS &secretOwner.owner_id,
-     so.label AS &secretOwner.label
+     (id,
+     version,
+     description,
+     auto_prune,
+     create_time,
+     update_time,
+     rev.latest_revision) AS (&secretInfo.*),
+     (so.owner_kind,
+     so.owner_id,
+     so.label) AS (&secretOwner.*)
 FROM secret
        JOIN rev ON rev.secret_id = secret.id
        LEFT JOIN (
@@ -704,16 +733,16 @@ unit_owners AS
 
 	query := `
 SELECT 
-     id AS &secretInfo.id,
-     version as &secretInfo.version,
-     description as &secretInfo.description,
-     auto_prune as &secretInfo.auto_prune,
-     create_time as &secretInfo.create_time,
-     update_time as &secretInfo.update_time,
-     rev.latest_revision AS &secretInfo.latest_revision,
-     so.owner_kind AS &secretOwner.owner_kind,
-     so.owner_id AS &secretOwner.owner_id,
-     so.label AS &secretOwner.label
+     (id,
+     version,
+     description,
+     auto_prune,
+     create_time,
+     update_time,
+     rev.latest_revision) AS (&secretInfo.*),
+     (so.owner_kind,
+     so.owner_id,
+     so.label) AS (&secretOwner.*)
 FROM secret
    JOIN rev ON rev.secret_id = secret.id`[1:]
 
@@ -802,16 +831,16 @@ WITH rev AS
     FROM     secret_revision
     GROUP BY secret_id)
 SELECT 
-     id AS &secretInfo.id,
-     version as &secretInfo.version,
-     description as &secretInfo.description,
-     auto_prune as &secretInfo.auto_prune,
-     create_time as &secretInfo.create_time,
-     update_time as &secretInfo.update_time,
-     rev.latest_revision AS &secretInfo.latest_revision,
-     so.owner_kind AS &secretOwner.owner_kind,
-     so.owner_id AS &secretOwner.owner_id,
-     so.label AS &secretOwner.label
+     (id,
+     version,
+     description,
+     auto_prune,
+     create_time,
+     update_time,
+     rev.latest_revision) AS (&secretInfo.*),
+     (so.owner_kind,
+     so.owner_id,
+     so.label) AS (&secretOwner.*)
 FROM secret
        JOIN rev ON rev.secret_id = secret.id
        JOIN (

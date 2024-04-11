@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -311,7 +312,7 @@ func (s *stateSuite) TestListSecretsByURI(c *gc.C) {
 	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
 
-func (s *stateSuite) setupUnit(c *gc.C, appName string) {
+func (s *stateSuite) setupUnits(c *gc.C, appName string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		applicationUUID := uuid.MustNewUUID().String()
 		_, err := tx.ExecContext(context.Background(), `
@@ -321,16 +322,19 @@ VALUES (?, ?, ?)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		machineUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(context.Background(), `
+		// Do 2 units.
+		for i := 0; i < 2; i++ {
+			netNodeUUID := uuid.MustNewUUID().String()
+			_, err = tx.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+			c.Assert(err, jc.ErrorIsNil)
+			unitUUID := uuid.MustNewUUID().String()
+			_, err = tx.ExecContext(context.Background(), `
 INSERT INTO unit (uuid, life_id, unit_id, net_node_uuid, application_uuid)
 VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
-`, machineUUID, life.Alive, appName+"/0", netNodeUUID, appName)
-		c.Assert(err, jc.ErrorIsNil)
-		return err
+`, unitUUID, life.Alive, appName+fmt.Sprintf("/%d", i), netNodeUUID, appName)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -338,7 +342,7 @@ VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
 func (s *stateSuite) TestListUserSecretsNone(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",
@@ -363,7 +367,7 @@ func (s *stateSuite) TestListUserSecrets(c *gc.C) {
 
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := []domainsecret.UpsertSecretParams{{
 		Description: "my secretMetadata",
@@ -413,7 +417,7 @@ func (s *stateSuite) TestListUserSecrets(c *gc.C) {
 func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",
@@ -449,7 +453,7 @@ func (s *stateSuite) TestCreateCharmApplicationSecretNotFound(c *gc.C) {
 func (s *stateSuite) TestCreateCharmUserSecretWithContent(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",
@@ -485,7 +489,7 @@ func (s *stateSuite) TestCreateCharmUnitSecretNotFound(c *gc.C) {
 func (s *stateSuite) TestCreateCharmApplicationSecretLabelAlreadyExists(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",
@@ -493,17 +497,18 @@ func (s *stateSuite) TestCreateCharmApplicationSecretLabelAlreadyExists(c *gc.C)
 		Data:        coresecrets.SecretData{"foo": "bar"},
 	}
 	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
 	ctx := context.Background()
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
 func (s *stateSuite) TestCreateCharmUnitSecretLabelAlreadyExists(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",
@@ -511,17 +516,40 @@ func (s *stateSuite) TestCreateCharmUnitSecretLabelAlreadyExists(c *gc.C) {
 		Data:        coresecrets.SecretData{"foo": "bar"},
 	}
 	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	uri3 := coresecrets.NewURI()
 	ctx := context.Background()
 	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri3, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+func (s *stateSuite) TestCreateCharmUnitSecretLabelAlreadyExistsForApplication(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
 func (s *stateSuite) TestCreateManyApplicationSecretsNoLabelClash(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	createAndCheck := func(label string) {
 		content := label
@@ -553,7 +581,7 @@ func (s *stateSuite) TestCreateManyApplicationSecretsNoLabelClash(c *gc.C) {
 func (s *stateSuite) TestCreateManyUnitSecretsNoLabelClash(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	createAndCheck := func(label string) {
 		content := label
@@ -592,7 +620,7 @@ func (s *stateSuite) TestListCharmSecretsMissingOwners(c *gc.C) {
 func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := []domainsecret.UpsertSecretParams{{
 		Description: "my secretMetadata",
@@ -643,7 +671,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := []domainsecret.UpsertSecretParams{{
 		Description: "my secretMetadata",
@@ -694,8 +722,8 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
 func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
-	s.setupUnit(c, "postgresql")
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "postgresql")
 
 	sp := []domainsecret.UpsertSecretParams{{
 		Description: "my secretMetadata",
@@ -783,7 +811,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 func (s *stateSuite) TestSaveSecretConsumer(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",
@@ -815,7 +843,7 @@ func (s *stateSuite) TestSaveSecretConsumerSecretNotExists(c *gc.C) {
 
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	uri := coresecrets.NewURI().WithSource(modelUUID)
 	ctx := context.Background()
@@ -857,7 +885,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
 
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	uri := coresecrets.NewURI().WithSource("some-other-model")
 	ctx := context.Background()
@@ -877,7 +905,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
 func (s *stateSuite) TestGetSecretConsumerFirstTime(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",
