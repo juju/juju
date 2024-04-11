@@ -213,6 +213,7 @@ CREATE TABLE
         PRIMARY KEY (secret_id, application_uuid)
     );
 
+CREATE INDEX idx_secret_application_owner_secret_id ON secret_application_owner (secret_id);
 -- We need to ensure the label is unique per the application.
 CREATE UNIQUE INDEX idx_secret_application_owner_label ON secret_application_owner (label,application_uuid) WHERE label != '';
 
@@ -230,6 +231,7 @@ CREATE TABLE
         PRIMARY KEY (secret_id, unit_uuid)
     );
 
+CREATE INDEX idx_secret_unit_owner_secret_id ON secret_unit_owner (secret_id);
 -- We need to ensure the label is unique per unit.
 CREATE UNIQUE INDEX idx_secret_unit_owner_label ON secret_unit_owner (label,unit_uuid) WHERE label != '';
 
