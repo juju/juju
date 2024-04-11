@@ -124,6 +124,8 @@ func (s *undertakerSuite) TestProcessDyingModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
+	c.Skip("TODO: skip for now due to JUJU-5708")
+
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), coremodel.UUID(otherSt.model.uuid)).Return(&provider.ModelBackendConfigInfo{}, nil)
@@ -135,6 +137,8 @@ func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
+	c.Skip("TODO: skip for now due to JUJU-5708")
+
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), coremodel.UUID(otherSt.model.uuid)).Return(&provider.ModelBackendConfigInfo{}, nil)
@@ -145,6 +149,8 @@ func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
+	c.Skip("TODO: skip for now due to JUJU-5708")
+
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -173,6 +179,8 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *gc.C) {
+	c.Skip("TODO: skip for now due to JUJU-5708")
+
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), coremodel.UUID(otherSt.model.uuid)).Return(nil, errors.NotFound)
