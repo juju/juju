@@ -69,4 +69,8 @@ const (
 	// identifier is found in multiple places as an identifier. E.G. Model UUID is
 	// found as an Offer UUID.
 	UniqueIdentifierIsNotUnique = errors.ConstError("unique identifier is not unique")
+
+	// AccessNotFound describes an error that occurs no access is found for a
+	// user on a target.
+	AccessNotFound = errors.ConstError("access not found")
 )
