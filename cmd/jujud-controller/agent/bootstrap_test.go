@@ -22,7 +22,6 @@ import (
 	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
-	osseries "github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	osbase "github.com/juju/juju/core/os/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -207,8 +207,8 @@ func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
 
-	s.PatchValue(&osseries.HostSeries, func() (string, error) {
-		return "jammy", nil
+	s.PatchValue(&osbase.HostBase, func() (corebase.Base, error) {
+		return corebase.ParseBaseFromString("ubuntu@22.04")
 	})
 
 	s.bootstrapParams.BootstrapMachineConstraints = constraints.Value{
@@ -247,8 +247,8 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
 
-	s.PatchValue(&osseries.HostSeries, func() (string, error) {
-		return "jammy", nil
+	s.PatchValue(&osbase.HostBase, func() (corebase.Base, error) {
+		return corebase.ParseBaseFromString("ubuntu@22.04")
 	})
 
 	// Remove the local controller charm so we use the store one.

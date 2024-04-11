@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/juju/names/v5"
-	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/keyvalues"
@@ -15,7 +14,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	jujuos "github.com/juju/juju/core/os"
+	osbase "github.com/juju/juju/core/os/base"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -266,14 +267,14 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
 	// TERM is different for centos7.
-	for _, testSeries := range []string{"centos7", "centos8"} {
-		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
+	for _, testBase := range []base.Base{base.MustParseBaseFromString("centos@7"), base.MustParseBaseFromString("centos@8")} {
+		s.PatchValue(&osbase.HostBase, func() (base.Base, error) { return testBase, nil })
 		centosVars := []string{
 			"LANG=C.UTF-8",
 			"PATH=path-to-tools:foo:bar",
 		}
 
-		if testSeries == "centos7" {
+		if testBase.Channel.Track == "7" {
 			centosVars = append(centosVars, "TERM=screen-256color")
 		} else {
 			centosVars = append(centosVars, "TERM=tmux-256color")
