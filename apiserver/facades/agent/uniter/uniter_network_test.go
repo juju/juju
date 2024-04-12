@@ -60,7 +60,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.st = s.ControllerModel(c).State()
 	networkService := serviceFactory.Network()
 
-	publicSpaceID, err := networkService.AddSpace(context.Background(), "public", "", nil)
+	spacePublic := network.SpaceInfo{
+		Name: "public",
+	}
+	publicSpaceID, err := networkService.AddSpace(context.Background(), spacePublic)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"8.8.0.0/16", "240.0.0.0/12"} {
 		_, err = s.st.AddSubnet(network.SubnetInfo{
@@ -69,7 +72,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	internalSpaceID, err := networkService.AddSpace(context.Background(), "internal", "", nil)
+	spaceInternal := network.SpaceInfo{
+		Name: "internal",
+	}
+	internalSpaceID, err := networkService.AddSpace(context.Background(), spaceInternal)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"10.0.0.0/24"} {
 		_, err = s.st.AddSubnet(network.SubnetInfo{
@@ -78,7 +84,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	wpDefaultSpaceID, err := networkService.AddSpace(context.Background(), "wp-default", "", nil)
+	spaceWpDefault := network.SpaceInfo{
+		Name: "wp-default",
+	}
+	wpDefaultSpaceID, err := networkService.AddSpace(context.Background(), spaceWpDefault)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"100.64.0.0/16"} {
 		_, err = s.st.AddSubnet(network.SubnetInfo{
@@ -87,7 +96,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	databaseSpaceID, err := networkService.AddSpace(context.Background(), "database", "", nil)
+	spaceDatabase := network.SpaceInfo{
+		Name: "database",
+	}
+	databaseSpaceID, err := networkService.AddSpace(context.Background(), spaceDatabase)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"192.168.1.0/24"} {
 		_, err = s.st.AddSubnet(network.SubnetInfo{
@@ -96,7 +108,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	layerTwoSpaceID, err := networkService.AddSpace(context.Background(), "layertwo", "", nil)
+	spaceLayerTwo := network.SpaceInfo{
+		Name: "layertwo",
+	}
+	layerTwoSpaceID, err := networkService.AddSpace(context.Background(), spaceLayerTwo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.st = s.ControllerModel(c).State()

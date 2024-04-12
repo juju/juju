@@ -33,7 +33,7 @@ type ControllerConfigService interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
-	AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error)
+	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
@@ -63,6 +63,7 @@ type API struct {
 
 type apiConfig struct {
 	ReloadSpacesAPI             ReloadSpaces
+	NetworkService              NetworkService
 	ControllerConfigService     ControllerConfigService
 	Backing                     Backing
 	Check                       BlockChecker
@@ -71,7 +72,6 @@ type apiConfig struct {
 	Authorizer                  facade.Authorizer
 	Factory                     OpFactory
 	logger                      loggo.Logger
-	NetworkService              NetworkService
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
@@ -84,6 +84,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 
 	return &API{
 		reloadSpacesAPI:             cfg.ReloadSpacesAPI,
+		networkService:              cfg.NetworkService,
 		controllerConfigService:     cfg.ControllerConfigService,
 		backing:                     cfg.Backing,
 		resources:                   cfg.Resources,
@@ -92,7 +93,6 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		check:                       cfg.Check,
 		opFactory:                   cfg.Factory,
 		logger:                      cfg.logger,
-		networkService:              cfg.NetworkService,
 	}, nil
 }
 
@@ -142,13 +142,14 @@ func (api *API) createOneSpace(ctx context.Context, args params.CreateSpaceParam
 	if err != nil {
 		return err
 	}
-	subnetIDs := make([]string, len(args.CIDRs))
-	for i, subnet := range subnets {
-		subnetIDs[i] = subnet.ID.String()
-	}
 
 	// Add the validated space.
-	_, err = api.networkService.AddSpace(ctx, spaceTag.Id(), network.Id(args.ProviderId), subnetIDs)
+	spaceInfo := network.SpaceInfo{
+		Name:       network.SpaceName(spaceTag.Id()),
+		ProviderId: network.Id(args.ProviderId),
+		Subnets:    subnets,
+	}
+	_, err = api.networkService.AddSpace(ctx, spaceInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}

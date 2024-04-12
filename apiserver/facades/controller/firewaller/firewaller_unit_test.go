@@ -32,9 +32,9 @@ type RemoteFirewallerSuite struct {
 
 	resources               *common.Resources
 	authorizer              *apiservertesting.FakeAuthorizer
-	st                      *mocks.MockState
-	controllerConfigAPI     *mocks.MockControllerConfigAPI
-	controllerConfigService *mocks.MockControllerConfigService
+	st                      *MockState
+	controllerConfigAPI     *MockControllerConfigAPI
+	controllerConfigService *MockControllerConfigService
 	api                     *firewaller.FirewallerAPI
 }
 
@@ -53,18 +53,18 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.st = mocks.NewMockState(ctrl)
-	s.controllerConfigAPI = mocks.NewMockControllerConfigAPI(ctrl)
-	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.st = NewMockState(ctrl)
+	s.controllerConfigAPI = NewMockControllerConfigAPI(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	api, err := firewaller.NewStateFirewallerAPI(
 		s.st,
+		nil,
 		s.resources,
 		s.authorizer,
 		&mockCloudSpecAPI{},
 		s.controllerConfigAPI,
 		s.controllerConfigService,
-		nil,
 		loggo.GetLogger("juju.apiserver.firewaller"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -146,17 +146,11 @@ type FirewallerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 
-<<<<<<< HEAD
-	st                      *mocks.MockState
-	controllerConfigAPI     *mocks.MockControllerConfigAPI
-	controllerConfigService *mocks.MockControllerConfigService
+	st                      *MockState
+	cc                      *MockControllerConfigAPI
+	controllerConfigService *MockControllerConfigService
 	api                     *firewaller.FirewallerAPI
-=======
-	st             *MockState
-	cc             *MockControllerConfigAPI
-	api            *firewaller.FirewallerAPI
-	networkService *MockNetworkService
->>>>>>> a7e3f591ba (Wire machine and provisioner agent facades)
+	networkService          *MockNetworkService
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -174,25 +168,12 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-<<<<<<< HEAD
-	s.st = mocks.NewMockState(ctrl)
-	s.controllerConfigAPI = mocks.NewMockControllerConfigAPI(ctrl)
-	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
-	api, err := firewaller.NewStateFirewallerAPI(
-		s.st,
-		s.resources,
-		s.authorizer,
-		&mockCloudSpecAPI{},
-		s.controllerConfigAPI,
-		s.controllerConfigService,
-		loggo.GetLogger("juju.apiserver.firewaller"))
-=======
 	s.st = NewMockState(ctrl)
 	s.cc = NewMockControllerConfigAPI(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 
-	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, s.networkService, loggo.GetLogger("juju.apiserver.firewaller"))
->>>>>>> a7e3f591ba (Wire machine and provisioner agent facades)
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.networkService, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, s.controllerConfigService, loggo.GetLogger("juju.apiserver.firewaller"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl

@@ -77,7 +77,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.clock = testclock.NewClock(time.Now())
 	controllerConfigService := controllerConfigService{}
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.networkService, nil, s.resources, s.authoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -123,7 +123,7 @@ func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C
 
 	controllerConfigService := controllerConfigService{}
 
-	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+	api, err := instancepoller.NewInstancePollerAPI(nil, nil, nil, s.resources, anAuthoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -451,6 +451,7 @@ func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
+	s.expectDefaultSpaces()
 	addrs := network.NewSpaceAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: addrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
@@ -472,13 +473,13 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 
 	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckCall(c, 1, "ProviderAddresses")
-	s.st.CheckCall(c, 2, "AllSpaceInfos")
-	s.st.CheckMachineCall(c, 3, "2")
-	s.st.CheckCall(c, 4, "ProviderAddresses")
-	s.st.CheckMachineCall(c, 5, "42")
+	s.st.CheckMachineCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "ProviderAddresses")
+	s.st.CheckMachineCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
+	s.expectDefaultSpaces()
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1")
 		nil,                                  // m2 := FindEntity("2")
@@ -514,6 +515,7 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: oldAddrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
+	s.expectDefaultSpaces()
 
 	result, err := s.api.SetProviderAddresses(context.Background(), params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
@@ -533,9 +535,8 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckSetProviderAddressesCall(c, 1, []network.SpaceAddress{})
 	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "AllSpaceInfos")
-	s.st.CheckSetProviderAddressesCall(c, 4, newAddrs)
-	s.st.CheckMachineCall(c, 5, "42")
+	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
+	s.st.CheckMachineCall(c, 4, "42")
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
@@ -548,6 +549,7 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
+	s.expectDefaultSpaces()
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1")
 		nil,                                  // m2 := FindEntity("2")
@@ -571,9 +573,8 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 
 	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckMachineCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "AllSpaceInfos")
-	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
-	s.st.CheckMachineCall(c, 4, "3")
+	s.st.CheckSetProviderAddressesCall(c, 2, newAddrs)
+	s.st.CheckMachineCall(c, 3, "3")
 
 	// Ensure machine 2 wasn't updated.
 	machine, err := s.st.Machine("2")
@@ -953,6 +954,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Dying})
+	s.expectDefaultSpaces()
 
 	results, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{{
@@ -968,7 +970,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *gc.C) {
 	})
 
 	// We should just return after seeing that the machine is dying.
-	s.st.Stub.CheckCallNames(c, "AllSpaceInfos", "Machine", "Life", "Id")
+	s.st.Stub.CheckCallNames(c, "Machine", "Life", "Id")
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc.C) {

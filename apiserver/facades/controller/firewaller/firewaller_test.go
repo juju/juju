@@ -66,12 +66,12 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
 		firewaller.StateShim(st, s.ControllerModel(c)),
+		nil,
 		s.resources,
 		s.authorizer,
 		cloudSpecAPI,
 		controllerConfigAPI,
 		controllerConfigService,
-		nil,
 		loggo.GetLogger("juju.apiserver.firewaller"),
 	)
 	c.Assert(err, jc.ErrorIsNil)

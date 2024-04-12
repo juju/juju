@@ -11,7 +11,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -33,19 +32,12 @@ type machineService interface {
 	CreateMachine(context.Context, string) error
 }
 
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-}
-
 // API implements the functionality for assigning units to machines.
 type API struct {
 	st             assignerState
 	res            facade.Resources
 	statusSetter   statusSetter
 	machineService machineService
-	networkService NetworkService
 }
 
 // AssignUnits assigns the units with the given ids to the correct machine. The

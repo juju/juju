@@ -138,8 +138,33 @@ func (s *APISuite) TestCreateSpacesSuccess(c *gc.C) {
 				ID: "subnet-4",
 			},
 		}, nil)
-	s.NetworkService.EXPECT().AddSpace(gomock.Any(), "0", network.Id("prov-space-0"), []string{"subnet-1", "subnet-2"})
-	s.NetworkService.EXPECT().AddSpace(gomock.Any(), "1", network.Id("prov-space-1"), []string{"subnet-3", "subnet-4"})
+
+	space0 := network.SpaceInfo{
+		Name:       "0",
+		ProviderId: network.Id("prov-space-0"),
+		Subnets: []network.SubnetInfo{
+			{
+				ID: "subnet-1",
+			},
+			{
+				ID: "subnet-2",
+			},
+		},
+	}
+	space1 := network.SpaceInfo{
+		Name:       "1",
+		ProviderId: network.Id("prov-space-1"),
+		Subnets: []network.SubnetInfo{
+			{
+				ID: "subnet-3",
+			},
+			{
+				ID: "subnet-4",
+			},
+		},
+	}
+	s.NetworkService.EXPECT().AddSpace(gomock.Any(), space0)
+	s.NetworkService.EXPECT().AddSpace(gomock.Any(), space1)
 
 	expected := params.ErrorResults{Results: []params.ErrorResult{{}, {}}}
 	res, err := s.API.CreateSpaces(stdcontext.Background(), args)

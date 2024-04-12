@@ -47,12 +47,12 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
 	return NewStateFirewallerAPI(
 		stShim,
+		serviceFactory.Network(),
 		ctx.Resources(),
 		ctx.Auth(),
 		cloudSpecAPI,
 		controllerConfigAPI,
 		serviceFactory.ControllerConfig(),
-		serviceFactory.Network(),
 		ctx.Logger().Child("firewaller"),
 	)
 }

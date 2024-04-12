@@ -83,7 +83,7 @@ func (api *API) checkSpaceIsRemovable(
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
-	settingMatches, err := api.getSpaceControllerSettings(context.Background(), space.Name)
+	settingMatches, err := api.getSpaceControllerSettings(context.Background(), string(space.Name))
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false

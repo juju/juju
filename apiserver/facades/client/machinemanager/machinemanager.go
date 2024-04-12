@@ -258,8 +258,13 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	if err := mm.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
+
+	allSpaces, err := mm.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
 	for i, p := range args.MachineParams {
-		m, err := mm.addOneMachine(ctx, p)
+		m, err := mm.addOneMachine(ctx, p, allSpaces)
 		results.Machines[i].Error = apiservererrors.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = m.Id()
@@ -268,7 +273,7 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	return results, nil
 }
 
-func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMachineParams) (result Machine, err error) {
+func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMachineParams, allSpaces network.SpaceInfos) (result Machine, err error) {
 	if p.ParentId != "" && p.ContainerType == "" {
 		return nil, fmt.Errorf("parent machine specified without container type")
 	}
@@ -348,14 +353,7 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 
 	// Convert the params to provider addresses, then convert those to
 	// space addresses by looking up the spaces.
-	var allSpaces network.SpaceInfos
 	pas := params.ToProviderAddresses(p.Addrs...)
-	if len(pas) > 0 {
-		allSpaces, err = mm.networkService.GetAllSpaces(ctx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 	sAddrs, err := pas.ToSpaceAddresses(allSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)

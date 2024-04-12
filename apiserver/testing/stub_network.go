@@ -226,8 +226,6 @@ type StubBacking struct {
 	Cloud     environscloudspec.CloudSpec
 
 	Zones network.AvailabilityZones
-	// Spaces  []networkingcommon.BackingSpace
-	// Subnets []networkingcommon.BackingSubnet
 }
 
 var _ networkingcommon.NetworkBacking = (*StubBacking)(nil)

@@ -28,7 +28,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	a := &fakeMachineService{}
-	api := API{st: f, res: common.NewResources(), machineService: a, networkService: nil}
+	api := API{st: f, res: common.NewResources(), machineService: a}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})

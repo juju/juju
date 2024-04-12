@@ -55,13 +55,13 @@ type InstancePollerAPI struct {
 // facade.
 func NewInstancePollerAPI(
 	st *state.State,
+	networkService NetworkService,
 	m *state.Model,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	clock clock.Clock,
 	logger loggo.Logger,
-	networkService NetworkService,
 ) (*InstancePollerAPI, error) {
 
 	if !authorizer.AuthController() {
@@ -309,6 +309,10 @@ func (a *InstancePollerAPI) ProviderAddresses(ctx context.Context, args params.E
 	if err != nil {
 		return result, err
 	}
+	allSpaces, err := a.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return result, apiservererrors.ServerError(err)
+	}
 	for i, arg := range args.Entities {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err != nil {
@@ -316,15 +320,7 @@ func (a *InstancePollerAPI) ProviderAddresses(ctx context.Context, args params.E
 			continue
 		}
 
-		var allSpaces network.SpaceInfos
 		sas := machine.ProviderAddresses()
-		if len(sas) > 0 {
-			allSpaces, err = a.networkService.GetAllSpaces(ctx)
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-		}
 		addrs, err := sas.ToProviderAddresses(allSpaces)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -353,6 +349,10 @@ func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args param
 		return result, err
 	}
 
+	allSpaces, err := a.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return result, apiservererrors.ServerError(err)
+	}
 	for i, arg := range args.MachineAddresses {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err != nil {
@@ -360,16 +360,8 @@ func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args param
 			continue
 		}
 
-		var spaceInfos network.SpaceInfos
 		pas := params.ToProviderAddresses(arg.Addresses...)
-		if len(pas) > 0 {
-			spaceInfos, err = a.networkService.GetAllSpaces(ctx)
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-		}
-		addrsToSet, err := pas.ToSpaceAddresses(spaceInfos)
+		addrsToSet, err := pas.ToSpaceAddresses(allSpaces)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

@@ -55,9 +55,9 @@ func NewMachinerAPIForState(
 	ctrlSt, st *state.State,
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
+	networkService NetworkService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	networkService NetworkService,
 ) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -115,6 +115,10 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 	if err != nil {
 		return results, err
 	}
+	allSpaces, err := api.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
 	for i, arg := range args.MachineAddresses {
 		m, err := api.getMachine(arg.Tag, canModify)
 		if err != nil {
@@ -122,15 +126,7 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 			continue
 		}
 
-		var allSpaces network.SpaceInfos
 		pas := params.ToProviderAddresses(arg.Addresses...)
-		if len(pas) > 0 {
-			allSpaces, err = api.networkService.GetAllSpaces(ctx)
-			if err != nil {
-				results.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-		}
 		addresses, err := pas.ToSpaceAddresses(allSpaces)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)

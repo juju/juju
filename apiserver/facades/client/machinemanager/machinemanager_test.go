@@ -206,6 +206,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 			},
 		},
 	}).Return(m2, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	machines, err := s.api.AddMachines(stdcontext.Background(), params.AddMachines{MachineParams: apiParams})
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,6 +217,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().AddOneMachine(gomock.Any()).Return(nil, errors.New("boom"))
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	results, err := s.api.AddMachines(stdcontext.Background(), params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
@@ -779,12 +781,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = NewMockBackend(ctrl)
 
-<<<<<<< HEAD
-	s.ctrlSt = mocks.NewMockControllerBackend(ctrl)
-=======
 	s.ctrlSt = NewMockControllerBackend(ctrl)
-	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
->>>>>>> a7e3f591ba (Wire machine and provisioner agent facades)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)

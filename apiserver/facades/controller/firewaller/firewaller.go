@@ -44,6 +44,7 @@ type FirewallerAPI struct {
 	cloudspec.CloudSpecer
 
 	st                State
+	networkService    NetworkService
 	resources         facade.Resources
 	authorizer        facade.Authorizer
 	accessUnit        common.GetAuthFunc
@@ -51,10 +52,8 @@ type FirewallerAPI struct {
 	accessMachine     common.GetAuthFunc
 	accessModel       common.GetAuthFunc
 	logger            loggo.Logger
-	networkService    NetworkService
 
 	// Fetched on demand and memoized
-	spaceInfos          network.SpaceInfos
 	appEndpointBindings map[string]map[string]string
 
 	controllerConfigService ControllerConfigService
@@ -63,12 +62,12 @@ type FirewallerAPI struct {
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
 func NewStateFirewallerAPI(
 	st State,
+	networkService NetworkService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
 	controllerConfigService ControllerConfigService,
-	networkService NetworkService,
 	logger loggo.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -262,21 +261,6 @@ func (f *FirewallerAPI) GetAssignedMachine(ctx context.Context, args params.Enti
 	return result, nil
 }
 
-// getSpaceInfos returns the cached SpaceInfos or retrieves them from state
-// and memoizes it for future invocations.
-func (f *FirewallerAPI) getSpaceInfos(ctx context.Context) (network.SpaceInfos, error) {
-	if f.spaceInfos != nil {
-		return f.spaceInfos, nil
-	}
-
-	si, err := f.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return si, nil
-}
-
 // getApplicationBindings returns the cached endpoint bindings for all model
 // applications grouped by app name. If the application endpoints have not yet
 // been retrieved they will be retrieved and memoized for future calls.
@@ -453,6 +437,10 @@ func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params
 		return result, err
 	}
 
+	allSpaces, err := f.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	for i, arg := range args.Entities {
 		machineTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
@@ -466,7 +454,7 @@ func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params
 			continue
 		}
 
-		unitPortRanges, err := f.openedPortRangesForOneMachine(ctx, machine)
+		unitPortRanges, err := f.openedPortRangesForOneMachine(ctx, machine, allSpaces)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -477,7 +465,7 @@ func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params
 	return result, nil
 }
 
-func (f *FirewallerAPI) openedPortRangesForOneMachine(ctx context.Context, machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
+func (f *FirewallerAPI) openedPortRangesForOneMachine(ctx context.Context, machine firewall.Machine, spaceInfos network.SpaceInfos) (map[string][]params.OpenUnitPortRanges, error) {
 	machPortRanges, err := machine.OpenedPortRanges()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -489,10 +477,6 @@ func (f *FirewallerAPI) openedPortRangesForOneMachine(ctx context.Context, machi
 	}
 
 	// Look up space to subnet mappings
-	spaceInfos, err := f.getSpaceInfos(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	subnetCIDRsBySpaceID := spaceInfos.SubnetCIDRsBySpaceID()
 
 	// Fetch application endpoint bindings
@@ -630,27 +614,26 @@ func (f *FirewallerAPI) SpaceInfos(ctx context.Context, args params.SpaceInfosPa
 		return params.SpaceInfos{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	allSpaceInfos, err := f.getSpaceInfos(ctx)
+	allSpaces, err := f.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return params.SpaceInfos{}, apiservererrors.ServerError(err)
 	}
-
 	// Apply filtering if required
 	if len(args.FilterBySpaceIDs) != 0 {
 		var (
 			filteredList network.SpaceInfos
 			selectList   = set.NewStrings(args.FilterBySpaceIDs...)
 		)
-		for _, si := range allSpaceInfos {
+		for _, si := range allSpaces {
 			if selectList.Contains(si.ID) {
 				filteredList = append(filteredList, si)
 			}
 		}
 
-		allSpaceInfos = filteredList
+		allSpaces = filteredList
 	}
 
-	return params.FromNetworkSpaceInfos(allSpaceInfos), nil
+	return params.FromNetworkSpaceInfos(allSpaces), nil
 }
 
 // WatchSubnets returns a new StringsWatcher that watches the specified

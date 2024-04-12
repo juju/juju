@@ -194,6 +194,10 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 	if len(args.Args) == 0 {
 		return result, nil
 	}
+	allSpaces, err := f.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return result, apiservererrors.ServerError(err)
+	}
 	for i, appUpdate := range args.Args {
 		appTag, err := names.ParseApplicationTag(appUpdate.ApplicationTag)
 		if err != nil {
@@ -206,15 +210,7 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 			continue
 		}
 
-		var allSpaces network.SpaceInfos
 		pas := params.ToProviderAddresses(appUpdate.Addresses...)
-		if len(pas) > 0 {
-			allSpaces, err = f.networkService.GetAllSpaces(ctx)
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-		}
 		sAddrs, err := pas.ToSpaceAddresses(allSpaces)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)

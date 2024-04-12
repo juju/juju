@@ -58,9 +58,9 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 		st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
+		s.networkService,
 		s.resources,
 		s.authorizer,
-		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machiner = machiner
@@ -78,9 +78,9 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 		st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		nil,
+		s.networkService,
 		s.resources,
 		anAuthorizer,
-		s.networkService,
 	)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)

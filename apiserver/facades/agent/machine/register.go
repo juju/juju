@@ -32,8 +32,8 @@ func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerA
 		ctx.State(),
 		serviceFactory.ControllerConfig(),
 		serviceFactory.Cloud(),
+		serviceFactory.Network(),
 		ctx.Resources(),
 		ctx.Auth(),
-		serviceFactory.Network(),
 	)
 }

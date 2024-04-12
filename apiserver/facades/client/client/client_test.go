@@ -412,7 +412,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := NewMockToolsFinder(ctrl)
-	blockDeviceGetter := NewMockBlockDeviceGetter(ctrl)
+	blockDeviceService := NewMockBlockDeviceService(ctrl)
 	networkService := NewMockNetworkService(ctrl)
 
 	simpleStreams := []*tools.Tools{
@@ -468,8 +468,8 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := NewMockToolsFinder(ctrl)
-	controllerConfigService := mocks.NewMockControllerConfigService(ctrl)
-	blockDeviceService := mocks.NewMockBlockDeviceService(ctrl)
+	controllerConfigService := NewMockControllerConfigService(ctrl)
+	blockDeviceService := NewMockBlockDeviceService(ctrl)
 	networkService := NewMockNetworkService(ctrl)
 
 	simpleStreams := []*tools.Tools{
@@ -552,8 +552,8 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := NewMockToolsFinder(ctrl)
-	blockDeviceService := mocks.NewMockBlockDeviceService(ctrl)
-	controllerConfigService := mocks.NewMockControllerConfigService(ctrl)
+	blockDeviceService := NewMockBlockDeviceService(ctrl)
+	controllerConfigService := NewMockControllerConfigService(ctrl)
 	networkService := NewMockNetworkService(ctrl)
 
 	simpleStreams := []*tools.Tools{
