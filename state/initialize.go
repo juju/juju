@@ -183,11 +183,6 @@ func Initialize(args InitializeParams, providerConfigSchemaGetter config.ConfigS
 		dateCreated,
 	)
 
-	cloudPermissionOps := createPermissionOp(
-		cloudGlobalKey(args.CloudName),
-		userGlobalKey(userAccessID(args.ControllerModelArgs.Owner)),
-		permission.AdminAccess)
-
 	bakeryConfig := st.NewBakeryConfig()
 	initBakeryConfigOp, err := bakeryConfig.InitialiseBakeryConfigOp()
 	if err != nil {
@@ -204,7 +199,6 @@ func Initialize(args InitializeParams, providerConfigSchemaGetter config.ConfigS
 				ModelUUID: st.ModelUUID(),
 			},
 		},
-		cloudPermissionOps,
 		txn.Op{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
