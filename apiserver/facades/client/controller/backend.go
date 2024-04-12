@@ -19,9 +19,6 @@ type ControllerAccess interface {
 	AddControllerUser(spec state.UserAccessSpec) (permission.UserAccess, error)
 	UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error)
 	ControllerInfo() (*state.ControllerInfo, error)
-	CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
-	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
-	RemoveCloudAccess(cloud string, user names.UserTag) error
 	UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
 	RemoveUserAccess(subject names.UserTag, target names.Tag) error
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)

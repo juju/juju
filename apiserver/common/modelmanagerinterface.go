@@ -70,7 +70,6 @@ type ModelManagerBackend interface {
 	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
-	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
 	AllMachines() (machines []Machine, err error)
 	AllApplications() (applications []Application, err error)
 	AllFilesystems() ([]state.Filesystem, error)

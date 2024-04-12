@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -88,9 +89,14 @@ type CredentialService interface {
 	InvalidateCredential(ctx context.Context, id credential.Key, reason string) error
 }
 
-// UserService defines a interface for interacting the users of a controller.
-type UserService interface {
+// AccessService defines a interface for interacting the users and permissions
+// of a controller.
+type AccessService interface {
+	// User
 	GetUserByName(context.Context, string) (coreuser.User, error)
+
+	// Permissions
+	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error)
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.
@@ -105,7 +111,7 @@ type Services struct {
 	CredentialService    CredentialService
 	ModelService         ModelService
 	ModelDefaultsService ModelDefaultsService
-	UserService          UserService
+	AccessService        AccessService
 	ObjectStore          objectstore.ObjectStore
 	SecretBackendService SecretBackendService
 }
