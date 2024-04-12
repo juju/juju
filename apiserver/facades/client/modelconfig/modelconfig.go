@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
@@ -23,9 +22,10 @@ import (
 
 // ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
-	backend Backend
-	auth    facade.Authorizer
-	check   *common.BlockChecker
+	backend        Backend
+	backendService SecretBackendService
+	auth           facade.Authorizer
+	check          *common.BlockChecker
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -34,14 +34,17 @@ type ModelConfigAPIV3 struct {
 }
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
-func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelConfigAPIV3, error) {
+func NewModelConfigAPI(
+	backend Backend, backendService SecretBackendService, authorizer facade.Authorizer,
+) (*ModelConfigAPIV3, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 	client := &ModelConfigAPI{
-		backend: backend,
-		auth:    authorizer,
-		check:   common.NewBlockChecker(backend),
+		backend:        backend,
+		backendService: backendService,
+		auth:           authorizer,
+		check:          common.NewBlockChecker(backend),
 	}
 	return &ModelConfigAPIV3{client}, nil
 }
@@ -167,7 +170,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 	checkDefaultSpace := c.checkDefaultSpace()
 
 	// Make sure the secret backend exists.
-	checkSecretBackend := c.checkSecretBackend()
+	checkSecretBackend := c.checkSecretBackend(ctx)
 
 	// Make sure the passed config does not set authorized-keys.
 	checkAuthorizedKeys := c.checkAuthorizedKeys()
@@ -275,7 +278,7 @@ func (c *ModelConfigAPI) checkCharmhubURL() state.ValidateConfigFunc {
 	}
 }
 
-func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
+func (c *ModelConfigAPI) checkSecretBackend(ctx context.Context) state.ValidateConfigFunc {
 	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
 		v, ok := updateAttrs[config.SecretBackendKey]
 		if !ok {
@@ -291,16 +294,8 @@ func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
 		if backendName == config.DefaultSecretBackend {
 			return nil
 		}
-		backend, err := c.backend.GetSecretBackend(backendName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		p, err := commonsecrets.GetProvider(backend.BackendType)
-		if err != nil {
-			return errors.Annotatef(err, "cannot get backend for provider type %q", backend.BackendType)
-		}
-		err = commonsecrets.PingBackend(p, backend.Config)
-		return errors.Annotatef(err, "cannot ping backend %q", backend.Name)
+		err := c.backendService.PingSecretBackend(ctx, backendName)
+		return errors.Annotatef(err, "cannot ping backend %q", backendName)
 	}
 }
 

@@ -25,3 +25,10 @@ type UpdateSecretBackendParams struct {
 	// Reset is a list of configs to reset.
 	Reset []string
 }
+
+// DeleteSecretBackendParams is used to delete a secret backend.
+type DeleteSecretBackendParams struct {
+	secretbackend.BackendIdentifier
+	// DeleteInUse is specified to delete the backend even if it is in use.
+	DeleteInUse bool
+}

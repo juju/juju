@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -31,7 +31,7 @@ func Register(registry facade.FacadeRegistry) {
 func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*CrossModelSecretsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 
-	m, err := ctx.State().Model()
+	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -44,8 +44,9 @@ func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelC
 	cloudService := serviceFactory.Cloud()
 	credentialSerivce := serviceFactory.Credential()
 
+	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.AdminBackendConfigInfo(stdCtx, secrets.SecretsModel(m), cloudService, credentialSerivce)
+		return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(model.UUID()))
 	}
 	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
 	secretBackendConfigGetter := func(stdCtx context.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
@@ -57,7 +58,7 @@ func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelC
 		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), sameController, secretService, cloudService, credentialSerivce, []string{backendID}, false, consumer, leadershipChecker)
 	}
 	secretInfoGetter := func(modelUUID string) SecretService {
-		return ctx.ServiceFactoryForModel(model.UUID(modelUUID)).Secret(secretBackendAdminConfigGetter)
+		return ctx.ServiceFactoryForModel(coremodel.UUID(modelUUID)).Secret(secretBackendAdminConfigGetter)
 	}
 
 	st := ctx.State()

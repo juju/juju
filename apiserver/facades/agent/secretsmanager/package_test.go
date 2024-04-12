@@ -60,7 +60,6 @@ func NewTestAPI(
 		secretsConsumer:     consumer,
 		secretsTriggers:     secretTriggers,
 		backendConfigGetter: backendConfigGetter,
-		adminConfigGetter:   adminConfigGetter,
 		drainConfigGetter:   drainConfigGetter,
 		remoteClientGetter:  remoteClientGetter,
 		crossModelState:     crossModelState,

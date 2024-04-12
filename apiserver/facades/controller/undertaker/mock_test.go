@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package undertaker_test
+package undertaker
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -28,7 +27,7 @@ type mockState struct {
 	watcher state.NotifyWatcher
 }
 
-var _ undertaker.State = (*mockState)(nil)
+var _ State = (*mockState)(nil)
 
 func newMockState(modelOwner names.UserTag, modelName string, isSystem bool) *mockState {
 	model := mockModel{
@@ -75,7 +74,7 @@ func (m *mockState) IsController() bool {
 	return m.isSystem
 }
 
-func (m *mockState) Model() (undertaker.Model, error) {
+func (m *mockState) Model() (Model, error) {
 	return m.model, nil
 }
 
@@ -110,7 +109,7 @@ type mockModel struct {
 	statusData map[string]interface{}
 }
 
-var _ undertaker.Model = (*mockModel)(nil)
+var _ Model = (*mockModel)(nil)
 
 func (m *mockModel) ControllerUUID() string {
 	return coretesting.ControllerTag.Id()

@@ -15,6 +15,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 )
 
 const (
@@ -148,55 +149,60 @@ func serializeToMap(v interface{}) map[string]interface{} {
 
 // The Code constants hold error codes for well known errors.
 const (
-	CodeNotFound                  = "not found"
-	CodeUserNotFound              = "user not found"
-	CodeModelNotFound             = "model not found"
-	CodeSecretNotFound            = "secret not found"
-	CodeSecretConsumerNotFound    = "secret consumer not found"
-	CodeUnauthorized              = "unauthorized access"
-	CodeLoginExpired              = "login expired"
-	CodeNoCreds                   = "no credentials provided"
-	CodeCannotEnterScope          = "cannot enter scope"
-	CodeCannotEnterScopeYet       = "cannot enter scope yet"
-	CodeExcessiveContention       = "excessive contention"
-	CodeUnitHasSubordinates       = "unit has subordinates"
-	CodeNotAssigned               = "not assigned"
-	CodeStopped                   = "stopped"
-	CodeDead                      = "dead"
-	CodeHasAssignedUnits          = "machine has assigned units"
-	CodeHasHostedModels           = "controller has hosted models"
-	CodeHasPersistentStorage      = "controller/model has persistent storage"
-	CodeModelNotEmpty             = "model not empty"
-	CodeMachineHasAttachedStorage = "machine has attached storage"
-	CodeMachineHasContainers      = "machine is hosting containers"
-	CodeStorageAttached           = "storage is attached"
-	CodeNotProvisioned            = "not provisioned"
-	CodeNoAddressSet              = "no address set"
-	CodeTryAgain                  = "try again"
-	CodeNotImplemented            = "not implemented" // asserted to match rpc.codeNotImplemented in rpc/rpc_test.go
-	CodeAlreadyExists             = "already exists"
-	CodeUpgradeInProgress         = "upgrade in progress"
-	CodeMigrationInProgress       = "model migration in progress"
-	CodeActionNotAvailable        = "action no longer available"
-	CodeOperationBlocked          = "operation is blocked"
-	CodeLeadershipClaimDenied     = "leadership claim denied"
-	CodeLeaseClaimDenied          = "lease claim denied"
-	CodeNotSupported              = "not supported"
-	CodeBadRequest                = "bad request"
-	CodeMethodNotAllowed          = "method not allowed"
-	CodeForbidden                 = "forbidden"
-	CodeDischargeRequired         = "macaroon discharge required"
-	CodeRedirect                  = "redirection required"
-	CodeIncompatibleBase          = "incompatible base"
-	CodeCloudRegionRequired       = "cloud region required"
-	CodeIncompatibleClouds        = "incompatible clouds"
-	CodeQuotaLimitExceeded        = "quota limit exceeded"
-	CodeNotLeader                 = "not leader"
-	CodeDeadlineExceeded          = "deadline exceeded"
-	CodeNotYetAvailable           = "not yet available; try again later"
-	CodeNotValid                  = "not valid"
-	CodeAccessRequired            = "access required"
-	CodeAppShouldNotHaveUnits     = "application should not have units"
+	CodeNotFound                   = "not found"
+	CodeUserNotFound               = "user not found"
+	CodeModelNotFound              = "model not found"
+	CodeSecretNotFound             = "secret not found"
+	CodeSecretBackendNotFound      = "secret backend not found"
+	CodeSecretConsumerNotFound     = "secret consumer not found"
+	CodeUnauthorized               = "unauthorized access"
+	CodeLoginExpired               = "login expired"
+	CodeNoCreds                    = "no credentials provided"
+	CodeCannotEnterScope           = "cannot enter scope"
+	CodeCannotEnterScopeYet        = "cannot enter scope yet"
+	CodeExcessiveContention        = "excessive contention"
+	CodeUnitHasSubordinates        = "unit has subordinates"
+	CodeNotAssigned                = "not assigned"
+	CodeStopped                    = "stopped"
+	CodeDead                       = "dead"
+	CodeHasAssignedUnits           = "machine has assigned units"
+	CodeHasHostedModels            = "controller has hosted models"
+	CodeHasPersistentStorage       = "controller/model has persistent storage"
+	CodeModelNotEmpty              = "model not empty"
+	CodeMachineHasAttachedStorage  = "machine has attached storage"
+	CodeMachineHasContainers       = "machine is hosting containers"
+	CodeStorageAttached            = "storage is attached"
+	CodeNotProvisioned             = "not provisioned"
+	CodeNoAddressSet               = "no address set"
+	CodeTryAgain                   = "try again"
+	CodeNotImplemented             = "not implemented" // asserted to match rpc.codeNotImplemented in rpc/rpc_test.go
+	CodeAlreadyExists              = "already exists"
+	CodeSecretBackendAlreadyExists = "secret backend already exists"
+	CodeUpgradeInProgress          = "upgrade in progress"
+	CodeMigrationInProgress        = "model migration in progress"
+	CodeActionNotAvailable         = "action no longer available"
+	CodeOperationBlocked           = "operation is blocked"
+	CodeLeadershipClaimDenied      = "leadership claim denied"
+	CodeLeaseClaimDenied           = "lease claim denied"
+	CodeNotSupported               = "not supported"
+	CodeSecretBackendNotSupported  = "secret backend not supported"
+	CodeBadRequest                 = "bad request"
+	CodeMethodNotAllowed           = "method not allowed"
+	CodeForbidden                  = "forbidden"
+	CodeSecretBackendForbidden     = "secret backend forbidden"
+	CodeDischargeRequired          = "macaroon discharge required"
+	CodeRedirect                   = "redirection required"
+	CodeIncompatibleBase           = "incompatible base"
+	CodeCloudRegionRequired        = "cloud region required"
+	CodeIncompatibleClouds         = "incompatible clouds"
+	CodeQuotaLimitExceeded         = "quota limit exceeded"
+	CodeNotLeader                  = "not leader"
+	CodeDeadlineExceeded           = "deadline exceeded"
+	CodeNotYetAvailable            = "not yet available; try again later"
+	CodeNotValid                   = "not valid"
+	CodeSecretBackendNotValid      = "secret backend not valid"
+	CodeAccessRequired             = "access required"
+	CodeAppShouldNotHaveUnits      = "application should not have units"
 )
 
 // TranslateWellKnownError translates well known wire error codes into a github.com/juju/errors error
@@ -215,16 +221,24 @@ func TranslateWellKnownError(err error) error {
 		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secreterrors.SecretNotFound))
 	case CodeSecretConsumerNotFound:
 		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secreterrors.SecretConsumerNotFound))
+	case CodeSecretBackendNotFound:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secretbackenderrors.NotFound))
 	case CodeUnauthorized:
 		return errors.NewUnauthorized(err, "")
 	case CodeNotImplemented:
 		return errors.NewNotImplemented(err, "")
 	case CodeAlreadyExists:
 		return errors.NewAlreadyExists(err, "")
+	case CodeSecretBackendAlreadyExists:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secretbackenderrors.AlreadyExists))
 	case CodeNotSupported:
 		return errors.NewNotSupported(err, "")
 	case CodeNotValid:
 		return errors.NewNotValid(err, "")
+	case CodeSecretBackendNotSupported:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secretbackenderrors.NotSupported))
+	case CodeSecretBackendNotValid:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secretbackenderrors.NotValid))
 	case CodeNotProvisioned:
 		return errors.NewNotProvisioned(err, "")
 	case CodeNotAssigned:
@@ -235,6 +249,8 @@ func TranslateWellKnownError(err error) error {
 		return errors.NewMethodNotAllowed(err, "")
 	case CodeForbidden:
 		return errors.NewForbidden(err, "")
+	case CodeSecretBackendForbidden:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(secretbackenderrors.Forbidden))
 	case CodeQuotaLimitExceeded:
 		return errors.NewQuotaLimitExceeded(err, "")
 	case CodeNotYetAvailable:
@@ -280,6 +296,26 @@ func IsCodeSecretNotFound(err error) bool {
 
 func IsCodeSecretConsumerNotFound(err error) bool {
 	return ErrCode(err) == CodeSecretConsumerNotFound
+}
+
+func IsCodeSecretBackendNotFound(err error) bool {
+	return ErrCode(err) == CodeSecretBackendNotFound
+}
+
+func IsCodeSecretBackendAlreadyExists(err error) bool {
+	return ErrCode(err) == CodeSecretBackendAlreadyExists
+}
+
+func IsCodeSecretBackendNotValid(err error) bool {
+	return ErrCode(err) == CodeSecretBackendAlreadyExists
+}
+
+func IsCodeSecretBackendForbidden(err error) bool {
+	return ErrCode(err) == CodeSecretBackendForbidden
+}
+
+func IsCodeSecretBackendNotSupported(err error) bool {
+	return ErrCode(err) == CodeSecretBackendNotSupported
 }
 
 func IsCodeUnauthorized(err error) bool {

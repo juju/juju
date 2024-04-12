@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
@@ -58,6 +59,16 @@ var errorTransformTests = []struct {
 	code:       params.CodeSecretConsumerNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeSecretConsumerNotFound,
+}, {
+	err:        secretbackenderrors.NotFound,
+	code:       params.CodeSecretBackendNotFound,
+	status:     http.StatusNotFound,
+	helperFunc: params.IsCodeSecretBackendNotFound,
+}, {
+	err:        secretbackenderrors.Forbidden,
+	code:       params.CodeSecretBackendForbidden,
+	status:     http.StatusForbidden,
+	helperFunc: params.IsCodeSecretBackendForbidden,
 }, {
 	err:        errors.Unauthorized,
 	code:       params.CodeUnauthorized,

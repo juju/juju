@@ -117,9 +117,10 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	err = cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
-		Name:      "my-cloud",
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Name:           "my-cloud",
+		Type:           "ec2",
+		AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		CACertificates: []string{"my-ca-cert"},
 		Regions: []cloud.Region{
 			{Name: "my-region"},
 		},
@@ -616,7 +617,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 	c.Assert(configuredBackendUUID.Valid, jc.IsTrue)
 	c.Assert(configuredBackendUUID.String, gc.Equals, backendID)
 
-	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID}, false)
 	c.Assert(err, gc.IsNil)
 
 	row = db.QueryRow(`
@@ -672,7 +673,7 @@ func (s *stateSuite) TestDeleteSecretBackendWithNoConfigNoNextRotationTime(c *gc
 		TokenRotateInterval: &rotateInternal,
 	}, nil)
 
-	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID}, false)
 	c.Assert(err, gc.IsNil)
 
 	db := s.DB()
@@ -713,7 +714,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForInternalBackend(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID}, false)
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
 }
@@ -729,7 +730,7 @@ func (s *stateSuite) TestDeleteSecretBackendFailedForKubernetesBackend(c *gc.C) 
 	})
 	c.Assert(err, gc.IsNil)
 
-	err = s.state.DeleteSecretBackend(context.Background(), backendID, false)
+	err = s.state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID}, false)
 	c.Assert(err, jc.ErrorIs, backenderrors.Forbidden)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret backend operation forbidden: %q is immutable`, backendID))
 }
@@ -1117,12 +1118,10 @@ func (s *stateSuite) TestGetCloudCredential(c *gc.C) {
 	cld, cred, err := s.state.GetCloudCredential(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(cld, gc.DeepEquals, cloud.Cloud{
-		Name:      "my-cloud",
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		Regions: []cloud.Region{
-			{Name: "my-region"},
-		},
+		Name:           "my-cloud",
+		Type:           "ec2",
+		AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType},
+		CACertificates: []string{"my-ca-cert"},
 	})
 	expectedCred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
@@ -1132,11 +1131,11 @@ func (s *stateSuite) TestGetCloudCredential(c *gc.C) {
 	c.Assert(cred, gc.DeepEquals, expectedCred)
 }
 
-func (s *stateSuite) TestGetCloudCredentialModelNotFound(c *gc.C) {
+func (s *stateSuite) TestGetCloudCredentialNotFound(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	_, _, err := s.state.GetCloudCredential(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: %q`, modelUUID))
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`cloud credential for model %q`, modelUUID))
 }
 
 func (s *stateSuite) TestInitialWatchStatement(c *gc.C) {

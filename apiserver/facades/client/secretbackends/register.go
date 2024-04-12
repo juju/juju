@@ -7,11 +7,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/clock"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -26,13 +24,15 @@ func newSecretBackendsAPI(context facade.ModelContext) (*SecretBackendsAPI, erro
 	if !context.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-
+	model, err := context.State().Model()
+	if err != nil {
+		return nil, err
+	}
+	serviceFactory := context.ServiceFactory()
+	secretBackendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 	return &SecretBackendsAPI{
 		authorizer:     context.Auth(),
 		controllerUUID: context.State().ControllerUUID(),
-		clock:          clock.WallClock,
-		backendState:   state.NewSecretBackends(context.State()),
-		secretState:    state.NewSecrets(context.State()),
-		statePool:      &statePoolShim{pool: context.StatePool()},
+		backendService: secretBackendService,
 	}, nil
 }

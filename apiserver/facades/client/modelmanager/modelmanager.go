@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -84,6 +83,7 @@ type ModelManagerAPI struct {
 	userService          UserService
 	modelExporter        ModelExporter
 	store                objectstore.ObjectStore
+	secretBackendService SecretBackendService
 
 	// ToolsFinder is used to find tools for a given version.
 	toolsFinder common.ToolsFinder
@@ -142,6 +142,7 @@ func NewModelManagerAPI(
 		modelService:         services.ModelService,
 		modelDefaultsService: services.ModelDefaultsService,
 		userService:          services.UserService,
+		secretBackendService: services.SecretBackendService,
 		controllerUUID:       controllerUUID,
 	}, nil
 }
@@ -1202,14 +1203,23 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 	if withSecrets && canSeeMachinesAndSecrets {
-		if info.SecretBackends, err = commonsecrets.BackendSummaryInfo(
-			m.state, st, st, st.ControllerUUID(), false, commonsecrets.BackendFilter{},
-		); shouldErr(err) {
-			return params.ModelInfo{}, err
+		backends, err := m.secretBackendService.BackendSummaryInfo(ctx, false, false)
+		if shouldErr(err) {
+			return params.ModelInfo{}, errors.Trace(err)
 		}
-		// Don't expose the id.
-		for i := range info.SecretBackends {
-			info.SecretBackends[i].ID = ""
+		for _, backend := range backends {
+			info.SecretBackends = append(info.SecretBackends, params.SecretBackendResult{
+				// Don't expose the id.
+				NumSecrets: backend.NumSecrets,
+				Status:     backend.Status,
+				Message:    backend.Message,
+				Result: params.SecretBackend{
+					Name:                backend.Name,
+					BackendType:         backend.BackendType,
+					TokenRotateInterval: backend.TokenRotateInterval,
+					Config:              backend.Config,
+				},
+			})
 		}
 	}
 

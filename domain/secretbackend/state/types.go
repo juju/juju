@@ -188,3 +188,30 @@ type ModelCloudCredentialRow struct {
 	// OwnerName is the name of the credential owner.
 	OwnerName string `db:"owner_name"`
 }
+
+// CloudRow represents a single row from the state database's cloud table.
+type CloudRow struct {
+	// ID holds the cloud document key.
+	ID string `db:"uuid"`
+
+	// Name holds the cloud name.
+	Name string `db:"name"`
+
+	// Type holds the cloud type reference.
+	CloudType string `db:"type"`
+
+	// AuthType is the type of authentication used by the cloud.
+	AuthType string `db:"auth_type"`
+
+	// Endpoint holds the cloud's primary endpoint URL.
+	Endpoint string `db:"endpoint"`
+
+	// SkipTLSVerify indicates if the client should skip cert validation.
+	SkipTLSVerify bool `db:"skip_tls_verify"`
+
+	// ModelName holds the name of the model of the cloud.
+	ModelName string `db:"model_name"`
+
+	// ModelOwnerUserName holds the name of the user who owns the model.
+	ModelOwnerUserName string `db:"model_owner_user_name"`
+}
