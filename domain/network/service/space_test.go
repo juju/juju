@@ -114,7 +114,8 @@ func (s *spaceSuite) TestAddSpace(c *gc.C) {
 			ProviderId: "provider-id",
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(returnedUUID.String(), gc.Equals, expectedUUID)
+	c.Check(returnedUUID.String(), gc.Not(gc.Equals), "")
+	c.Check(returnedUUID.String(), gc.Equals, expectedUUID)
 }
 
 func (s *spaceSuite) TestUpdateSpaceName(c *gc.C) {
