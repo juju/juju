@@ -9,13 +9,13 @@ import (
 	"net"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // Service provides the API for working with spaces.
@@ -35,20 +35,28 @@ func NewService(st State, logger Logger) *Service {
 }
 
 // AddSpace creates and returns a new space.
-func (s *Service) AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error) {
-	if !names.IsValidSpace(name) {
-		return "", errors.NotValidf("space name %q", name)
+func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error) {
+	if !names.IsValidSpace(string(space.Name)) {
+		return "", errors.NotValidf("space name %q", space.Name)
 	}
 
-	uuid, err := uuid.NewUUID()
-	if err != nil {
-		return "", errors.Annotatef(err, "creating uuid for new space %q", name)
+	spaceID := space.ID
+	if spaceID == "" {
+		uuid, err := uuid.NewV7()
+		if err != nil {
+			return "", errors.Annotatef(err, "creating uuid for new space %q", space.Name)
+		}
+		spaceID = uuid.String()
 	}
 
-	if err := s.st.AddSpace(ctx, uuid.String(), name, providerID, subnetIDs); err != nil {
+	subnetIDs := make([]string, len(space.Subnets))
+	for i, subnet := range space.Subnets {
+		subnetIDs[i] = subnet.ID.String()
+	}
+	if err := s.st.AddSpace(ctx, spaceID, string(space.Name), space.ProviderId, subnetIDs); err != nil {
 		return "", errors.Trace(err)
 	}
-	return network.Id(uuid.String()), nil
+	return network.Id(spaceID), nil
 }
 
 // UpdateSpace updates the space name identified by the passed uuid.

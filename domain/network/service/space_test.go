@@ -48,7 +48,9 @@ func (s *spaceSuite) TestAddSpaceInvalidNameEmpty(c *gc.C) {
 	// Make sure no calls to state are done
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-	_, err := NewService(s.st, s.logger).AddSpace(context.Background(), "", "", []string{})
+	_, err := NewService(s.st, s.logger).AddSpace(
+		context.Background(),
+		network.SpaceInfo{})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space name \"\" not valid"))
 }
 
@@ -58,7 +60,12 @@ func (s *spaceSuite) TestAddSpaceInvalidName(c *gc.C) {
 	// Make sure no calls to state are done
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-	_, err := NewService(s.st, s.logger).AddSpace(context.Background(), "-bad name-", "provider-id", []string{})
+	_, err := NewService(s.st, s.logger).AddSpace(
+		context.Background(),
+		network.SpaceInfo{
+			Name:       "-bad name-",
+			ProviderId: "provider-id",
+		})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space name \"-bad name-\" not valid"))
 }
 
@@ -68,7 +75,17 @@ func (s *spaceSuite) TestAddSpaceErrorAdding(c *gc.C) {
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), "0", network.Id("provider-id"), []string{"0"}).
 		Return(errors.Errorf("updating subnet %q using space uuid \"space0\"", "0"))
 
-	_, err := NewService(s.st, s.logger).AddSpace(context.Background(), "0", network.Id("provider-id"), []string{"0"})
+	_, err := NewService(s.st, s.logger).AddSpace(
+		context.Background(),
+		network.SpaceInfo{
+			Name:       "0",
+			ProviderId: "provider-id",
+			Subnets: network.SubnetInfos{
+				{
+					ID: network.Id("0"),
+				},
+			},
+		})
 	c.Assert(err, gc.ErrorMatches, "updating subnet \"0\" using space uuid \"space0\"")
 }
 
@@ -90,9 +107,15 @@ func (s *spaceSuite) TestAddSpace(c *gc.C) {
 				return nil
 			})
 
-	returnedUUID, err := NewService(s.st, s.logger).AddSpace(context.Background(), "space0", network.Id("provider-id"), []string{})
+	returnedUUID, err := NewService(s.st, s.logger).AddSpace(
+		context.Background(),
+		network.SpaceInfo{
+			Name:       "space0",
+			ProviderId: "provider-id",
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(returnedUUID.String(), gc.Equals, expectedUUID)
+	c.Check(returnedUUID.String(), gc.Not(gc.Equals), "")
+	c.Check(returnedUUID.String(), gc.Equals, expectedUUID)
 }
 
 func (s *spaceSuite) TestUpdateSpaceName(c *gc.C) {

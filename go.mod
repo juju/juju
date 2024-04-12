@@ -36,7 +36,7 @@ require (
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
 	github.com/google/gnostic-models v0.6.8
 	github.com/google/go-querystring v1.1.0
-	github.com/google/uuid v1.5.0
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.1
 	github.com/gosuri/uitable v0.0.4
