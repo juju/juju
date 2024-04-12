@@ -4,6 +4,7 @@
 package application
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/juju/charm/v11"
@@ -1016,6 +1017,34 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 		numUnits:        1,
 		origin:          resolvedOrigin,
 	})
+}
+
+func (s *validatorSuite) TestIaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	s.repo.EXPECT().ResolveForDeploy(gomock.Any()).Return(corecharm.ResolvedDataForDeploy{}, fmt.Errorf("fail resolve"))
+	s.model.EXPECT().UUID().Return("")
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testcharm",
+	}
+
+	_, errs := s.iaasDeployFromRepositoryValidator().ValidateArg(arg)
+	c.Assert(errs, gc.HasLen, 1)
+}
+
+func (s *validatorSuite) TestCaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	s.repo.EXPECT().ResolveForDeploy(gomock.Any()).Return(corecharm.ResolvedDataForDeploy{}, fmt.Errorf("fail resolve"))
+	s.model.EXPECT().UUID().Return("")
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testcharm",
+	}
+
+	_, errs := s.caasDeployFromRepositoryValidator(c).ValidateArg(arg)
+	c.Assert(errs, gc.HasLen, 1)
 }
 
 func getResolvedData(resultURL *charm.URL, resolvedOrigin corecharm.Origin) corecharm.ResolvedDataForDeploy {
