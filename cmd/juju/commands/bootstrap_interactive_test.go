@@ -31,14 +31,6 @@ func (BSInteractSuite) TestInitEmpty(c *gc.C) {
 	c.Assert(cmd.interactive, jc.IsTrue)
 }
 
-func (BSInteractSuite) TestInitDev(c *gc.C) {
-	cmd := &bootstrapCommand{}
-	err := cmdtesting.InitCommand(cmd, []string{"--dev"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.interactive, jc.IsTrue)
-	c.Assert(cmd.Dev, jc.IsTrue)
-}
-
 func (BSInteractSuite) TestInitArg(c *gc.C) {
 	cmd := &bootstrapCommand{}
 	err := cmdtesting.InitCommand(cmd, []string{"foo"})

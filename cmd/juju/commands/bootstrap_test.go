@@ -126,10 +126,12 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
-	// NOTE(axw) we cannot patch BundleTools here, as the "gc.C" argument
-	// is invalidated once this method returns.
-	s.PatchValue(&envtools.BundleTools, func(string, arch.Arch, io.Writer) (version.Binary, string, error) {
-		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
+	s.PatchValue(&envtools.BundleTools, func(devSrcDir string, toolsArch arch.Arch, w io.Writer) (toolsVersion version.Binary, sha256hash string, err error) {
+		return version.Binary{}, "", fmt.Errorf("tests should setupAutoUploadTest or otherwise patch envtools.BundleTools")
+	})
+
+	s.PatchValue(&sync.BuildAgentTarball, func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
+		return nil, fmt.Errorf("tests should patch sync.BuildAgentTarball")
 	})
 
 	s.PatchValue(&waitForAgentInitialisation, func(environs.BootstrapContext, *modelcmd.ModelCommandBase, bool, string) error {
@@ -175,6 +177,10 @@ func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
 	for i, test := range bootstrapTests {
+		if c.Failed() {
+			c.Logf("\nskipped test %d: %s", i, test.info)
+			continue
+		}
 		c.Logf("\ntest %d: %s", i, test.info)
 		restore := s.run(c, test)
 		restore()
@@ -197,6 +203,7 @@ type bootstrapTest struct {
 	placement            string
 	hostArch             string
 	keepBroken           bool
+	buildAgentTarball    func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error)
 }
 
 func (s *BootstrapSuite) patchVersion(c *gc.C) {
@@ -235,6 +242,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	if test.hostArch != "" {
 		restore = restore.Add(testing.PatchEnvironment("GOARCH", test.hostArch))
+	}
+
+	if test.buildAgentTarball != nil {
+		restore = restore.Add(testing.PatchValue(&sync.BuildAgentTarball, test.buildAgentTarball))
 	}
 
 	controllerName := "peckham-controller"
@@ -365,35 +376,26 @@ var bootstrapTests = []bootstrapTest{{
 	constraints: constraints.MustParse("mem=4G cores=4 cpu-power=10"),
 }, {
 	info:        "--dev uses arch from constraint if it matches current version",
-	version:     "1.3.3-ubuntu-ppc64el",
+	version:     "1.3.3.7-ubuntu-ppc64el",
 	hostArch:    "ppc64el",
 	args:        []string{"--dev", "--constraints", "arch=ppc64el"},
-	upload:      "1.3.3.1-ubuntu-ppc64el", // from jujuversion.Current
+	upload:      "1.3.3.7-ubuntu-ppc64el", // from jujuversion.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
+	buildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
+		return &sync.BuiltAgent{Version: version.MustParseBinary("1.3.3.7-ubuntu-ppc64el")}, nil
+	},
 }, {
-	info:      "--dev rejects mismatched arch",
-	version:   "1.3.3-ubuntu-amd64",
+	info:      "--dev cannot find that arch",
+	version:   "1.3.3.7-ubuntu-amd64",
 	hostArch:  "amd64",
 	args:      []string{"--dev", "--constraints", "arch=ppc64el"},
 	silentErr: true,
 	logs: []jc.SimpleMessage{{
-		loggo.ERROR, `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
+		loggo.ERROR, "failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
 	}},
-}, {
-	info:      "--dev rejects non-supported arch",
-	version:   "1.3.3-ubuntu-mips64",
-	hostArch:  "mips64",
-	args:      []string{"--dev"},
-	silentErr: true,
-	logs: []jc.SimpleMessage{{
-		loggo.ERROR, fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
-	}},
-}, {
-	info:     "--dev always bumps build number",
-	version:  "1.2.3.4-ubuntu-amd64",
-	hostArch: "amd64",
-	args:     []string{"--dev"},
-	upload:   "1.2.3.5-ubuntu-amd64",
+	buildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
+		return nil, errors.NotFoundf("bins for %s", arch)
+	},
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},
@@ -407,9 +409,10 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"anything", "else"},
 	err:  `unrecognized args: \["anything" "else"\]`,
 }, {
-	info: "--agent-version with --dev",
-	args: []string{"--agent-version", "1.1.0", "--dev"},
-	err:  `--agent-version and --dev can't be used together`,
+	info:    "--agent-version with --dev",
+	version: "1.3.3.7-ubuntu-amd64",
+	args:    []string{"--agent-version", "1.1.0", "--dev"},
+	err:     `--agent-version and --dev can't be used together`,
 }, {
 	info: "invalid --agent-version value",
 	args: []string{"--agent-version", "foo"},
@@ -1165,17 +1168,13 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
-	s.PatchValue(&envtools.BundleTools,
-		func(bool, io.Writer, func(localBinaryVersion version.Number) version.Number) (version.Binary, version.Number, bool, string, error) {
-			return version.Binary{}, version.Number{}, false, "", errors.New("no agent binaries for you")
-		},
-	)
 	s.PatchValue(&envtools.DefaultBaseURL, c.MkDir())
 	resetJujuXDGDataHome(c)
 
 	// Bootstrap the controller with an invalid source.
 	// The command will look for prepackaged agent binaries
-	// in the source, and then fall back to building.
+	// in the source, and then fail due to no --dev flag looking for
+	// development build.
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "--metadata-source", c.MkDir(),
 		"dummy", "devcontroller",
@@ -1185,12 +1184,11 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	stderr := cmdtesting.Stderr(ctx)
 	c.Check(stderr, gc.Matches,
 		"Creating Juju controller \"devcontroller\" on dummy/dummy\n"+
-			"Looking for packaged Juju agent version 1.2.0 for amd64\n"+
-			"No packaged binary found, preparing local Juju agent binary\n",
+			"Looking for packaged Juju agent version 1.2.0 for amd64\n",
 	)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
 		Level:   loggo.ERROR,
-		Message: "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you",
+		Message: "Juju cannot bootstrap because no agent binaries are available for your model.",
 	}})
 }
 
@@ -1394,10 +1392,12 @@ my-dummy-cloud
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
-	patchedVersion := version.MustParse(vers)
-	patchedVersion.Build = 1
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(patchedVersion))
-	sourceDir := createToolsSource(c, vAll)
+	versions := append([]version.Binary{{
+		Number:  version.MustParse(vers),
+		Release: "ubuntu",
+		Arch:    "amd64",
+	}}, vAll...)
+	sourceDir := createToolsSource(c, versions)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
 	// Change the tools location to be the test location and also
@@ -1430,7 +1430,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, bootstrap.ControllerModelName)
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
-	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3.1-ubuntu-"+arch.HostArch())
+	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3-ubuntu-"+arch.HostArch())
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -1444,36 +1444,6 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
 		loggo.ERROR,
 		"failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
-	}})
-}
-
-func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
-	BuildAgentTarballAlwaysFails := func(
-		bool, string, func(version.Number) version.Number,
-	) (*sync.BuiltAgent, error) {
-		return nil, errors.New("an error")
-	}
-
-	s.setupAutoUploadTest(c, "1.7.3", "jammy")
-	s.PatchValue(&sync.BuildAgentTarball, BuildAgentTarballAlwaysFails)
-
-	ctx, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
-		"dummy-cloud/region-1", "devcontroller",
-		"--config", "default-series=jammy",
-		"--config", "agent-stream=proposed",
-		"--auto-upgrade", "--agent-version=1.7.3",
-	)
-
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, `
-Creating Juju controller "devcontroller" on dummy-cloud/region-1
-Looking for packaged Juju agent version 1.7.3 for amd64
-No packaged binary found, preparing local Juju agent binary
-`[1:])
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
-		loggo.ERROR,
-		"failed to bootstrap model: cannot package bootstrap agent binary: an error",
 	}})
 }
 

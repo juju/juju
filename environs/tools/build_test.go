@@ -16,11 +16,8 @@ import (
 
 	exttest "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/arch"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/testing"
 )
@@ -73,35 +70,6 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 func (b *buildSuite) TearDownTest(c *gc.C) {
 	b.restore()
 	b.BaseSuite.TearDownTest(c)
-}
-
-func (b *buildSuite) TestFindExecutable(c *gc.C) {
-	for _, test := range []struct {
-		execFile   string
-		expected   string
-		errorMatch string
-	}{{
-		execFile: filepath.Join("/", "some", "absolute", "path"),
-		expected: filepath.Join("/", "some", "absolute", "path"),
-	}, {
-		execFile: "./foo",
-		expected: filepath.Join(b.cwd, "foo"),
-	}, {
-		execFile: "juju-test",
-		expected: b.filePath,
-	}, {
-		execFile:   "non-existent-exec-file",
-		errorMatch: `could not find "non-existent-exec-file" in the path`,
-	}} {
-		result, err := tools.FindExecutable(test.execFile)
-		if test.errorMatch == "" {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(result, gc.Equals, test.expected)
-		} else {
-			c.Assert(err, gc.ErrorMatches, test.errorMatch)
-			c.Assert(result, gc.Equals, "")
-		}
-	}
 }
 
 func (b *buildSuite) TestEmptyArchive(c *gc.C) {
@@ -163,67 +131,6 @@ func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 		os.Args[0] = oldArg0
 	})
 	return dir
-}
-
-func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
-	thisArch := arch.HostArch()
-	thisHost := coreos.HostOSTypeName()
-	b.patchExecCommand(c, thisHost, thisArch)
-	dir := b.setUpFakeBinaries(c, "")
-
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	resultVersion, forceVersion, official, _, err := tools.BundleTools(false, bundleFile,
-		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
-	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
-	c.Assert(official, jc.IsFalse)
-}
-
-func (b *buildSuite) TestJujudVersion(c *gc.C) {
-	b.patchExecCommand(c, "", "")
-	dir := b.setUpFakeBinaries(c, "")
-
-	resultVersion, official, err := tools.JujudVersion(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-amd64")
-	c.Assert(official, jc.IsFalse)
-}
-
-func (b *buildSuite) TestBundleToolsWithNoVersionFile(c *gc.C) {
-	b.patchExecCommand(c, "", "")
-	dir := b.setUpFakeBinaries(c, "")
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	resultVersion, forceVersion, official, sha, err := tools.BundleTools(false, bundleFile,
-		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-amd64")
-	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
-	c.Assert(sha, gc.Not(gc.Equals), "")
-	c.Assert(official, jc.IsFalse)
-}
-
-func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) {
-	b.patchExecCommand(c, "", "")
-	dir := b.setUpFakeBinaries(c, "")
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	jujudVersion := func(dir string) (version.Binary, bool, error) {
-		return version.Binary{}, true, nil
-	}
-
-	_, _, official, _, err := tools.BundleToolsForTest(true, bundleFile,
-		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
-		jujudVersion)
-	c.Assert(err, gc.ErrorMatches, `cannot build agent for official build`)
-	c.Assert(official, jc.IsTrue)
 }
 
 const (

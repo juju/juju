@@ -4,7 +4,6 @@
 package tools
 
 var (
-	FindExecutable                = findExecutable
 	CheckToolsReleases            = checkToolsReleases
 	ArchiveAndSHA256              = archiveAndSHA256
 	WriteMetadataFiles            = &writeMetadataFiles

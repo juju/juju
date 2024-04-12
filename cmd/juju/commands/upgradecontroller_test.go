@@ -298,53 +298,8 @@ func (s *upgradeControllerSuite) TestUpgradeControllerWithAgentVersionAlreadyUpT
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
 }
 
-func (s *upgradeControllerSuite) TestUpgradeControllerWithAgentVersionFailedExpectUploadButWrongTargetVersion(c *gc.C) {
+func (s *upgradeControllerSuite) TestUpgradeControllerWithAgentVersionNotAvailable(c *gc.C) {
 	s.reset(c)
-
-	//s.PatchValue(&CheckCanImplicitUpload,
-	//	func(model.ModelType, bool, version.Number, version.Number) bool { return true },
-	//)
-
-	ctrl, cmd := s.upgradeControllerCommand(c, false)
-	defer ctrl.Finish()
-
-	agentVersion := coretesting.FakeVersionNumber
-	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": agentVersion.String(),
-	})
-
-	current := agentVersion
-	current.Minor++ // local snap is newer.
-	s.PatchValue(&jujuversion.Current, current)
-
-	targetVersion := current
-	targetVersion.Patch++ // wrong target version (It has to be equal to local snap version).
-	c.Assert(targetVersion.Compare(current) == 0, jc.IsFalse)
-
-	gomock.InOrder(
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
-		s.modelUpgrader.EXPECT().UpgradeModel(
-			coretesting.ModelTag.Id(), targetVersion,
-			"", false, false,
-		).Return(
-			version.Zero,
-			errors.NotFoundf("available agent tool, upload required"),
-		),
-	)
-
-	ctx, err := cmdtesting.RunCommand(c, cmd,
-		"--agent-version", targetVersion.String(),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
-}
-
-func (s *upgradeControllerSuite) TestUpgradeControllerWithAgentVersionExpectUploadFailedDueToNotAllowed(c *gc.C) {
-	s.reset(c)
-
-	//s.PatchValue(&CheckCanImplicitUpload,
-	//	func(model.ModelType, bool, version.Number, version.Number) bool { return false },
-	//)
 
 	ctrl, cmd := s.upgradeControllerCommand(c, false)
 	defer ctrl.Finish()
@@ -369,8 +324,8 @@ func (s *upgradeControllerSuite) TestUpgradeControllerWithAgentVersionExpectUplo
 	ctx, err := cmdtesting.RunCommand(c, cmd,
 		"--agent-version", targetVersion.String(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
+	c.Assert(err, gc.ErrorMatches, `explicit agent version not available - try juju sync-agent-binary first`)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *upgradeControllerSuite) TestUpgradeControllerWithAgentVersionDryRun(c *gc.C) {
@@ -448,6 +403,13 @@ func (s *upgradeControllerSuite) reset(c *gc.C) {
 func (s *upgradeControllerSuite) TestUpgradeControllerWithDev(c *gc.C) {
 	s.reset(c)
 
+	currentVersion := jujuversion.Current
+	currentVersion.Build = 100
+	s.PatchValue(&jujuversion.Current, currentVersion)
+	s.PatchValue(&devtools.SourceDir, func() (string, error) {
+		return "/dev/null", nil
+	})
+
 	ctrl, cmd := s.upgradeControllerCommand(c, false)
 	defer ctrl.Finish()
 
@@ -457,7 +419,8 @@ func (s *upgradeControllerSuite) TestUpgradeControllerWithDev(c *gc.C) {
 	})
 	c.Assert(agentVersion.Build, gc.Equals, 0)
 	builtVersion := coretesting.CurrentVersion()
-	builtVersion.Build++
+
+	s.modelUpgrader.EXPECT().RequiredArchitectures(gomock.Any()).Return([]string{"amd64"}, nil)
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), builtVersion).Return(nil, nil),

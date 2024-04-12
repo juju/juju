@@ -632,11 +632,16 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
+			Dev:              true,
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
-				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
+				return &sync.BuiltAgent{Dir: c.MkDir(), Version: version.Binary{
+					Number:  coretesting.FakeVersionNumber,
+					Release: "ubuntu",
+					Arch:    arch,
+				}}, nil
 			},
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
@@ -648,89 +653,28 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
-func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
-	// Client host is a Windows system, wanting to bootstrap a jammy
-	// controller with local tools. This can't work.
-
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Windows })
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
-		return nil, errors.NotFoundf("tools")
-	})
-	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
-		s.callContext, bootstrap.BootstrapParams{
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
-				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
-			},
-			BootstrapBase:           jammyBootstrapBase,
-			SupportedBootstrapBases: supportedJujuBases,
-		})
-	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "ubuntu@22.04/stable" using a machine running "Windows"`)
-}
-
-func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
-	// Client host is some unspecified Linux system, wanting to
-	// bootstrap a trusty controller with local tools. This should be
-	// OK.
-
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
-		return nil, errors.NotFoundf("tools")
-	})
-	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
-		s.callContext, bootstrap.BootstrapParams{
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
-				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
-			},
-			BootstrapBase:           jammyBootstrapBase,
-			SupportedBootstrapBases: supportedJujuBases,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
-	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
-}
-
-func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapDev(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
-		c.Fatal("should not call FindTools if BuildAgent is specified")
+		c.Fatal("should not call FindTools if Dev is specified")
 		return nil, errors.NotFoundf("tools")
 	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			BuildAgent:       true,
+			Dev:              true,
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
-			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
-				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsTrue)
-				c.Assert(ver.String(), gc.Equals, "2.99.0.1")
-				localVer := ver
+			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
+				localVer := coretesting.FakeVersionNumber
 				return &sync.BuiltAgent{
-					Dir:      c.MkDir(),
-					Official: true,
+					Dir: c.MkDir(),
 					Version: version.Binary{
-						// If we found an official build we suppress the build number.
-						Number:  localVer.ToPatch(),
+						Number:  localVer,
 						Release: "ubuntu",
 						Arch:    "arm64",
 					},
@@ -774,65 +718,13 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
 				c.Fatal("should not call BuildAgentTarball if there are packaged tools")
 				return nil, nil
 			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(findToolsOk, jc.IsTrue)
-}
-
-func (s *bootstrapSuite) TestBootstrapPackagedTools(c *gc.C) {
-	for _, a := range arch.AllSupportedArches {
-		s.assertBootstrapPackagedToolsAvailable(c, a)
-	}
-}
-
-func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
-	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
-	// such as s390.
-	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
-		return nil, errors.NotFoundf("tools")
-	})
-	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
-		"agent-stream": "proposed"})
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
-		s.callContext, bootstrap.BootstrapParams{
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
-				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
-			},
-			SupportedBootstrapBases: supportedJujuBases,
-		})
-	// bootstrap.Bootstrap leaves it to the provider to
-	// locate bootstrap tools.
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
-	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
-		return nil, errors.NotFoundf("tools")
-	})
-	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
-		"development": true})
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
-		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
-				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
-			},
-			SupportedBootstrapBases: supportedJujuBases,
-		})
-	// bootstrap.Bootstrap leaves it to the provider to
-	// locate bootstrap tools.
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
@@ -1246,13 +1138,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
 			AgentVersion:     toolsVersion,
-			BuildAgentTarball: func(
-				build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
-			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
-				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsFalse)
+			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			SupportedBootstrapBases: supportedJujuBases,
@@ -1316,7 +1202,7 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C
 	c.Assert(bootstrapCount, gc.Equals, 0)
 }
 
-func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
+func (s *bootstrapSuite) TestAvailableLocalToolsInvalidArch(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return arch.S390X
 	})
@@ -1328,22 +1214,49 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			BuildAgent:       true,
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(
-				build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
-			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
-				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsTrue)
-				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			Dev:                  true,
+			AdminSecret:          "admin-secret",
+			CAPrivateKey:         coretesting.CAKey,
+			ControllerConfig:     coretesting.FakeControllerConfig(),
+			BootstrapConstraints: constraints.MustParse("arch=arm64"),
+			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
+				c.Check(arch, gc.Equals, "arm64")
+				return nil, errors.NotFoundf("tools for %s", arch)
 			},
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "s390x"`)
+	c.Assert(err, gc.ErrorMatches, `(?m)Juju cannot bootstrap because no agent binaries are available for your model..*`)
+}
+
+func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return arch.S390X
+	})
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+		return tools.List{
+			&tools.Tools{
+				Version: version.Binary{
+					Number:  coretesting.FakeVersionNumber,
+					Release: "ubuntu",
+					Arch:    "ppc64el",
+				},
+			},
+		}, nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			AdminSecret:          "admin-secret",
+			CAPrivateKey:         coretesting.CAKey,
+			ControllerConfig:     coretesting.FakeControllerConfig(),
+			BootstrapConstraints: constraints.MustParse("arch=arm64"),
+			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
+				panic("BuildAgentTarball should not be called")
+			},
+			SupportedBootstrapBases: supportedJujuBases,
+		})
+	c.Assert(err, gc.ErrorMatches, `expected tools for base=ubuntu arch=arm64: no matching agent binaries available`)
 }
 
 func (s *bootstrapSuite) TestTargetSeriesOverride(c *gc.C) {
@@ -1367,13 +1280,7 @@ func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
 			CAPrivateKey:            coretesting.CAKey,
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			SupportedBootstrapBases: supportedJujuBases,
-			BuildAgentTarball: func(
-				build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
-			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
-				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsTrue)
+			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 		})
@@ -1398,13 +1305,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 			CAPrivateKey:            coretesting.CAKey,
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			SupportedBootstrapBases: supportedJujuBases,
-			BuildAgentTarball: func(
-				build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
-			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
-				c.Logf("BuildAgentTarball version %s", ver)
-				c.Assert(build, jc.IsTrue)
+			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			// Operator provided constraints must always supersede
@@ -1485,7 +1386,10 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envc
 			return nil, errors.Trace(err)
 		}
 	}
-	arch, _ := args.AvailableTools.OneArch()
+	arch := arch.HostArch()
+	if args.BootstrapConstraints.Arch != nil {
+		arch = *args.BootstrapConstraints.Arch
+	}
 	return &environs.BootstrapResult{
 		Arch:                    arch,
 		Base:                    base,

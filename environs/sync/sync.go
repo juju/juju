@@ -394,3 +394,109 @@ func (u StorageToolsUploader) UploadTools(toolsDir, stream string, tools *coreto
 	}
 	return nil
 }
+
+func UploadTestTools(
+	ss envtools.SimplestreamsFetcher, store storage.Storage, stream string,
+	toolsVersion version.Binary,
+) (t *coretools.Tools, err error) {
+	baseToolsDir, err := os.MkdirTemp("", "juju-tools")
+	if err != nil {
+		return nil, err
+	}
+
+	// If we exit with an error, clean up the built tools directory.
+	defer func() {
+		if err != nil {
+			os.RemoveAll(baseToolsDir)
+		}
+	}()
+
+	err = os.MkdirAll(filepath.Join(baseToolsDir, storage.BaseToolsPath, stream), 0755)
+	if err != nil {
+		return nil, err
+	}
+
+	storageName := envtools.StorageName(toolsVersion, stream)
+	f, err := os.Create(filepath.Join(baseToolsDir, storageName))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	sum, err := envtools.BundleTestTools(f)
+	if err != nil {
+		return nil, err
+	}
+
+	finfo, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	builtTools := &BuiltAgent{
+		Version:     toolsVersion,
+		Dir:         baseToolsDir,
+		StorageName: storageName,
+		Size:        finfo.Size(),
+		Sha256Hash:  sum,
+	}
+	defer os.RemoveAll(baseToolsDir)
+	return syncBuiltTools(ss, store, stream, builtTools)
+}
+
+func BuildTestTools(stream string, ver version.Binary) (_ *BuiltAgent, err error) {
+	logger.Debugf("Making agent binary tarball")
+	// We create the entire archive before asking the environment to
+	// start uploading so that we can be sure we have archived
+	// correctly.
+	f, err := os.CreateTemp("", "juju-tgz")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+	}()
+
+	sha256Hash, err := envtools.BundleTestTools(f)
+	if err != nil {
+		return nil, err
+	}
+
+	fileInfo, err := f.Stat()
+	if err != nil {
+		return nil, errors.Errorf("cannot stat newly made agent binary archive: %v", err)
+	}
+	size := fileInfo.Size()
+	agentBinary := "agent binary"
+	logger.Infof("using %s %v (%dkB)", agentBinary, ver, (size+512)/1024)
+
+	baseToolsDir, err := os.MkdirTemp("", "juju-tools")
+	if err != nil {
+		return nil, err
+	}
+
+	// If we exit with an error, clean up the built tools directory.
+	defer func() {
+		if err != nil {
+			os.RemoveAll(baseToolsDir)
+		}
+	}()
+
+	err = os.MkdirAll(filepath.Join(baseToolsDir, storage.BaseToolsPath, stream), 0755)
+	if err != nil {
+		return nil, err
+	}
+	storageName := envtools.StorageName(ver, stream)
+	err = utils.CopyFile(filepath.Join(baseToolsDir, storageName), f.Name())
+	if err != nil {
+		return nil, err
+	}
+	return &BuiltAgent{
+		Version:     ver,
+		Dir:         baseToolsDir,
+		StorageName: storageName,
+		Size:        size,
+		Sha256Hash:  sha256Hash,
+	}, nil
+}

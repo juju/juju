@@ -239,7 +239,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
 		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-		_, err := sync.Upload(ss, t.toolsStorage, "released", nil)
+		_, err := sync.UploadTestTools(ss, t.toolsStorage, "released", coretesting.CurrentVersion())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	args := t.bootstrapParams()
@@ -959,9 +959,9 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	upgradeTools, err := sync.Upload(
+	upgradeTools, err := sync.UploadTestTools(
 		ss, t.toolsStorage, "released",
-		func(version.Number) version.Number { return newVersion.Number },
+		version.Binary{Number: newVersion.Number, Arch: arch.HostArch()},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

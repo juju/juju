@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 
@@ -116,38 +115,6 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-func findExecutable(execFile string) (string, error) {
-	logger.Debugf("looking for: %s", execFile)
-	if filepath.IsAbs(execFile) {
-		return execFile, nil
-	}
-
-	dir, file := filepath.Split(execFile)
-
-	// Now we have two possibilities:
-	//   file == path indicating that the PATH was searched
-	//   dir != "" indicating that it is a relative path
-
-	if dir == "" {
-		path := os.Getenv("PATH")
-		for _, name := range filepath.SplitList(path) {
-			result := filepath.Join(name, file)
-			// Use exec.LookPath() to check if the file exists and is executable`
-			f, err := exec.LookPath(result)
-			if err == nil {
-				return f, nil
-			}
-		}
-
-		return "", fmt.Errorf("could not find %q in the path", file)
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Clean(filepath.Join(cwd, execFile)), nil
-}
-
 func copyFileWithMode(from, to string, mode os.FileMode) error {
 	source, err := os.Open(from)
 	if err != nil {
@@ -166,21 +133,6 @@ func copyFileWithMode(from, to string, mode os.FileMode) error {
 		return err
 	}
 	return nil
-}
-
-// Override for testing.
-var ExistingJujuLocation = existingJujuLocation
-
-// ExistingJujuLocation returns the directory where 'juju' is running, and where
-// we expect to find 'jujuc' and 'jujud'.
-func existingJujuLocation() (string, error) {
-	jujuLocation, err := findExecutable(os.Args[0])
-	if err != nil {
-		logger.Infof("%v", err)
-		return "", err
-	}
-	jujuDir := filepath.Dir(jujuLocation)
-	return jujuDir, nil
 }
 
 // VersionFileFallbackDir is the other location we'll check for a
@@ -255,4 +207,29 @@ func bundleTools(devSrcDir string, toolsArch arch.Arch, w io.Writer) (_ version.
 		return version.Binary{}, "", err
 	}
 	return toolsVersion, sha256hash, nil
+}
+
+func BundleTestTools(w io.Writer) (string, error) {
+	sum := sha256.New()
+	mr := io.MultiWriter(w, sum)
+	gzw := gzip.NewWriter(mr)
+	tarw := tar.NewWriter(gzw)
+	err := tarw.Flush()
+	if err != nil {
+		return "", err
+	}
+	err = tarw.Close()
+	if err != nil {
+		return "", err
+	}
+	err = gzw.Flush()
+	if err != nil {
+		return "", err
+	}
+	err = gzw.Close()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", sum.Sum(nil)), nil
 }

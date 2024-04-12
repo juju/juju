@@ -39,15 +39,12 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
@@ -1574,37 +1571,21 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
-	s.sender = append(s.sender, s.resourceSKUsSender())
-	s.sender = append(s.sender, s.initResourceGroupSenders(resourceGroupName)...)
-	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
+	s.sender = s.initResourceGroupSenders(resourceGroupName)
+	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
-	err := bootstrap.Bootstrap(
-		ctx, env, s.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			AdminSecret:      jujutesting.AdminSecret,
-			CAPrivateKey:     testing.CAKey,
-			BootstrapBase:    corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BuildAgentTarball: func(
-				build bool, _ string, _ func(version.Number) version.Number,
-			) (*sync.BuiltAgent, error) {
-				c.Assert(build, jc.IsFalse)
-				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
-			},
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	result, err := env.Bootstrap(
+		ctx, s.callCtx, environs.BootstrapParams{
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			BootstrapConstraints:     constraints.MustParse("mem=7G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
-	// If we aren't on amd64, this should correctly fail. See also:
-	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if corearch.HostArch() != "amd64" {
-		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
-			env.Config().Name(),
-			env.Config().Type(),
-			corearch.HostArch())
-		c.Assert(err, gc.ErrorMatches, wantErr)
-		c.SucceedNow()
-	}
-	// amd64 should pass the rest of the test.
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
@@ -1613,8 +1594,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
-		needsProviderInit:   true,
-		instanceType:        "Standard_D1",
+		instanceType:        "Standard_D2",
 		publicIP:            true,
 	})
 }
@@ -1625,37 +1605,21 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	ctx := envtesting.BootstrapTODOContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"resource-group-name": "foo"})
 
-	s.sender = append(s.sender, s.resourceSKUsSender())
-	s.sender = append(s.sender, s.initResourceGroupSenders("foo")...)
-	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
+	s.sender = s.initResourceGroupSenders("foo")
+	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
-	err := bootstrap.Bootstrap(
-		ctx, env, s.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			AdminSecret:      jujutesting.AdminSecret,
-			CAPrivateKey:     testing.CAKey,
-			BootstrapBase:    corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BuildAgentTarball: func(
-				build bool, _ string, _ func(version.Number) version.Number,
-			) (*sync.BuiltAgent, error) {
-				c.Assert(build, jc.IsFalse)
-				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
-			},
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	result, err := env.Bootstrap(
+		ctx, s.callCtx, environs.BootstrapParams{
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
-	// If we aren't on amd64, this should correctly fail. See also:
-	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if corearch.HostArch() != "amd64" {
-		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
-			env.Config().Name(),
-			env.Config().Type(),
-			corearch.HostArch())
-		c.Assert(err, gc.ErrorMatches, wantErr)
-		c.SucceedNow()
-	}
-	// amd64 should pass the rest of the test.
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"

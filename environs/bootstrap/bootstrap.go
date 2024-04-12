@@ -448,6 +448,7 @@ func bootstrapIAAS(
 	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints(bootstrapConstraints) {
 		bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
 	}
+	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
 	var bootstrapArch string
 	if bootstrapConstraints.Arch != nil {
@@ -487,24 +488,26 @@ func bootstrapIAAS(
 	}
 	if args.Dev {
 		if args.BuildAgentTarball == nil {
-			return errors.New("cannot build agent binary to upload")
+			return errors.New("cannot package bootstrap agent binary to upload")
 		}
 
 		builtTools, err := args.BuildAgentTarball(args.DevSrcDir, cfg.AgentStream(), bootstrapArch)
-		if err != nil {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
-		defer os.RemoveAll(builtTools.Dir)
+		if builtTools != nil {
+			defer os.RemoveAll(builtTools.Dir)
 
-		ctx.Infof("Preparing local dev Juju agent binary %v", builtTools.Version)
+			ctx.Infof("Preparing local dev Juju agent binary %v", builtTools.Version)
 
-		filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
-		availableTools = append(availableTools, &coretools.Tools{
-			Version: builtTools.Version,
-			URL:     fmt.Sprintf("file://%s", filename),
-			SHA256:  builtTools.Sha256Hash,
-			Size:    builtTools.Size,
-		})
+			filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
+			availableTools = append(availableTools, &coretools.Tools{
+				Version: builtTools.Version,
+				URL:     fmt.Sprintf("file://%s", filename),
+				SHA256:  builtTools.Sha256Hash,
+				Size:    builtTools.Size,
+			})
+		}
 	}
 	if len(availableTools) == 0 {
 		return errors.New(noToolsMessage)
@@ -575,7 +578,7 @@ func bootstrapIAAS(
 		OSType: result.Base.OS,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "expected tools for %q", result.Base.OS)
+		return errors.Annotatef(err, "expected tools for base=%s arch=%s", result.Base.OS, result.Arch)
 	}
 	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
 	if err != nil {
