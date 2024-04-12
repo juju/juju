@@ -11,11 +11,14 @@ import (
 
 // UpsertSecretParams are used to upsert a secret.
 type UpsertSecretParams struct {
-	RotatePolicy secrets.RotatePolicy
-	ExpireTime   time.Time
-	Description  string
-	Label        string
-	Data         secrets.SecretData
-	ValueRef     *secrets.ValueRef
-	AutoPrune    bool
+	RotatePolicy   *RotatePolicy
+	ExpireTime     *time.Time
+	NextRotateTime *time.Time
+	// TODO(secrets) - these should be pointers
+	Description string
+	Label       string
+	AutoPrune   bool
+
+	Data     secrets.SecretData
+	ValueRef *secrets.ValueRef
 }

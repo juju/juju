@@ -14,24 +14,28 @@ import (
 // These structs represent the persistent secretMetadata entity schema in the database.
 
 type secretMetadata struct {
-	ID          string    `db:"id"`
-	Version     int       `db:"version"`
-	Description string    `db:"description"`
-	AutoPrune   bool      `db:"auto_prune"`
-	CreateTime  time.Time `db:"create_time"`
-	UpdateTime  time.Time `db:"update_time"`
+	ID             string    `db:"id"`
+	Version        int       `db:"version"`
+	Description    string    `db:"description"`
+	AutoPrune      bool      `db:"auto_prune"`
+	RotatePolicyID int       `db:"rotate_policy_id"`
+	CreateTime     time.Time `db:"create_time"`
+	UpdateTime     time.Time `db:"update_time"`
 }
 
 // secretInfo is used because sqlair doesn't seem to like struct embedding.
 type secretInfo struct {
-	ID          string    `db:"id"`
-	Version     int       `db:"version"`
-	Description string    `db:"description"`
-	AutoPrune   bool      `db:"auto_prune"`
-	CreateTime  time.Time `db:"create_time"`
-	UpdateTime  time.Time `db:"update_time"`
+	ID           string    `db:"id"`
+	Version      int       `db:"version"`
+	Description  string    `db:"description"`
+	RotatePolicy string    `db:"policy"`
+	AutoPrune    bool      `db:"auto_prune"`
+	CreateTime   time.Time `db:"create_time"`
+	UpdateTime   time.Time `db:"update_time"`
 
-	LatestRevision int `db:"latest_revision"`
+	NextRotateTime   time.Time `db:"next_rotation_time"`
+	LatestExpireTime time.Time `db:"latest_expire_time"`
+	LatestRevision   int       `db:"latest_revision"`
 }
 
 type secretModelOwner struct {
@@ -58,6 +62,11 @@ type secretOwner struct {
 	Label     string `db:"label"`
 }
 
+type secretRotate struct {
+	SecretID       string    `db:"secret_id"`
+	NextRotateTime time.Time `db:"next_rotation_time"`
+}
+
 type secretRevision struct {
 	ID            string    `db:"uuid"`
 	SecretID      string    `db:"secret_id"`
@@ -66,6 +75,11 @@ type secretRevision struct {
 	PendingDelete bool      `db:"pending_delete"`
 	CreateTime    time.Time `db:"create_time"`
 	UpdateTime    time.Time `db:"update_time"`
+}
+
+type secretRevisionExpire struct {
+	RevisionUUID string    `db:"revision_uuid"`
+	ExpireTime   time.Time `db:"expire_time"`
 }
 
 type secretContent struct {
@@ -114,14 +128,27 @@ func (rows secrets) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets
 			UpdateTime:     row.UpdateTime,
 			LatestRevision: row.LatestRevision,
 			AutoPrune:      row.AutoPrune,
+			RotatePolicy:   coresecrets.RotatePolicy(row.RotatePolicy),
+		}
+		if tm := row.NextRotateTime; !tm.IsZero() {
+			result[i].NextRotateTime = &tm
+		}
+		if tm := row.LatestExpireTime; !tm.IsZero() {
+			result[i].LatestExpireTime = &tm
 		}
 	}
 	return result, nil
 }
 
 type secretRevisions []secretRevision
+type secretRevisionsExpire []secretRevisionExpire
 
-func (rows secretRevisions) toSecretRevisions() ([]*coresecrets.SecretRevisionMetadata, error) {
+func (rows secretRevisions) toSecretRevisions(revExpire secretRevisionsExpire) ([]*coresecrets.SecretRevisionMetadata, error) {
+	if len(rows) != len(revExpire) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch composing secret revision results")
+	}
+
 	result := make([]*coresecrets.SecretRevisionMetadata, len(rows))
 	for i, row := range rows {
 		result[i] = &coresecrets.SecretRevisionMetadata{
@@ -130,7 +157,9 @@ func (rows secretRevisions) toSecretRevisions() ([]*coresecrets.SecretRevisionMe
 			CreateTime:  row.CreateTime,
 			UpdateTime:  row.UpdateTime,
 			BackendName: nil,
-			ExpireTime:  nil,
+		}
+		if tm := revExpire[i].ExpireTime; !tm.IsZero() {
+			result[i].ExpireTime = &tm
 		}
 	}
 	return result, nil

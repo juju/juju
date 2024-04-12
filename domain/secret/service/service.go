@@ -23,6 +23,8 @@ import (
 type State interface {
 	GetModelUUID(ctx context.Context) (string, error)
 	CreateUserSecret(ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
+	CreateCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams) error
+	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
@@ -36,6 +38,7 @@ type State interface {
 	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
 	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
+	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -130,17 +133,28 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 		err := s.st.CreateUserSecret(ctx, params.Version, uri, p)
 		return errors.Annotatef(err, "creating user secret %q", uri.ID)
 	}
-	// TODO(secrets) - charm secrets
-	//var nextRotateTime *time.Time
-	//if params.RotatePolicy.WillRotate() {
-	//	nextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
-	//}
-	return errors.NotImplemented
+
+	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
+	p.RotatePolicy = &rotatePolicy
+	if params.RotatePolicy.WillRotate() {
+		p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
+	}
+	p.ExpireTime = params.ExpireTime
+	var err error
+	if params.CharmOwner.Kind == ApplicationOwner {
+		err = s.st.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+	} else {
+		err = s.st.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
+	}
+	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
+		return errors.Errorf("secret with label %q is already being used", *params.Label)
+	}
+	return errors.Annotatef(err, "creating charm secret %q", uri.ID)
 	// also grant manage access to owner
 }
 
 func (s *SecretService) UpdateSecret(ctx context.Context, uri *secrets.URI, params UpdateSecretParams) (*secrets.SecretMetadata, error) {
-	return nil, errors.NotFound
+	return nil, nil
 
 	// TODO(secrets)
 	/*
@@ -243,8 +257,10 @@ func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, re
 func (s *SecretService) ProcessSecretConsumerLabel(
 	ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner secrets.Owner) (bool, leadership.Token, error),
 ) (*secrets.URI, *string, error) {
-	// TODO
-	var modelUUID string
+	modelUUID, err := s.st.GetModelUUID(ctx)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "getting model uuid")
+	}
 
 	// label could be the consumer label for consumers or the owner label for owners.
 	var labelToUpdate *string
@@ -299,7 +315,7 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 	if uri == nil {
 		var err error
 		uri, err = s.GetURIByConsumerLabel(ctx, label, unitName)
-		if errors.Is(err, errors.NotFound) {
+		if errors.Is(err, secreterrors.SecretNotFound) {
 			return nil, nil, errors.NotFoundf("consumer label %q", label)
 		}
 		if err != nil {
@@ -312,7 +328,7 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context, uri *secrets.URI, unitName, label string) (*secrets.SecretMetadata, error) {
 	notFoundErr := fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
 	if label != "" {
-		notFoundErr = errors.NotFoundf("secret with label %q not found%w", label, errors.Hide(secreterrors.SecretNotFound))
+		notFoundErr = fmt.Errorf("secret with label %q not found%w", label, errors.Hide(secreterrors.SecretNotFound))
 	}
 
 	appName, err := names.UnitApplication(unitName)
