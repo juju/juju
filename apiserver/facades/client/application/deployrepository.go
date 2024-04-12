@@ -505,7 +505,9 @@ type caasDeployFromRepositoryValidator struct {
 //   - Check the charm's min version against the caasVersion
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(arg)
-
+	if len(errs) > 0 {
+		return dt, errs
+	}
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
 		deployRepoLogger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", arg.CharmName)
 	}
@@ -523,11 +525,14 @@ type iaasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
 }
 
-// ValidateArg validates DeployFromRepositoryArg from a iaas perspective.
+// ValidateArg validates DeployFromRepositoryArg from an iaas perspective.
 // First checking the common validation, then any validation specific to
 // iaas charms.
 func (v iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(arg)
+	if len(errs) > 0 {
+		return dt, errs
+	}
 	attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, dt.numUnits)
 	if len(attachStorageErrs) > 0 {
 		errs = append(errs, attachStorageErrs...)
