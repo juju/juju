@@ -3,12 +3,13 @@
 
 package secret
 
+import coresecrets "github.com/juju/juju/core/secrets"
+
 // These type aliases are used to specify filter terms.
 type (
 	Labels            []string
 	ApplicationOwners []string
 	UnitOwners        []string
-	Revisions         []int
 )
 
 // These consts are used to specify nil filter terms.
@@ -16,5 +17,6 @@ var (
 	NilLabels            = Labels(nil)
 	NilApplicationOwners = ApplicationOwners(nil)
 	NilUnitOwners        = UnitOwners(nil)
-	NilRevisions         = Revisions(nil)
+	NilRevision          = (*int)(nil)
+	NilSecretURI         = (*coresecrets.URI)(nil)
 )

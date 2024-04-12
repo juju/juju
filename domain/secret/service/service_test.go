@@ -182,6 +182,88 @@ func (s *serviceSuite) TestGetUserSecretURIByLabel(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, uri)
 }
 
+func (s *serviceSuite) TestListUserSecrets(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	md := []*coresecrets.SecretMetadata{{Label: "one"}}
+	rev := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().ListUserSecrets(gomock.Any()).Return(md, rev, nil)
+
+	gotSecrets, gotRevisions, err := s.service().ListUserSecrets(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSecrets, jc.DeepEquals, md)
+	c.Assert(gotRevisions, jc.DeepEquals, rev)
+}
+
+func (s *serviceSuite) TestListCharmSecrets(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	owners := []CharmSecretOwner{{
+		Kind: ApplicationOwner,
+		ID:   "mysql",
+	}, {
+		Kind: UnitOwner,
+		ID:   "mysql/0",
+	}}
+	md := []*coresecrets.SecretMetadata{{Label: "one"}}
+	rev := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"}).
+		Return(md, rev, nil)
+
+	gotSecrets, gotRevisions, err := s.service().ListCharmSecrets(context.Background(), owners...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSecrets, jc.DeepEquals, md)
+	c.Assert(gotRevisions, jc.DeepEquals, rev)
+}
+
+func (s *serviceSuite) TestListCharmJustApplication(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	owners := []CharmSecretOwner{{
+		Kind: ApplicationOwner,
+		ID:   "mysql",
+	}}
+	md := []*coresecrets.SecretMetadata{{Label: "one"}}
+	rev := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners).
+		Return(md, rev, nil)
+
+	gotSecrets, gotRevisions, err := s.service().ListCharmSecrets(context.Background(), owners...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSecrets, jc.DeepEquals, md)
+	c.Assert(gotRevisions, jc.DeepEquals, rev)
+}
+
+func (s *serviceSuite) TestListCharmJustUnit(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	owners := []CharmSecretOwner{{
+		Kind: UnitOwner,
+		ID:   "mysql/0",
+	}}
+	md := []*coresecrets.SecretMetadata{{Label: "one"}}
+	rev := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/0"}).
+		Return(md, rev, nil)
+
+	gotSecrets, gotRevisions, err := s.service().ListCharmSecrets(context.Background(), owners...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSecrets, jc.DeepEquals, md)
+	c.Assert(gotRevisions, jc.DeepEquals, rev)
+}
+
 /*
 // TODO(secrets) - tests copied from facade which need to be re-implemented here
 func (s *serviceSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {

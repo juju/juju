@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +15,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -201,7 +203,7 @@ func (s *stateSuite) TestListSecretsNone(c *gc.C) {
 
 	ctx := context.Background()
 	secrets, revisions, err := st.ListSecrets(
-		ctx, nil, domainsecret.NilRevisions, domainsecret.NilLabels, domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners, true)
+		ctx, domainsecret.NilSecretURI, domainsecret.NilRevision, domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 0)
 	c.Assert(len(revisions), gc.Equals, 0)
@@ -235,7 +237,7 @@ func (s *stateSuite) TestListSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	secrets, revisions, err := st.ListSecrets(
-		ctx, nil, domainsecret.NilRevisions, domainsecret.NilLabels, domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners, true)
+		ctx, domainsecret.NilSecretURI, domainsecret.NilRevision, domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 2)
 	c.Assert(len(revisions), gc.Equals, 2)
@@ -287,7 +289,7 @@ func (s *stateSuite) TestListSecretsByURI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	secrets, revisions, err := st.ListSecrets(
-		ctx, uri[0], domainsecret.NilRevisions, domainsecret.NilLabels, domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners, true)
+		ctx, uri[0], domainsecret.NilRevision, domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(secrets), gc.Equals, 1)
 	c.Assert(len(revisions), gc.Equals, 1)
@@ -310,7 +312,7 @@ func (s *stateSuite) TestListSecretsByURI(c *gc.C) {
 	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
 
-func (s *stateSuite) setupUnit(c *gc.C, appName string) {
+func (s *stateSuite) setupUnits(c *gc.C, appName string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		applicationUUID := uuid.MustNewUUID().String()
 		_, err := tx.ExecContext(context.Background(), `
@@ -320,24 +322,496 @@ VALUES (?, ?, ?)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		machineUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(context.Background(), `
+		// Do 2 units.
+		for i := 0; i < 2; i++ {
+			netNodeUUID := uuid.MustNewUUID().String()
+			_, err = tx.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+			c.Assert(err, jc.ErrorIsNil)
+			unitUUID := uuid.MustNewUUID().String()
+			_, err = tx.ExecContext(context.Background(), `
 INSERT INTO unit (uuid, life_id, unit_id, net_node_uuid, application_uuid)
 VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
-`, machineUUID, life.Alive, appName+"/0", netNodeUUID, appName)
-		c.Assert(err, jc.ErrorIsNil)
-		return err
+`, unitUUID, life.Alive, appName+fmt.Sprintf("/%d", i), netNodeUUID, appName)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestListUserSecretsNone(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   true,
+	}
+	uri := coresecrets.NewURI()
+
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListUserSecrets(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secrets, gc.HasLen, 0)
+	c.Assert(revisions, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestListUserSecrets(c *gc.C) {
+	modelUUID := s.setupModel(c)
+
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := []domainsecret.UpsertSecretParams{{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   true,
+	}, {
+		Description: "my secretMetadata2",
+		Label:       "my label2",
+		Data:        coresecrets.SecretData{"foo": "bar2"},
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListUserSecrets(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 1)
+	c.Assert(len(revisions), gc.Equals, 1)
+
+	now := time.Now()
+
+	md := secrets[0]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.Label, gc.Equals, sp[0].Label)
+	c.Assert(md.Description, gc.Equals, sp[0].Description)
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, gc.Equals, sp[0].AutoPrune)
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: modelUUID})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs := revisions[0]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+	c.Assert(revs[0].UpdateTime, jc.Almost, now)
+}
+
+func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	owner := coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"}
+	s.assertSecret(c, st, uri, sp, 1, owner)
+	data, ref, err := st.GetSecretValue(ctx, uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ref, gc.IsNil)
+	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+}
+
+func (s *stateSuite) TestCreateCharmApplicationSecretNotFound(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestCreateCharmUserSecretWithContent(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	owner := coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"}
+	s.assertSecret(c, st, uri, sp, 1, owner)
+	data, ref, err := st.GetSecretValue(ctx, uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ref, gc.IsNil)
+	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+}
+
+func (s *stateSuite) TestCreateCharmUnitSecretNotFound(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+}
+
+func (s *stateSuite) TestCreateCharmApplicationSecretLabelAlreadyExists(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+func (s *stateSuite) TestCreateCharmUnitSecretLabelAlreadyExists(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	uri3 := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri3, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+func (s *stateSuite) TestCreateCharmUnitSecretLabelAlreadyExistsForApplication(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+func (s *stateSuite) TestCreateManyApplicationSecretsNoLabelClash(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	createAndCheck := func(label string) {
+		content := label
+		if content == "" {
+			content = "empty"
+		}
+		sp := domainsecret.UpsertSecretParams{
+			Description: "my secretMetadata",
+			Label:       label,
+			Data:        coresecrets.SecretData{"foo": content},
+		}
+		uri := coresecrets.NewURI()
+		ctx := context.Background()
+		err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+		c.Assert(err, jc.ErrorIsNil)
+		owner := coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"}
+		s.assertSecret(c, st, uri, sp, 1, owner)
+		data, ref, err := st.GetSecretValue(ctx, uri, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ref, gc.IsNil)
+		c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": content})
+	}
+	createAndCheck("my label")
+	createAndCheck("")
+	createAndCheck("")
+	createAndCheck("another label")
+}
+
+func (s *stateSuite) TestCreateManyUnitSecretsNoLabelClash(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	createAndCheck := func(label string) {
+		content := label
+		if content == "" {
+			content = "empty"
+		}
+		sp := domainsecret.UpsertSecretParams{
+			Description: "my secretMetadata",
+			Label:       label,
+			Data:        coresecrets.SecretData{"foo": content},
+		}
+		uri := coresecrets.NewURI()
+		ctx := context.Background()
+		err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+		c.Assert(err, jc.ErrorIsNil)
+		owner := coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"}
+		s.assertSecret(c, st, uri, sp, 1, owner)
+		data, ref, err := st.GetSecretValue(ctx, uri, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ref, gc.IsNil)
+		c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": content})
+	}
+	createAndCheck("my label")
+	createAndCheck("")
+	createAndCheck("")
+	createAndCheck("another label")
+}
+
+func (s *stateSuite) TestListCharmSecretsMissingOwners(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+	_, _, err := st.ListCharmSecrets(context.Background(),
+		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners)
+	c.Assert(err, gc.ErrorMatches, "querying charm secrets: must supply at least one app owner or unit owner")
+}
+
+func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := []domainsecret.UpsertSecretParams{{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   true,
+	}, {
+		Description: "my secretMetadata2",
+		Label:       "my label2",
+		Data:        coresecrets.SecretData{"foo": "bar2"},
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListCharmSecrets(ctx,
+		domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 1)
+	c.Assert(len(revisions), gc.Equals, 1)
+
+	now := time.Now()
+
+	md := secrets[0]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.Label, gc.Equals, sp[1].Label)
+	c.Assert(md.Description, gc.Equals, sp[1].Description)
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, gc.Equals, sp[1].AutoPrune)
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs := revisions[0]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+	c.Assert(revs[0].UpdateTime, jc.Almost, now)
+}
+
+func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := []domainsecret.UpsertSecretParams{{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   true,
+	}, {
+		Description: "my secretMetadata2",
+		Label:       "my label2",
+		Data:        coresecrets.SecretData{"foo": "bar2"},
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], "mysql", sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListCharmSecrets(ctx,
+		domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 1)
+	c.Assert(len(revisions), gc.Equals, 1)
+
+	now := time.Now()
+
+	md := secrets[0]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.Label, gc.Equals, sp[1].Label)
+	c.Assert(md.Description, gc.Equals, sp[1].Description)
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, gc.Equals, sp[1].AutoPrune)
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs := revisions[0]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+	c.Assert(revs[0].UpdateTime, jc.Almost, now)
+}
+
+func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "postgresql")
+
+	sp := []domainsecret.UpsertSecretParams{{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   true,
+	}, {
+		Description: "my secretMetadata2",
+		Label:       "my label2",
+		Data:        coresecrets.SecretData{"foo": "bar2"},
+	}, {
+		Description: "my secretMetadata3",
+		Label:       "my label3",
+		Data:        coresecrets.SecretData{"foo": "bar3"},
+	}, {
+		Description: "my secretMetadata4",
+		Label:       "my label4",
+		Data:        coresecrets.SecretData{"foo": "bar4"},
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri[1], "mysql", sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[2], "mysql/0", sp[2])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[3], "postgresql/0", sp[3])
+	c.Assert(err, jc.ErrorIsNil)
+
+	secrets, revisions, err := st.ListCharmSecrets(ctx,
+		domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(secrets), gc.Equals, 2)
+	c.Assert(len(revisions), gc.Equals, 2)
+
+	now := time.Now()
+
+	first := 0
+	second := 1
+	if secrets[first].Label != sp[1].Label {
+		first = 1
+		second = 0
+	}
+
+	md := secrets[first]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.Label, gc.Equals, sp[1].Label)
+	c.Assert(md.Description, gc.Equals, sp[1].Description)
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, gc.Equals, sp[1].AutoPrune)
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs := revisions[first]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+	c.Assert(revs[0].UpdateTime, jc.Almost, now)
+
+	md = secrets[second]
+	c.Assert(md.Version, gc.Equals, 1)
+	c.Assert(md.Label, gc.Equals, sp[2].Label)
+	c.Assert(md.Description, gc.Equals, sp[2].Description)
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(md.AutoPrune, gc.Equals, sp[2].AutoPrune)
+	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
+	c.Assert(md.CreateTime, jc.Almost, now)
+	c.Assert(md.UpdateTime, jc.Almost, now)
+
+	revs = revisions[second]
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].CreateTime, jc.Almost, now)
+	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestSaveSecretConsumer(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",
@@ -369,7 +843,7 @@ func (s *stateSuite) TestSaveSecretConsumerSecretNotExists(c *gc.C) {
 
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	uri := coresecrets.NewURI().WithSource(modelUUID)
 	ctx := context.Background()
@@ -411,7 +885,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
 
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	uri := coresecrets.NewURI().WithSource("some-other-model")
 	ctx := context.Background()
@@ -431,7 +905,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
 func (s *stateSuite) TestGetSecretConsumerFirstTime(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
-	s.setupUnit(c, "mysql")
+	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
 		Description: "my secretMetadata",

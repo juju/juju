@@ -27,10 +27,12 @@ type State interface {
 	GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
-		revisions domainsecret.Revisions,
-		labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
-		unitOwners domainsecret.UnitOwners, wantUser bool,
+		revision *int, labels domainsecret.Labels,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
+	ListCharmSecrets(ctx context.Context,
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
+	ListUserSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
 	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
@@ -186,20 +188,28 @@ func (s *SecretService) UpdateSecret(ctx context.Context, uri *secrets.URI, para
 // If multiple values for a given term are specified, secrets matching any of the
 // values for that term are included.
 func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
-	revisions domainsecret.Revisions,
-	labels domainsecret.Labels, appOwners domainsecret.ApplicationOwners,
-	unitOwners domainsecret.UnitOwners, wantUser bool,
+	revision *int,
+	labels domainsecret.Labels,
 ) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	return s.st.ListSecrets(ctx, uri, revisions, labels, appOwners, unitOwners, wantUser)
+	return s.st.ListSecrets(ctx, uri, revision, labels)
 }
 
 // ListCharmSecrets returns the secret metadata and revision metadata for any secrets matching the specified owner.
 // The result contains secrets owned by any of the non nil owner attributes.
 // The count of secret and revisions in the result must match.
 func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	return s.st.ListSecrets(
-		ctx, nil, domainsecret.NilRevisions, domainsecret.NilLabels,
-		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners, false)
+	var (
+		appOwners  domainsecret.ApplicationOwners
+		unitOwners domainsecret.UnitOwners
+	)
+	for _, owner := range owners {
+		if owner.Kind == ApplicationOwner {
+			appOwners = append(appOwners, owner.ID)
+		} else {
+			unitOwners = append(unitOwners, owner.ID)
+		}
+	}
+	return s.st.ListCharmSecrets(ctx, appOwners, unitOwners)
 }
 
 // GetSecret returns the secret with the specified URI.
@@ -217,9 +227,7 @@ func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label strin
 // ListUserSecrets returns the secret metadata and revision metadata for any user secrets in the current model.
 // The count of secret and revisions in the result must match.
 func (s *SecretService) ListUserSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	return s.st.ListSecrets(
-		ctx, nil, domainsecret.NilRevisions, domainsecret.NilLabels,
-		domainsecret.NilApplicationOwners, domainsecret.NilUnitOwners, true)
+	return s.st.ListUserSecrets(ctx)
 }
 
 // GetSecretValue returns the value of the specified secret revision.

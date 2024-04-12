@@ -176,7 +176,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 		}},
 	}
 
-	s.secretService.EXPECT().ListSecrets(gomock.Any(), nil, secret.NilRevisions, secret.NilLabels, secret.NilApplicationOwners, secret.NilUnitOwners, true).Return(
+	s.secretService.EXPECT().ListSecrets(gomock.Any(), nil, secret.NilRevision, secret.NilLabels).Return(
 		metadata, revisions, nil,
 	)
 	s.secretService.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{

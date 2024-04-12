@@ -34,6 +34,23 @@ type secretInfo struct {
 	LatestRevision int `db:"latest_revision"`
 }
 
+type secretModelOwner struct {
+	SecretID string `db:"secret_id"`
+	Label    string `db:"label"`
+}
+
+type secretApplicationOwner struct {
+	SecretID        string `db:"secret_id"`
+	ApplicationUUID string `db:"application_uuid"`
+	Label           string `db:"label"`
+}
+
+type secretUnitOwner struct {
+	SecretID string `db:"secret_id"`
+	UnitUUID string `db:"unit_uuid"`
+	Label    string `db:"label"`
+}
+
 type secretOwner struct {
 	SecretID  string `db:"secret_id"`
 	OwnerID   string `db:"owner_id"`
