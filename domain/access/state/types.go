@@ -112,7 +112,7 @@ type dbAddUserPermission struct {
 	UUID string `db:"uuid"`
 
 	// PermissionType is the type of permission.
-	PermissionType int64 `db:"permission_type_id"`
+	Access string `db:"access"`
 
 	// GrantOn is the tag that the permission is granted on.
 	GrantOn string `db:"grant_on"`
@@ -152,4 +152,19 @@ func (r dbReadUserPermission) toUserAccess(u dbPermissionUser) corepermission.Us
 	})
 	userAccess.Access = corepermission.Access(r.AccessType)
 	return userAccess
+}
+
+// permUserName is a struct to replace sqlair.M with permission
+// SQL that provides a user name for input.
+type permUserName struct {
+	Name string `db:"name"`
+}
+
+// permInOut is a struct to replace sqlair.M with permission
+// SQL that contains a user name, grant_on and access both
+// input and output.
+type permInOut struct {
+	Name    string `db:"name"`
+	GrantOn string `db:"grant_on"`
+	Access  string `db:"access"`
 }

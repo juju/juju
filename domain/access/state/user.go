@@ -661,10 +661,12 @@ WHERE  user_uuid = $M.uuid`
 	}))
 }
 
-// AddUser adds a new user to the database. If the user already exists an error
-// that satisfies accesserrors.UserAlreadyExists will be returned. If the
-// creator does not exist an error that satisfies
-// accesserrors.UserCreatorUUIDNotFound will be returned.
+// AddUser adds a new user to the database, enables the user and adds the
+// given permission for the user.
+// If the user already exists an error that satisfies
+// accesserrors.UserAlreadyExists will be returned. If the creator does not
+// exist an error that satisfies accesserrors.UserCreatorUUIDNotFound will
+// be returned.
 func AddUser(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -688,19 +690,34 @@ VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_a
 		return errors.Annotate(err, "preparing add user query")
 	}
 
-	err = tx.Query(ctx, insertAddUserStmt, sqlair.M{
+	m := sqlair.M{
 		"uuid":            uuid.String(),
 		"name":            name,
 		"display_name":    displayName,
 		"created_by_uuid": creatorUuid.String(),
 		"created_at":      time.Now(),
-	}).Run()
+	}
+	err = tx.Query(ctx, insertAddUserStmt, m).Run()
 	if internaldatabase.IsErrConstraintUnique(err) {
 		return errors.Annotatef(accesserrors.UserAlreadyExists, "adding user %q", name)
 	} else if internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Annotatef(accesserrors.UserCreatorUUIDNotFound, "adding user %q", name)
 	} else if err != nil {
 		return errors.Annotatef(err, "adding user %q", name)
+	}
+
+	enableUserQuery := `
+INSERT INTO user_authentication (user_uuid, disabled)
+VALUES ($M.uuid, false)
+`
+
+	enableUserStmt, err := sqlair.Prepare(enableUserQuery, sqlair.M{})
+	if err != nil {
+		return errors.Annotate(err, "preparing enable user query")
+	}
+
+	if err := tx.Query(ctx, enableUserStmt, m).Run(); err != nil {
+		return errors.Annotatef(err, "enabling user %q", name)
 	}
 
 	err = AddUserPermission(ctx, tx, AddUserPermissionArgs{
