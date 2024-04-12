@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -34,7 +35,8 @@ type ModelOperatorSuite struct {
 var _ = gc.Suite(&ModelOperatorSuite{})
 
 func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
-	defer m.setupMocks(c).Finish()
+	ctrl := m.setupMocks(c)
+	defer ctrl.Finish()
 
 	info, err := m.api.ModelOperatorProvisioningInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,6 +91,15 @@ func (m *ModelOperatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	m.controllerConfigService = NewMockControllerConfigService(ctrl)
+	m.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.CAASImageRepo: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}
+`[1:],
+	}, nil).AnyTimes()
 
 	m.resources = common.NewResources()
 

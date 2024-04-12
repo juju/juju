@@ -56,22 +56,6 @@ type errorPattern struct {
 	errFunc func() error
 }
 
-// setErrorFor causes the given error to be returned
-// from any mock call that matches the given
-// string, which may contain wildcards as
-// in path.Match.
-//
-// The standard form for errors is:
-//
-//	Type.Function <arg>...
-//
-// See individual functions for details.
-func (e *errorPatterns) setErrorFor(what string, err error) {
-	e.setErrorFuncFor(what, func() error {
-		return err
-	})
-}
-
 // setErrorFuncFor causes the given function
 // to be invoked to return the error for the
 // given pattern.
@@ -103,10 +87,6 @@ func (e *errorPatterns) errorFor(name string, args ...interface{}) error {
 		logger.Errorf("errorFor %q -> %v", s, err)
 	}
 	return err
-}
-
-func (e *errorPatterns) resetErrors() {
-	e.patterns = e.patterns[:0]
 }
 
 func NewFakeState() *fakeState {
@@ -227,15 +207,6 @@ func (st *fakeState) addController(id string, wantsVote bool) *fakeController {
 	st.controllers[id] = m
 	m.val.Set(doc)
 	return m
-}
-
-func (st *fakeState) removeController(id string) {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	if st.controllers[id] == nil {
-		panic(fmt.Errorf("removing non-existent controller %q", id))
-	}
-	delete(st.controllers, id)
 }
 
 func (st *fakeState) setControllers(ids ...string) {
@@ -408,19 +379,6 @@ func (m *fakeController) SetHasVote(hasVote bool) error {
 		doc.hasVote = hasVote
 	})
 	return nil
-}
-
-func (m *fakeController) setWantsVote(wantsVote bool) {
-	m.mutate(func(doc *controllerDoc) {
-		doc.wantsVote = wantsVote
-	})
-}
-
-func (m *fakeController) advanceLifecycle(life state.Life, wantsVote bool) {
-	m.mutate(func(doc *controllerDoc) {
-		doc.life = life
-		doc.wantsVote = wantsVote
-	})
 }
 
 type fakeMongoSession struct {

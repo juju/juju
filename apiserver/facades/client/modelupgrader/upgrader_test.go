@@ -726,7 +726,7 @@ func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *gc.C) {
 
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().IsControllerModel().Return(false)

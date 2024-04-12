@@ -684,6 +684,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:                               config.CentralHub,
 			Presence:                          config.PresenceRecorder,
+			GetControllerConfigService:        apiserver.GetControllerConfigService,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
 		}),

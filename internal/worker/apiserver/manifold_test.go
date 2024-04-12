@@ -19,6 +19,7 @@ import (
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -46,25 +47,26 @@ type ManifoldSuite struct {
 
 	manifold dependency.Manifold
 
-	agent                *mockAgent
-	auditConfig          stubAuditConfig
-	authenticator        *mockAuthenticator
-	clock                *testclock.Clock
-	getter               dependency.Getter
-	hub                  pubsub.StructuredHub
-	leaseManager         *lease.Manager
-	metricsCollector     *coreapiserver.Collector
-	multiwatcherFactory  multiwatcher.Factory
-	mux                  *apiserverhttp.Mux
-	prometheusRegisterer stubPrometheusRegisterer
-	state                stubStateTracker
-	upgradeGate          stubGateWaiter
-	logSink              corelogger.ModelLogger
-	charmhubHTTPClient   *http.Client
-	dbGetter             stubWatchableDBGetter
-	serviceFactoryGetter stubServiceFactoryGetter
-	tracerGetter         stubTracerGetter
-	objectStoreGetter    stubObjectStoreGetter
+	agent                   *mockAgent
+	auditConfig             stubAuditConfig
+	authenticator           *mockAuthenticator
+	clock                   *testclock.Clock
+	getter                  dependency.Getter
+	hub                     pubsub.StructuredHub
+	leaseManager            *lease.Manager
+	metricsCollector        *coreapiserver.Collector
+	multiwatcherFactory     multiwatcher.Factory
+	mux                     *apiserverhttp.Mux
+	prometheusRegisterer    stubPrometheusRegisterer
+	state                   stubStateTracker
+	upgradeGate             stubGateWaiter
+	logSink                 corelogger.ModelLogger
+	charmhubHTTPClient      *http.Client
+	dbGetter                stubWatchableDBGetter
+	serviceFactoryGetter    *stubServiceFactoryGetter
+	controllerConfigService *MockControllerConfigService
+	tracerGetter            stubTracerGetter
+	objectStoreGetter       stubObjectStoreGetter
 
 	stub testing.Stub
 }
@@ -72,6 +74,8 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
@@ -87,6 +91,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
+	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
@@ -109,8 +115,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
 		Presence:                          presence.New(s.clock),
-		NewWorker:                         s.newWorker,
-		NewMetricsCollector:               s.newMetricsCollector,
+		GetControllerConfigService: func(getter dependency.Getter, name string) (apiserver.ControllerConfigService, error) {
+			return s.controllerConfigService, nil
+		},
+		NewWorker:           s.newWorker,
+		NewMetricsCollector: s.newMetricsCollector,
 	})
 }
 
@@ -234,6 +243,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
+		ControllerConfigService:    s.controllerConfigService,
 	})
 }
 
@@ -395,6 +405,10 @@ func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.Wa
 
 type stubServiceFactoryGetter struct {
 	servicefactory.ServiceFactoryGetter
+}
+
+func (s *stubServiceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+	return nil
 }
 
 type stubTracerGetter struct {

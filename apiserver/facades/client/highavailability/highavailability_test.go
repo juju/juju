@@ -45,14 +45,6 @@ var (
 )
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
-	// HA Requires S3 to be setup, the default is to use file backed storage.
-	// Forcing this to be s3 here, allows HA to be enabled.
-	s.ControllerConfigAttrs = make(map[string]interface{})
-	s.ControllerConfigAttrs[controller.ObjectStoreType] = objectstore.S3Backend
-	s.ControllerConfigAttrs[controller.ObjectStoreS3Endpoint] = "http://localhost:1234"
-	s.ControllerConfigAttrs[controller.ObjectStoreS3StaticKey] = "deadbeef"
-	s.ControllerConfigAttrs[controller.ObjectStoreS3StaticSecret] = "shhh...."
-
 	s.ApiServerSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -88,6 +80,20 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
+func (s *clientSuite) enableS3(c *gc.C) {
+	// HA Requires S3 to be setup, the default is to use file backed storage.
+	// Forcing this to be s3 here, allows HA to be enabled.
+	attrs := controller.Config{
+		controller.ObjectStoreType:           string(objectstore.S3Backend),
+		controller.ObjectStoreS3Endpoint:     "http://localhost:1234",
+		controller.ObjectStoreS3StaticKey:    "deadbeef",
+		controller.ObjectStoreS3StaticSecret: "shhh....",
+	}
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
 	st := s.ControllerModel(c).State()
 	m, err := st.Machine(machineId)
@@ -106,6 +112,13 @@ func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
 }
 
 func (s *clientSuite) enableHA(
+	c *gc.C, numControllers int, cons constraints.Value, placement []string,
+) (params.ControllersChanges, error) {
+	s.enableS3(c)
+	return enableHA(c, s.haServer, numControllers, cons, placement)
+}
+
+func (s *clientSuite) enableHANoS3(
 	c *gc.C, numControllers int, cons constraints.Value, placement []string,
 ) (params.ControllersChanges, error) {
 	return enableHA(c, s.haServer, numControllers, cons, placement)
@@ -138,6 +151,7 @@ func enableHA(
 }
 
 func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
+	s.enableS3(c)
 	st := s.ControllerModel(c).State()
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -272,10 +286,10 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
-	controllerSettings.Set(controller.JujuHASpace, "ha-space")
-	controllerSettings.Write()
+	attrs := controller.Config{controller.JujuHASpace: "ha-space"}
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("spaces=random-space"), nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -284,6 +298,7 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
+	st := s.ControllerModel(c).State()
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
@@ -300,12 +315,12 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAControllerConfigWithFileBackedObjectStore(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
-	controllerSettings.Set(controller.ObjectStoreType, "file")
-	controllerSettings.Write()
+	attrs := controller.Config{controller.ObjectStoreType: "file"}
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	_, err := s.enableHA(c, 3, emptyCons, nil)
+	_, err = s.enableHANoS3(c, 3, emptyCons, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot enable-ha with filesystem backed object store`)
 }
 
@@ -428,9 +443,9 @@ func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) 
 	_, err := st.AddSpace("ha-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
-	controllerSettings.Set(controller.JujuHASpace, "ha-space")
-	_, err = controllerSettings.Write()
+	attrs := controller.Config{controller.JujuHASpace: "ha-space"}
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	err = controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)

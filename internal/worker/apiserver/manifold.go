@@ -22,8 +22,10 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/cmd/juju/commands"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -36,6 +38,25 @@ import (
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/jujuclient"
 )
+
+// GetControllerConfigServiceFunc is a helper function that gets a service from
+// the manifold.
+type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
+
+// GetControllerConfigService is a helper function that gets a service from the
+// manifold.
+func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+		return factory.ControllerConfig()
+	})
+}
+
+// ControllerConfigService is the interface that the worker uses to get the
+// controller configuration.
+type ControllerConfigService interface {
+	// ControllerConfig returns the current controller configuration.
+	ControllerConfig(context.Context) (jujucontroller.Config, error)
+}
 
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
@@ -60,6 +81,7 @@ type ManifoldConfig struct {
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
+	GetControllerConfigService        GetControllerConfigServiceFunc
 
 	NewWorker           func(stdcontext.Context, Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
@@ -129,6 +151,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewMetricsCollector == nil {
 		return errors.NotValidf("nil NewMetricsCollector")
+	}
+	if config.GetControllerConfigService == nil {
+		return errors.NotValidf("nil GetControllerConfigService")
 	}
 	return nil
 }
@@ -240,6 +265,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -280,6 +310,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ServiceFactoryGetter:              serviceFactoryGetter,
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,
+		ControllerConfigService:           controllerConfigService,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

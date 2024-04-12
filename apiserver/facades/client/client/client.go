@@ -186,6 +186,7 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 }
 
 // NewClient creates a new instance of the Client Facade.
+// TODO(aflynn): Create an args struct for this.
 func NewClient(
 	backend Backend,
 	pool Pool,

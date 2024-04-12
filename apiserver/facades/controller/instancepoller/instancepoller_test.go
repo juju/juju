@@ -520,12 +520,12 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
-	s.st.CheckMachineCall(c, 1, "1")
-	s.st.CheckSetProviderAddressesCall(c, 2, []network.SpaceAddress{})
-	s.st.CheckMachineCall(c, 3, "2")
-	s.st.CheckCall(c, 4, "AllSpaceInfos")
-	s.st.CheckSetProviderAddressesCall(c, 5, newAddrs)
-	s.st.CheckMachineCall(c, 6, "42")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckSetProviderAddressesCall(c, 1, []network.SpaceAddress{})
+	s.st.CheckMachineCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "AllSpaceInfos")
+	s.st.CheckSetProviderAddressesCall(c, 4, newAddrs)
+	s.st.CheckMachineCall(c, 5, "42")
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
@@ -559,11 +559,11 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, s.machineErrorResults)
 
-	s.st.CheckMachineCall(c, 1, "1")
-	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "AllSpaceInfos")
-	s.st.CheckSetProviderAddressesCall(c, 4, newAddrs)
-	s.st.CheckMachineCall(c, 5, "3")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "AllSpaceInfos")
+	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
+	s.st.CheckMachineCall(c, 4, "3")
 
 	// Ensure machine 2 wasn't updated.
 	machine, err := s.st.Machine("2")

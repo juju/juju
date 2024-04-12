@@ -21,6 +21,7 @@ type StringsNotifyWatcher struct {
 func NewStringsNotifyWatcher(watcher Watcher[[]string]) (*StringsNotifyWatcher, error) {
 	w := StringsNotifyWatcher{
 		watcher: watcher,
+		out:     make(chan struct{}),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{

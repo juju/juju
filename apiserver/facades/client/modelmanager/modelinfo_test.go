@@ -26,7 +26,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -733,7 +732,6 @@ type mockState struct {
 	common.BlockGetter
 	unitRetriever
 
-	controllerCfg   *controller.Config
 	controllerUUID  string
 	cloudUsers      map[string]permission.Access
 	model           *mockModel
@@ -887,17 +885,6 @@ func (st *mockState) ControllerUUID() string {
 func (st *mockState) IsController() bool {
 	st.MethodCall(st, "IsController")
 	return st.controllerUUID == st.model.UUID()
-}
-
-func (st *mockState) ControllerConfig() (controller.Config, error) {
-	st.MethodCall(st, "ControllerConfig")
-	if st.controllerCfg != nil {
-		return *st.controllerCfg, st.NextErr()
-	}
-
-	return controller.Config{
-		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-	}, st.NextErr()
 }
 
 func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {

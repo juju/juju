@@ -13,6 +13,7 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -29,28 +30,30 @@ import (
 
 type workerFixture struct {
 	testing.IsolationSuite
-	agentConfig          mockAgentConfig
-	authenticator        *mockAuthenticator
-	clock                *testclock.Clock
-	hub                  pubsub.StructuredHub
-	mux                  *apiserverhttp.Mux
-	prometheusRegisterer stubPrometheusRegisterer
-	leaseManager         lease.Manager
-	config               apiserver.Config
-	stub                 testing.Stub
-	metricsCollector     *coreapiserver.Collector
-	multiwatcherFactory  multiwatcher.Factory
-	logSink              corelogger.ModelLogger
-	charmhubHTTPClient   *http.Client
-	dbGetter             stubWatchableDBGetter
-	serviceFactoryGetter stubServiceFactoryGetter
-	tracerGetter         stubTracerGetter
-	objectStoreGetter    stubObjectStoreGetter
+	agentConfig             mockAgentConfig
+	authenticator           *mockAuthenticator
+	clock                   *testclock.Clock
+	hub                     pubsub.StructuredHub
+	mux                     *apiserverhttp.Mux
+	prometheusRegisterer    stubPrometheusRegisterer
+	leaseManager            lease.Manager
+	config                  apiserver.Config
+	stub                    testing.Stub
+	metricsCollector        *coreapiserver.Collector
+	multiwatcherFactory     multiwatcher.Factory
+	logSink                 corelogger.ModelLogger
+	charmhubHTTPClient      *http.Client
+	dbGetter                stubWatchableDBGetter
+	tracerGetter            stubTracerGetter
+	objectStoreGetter       stubObjectStoreGetter
+	controllerConfigService *MockControllerConfigService
+	serviceFactoryGetter    *MockServiceFactoryGetter
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	s.IsolationSuite.SetUpTest(c)
-
 	s.agentConfig = mockAgentConfig{
 		dataDir: c.MkDir(),
 		logDir:  c.MkDir(),
@@ -67,6 +70,8 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -86,6 +91,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		LogSink:                           s.logSink,
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
 		DBGetter:                          s.dbGetter,
+		ControllerConfigService:           s.controllerConfigService,
 		ServiceFactoryGetter:              s.serviceFactoryGetter,
 		TracerGetter:                      s.tracerGetter,
 		ObjectStoreGetter:                 s.objectStoreGetter,

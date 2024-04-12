@@ -76,6 +76,7 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
 	}
+	s.controllerConfigService = &mockControllerConfigService{}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
 		s.st, s.st,
 		s.resources, newResourceOpener,

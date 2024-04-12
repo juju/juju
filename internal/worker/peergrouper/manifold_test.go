@@ -17,6 +17,7 @@ import (
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -29,13 +30,15 @@ import (
 type ManifoldSuite struct {
 	statetesting.StateSuite
 
-	manifold     dependency.Manifold
-	getter       dependency.Getter
-	clock        *testclock.Clock
-	agent        *mockAgent
-	hub          *mockHub
-	registerer   *fakeRegisterer
-	stateTracker stubStateTracker
+	manifold                 dependency.Manifold
+	getter                   dependency.Getter
+	clock                    *testclock.Clock
+	agent                    *mockAgent
+	controllerServiceFactory *peergrouper.MockControllerServiceFactory
+	controllerConfigService  *peergrouper.MockControllerConfigService
+	hub                      *mockHub
+	registerer               *fakeRegisterer
+	stateTracker             stubStateTracker
 
 	stub testing.Stub
 }
@@ -43,6 +46,8 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	s.ControllerConfig = map[string]any{
 		controller.APIPort: 5678,
 	}
@@ -54,10 +59,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.registerer = &fakeRegisterer{}
 	s.stateTracker = stubStateTracker{pool: s.StatePool, state: s.State}
 	s.stub.ResetCalls()
+	s.controllerServiceFactory = peergrouper.NewMockControllerServiceFactory(ctrl)
+	s.controllerConfigService = peergrouper.NewMockControllerConfigService(ctrl)
 
 	s.getter = s.newGetter(nil)
 	s.manifold = peergrouper.Manifold(peergrouper.ManifoldConfig{
 		AgentName:            "agent",
+		ServiceFactoryName:   "service-factory",
 		ClockName:            "clock",
 		StateName:            "state",
 		Hub:                  s.hub,
@@ -68,9 +76,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
-		"agent": s.agent,
-		"clock": s.clock,
-		"state": &s.stateTracker,
+		"agent":           s.agent,
+		"clock":           s.clock,
+		"state":           &s.stateTracker,
+		"service-factory": s.controllerServiceFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -88,7 +97,7 @@ func (s *ManifoldSuite) newWorker(config peergrouper.Config) (worker.Worker, err
 	return w, nil
 }
 
-var expectedInputs = []string{"agent", "clock", "state"}
+var expectedInputs = []string{"agent", "clock", "state", "service-factory"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -107,7 +116,8 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 func (s *ManifoldSuite) TestStart(c *gc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
-
+	s.controllerServiceFactory.EXPECT().ControllerConfig().Return(s.controllerConfigService).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(mockControllerConfig{})
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 1)
@@ -117,8 +127,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.ControllerId(), gc.Equals, "10")
 	config.ControllerId = nil
 	c.Assert(config, jc.DeepEquals, peergrouper.Config{
-		State:        peergrouper.StateShim{State: s.State},
-		MongoSession: peergrouper.MongoSessionShim{Session: s.State.MongoSession()},
+		State:                   peergrouper.StateShim{State: s.State},
+		ControllerConfigService: s.controllerConfigService,
+		MongoSession:            peergrouper.MongoSessionShim{Session: s.State.MongoSession()},
 		APIHostPortsSetter: &peergrouper.CachingAPIHostPortsSetter{
 			APIHostPortsSetter: s.State,
 		},
@@ -192,6 +203,20 @@ func (c *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool)
 		return *c.info, true
 	}
 	return controller.StateServingInfo{}, false
+}
+
+type mockControllerConfig map[string]any
+
+func (c mockControllerConfig) StatePort() int {
+	return 0
+}
+
+func (c mockControllerConfig) APIPort() int {
+	return 0
+}
+
+func (c mockControllerConfig) ControllerAPIPort() int {
+	return 0
 }
 
 type mockHub struct {

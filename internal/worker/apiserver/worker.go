@@ -21,7 +21,6 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -53,10 +52,11 @@ type Config struct {
 	CharmhubHTTPClient                HTTPClient
 
 	// DBGetter supplies WatchableDB implementations by namespace.
-	DBGetter             changestream.WatchableDBGetter
-	ServiceFactoryGetter servicefactory.ServiceFactoryGetter
-	TracerGetter         trace.TracerGetter
-	ObjectStoreGetter    objectstore.ObjectStoreGetter
+	DBGetter                changestream.WatchableDBGetter
+	ServiceFactoryGetter    servicefactory.ServiceFactoryGetter
+	TracerGetter            trace.TracerGetter
+	ObjectStoreGetter       objectstore.ObjectStoreGetter
+	ControllerConfigService ControllerConfigService
 }
 
 type HTTPClient interface {
@@ -140,9 +140,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	serviceFactory := config.ServiceFactoryGetter.FactoryForModel(database.ControllerNS)
-	controllerConfigService := serviceFactory.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
+	controllerConfig, err := config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
 	}
