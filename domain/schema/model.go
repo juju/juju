@@ -64,7 +64,7 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTableOnColumn(
 			"secret_revision", "uuid", "obsolete", tableSecretRevisionObsolete),
 		changeLogTriggersForTableOnColumn(
-			"secret_revision_expire", "revision_uuid", "next_expire_time", tableSecretRevisionExpire),
+			"secret_revision_expire", "revision_uuid", "expire_time", tableSecretRevisionExpire),
 		changeLogTriggersForTableOnColumn(
 			"secret_remote_unit_consumer", "uuid", "current_revision", tableSecretRemoteUnitConsumerCurrentRevision),
 

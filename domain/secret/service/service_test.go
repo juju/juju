@@ -264,6 +264,19 @@ func (s *serviceSuite) TestListCharmJustUnit(c *gc.C) {
 	c.Assert(gotRevisions, jc.DeepEquals, rev)
 }
 
+func (s *serviceSuite) TestGetURIByConsumerLabel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "my label", "mysql/0").Return(uri, nil)
+
+	got, err := s.service().GetURIByConsumerLabel(context.Background(), "my label", "mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, uri)
+}
+
 /*
 // TODO(secrets) - tests copied from facade which need to be re-implemented here
 func (s *serviceSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {

@@ -96,6 +96,24 @@ func (s *stateSuite) TestCreateUserSecretLabelAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 }
 
+func fromDbRotatePolicy(p domainsecret.RotatePolicy) coresecrets.RotatePolicy {
+	switch p {
+	case domainsecret.RotateHourly:
+		return coresecrets.RotateHourly
+	case domainsecret.RotateDaily:
+		return coresecrets.RotateDaily
+	case domainsecret.RotateWeekly:
+		return coresecrets.RotateWeekly
+	case domainsecret.RotateMonthly:
+		return coresecrets.RotateMonthly
+	case domainsecret.RotateQuarterly:
+		return coresecrets.RotateQuarterly
+	case domainsecret.RotateYearly:
+		return coresecrets.RotateYearly
+	}
+	return coresecrets.RotateNever
+}
+
 func (s *stateSuite) assertSecret(c *gc.C, st *State, uri *coresecrets.URI, sp domainsecret.UpsertSecretParams, revision int, owner coresecrets.Owner) {
 	ctx := context.Background()
 	md, err := st.GetSecret(ctx, uri)
@@ -106,6 +124,16 @@ func (s *stateSuite) assertSecret(c *gc.C, st *State, uri *coresecrets.URI, sp d
 	c.Assert(md.LatestRevision, gc.Equals, 1)
 	c.Assert(md.AutoPrune, gc.Equals, sp.AutoPrune)
 	c.Assert(md.Owner, jc.DeepEquals, owner)
+	if sp.RotatePolicy == nil {
+		c.Assert(md.RotatePolicy, gc.Equals, coresecrets.RotateNever)
+	} else {
+		c.Assert(md.RotatePolicy, gc.Equals, fromDbRotatePolicy(*sp.RotatePolicy))
+	}
+	if sp.NextRotateTime == nil {
+		c.Assert(md.NextRotateTime, gc.IsNil)
+	} else {
+		c.Assert(*md.NextRotateTime, gc.Equals, sp.NextRotateTime.UTC())
+	}
 	now := time.Now()
 	c.Assert(md.CreateTime, jc.Almost, now)
 	c.Assert(md.UpdateTime, jc.Almost, now)
@@ -115,6 +143,11 @@ func (s *stateSuite) assertSecret(c *gc.C, st *State, uri *coresecrets.URI, sp d
 	c.Assert(rev.Revision, gc.Equals, revision)
 	c.Assert(rev.CreateTime, jc.Almost, now)
 	c.Assert(rev.UpdateTime, jc.Almost, now)
+	if rev.ExpireTime == nil {
+		c.Assert(md.LatestExpireTime, gc.IsNil)
+	} else {
+		c.Assert(*md.LatestExpireTime, gc.Equals, rev.ExpireTime.UTC())
+	}
 }
 
 func (s *stateSuite) TestCreateUserSecretWithContent(c *gc.C) {
@@ -414,15 +447,24 @@ func (s *stateSuite) TestListUserSecrets(c *gc.C) {
 	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
 	s.setupUnits(c, "mysql")
 
+	expireTime := time.Now().Add(2 * time.Hour)
+	rotateTime := time.Now().Add(time.Hour)
 	sp := domainsecret.UpsertSecretParams{
-		Description: "my secretMetadata",
-		Label:       "my label",
-		Data:        coresecrets.SecretData{"foo": "bar"},
+		Description:    "my secretMetadata",
+		Label:          "my label",
+		Data:           coresecrets.SecretData{"foo": "bar"},
+		RotatePolicy:   ptr(domainsecret.RotateYearly),
+		ExpireTime:     ptr(expireTime),
+		NextRotateTime: ptr(rotateTime),
 	}
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
@@ -725,15 +767,20 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "postgresql")
 
+	expireTime := time.Now().Add(2 * time.Hour)
+	rotateTime := time.Now().Add(time.Hour)
 	sp := []domainsecret.UpsertSecretParams{{
 		Description: "my secretMetadata",
 		Label:       "my label",
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		AutoPrune:   true,
 	}, {
-		Description: "my secretMetadata2",
-		Label:       "my label2",
-		Data:        coresecrets.SecretData{"foo": "bar2"},
+		Description:    "my secretMetadata2",
+		Label:          "my label2",
+		Data:           coresecrets.SecretData{"foo": "bar2"},
+		RotatePolicy:   ptr(domainsecret.RotateDaily),
+		ExpireTime:     ptr(expireTime),
+		NextRotateTime: ptr(rotateTime),
 	}, {
 		Description: "my secretMetadata3",
 		Label:       "my label3",
@@ -781,6 +828,9 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	c.Assert(md.Description, gc.Equals, sp[1].Description)
 	c.Assert(md.LatestRevision, gc.Equals, 1)
 	c.Assert(md.AutoPrune, gc.Equals, sp[1].AutoPrune)
+	c.Assert(md.RotatePolicy, gc.Equals, coresecrets.RotateDaily)
+	c.Assert(*md.NextRotateTime, gc.Equals, rotateTime.UTC())
+	c.Assert(*md.LatestExpireTime, gc.Equals, expireTime.UTC())
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
 	c.Assert(md.CreateTime, jc.Almost, now)
 	c.Assert(md.UpdateTime, jc.Almost, now)
@@ -788,6 +838,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	revs := revisions[first]
 	c.Assert(revs, gc.HasLen, 1)
 	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(*revs[0].ExpireTime, gc.Equals, expireTime.UTC())
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
 	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 
@@ -797,6 +848,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	c.Assert(md.Description, gc.Equals, sp[2].Description)
 	c.Assert(md.LatestRevision, gc.Equals, 1)
 	c.Assert(md.AutoPrune, gc.Equals, sp[2].AutoPrune)
+	c.Assert(md.RotatePolicy, gc.Equals, coresecrets.RotateNever)
 	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
 	c.Assert(md.CreateTime, jc.Almost, now)
 	c.Assert(md.UpdateTime, jc.Almost, now)
@@ -804,6 +856,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	revs = revisions[second]
 	c.Assert(revs, gc.HasLen, 1)
 	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].ExpireTime, gc.IsNil)
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
 	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
@@ -980,4 +1033,43 @@ func (s *stateSuite) TestGetUserSecretURIByLabelSecretNotExists(c *gc.C) {
 
 	_, err := st.GetUserSecretURIByLabel(context.Background(), "my label")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *stateSuite) TestGetURIByConsumerLabel(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: "my secretMetadata",
+		Label:       "my label",
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:   true,
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetURIByConsumerLabel(ctx, "my label", "mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got.ID, gc.Equals, uri.ID)
+
+	_, err = st.GetURIByConsumerLabel(ctx, "another label", "mysql/0")
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+
+}
+
+func (s *stateSuite) TestGetURIByConsumerLabelUnitNotExists(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	_, err := st.GetURIByConsumerLabel(context.Background(), "my label", "mysql/2")
+	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
 }

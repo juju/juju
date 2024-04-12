@@ -58,16 +58,11 @@ func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI
 	return s.st.SaveSecretConsumer(ctx, uri, unitName, md)
 }
 
-func (s *SecretService) GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error) {
-	return nil, secreterrors.SecretConsumerNotFound
-}
-
-func (s *SecretService) SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, latestRevision int, unitName string, md *secrets.SecretConsumerMetadata) error {
-	return nil
-}
-
+// GetURIByConsumerLabel looks up the secret URI using the label previously registered by the specified unit,
+// returning an error satisfying [secreterrors.SecretNotFound] if there's no corresponding URI.
+// If the unit does not exist, an error satisfying [uniterrors.NotFound] is returned.
 func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error) {
-	return nil, secreterrors.SecretNotFound
+	return s.st.GetURIByConsumerLabel(ctx, label, unitName)
 }
 
 // GetConsumedRevision returns the secret revision number for the specified consumer, possibly updating
@@ -113,4 +108,12 @@ func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.UR
 // The count of secret and revisions in the result must match.
 func (s *SecretService) ListGrantedSecrets(ctx context.Context, consumers ...SecretAccessor) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	return nil, nil, nil
+}
+
+func (s *SecretService) GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error) {
+	return nil, secreterrors.SecretConsumerNotFound
+}
+
+func (s *SecretService) SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, latestRevision int, unitName string, md *secrets.SecretConsumerMetadata) error {
+	return nil
 }

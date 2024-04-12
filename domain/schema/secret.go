@@ -123,13 +123,13 @@ CREATE TABLE
         id TEXT PRIMARY KEY,
         version INT,
         description TEXT,
-        rotate_policy TEXT,
+        rotate_policy_id INT NOT NULL,
         auto_prune BOOLEAN NOT NULL DEFAULT (FALSE),
         create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
         update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
         CONSTRAINT fk_secret_rotate_policy
-            FOREIGN KEY (rotate_policy)
-            REFERENCES secret_rotate_policy (policy)
+            FOREIGN KEY (rotate_policy_id)
+            REFERENCES secret_rotate_policy (id)
     );
 
 CREATE TABLE
@@ -193,7 +193,7 @@ CREATE UNIQUE INDEX idx_secret_revision_secret_id_revision ON secret_revision (s
 CREATE TABLE
     secret_revision_expire (
         revision_uuid TEXT PRIMARY KEY,
-        next_expire_time DATETIME NOT NULL,
+        expire_time DATETIME NOT NULL,
         CONSTRAINT fk_secret_revision_expire_revision_uuid
             FOREIGN KEY (revision_uuid)
             REFERENCES secret_revision (uuid)
