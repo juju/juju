@@ -95,7 +95,9 @@ run_cleanup_ami() {
 	if [[ -f "${TEST_DIR}/ec2-amis" ]]; then
 		echo "====> Cleaning up EC2 AMIs"
 		while read -r ec2_ami; do
+			snapshot_ids=$(aws ec2 describe-images --image-ids="${ec2_ami}" | jq -r ".Images[0].BlockDeviceMappings | .[] .Ebs.SnapshotId | select(. != null)")
 			aws ec2 deregister-image --image-id="${ec2_ami}" >>"${TEST_DIR}/aws_cleanup"
+			echo ${snapshot_ids} | xargs -L 1 aws ec2 delete-snapshot --snapshot-id >>"${TEST_DIR}/aws_cleanup"
 		done <"${TEST_DIR}/ec2-amis"
 	fi
 
