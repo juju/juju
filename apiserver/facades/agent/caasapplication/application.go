@@ -18,12 +18,12 @@ import (
 	"github.com/juju/juju/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

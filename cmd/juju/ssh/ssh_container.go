@@ -20,11 +20,11 @@ import (
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	controllerapi "github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/internal/network/ssh"
+	"github.com/juju/juju/internal/provider/caas/kubernetes/provider"
+	k8sexec "github.com/juju/juju/internal/provider/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -24,11 +24,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/config"
-	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/machinelock"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/juju/sockets"
 )

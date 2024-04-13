@@ -17,9 +17,9 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/caas"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/juju/osenv"
 )
 

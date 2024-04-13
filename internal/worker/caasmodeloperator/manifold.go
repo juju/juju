@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/caas"
 )
 
 // Logger is the interface this work requires for logging.

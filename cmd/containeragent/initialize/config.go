@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
+	k8sconstants "github.com/juju/juju/internal/provider/caas/kubernetes/provider/constants"
 )
 
 type configFromEnv struct {

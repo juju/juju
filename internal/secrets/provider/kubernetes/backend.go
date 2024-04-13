@@ -6,8 +6,8 @@ package kubernetes
 import (
 	"context"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/provider/caas"
 )
 
 type k8sBackend struct {

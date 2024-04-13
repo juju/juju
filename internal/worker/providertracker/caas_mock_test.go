@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	caas "github.com/juju/juju/caas"
+	caas "github.com/juju/juju/internal/provider/caas"
 	constraints "github.com/juju/juju/core/constraints"
 	secrets "github.com/juju/juju/core/secrets"
 	environs "github.com/juju/juju/environs"

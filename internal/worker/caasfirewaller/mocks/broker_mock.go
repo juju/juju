@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	caas "github.com/juju/juju/caas"
+	caas "github.com/juju/juju/internal/provider/caas"
 	gomock "go.uber.org/mock/gomock"
 )
 

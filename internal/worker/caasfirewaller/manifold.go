@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/caas"
 )
 
 // Logger represents the methods used by the worker to log details.

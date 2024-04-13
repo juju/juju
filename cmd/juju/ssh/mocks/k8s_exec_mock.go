@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	exec "github.com/juju/juju/caas/kubernetes/provider/exec"
+	exec "github.com/juju/juju/internal/provider/caas/kubernetes/provider/exec"
 	gomock "go.uber.org/mock/gomock"
 	kubernetes "k8s.io/client-go/kubernetes"
 )

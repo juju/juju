@@ -12,13 +12,13 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/provider/caas"
 	jujutesting "github.com/juju/juju/testing"
 )
 

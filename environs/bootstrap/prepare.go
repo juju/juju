@@ -8,7 +8,6 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -16,6 +15,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/jujuclient"
 )
 

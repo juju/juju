@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apicaasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	caasunitprovisionerapi "github.com/juju/juju/api/controller/caasunitprovisioner"
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/caas"
 )
 
 // Logger represents the methods used by the worker to log details.

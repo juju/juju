@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/internal/provider/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/jujuclient"
 )
 

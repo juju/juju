@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/stateenvirons"
 )

@@ -13,11 +13,11 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/provider/caas"
+	caasmocks "github.com/juju/juju/internal/provider/caas/mocks"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 	"github.com/juju/juju/testing"

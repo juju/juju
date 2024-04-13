@@ -22,8 +22,8 @@ import (
 
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/juju/sockets"

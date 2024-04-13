@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 
 	clock "github.com/juju/clock"
-	caas "github.com/juju/juju/caas"
+	caas "github.com/juju/juju/internal/provider/caas"
 	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	caasapplicationprovisioner "github.com/juju/juju/internal/worker/caasapplicationprovisioner"

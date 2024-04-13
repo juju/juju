@@ -20,7 +20,6 @@ import (
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
@@ -29,6 +28,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/api"

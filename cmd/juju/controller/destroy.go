@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	controllerapi "github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -30,6 +29,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )

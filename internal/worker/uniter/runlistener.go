@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agentconfig "github.com/juju/juju/agent/config"
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/runcommands"
 	"github.com/juju/juju/internal/worker/uniter/runner"

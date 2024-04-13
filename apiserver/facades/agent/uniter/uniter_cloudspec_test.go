@@ -11,9 +11,9 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/rpc/params"
 )
 

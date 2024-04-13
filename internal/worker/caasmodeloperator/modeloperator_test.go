@@ -14,11 +14,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 )
 

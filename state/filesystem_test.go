@@ -11,9 +11,9 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/provider/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/internal/provider/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )

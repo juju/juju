@@ -24,9 +24,6 @@ import (
 	"github.com/juju/utils/v4/keyvalues"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
@@ -52,6 +49,9 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/feature"
 	_ "github.com/juju/juju/internal/provider/all" // Import all the providers for bootstrap.
+	"github.com/juju/juju/internal/provider/caas"
+	k8s "github.com/juju/juju/internal/provider/caas/kubernetes"
+	k8sconstants "github.com/juju/juju/internal/provider/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"

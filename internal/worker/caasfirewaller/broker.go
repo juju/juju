@@ -4,7 +4,7 @@
 package caasfirewaller
 
 import (
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/caas"
 )
 
 // CAASBroker exposes CAAS broker functionality to a worker.

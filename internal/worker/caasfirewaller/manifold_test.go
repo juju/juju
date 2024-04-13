@@ -18,7 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	caasmocks "github.com/juju/juju/caas/mocks"
+	caasmocks "github.com/juju/juju/internal/provider/caas/mocks"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 	coretesting "github.com/juju/juju/testing"

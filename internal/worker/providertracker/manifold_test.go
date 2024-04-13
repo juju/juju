@@ -17,9 +17,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	caas "github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
+	caas "github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/servicefactory"
 	storage "github.com/juju/juju/internal/storage"
 )

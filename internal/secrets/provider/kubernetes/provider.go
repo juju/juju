@@ -16,12 +16,12 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/caas"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/provider/caas"
+	k8scloud "github.com/juju/juju/internal/provider/caas/kubernetes/cloud"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/state"
 )

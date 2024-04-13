@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/charmhub"
+	k8sconstants "github.com/juju/juju/internal/provider/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )

@@ -24,11 +24,11 @@ import (
 
 	charmscommon "github.com/juju/juju/api/common/charms"
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/rpc/params"
 )
 

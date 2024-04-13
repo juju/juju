@@ -18,8 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
+	"github.com/juju/juju/internal/provider/caas/kubernetes/provider"
+	"github.com/juju/juju/internal/provider/caas/kubernetes/provider/mocks"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 	coretesting "github.com/juju/juju/testing"
 )

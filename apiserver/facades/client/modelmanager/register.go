@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/state/stateenvirons"
 )

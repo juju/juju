@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/agent/caasagent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/caasadmission"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"

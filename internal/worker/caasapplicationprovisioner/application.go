@@ -14,11 +14,11 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/rpc/params"
 )
 

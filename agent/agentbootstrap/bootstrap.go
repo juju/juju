@@ -15,8 +15,6 @@ import (
 	utilseries "github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
@@ -47,6 +45,8 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/provider/caas"
+	k8sconstants "github.com/juju/juju/internal/provider/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 )

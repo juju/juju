@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
-	"github.com/juju/juju/caas"
-	_ "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/provider/caas"
+	_ "github.com/juju/juju/internal/provider/caas/kubernetes/provider"
 	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
 )

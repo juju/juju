@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 )

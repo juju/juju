@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/provider/caas"
 )
 
 type ModelOperatorAPI interface {

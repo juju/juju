@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/observability/probe"
+	k8sconstants "github.com/juju/juju/internal/provider/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/worker/caasprober"
 )
 

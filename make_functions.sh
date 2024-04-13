@@ -117,8 +117,8 @@ build_push_operator_image() {
     build_multi_osarch=$(echo $build_multi_osarch | sed 's/ /,/g')
 
     WORKDIR=$(_make_docker_staging_dir)
-    cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
-    cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
+    cp "${PROJECT_DIR}/internal/provider/caas/Dockerfile" "${WORKDIR}/"
+    cp "${PROJECT_DIR}/internal/provider/caas/requirements.txt" "${WORKDIR}/"
     if [[ "${OCI_BUILDER}" = "docker" ]]; then
         output="-o type=oci,dest=${BUILD_DIR}/oci.tar.gz"
         if [[ "$push_image" = true ]]; then

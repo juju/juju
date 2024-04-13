@@ -6,10 +6,10 @@ package common
 import (
 	"context"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )

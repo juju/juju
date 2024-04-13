@@ -13,9 +13,9 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/caasbroker"
 	coretesting "github.com/juju/juju/testing"

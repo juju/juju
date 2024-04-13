@@ -9,9 +9,9 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	coremodel "github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	k8sconstants "github.com/juju/juju/internal/provider/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )

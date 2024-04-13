@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	"k8s.io/client-go/informers"
 
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/caas"
 )
 
 type K8sBroker interface {

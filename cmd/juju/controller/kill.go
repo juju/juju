@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api/controller/controller"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/provider/caas"
 )
 
 const killDoc = `

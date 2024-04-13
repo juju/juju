@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common"

@@ -9,8 +9,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/internal/provider/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/jujuclient"
 )
 

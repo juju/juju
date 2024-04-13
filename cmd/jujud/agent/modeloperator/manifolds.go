@@ -11,7 +11,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/caas"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"

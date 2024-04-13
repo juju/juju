@@ -18,10 +18,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cmd/containeragent/unit"
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	k8sconstants "github.com/juju/juju/internal/provider/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/worker/logsender"
 	jnames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/testing"

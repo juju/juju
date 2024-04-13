@@ -16,8 +16,6 @@ import (
 
 	charmscommon "github.com/juju/juju/api/common/charms"
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
-	"github.com/juju/juju/caas"
-	caasmocks "github.com/juju/juju/caas/mocks"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -25,6 +23,8 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/provider/caas"
+	caasmocks "github.com/juju/juju/internal/provider/caas/mocks"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
