@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
-	"github.com/juju/juju/environs/config"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -67,12 +66,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.NotValidf("model config")
 	}
 
-	config, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := i.service.SetModelConfig(ctx, config.SafeModelAttrs()); err != nil {
+	if err := i.service.SetModelConfig(ctx, attrs); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

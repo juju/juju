@@ -1737,17 +1737,6 @@ func (c *Config) AllAttrs() map[string]any {
 	return allAttrs
 }
 
-// SafeModelAttrs returns a copy of the raw configuration attributes that
-// remove any disallowed model config attributes.
-// See: disallowedModelConfigAttrs
-func (c *Config) SafeModelAttrs() map[string]any {
-	defined := c.AllAttrs()
-	for _, k := range disallowedModelConfigAttrs {
-		delete(defined, k)
-	}
-	return defined
-}
-
 // Remove returns a new configuration that has the attributes of c minus attrs.
 func (c *Config) Remove(attrs []string) (*Config, error) {
 	defined := c.AllAttrs()

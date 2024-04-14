@@ -51,6 +51,9 @@ func (_ *serviceSuite) TestModelDefaultsProviderNotFound(c *gc.C) {
 				"foo": "bar",
 			},
 		},
+		MetadataDefaults: map[coremodel.UUID]map[string]string{
+			uuid: {},
+		},
 	})
 
 	defaults, err := svc.ModelDefaults(context.Background(), uuid)
@@ -84,6 +87,11 @@ func (_ *serviceSuite) TestModelDefaults(c *gc.C) {
 				"bar": "foo",
 			},
 		},
+		MetadataDefaults: map[coremodel.UUID]map[string]string{
+			uuid: {
+				"model_type": "caas",
+			},
+		},
 	})
 
 	defaults, err := svc.ModelDefaults(context.Background(), uuid)
@@ -94,6 +102,8 @@ func (_ *serviceSuite) TestModelDefaults(c *gc.C) {
 	c.Check(defaults["foo"].Source, gc.Equals, "controller")
 	c.Check(defaults["bar"].Value, gc.Equals, "foo")
 	c.Check(defaults["bar"].Source, gc.Equals, "region")
+	c.Check(defaults["model_type"].Value, gc.Equals, "caas")
+	c.Check(defaults["model_type"].Source, gc.Equals, "controller")
 
 	defaults, err = svc.ModelDefaultsProvider(uuid)(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,4 +113,6 @@ func (_ *serviceSuite) TestModelDefaults(c *gc.C) {
 	c.Check(defaults["foo"].Source, gc.Equals, "controller")
 	c.Check(defaults["bar"].Value, gc.Equals, "foo")
 	c.Check(defaults["bar"].Source, gc.Equals, "region")
+	c.Check(defaults["model_type"].Value, gc.Equals, "caas")
+	c.Check(defaults["model_type"].Source, gc.Equals, "controller")
 }

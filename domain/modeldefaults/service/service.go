@@ -41,6 +41,12 @@ type State interface {
 	// set cloud region.
 	ModelCloudRegionDefaults(context.Context, coremodel.UUID) (map[string]string, error)
 
+	// ModelMetadataDefaults is responsible for providing metadata defaults for a
+	// models config. These include things like the models name and uuid.
+	// If no model exists for the provided uuid then a [modelerrors.NotFound] error
+	// is returned.
+	ModelMetadataDefaults(context.Context, coremodel.UUID) (map[string]string, error)
+
 	// ModelProviderConfigSchema returns the providers config schema source based on
 	// the cloud set for the model.
 	ModelProviderConfigSchema(context.Context, coremodel.UUID) (config.ConfigSchemaSource, error)
@@ -126,6 +132,27 @@ func (s *Service) ModelDefaults(
 		defaults[k] = modeldefaults.DefaultAttributeValue{
 			Source: config.JujuRegionSource,
 			Value:  v,
+		}
+	}
+
+	// TODO (tlm): We want to remove this eventually. Due to legacy reasons
+	// model config currently needs to contain a model's name, type and uuid
+	// as config values even though they are not config. They should always be
+	// set and never changed by the user. In the new DQlite design the easiest
+	// way to keep this behaviour for the moment is to drive them as defaults.
+	//
+	// Once we can safely remove all reads of these values from a model's config
+	// we can remove these default values here.
+	metadataDefaults, err := s.st.ModelMetadataDefaults(ctx, uuid)
+	if err != nil {
+		return modeldefaults.Defaults{}, fmt.Errorf("getting model %q metadata defaults: %w", uuid, err)
+	}
+
+	for k, v := range metadataDefaults {
+		defaults[k] = modeldefaults.DefaultAttributeValue{
+			Source:   config.JujuControllerSource,
+			Strategy: &modeldefaults.PreferDefaultApplyStrategy{},
+			Value:    v,
 		}
 	}
 
