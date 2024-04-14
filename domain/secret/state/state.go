@@ -367,9 +367,24 @@ func updateSecretMetadataFromParams(p domainsecret.UpsertSecretParams, md *secre
 
 func (st State) upsertSecret(ctx context.Context, tx *sqlair.TX, dbSecret secretMetadata) error {
 	insertQuery := `
-INSERT INTO secret (*)
+INSERT INTO secret (id)
+VALUES ($M.id)
+`
+
+	insertStmt, err := st.Prepare(insertQuery, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = tx.Query(ctx, insertStmt, sqlair.M{"id": dbSecret.ID}).Run()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	insertMetadataQuery := `
+INSERT INTO secret_metadata (*)
 VALUES ($secretMetadata.*)
-ON CONFLICT(id) DO UPDATE SET 
+ON CONFLICT(secret_id) DO UPDATE SET 
     version=excluded.version,
     description=excluded.description,
     rotate_policy_id=excluded.rotate_policy_id,
@@ -377,12 +392,12 @@ ON CONFLICT(id) DO UPDATE SET
     update_time=excluded.update_time
 `
 
-	insertStmt, err := st.Prepare(insertQuery, secretMetadata{})
+	insertMetadataStmt, err := st.Prepare(insertMetadataQuery, secretMetadata{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, dbSecret).Run()
+	err = tx.Query(ctx, insertMetadataStmt, dbSecret).Run()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -660,7 +675,7 @@ exp AS
     JOIN     secret_revision_expire sre ON  sre.revision_uuid = sr.uuid 
     GROUP BY secret_id)
 SELECT 
-     (secret.id,
+     (sm.secret_id,
      version,
      description,
      auto_prune,
@@ -673,11 +688,11 @@ SELECT
      (so.owner_kind,
      so.owner_id,
      so.label) AS (&secretOwner.*)
-FROM secret
-       JOIN rev ON rev.secret_id = secret.id
-       LEFT JOIN exp ON exp.secret_id = secret.id
-       LEFT JOIN secret_rotate_policy rp ON rp.id = secret.rotate_policy_id
-       LEFT JOIN secret_rotation sr ON sr.secret_id = secret.id
+FROM secret_metadata sm
+       JOIN rev ON rev.secret_id = sm.secret_id
+       LEFT JOIN exp ON exp.secret_id = sm.secret_id
+       LEFT JOIN secret_rotate_policy rp ON rp.id = sm.rotate_policy_id
+       LEFT JOIN secret_rotation sr ON sr.secret_id = sm.secret_id
        LEFT JOIN (
           SELECT '%s' AS owner_kind, (SELECT uuid FROM model) AS owner_id, label, secret_id
           FROM   secret_model_owner so
@@ -691,7 +706,7 @@ FROM secret
           FROM   secret_unit_owner so
           JOIN   unit
           WHERE  unit.uuid = so.unit_uuid
-       ) so ON so.secret_id = secret.id
+       ) so ON so.secret_id = sm.secret_id
 `, coresecrets.ModelOwner, coresecrets.ApplicationOwner, coresecrets.UnitOwner)
 
 	queryTypes := []any{
@@ -701,7 +716,7 @@ FROM secret
 	queryParams := []any{}
 	if uri != nil {
 		queryTypes = append(queryTypes, sqlair.M{})
-		query = query + "\nWHERE secret.id = $M.id"
+		query = query + "\nWHERE sm.secret_id = $M.id"
 		queryParams = append(queryParams, sqlair.M{"id": uri.ID})
 	}
 
@@ -802,7 +817,7 @@ unit_owners AS
 
 	query := `
 SELECT 
-     (secret.id,
+     (sm.secret_id,
      version,
      description,
      auto_prune,
@@ -815,11 +830,11 @@ SELECT
      (so.owner_kind,
      so.owner_id,
      so.label) AS (&secretOwner.*)
-FROM secret
-   JOIN rev ON rev.secret_id = secret.id
-   LEFT JOIN exp ON exp.secret_id = secret.id
-   LEFT JOIN secret_rotate_policy rp ON rp.id = secret.rotate_policy_id
-   LEFT JOIN secret_rotation sr ON sr.secret_id = secret.id
+FROM secret_metadata sm 
+   JOIN rev ON rev.secret_id = sm.secret_id
+   LEFT JOIN exp ON exp.secret_id = sm.secret_id
+   LEFT JOIN secret_rotate_policy rp ON rp.id = sm.rotate_policy_id
+   LEFT JOIN secret_rotation sr ON sr.secret_id = sm.secret_id
 `[1:]
 
 	queryParts = append(queryParts, query)
@@ -844,7 +859,7 @@ FROM secret
 	ownerJoin := fmt.Sprintf(`
     JOIN (
       %s
-    ) so ON so.secret_id = secret.id
+    ) so ON so.secret_id = sm.secret_id
 `[1:], strings.Join(ownerParts, "\nUNION\n"))
 
 	queryParts = append(queryParts, ownerJoin)
@@ -907,7 +922,7 @@ WITH rev AS
     FROM     secret_revision
     GROUP BY secret_id)
 SELECT 
-     (id,
+     (sm.secret_id,
      version,
      description,
      auto_prune,
@@ -917,12 +932,12 @@ SELECT
      (so.owner_kind,
      so.owner_id,
      so.label) AS (&secretOwner.*)
-FROM secret
-       JOIN rev ON rev.secret_id = secret.id
+FROM secret_metadata sm
+       JOIN rev ON rev.secret_id = sm.secret_id
        JOIN (
           SELECT '%s' AS owner_kind, (SELECT uuid FROM model) AS owner_id, label, secret_id
           FROM   secret_model_owner
-       ) so ON so.secret_id = secret.id
+       ) so ON so.secret_id = sm.secret_id
 `, coresecrets.ModelOwner)
 
 	queryStmt, err := st.Prepare(query, secretInfo{}, secretOwner{})
@@ -954,9 +969,9 @@ func (st State) GetUserSecretURIByLabel(ctx context.Context, label string) (*cor
 	}
 
 	query := `	
-SELECT id AS &secretInfo.id
-FROM   secret
-JOIN   secret_model_owner mso ON secret.id = mso.secret_id
+SELECT sm.secret_id AS &secretInfo.secret_id
+FROM   secret_metadata sm
+JOIN   secret_model_owner mso ON sm.secret_id = mso.secret_id
 WHERE  mso.label = $M.label
 	`
 
@@ -1184,10 +1199,10 @@ WHERE  rev.secret_id = $secretRevision.secret_id AND rev.revision = $secretRevis
 func (st State) checkExistsIfLocal(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
 	query := `
 SELECT ok as &M.ok FROM (
-    SELECT True as ok FROM secret
+    SELECT True as ok FROM secret_metadata sm
     WHERE 
         (EXISTS (SELECT uuid FROM model WHERE uuid = $M.uuid) OR $M.uuid = '')
-        AND secret.id = $M.secret_id
+        AND sm.secret_id = $M.secret_id
     UNION
     SELECT True as ok FROM model
     WHERE

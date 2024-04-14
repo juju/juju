@@ -14,7 +14,7 @@ import (
 // These structs represent the persistent secretMetadata entity schema in the database.
 
 type secretMetadata struct {
-	ID             string    `db:"id"`
+	ID             string    `db:"secret_id"`
 	Version        int       `db:"version"`
 	Description    string    `db:"description"`
 	AutoPrune      bool      `db:"auto_prune"`
@@ -25,7 +25,7 @@ type secretMetadata struct {
 
 // secretInfo is used because sqlair doesn't seem to like struct embedding.
 type secretInfo struct {
-	ID           string    `db:"id"`
+	ID           string    `db:"secret_id"`
 	Version      int       `db:"version"`
 	Description  string    `db:"description"`
 	RotatePolicy string    `db:"policy"`

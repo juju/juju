@@ -353,7 +353,6 @@ INSERT INTO application (uuid, name, life_id)
 VALUES (?, ?, ?)
 `, applicationUUID, appName, life.Alive)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(err, jc.ErrorIsNil)
 
 		// Do 2 units.
 		for i := 0; i < 2; i++ {
@@ -941,13 +940,24 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
 	s.setupUnits(c, "mysql")
 
 	uri := coresecrets.NewURI().WithSource("some-other-model")
+
+	// Save just the parent secret row.
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(context.Background(), `
+INSERT INTO secret (id)
+VALUES (?)
+`, uri.ID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx := context.Background()
 	consumer := &coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	}
 
-	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
