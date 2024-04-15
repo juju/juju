@@ -6,9 +6,9 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/packaging/v2"
-	"github.com/juju/packaging/v2/commands"
-	"github.com/juju/packaging/v2/config"
+	"github.com/juju/packaging/v3"
+	"github.com/juju/packaging/v3/commands"
+	"github.com/juju/packaging/v3/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v3/shell"
 	"golang.org/x/crypto/ssh"

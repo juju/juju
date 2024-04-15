@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/packaging/v2/manager"
+	"github.com/juju/packaging/v3/manager"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/container"

@@ -1,0 +1,149 @@
+diff --git a/packaging/dependency/kvm.go b/packaging/dependency/kvm.go
+index 8165b77d8d..74b70ff5ac 100644
+--- a/packaging/dependency/kvm.go
++++ b/packaging/dependency/kvm.go
+@@ -21,9 +21,9 @@ type kvmDependency struct {
+ }
+ 
+ // PackageList implements packaging.Dependency.
+-func (dep kvmDependency) PackageList(series string) ([]packaging.Package, error) {
+-	if series == base.Centos7.String() || series == base.Centos9.String() {
+-		return nil, errors.NotSupportedf("installing kvm on series %q", series)
++func (dep kvmDependency) PackageList(b base.Base) ([]packaging.Package, error) {
++	if b.OS == "centos" {
++		return nil, errors.NotSupportedf("installing kvm on base %q", b)
+ 	}
+ 
+ 	var pkgList []string
+@@ -39,17 +39,12 @@ func (dep kvmDependency) PackageList(series string) ([]packaging.Package, error)
+ 		"genisoimage",
+ 	)
+ 
+-	switch series {
+-	case "bionic":
+-		pkgList = append(pkgList, "libvirt-bin")
+-	default:
+-		// On focal+ virsh is provided by libvirt-clients; also we need
+-		// to install the daemon package separately.
+-		pkgList = append(pkgList,
+-			"libvirt-daemon-system",
+-			"libvirt-clients",
+-		)
+-	}
++	// On focal+ virsh is provided by libvirt-clients; also we need
++	// to install the daemon package separately.
++	pkgList = append(pkgList,
++		"libvirt-daemon-system",
++		"libvirt-clients",
++	)
+ 
+ 	return packaging.MakePackageList(packaging.AptPackageManager, "", pkgList...), nil
+ }
+diff --git a/packaging/dependency/lxd.go b/packaging/dependency/lxd.go
+index 698de31240..cf8f56443e 100644
+--- a/packaging/dependency/lxd.go
++++ b/packaging/dependency/lxd.go
+@@ -12,8 +12,6 @@ import (
+ 	"github.com/juju/juju/packaging"
+ )
+ 
+-const blankSeries = ""
+-
+ // LXD returns a dependency instance for installing lxd support using the
+ // specified channel preferences (applies to cosmic or later).
+ func LXD(snapChannel string) packaging.Dependency {
+@@ -27,24 +25,20 @@ type lxdDependency struct {
+ }
+ 
+ // PackageList implements packaging.Dependency.
+-func (dep lxdDependency) PackageList(series string) ([]packaging.Package, error) {
++func (dep lxdDependency) PackageList(b base.Base) ([]packaging.Package, error) {
++	if b.OS == "centos" {
++		return nil, errors.NotSupportedf("LXD containers on base %q", b)
++	}
++
+ 	var pkg packaging.Package
+ 
+-	switch series {
+-	case base.Centos7.String(), base.Centos9.String():
+-		return nil, errors.NotSupportedf("LXD containers on series %q", series)
+-	case base.Bionic.String(), blankSeries:
+-		pkg.Name = "lxd"
+-		pkg.PackageManager = packaging.AptPackageManager
+-	default: // Use snaps for cosmic and beyond
+-		if dep.snapChannel == "" {
+-			return nil, errors.NotValidf("snap channel for lxd dependency")
+-		}
+-
+-		pkg.Name = "lxd"
+-		pkg.InstallOptions = fmt.Sprintf("--classic --channel %s", dep.snapChannel)
+-		pkg.PackageManager = packaging.SnapPackageManager
++	if dep.snapChannel == "" {
++		return nil, errors.NotValidf("snap channel for lxd dependency")
+ 	}
+ 
++	pkg.Name = "lxd"
++	pkg.InstallOptions = fmt.Sprintf("--classic --channel %s", dep.snapChannel)
++	pkg.PackageManager = packaging.SnapPackageManager
++
+ 	return []packaging.Package{pkg}, nil
+ }
+diff --git a/packaging/dependency/mongo.go b/packaging/dependency/mongo.go
+index 8f2eeeaf8e..5e7131a02e 100644
+--- a/packaging/dependency/mongo.go
++++ b/packaging/dependency/mongo.go
+@@ -8,6 +8,7 @@ import (
+ 
+ 	"github.com/juju/errors"
+ 
++	"github.com/juju/juju/core/base"
+ 	"github.com/juju/juju/packaging"
+ )
+ 
+@@ -24,30 +25,29 @@ func Mongo(snapChannel string) packaging.Dependency {
+ }
+ 
+ // PackageList implements packaging.Dependency.
+-func (dep mongoDependency) PackageList(series string) ([]packaging.Package, error) {
++func (dep mongoDependency) PackageList(b base.Base) ([]packaging.Package, error) {
++	if b.OS == "centos" {
++		return nil, errors.NotSupportedf("installing mongo on base %q", b)
++	}
++
+ 	var (
+ 		snapList []packaging.Package
+ 		pm       = packaging.AptPackageManager
+ 	)
+ 
+-	switch series {
+-	case "centos7":
+-		return nil, errors.NotSupportedf("installing mongo on series %q", series)
+-	default:
+-		if dep.snapChannel == "" {
+-			return nil, errors.NotValidf("snap channel for mongo dependency")
+-		}
+-
+-		snapList = append(
+-			snapList,
+-			packaging.Package{
+-				Name:           "juju-db",
+-				InstallOptions: fmt.Sprintf("--channel %s", dep.snapChannel),
+-				PackageManager: packaging.SnapPackageManager,
+-			},
+-		)
++	if dep.snapChannel == "" {
++		return nil, errors.NotValidf("snap channel for mongo dependency")
+ 	}
+ 
++	snapList = append(
++		snapList,
++		packaging.Package{
++			Name:           "juju-db",
++			InstallOptions: fmt.Sprintf("--channel %s", dep.snapChannel),
++			PackageManager: packaging.SnapPackageManager,
++		},
++	)
++
+ 	return append(
+ 		packaging.MakePackageList(pm, ""),
+ 		snapList...,

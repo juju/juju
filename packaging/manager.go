@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/packaging/v2/config"
-	"github.com/juju/packaging/v2/manager"
+	"github.com/juju/packaging/v3/config"
+	"github.com/juju/packaging/v3/manager"
 )
 
 var logger = loggo.GetLogger("juju.packaging")
