@@ -40,7 +40,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
@@ -346,18 +345,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Trace(err)
 	}
 
-	// Fetch spaces from substrate.
-	// We need to do this before setting the API host-ports,
-	// because any space names in the bootstrap machine addresses must be
-	// reconcilable with space IDs at that point.
-	callContext := envcontext.WithoutCredentialInvalidator(ctx)
-	if err = space.ReloadSpaces(callContext, space.NewState(st), b.bootstrapEnviron); err != nil {
-		if !errors.Is(err, errors.NotSupported) {
-			return nil, errors.Trace(err)
-		}
-		b.logger.Debugf("Not performing spaces load on a non-networking environment")
-	}
-
 	// Verify model config DefaultSpace exists now that
 	// spaces have been loaded.
 	if err := b.verifyModelConfigDefaultSpace(st); err != nil {
@@ -543,14 +530,6 @@ func (b *AgentBootstrap) ensureInitialModel(
 		return errors.Annotate(err, "autoconfiguring container networking")
 	}
 
-	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
-	if err = space.ReloadSpaces(callCtx, space.NewState(initialModelState), initialModelEnv); err != nil {
-		if errors.Is(err, errors.NotSupported) {
-			b.logger.Debugf("Not performing spaces load on a non-networking environment")
-		} else {
-			return errors.Annotate(err, "fetching initial model spaces")
-		}
-	}
 	return nil
 }
 

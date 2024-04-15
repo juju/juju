@@ -49,6 +49,8 @@ type NetworkService interface {
 	UpdateSpace(ctx context.Context, uuid string, name string) error
 	// RemoveSpace deletes a space identified by its uuid.
 	RemoveSpace(ctx context.Context, uuid string) error
+	// ReloadSpaces loads spaces and subnets from the provider into state.
+	ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	// SubnetsByCIDR returns the subnets matching the input CIDRs.
@@ -63,7 +65,6 @@ type NetworkService interface {
 
 // API provides the spaces API facade for version 6.
 type API struct {
-	reloadSpacesAPI         ReloadSpaces
 	controllerConfigService ControllerConfigService
 
 	networkService              NetworkService
@@ -77,7 +78,6 @@ type API struct {
 }
 
 type apiConfig struct {
-	ReloadSpacesAPI             ReloadSpaces
 	NetworkService              NetworkService
 	ControllerConfigService     ControllerConfigService
 	Backing                     Backing
@@ -97,7 +97,6 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 	}
 
 	return &API{
-		reloadSpacesAPI:             cfg.ReloadSpacesAPI,
 		networkService:              cfg.NetworkService,
 		controllerConfigService:     cfg.ControllerConfigService,
 		backing:                     cfg.Backing,
@@ -280,7 +279,22 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 
 // ReloadSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
-	return api.reloadSpacesAPI.ReloadSpaces(ctx)
+	err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(ctx); err != nil {
+		return errors.Trace(err)
+	}
+	modelConfig, err := api.backing.ModelConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fanConfig, err := modelConfig.FanConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(api.networkService.ReloadSpaces(ctx, fanConfig))
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron

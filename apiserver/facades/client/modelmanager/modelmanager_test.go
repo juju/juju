@@ -322,7 +322,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerTag",
 		"ComposeNewModelConfig",
 		"NewModel",
-		"SaveProviderSubnets",
 		"Close",
 		"GetBackend",
 		"Model",

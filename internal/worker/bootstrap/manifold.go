@@ -93,6 +93,7 @@ type NetworkService interface {
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error
 }
 
 // FlagService is the interface that is used to set the value of a

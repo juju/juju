@@ -13,6 +13,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
@@ -27,6 +28,7 @@ import (
 type ServiceFactory interface {
 	ModelInfo() ModelInfoService
 	Config(modeldefaultsservice.ModelDefaultsProviderFunc) ModelConfigService
+	Network() NetworkService
 }
 
 // ServiceFactoryGetter is a factory for creating model services.
@@ -113,6 +115,12 @@ type AccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error)
 }
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error
+}
+
 // SecretBackendService is an interface for interacting with secret backend service.
 type SecretBackendService interface {
 	// BackendSummaryInfo returns a summary of the secret backends.
@@ -142,6 +150,7 @@ type Services struct {
 	// SecretBackendService is an interface for interacting with secret backend
 	// service.
 	SecretBackendService SecretBackendService
+	NetworkService       NetworkService
 }
 
 type serviceFactoryGetter struct {
@@ -162,4 +171,8 @@ func (s serviceFactory) ModelInfo() ModelInfoService {
 
 func (s serviceFactory) Config(defaults modeldefaultsservice.ModelDefaultsProviderFunc) ModelConfigService {
 	return s.serviceFactory.Config(defaults)
+}
+
+func (s serviceFactory) Network() NetworkService {
+	return s.serviceFactory.Network()
 }

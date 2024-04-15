@@ -98,6 +98,7 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 			AccessService:        serviceFactory.Access(),
 			ObjectStore:          ctx.ObjectStore(),
 			SecretBackendService: secretBackendService,
+			NetworkService:       serviceFactory.Network(),
 		},
 		configSchemaSource,
 		toolsFinder,

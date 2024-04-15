@@ -15,7 +15,7 @@ import (
 )
 
 func (s *stateSuite) TestUpsertSubnets(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +108,7 @@ func (s *stateSuite) TestUpsertSubnets(c *gc.C) {
 }
 
 func (s *stateSuite) TestAddSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 	db := s.DB()
 
 	spUUID, err := uuid.NewUUID()
@@ -191,7 +191,7 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 }
 
 func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,11 +229,11 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 			FanInfo:           nil,
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("inserting provider network id %q for subnet %q: UNIQUE constraint failed: provider_network.provider_network_id", "provider-network-id", subnetUUID1.String()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("inserting provider network id %q for subnet %q: record already exists", "provider-network-id", subnetUUID1.String()))
 }
 
 func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,7 +275,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewUUID()
@@ -359,7 +359,7 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewUUID()
@@ -439,7 +439,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	// Add 3 subnets of type base.
 	subnetUUID0, err := uuid.NewUUID()
@@ -496,8 +496,66 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 	c.Check(sns, gc.HasLen, 3)
 }
 
+func (s *stateSuite) TestRetrieveAllSubnet(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
+
+	// Add 3 subnets of type base.
+	subnetUUID0, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "192.168.0.0/20",
+			ProviderId:        "0",
+			ProviderNetworkId: "provider-network-id-0",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	subnetUUID1, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID1.String()),
+			CIDR:              "192.168.1.0/20",
+			ProviderId:        "provider-id-1",
+			ProviderNetworkId: "provider-network-id-1",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	subnetUUID2, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID2.String()),
+			CIDR:              "192.168.2.0/20",
+			ProviderId:        "provider-id-2",
+			ProviderNetworkId: "provider-network-id-2",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az2", "az3"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sns, err := st.GetAllSubnets(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sns, gc.HasLen, 3)
+}
+
 func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 	db := s.DB()
 
 	spUUID, err := uuid.NewUUID()
@@ -541,7 +599,7 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 }
 
 func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewUUID()

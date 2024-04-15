@@ -24,6 +24,7 @@ type Logger interface {
 	Debugf(message string, args ...any)
 	Infof(message string, args ...any)
 	Warningf(message string, args ...any)
+	Errorf(message string, args ...any)
 }
 
 // ManifoldConfig holds the information necessary to run a provider service

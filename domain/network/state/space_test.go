@@ -15,6 +15,12 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+type loggerStub struct {
+}
+
+func (l loggerStub) Errorf(string, ...interface{}) {
+}
+
 type stateSuite struct {
 	schematesting.ModelSuite
 }
@@ -22,7 +28,7 @@ type stateSuite struct {
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestAddSpace(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 	db := s.DB()
 
 	spaceUUID, err := uuid.NewUUID()
@@ -80,7 +86,7 @@ func (s *stateSuite) TestAddSpace(c *gc.C) {
 }
 
 func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 	db := s.DB()
 
 	spaceUUID, err := uuid.NewUUID()
@@ -117,12 +123,12 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Check(name, gc.Equals, "space0")
 	// Fails when trying to add a new space with the same name.
 	err = st.AddSpace(ctx.Background(), spaceUUID.String(), "space0", "bar", subnets)
-	c.Assert(err, gc.ErrorMatches, "inserting space (.*) into space table: UNIQUE constraint failed: space.name")
+	c.Assert(err, gc.ErrorMatches, "inserting space (.*) into space table: record already exists")
 
 }
 
 func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 	db := s.DB()
 
 	spaceUUID, err := uuid.NewUUID()
@@ -163,7 +169,7 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
 }
 
 func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	spaceUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,7 +221,7 @@ func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewUUID()
@@ -324,14 +330,14 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUIDNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	_, err := st.GetSpace(ctx.Background(), "unknown0")
 	c.Assert(err, gc.ErrorMatches, "space \"unknown0\" not found")
 }
 
 func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	spaceUUID0, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -353,14 +359,14 @@ func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	_, err := st.GetSpaceByName(ctx.Background(), "unknown0")
 	c.Assert(err, gc.ErrorMatches, "space with name \"unknown0\" not found")
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	spaceUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -375,7 +381,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	// Add 3 subnets of type base.
 	subnetUUID0, err := uuid.NewUUID()
@@ -450,7 +456,7 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateSpace(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -466,14 +472,14 @@ func (s *stateSuite) TestUpdateSpace(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateSpaceFailNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 
 	err := st.UpdateSpace(ctx.Background(), "unknownSpace", "newSpaceName0")
 	c.Assert(err, gc.ErrorMatches, "space \"unknownSpace\" not found")
 }
 
 func (s *stateSuite) TestDeleteSpace(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), loggerStub{})
 	db := s.DB()
 
 	// Add a subnet of type base.

@@ -57,6 +57,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectBootstrapFlagSet()
 	s.expectSetAPIHostPorts()
 	s.expectStateServingInfo()
+	s.expectReloadSpaces()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -328,6 +329,12 @@ func (s *workerSuite) expectStateServingInfo() {
 	s.agentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
 		APIPort: 42,
 	}, true)
+}
+
+func (s *workerSuite) expectReloadSpaces() {
+	s.state.EXPECT().Model().Return(s.stateModel, nil)
+	s.stateModel.EXPECT().Config().Return(&config.Config{}, nil)
+	s.networkService.EXPECT().ReloadSpaces(gomock.Any(), nil)
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
