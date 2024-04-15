@@ -2240,33 +2240,27 @@ AND    subject_id = $secretAccessor.subject_id
 // for the specified secret if the revision is not the latest revision and there are no consumers for the revision.
 func markObsoleteRevisions(ctx context.Context, p domain.Preparer, tx *sqlair.TX, uri *coresecrets.URI) error {
 	stmt, err := p.Prepare(`
+WITH in_use AS (
+    -- revisions that have local consumers.
+    SELECT DISTINCT current_revision FROM secret_unit_consumer suc
+    WHERE  suc.secret_id = $M.secret_id
+UNION
+    -- revisions that have remote consumers.
+    SELECT DISTINCT current_revision FROM secret_remote_unit_consumer suc
+    WHERE  suc.secret_id = $M.secret_id
+UNION
+    -- the latest revision.
+    SELECT MAX(revision) FROM secret_revision rev
+    WHERE  rev.secret_id = $M.secret_id)
+)
 UPDATE secret_revision
-SET    obsolete = true, pending_delete = true, update_time = DATETIME('now')
-WHERE  uuid IN (
-    SELECT uuid
-    FROM   secret_revision sr
-	WHERE  secret_id = $M.secret_id
-		AND revision < (
-			-- we don't want to obsolete the latest revision
-			SELECT MAX(revision)
-			FROM   secret_revision
-			WHERE  secret_id = sr.secret_id
-		)
-		AND obsolete = false
-		AND NOT EXISTS (
-			-- we don't want to obsolete revisions that have local consumers.
-			SELECT 1
-			FROM   secret_unit_consumer suc
-			WHERE  suc.secret_id = sr.secret_id
-			AND    suc.current_revision = sr.revision
-		)
-		AND NOT EXISTS (
-			-- we don't want to obsolete revisions that have remote consumers.
-			SELECT 1
-			FROM   secret_remote_unit_consumer sruc
-			WHERE  sruc.secret_id = sr.secret_id
-			AND    sruc.current_revision = sr.revision
-		)
+SET    obsolete = true,
+       pending_delete = true,
+       update_time = DATETIME('now')
+WHERE secret_id = $M.secret_id
+AND   obsolete = false
+AND   revision NOT IN (
+	SELECT * FROM in_use
 )`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)

@@ -11,8 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -46,6 +48,21 @@ type State interface {
 	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
+
+	InitialWatchStatementForObsoleteRevision(ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners) (string, string)
+	GetRevisionIDsForObsolete(
+		ctx context.Context,
+		appOwners domainsecret.ApplicationOwners,
+		unitOwners domainsecret.UnitOwners,
+		revisionUUID ...string,
+	) ([]string, error)
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new namespace watcher
+	// for events based on the input change mask.
+	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -198,10 +215,7 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	return s.st.ListSecrets(ctx, uri, revision, labels)
 }
 
-// ListCharmSecrets returns the secret metadata and revision metadata for any secrets matching the specified owner.
-// The result contains secrets owned by any of the non nil owner attributes.
-// The count of secret and revisions in the result must match.
-func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+func splitCharmSecretOwners(owners ...CharmSecretOwner) (domainsecret.ApplicationOwners, domainsecret.UnitOwners) {
 	var (
 		appOwners  domainsecret.ApplicationOwners
 		unitOwners domainsecret.UnitOwners
@@ -213,6 +227,14 @@ func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSec
 			unitOwners = append(unitOwners, owner.ID)
 		}
 	}
+	return appOwners, unitOwners
+}
+
+// ListCharmSecrets returns the secret metadata and revision metadata for any secrets matching the specified owner.
+// The result contains secrets owned by any of the non nil owner attributes.
+// The count of secret and revisions in the result must match.
+func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	return s.st.ListCharmSecrets(ctx, appOwners, unitOwners)
 }
 
