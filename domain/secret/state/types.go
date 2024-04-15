@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -267,4 +268,19 @@ func (rows secretUnitConsumers) toSecretConsumers() ([]*coresecrets.SecretConsum
 		}
 	}
 	return result, nil
+}
+
+type obsoleteRevisionRow struct {
+	SecretID     string `db:"secret_id"`
+	RevisionUUID string `db:"revision_uuid"`
+}
+
+type obsoleteRevisionRows []obsoleteRevisionRow
+
+func (rows obsoleteRevisionRows) toRevIDs() []string {
+	result := make([]string, len(rows))
+	for i, row := range rows {
+		result[i] = fmt.Sprintf("%s/%s", row.SecretID, row.RevisionUUID)
+	}
+	return result
 }

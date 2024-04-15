@@ -844,7 +844,6 @@ func (st State) upsertSecretRevision(ctx context.Context, tx *sqlair.TX, dbRevis
 INSERT INTO secret_revision (*)
 VALUES ($secretRevision.*)
 ON CONFLICT(uuid) DO UPDATE SET
-    obsolete=excluded.obsolete,
     pending_delete=excluded.pending_delete,
     update_time=excluded.update_time
 `
@@ -2234,4 +2233,148 @@ AND    subject_id = $secretAccessor.subject_id
 		ScopeTypeID: result.ScopeTypeID,
 		ScopeID:     result.ScopeID,
 	}, nil
+
+}
+
+// markObsoleteRevisions obsoletes the revisions and sets the pending_delete to true in the secret_revision table
+// for the specified secret if the revision is not the latest revision and there are no consumers for the revision.
+func markObsoleteRevisions(ctx context.Context, p domain.Preparer, tx *sqlair.TX, uri *coresecrets.URI) error {
+	stmt, err := p.Prepare(`
+UPDATE secret_revision
+SET    obsolete = true, pending_delete = true, update_time = DATETIME('now')
+WHERE  uuid IN (
+    SELECT uuid
+    FROM   secret_revision sr
+	WHERE  secret_id = $M.secret_id
+		AND revision < (
+			-- we don't want to obsolete the latest revision
+			SELECT MAX(revision)
+			FROM   secret_revision
+			WHERE  secret_id = sr.secret_id
+		)
+		AND obsolete = false
+		AND NOT EXISTS (
+			-- we don't want to obsolete revisions that have local consumers.
+			SELECT 1
+			FROM   secret_unit_consumer suc
+			WHERE  suc.secret_id = sr.secret_id
+			AND    suc.current_revision = sr.revision
+		)
+		AND NOT EXISTS (
+			-- we don't want to obsolete revisions that have remote consumers.
+			SELECT 1
+			FROM   secret_remote_unit_consumer sruc
+			WHERE  sruc.secret_id = sr.secret_id
+			AND    sruc.current_revision = sr.revision
+		)
+)`, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = tx.Query(ctx, stmt, sqlair.M{"secret_id": uri.ID}).Run()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// InitialWatchStatementForObsolete returns the initial watch statement and the table name for watching obsolete revisions.
+func (st State) InitialWatchStatementForObsoleteRevision(
+	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (string, string) {
+	tableName := "secret_revision"
+
+	q := `
+SELECT id
+FROM secret s
+JOIN secret_application_owner sao ON s.id = sao.secret_id
+JOIN secret_unit_owner suo ON s.id = suo.secret_id
+JOIN secret_revision sr ON s.id = sr.secret_id`
+	// TODO: do we want to allow to you watch all obsolete revisions if the owners are empty?
+
+	// The condition is empty because we want to watch all obsolete revisions.
+	if len(appOwners)+len(unitOwners) == 0 {
+		return tableName, q
+	}
+	condition := ""
+	if len(unitOwners) > 0 && len(appOwners) > 0 {
+		condition = fmt.Sprintf(
+			"sao.application_uuid IN (%s) OR suo.unit_uuid IN (%s)",
+			strings.Join(appOwners, ","), strings.Join(unitOwners, ","),
+		)
+	} else if len(appOwners) > 0 {
+		condition = " sao.application_uuid IN (%s)"
+	} else if len(unitOwners) > 0 {
+		condition = " suo.unit_uuid IN (%s)"
+	}
+	if condition != "" {
+		q += "\nWHERE " + condition
+	}
+	return "secret_revision", q
+}
+
+// GetRevisionIDsForObsolete returns the revision IDs for the specified obsolete revisions.
+func (st State) GetRevisionIDsForObsolete(
+	ctx context.Context,
+	appOwners domainsecret.ApplicationOwners,
+	unitOwners domainsecret.UnitOwners,
+	revisionUUIDs ...string,
+) ([]string, error) {
+	if len(revisionUUIDs) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT 
+    sr.uuid AS &obsoleteRevisionRow.revision_uuid,
+    s.id AS &obsoleteRevisionRow.secret_id
+FROM secret_revision sr
+JOIN secret s ON sr.secret_id = s.id
+WHERE sr.obsolete = true 
+	AND sr.uuid IN ($M.revision_uuids[:])
+	AND (
+		EXISTS (
+			SELECT 1
+			FROM secret_application_owner sao
+			WHERE sao.secret_id = s.id AND sao.application_uuid IN ($M.application_owners[:])
+		) OR
+		EXISTS (
+			SELECT 1
+			FROM secret_unit_owner suo
+			WHERE suo.secret_id = s.id AND suo.unit_uuid IN ($M.unit_owners[:])
+		)
+	)`, obsoleteRevisionRow{}, sqlair.S{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var rows obsoleteRevisionRows
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, sqlair.M{
+			"application_owners": stringsToAnys(appOwners),
+			"unit_owners":        stringsToAnys(unitOwners),
+			"revision_uuids":     stringsToAnys(revisionUUIDs),
+		}).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// It's ok, the revisions probably have already been pruned.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rows.toRevIDs(), nil
+}
+
+func stringsToAnys(ss []string) []any {
+	as := make([]any, len(ss))
+	for i, s := range ss {
+		as[i] = any(s)
+	}
+	return as
 }
