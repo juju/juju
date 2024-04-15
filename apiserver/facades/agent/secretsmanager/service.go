@@ -39,7 +39,7 @@ type SecretsConsumer interface {
 type SecretService interface {
 	CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error)
 	CreateSecret(context.Context, *secrets.URI, secretservice.CreateSecretParams) error
-	UpdateSecret(context.Context, *secrets.URI, secretservice.UpdateSecretParams) (*secrets.SecretMetadata, error)
+	UpdateSecret(context.Context, *secrets.URI, secretservice.UpdateSecretParams) error
 	DeleteCharmSecret(ctx context.Context, uri *secrets.URI, revisions []int, canDelete func(uri *secrets.URI) error) error
 	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)

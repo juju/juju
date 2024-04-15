@@ -197,12 +197,11 @@ func (mr *MockSecretServiceMockRecorder) RevokeSecretAccess(arg0, arg1, arg2 any
 }
 
 // UpdateSecret mocks base method.
-func (m *MockSecretService) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.UpdateSecretParams) (*secrets.SecretMetadata, error) {
+func (m *MockSecretService) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.UpdateSecretParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*secrets.SecretMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // UpdateSecret indicates an expected call of UpdateSecret.

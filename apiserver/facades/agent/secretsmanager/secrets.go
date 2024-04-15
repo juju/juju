@@ -360,7 +360,7 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, token))
+	err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, token))
 	return errors.Trace(err)
 }
 

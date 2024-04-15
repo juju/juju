@@ -16,7 +16,7 @@ type SecretService interface {
 	// Create and update secrets.
 
 	CreateSecret(context.Context, *secrets.URI, secretservice.CreateSecretParams) error
-	UpdateSecret(context.Context, *secrets.URI, secretservice.UpdateSecretParams) (*secrets.SecretMetadata, error)
+	UpdateSecret(context.Context, *secrets.URI, secretservice.UpdateSecretParams) error
 
 	// View and fetch secrets.
 

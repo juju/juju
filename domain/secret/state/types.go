@@ -113,7 +113,7 @@ func (rows secrets) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets
 	for i, row := range rows {
 		uri, err := coresecrets.ParseURI(row.ID)
 		if err != nil {
-			return nil, errors.NotValidf(row.ID)
+			return nil, errors.NotValidf("secret URI %q", row.ID)
 		}
 		result[i] = &coresecrets.SecretMetadata{
 			URI:         uri,

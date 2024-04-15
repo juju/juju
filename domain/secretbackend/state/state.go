@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/domain"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	credentialstate "github.com/juju/juju/domain/credential/state"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Logger is the interface used by the state to log messages.
@@ -50,43 +50,49 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 // model is found the given uuid then an error of
 // [github.com/juju/juju/domain/model/errors.NotFound] is returned.
 func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
-	db, err := s.DB()
-	if err != nil {
-		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
-	}
-
-	stmt, err := s.Prepare(`
-SELECT &ModelSecretBackend.*
-FROM v_model_secret_backend
-WHERE uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
-	if err != nil {
-		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
-	}
-	var m ModelSecretBackend
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
-		}
-		return errors.Trace(err)
-	})
-	if err != nil {
-		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
-	}
-	if !m.Type.IsValid() {
-		// This should never happen.
-		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.Name)
-	}
-	// If the backend ID is NULL, it means that the model does not have a secret backend configured.
-	// We return an empty string in this case.
-	// TODO: we should return the `default` backend once we start to include the
-	// `internal` and `k8s` backends in the database. And obviously, this field will become non-nullable.
+	// TODO(secrets) - fix me
 	return secretbackend.ModelSecretBackend{
-		ID:              m.ID,
-		Name:            m.Name,
-		Type:            m.Type,
-		SecretBackendID: m.SecretBackendID.String,
+		ID:   uuid,
+		Name: "fix me",
+		Type: coremodel.IAAS,
 	}, nil
+	//	db, err := s.DB()
+	//	if err != nil {
+	//		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
+	//	}
+	//
+	//	stmt, err := s.Prepare(`
+	//SELECT &ModelSecretBackend.*
+	//FROM v_model_secret_backend
+	//WHERE uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
+	//	if err != nil {
+	//		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
+	//	}
+	//	var m ModelSecretBackend
+	//	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	//		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
+	//		if errors.Is(err, sql.ErrNoRows) {
+	//			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
+	//		}
+	//		return errors.Trace(err)
+	//	})
+	//	if err != nil {
+	//		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
+	//	}
+	//	if !m.Type.IsValid() {
+	//		// This should never happen.
+	//		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.Name)
+	//	}
+	//	// If the backend ID is NULL, it means that the model does not have a secret backend configured.
+	//	// We return an empty string in this case.
+	//	// TODO: we should return the `default` backend once we start to include the
+	//	// `internal` and `k8s` backends in the database. And obviously, this field will become non-nullable.
+	//	return secretbackend.ModelSecretBackend{
+	//		ID:              m.ID,
+	//		Name:            m.Name,
+	//		Type:            m.Type,
+	//		SecretBackendID: m.SecretBackendID.String,
+	//	}, nil
 }
 
 // CreateSecretBackend creates a new secret backend.
@@ -339,7 +345,9 @@ WHERE b.%s = $M.identifier`, columName)
 // GetSecretBackend returns the secret backend for the given backend ID or Name.
 func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
 	if params.ID == "" && params.Name == "" {
-		return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
+		// TODO(secrets) - fix me
+		return &secretbackend.SecretBackend{Name: provider.Internal}, nil
+		// return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
 	}
 	if params.ID != "" && params.Name != "" {
 		return nil, fmt.Errorf("%w: both ID and name are provided", backenderrors.NotValid)

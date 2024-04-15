@@ -428,7 +428,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInte
 		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
 			Return("rev-id", nil)
 	}
-	s.secretService.EXPECT().UpdateSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
+	s.secretService.EXPECT().UpdateSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.UpdateSecretParams) error {
 		c.Assert(arg1, gc.DeepEquals, uri)
 		c.Assert(params.Description, gc.DeepEquals, ptr("this is a user secret."))
 		c.Assert(params.Label, gc.DeepEquals, ptr("label"))
@@ -444,13 +444,9 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInte
 			c.Assert(params.Data, gc.IsNil)
 		}
 		if finalStepFailed {
-			return nil, errors.New("some error")
+			return errors.New("some error")
 		}
-		result := &coresecrets.SecretMetadata{URI: uri, LatestRevision: 3}
-		if params.AutoPrune != nil {
-			result.AutoPrune = *params.AutoPrune
-		}
-		return result, nil
+		return nil
 	})
 	if finalStepFailed && !isInternal {
 		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)

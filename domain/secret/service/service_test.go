@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
@@ -59,10 +60,10 @@ func (s *serviceSuite) TestCreateUserSecret(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	p := domainsecret.UpsertSecretParams{
-		Description: "a secret",
-		Label:       "my secret",
+		Description: ptr("a secret"),
+		Label:       ptr("my secret"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		AutoPrune:   true,
+		AutoPrune:   ptr(true),
 	}
 	s.state = NewMockState(ctrl)
 	s.state.EXPECT().CreateUserSecret(gomock.Any(), 1, uri, p).Return(nil)
@@ -77,6 +78,62 @@ func (s *serviceSuite) TestCreateUserSecret(c *gc.C) {
 		},
 		Version:    1,
 		UserSecret: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateSecretNoRotate(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	exipreTime := time.Now()
+	uri := coresecrets.NewURI()
+	p := domainsecret.UpsertSecretParams{
+		RotatePolicy: ptr(domainsecret.RotateNever),
+		Description:  ptr("a secret"),
+		Label:        ptr("my secret"),
+		Data:         coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:    ptr(true),
+		ExpireTime:   ptr(exipreTime),
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
+
+	err := s.service().UpdateSecret(context.Background(), uri, UpdateSecretParams{
+		LeaderToken: successfulToken{},
+		Description: ptr("a secret"),
+		Label:       ptr("my secret"),
+		Data:        map[string]string{"foo": "bar"},
+		AutoPrune:   ptr(true),
+		ExpireTime:  ptr(exipreTime),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateSecret(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	p := domainsecret.UpsertSecretParams{
+		RotatePolicy: ptr(domainsecret.RotateDaily),
+		Description:  ptr("a secret"),
+		Label:        ptr("my secret"),
+		Data:         coresecrets.SecretData{"foo": "bar"},
+		AutoPrune:    ptr(true),
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
+
+	err := s.service().UpdateSecret(context.Background(), uri, UpdateSecretParams{
+		LeaderToken:  successfulToken{},
+		Description:  ptr("a secret"),
+		Label:        ptr("my secret"),
+		Data:         map[string]string{"foo": "bar"},
+		AutoPrune:    ptr(true),
+		RotatePolicy: ptr(coresecrets.RotateDaily),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

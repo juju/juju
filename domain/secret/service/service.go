@@ -25,6 +25,7 @@ type State interface {
 	CreateUserSecret(ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	CreateCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams) error
 	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error
+	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
@@ -93,14 +94,6 @@ func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*sec
 	return result, nil
 }
 
-// TODO(secrets) - we need to tweak the upsert params to avoid this
-func value[T any](v *T) T {
-	if v == nil {
-		return *new(T)
-	}
-	return *v
-}
-
 // CreateSecret creates a secret with the specified parameters, returning an error
 // satisfying [secreterrors.SecretLabelAlreadyExists] if the secret owner already has
 // a secret with the same label.
@@ -118,10 +111,10 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 	}
 
 	p := domainsecret.UpsertSecretParams{
-		Description: value(params.Description),
-		Label:       value(params.Label),
+		Description: params.Description,
+		Label:       params.Label,
 		ValueRef:    params.ValueRef,
-		AutoPrune:   value(params.AutoPrune),
+		AutoPrune:   params.AutoPrune,
 	}
 	if len(params.Data) > 0 {
 		p.Data = make(map[string]string)
@@ -153,49 +146,41 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 	// also grant manage access to owner
 }
 
-func (s *SecretService) UpdateSecret(ctx context.Context, uri *secrets.URI, params UpdateSecretParams) (*secrets.SecretMetadata, error) {
-	return nil, nil
+// UpdateSecret creates a secret with the specified parameters, returning an error
+// satisfying [secreterrors.SecretNotFound] if the secret does not exist.
+// It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
+// the secret owner already has a secret with the same label.
+func (s *SecretService) UpdateSecret(ctx context.Context, uri *secrets.URI, params UpdateSecretParams) error {
+	if len(params.Data) > 0 && params.ValueRef != nil {
+		return errors.New("must specify either content or a value reference but not both")
+	}
 
-	// TODO(secrets)
-	/*
-		md, err := s.secretsState.GetSecret(uri)
-		if err != nil {
+	if params.LeaderToken != nil {
+		if err := params.LeaderToken.Check(); err != nil {
 			return errors.Trace(err)
 		}
-		var nextRotateTime *time.Time
-		if !md.RotatePolicy.WillRotate() && arg.RotatePolicy.WillRotate() {
-			nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
+	}
+
+	p := domainsecret.UpsertSecretParams{
+		Description: params.Description,
+		Label:       params.Label,
+		ValueRef:    params.ValueRef,
+		AutoPrune:   params.AutoPrune,
+		ExpireTime:  params.ExpireTime,
+	}
+	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
+	p.RotatePolicy = &rotatePolicy
+	if len(params.Data) > 0 {
+		p.Data = make(map[string]string)
+		for k, v := range params.Data {
+			p.Data[k] = v
 		}
-
-	*/
-
-	//var md *secrets.SecretMetadata
-	//if !md.AutoPrune {
-	//	return md, nil
-	//}
-	//// If the secret was updated, we need to delete the old unused secret revisions.
-	//revsToDelete, err := s.ListUnusedSecretRevisions(ctx, uri)
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//var revisions []int
-	//for _, rev := range revsToDelete {
-	//	if rev == md.LatestRevision {
-	//		// We don't want to delete the latest revision.
-	//		continue
-	//	}
-	//	revisions = append(revisions, rev)
-	//}
-	//if len(revisions) == 0 {
-	//	return md, nil
-	//}
-	//err = s.DeleteUserSecret(ctx, uri, revisions, func(uri *secrets.URI) error { return nil })
-	//if err != nil {
-	//	// We don't want to fail the update if we can't prune the unused secret revisions because they will be picked up later
-	//	// when the secret has any new obsolete revisions.
-	//	s.logger.Warningf("failed to prune unused secret revisions for %q: %v", uri, err)
-	//}
-	//return md, nil
+	}
+	err := s.st.UpdateSecret(ctx, uri, p)
+	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
+		return errors.Errorf("secret with label %q is already being used", *params.Label)
+	}
+	return errors.Annotatef(err, "updating charm secret %q", uri.ID)
 }
 
 // ListSecrets returns the secrets matching the specified terms.
@@ -292,7 +277,7 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 					// model and don't do the update. The logic should be reworked so local lookups
 					// can ge done in a single txn.
 					// Update the label.
-					_, err := s.UpdateSecret(ctx, uri, UpdateSecretParams{
+					err := s.UpdateSecret(ctx, uri, UpdateSecretParams{
 						LeaderToken: token,
 						Label:       &label,
 					})
@@ -316,7 +301,7 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 		var err error
 		uri, err = s.GetURIByConsumerLabel(ctx, label, unitName)
 		if errors.Is(err, secreterrors.SecretNotFound) {
-			return nil, nil, errors.NotFoundf("consumer label %q", label)
+			return nil, nil, errors.NotFoundf("secret URI for consumer label %q", label)
 		}
 		if err != nil {
 			return nil, nil, errors.Trace(err)
