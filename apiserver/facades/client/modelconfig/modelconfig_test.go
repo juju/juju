@@ -125,7 +125,7 @@ func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
 	s.assertConfigValue(c, "other-key", "other value")
 }
 
-func (s *modelconfigSuite) blockAllChanges(c *gc.C, msg string) {
+func (s *modelconfigSuite) blockAllChanges(msg string) {
 	s.backend.msg = msg
 	s.backend.b = state.ChangeBlock
 }
@@ -145,7 +145,7 @@ func (s *modelconfigSuite) assertModelSetBlocked(c *gc.C, args map[string]interf
 }
 
 func (s *modelconfigSuite) TestBlockChangesModelSet(c *gc.C) {
-	s.blockAllChanges(c, "TestBlockChangesModelSet")
+	s.blockAllChanges("TestBlockChangesModelSet")
 	args := map[string]interface{}{"some-key": "value"}
 	s.assertModelSetBlocked(c, args, "TestBlockChangesModelSet")
 }
@@ -324,7 +324,7 @@ func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
 	api, _ := s.getAPI(c)
 	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.blockAllChanges(c, "TestBlockModelUnset")
+	s.blockAllChanges("TestBlockModelUnset")
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
 	err = api.ModelUnset(context.Background(), args)
@@ -365,7 +365,7 @@ func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string)
 }
 
 func (s *modelconfigSuite) TestBlockChangesClientSetModelConstraints(c *gc.C) {
-	s.blockAllChanges(c, "TestBlockChangesClientSetModelConstraints")
+	s.blockAllChanges("TestBlockChangesClientSetModelConstraints")
 	s.assertSetModelConstraintsBlocked(c, "TestBlockChangesClientSetModelConstraints")
 }
 
