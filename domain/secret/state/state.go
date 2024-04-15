@@ -125,7 +125,7 @@ WHERE  label = $secretOwner.label`
 // the application does not exist.
 func (st State) CreateCharmApplicationSecret(ctx context.Context, version int, uri *coresecrets.URI, appName string, secret domainsecret.UpsertSecretParams) error {
 	if secret.AutoPrune != nil && *secret.AutoPrune {
-		return errors.New("charm secrets do not support auto prune")
+		return secreterrors.AutoPruneNotSupported
 	}
 
 	db, err := st.DB()
@@ -223,7 +223,7 @@ AND    unit_uuid IN (
 // the unit does not exist.
 func (st State) CreateCharmUnitSecret(ctx context.Context, version int, uri *coresecrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error {
 	if secret.AutoPrune != nil && *secret.AutoPrune {
-		return errors.New("charm secrets do not support auto prune")
+		return secreterrors.AutoPruneNotSupported
 	}
 
 	db, err := st.DB()
@@ -486,9 +486,15 @@ WHERE sm.secret_id = $secretID.id
 	case coresecrets.ModelOwner:
 		checkExists = st.checkUserSecretLabelExists
 	case coresecrets.ApplicationOwner:
+		if secret.AutoPrune != nil && *secret.AutoPrune {
+			return secreterrors.AutoPruneNotSupported
+		}
 		// Query selects the app uuid as owner id.
 		checkExists = st.checkApplicationSecretLabelExists(existing[0].Owner.ID)
 	case coresecrets.UnitOwner:
+		if secret.AutoPrune != nil && *secret.AutoPrune {
+			return secreterrors.AutoPruneNotSupported
+		}
 		// Query selects the unit uuid as owner id.
 		checkExists = st.checkUnitSecretLabelExists(existing[0].Owner.ID)
 	default:

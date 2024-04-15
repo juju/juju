@@ -22,4 +22,7 @@ const (
 
 	// SecretConsumerNotFound describes an error that occurs when the secret consumer being operated on is not found.
 	SecretConsumerNotFound = errors.ConstError("secret consumer not found")
+
+	// AutoPruneNotSupported describes an error that occurs when a charm secret tries to set auto prune on a secret.
+	AutoPruneNotSupported = errors.ConstError("charm secrets do not support auto prune")
 )

@@ -456,6 +456,23 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+func (s *stateSuite) TestCreateCharmSecretAutoPrune(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+		AutoPrune:   ptr(true),
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIs, secreterrors.AutoPruneNotSupported)
+}
+
 func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *gc.C) {
 	st := newSecretState(s.TxnRunnerFactory())
 
@@ -1505,4 +1522,26 @@ func (s *stateSuite) TestUpdateSecretNoRotate(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(count, gc.Equals, 0)
+}
+
+func (s *stateSuite) TestUpdateCharmSecretAutoPrune(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp2 := domainsecret.UpsertSecretParams{
+		AutoPrune: ptr(true),
+	}
+	err = st.UpdateSecret(context.Background(), uri, sp2)
+	c.Assert(err, jc.ErrorIs, secreterrors.AutoPruneNotSupported)
 }
