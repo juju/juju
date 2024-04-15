@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -49,6 +50,7 @@ type sharedServerContext struct {
 	logger               corelogger.Logger
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
+	dbDeleter            database.DBDeleter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 	tracerGetter         trace.TracerGetter
 	objectStoreGetter    objectstore.ObjectStoreGetter
@@ -74,6 +76,7 @@ type sharedServerConfig struct {
 	logger               corelogger.Logger
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
+	dbDeleter            database.DBDeleter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 	tracerGetter         trace.TracerGetter
 	objectStoreGetter    objectstore.ObjectStoreGetter
@@ -104,6 +107,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.dbGetter == nil {
 		return errors.NotValidf("nil dbGetter")
 	}
+	if c.dbDeleter == nil {
+		return errors.NotValidf("nil dbDeleter")
+	}
 	if c.serviceFactoryGetter == nil {
 		return errors.NotValidf("nil serviceFactoryGetter")
 	}
@@ -133,6 +139,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		controllerConfig:     config.controllerConfig,
 		charmhubHTTPClient:   config.charmhubHTTPClient,
 		dbGetter:             config.dbGetter,
+		dbDeleter:            config.dbDeleter,
 		serviceFactoryGetter: config.serviceFactoryGetter,
 		tracerGetter:         config.tracerGetter,
 		objectStoreGetter:    config.objectStoreGetter,

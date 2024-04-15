@@ -105,6 +105,7 @@ type importOperation struct {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.modelService = modelservice.NewService(
 		modelstate.NewState(scope.ControllerDB()),
+		scope.ModelDeleter(),
 		modelservice.DefaultAgentBinaryFinder(),
 	)
 	i.readOnlyModelServiceFunc = func(id coremodel.UUID) ReadOnlyModelService {
@@ -224,18 +225,18 @@ func (i importOperation) Rollback(ctx context.Context, model description.Model) 
 		return fmt.Errorf("rollback of model during migration %w", errors.NotValid)
 	}
 
-	// If the model isn't found, we can simply ignore the error.
-	if err := i.modelService.DeleteModel(ctx, modelID); err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return fmt.Errorf(
-			"rollback of model %q with uuid %q during migration: %w",
-			modelName, modelID, err,
-		)
-	}
-
 	// If the read only model isn't found, we can simply ignore the error.
 	if err := i.readOnlyModelServiceFunc(modelID).DeleteModel(ctx); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return fmt.Errorf(
 			"rollback of read only model %q with uuid %q during migration: %w",
+			modelName, modelID, err,
+		)
+	}
+
+	// If the model isn't found, we can simply ignore the error.
+	if err := i.modelService.DeleteModel(ctx, modelID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return fmt.Errorf(
+			"rollback of model %q with uuid %q during migration: %w",
 			modelName, modelID, err,
 		)
 	}

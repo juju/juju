@@ -79,6 +79,7 @@ func (s *ControllerFactory) ControllerNode() *controllernodeservice.Service {
 func (s *ControllerFactory) Model() *modelservice.Service {
 	return modelservice.NewService(
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.dbDeleter,
 		modelservice.DefaultAgentBinaryFinder(),
 	)
 }

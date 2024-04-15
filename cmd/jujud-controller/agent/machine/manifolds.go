@@ -679,6 +679,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// to remove databases corresponding to destroyed/migrated models.
 			ServiceFactoryName: serviceFactoryName,
 			ChangeStreamName:   changeStreamName,
+			DBAccessorName:     dbAccessorName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,

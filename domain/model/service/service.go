@@ -81,10 +81,18 @@ type State interface {
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
 }
 
+// ModelDeleter is an interface for deleting models.
+type ModelDeleter interface {
+	// DeleteDB is responsible for removing a model from Juju and all of it's
+	// associated metadata.
+	DeleteDB(string) error
+}
+
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
 	st                State
+	modelDeleter      ModelDeleter
 	agentBinaryFinder AgentBinaryFinder
 }
 
@@ -110,9 +118,10 @@ func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, erro
 }
 
 // NewService returns a new Service for interacting with a models state.
-func NewService(st State, agentBinaryFinder AgentBinaryFinder) *Service {
+func NewService(st State, modelDeleter ModelDeleter, agentBinaryFinder AgentBinaryFinder) *Service {
 	return &Service{
 		st:                st,
+		modelDeleter:      modelDeleter,
 		agentBinaryFinder: agentBinaryFinder,
 	}
 }
@@ -247,7 +256,21 @@ func (s *Service) DeleteModel(
 		return fmt.Errorf("delete model, uuid: %w", err)
 	}
 
-	return s.st.Delete(ctx, uuid)
+	// Delete common items from the model. This helps to ensure that the
+	// model is cleaned up correctly.
+	if err := s.st.Delete(ctx, uuid); err != nil {
+		return fmt.Errorf("delete model: %w", err)
+	}
+
+	// Delete the db completely from the system. Currently, this will remove
+	// the db from the dbaccessor, but it will not drop the db (currently not
+	// supported in dqlite). For now we do a best effort to remove all items
+	// with in the db.
+	if err := s.modelDeleter.DeleteDB(uuid.String()); err != nil {
+		return fmt.Errorf("delete model: %w", err)
+	}
+
+	return nil
 }
 
 // ListModelIDs returns a list of all model UUIDs in the system that have not been

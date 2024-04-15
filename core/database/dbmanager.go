@@ -3,7 +3,9 @@
 
 package database
 
-import "github.com/juju/errors"
+import (
+	"github.com/juju/errors"
+)
 
 const (
 	// ControllerNS is the namespace for the controller database.
