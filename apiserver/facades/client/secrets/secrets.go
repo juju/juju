@@ -432,7 +432,7 @@ func (s *SecretsAPI) updateSecret(ctx context.Context, backend provider.SecretsB
 			}
 		}
 	}
-	_, err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(arg.AutoPrune, arg.UpsertSecretArg))
+	err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(arg.AutoPrune, arg.UpsertSecretArg))
 	return errors.Trace(err)
 }
 

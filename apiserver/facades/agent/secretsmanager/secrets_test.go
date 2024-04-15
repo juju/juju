@@ -362,24 +362,8 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	p.Data = nil
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).DoAndReturn(
-		func(_ context.Context, uri *coresecrets.URI, p secretservice.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
-			md := &coresecrets.SecretMetadata{
-				URI:            uri,
-				LatestRevision: 2,
-			}
-			return md, nil
-		},
-	)
-	s.secretService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, pWithBackendId).DoAndReturn(
-		func(_ context.Context, uri *coresecrets.URI, p secretservice.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
-			md := &coresecrets.SecretMetadata{
-				URI:            uri,
-				LatestRevision: 3,
-			}
-			return md, nil
-		},
-	)
+	s.secretService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).Return(nil)
+	s.secretService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, pWithBackendId).Return(nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
 	s.token.EXPECT().Check().Return(nil).Times(2)
 	s.expectSecretAccessQuery(4)
