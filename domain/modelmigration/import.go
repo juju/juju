@@ -14,6 +14,7 @@ import (
 	model "github.com/juju/juju/domain/model/modelmigration"
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
+	network "github.com/juju/juju/domain/network/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -26,8 +27,10 @@ type Coordinator interface {
 
 // Logger is the interface that is used to log messages.
 type Logger interface {
-	Infof(string, ...any)
+	Tracef(string, ...any)
 	Debugf(string, ...any)
+	Infof(string, ...any)
+	Errorf(string, ...interface{})
 }
 
 // ImportOperations registers the import operations with the given coordinator.
@@ -46,6 +49,7 @@ func ImportOperations(
 	credential.RegisterImport(coordinator)
 	model.RegisterImport(coordinator, logger)
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider)
+	network.RegisterImport(coordinator, logger)
 	machine.RegisterImport(coordinator)
 	application.RegisterImport(coordinator, registry)
 	blockdevice.RegisterImport(coordinator)

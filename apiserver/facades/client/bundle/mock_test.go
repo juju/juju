@@ -5,7 +5,7 @@ package bundle_test
 
 import (
 	"github.com/juju/charm/v13"
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"

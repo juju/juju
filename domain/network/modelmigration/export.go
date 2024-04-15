@@ -6,9 +6,8 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
@@ -16,11 +15,11 @@ import (
 	"github.com/juju/juju/domain/network/state"
 )
 
-var logger = loggo.GetLogger("juju.migration.")
-
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator) {
-	coordinator.Add(&exportOperation{})
+func RegisterExport(coordinator Coordinator, logger Logger) {
+	coordinator.Add(&exportOperation{
+		logger: logger,
+	})
 }
 
 // ExportService provides a subset of the network domain
@@ -36,13 +35,14 @@ type exportOperation struct {
 	modelmigration.BaseOperation
 
 	exportService ExportService
+	logger        Logger
 }
 
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.exportService = service.NewService(
-		state.NewState(scope.ModelDB()),
-		logger,
+		state.NewState(scope.ModelDB(), e.logger),
+		e.logger,
 	)
 	return nil
 }
@@ -62,7 +62,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		}
 
 		model.AddSpace(description.SpaceArgs{
-			Id:         space.ID,
+			UUID:       space.ID,
 			Name:       string(space.Name),
 			ProviderID: string(space.ProviderId),
 		})
@@ -75,7 +75,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	}
 	for _, subnet := range subnets {
 		args := description.SubnetArgs{
-			ID:                string(subnet.ID),
+			UUID:              string(subnet.ID),
 			CIDR:              subnet.CIDR,
 			ProviderId:        string(subnet.ProviderId),
 			ProviderSpaceId:   string(subnet.ProviderSpaceId),

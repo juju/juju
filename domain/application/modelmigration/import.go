@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/modelmigration"

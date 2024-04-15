@@ -6,8 +6,9 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/service"
@@ -21,8 +22,18 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator) {
-	coordinator.Add(&importOperation{})
+func RegisterImport(coordinator Coordinator, logger Logger) {
+	coordinator.Add(&importOperation{
+		logger: logger,
+	})
+}
+
+// Logger facilitates emitting log messages.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Errorf(string, ...interface{})
 }
 
 // ImportService provides a subset of the network domain
@@ -37,13 +48,14 @@ type importOperation struct {
 	modelmigration.BaseOperation
 
 	importService ImportService
+	logger        Logger
 }
 
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.importService = service.NewService(
-		state.NewState(scope.ModelDB()),
-		logger,
+		state.NewState(scope.ModelDB(), i.logger),
+		i.logger,
 	)
 	return nil
 }
@@ -57,7 +69,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			continue
 		}
 		spaceInfo := network.SpaceInfo{
-			// ID:         space.UUID(),
+			ID:         space.UUID(),
 			Name:       network.SpaceName(space.Name()),
 			ProviderId: network.Id(space.ProviderID()),
 		}
@@ -66,14 +78,20 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Annotatef(err, "creating space %s", space.Name())
 		}
 		// Update the space IDs mapping, which we need for subnets
-		// import.
-		spaceIDsMap[space.Id()] = spaceID.String()
+		// import. We do this for the pre-4.0 migrations, where
+		// spaces have their ID set but not their UUID. If their UUID
+		// is set then we use it to keep a consistent mapping.
+		if space.Id() != "" {
+			spaceIDsMap[space.Id()] = spaceID.String()
+		} else {
+			spaceIDsMap[spaceID.String()] = spaceID.String()
+		}
 	}
 
 	// Now import the subnets.
 	for _, subnet := range model.Subnets() {
 		subnetInfo := network.SubnetInfo{
-			// ID:                subnet.UUID(),
+			ID:                network.Id(subnet.UUID()),
 			CIDR:              subnet.CIDR(),
 			ProviderId:        network.Id(subnet.ProviderId()),
 			VLANTag:           subnet.VLANTag(),
@@ -98,7 +116,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			subnetInfo.ProviderSpaceId = space.ProviderId
 		}
 
-		i.importService.AddSubnet(ctx, subnetInfo)
+		_, err := i.importService.AddSubnet(ctx, subnetInfo)
+		if err != nil {
+			return errors.Annotatef(err, "creating subnet %s", subnet.CIDR())
+		}
 	}
 
 	return nil

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
