@@ -151,5 +151,7 @@ type dbAddUserPermission struct {
 	// GrantTo is the tag that the permission is granted to.
 	Name string `db:"name"`
 
+	// Access is the type of access for this user for the
+	// GrantOn value.
 	Access string `db:"access"`
 }

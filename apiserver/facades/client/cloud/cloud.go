@@ -609,7 +609,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
 
-	err = api.cloudService.UpsertCloud(ctx, api.apiUser.Name(), aCloud)
+	err = api.cloudService.CreateCloud(ctx, api.apiUser.Name(), aCloud)
 	if err != nil {
 		return errors.Annotatef(err, "creating cloud %q", cloudArgs.Name)
 	}
@@ -628,9 +628,7 @@ func (api *CloudAPI) UpdateCloud(ctx context.Context, cloudArgs params.UpdateClo
 		return results, apiservererrors.ServerError(err)
 	}
 	for i, aCloud := range cloudArgs.Clouds {
-		// Updating the cloud only, not the current user's permissions,
-		// thus do not include a userName here.
-		err := api.cloudService.UpsertCloud(ctx, "", cloudFromParams(aCloud.Name, aCloud.Cloud))
+		err := api.cloudService.UpdateCloud(ctx, cloudFromParams(aCloud.Name, aCloud.Cloud))
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil

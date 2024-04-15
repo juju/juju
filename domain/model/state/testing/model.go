@@ -22,6 +22,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -47,7 +48,8 @@ func CreateTestModel(
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSt := cloudstate.NewState(txnRunner)
-	err = cloudSt.UpsertCloud(context.Background(), "test-user",
+	err = cloudSt.CreateCloud(context.Background(), "test-user",
+		uuid.MustNewUUID().String(),
 		cloud.Cloud{
 			Name:      "my-cloud",
 			Type:      "ec2",

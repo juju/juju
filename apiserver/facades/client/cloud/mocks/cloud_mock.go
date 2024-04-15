@@ -239,6 +239,20 @@ func (mr *MockCloudServiceMockRecorder) Cloud(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockCloudService)(nil).Cloud), arg0, arg1)
 }
 
+// CreateCloud mocks base method.
+func (m *MockCloudService) CreateCloud(arg0 context.Context, arg1 string, arg2 cloud.Cloud) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCloud", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateCloud indicates an expected call of CreateCloud.
+func (mr *MockCloudServiceMockRecorder) CreateCloud(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCloud", reflect.TypeOf((*MockCloudService)(nil).CreateCloud), arg0, arg1, arg2)
+}
+
 // DeleteCloud mocks base method.
 func (m *MockCloudService) DeleteCloud(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -268,18 +282,18 @@ func (mr *MockCloudServiceMockRecorder) ListAll(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAll", reflect.TypeOf((*MockCloudService)(nil).ListAll), arg0)
 }
 
-// UpsertCloud mocks base method.
-func (m *MockCloudService) UpsertCloud(arg0 context.Context, arg1 string, arg2 cloud.Cloud) error {
+// UpdateCloud mocks base method.
+func (m *MockCloudService) UpdateCloud(arg0 context.Context, arg1 cloud.Cloud) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertCloud", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateCloud", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpsertCloud indicates an expected call of UpsertCloud.
-func (mr *MockCloudServiceMockRecorder) UpsertCloud(arg0, arg1, arg2 any) *gomock.Call {
+// UpdateCloud indicates an expected call of UpdateCloud.
+func (mr *MockCloudServiceMockRecorder) UpdateCloud(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertCloud", reflect.TypeOf((*MockCloudService)(nil).UpsertCloud), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloud", reflect.TypeOf((*MockCloudService)(nil).UpdateCloud), arg0, arg1)
 }
 
 // MockCloudAccessService is a mock of CloudAccessService interface.

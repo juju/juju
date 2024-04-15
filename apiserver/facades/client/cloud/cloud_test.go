@@ -268,7 +268,7 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}
-	cloudservice.UpsertCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
+	cloudservice.CreateCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -336,7 +336,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}
-	cloudService.UpsertCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
+	cloudService.CreateCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
 
 	force := true
 	addCloudArg := createAddCloudParam("")
@@ -366,7 +366,7 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 		Endpoint:  "fake-endpoint",
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}
-	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), adminTag.Id(), cloud).Return(nil).Times(2)
+	s.cloudService.EXPECT().CreateCloud(gomock.Any(), adminTag.Id(), cloud).Return(nil).Times(2)
 
 	addCloudArg := createAddCloudParam(string(k8sconstants.CAASProviderType))
 
@@ -400,7 +400,7 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
 		Type: "maas",
 	}
 	cloudService.Cloud(gomock.Any(), "dummy").Return(&cloud, nil)
-	cloudService.UpsertCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
+	cloudService.CreateCloud(gomock.Any(), adminTag.Id(), newCloud).Return(nil)
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -439,7 +439,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), "", dummyCloud).Return(nil)
+	s.cloudService.EXPECT().UpdateCloud(gomock.Any(), dummyCloud).Return(nil)
 
 	updatedCloud := jujucloud.Cloud{
 		Name:      "dummy",
@@ -491,7 +491,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	s.cloudService.EXPECT().UpsertCloud(gomock.Any(), "", dummyCloud).Return(errors.New("cloud \"nope\" not found"))
+	s.cloudService.EXPECT().UpdateCloud(gomock.Any(), dummyCloud).Return(errors.New("cloud \"nope\" not found"))
 
 	updatedCloud := jujucloud.Cloud{
 		Name:      "nope",

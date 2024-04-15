@@ -116,7 +116,7 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
-	err = cloudSt.UpsertCloud(context.Background(), userName,
+	err = cloudSt.CreateCloud(context.Background(), userName, uuid.MustNewUUID().String(),
 		cloud.Cloud{
 			Name:           "my-cloud",
 			Type:           "ec2",

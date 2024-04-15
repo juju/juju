@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
@@ -601,9 +602,8 @@ WHERE  cloud_uuid IN ($CloudUUIDs[:])
 	return result, nil
 }
 
-// UpsertCloud inserts or updates the specified cloud. An admin permission for
-// the cloud is created if a user's name is provided.
-func (st *State) UpsertCloud(ctx context.Context, userName string, cloud cloud.Cloud) error {
+// UpdateCloud updates the specified cloud.
+func (st *State) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -614,50 +614,55 @@ func (st *State) UpsertCloud(ctx context.Context, userName string, cloud cloud.C
 		return errors.Trace(domain.CoerceError(err))
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Get the cloud UUID - either existing or make a new one.
+		// Get the cloud UUID
 		dbCloud := Cloud{Name: cloud.Name}
 		err := tx.Query(ctx, selectUUIDStmt, dbCloud).Get(&dbCloud)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err != nil && errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("%q %w", cloud.Name, clouderrors.NotFound)
+		} else if err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		}
 		cloudUUID := dbCloud.ID
-		if err != nil {
-			cloudUUID = uuid.MustNewUUID().String()
-		}
 
-		if err := upsertCloud(ctx, tx, cloudUUID, cloud); err != nil {
-			return errors.Annotate(err, "updating cloud")
-		}
-
-		if err := updateAuthTypes(ctx, tx, cloudUUID, cloud.AuthTypes); err != nil {
-			return errors.Annotate(err, "updating cloud auth types")
-		}
-
-		if err := updateCACerts(ctx, tx, cloudUUID, cloud.CACertificates); err != nil {
-			return errors.Annotate(err, "updating cloud CA certs")
-		}
-
-		if err := updateRegions(ctx, tx, cloudUUID, cloud.Regions); err != nil {
+		if err := updateCloud(ctx, tx, cloudUUID, cloud); err != nil {
 			return errors.Annotate(err, "updating cloud regions")
 		}
-
-		// Only insert permissions on the cloud when it's created.
-		if userName != "" {
-			if err := insertPermission(ctx, tx, userName, cloud.Name); err != nil {
-				return errors.Annotate(err, "inserting cloud user permission")
-			}
-		}
-
 		return nil
 	})
 
 	return errors.Trace(err)
 }
 
+// CreateCloud creates a cloud and provides admin permissions to the
+// provided ownerName.
+// This is the exported method for use with the cloud state.
+func (st *State) CreateCloud(ctx context.Context, ownerName, cloudUUID string, cloud cloud.Cloud) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return CreateCloud(ctx, tx, ownerName, cloudUUID, cloud)
+	})
+	return errors.Trace(err)
+}
+
 // CreateCloud saves the specified cloud and creates Admin permission on the
 // cloud for the provided user.
 // Exported for use in the related cloud bootstrap package.
+// Should never be directly called outside of the cloud bootstrap package.
 func CreateCloud(ctx context.Context, tx *sqlair.TX, ownerName, cloudUUID string, cloud cloud.Cloud) error {
+	if err := updateCloud(ctx, tx, cloudUUID, cloud); err != nil {
+		return errors.Annotatef(err, "updating cloud %s", cloudUUID)
+	}
+	if err := insertPermission(ctx, tx, ownerName, cloud.Name); err != nil {
+		return errors.Annotate(err, "inserting cloud user permission")
+	}
+	return nil
+}
+
+func updateCloud(ctx context.Context, tx *sqlair.TX, cloudUUID string, cloud cloud.Cloud) error {
 	if err := upsertCloud(ctx, tx, cloudUUID, cloud); err != nil {
 		return errors.Annotatef(err, "updating cloud %s", cloudUUID)
 	}
@@ -669,9 +674,6 @@ func CreateCloud(ctx context.Context, tx *sqlair.TX, ownerName, cloudUUID string
 	}
 	if err := updateRegions(ctx, tx, cloudUUID, cloud.Regions); err != nil {
 		return errors.Annotatef(err, "updating cloud %s regions", cloudUUID)
-	}
-	if err := insertPermission(ctx, tx, ownerName, cloud.Name); err != nil {
-		return errors.Annotate(err, "inserting cloud user permission")
 	}
 	return nil
 }
@@ -854,9 +856,7 @@ ON CONFLICT(cloud_uuid, name) DO UPDATE SET name=excluded.name,
 }
 
 // insertPermission inserts a permission for the owner of the cloud during
-// upsertCloud. Since the upsertCloud will never change cloud permissions,
-// always try to insert. Do not fail on errors related to already existing
-// permission, that is not an error in this case.
+// upsertCloud.
 func insertPermission(ctx context.Context, tx *sqlair.TX, ownerName, cloudName string) error {
 	if ownerName == "" {
 		return nil
@@ -887,14 +887,12 @@ AND    t.type = $dbAddUserPermission.access
 	}
 
 	err = tx.Query(ctx, insertPermissionStmt, perm).Run()
-	// Any case which indicates the db row is already exists type of error
-	// will return nil. A cloud upsert will not change permissions of a user
-	// on the cloud. upsertCloud is called by both CreateCloud and UpsertCloud
-	// we only need to insert when creating the cloud. In that case we know
-	// that the user exists and is able to do this. The cloud is created
-	// before this method is called.
-	if err != nil && !database.IsErrConstraintUnique(err) && database.IsErrConstraintForeignKey(err) {
-		return errors.Annotatef(err, "adding permission %q for %q on %q", string(permission.AdminAccess), ownerName, cloudName)
+	if err != nil && database.IsErrConstraintUnique(err) {
+		return fmt.Errorf("for %q on %q, %w", ownerName, cloudName, accesserrors.PermissionAlreadyExists)
+	} else if err != nil && (database.IsErrConstraintForeignKey(err) || errors.Is(err, sqlair.ErrNoRows)) {
+		return fmt.Errorf("%q %w", ownerName, accesserrors.UserNotFound)
+	} else if err != nil {
+		return errors.Annotatef(domain.CoerceError(err), "adding permission %q for %q on %q", string(permission.AdminAccess), ownerName, cloudName)
 	}
 
 	return nil
@@ -985,7 +983,6 @@ WHERE  grant_on = ?
 		if err != nil {
 			return errors.Annotate(err, "deleting permissions on cloud")
 		}
-
 		result, err := tx.ExecContext(ctx, cloudDeleteQ, name)
 		if err != nil {
 			return errors.Annotate(err, "deleting cloud")

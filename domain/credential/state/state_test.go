@@ -74,17 +74,11 @@ func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 func (s *credentialSuite) addCloud(c *gc.C, userName string, cloud cloud.Cloud) string {
 	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
-	err := cloudSt.UpsertCloud(ctx, userName, cloud)
+	cloudUUID := uuid.MustNewUUID().String()
+	err := cloudSt.CreateCloud(ctx, userName, cloudUUID, cloud)
 	c.Assert(err, jc.ErrorIsNil)
 
-	db := s.DB()
-	row := db.QueryRow("SELECT uuid FROM cloud WHERE name = ?", cloud.Name)
-	c.Assert(row.Err(), jc.ErrorIsNil)
-
-	var dbCloud dbcloud.Cloud
-	err = row.Scan(&dbCloud.ID)
-	c.Assert(err, jc.ErrorIsNil)
-	return dbCloud.ID
+	return cloudUUID
 }
 
 func (s *credentialSuite) TestUpdateCloudCredentialNew(c *gc.C) {
@@ -406,12 +400,6 @@ func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, key corecred
 		"bar": "bar val",
 	}
 
-	s.addCloud(c, "", cloud.Cloud{
-		Name:      key.Cloud,
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
-
 	credInfo := credential.CloudCredentialInfo{
 		Label:      key.Name,
 		AuthType:   string(authType),
@@ -426,6 +414,11 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	keyOne := corecredential.Key{Cloud: "cirrus", Owner: s.userName, Name: "foobar"}
+	s.addCloud(c, keyOne.Owner, cloud.Cloud{
+		Name:      keyOne.Cloud,
+		Type:      "ec2",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	})
 	keyTwo := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	one := s.createCloudCredential(c, st, keyOne)
 	two := s.createCloudCredential(c, st, keyTwo)
@@ -434,7 +427,13 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 	s.addOwner(c, "mary")
 
 	// Added to make sure it is not returned.
-	s.createCloudCredential(c, st, corecredential.Key{Cloud: "cumulus", Owner: "mary", Name: "foobar"})
+	keyThree := corecredential.Key{Cloud: "cumulus", Owner: "mary", Name: "foobar"}
+	s.addCloud(c, keyThree.Owner, cloud.Cloud{
+		Name:      keyThree.Cloud,
+		Type:      "ec2",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	})
+	s.createCloudCredential(c, st, keyThree)
 
 	resultOne := credential.CloudCredentialResult{
 		CloudCredentialInfo: one,

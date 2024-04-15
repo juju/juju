@@ -21,27 +21,51 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestUpsertCloudSuccess(c *gc.C) {
+func (s *serviceSuite) TestCreateCloudSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloud := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().UpsertCloud(gomock.Any(), "owner-name", cloud).Return(nil)
+	s.state.EXPECT().CreateCloud(gomock.Any(), "owner-name", gomock.Any(), cloud).Return(nil)
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpsertCloud(context.Background(), "owner-name", cloud)
+	err := NewWatchableService(s.state, s.watcherFactory).CreateCloud(context.Background(), "owner-name", cloud)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpsertCloudError(c *gc.C) {
+func (s *serviceSuite) TestCreateCloudFail(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloud := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().UpsertCloud(gomock.Any(), "owner-name", cloud).Return(errors.New("boom"))
+	s.state.EXPECT().CreateCloud(gomock.Any(), "owner-name", gomock.Any(), cloud).Return(errors.New("boom"))
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpsertCloud(context.Background(), "owner-name", cloud)
+	err := NewWatchableService(s.state, s.watcherFactory).CreateCloud(context.Background(), "owner-name", cloud)
+	c.Assert(err, gc.ErrorMatches, `creating cloud "fluffy": boom`)
+}
+
+func (s *serviceSuite) TestUpdateCloudSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cloud := cloud.Cloud{
+		Name: "fluffy",
+	}
+	s.state.EXPECT().UpdateCloud(gomock.Any(), cloud).Return(nil)
+
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateCloud(context.Background(), cloud)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateCloudError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cloud := cloud.Cloud{
+		Name: "fluffy",
+	}
+	s.state.EXPECT().UpdateCloud(gomock.Any(), cloud).Return(errors.New("boom"))
+
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateCloud(context.Background(), cloud)
 	c.Assert(err, gc.ErrorMatches, `updating cloud "fluffy": boom`)
 }
 

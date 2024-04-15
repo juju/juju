@@ -213,34 +213,35 @@ func (s *stateSuite) assertRegions(c *gc.C, cloudUUID string, expected []cloud.R
 }
 
 func (s *stateSuite) assertInsertCloud(c *gc.C, st *State, cloud cloud.Cloud) string {
-	err := st.UpsertCloud(context.Background(), "admin", cloud)
+	cloudUUID := uuid.MustNewUUID()
+	err := st.CreateCloud(context.Background(), "admin", cloudUUID.String(), cloud)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudUUID := s.assertCloud(c, cloud)
+	foundCloudUUID := s.assertCloud(c, cloud)
 	s.checkPermissionRow(c, permission.AdminAccess, "admin", cloud.Name)
-	return cloudUUID
+	return foundCloudUUID
 }
 
-func (s *stateSuite) TestUpsertCloudNew(c *gc.C) {
+func (s *stateSuite) TestCreateCloud(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	s.assertInsertCloud(c, st, testCloud)
 }
 
-func (s *stateSuite) TestUpsertCloudNewNoRegions(c *gc.C) {
+func (s *stateSuite) TestCreateCloudNewNoRegions(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	cld := testCloud
 	cld.Regions = nil
 	s.assertInsertCloud(c, st, cld)
 }
 
-func (s *stateSuite) TestUpsertCloudNewNoCertificates(c *gc.C) {
+func (s *stateSuite) TestCreateCloudNewNoCertificates(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	cld := testCloud
 	cld.CACertificates = nil
 	s.assertInsertCloud(c, st, cld)
 }
 
-func (s *stateSuite) TestUpsertCloudUpdateExisting(c *gc.C) {
+func (s *stateSuite) TestCreateCloudUpdateExisting(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	originalUUID := s.assertInsertCloud(c, st, testCloud)
 
@@ -267,19 +268,19 @@ func (s *stateSuite) TestUpsertCloudUpdateExisting(c *gc.C) {
 		IsControllerCloud: true,
 	}
 
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.UpdateCloud(context.Background(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudUUID := s.assertCloud(c, cld)
 	c.Assert(originalUUID, gc.Equals, cloudUUID)
 }
 
-func (s *stateSuite) TestUpsertCloudInvalidType(c *gc.C) {
+func (s *stateSuite) TestCreateCloudInvalidType(c *gc.C) {
 	cld := testCloud
 	cld.Type = "mycloud"
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, gc.ErrorMatches, `.* cloud type "mycloud" not valid`)
 }
 
@@ -288,7 +289,7 @@ func (s *stateSuite) TestCloudWithEmptyNameFails(c *gc.C) {
 	cld.Name = ""
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
@@ -296,7 +297,7 @@ func (s *stateSuite) TestUpdateCloudDefaults(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
@@ -317,7 +318,7 @@ func (s *stateSuite) TestComplexUpdateCloudDefaults(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
@@ -359,7 +360,7 @@ func (s *stateSuite) TestCloudRegionDefaults(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudRegionDefaults(
@@ -402,7 +403,7 @@ func (s *stateSuite) TestCloudRegionDefaultsComplex(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudRegionDefaults(
@@ -482,7 +483,7 @@ func (s *stateSuite) TestCloudRegionDefaultsNoExist(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudRegionDefaults(context.Background(), cld.Name, "noexistregion", map[string]string{
@@ -499,7 +500,7 @@ func (s *stateSuite) TestCloudDefaultsRemoval(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
@@ -531,7 +532,7 @@ func (s *stateSuite) TestEmptyCloudDefaults(c *gc.C) {
 	cld := testCloud
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
@@ -549,20 +550,20 @@ func (s *stateSuite) TestNotFoundCloudDefaults(c *gc.C) {
 	c.Assert(len(defaults), gc.Equals, 0)
 }
 
-func (s *stateSuite) TestUpsertCloudInvalidAuthType(c *gc.C) {
+func (s *stateSuite) TestCreateCloudInvalidAuthType(c *gc.C) {
 	cld := testCloud
 	cld.AuthTypes = []cloud.AuthType{"myauth"}
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, gc.ErrorMatches, `.* auth type "myauth" not valid`)
 }
 
 func (s *stateSuite) TestListClouds(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", testCloud)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), testCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpsertCloud(context.Background(), "admin", testCloud2)
+	err = st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	clouds, err := st.ListClouds(context.Background())
@@ -579,9 +580,9 @@ func (s *stateSuite) TestListClouds(c *gc.C) {
 
 func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", testCloud)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), testCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpsertCloud(context.Background(), "admin", testCloud2)
+	err = st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	clouds, err := st.ListClouds(context.Background())
@@ -621,9 +622,10 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 
 func (s *stateSuite) TestCloud(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", testCloud)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), testCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpsertCloud(context.Background(), "admin", testCloud2)
+	err = st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), testCloud2)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.Cloud(context.Background(), "fluffy3")
@@ -721,19 +723,11 @@ func (s *stateSuite) TestWatchCloudNotFound(c *gc.C) {
 func (s *stateSuite) TestWatchCloud(c *gc.C) {
 	cld := testCloud
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	cloudUUID := uuid.MustNewUUID().String()
+	err := st.CreateCloud(context.Background(), "admin", cloudUUID, cld)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var uuid string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, "SELECT uuid FROM cloud WHERE name = ?", "fluffy")
-		err := row.Scan(&uuid)
-		c.Assert(err, jc.ErrorIsNil)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := st.WatchCloud(context.Background(), s.watcherFunc(c, uuid), "fluffy")
+	w, err := st.WatchCloud(context.Background(), s.watcherFunc(c, cloudUUID), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 
@@ -742,7 +736,7 @@ func (s *stateSuite) TestWatchCloud(c *gc.C) {
 
 	cld.Config = map[string]any{"foo": "bar"}
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := st.UpsertCloud(ctx, "admin", cld)
+		err := st.UpdateCloud(ctx, cld)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -765,7 +759,7 @@ func (s *stateSuite) TestNullCloudType(c *gc.C) {
 func (s *stateSuite) TestSetCloudDefaults(c *gc.C) {
 	cld := testCloud
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -805,7 +799,7 @@ func (s *stateSuite) TestSetCloudDefaultsNotFound(c *gc.C) {
 func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
 	cld := testCloud
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -841,7 +835,7 @@ func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
 func (s *stateSuite) TestSetCloudDefaultsDelete(c *gc.C) {
 	cld := testCloud
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpsertCloud(context.Background(), "admin", cld)
+	err := st.CreateCloud(context.Background(), "admin", uuid.MustNewUUID().String(), cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
