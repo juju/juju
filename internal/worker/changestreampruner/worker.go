@@ -250,7 +250,7 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 	// Gather all the watermarks that are within the windowed time period.
 	// If there are no watermarks within the window, then we can assume
 	// that the stream is keeping up and we don't need to prune anything.
-	lowest, ok := w.lowestWatermark(watermarks, w.cfg.Clock.Now())
+	lowest, ok := w.lowestWatermark(namespace, watermarks, w.cfg.Clock.Now())
 	if !ok {
 		// Check to see if the latest change log has a valid log in the last
 		// window duration, if not, then we can assume that the stream is not
@@ -286,7 +286,7 @@ func (w *Pruner) deleteChangeLog(ctx context.Context, tx *sqlair.TX, lowest Wate
 	return pruned, errors.Trace(err)
 }
 
-func (w *Pruner) lowestWatermark(watermarks []Watermark, now time.Time) (Watermark, bool) {
+func (w *Pruner) lowestWatermark(namespace string, watermarks []Watermark, now time.Time) (Watermark, bool) {
 	// Select the lower bound of the watermark, only if the updated_at time
 	// is within a windowed time period.
 	var (
@@ -311,7 +311,7 @@ func (w *Pruner) lowestWatermark(watermarks []Watermark, now time.Time) (Waterma
 		// good valid window time is. For now we'll just log a warning for
 		// visibility, before we solidify the approach.
 		if !view.contains(watermark.UpdatedAt) {
-			w.cfg.Logger.Warningf("Watermark %q is outside of window, check logs to see if the change stream is keeping up", watermark.ControllerID)
+			w.cfg.Logger.Warningf("namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up", namespace, watermark.ControllerID)
 		}
 
 		// Select the lower bound of the watermark.

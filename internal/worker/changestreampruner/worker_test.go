@@ -216,7 +216,7 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
 
-	s.logger.EXPECT().Warningf("Watermark %q is outside of window, check logs to see if the change stream is keeping up", gomock.Any()).Do(c.Logf).Times(2)
+	s.logger.EXPECT().Warningf("namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up", gomock.Any(), gomock.Any()).Do(c.Logf).Times(2)
 
 	pruner := s.newPruner(c)
 
@@ -424,7 +424,7 @@ func (s *workerSuite) TestLowestWatermark(c *gc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d", i)
 
-		got, ok := s.newPruner(c).lowestWatermark(test.watermarks, test.now)
+		got, ok := s.newPruner(c).lowestWatermark("foo", test.watermarks, test.now)
 		c.Check(got, jc.DeepEquals, test.expected)
 		c.Check(ok, gc.Equals, test.expectedOK)
 	}
