@@ -5,6 +5,7 @@ package dbaccessor
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"sync"
 	"time"
@@ -19,8 +20,10 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
+	"github.com/juju/juju/internal/database/pragma"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
@@ -314,6 +317,15 @@ func (w *dbWorker) loop() (err error) {
 				if err := w.closeDatabase(req.namespace); err != nil {
 					select {
 					case req.done <- errors.Annotatef(err, "closing database for namespace %q", req.namespace):
+					case <-w.catacomb.Dying():
+						return w.catacomb.ErrDying()
+					}
+					continue
+				}
+
+				if err := w.deleteDatabase(req.namespace); err != nil {
+					select {
+					case req.done <- errors.Annotatef(err, "deleting database for namespace %q", req.namespace):
 					case <-w.catacomb.Dying():
 						return w.catacomb.ErrDying()
 					}
@@ -687,6 +699,41 @@ func (w *dbWorker) closeDatabase(namespace string) error {
 	// currently any heavy loop logic in the model workers.
 	if err := w.dbRunner.StopAndRemoveWorker(namespace, w.catacomb.Dying()); err != nil {
 		return errors.Annotatef(err, "stopping worker")
+	}
+
+	return nil
+}
+
+func (w *dbWorker) deleteDatabase(namespace string) error {
+	// There will be no runner for the database, so we can't rely on the worker
+	// to remove and delete the database. We'll have to do that ourselves.
+	if namespace == database.ControllerNS {
+		return errors.Forbiddenf("cannot delete controller database")
+	}
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	db, err := w.dbApp.Open(ctx, namespace)
+	if err != nil {
+		return errors.Annotatef(err, "opening database for deletion")
+	}
+	defer db.Close()
+
+	// We need to ensure that foreign keys are disabled before we can blanket
+	// delete the database.
+	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, false); err != nil {
+		return errors.Annotate(err, "setting foreign keys pragma")
+	}
+
+	// Now attempt to delete the database and all of it's contents.
+	// This can be replaced with DROP DB once it's supported by dqlite.
+	if err := internaldatabase.Retry(ctx, func() error {
+		return internaldatabase.StdTxn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+			return deleteDBContents(ctx, tx, w.cfg.Logger)
+		})
+	}); err != nil {
+		return errors.Annotatef(err, "deleting database contents")
 	}
 
 	return nil
