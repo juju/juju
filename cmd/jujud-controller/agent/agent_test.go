@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/loggo/v2"
@@ -53,9 +55,12 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+
+	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
+	st := s.ControllerModel(c).State()
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 }

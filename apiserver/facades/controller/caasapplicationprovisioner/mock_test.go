@@ -168,6 +168,15 @@ func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name str
 	return storage.NewConfig(name, k8sconstants.StorageProviderType, map[string]interface{}{"foo": "bar"})
 }
 
+type mockControllerConfigService struct {
+	testing.Stub
+}
+
+func (m *mockControllerConfigService) ControllerConfig(_ context.Context) (controller.Config, error) {
+	m.MethodCall(m, "ControllerConfig")
+	return coretesting.FakeControllerConfig(), nil
+}
+
 type mockModel struct {
 	testing.Stub
 	state              *mockState

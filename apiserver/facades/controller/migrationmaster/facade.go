@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -42,6 +43,11 @@ type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
 }
 
+// ControllerConfigService provides access to the controller configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // API implements the API required for the model migration
 // master worker.
 type API struct {
@@ -57,6 +63,7 @@ type API struct {
 	leadership              leadership.Reader
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
+	controllerConfigService ControllerConfigService
 	store                   objectstore.ObjectStore
 }
 
@@ -75,6 +82,7 @@ func NewAPI(
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
 	credentialService common.CredentialService,
+	controllerConfigService ControllerConfigService,
 	upgradeService UpgradeService,
 ) (*API, error) {
 	if !authorizer.AuthController() {
@@ -94,6 +102,7 @@ func NewAPI(
 		environscloudspecGetter: environscloudspecGetter,
 		leadership:              leadership,
 		credentialService:       credentialService,
+		controllerConfigService: controllerConfigService,
 		upgradeService:          upgradeService,
 	}, nil
 }
@@ -190,7 +199,7 @@ func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourc
 		return empty, errors.Annotate(err, "retrieving local related models")
 	}
 
-	cfg, err := api.backend.ControllerConfig()
+	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving controller config")
 	}
@@ -397,7 +406,7 @@ func (api *API) MinionReports(ctx context.Context) (params.MinionReports, error)
 // indicates how long the migration master worker should wait for minions to
 // reported on phases of a migration.
 func (api *API) MinionReportTimeout(ctx context.Context) (params.StringResult, error) {
-	cfg, err := api.backend.ControllerConfig()
+	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.StringResult{Error: apiservererrors.ServerError(err)}, nil
 	}

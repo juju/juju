@@ -90,13 +90,14 @@ type modelUpgradeSuite struct {
 	adminUser  names.UserTag
 	authoriser apiservertesting.FakeAuthorizer
 
-	statePool        *mocks.MockStatePool
-	toolsFinder      *mocks.MockToolsFinder
-	bootstrapEnviron *mocks.MockBootstrapEnviron
-	blockChecker     *mocks.MockBlockCheckerInterface
-	upgradeService   *mocks.MockUpgradeService
-	registryProvider *registrymocks.MockRegistry
-	cloudSpec        lxd.CloudSpec
+	statePool               *mocks.MockStatePool
+	toolsFinder             *mocks.MockToolsFinder
+	bootstrapEnviron        *mocks.MockBootstrapEnviron
+	blockChecker            *mocks.MockBlockCheckerInterface
+	upgradeService          *mocks.MockUpgradeService
+	controllerConfigService *mocks.MockControllerConfigService
+	registryProvider        *registrymocks.MockRegistry
+	cloudSpec               lxd.CloudSpec
 }
 
 var _ = gc.Suite(&modelUpgradeSuite{})
@@ -122,6 +123,7 @@ func (s *modelUpgradeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.blockChecker = mocks.NewMockBlockCheckerInterface(ctrl)
 	s.registryProvider = registrymocks.NewMockRegistry(ctrl)
 	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
+	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 
 	return ctrl
 }
@@ -141,6 +143,7 @@ func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 		func(stdcontext.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
 		},
+		s.controllerConfigService,
 		s.upgradeService,
 		loggo.GetLogger("juju.apiserver.modelupgrader"),
 	)
@@ -225,7 +228,8 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	// Decide/validate target version.
-	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
+
 	ctrlModel.EXPECT().Life().Return(state.Alive)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
@@ -347,7 +351,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	// Decide/validate target version.
-	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
+
 	ctrlModel.EXPECT().Life().Return(state.Alive)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
@@ -451,7 +456,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	// Decide/validate target version.
-	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
+
 	ctrlModel.EXPECT().Life().Return(state.Alive)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
@@ -569,7 +575,8 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	// Decide/validate target version.
-	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
+
 	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
@@ -652,7 +659,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	s.blockChecker.EXPECT().ChangeAllowed(stdcontext.Background()).Return(nil)
 
 	// Decide/validate target version.
-	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
+
 	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().Type().Return(state.ModelTypeIAAS)
@@ -718,7 +726,7 @@ func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *gc.C) {
 
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().IsControllerModel().Return(false)

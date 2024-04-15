@@ -39,12 +39,13 @@ import (
 type Suite struct {
 	coretesting.BaseSuite
 
-	controllerBackend *mocks.MockControllerState
-	backend           *mocks.MockBackend
-	modelExporter     *mocks.MockModelExporter
-	credentialService *commonmocks.MockCredentialService
-	upgradeService    *mocks.MockUpgradeService
-	store             *mocks.MockObjectStore
+	controllerBackend       *mocks.MockControllerState
+	backend                 *mocks.MockBackend
+	modelExporter           *mocks.MockModelExporter
+	credentialService       *commonmocks.MockCredentialService
+	upgradeService          *mocks.MockUpgradeService
+	store                   *mocks.MockObjectStore
+	controllerConfigService *mocks.MockControllerConfigService
 
 	precheckBackend *mocks.MockPrecheckBackend
 
@@ -197,7 +198,7 @@ func (s *Suite) TestSourceControllerInfo(c *gc.C) {
 
 	exp := s.backend.EXPECT()
 	exp.AllLocalRelatedModels().Return([]string{"related-model-uuid"}, nil)
-	s.backend.EXPECT().ControllerConfig().Return(cfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 	apiAddr := []network.SpaceHostPorts{{{
 		SpaceAddress: network.SpaceAddress{
 			MachineAddress: network.MachineAddress{Value: "10.0.0.1"},
@@ -573,7 +574,7 @@ func (s *Suite) TestMinionReportTimeout(c *gc.C) {
 
 	timeout := "30s"
 
-	s.backend.EXPECT().ControllerConfig().Return(controller.Config{
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 		controller.MigrationMinionWaitMax: timeout,
 	}, nil)
 
@@ -593,6 +594,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
 	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
+	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 	return ctrl
 }
 
@@ -616,6 +618,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
 		s.credentialService,
+		s.controllerConfigService,
 		s.upgradeService,
 	)
 }

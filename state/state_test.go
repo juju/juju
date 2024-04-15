@@ -307,7 +307,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchModelMachines()
 			},
 			triggerEvent: func(st *state.State) {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 			},
@@ -315,7 +315,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		{
 			about: "containers",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				return m.WatchAllContainers()
@@ -336,7 +336,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "lxd only containers",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				return m.WatchContainers(instance.LXD)
@@ -357,7 +357,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "units",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				return m.WatchUnits()
@@ -365,7 +365,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			triggerEvent: func(st *state.State) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				f.MakeUnit(c, &factory.UnitParams{Machine: m})
 			},
 		}, {
@@ -374,7 +374,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchApplications()
 			},
 			triggerEvent: func(st *state.State) {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				f.MakeApplication(c, nil)
 			},
 		}, {
@@ -390,13 +390,13 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "relations",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				wordpress := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				return wordpress.WatchRelations()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlCharm})
 				return false
@@ -418,7 +418,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
 				return false
@@ -437,7 +437,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
 				eps, err := st.InferEndpoints("wordpress", "mysql")
@@ -459,7 +459,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
 				eps, err := st.InferEndpoints("wordpress", "mysql")
@@ -479,7 +479,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchOpenedPorts()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
 				f.MakeUnit(c, &factory.UnitParams{Application: mysql})
 				return false
@@ -499,7 +499,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchCleanups()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
@@ -524,7 +524,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "reboots",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
 				w := m.WatchForRebootEvent()
@@ -571,7 +571,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchApplications()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				return false
@@ -586,7 +586,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "action status",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				dummyCharm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 				application := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
@@ -610,7 +610,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchMinUnits()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st, s.StatePool)
+				f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				_ = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				return false
@@ -1785,7 +1785,7 @@ func (s *StateSuite) TestAddApplicationFailCharmOriginHashOnly(c *gc.C) {
 func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 
 	insettings := charm.Settings{"tuning": "optimized"}
@@ -1941,7 +1941,7 @@ resources:
 func (s *StateSuite) TestAddCAASApplicationPlacementNotAllowed(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 
 	placement := []*instance.Placement{instance.MustParsePlacement("#:2")}
@@ -2547,7 +2547,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	// Add a application so Destroy doesn't advance to Dead.
-	app := factory.NewFactory(st1, s.StatePool).MakeApplication(c, nil)
+	app := factory.NewFactory(st1, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.Destroy(state.DestroyModelParams{})
@@ -2595,7 +2595,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	app := factory.NewFactory(st1, s.StatePool).MakeApplication(c, nil)
+	app := factory.NewFactory(st1, s.StatePool, testing.FakeControllerConfig()).MakeApplication(c, nil)
 	model, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())

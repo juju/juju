@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasmodeloperator_test
+package caasmodeloperator
 
 import (
 	"testing"
@@ -9,4 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *testing.T) { gc.TestingT(t) }
+//go:generate go run go.uber.org/mock/mockgen -package caasmodeloperator -destination package_mock_test.go github.com/juju/juju/apiserver/facades/controller/caasmodeloperator ControllerConfigService
+
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
+}

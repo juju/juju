@@ -220,7 +220,7 @@ func (s *ModelUserSuite) TestCaseSensitiveModelUserErrors(c *gc.C) {
 
 func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 	assertIsolated := func(st1, st2 *state.State, usernames ...string) {
-		f := factory.NewFactory(st1, s.StatePool)
+		f := factory.NewFactory(st1, s.StatePool, testing.FakeControllerConfig())
 		expectedUser := f.MakeModelUser(c, &factory.ModelUserParams{User: usernames[0]})
 
 		m1, err := st1.Model()

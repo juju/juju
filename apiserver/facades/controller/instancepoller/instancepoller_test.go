@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -65,7 +66,8 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.clock = testclock.NewClock(time.Now())
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+	controllerConfigService := controllerConfigService{}
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -108,7 +110,10 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
-	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+
+	controllerConfigService := controllerConfigService{}
+
+	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -515,12 +520,12 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
-	s.st.CheckMachineCall(c, 1, "1")
-	s.st.CheckSetProviderAddressesCall(c, 2, []network.SpaceAddress{})
-	s.st.CheckMachineCall(c, 3, "2")
-	s.st.CheckCall(c, 4, "AllSpaceInfos")
-	s.st.CheckSetProviderAddressesCall(c, 5, newAddrs)
-	s.st.CheckMachineCall(c, 6, "42")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckSetProviderAddressesCall(c, 1, []network.SpaceAddress{})
+	s.st.CheckMachineCall(c, 2, "2")
+	s.st.CheckCall(c, 3, "AllSpaceInfos")
+	s.st.CheckSetProviderAddressesCall(c, 4, newAddrs)
+	s.st.CheckMachineCall(c, 5, "42")
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
@@ -554,11 +559,11 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, s.machineErrorResults)
 
-	s.st.CheckMachineCall(c, 1, "1")
-	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "AllSpaceInfos")
-	s.st.CheckSetProviderAddressesCall(c, 4, newAddrs)
-	s.st.CheckMachineCall(c, 5, "3")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 1, "2")
+	s.st.CheckCall(c, 2, "AllSpaceInfos")
+	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
+	s.st.CheckMachineCall(c, 4, "3")
 
 	// Ensure machine 2 wasn't updated.
 	machine, err := s.st.Machine("2")
@@ -1220,4 +1225,10 @@ func makeSpaceAddress(ip string, scope network.Scope, spaceID string) network.Sp
 
 func statusInfo(st string) status.StatusInfo {
 	return status.StatusInfo{Status: status.Status(st)}
+}
+
+type controllerConfigService struct{}
+
+func (controllerConfigService) ControllerConfig(context.Context) (controller.Config, error) {
+	return jujutesting.FakeControllerConfig(), nil
 }

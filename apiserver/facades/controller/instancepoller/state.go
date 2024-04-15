@@ -40,8 +40,6 @@ type StateInterface interface {
 
 	// ApplyOperation applies a given ModelOperation to the model.
 	ApplyOperation(state.ModelOperation) error
-
-	ControllerConfig() (controller.Config, error)
 }
 
 type machineShim struct {

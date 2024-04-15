@@ -10,6 +10,7 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -29,7 +30,6 @@ var _ = gc.Suite(&WorkerStateSuite{})
 
 func (s *WorkerStateSuite) SetUpSuite(c *gc.C) {
 	s.workerFixture.SetUpSuite(c)
-
 	mgotesting.MgoServer.EnableReplicaSet = true
 	err := mgotesting.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,6 +65,10 @@ func (s *WorkerStateSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *WorkerStateSuite) TestStart(c *gc.C) {
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
+		map[string]any{},
+		nil,
+	)
 	w, err := apiserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)

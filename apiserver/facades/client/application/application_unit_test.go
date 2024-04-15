@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/controller"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
@@ -160,9 +159,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.backend = mocks.NewMockBackend(ctrl)
-	s.backend.EXPECT().ControllerConfig().Return(
-		controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}),
-	).AnyTimes()
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 

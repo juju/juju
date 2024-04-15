@@ -59,6 +59,7 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 		cloudspec.MakeCloudSpecGetter(pool, serviceFactory.Cloud(), credentialService),
 		leadership,
 		credentialService,
+		serviceFactory.ControllerConfig(),
 		serviceFactory.Upgrade(),
 	)
 }

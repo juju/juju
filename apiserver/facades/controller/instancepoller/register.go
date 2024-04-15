@@ -27,5 +27,12 @@ func newFacade(ctx facade.ModelContext) (*InstancePollerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewInstancePollerAPI(st, m, ctx.Resources(), ctx.Auth(), clock.WallClock, ctx.Logger().Child("instancepoller"))
+	return NewInstancePollerAPI(
+		st,
+		m,
+		ctx.Resources(),
+		ctx.Auth(),
+		ctx.ServiceFactory().ControllerConfig(),
+		clock.WallClock,
+		ctx.Logger().Child("instancepoller"))
 }

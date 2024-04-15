@@ -69,7 +69,12 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.mgmtSpace, err = s.ControllerModel(c).State().AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	cfg := map[string]any{
+		corecontroller.JujuManagementSpace: "mgmt01",
+	}
+
+	service := s.ControllerServiceFactory(c).ControllerConfig()
+	err = service.UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -223,11 +228,12 @@ func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
 	mgmtSpace, err := s.ControllerModel(c).State().AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := map[string]interface{}{
+	cfg := map[string]any{
 		corecontroller.JujuManagementSpace: "mgmt01",
 	}
 
-	err = s.ControllerModel(c).State().UpdateControllerConfig(cfg, nil)
+	service := s.ControllerServiceFactory(c).ControllerConfig()
+	err = service.UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.ControllerServiceFactory(c).ControllerConfig().UpdateControllerConfig(context.Background(), cfg, nil)

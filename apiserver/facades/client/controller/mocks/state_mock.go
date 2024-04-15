@@ -14,7 +14,6 @@ import (
 
 	charm "github.com/juju/charm/v13"
 	controller "github.com/juju/juju/apiserver/facades/client/controller"
-	controller0 "github.com/juju/juju/controller"
 	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
@@ -102,21 +101,6 @@ func (m *MockBackend) Application(arg0 string) (controller.Application, error) {
 func (mr *MockBackendMockRecorder) Application(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockBackend)(nil).Application), arg0)
-}
-
-// ControllerConfig mocks base method.
-func (m *MockBackend) ControllerConfig() (controller0.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller0.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackend)(nil).ControllerConfig))
 }
 
 // ControllerInfo mocks base method.
@@ -291,20 +275,6 @@ func (m *MockBackend) SetUserAccess(arg0 names.UserTag, arg1 names.Tag, arg2 per
 func (mr *MockBackendMockRecorder) SetUserAccess(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUserAccess", reflect.TypeOf((*MockBackend)(nil).SetUserAccess), arg0, arg1, arg2)
-}
-
-// UpdateControllerConfig mocks base method.
-func (m *MockBackend) UpdateControllerConfig(arg0 map[string]any, arg1 []string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateControllerConfig indicates an expected call of UpdateControllerConfig.
-func (mr *MockBackendMockRecorder) UpdateControllerConfig(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerConfig", reflect.TypeOf((*MockBackend)(nil).UpdateControllerConfig), arg0, arg1)
 }
 
 // UserAccess mocks base method.

@@ -61,7 +61,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.mgmtSpace, err = st.AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerService := controllerServiceFactory.ControllerConfig()
+
+	err = controllerService.UpdateControllerConfig(context.Background(), map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -410,7 +413,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
-	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
+	blockDeviceService := mocks.NewMockBlockDeviceService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
@@ -431,7 +434,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, blockDeviceGetter, nil,
+		nil, blockDeviceService, nil, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
@@ -464,7 +467,8 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
-	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
+	blockDeviceService := mocks.NewMockBlockDeviceService(ctrl)
+	controllerConfigService := mocks.NewMockControllerConfigService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -486,7 +490,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9"), nil),
 
-		backend.EXPECT().ControllerConfig().Return(controller.Config{
+		controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
 			controller.CAASImageRepo: `
 {
@@ -511,7 +515,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, blockDeviceGetter, nil,
+		nil, blockDeviceService, controllerConfigService, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
@@ -545,7 +549,8 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
-	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
+	blockDeviceService := mocks.NewMockBlockDeviceService(ctrl)
+	controllerConfigService := mocks.NewMockControllerConfigService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -569,7 +574,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9.1"), nil),
 
-		backend.EXPECT().ControllerConfig().Return(controller.Config{
+		controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
 			controller.CAASImageRepo: `
 {
@@ -597,7 +602,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, blockDeviceGetter, nil,
+		nil, blockDeviceService, controllerConfigService, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {

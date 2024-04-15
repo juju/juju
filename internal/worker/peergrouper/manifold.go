@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state"
@@ -21,10 +22,11 @@ import (
 // ManifoldConfig holds the information necessary to run a peergrouper
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName string
-	ClockName string
-	StateName string
-	Hub       Hub
+	AgentName          string
+	ClockName          string
+	StateName          string
+	ServiceFactoryName string
+	Hub                Hub
 
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(Config) (worker.Worker, error)
@@ -40,6 +42,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
@@ -60,6 +65,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.ClockName,
 			config.StateName,
+			config.ServiceFactoryName,
 		},
 		Start: config.start,
 	}
@@ -81,6 +87,17 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var serviceFactory servicefactory.ControllerServiceFactory
+	if err := getter.Get(config.ServiceFactoryName, &serviceFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerConfigService := serviceFactory.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -92,11 +109,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	mongoSession := st.MongoSession()
 	agentConfig := agent.CurrentConfig()
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		_ = stTracker.Done()
-		return nil, errors.Trace(err)
-	}
 	model, err := st.Model()
 	if err != nil {
 		_ = stTracker.Done()
@@ -105,16 +117,17 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	supportsHA := model.Type() != state.ModelTypeCAAS
 
 	w, err := config.NewWorker(Config{
-		State:                StateShim{st},
-		MongoSession:         MongoSessionShim{mongoSession},
-		APIHostPortsSetter:   &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
-		Clock:                clock,
-		Hub:                  config.Hub,
-		MongoPort:            controllerConfig.StatePort(),
-		APIPort:              controllerConfig.APIPort(),
-		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),
-		SupportsHA:           supportsHA,
-		PrometheusRegisterer: config.PrometheusRegisterer,
+		State:                   StateShim{st},
+		ControllerConfigService: controllerConfigService,
+		MongoSession:            MongoSessionShim{mongoSession},
+		APIHostPortsSetter:      &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
+		Clock:                   clock,
+		Hub:                     config.Hub,
+		MongoPort:               controllerConfig.StatePort(),
+		APIPort:                 controllerConfig.APIPort(),
+		ControllerAPIPort:       controllerConfig.ControllerAPIPort(),
+		SupportsHA:              supportsHA,
+		PrometheusRegisterer:    config.PrometheusRegisterer,
 		// On machine models, the controller id is the same as the machine/agent id.
 		// TODO(wallyworld) - revisit when we add HA to k8s.
 		ControllerId: agentConfig.Tag().Id,

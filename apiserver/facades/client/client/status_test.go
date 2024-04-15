@@ -18,8 +18,10 @@ import (
 
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
+	"github.com/juju/juju/controller"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -512,8 +514,11 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	setGenerationsControllerConfig(c, st)
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerService := controllerServiceFactory.ControllerConfig()
+
+	setGenerationsControllerConfig(c, controllerService)
+
 	// Create a host model because controller models can't be migrated.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
@@ -988,7 +993,11 @@ var _ = gc.Suite(&filteringBranchesSuite{})
 func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.WithLeaseManager = true
 	s.baseSuite.SetUpTest(c)
-	setGenerationsControllerConfig(c, s.ControllerModel(c).State())
+
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	controllerService := controllerServiceFactory.ControllerConfig()
+
+	setGenerationsControllerConfig(c, controllerService)
 
 	s.appA = "mysql"
 	s.appB = "wordpress"
@@ -1187,8 +1196,13 @@ func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, a
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func setGenerationsControllerConfig(c *gc.C, st *state.State) {
-	err := st.UpdateControllerConfig(map[string]interface{}{
+type ControllerConfigService interface {
+	client.ControllerConfigService
+	UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error
+}
+
+func setGenerationsControllerConfig(c *gc.C, controllerConfigService ControllerConfigService) {
+	err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
 		"features": feature.Branches,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)

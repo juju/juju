@@ -279,10 +279,11 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
-		// TODO (stickupkid): Remove controller config from the state
-		// InitializeParams once we have removed the controller config
-		// from the state.
-		ControllerConfig: controllerCfg,
+		// Pass the minimal controller config needed for bootstrap, the rest
+		// should be added through the controller config service.
+		ControllerConfig: controller.Config{
+			controller.ControllerUUIDKey: controllerCfg.ControllerUUID(),
+		},
 		ControllerModelArgs: state.ModelArgs{
 			Type:            modelType,
 			Owner:           AdminUser,
@@ -573,7 +574,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 			provider.CommonStorageProviders(),
 		}
 	}
-	return factory.NewFactory(st, s.controller.StatePool()).
+	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
 		WithApplicationService(modelServiceFactory.Application(registry)), releaser
 }
 

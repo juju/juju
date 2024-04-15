@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -59,7 +58,6 @@ type DeployApplicationParams struct {
 
 type ApplicationDeployer interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	ControllerConfig() (controller.Config, error)
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
 	// so that correctly matching units can be written to dqlite.
@@ -107,7 +105,7 @@ func DeployApplication(
 	}
 
 	// Enforce "assumes" requirements.
-	if err := assertCharmAssumptions(ctx, args.Charm.Meta().Assumes, model, cloudService, credentialService, st.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(ctx, args.Charm.Meta().Assumes, model, cloudService, credentialService); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !args.Force {
 			return nil, errors.Trace(err)
 		}
@@ -291,7 +289,7 @@ func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 
 func assertCharmAssumptions(
 	ctx context.Context, assumesExprTree *assumes.ExpressionTree, model Model, cloudService common.CloudService,
-	credentialService common.CredentialService, ctrlCfgGetter func() (controller.Config, error),
+	credentialService common.CredentialService,
 ) error {
 	if assumesExprTree == nil {
 		return nil

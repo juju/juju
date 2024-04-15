@@ -49,6 +49,11 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// ControllerConfigService provides the controller configuration.
+type ControllerConfigService interface {
+	ControllerConfig(ctx context.Context) (controller.Config, error)
+}
+
 type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -65,15 +70,16 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
-	store             objectstore.ObjectStore
-	ctrlSt            CAASApplicationControllerState
-	state             CAASApplicationProvisionerState
-	newResourceOpener NewResourceOpenerFunc
-	storage           StorageBackend
-	storagePoolGetter StoragePoolGetter
-	registry          storage.ProviderRegistry
-	clock             clock.Clock
-	logger            loggo.Logger
+	store                   objectstore.ObjectStore
+	ctrlSt                  CAASApplicationControllerState
+	state                   CAASApplicationProvisionerState
+	newResourceOpener       NewResourceOpenerFunc
+	storage                 StorageBackend
+	storagePoolGetter       StoragePoolGetter
+	controllerConfigService ControllerConfigService
+	registry                storage.ProviderRegistry
+	clock                   clock.Clock
+	logger                  loggo.Logger
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
@@ -91,7 +97,10 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		return nil, errors.Annotate(err, "getting caas client")
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	storageService := ctx.ServiceFactory().Storage(registry)
+
+	serviceFactory := ctx.ServiceFactory()
+	controllerConfigService := serviceFactory.ControllerConfig()
+	storageService := serviceFactory.Storage(registry)
 	sb, err := state.NewStorageBackend(ctx.State())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -123,6 +132,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		authorizer,
 		sb,
 		storageService,
+		controllerConfigService,
 		registry,
 		ctx.ObjectStore(),
 		clock.WallClock,
@@ -175,6 +185,7 @@ func NewCAASApplicationProvisionerAPI(
 	authorizer facade.Authorizer,
 	sb StorageBackend,
 	storagePoolGetter StoragePoolGetter,
+	controllerConfigService ControllerConfigService,
 	registry storage.ProviderRegistry,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
@@ -185,17 +196,18 @@ func NewCAASApplicationProvisionerAPI(
 	}
 
 	return &API{
-		auth:              authorizer,
-		resources:         resources,
-		newResourceOpener: newResourceOpener,
-		ctrlSt:            ctrlSt,
-		state:             st,
-		storage:           sb,
-		store:             store,
-		storagePoolGetter: storagePoolGetter,
-		registry:          registry,
-		clock:             clock,
-		logger:            logger,
+		auth:                    authorizer,
+		resources:               resources,
+		newResourceOpener:       newResourceOpener,
+		ctrlSt:                  ctrlSt,
+		state:                   st,
+		storage:                 sb,
+		store:                   store,
+		storagePoolGetter:       storagePoolGetter,
+		controllerConfigService: controllerConfigService,
+		registry:                registry,
+		clock:                   clock,
+		logger:                  logger,
 	}, nil
 }
 
@@ -308,7 +320,7 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		return nil, errors.NotProvisionedf("charm %q pending", *charmURL)
 	}
 
-	cfg, err := a.ctrlSt.ControllerConfig()
+	cfg, err := a.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

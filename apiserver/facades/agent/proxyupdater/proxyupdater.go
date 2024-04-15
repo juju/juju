@@ -27,6 +27,11 @@ type ProxyUpdaterV2 interface {
 	WatchForProxyConfigAndAPIHostPortChanges(ctx context.Context, args params.Entities) params.NotifyWatchResults
 }
 
+// ControllerConfigService represents a way to get controller config.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 var _ ProxyUpdaterV2 = (*API)(nil)
 
 // newFacadeBase provides the signature required for facade registration
@@ -41,9 +46,11 @@ func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return NewAPIV2(
 		systemState,
 		model,
+		ctx.ServiceFactory().ControllerConfig(),
 		ctx.Resources(),
 		ctx.Auth(),
 	)
@@ -51,10 +58,11 @@ func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 
 // API provides the ProxyUpdater version 2 facade.
 type API struct {
-	backend    Backend
-	controller ControllerBackend
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	backend                 Backend
+	controller              ControllerBackend
+	controllerConfigService ControllerConfigService
+	resources               facade.Resources
+	authorizer              facade.Authorizer
 }
 
 // Backend defines the model state methods this facade needs,
@@ -67,21 +75,27 @@ type Backend interface {
 // ControllerBackend defines the controller state methods this facade needs,
 // so they can be mocked for testing.
 type ControllerBackend interface {
-	ControllerConfig() (controller.Config, error)
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
 // NewAPIV2 creates a new server-side API facade with the given Backing.
-func NewAPIV2(controller ControllerBackend, backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewAPIV2(
+	controller ControllerBackend,
+	backend Backend,
+	controllerConfigService ControllerConfigService,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*API, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent() || authorizer.AuthModelAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backend:    backend,
-		controller: controller,
-		resources:  resources,
-		authorizer: authorizer,
+		backend:                 backend,
+		controller:              controller,
+		controllerConfigService: controllerConfigService,
+		resources:               resources,
+		authorizer:              authorizer,
 	}, nil
 }
 
@@ -166,7 +180,7 @@ func (api *API) proxyConfig(ctx context.Context) params.ProxyConfigResult {
 		return result
 	}
 
-	controllerConfig, err := api.controller.ControllerConfig()
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result

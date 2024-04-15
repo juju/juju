@@ -4,7 +4,7 @@
 package client
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -35,14 +35,20 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.client")
 
+// ControllerConfigService is an interface for getting controller configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 type API struct {
-	stateAccessor     Backend
-	pool              Pool
-	storageAccessor   StorageInterface
-	blockDeviceGetrer BlockDeviceGetter
-	auth              facade.Authorizer
-	resources         facade.Resources
-	presence          facade.Presence
+	stateAccessor           Backend
+	pool                    Pool
+	storageAccessor         StorageInterface
+	blockDeviceService      BlockDeviceService
+	controllerConfigService ControllerConfigService
+	auth                    facade.Authorizer
+	resources               facade.Resources
+	presence                facade.Presence
 
 	multiwatcherFactory multiwatcher.Factory
 
@@ -141,10 +147,10 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigGetter := serviceFactory.ControllerConfig()
+	controllerConfigService := serviceFactory.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsFinder := common.NewToolsFinder(controllerConfigService, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	blockChecker := common.NewBlockChecker(st)
 	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
@@ -165,7 +171,8 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 		},
 		&poolShim{pool: ctx.StatePool()},
 		storageAccessor,
-		ctx.ServiceFactory().BlockDevice(),
+		serviceFactory.BlockDevice(),
+		controllerConfigService,
 		resources,
 		authorizer,
 		presence,
@@ -179,11 +186,13 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 }
 
 // NewClient creates a new instance of the Client Facade.
+// TODO(aflynn): Create an args struct for this.
 func NewClient(
 	backend Backend,
 	pool Pool,
 	storageAccessor StorageInterface,
-	blockDeviceGetter BlockDeviceGetter,
+	blockDeviceService BlockDeviceService,
+	controllerConfigService ControllerConfigService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
@@ -199,16 +208,17 @@ func NewClient(
 	}
 	client := &Client{
 		api: &API{
-			stateAccessor:       backend,
-			pool:                pool,
-			storageAccessor:     storageAccessor,
-			blockDeviceGetrer:   blockDeviceGetter,
-			auth:                authorizer,
-			resources:           resources,
-			presence:            presence,
-			toolsFinder:         toolsFinder,
-			leadershipReader:    leadershipReader,
-			multiwatcherFactory: factory,
+			stateAccessor:           backend,
+			pool:                    pool,
+			storageAccessor:         storageAccessor,
+			blockDeviceService:      blockDeviceService,
+			controllerConfigService: controllerConfigService,
+			auth:                    authorizer,
+			resources:               resources,
+			presence:                presence,
+			toolsFinder:             toolsFinder,
+			leadershipReader:        leadershipReader,
+			multiwatcherFactory:     factory,
 		},
 		newEnviron:      newEnviron,
 		check:           blockChecker,
@@ -218,7 +228,7 @@ func NewClient(
 }
 
 // WatchAll initiates a watcher for entities in the connected model.
-func (c *Client) WatchAll(ctx stdcontext.Context) (params.AllWatcherId, error) {
+func (c *Client) WatchAll(ctx context.Context) (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
@@ -240,7 +250,7 @@ type stripApplicationOffers struct {
 	multiwatcher.Watcher
 }
 
-func (s *stripApplicationOffers) Next(ctx stdcontext.Context) ([]multiwatcher.Delta, error) {
+func (s *stripApplicationOffers) Next(ctx context.Context) ([]multiwatcher.Delta, error) {
 	var result []multiwatcher.Delta
 	// We don't want to return a list on nothing. Next normally blocks until there
 	// is something to return.
@@ -264,7 +274,7 @@ func (s *stripApplicationOffers) Next(ctx stdcontext.Context) ([]multiwatcher.De
 
 // FindTools returns a List containing all tools matching the given parameters.
 // TODO(juju 3.1) - remove, used by 2.9 client only
-func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
+func (c *Client) FindTools(ctx context.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}
@@ -308,12 +318,12 @@ func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) 
 	if !ok {
 		return result, errors.NotValidf("agent version is not set for model %q", model.Name())
 	}
-	return c.toolVersionsForCAAS(args, streamsVersions, currentVersion)
+	return c.toolVersionsForCAAS(ctx, args, streamsVersions, currentVersion)
 }
 
-func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {
+func (c *Client) toolVersionsForCAAS(ctx context.Context, args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {
 	result := params.FindToolsResult{}
-	controllerCfg, err := c.api.stateAccessor.ControllerConfig()
+	controllerCfg, err := c.api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

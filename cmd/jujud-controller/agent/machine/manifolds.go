@@ -684,6 +684,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:                               config.CentralHub,
 			Presence:                          config.PresenceRecorder,
+			GetControllerConfigService:        apiserver.GetControllerConfigService,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
 		}),
@@ -720,6 +721,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			ClockName:            clockName,
 			StateName:            stateName,
+			ServiceFactoryName:   serviceFactoryName,
 			Hub:                  config.CentralHub,
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            peergrouper.New,
@@ -777,9 +779,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
-			AgentName: agentName,
-			StateName: stateName,
-			NewWorker: auditconfigupdater.New,
+			AgentName:                  agentName,
+			ServiceFactoryName:         serviceFactoryName,
+			NewWorker:                  auditconfigupdater.NewWorker,
+			GetControllerConfigService: auditconfigupdater.GetControllerConfigService,
 		})),
 
 		// The lease expiry worker constantly deletes

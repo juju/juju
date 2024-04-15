@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -100,9 +99,6 @@ type Backing interface {
 
 	// ApplyOperation applies a given ModelOperation to the model.
 	ApplyOperation(state.ModelOperation) error
-
-	// ControllerConfig returns the controller config.
-	ControllerConfig() (controller.Config, error)
 
 	// AllConstraints returns all constraints in the model.
 	AllConstraints() ([]Constraints, error)

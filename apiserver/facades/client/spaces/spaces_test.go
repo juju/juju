@@ -265,9 +265,11 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(ctrl, "2")
+
+	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(nil, nil)
+
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
 	s.Backing.EXPECT().IsController().Return(true)
-	s.Backing.EXPECT().ControllerConfig().Return(nil, nil)
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
 
@@ -320,7 +322,8 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 	s.Backing.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
-	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil)
+	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
+
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings:           nil,
@@ -383,7 +386,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	s.Backing.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
-	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil)
+	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
 
 	cApp, cModel := s.expectAllTags(space)
 
@@ -429,7 +432,7 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 	s.Backing.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
-	s.Backing.EXPECT().ControllerConfig().Return(currentConfig, nil)
+	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
 

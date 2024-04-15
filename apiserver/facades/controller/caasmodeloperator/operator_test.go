@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasmodeloperator_test
+package caasmodeloperator
 
 import (
 	"context"
@@ -9,12 +9,14 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -23,41 +25,19 @@ import (
 type ModelOperatorSuite struct {
 	coretesting.BaseSuite
 
-	authorizer *apiservertesting.FakeAuthorizer
-	api        *caasmodeloperator.API
-	resources  *common.Resources
-	state      *mockState
+	authorizer              *apiservertesting.FakeAuthorizer
+	api                     *API
+	resources               *common.Resources
+	state                   *mockState
+	controllerConfigService *MockControllerConfigService
 }
 
 var _ = gc.Suite(&ModelOperatorSuite{})
 
-func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
-	m.BaseSuite.SetUpTest(c)
-
-	m.resources = common.NewResources()
-
-	m.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag:        names.NewModelTag("model-deadbeef-0bad-400d-8000-4b1d0d06f00d"),
-		Controller: true,
-	}
-
-	m.state = newMockState()
-	m.state.operatorRepo = `
-{
-    "serveraddress": "quay.io",
-    "auth": "xxxxx==",
-    "repository": "test-account"
-}`[1:]
-
-	c.Logf("m.state.1operatorRepo %q", m.state.operatorRepo)
-
-	api, err := caasmodeloperator.NewAPI(m.authorizer, m.resources, m.state, m.state, loggo.GetLogger("juju.apiserver.caasmodeloperator"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	m.api = api
-}
-
 func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
+	ctrl := m.setupMocks(c)
+	defer ctrl.Finish()
+
 	info, err := m.api.ModelOperatorProvisioningInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -84,14 +64,19 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 }
 
 func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
-	controllerConfigChanged := make(chan struct{}, 1)
+	defer m.setupMocks(c).Finish()
+
+	controllerConfigChanged := make(chan []string, 1)
 	modelConfigChanged := make(chan struct{}, 1)
 	apiHostPortsForAgentsChanged := make(chan struct{}, 1)
-	m.state.controllerConfigWatcher = statetesting.NewMockNotifyWatcher(controllerConfigChanged)
+
+	watcher := watchertest.NewMockStringsWatcher(controllerConfigChanged)
+	m.controllerConfigService.EXPECT().Watch().Return(watcher, nil)
+
 	m.state.apiHostPortsForAgentsWatcher = statetesting.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
 	m.state.model.modelConfigChanged = statetesting.NewMockNotifyWatcher(modelConfigChanged)
 
-	controllerConfigChanged <- struct{}{}
+	controllerConfigChanged <- []string{}
 	apiHostPortsForAgentsChanged <- struct{}{}
 	modelConfigChanged <- struct{}{}
 
@@ -100,4 +85,43 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
 	c.Assert(results.Error, gc.IsNil)
 	res := m.resources.Get("1")
 	c.Assert(res, gc.FitsTypeOf, (*eventsource.MultiWatcher[struct{}])(nil))
+}
+
+func (m *ModelOperatorSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	m.controllerConfigService = NewMockControllerConfigService(ctrl)
+	m.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.CAASImageRepo: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}
+`[1:],
+	}, nil).AnyTimes()
+
+	m.resources = common.NewResources()
+
+	m.authorizer = &apiservertesting.FakeAuthorizer{
+		Tag:        names.NewModelTag("model-deadbeef-0bad-400d-8000-4b1d0d06f00d"),
+		Controller: true,
+	}
+
+	m.state = newMockState()
+	m.state.operatorRepo = `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}`[1:]
+
+	c.Logf("m.state.1operatorRepo %q", m.state.operatorRepo)
+
+	api, err := NewAPI(m.authorizer, m.resources, m.state, m.state, m.controllerConfigService, loggo.GetLogger("juju.apiserver.caasmodeloperator"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	m.api = api
+
+	return ctrl
 }

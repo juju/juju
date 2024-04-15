@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -65,7 +66,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.cred = cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
-		modeltesting.GenModelUUID(c),
+		coremodel.UUID(coretesting.ControllerTag.Id()),
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
@@ -101,7 +102,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
-		modeltesting.GenModelUUID(c),
+		coremodel.UUID(coretesting.ControllerTag.Id()),
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{

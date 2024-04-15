@@ -26,8 +26,10 @@ func Register(registry facade.FacadeRegistry) {
 // state.State backing.
 func newAPI(ctx facade.ModelContext) (*API, error) {
 	st := ctx.State()
-	cloudService := ctx.ServiceFactory().Cloud()
-	credentialService := ctx.ServiceFactory().Credential()
+
+	serviceFactory := ctx.ServiceFactory()
+	cloudService := serviceFactory.Cloud()
+	credentialService := serviceFactory.Credential()
 	stateShim, err := NewStateShim(st, cloudService, credentialService)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -58,7 +60,7 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		CredentialInvalidatorGetter: credentialInvalidatorGetter,
 		Resources:                   ctx.Resources(),
 		Authorizer:                  auth,
-		Factory:                     newOpFactory(st),
+		Factory:                     newOpFactory(st, serviceFactory.ControllerConfig()),
 		logger:                      ctx.Logger().Child("spaces"),
 	})
 }

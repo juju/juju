@@ -321,7 +321,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerTag",
 		"ControllerTag",
 		"ComposeNewModelConfig",
-		"ControllerConfig",
 		"NewModel",
 		"SaveProviderSubnets",
 		"Close",
@@ -490,7 +489,6 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerTag",
 		"ControllerTag",
 		"ComposeNewModelConfig",
-		"ControllerConfig",
 		"NewModel",
 		"Close",
 		"GetBackend",
@@ -1607,7 +1605,7 @@ func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 
 	st := f.MakeModel(c, nil)
 	defer st.Close()
-	stFactory := factory.NewFactory(st, s.StatePool())
+	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
 	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: permission.ReadAccess})
 
 	m, err := st.Model()
@@ -1655,7 +1653,7 @@ func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 	apiUser := names.NewUserTag("bob@remote")
 	s.setAPIUser(c, apiUser)
 
-	stFactory := factory.NewFactory(st, s.StatePool())
+	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
 		User: apiUser.Id(), Access: permission.ReadAccess})
 
@@ -1679,7 +1677,7 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 
 	apiUser := names.NewUserTag("admin@remote")
 	s.setAPIUser(c, apiUser)
-	stFactory := factory.NewFactory(st, s.StatePool())
+	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
 		User: apiUser.Id(), Access: permission.AdminAccess})
 

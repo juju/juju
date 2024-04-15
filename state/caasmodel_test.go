@@ -23,6 +23,7 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -95,7 +96,7 @@ func (s *CAASModelSuite) TestDestroyEmptyModel(c *gc.C) {
 func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	model, st := s.newCAASModel(c)
 
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	unit, err := app.AddUnit(state.AddUnitParams{})
@@ -141,7 +142,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	sb, err := state.NewStorageBackend(st)
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: state.AddTestingCharmForSeries(c, st, "focal", "storage-filesystem"),
 		Storage: map[string]state.StorageConstraints{
@@ -218,7 +219,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	st2 := s.Factory.MakeCAASModel(c, nil)
 	defer st2.Close()
 
-	f := factory.NewFactory(st2, s.StatePool)
+	f := factory.NewFactory(st2, s.StatePool, jujutesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
@@ -281,7 +282,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(otherSt, s.StatePool)
+	f := factory.NewFactory(otherSt, s.StatePool, jujutesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	args := state.AddApplicationArgs{
 		Name: application.Name(),
@@ -332,7 +333,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 
 func (s *CAASModelSuite) TestContainers(c *gc.C) {
 	m, st := s.newCAASModel(c)
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	ch := f.MakeCharm(c, &factory.CharmParams{
 		Name:   "gitlab-k8s",
 		Series: "focal",
@@ -356,7 +357,7 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 
 func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	app := f.MakeApplication(c, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
@@ -379,7 +380,7 @@ func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 
 func (s *CAASModelSuite) TestCloudContainerStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
-	f := factory.NewFactory(st, s.StatePool)
+	f := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
 	app := f.MakeApplication(c, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,

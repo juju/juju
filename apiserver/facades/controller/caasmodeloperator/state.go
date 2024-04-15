@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -26,8 +25,6 @@ type CAASModelOperatorState interface {
 // model operator provisioner.
 type CAASControllerState interface {
 	common.APIAddressAccessor
-	ControllerConfig() (controller.Config, error)
-	WatchControllerConfig() state.NotifyWatcher
 }
 
 type Model interface {

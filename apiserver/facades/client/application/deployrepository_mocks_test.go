@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	resource "github.com/juju/charm/v13/resource"
-	controller "github.com/juju/juju/controller"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
@@ -176,21 +175,6 @@ func (m *MockDeployFromRepositoryState) Charm(arg0 string) (Charm, error) {
 func (mr *MockDeployFromRepositoryStateMockRecorder) Charm(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).Charm), arg0)
-}
-
-// ControllerConfig mocks base method.
-func (m *MockDeployFromRepositoryState) ControllerConfig() (controller.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockDeployFromRepositoryStateMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).ControllerConfig))
 }
 
 // Machine mocks base method.
