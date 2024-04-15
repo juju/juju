@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
@@ -1350,20 +1349,8 @@ func (c *HookContext) HookVars(
 	}
 
 	if c.baseUpgradeTarget != "" {
-		// We need to set both the base and the series for the hook. This until
-		// we migrate everything to use base.
-		b, err := corebase.ParseBaseFromString(c.baseUpgradeTarget)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		s, err := corebase.GetSeriesFromBase(b)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		vars = append(vars,
 			"JUJU_TARGET_BASE="+c.baseUpgradeTarget,
-			"JUJU_TARGET_SERIES="+s,
 		)
 	}
 
