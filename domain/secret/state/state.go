@@ -425,9 +425,9 @@ func (st State) updateSecret(
 	// the update statement needed.
 	existingSecretQuery := fmt.Sprintf(`
 WITH rev AS
-    (SELECT  secret_id, MAX(revision) AS latest_revision
+    (SELECT  MAX(revision) AS latest_revision
     FROM     secret_revision
-    GROUP BY secret_id)
+    WHERE    secret_id = $M.id)
 SELECT 
      (sm.secret_id,
      version,
@@ -438,8 +438,7 @@ SELECT
      (so.owner_kind,
      so.owner_id,
      so.label) AS (&secretOwner.*)
-FROM secret_metadata sm
-       JOIN rev ON rev.secret_id = sm.secret_id
+FROM secret_metadata sm, rev
        LEFT JOIN secret_rotate_policy rp ON rp.id = sm.rotate_policy_id
        LEFT JOIN (
           SELECT '%s' AS owner_kind, '' AS owner_id, label, secret_id
@@ -619,13 +618,17 @@ func (st State) upsertSecretLabel(ctx context.Context, tx *sqlair.TX, uri *cores
 func (st *State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, keepRevision int) error {
 	query := `
 UPDATE secret_revision
-SET    obsolete = True
+SET    obsolete = True,
+       pending_delete = True,
+       update_time = DATETIME('now')
 WHERE  revision != $M.revision
 AND    secret_id = $M.secret_id
 AND    revision NOT IN (
-           SELECT current_revision FROM secret_unit_consumer
+           SELECT current_revision FROM secret_unit_consumer suc
+           WHERE suc.secret_id = $M.secret_id
        UNION
-           SELECT current_revision FROM secret_remote_unit_consumer
+           SELECT current_revision FROM secret_remote_unit_consumer suc
+           WHERE suc.secret_id = $M.secret_id
        )
 `
 	markObsoleteStmt, err := st.Prepare(query, sqlair.M{})

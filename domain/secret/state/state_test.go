@@ -1343,7 +1343,8 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	var count int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
-			SELECT count(*) FROM secret_revision WHERE secret_id = ? AND revision = ? AND obsolete = True
+			SELECT count(*) FROM secret_revision WHERE secret_id = ?
+			AND revision = ? AND obsolete = True AND pending_delete = True
 		`, uri.ID, 1)
 		if err := row.Scan(&count); err != nil {
 			return err
@@ -1410,7 +1411,8 @@ func (s *stateSuite) TestUpdateSecretContentNotObsolete(c *gc.C) {
 	var count int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
-			SELECT count(*) FROM secret_revision WHERE secret_id = ? AND revision = ? AND obsolete = True
+			SELECT count(*) FROM secret_revision WHERE secret_id = ?
+			AND revision = ? AND obsolete = True OR pending_delete = True
 		`, uri.ID, 1)
 		if err := row.Scan(&count); err != nil {
 			return err

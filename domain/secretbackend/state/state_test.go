@@ -1107,7 +1107,7 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 }
 
 func (s *stateSuite) TestGetModelSecretBackend(c *gc.C) {
-	c.Skip("TODO(secrets) - fix me")
+	c.Skip("TODO(secrets) - fix me(JUJU-5708)")
 	modelUUID, backendID := s.createModel(c)
 
 	result, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)

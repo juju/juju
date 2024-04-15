@@ -50,7 +50,7 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 // model is found the given uuid then an error of
 // [github.com/juju/juju/domain/model/errors.NotFound] is returned.
 func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
-	// TODO(secrets) - fix me
+	// TODO(secrets) - fix me(JUJU-5708)
 	return secretbackend.ModelSecretBackend{
 		ID:   uuid,
 		Name: "fix me",
@@ -345,7 +345,7 @@ WHERE b.%s = $M.identifier`, columName)
 // GetSecretBackend returns the secret backend for the given backend ID or Name.
 func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
 	if params.ID == "" && params.Name == "" {
-		// TODO(secrets) - fix me
+		// TODO(secrets) - fix me(JUJU-5708)
 		return &secretbackend.SecretBackend{Name: provider.Internal}, nil
 		// return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
 	}
