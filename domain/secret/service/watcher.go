@@ -15,7 +15,18 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
+// WatchConsumedSecretsChanges watches secrets consumed by the specified unit
+// and returns a watcher which notifies of secret URIs that have had a new revision added.
 func (s *SecretService) WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error) {
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	return watchertest.NewMockStringsWatcher(ch), nil
+}
+
+// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any unit
+// of the specified app and retuens a watcher which notifies of secret URIs
+// that have had a new revision added.
+func (s *SecretService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
 	ch := make(chan []string, 1)
 	ch <- []string{}
 	return watchertest.NewMockStringsWatcher(ch), nil

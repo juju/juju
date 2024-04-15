@@ -86,21 +86,6 @@ func (mr *MockSecretServiceMockRecorder) GetSecretAccessScope(arg0, arg1, arg2 a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccessScope", reflect.TypeOf((*MockSecretService)(nil).GetSecretAccessScope), arg0, arg1, arg2)
 }
 
-// GetSecretRemoteConsumer mocks base method.
-func (m *MockSecretService) GetSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string) (*secrets.SecretConsumerMetadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretRemoteConsumer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretRemoteConsumer indicates an expected call of GetSecretRemoteConsumer.
-func (mr *MockSecretServiceMockRecorder) GetSecretRemoteConsumer(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRemoteConsumer", reflect.TypeOf((*MockSecretService)(nil).GetSecretRemoteConsumer), arg0, arg1, arg2)
-}
-
 // GetSecretValue mocks base method.
 func (m *MockSecretService) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int) (secrets.SecretValue, *secrets.ValueRef, error) {
 	m.ctrl.T.Helper()
@@ -117,16 +102,17 @@ func (mr *MockSecretServiceMockRecorder) GetSecretValue(arg0, arg1, arg2 any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretService)(nil).GetSecretValue), arg0, arg1, arg2)
 }
 
-// SaveSecretRemoteConsumer mocks base method.
-func (m *MockSecretService) SaveSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 int, arg3 string, arg4 *secrets.SecretConsumerMetadata) error {
+// UpdateRemoteConsumedRevision mocks base method.
+func (m *MockSecretService) UpdateRemoteConsumedRevision(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 bool) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSecretRemoteConsumer", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "UpdateRemoteConsumedRevision", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// SaveSecretRemoteConsumer indicates an expected call of SaveSecretRemoteConsumer.
-func (mr *MockSecretServiceMockRecorder) SaveSecretRemoteConsumer(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+// UpdateRemoteConsumedRevision indicates an expected call of UpdateRemoteConsumedRevision.
+func (mr *MockSecretServiceMockRecorder) UpdateRemoteConsumedRevision(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretRemoteConsumer", reflect.TypeOf((*MockSecretService)(nil).SaveSecretRemoteConsumer), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteConsumedRevision", reflect.TypeOf((*MockSecretService)(nil).UpdateRemoteConsumedRevision), arg0, arg1, arg2, arg3)
 }

@@ -17,6 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/bakery_mock.go github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery FirstPartyCaveatChecker
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/crossmodel_mock.go github.com/juju/juju/apiserver/common/crossmodel OfferBakeryInterface,Backend
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretservice_mock.go github.com/juju/juju/apiserver/common/crossmodel SecretService
 
 func TestAll(t *testing.T) {
 	gc.TestingT(t)

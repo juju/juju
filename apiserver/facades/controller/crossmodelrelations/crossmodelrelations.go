@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
+	"github.com/juju/worker/v4"
 	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
 
@@ -36,14 +37,15 @@ import (
 type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
 type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
 type offerStatusWatcherFunc func(context.Context, CrossModelRelationsState, string) (OfferWatcher, error)
-type consumedSecretsWatcherFunc func(CrossModelRelationsState, string) (state.StringsWatcher, error)
+type consumedSecretsWatcherFunc func(context.Context, SecretService, string) (corewatcher.StringsWatcher, error)
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPIv3 struct {
-	st         CrossModelRelationsState
-	fw         firewall.State
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	st            CrossModelRelationsState
+	fw            firewall.State
+	secretService SecretService
+	resources     facade.Resources
+	authorizer    facade.Authorizer
 
 	mu              sync.Mutex
 	authCtxt        *commoncrossmodel.AuthContext
@@ -63,6 +65,7 @@ func NewCrossModelRelationsAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	authCtxt *commoncrossmodel.AuthContext,
+	secretService SecretService,
 	egressAddressWatcher egressAddressWatcherFunc,
 	relationStatusWatcher relationStatusWatcherFunc,
 	offerStatusWatcher offerStatusWatcherFunc,
@@ -75,6 +78,7 @@ func NewCrossModelRelationsAPI(
 		resources:              resources,
 		authorizer:             authorizer,
 		authCtxt:               authCtxt,
+		secretService:          secretService,
 		egressAddressWatcher:   egressAddressWatcher,
 		relationStatusWatcher:  relationStatusWatcher,
 		offerStatusWatcher:     offerStatusWatcher,
@@ -155,7 +159,7 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 				continue
 			}
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(ctx, api.authorizer, api.st, api.secretService, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -498,8 +502,8 @@ func watchOfferStatus(ctx context.Context, st CrossModelRelationsState, offerUUI
 	return &offerWatcher{MultiWatcher: mw, offerUUID: offerUUID, offerName: offer.OfferName}, nil
 }
 
-func watchConsumedSecrets(st CrossModelRelationsState, appName string) (state.StringsWatcher, error) {
-	return st.WatchConsumedSecretsChanges(appName)
+func watchConsumedSecrets(ctx context.Context, s SecretService, appName string) (corewatcher.StringsWatcher, error) {
+	return s.WatchRemoteConsumedSecretsChanges(ctx, appName)
 }
 
 // WatchOfferStatus starts an OfferStatusWatcher for
@@ -553,7 +557,7 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 
 	auth := api.authCtxt.Authenticator()
 	for i, arg := range args.Args {
-		appTag, offerUUID, err := api.st.GetSecretConsumerInfo(arg.ApplicationToken, arg.RelationToken)
+		appTag, offerUUID, err := api.lookupOfferDetails(arg.ApplicationToken, arg.RelationToken)
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
 				err = apiservererrors.ErrPerm
@@ -573,7 +577,7 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 			continue
 		}
 
-		w, err := api.consumedSecretsWatcher(api.st, appTag.Id())
+		w, err := api.consumedSecretsWatcher(ctx, api.secretService, appTag.Id())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -581,12 +585,12 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 
 		uris, ok := <-w.Changes()
 		if !ok {
-			return results, apiservererrors.ServerError(watcher.EnsureErr(w))
+			return results, apiservererrors.ServerError(worker.Stop(w))
 		}
-		changes, err := api.getSecretChanges(uris)
+		changes, err := api.getSecretChanges(ctx, uris)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
-			_ = w.Stop()
+			_ = worker.Stop(w)
 			continue
 		}
 		results.Results[i] = params.SecretRevisionWatchResult{
@@ -597,20 +601,44 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 	return results, nil
 }
 
-func (api *CrossModelRelationsAPIv3) getSecretChanges(uris []string) ([]params.SecretRevisionChange, error) {
+func (api *CrossModelRelationsAPIv3) lookupOfferDetails(appToken, relToken string) (names.Tag, string, error) {
+	appTag, err := api.st.GetRemoteEntity(appToken)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+
+	// TODO(juju4) - remove
+	// For compatibility with older clients which do not
+	// provide a relation tag.
+	if relToken == "" {
+		return appTag, "", nil
+	}
+
+	relTag, err := api.st.GetRemoteEntity(relToken)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	conn, err := api.st.OfferConnectionForRelation(relTag.Id())
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return appTag, conn.OfferUUID(), nil
+}
+
+func (api *CrossModelRelationsAPIv3) getSecretChanges(ctx context.Context, uris []string) ([]params.SecretRevisionChange, error) {
 	changes := make([]params.SecretRevisionChange, len(uris))
 	for i, uriStr := range uris {
 		uri, err := secrets.ParseURI(uriStr)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		md, err := api.st.GetSecret(uri)
+		md, err := api.secretService.GetSecret(ctx, uri)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		changes[i] = params.SecretRevisionChange{
-			URI:      uri.String(),
-			Revision: md.LatestRevision,
+			URI:            uri.String(),
+			LatestRevision: md.LatestRevision,
 		}
 	}
 	return changes, nil

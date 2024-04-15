@@ -284,6 +284,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Secret
 		"secret_rotate_policy",
 		"secret",
+		"secret_reference",
 		"secret_metadata",
 		"secret_rotation",
 		"secret_value_ref",
@@ -380,10 +381,6 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_metadata_auto_prune_insert",
 		"trg_log_secret_metadata_auto_prune_update",
 		"trg_log_secret_metadata_auto_prune_delete",
-
-		"trg_log_secret_remote_unit_consumer_current_revision_insert",
-		"trg_log_secret_remote_unit_consumer_current_revision_update",
-		"trg_log_secret_remote_unit_consumer_current_revision_delete",
 
 		"trg_log_secret_revision_expire_expire_time_insert",
 		"trg_log_secret_revision_expire_expire_time_update",
@@ -495,7 +492,7 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 
 	secretURI := coresecrets.NewURI()
 	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, "", secretURI.ID)
-	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, description, rotate_policy_id) VALUES (?, 'mySecret', 0);`, "", secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, "", secretURI.ID)
 	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, "", secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, "", secretURI.ID)
 
@@ -508,7 +505,7 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRotation, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRotation, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, description, rotate_policy_id) VALUES (?, 'mySecret', 0);`, "", secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, "", secretURI.ID)
 	s.assertExecSQL(c, `INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, datetime('now', '+1 day'));`, "", secretURI.ID)
 	s.assertExecSQL(c, `UPDATE secret_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE secret_id = ?;`, "", secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_rotation WHERE secret_id = ?;`, "", secretURI.ID)
@@ -552,20 +549,6 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, "", netNodeUUID)
 	unitUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id) VALUES (?, 0, ?, ?, 0);`, "", unitUUID, appUUID, netNodeUUID)
-
-	// secret_remote_unit_consumer table triggers.
-	remoteUnitConsumerUUID := utils.MustNewUUID().String()
-	s.assertChangeLogCount(c, 1, tableSecretRemoteUnitConsumerCurrentRevision, 0)
-	s.assertChangeLogCount(c, 2, tableSecretRemoteUnitConsumerCurrentRevision, 0)
-	s.assertChangeLogCount(c, 4, tableSecretRemoteUnitConsumerCurrentRevision, 0)
-
-	s.assertExecSQL(c, `INSERT INTO secret_remote_unit_consumer (uuid, secret_id, unit_uuid, current_revision) VALUES(?, ?, ?, 1);`, "", remoteUnitConsumerUUID, secretURI.ID, unitUUID)
-	s.assertExecSQL(c, `UPDATE secret_remote_unit_consumer SET current_revision = 2 WHERE uuid = ?;`, "", remoteUnitConsumerUUID)
-	s.assertExecSQL(c, `DELETE FROM secret_remote_unit_consumer WHERE uuid = ?;`, "", remoteUnitConsumerUUID)
-
-	s.assertChangeLogCount(c, 1, tableSecretRemoteUnitConsumerCurrentRevision, 1)
-	s.assertChangeLogCount(c, 2, tableSecretRemoteUnitConsumerCurrentRevision, 1)
-	s.assertChangeLogCount(c, 4, tableSecretRemoteUnitConsumerCurrentRevision, 1)
 }
 
 func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {

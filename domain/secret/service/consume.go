@@ -110,10 +110,19 @@ func (s *SecretService) ListGrantedSecrets(ctx context.Context, consumers ...Sec
 	return nil, nil, nil
 }
 
-func (s *SecretService) GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error) {
-	return nil, secreterrors.SecretConsumerNotFound
+// UpdateRemoteConsumedRevision returns the latest revision for the specified secret,
+// updating the tracked revision for the specified consumer if refresh is true.
+func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh bool) (int, error) {
+	return 1, nil
 }
 
-func (s *SecretService) SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, latestRevision int, unitName string, md *secrets.SecretConsumerMetadata) error {
+// UpdateRemoteSecretRevision records the specified revision for the secret
+// which has been consumed from a different model.
+func (s *SecretService) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error {
+	return nil
+}
+
+// RemoveRemoteSecretConsumer removes the consumer records for any remote secret for the specified unit.
+func (s *SecretService) RemoveRemoteSecretConsumer(ctx context.Context, unitName string) error {
 	return nil
 }

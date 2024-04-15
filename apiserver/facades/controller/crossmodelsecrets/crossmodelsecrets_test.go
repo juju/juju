@@ -173,17 +173,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 		Kind: secretservice.UnitAccessor,
 		ID:   "remote-app/666",
 	}
-	if newConsumer {
-		s.secretService.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/666").Return(nil, errors.NotFoundf(""))
-	} else {
-		s.secretService.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/666").Return(&coresecrets.SecretConsumerMetadata{CurrentRevision: 69}, nil)
-	}
-	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		LatestRevision: 667,
-	}, nil)
-	s.secretService.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, 667, "remote-app/666", &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 667,
-	}).Return(nil)
+	s.secretService.EXPECT().UpdateRemoteConsumedRevision(gomock.Any(), uri, "remote-app/666", true).Return(667, nil)
 	s.secretService.EXPECT().GetSecretAccess(gomock.Any(), uri, consumer).Return(coresecrets.RoleView, nil)
 	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 667).Return(
 		nil,

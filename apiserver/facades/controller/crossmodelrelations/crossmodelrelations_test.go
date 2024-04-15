@@ -45,12 +45,13 @@ var _ = gc.Suite(&crossmodelRelationsSuite{})
 type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
 
-	resources   *common.Resources
-	authorizer  *apiservertesting.FakeAuthorizer
-	st          *mockState
-	bakery      *mockBakeryService
-	authContext *commoncrossmodel.AuthContext
-	api         *crossmodelrelations.CrossModelRelationsAPIv3
+	resources     *common.Resources
+	authorizer    *apiservertesting.FakeAuthorizer
+	st            *mockState
+	secretService *mockSecretService
+	bakery        *mockBakeryService
+	authContext   *commoncrossmodel.AuthContext
+	api           *crossmodelrelations.CrossModelRelationsAPIv3
 
 	watchedRelations       params.Entities
 	watchedOffers          []string
@@ -104,8 +105,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		w.changes <- struct{}{}
 		return w, nil
 	}
-	consumedSecretsWatcher := func(st crossmodelrelations.CrossModelRelationsState, appName string) (state.StringsWatcher, error) {
-		c.Assert(s.st, gc.Equals, st)
+	consumedSecretsWatcher := func(_ context.Context, _ crossmodelrelations.SecretService, appName string) (watcher.StringsWatcher, error) {
 		s.watchedSecretConsumers = []string{appName}
 		w := &mockSecretsWatcher{
 			mockWatcher: &mockWatcher{
@@ -124,9 +124,10 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		commoncrossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.secretService = newMockSecretService()
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		s.st, fw, s.resources, s.authorizer,
-		s.authContext, egressAddressWatcher, relationStatusWatcher,
+		s.authContext, s.secretService, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher,
 		loggo.GetLoggerWithTags("juju.apiserver.crossmodelrelations", corelogger.CMR),
 	)
@@ -944,9 +945,17 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 }
 
 func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
-	s.st.secrets["9m4e2mr0ui3e8a215n4g"] = coresecrets.SecretMetadata{LatestRevision: 666}
+	s.secretService.secrets["9m4e2mr0ui3e8a215n4g"] = coresecrets.SecretMetadata{LatestRevision: 666}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.remoteEntities[names.NewApplicationTag("postgresql")] = "token-postgresql"
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-rel-db2"
+	s.st.remoteEntities[names.NewRelationTag("postgresql:db django:db")] = "token-rel-postgresql"
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID: "token-rel-db2-uuid",
+	}
+	s.st.offerConnectionsByKey["postgresql:db django:db"] = &mockOfferConnection{
+		offerUUID: "token-rel-postgresql-uuid",
+	}
 
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
@@ -982,16 +991,10 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[0].Changes, jc.DeepEquals, []params.SecretRevisionChange{{
-		URI:      "secret:9m4e2mr0ui3e8a215n4g",
-		Revision: 666,
+		URI:            "secret:9m4e2mr0ui3e8a215n4g",
+		LatestRevision: 666,
 	}})
 	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(s.watchedSecretConsumers, jc.DeepEquals, []string{"db2"})
-	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetSecretConsumerInfo", []interface{}{"token-db2", "token-rel-db2"}},
-		{"GetSecret", []interface{}{&coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
-		{"GetSecretConsumerInfo", []interface{}{"token-mysql", "token-rel-mysql"}},
-		{"GetSecretConsumerInfo", []interface{}{"token-postgresql", "token-rel-postgresql"}},
-	})
 }

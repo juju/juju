@@ -36,12 +36,13 @@ var _ = gc.Suite(&remoteRelationsSuite{})
 type remoteRelationsSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockRemoteRelationsState
-	ecService  *mocks.MockExternalControllerService
-	cc         *mocks.MockControllerConfigAPI
-	api        *remoterelations.API
+	resources     *common.Resources
+	authorizer    *apiservertesting.FakeAuthorizer
+	st            *mocks.MockRemoteRelationsState
+	ecService     *mocks.MockExternalControllerService
+	secretService *mocks.MockSecretService
+	cc            *mocks.MockControllerConfigAPI
+	api           *remoterelations.API
 }
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
@@ -62,8 +63,9 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 	s.st = mocks.NewMockRemoteRelationsState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
 	s.ecService = mocks.NewMockExternalControllerService(ctrl)
+	s.secretService = mocks.NewMockSecretService(ctrl)
 	api, err := remoterelations.NewRemoteRelationsAPI(
-		s.st, s.ecService, s.cc, s.resources, s.authorizer,
+		s.st, s.ecService, s.secretService, s.cc, s.resources, s.authorizer,
 		loggo.GetLogger("test"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -573,16 +575,14 @@ func (s *remoteRelationsSuite) TestConsumeRemoteSecretChanges(c *gc.C) {
 
 	uri := secrets.NewURI()
 	change := params.SecretRevisionChange{
-		URI:      uri.String(),
-		Revision: 666,
+		URI:            uri.String(),
+		LatestRevision: 666,
 	}
 	changes := params.LatestSecretRevisionChanges{
 		Changes: []params.SecretRevisionChange{change},
 	}
 
-	op := &mockOperation{message: "killer whales"}
-	s.st.EXPECT().UpdateSecretConsumerOperation(uri, 666).Return(op, nil)
-	s.st.EXPECT().ApplyOperation(op).Return(nil)
+	s.secretService.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri, 666).Return(nil)
 
 	result, err := s.api.ConsumeRemoteSecretChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)

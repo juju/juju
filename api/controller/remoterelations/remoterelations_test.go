@@ -487,8 +487,8 @@ func (s *remoteRelationsSuite) TestConsumeRemoteSecretChange(c *gc.C) {
 		c.Check(request, gc.Equals, "ConsumeRemoteSecretChanges")
 		c.Check(arg, jc.DeepEquals, params.LatestSecretRevisionChanges{
 			Changes: []params.SecretRevisionChange{{
-				URI:      uri.String(),
-				Revision: 666,
+				URI:            uri.String(),
+				LatestRevision: 666,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})

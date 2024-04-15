@@ -1165,7 +1165,7 @@ func (w *SecretsRevisionWatcher) loop(initialChanges []params.SecretRevisionChan
 			}
 			result = append(result, watcher.SecretRevisionChange{
 				URI:      uri,
-				Revision: ch.Revision,
+				Revision: ch.LatestRevision,
 			})
 		}
 		return result

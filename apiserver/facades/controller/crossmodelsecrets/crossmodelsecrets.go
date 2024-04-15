@@ -205,7 +205,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 	// Use the latest revision as the current one if --peek.
 	if arg.Peek || arg.Refresh {
 		var err error
-		latestRevision, err = s.updateConsumedRevision(ctx, secretService, consumer, uri, arg.Refresh)
+		latestRevision, err = secretService.UpdateRemoteConsumedRevision(ctx, uri, consumer.Id(), arg.Refresh)
 		if err != nil {
 			return nil, nil, 0, errors.Trace(err)
 		}
@@ -227,31 +227,6 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 	sameController := s.controllerUUID == arg.SourceControllerUUID
 	backend, err := s.getBackend(ctx, uri.SourceUUID, sameController, content.ValueRef.BackendID, consumer)
 	return content, backend, latestRevision, errors.Trace(err)
-}
-
-func (s *CrossModelSecretsAPI) updateConsumedRevision(ctx stdcontext.Context, secretService SecretService, consumer names.UnitTag, uri *coresecrets.URI, refresh bool) (int, error) {
-	consumerInfo, err := secretService.GetSecretRemoteConsumer(ctx, uri, consumer.Id())
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return 0, errors.Trace(err)
-	}
-	refresh = refresh ||
-		err != nil // Not found, so need to create one.
-
-	md, err := secretService.GetSecret(ctx, uri)
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
-
-	if refresh {
-		if consumerInfo == nil {
-			consumerInfo = &coresecrets.SecretConsumerMetadata{}
-		}
-		consumerInfo.CurrentRevision = md.LatestRevision
-		if err := secretService.SaveSecretRemoteConsumer(ctx, uri, md.LatestRevision, consumer.Id(), consumerInfo); err != nil {
-			return 0, errors.Trace(err)
-		}
-	}
-	return md.LatestRevision, nil
 }
 
 func (s *CrossModelSecretsAPI) getBackend(ctx stdcontext.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*params.SecretBackendConfigResult, error) {
