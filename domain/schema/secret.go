@@ -120,13 +120,21 @@ INSERT INTO secret_rotate_policy VALUES
 
 CREATE TABLE
     secret (
-        id TEXT PRIMARY KEY,
+        id TEXT PRIMARY KEY
+    );
+
+CREATE TABLE
+    secret_metadata (
+        secret_id TEXT PRIMARY KEY,
         version INT,
         description TEXT,
         rotate_policy_id INT NOT NULL,
         auto_prune BOOLEAN NOT NULL DEFAULT (FALSE),
         create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
         update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+        CONSTRAINT fk_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id),
         CONSTRAINT fk_secret_rotate_policy
             FOREIGN KEY (rotate_policy_id)
             REFERENCES secret_rotate_policy (id)
@@ -136,9 +144,9 @@ CREATE TABLE
     secret_rotation (
         secret_id TEXT PRIMARY KEY,
         next_rotation_time DATETIME NOT NULL,
-        CONSTRAINT fk_secret_rotation_secret_id
+        CONSTRAINT fk_secret_rotation_secret_metadata_id
             FOREIGN KEY (secret_id)
-            REFERENCES secret (id)
+            REFERENCES secret_metadata (secret_id)
     );
 
 -- 1:1
@@ -183,9 +191,9 @@ CREATE TABLE
         pending_delete BOOLEAN NOT NULL DEFAULT (FALSE),
         create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
         update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-        CONSTRAINT fk_secret_revision_secret_id 
+        CONSTRAINT fk_secret_revision_secret_metadata_id 
             FOREIGN KEY (secret_id)
-            REFERENCES secret (id)
+            REFERENCES secret_metadata (secret_id)
     );
 
 CREATE UNIQUE INDEX idx_secret_revision_secret_id_revision ON secret_revision (secret_id,revision);
@@ -204,9 +212,9 @@ CREATE TABLE
         secret_id TEXT NOT NULL,
         application_uuid TEXT NOT NULL,
         label TEXT,
-        CONSTRAINT fk_secret_application_owner_secret_id
+        CONSTRAINT fk_secret_application_owner_secret_metadata_id
             FOREIGN KEY (secret_id)
-            REFERENCES secret (id),
+            REFERENCES secret_metadata (secret_id),
         CONSTRAINT fk_secret_application_owner_application_uuid
             FOREIGN KEY (application_uuid)
             REFERENCES application (uuid)
@@ -222,9 +230,9 @@ CREATE TABLE
         secret_id TEXT NOT NULL,
         unit_uuid TEXT NOT NULL,
         label TEXT,
-        CONSTRAINT fk_secret_unit_owner_secret_id
+        CONSTRAINT fk_secret_unit_owner_secret_metadata_id
             FOREIGN KEY (secret_id)
-            REFERENCES secret (id),
+            REFERENCES secret_metadata (secret_id),
         CONSTRAINT fk_secret_unit_owner_unit_uuid
             FOREIGN KEY (unit_uuid)
             REFERENCES unit (uuid)
@@ -239,24 +247,25 @@ CREATE TABLE
     secret_model_owner (
         secret_id TEXT PRIMARY KEY,
         label TEXT,
-        CONSTRAINT fk_secret_model_owner_secret_id
+        CONSTRAINT fk_secret_model_owner_secret_metadata_id
             FOREIGN KEY (secret_id)
-            REFERENCES secret (id)
+            REFERENCES secret_metadata (secret_id)
     );
 
 CREATE UNIQUE INDEX idx_secret_model_owner_label ON secret_model_owner (label) WHERE label != '';
 
 CREATE TABLE
     secret_unit_consumer (
-        -- There's no FK to secret because cross model secrets
-        -- don't exist in this database.
         secret_id TEXT NOT NULL,
         unit_uuid TEXT NOT NULL,
         label TEXT,
         current_revision INT NOT NULL, 
         CONSTRAINT fk_secret_unit_consumer_unit_uuid
             FOREIGN KEY (unit_uuid)
-            REFERENCES unit (uuid)
+            REFERENCES unit (uuid),
+        CONSTRAINT fk_secret_model_owner_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id)
     );
 
 CREATE UNIQUE INDEX idx_secret_unit_consumer_secret_id_unit_uuid ON secret_unit_consumer (secret_id,unit_uuid);
@@ -268,9 +277,9 @@ CREATE TABLE
         secret_id TEXT NOT NULL,
         unit_uuid TEXT NOT NULL,
         current_revision INT NOT NULL,
-        CONSTRAINT fk_secret_remote_unit_consumer_secret_id
+        CONSTRAINT fk_secret_remote_unit_consumer_secret_metadata_id
             FOREIGN KEY (secret_id)
-            REFERENCES secret (id),
+            REFERENCES secret_metadata (secret_id),
         CONSTRAINT fk_secret_remote_unit_consumer_unit_uuid
             FOREIGN KEY (unit_uuid)
             REFERENCES unit (uuid)

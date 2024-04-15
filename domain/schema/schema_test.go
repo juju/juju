@@ -284,6 +284,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Secret
 		"secret_rotate_policy",
 		"secret",
+		"secret_metadata",
 		"secret_rotation",
 		"secret_value_ref",
 		"secret_content",
@@ -376,9 +377,9 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_object_store_metadata_path_update",
 		"trg_log_object_store_metadata_path_delete",
 
-		"trg_log_secret_auto_prune_insert",
-		"trg_log_secret_auto_prune_update",
-		"trg_log_secret_auto_prune_delete",
+		"trg_log_secret_metadata_auto_prune_insert",
+		"trg_log_secret_metadata_auto_prune_update",
+		"trg_log_secret_metadata_auto_prune_delete",
 
 		"trg_log_secret_remote_unit_consumer_current_revision_insert",
 		"trg_log_secret_remote_unit_consumer_current_revision_update",
@@ -493,9 +494,10 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 4, tableSecretAutoPrune, 0)
 
 	secretURI := coresecrets.NewURI()
-	s.assertExecSQL(c, `INSERT INTO secret (id, description, rotate_policy_id) VALUES (?, 'mySecret', 0);`, "", secretURI.ID)
-	s.assertExecSQL(c, `UPDATE secret SET auto_prune = true WHERE id = ?;`, "", secretURI.ID)
-	s.assertExecSQL(c, `DELETE FROM secret WHERE id = ?;`, "", secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, "", secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, description, rotate_policy_id) VALUES (?, 'mySecret', 0);`, "", secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, "", secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, "", secretURI.ID)
 
 	s.assertChangeLogCount(c, 1, tableSecretAutoPrune, 1)
 	s.assertChangeLogCount(c, 2, tableSecretAutoPrune, 1)
@@ -506,7 +508,7 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRotation, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRotation, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret (id, description, rotate_policy_id) VALUES (?, 'mySecret', 0);`, "", secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, description, rotate_policy_id) VALUES (?, 'mySecret', 0);`, "", secretURI.ID)
 	s.assertExecSQL(c, `INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, datetime('now', '+1 day'));`, "", secretURI.ID)
 	s.assertExecSQL(c, `UPDATE secret_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE secret_id = ?;`, "", secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_rotation WHERE secret_id = ?;`, "", secretURI.ID)
