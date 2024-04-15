@@ -243,14 +243,14 @@ func (st State) CreateCharmUnitSecret(ctx context.Context, version int, uri *cor
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		dbSecretOwner := secretUnitOwner{SecretID: uri.ID, Label: label}
 
-		selectUnitUUID := `SELECT &M.uuid FROM unit WHERE unit_id=$M.unit_id`
-		selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, sqlair.M{})
+		selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE unit_id=$unit.unit_id`
+		selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, unit{})
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		result := sqlair.M{}
-		err = tx.Query(ctx, selectUnitUUIDStmt, sqlair.M{"unit_id": unitName}).Get(&result)
+		result := unit{}
+		err = tx.Query(ctx, selectUnitUUIDStmt, unit{UnitName: unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
@@ -258,7 +258,7 @@ func (st State) CreateCharmUnitSecret(ctx context.Context, version int, uri *cor
 				return errors.Annotatef(err, "looking up unit UUID for %q", unitName)
 			}
 		}
-		dbSecretOwner.UnitUUID = result["uuid"].(string)
+		dbSecretOwner.UnitUUID = result.UUID
 
 		if err := st.createSecret(ctx, tx, version, uri, secret, revisionUUID, st.checkUnitSecretLabelExists(dbSecretOwner.UnitUUID)); err != nil {
 			return errors.Annotatef(err, "inserting secret records for secret %q", uri)
@@ -359,15 +359,15 @@ func (st State) createSecret(
 
 	insertQuery := `
 INSERT INTO secret (id)
-VALUES ($M.id)
+VALUES ($secretID.id)
 `
 
-	insertStmt, err := st.Prepare(insertQuery, sqlair.M{})
+	insertStmt, err := st.Prepare(insertQuery, secretID{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, sqlair.M{"id": uri.ID}).Run()
+	err = tx.Query(ctx, insertStmt, secretID{ID: uri.ID}).Run()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -427,7 +427,7 @@ func (st State) updateSecret(
 WITH rev AS
     (SELECT  MAX(revision) AS latest_revision
     FROM     secret_revision
-    WHERE    secret_id = $M.id)
+    WHERE    secret_id = $secretID.id)
 SELECT 
      (sm.secret_id,
      version,
@@ -454,10 +454,10 @@ FROM secret_metadata sm, rev
           JOIN   unit
           WHERE  unit.uuid = so.unit_uuid
        ) so ON so.secret_id = sm.secret_id
-WHERE sm.secret_id = $M.id
+WHERE sm.secret_id = $secretID.id
 `, coresecrets.ModelOwner, coresecrets.ApplicationOwner, coresecrets.UnitOwner)
 
-	existingSecretStmt, err := st.Prepare(existingSecretQuery, sqlair.M{}, secretInfo{}, secretOwner{})
+	existingSecretStmt, err := st.Prepare(existingSecretQuery, secretID{}, secretInfo{}, secretOwner{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -466,7 +466,7 @@ WHERE sm.secret_id = $M.id
 		dbSecrets      secrets
 		dbsecretOwners []secretOwner
 	)
-	secretIDParam := sqlair.M{"id": uri.ID}
+	secretIDParam := secretID{ID: uri.ID}
 	err = tx.Query(ctx, existingSecretStmt, secretIDParam).GetAll(&dbSecrets, &dbsecretOwners)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
@@ -525,8 +525,8 @@ WHERE sm.secret_id = $M.id
 
 	// Will secret rotate? If not, delete next rotation row.
 	if secret.RotatePolicy != nil && *secret.RotatePolicy == domainsecret.RotateNever {
-		deleteNextRotate := "DELETE FROM secret_rotation WHERE secret_id=$M.id"
-		deleteNextRotateStmt, err := st.Prepare(deleteNextRotate, sqlair.M{})
+		deleteNextRotate := "DELETE FROM secret_rotation WHERE secret_id=$secretID.id"
+		deleteNextRotateStmt, err := st.Prepare(deleteNextRotate, secretID{})
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -617,27 +617,30 @@ func (st State) upsertSecretLabel(ctx context.Context, tx *sqlair.TX, uri *cores
 
 func (st *State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, keepRevision int) error {
 	query := `
+WITH suc AS 
+       (SELECT current_revision FROM secret_unit_consumer suc
+        WHERE  suc.secret_id = $secretRef.secret_id
+        UNION
+        SELECT current_revision FROM secret_remote_unit_consumer suc
+        WHERE  suc.secret_id = $secretRef.secret_id)
 UPDATE secret_revision
 SET    obsolete = True,
        pending_delete = True,
        update_time = DATETIME('now')
-WHERE  revision != $M.revision
-AND    secret_id = $M.secret_id
+WHERE  revision != $secretRef.revision
+AND    secret_id = $secretRef.secret_id
 AND    revision NOT IN (
-           SELECT current_revision FROM secret_unit_consumer suc
-           WHERE suc.secret_id = $M.secret_id
-       UNION
-           SELECT current_revision FROM secret_remote_unit_consumer suc
-           WHERE suc.secret_id = $M.secret_id
+           SELECT current_revision FROM suc
        )
 `
-	markObsoleteStmt, err := st.Prepare(query, sqlair.M{})
+	markObsoleteStmt, err := st.Prepare(query, secretRef{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = tx.Query(ctx, markObsoleteStmt, sqlair.M{
-		"secret_id": uri.ID,
-		"revision":  keepRevision}).Run()
+	err = tx.Query(ctx, markObsoleteStmt, secretRef{
+		ID:       uri.ID,
+		Revision: keepRevision,
+	}).Run()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -858,15 +861,15 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 
 type keysToKeep []string
 
-func (st State) updateSecretContent(ctx context.Context, tx *sqlair.TX, revisionUUID string, content coresecrets.SecretData) error {
+func (st State) updateSecretContent(ctx context.Context, tx *sqlair.TX, revUUID string, content coresecrets.SecretData) error {
 	// Delete any keys no longer in the content map.
 	deleteQuery := fmt.Sprintf(`
 DELETE FROM  secret_content
-WHERE        revision_uuid = $M.id
+WHERE        revision_uuid = $revisionUUID.uuid
 AND          name NOT IN ($keysToKeep[:])
 `)
 
-	deleteStmt, err := st.Prepare(deleteQuery, sqlair.M{}, keysToKeep{})
+	deleteStmt, err := st.Prepare(deleteQuery, revisionUUID{}, keysToKeep{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -891,12 +894,12 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET
 	for k := range content {
 		keys = append(keys, k)
 	}
-	if err := tx.Query(ctx, deleteStmt, sqlair.M{"id": revisionUUID}, keys).Run(); err != nil {
+	if err := tx.Query(ctx, deleteStmt, revisionUUID{UUID: revUUID}, keys).Run(); err != nil {
 		return errors.Trace(err)
 	}
 	for key, value := range content {
 		if err := tx.Query(ctx, insertStmt, secretContent{
-			RevisionUUID: revisionUUID,
+			RevisionUUID: revUUID,
 			Name:         key,
 			Content:      value,
 		}).Run(); err != nil {
@@ -1023,9 +1026,9 @@ FROM secret_metadata sm
 	}
 	queryParams := []any{}
 	if uri != nil {
-		queryTypes = append(queryTypes, sqlair.M{})
-		query = query + "\nWHERE sm.secret_id = $M.id"
-		queryParams = append(queryParams, sqlair.M{"id": uri.ID})
+		queryTypes = append(queryTypes, secretID{})
+		query = query + "\nWHERE sm.secret_id = $secretID.id"
+		queryParams = append(queryParams, secretID{ID: uri.ID})
 	}
 
 	queryStmt, err := st.Prepare(query, queryTypes...)
@@ -1331,16 +1334,16 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 		return nil, errors.Trace(err)
 	}
 
-	selectUnitUUID := `select &M.uuid FROM unit WHERE unit_id=$M.unit_id`
-	selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, sqlair.M{})
+	selectUnitUUID := `select &unit.uuid FROM unit WHERE unit_id=$unit.unit_id`
+	selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, unit{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var dbConsumers []secretUnitConsumer
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := sqlair.M{}
-		err = tx.Query(ctx, selectUnitUUIDStmt, sqlair.M{"unit_id": unitName}).Get(&result)
+		result := unit{}
+		err = tx.Query(ctx, selectUnitUUIDStmt, unit{UnitName: unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
@@ -1349,8 +1352,7 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 			}
 		}
 
-		unitUUID := result["uuid"].(string)
-		suc := secretUnitConsumer{UnitUUID: unitUUID, Label: label}
+		suc := secretUnitConsumer{UnitUUID: result.UUID, Label: label}
 		var err error
 		err = tx.Query(ctx, queryStmt, suc).GetAll(&dbConsumers)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -1509,20 +1511,20 @@ func (st State) checkExistsIfLocal(ctx context.Context, tx *sqlair.TX, uri *core
 SELECT ok as &M.ok FROM (
     SELECT True as ok FROM secret_metadata sm
     WHERE 
-        (EXISTS (SELECT uuid FROM model WHERE uuid = $M.uuid) OR $M.uuid = '')
-        AND sm.secret_id = $M.secret_id
+        (EXISTS (SELECT uuid FROM model WHERE uuid = $secretRef.source_uuid) OR $secretRef.source_uuid = '')
+        AND sm.secret_id = $secretRef.secret_id
     UNION
     SELECT True as ok FROM model
     WHERE
-        NOT EXISTS (SELECT uuid FROM model WHERE uuid = $M.uuid)
+        NOT EXISTS (SELECT uuid FROM model WHERE uuid = $secretRef.source_uuid)
 )
 `
-	queryStmt, err := st.Prepare(query, sqlair.M{})
+	queryStmt, err := st.Prepare(query, secretRef{}, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	result := sqlair.M{}
-	err = tx.Query(ctx, queryStmt, sqlair.M{"secret_id": uri.ID, "uuid": uri.SourceUUID}).Get(&result)
+	err = tx.Query(ctx, queryStmt, secretRef{ID: uri.ID, SourceUUID: uri.SourceUUID}).Get(&result)
 	if err == nil {
 		return nil
 	}
@@ -1570,10 +1572,10 @@ AND   suc.unit_uuid = $secretUnitConsumer.unit_uuid
 	}
 
 	selectLatestRevision := `
-SELECT MAX(revision) AS &M.latest_revision
+SELECT MAX(revision) AS &secretRef.revision
 FROM secret_revision rev
-WHERE rev.secret_id = $M.secret_id`
-	selectLatestRevisionStmt, err := st.Prepare(selectLatestRevision, sqlair.M{})
+WHERE rev.secret_id = $secretRef.secret_id`
+	selectLatestRevisionStmt, err := st.Prepare(selectLatestRevision, secretRef{})
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
@@ -1603,7 +1605,8 @@ WHERE rev.secret_id = $M.secret_id`
 		}
 
 		// TODO(secrets) - we need something different for cross model secrets
-		err = tx.Query(ctx, selectLatestRevisionStmt, sqlair.M{"secret_id": uri.ID}).Get(&result)
+		latest := secretRef{}
+		err = tx.Query(ctx, selectLatestRevisionStmt, secretRef{ID: uri.ID}).Get(&latest)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return secreterrors.SecretNotFound
@@ -1611,8 +1614,7 @@ WHERE rev.secret_id = $M.secret_id`
 				return errors.Annotatef(err, "looking up latest revision for %q", uri.ID)
 			}
 		}
-		rev, _ := result["latest_revision"].(int64)
-		latestRevision = int(rev)
+		latestRevision = latest.Revision
 
 		return nil
 	})

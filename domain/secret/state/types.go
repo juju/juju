@@ -13,6 +13,25 @@ import (
 
 // These structs represent the persistent secretMetadata entity schema in the database.
 
+type secretID struct {
+	ID string `db:"id"`
+}
+
+type revisionUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type unit struct {
+	UUID     string `db:"uuid"`
+	UnitName string `db:"unit_id"`
+}
+
+type secretRef struct {
+	ID         string `db:"secret_id"`
+	SourceUUID string `db:"source_uuid"`
+	Revision   int    `db:"revision"`
+}
+
 type secretMetadata struct {
 	ID             string    `db:"secret_id"`
 	Version        int       `db:"version"`
