@@ -21,6 +21,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -213,6 +214,139 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		coremodel.IAAS,
 	)).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
+
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			config.NameKey: "test-model",
+			config.UUIDKey: modelUUID.String(),
+		},
+		Cloud:              "AWS",
+		CloudRegion:        "region1",
+		Owner:              names.NewUserTag("tlm"),
+		LatestToolsVersion: jujuversion.Current,
+		Type:               coremodel.CAAS.String(),
+	})
+
+	model.SetCloudCredential(description.CloudCredentialArgs{
+		Owner: names.NewUserTag("tlm"),
+		Cloud: names.NewCloudTag("AWS"),
+		Name:  "my-credential",
+	})
+
+	importOp := &importOperation{
+		userService:             i.userService,
+		modelService:            i.modelService,
+		controllerConfigService: i.controllerConfigService,
+		readOnlyModelService:    i.readOnlyModelService,
+	}
+
+	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
+	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
+}
+
+func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	userUUID, err := coreuser.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer i.setupMocks(c).Finish()
+	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+		coreuser.User{
+			UUID: userUUID,
+		},
+		nil,
+	)
+	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
+
+	args := model.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "AWS",
+		CloudRegion:  "region1",
+		Credential: credential.Key{
+			Name:  "my-credential",
+			Owner: "tlm",
+			Cloud: "AWS",
+		},
+		Name:  "test-model",
+		Owner: userUUID,
+		UUID:  modelUUID,
+	}
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
+	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
+		coremodel.UUID(testing.ControllerTag.Id()),
+		coremodel.IAAS,
+	)).Return(errors.New("boom"))
+	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
+
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			config.NameKey: "test-model",
+			config.UUIDKey: modelUUID.String(),
+		},
+		Cloud:              "AWS",
+		CloudRegion:        "region1",
+		Owner:              names.NewUserTag("tlm"),
+		LatestToolsVersion: jujuversion.Current,
+		Type:               coremodel.CAAS.String(),
+	})
+
+	model.SetCloudCredential(description.CloudCredentialArgs{
+		Owner: names.NewUserTag("tlm"),
+		Cloud: names.NewCloudTag("AWS"),
+		Name:  "my-credential",
+	})
+
+	importOp := &importOperation{
+		userService:             i.userService,
+		modelService:            i.modelService,
+		controllerConfigService: i.controllerConfigService,
+		readOnlyModelService:    i.readOnlyModelService,
+	}
+
+	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
+	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
+}
+
+func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyModel(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	userUUID, err := coreuser.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer i.setupMocks(c).Finish()
+	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+		coreuser.User{
+			UUID: userUUID,
+		},
+		nil,
+	)
+	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
+
+	args := model.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "AWS",
+		CloudRegion:  "region1",
+		Credential: credential.Key{
+			Name:  "my-credential",
+			Owner: "tlm",
+			Cloud: "AWS",
+		},
+		Name:  "test-model",
+		Owner: userUUID,
+		UUID:  modelUUID,
+	}
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
+	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
+		coremodel.UUID(testing.ControllerTag.Id()),
+		coremodel.IAAS,
+	)).Return(errors.New("boom"))
+	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{

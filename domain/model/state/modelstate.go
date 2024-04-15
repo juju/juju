@@ -34,7 +34,7 @@ func NewModelState(
 	}
 }
 
-// Create creates a new model with all of its associated metadata.
+// Create creates a new read-only model.
 func (s *ModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
 	db, err := s.DB()
 	if err != nil {
@@ -44,6 +44,48 @@ func (s *ModelState) Create(ctx context.Context, args model.ReadOnlyModelCreatio
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return errors.Trace(CreateReadOnlyModel(ctx, args, tx))
 	})
+}
+
+// Delete deletes a model.
+func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelStmt := `DELETE FROM model WHERE uuid = ?;`
+
+	// Once we get to this point, the model is hosed. We don't expect the
+	// model to be in use. The model migration will reinforce the schema once
+	// the migration is tried again. Failure to do that will result in the
+	// model being deleted unexpected scenarios.
+	modelTriggerStmt := `DROP TRIGGER IF EXISTS trg_model_immutable_delete;`
+
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, modelTriggerStmt)
+		if err != nil && !internaldatabase.IsErrError(err) {
+			return fmt.Errorf("deleting model trigger %q: %w", uuid, err)
+		}
+
+		result, err := tx.ExecContext(ctx, modelStmt, uuid)
+		if err != nil {
+			return fmt.Errorf("deleting model %q: %w", uuid, err)
+		}
+		if affected, err := result.RowsAffected(); err != nil {
+			return fmt.Errorf("deleting model %q: %w", uuid, err)
+		} else if affected == 0 {
+			return modelerrors.NotFound
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelerrors.NotFound
+		}
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // Model returns a read-only model for the given uuid.
