@@ -51,7 +51,7 @@ applications:
   prometheus:
     charm: ch:prometheus
     revision: 7
-    series: xenial
+    base: ubuntu@16.04/stable
     channel: stable
     exposed-endpoints:
       foo:
@@ -167,7 +167,7 @@ func (s *diffSuite) TestModelMissingApplication(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 2
                 to: [0, 1]
@@ -195,7 +195,7 @@ func (s *diffSuite) TestBundleMissingApplication(c *gc.C) {
             memcached:
                 charm: ch:memcached
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 2
                 to: [0, 1]
@@ -246,7 +246,7 @@ func (s *diffSuite) TestMissingApplicationBoth(c *gc.C) {
             memcached:
                 charm: ch:memcached
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 2
                 to: [0, 1]
@@ -287,7 +287,7 @@ func (s *diffSuite) TestApplicationCharm(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 2
                 to: [0, 1]
@@ -333,7 +333,7 @@ func (s *diffSuite) TestApplicationSeries(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@18.04/stable
                 channel: stable
                 series: bionic
                 num_units: 2
@@ -364,9 +364,9 @@ func (s *diffSuite) TestApplicationSeries(c *gc.C) {
 	expectedDiff := &bundlechanges.BundleDiff{
 		Applications: map[string]*bundlechanges.ApplicationDiff{
 			"prometheus": {
-				Series: &bundlechanges.StringDiff{
-					Bundle: "bionic",
-					Model:  "xenial",
+				Base: &bundlechanges.StringDiff{
+					Bundle: "ubuntu@18.04/stable",
+					Model:  "ubuntu@16.04/stable",
 				},
 			},
 		},
@@ -379,7 +379,7 @@ func (s *diffSuite) TestApplicationChannel(c *gc.C) {
         applications:
             prometheus:
                 charm: ch:prometheus
-                series: bionic
+                base: ubuntu@18.04/stable
                 revision: 7
                 channel: 1.0/stable
                 num_units: 2
@@ -426,7 +426,7 @@ func (s *diffSuite) TestApplicationNumUnits(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 2
                 to: [0, 1]
@@ -472,7 +472,7 @@ func (s *diffSuite) TestApplicationScale(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 scale: 2
                 placement: foo=bar
@@ -509,14 +509,14 @@ func (s *diffSuite) TestApplicationSubordinateNumUnits(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 2
                 to: [0, 1]
             nrpe:
                 charm: ch:nrpe
                 revision: 12
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
         machines:
             0:
@@ -574,7 +574,7 @@ func (s *diffSuite) TestApplicationConstraints(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 constraints: something
@@ -616,12 +616,12 @@ func (s *diffSuite) TestApplicationConstraints(c *gc.C) {
 
 func (s *diffSuite) TestBundleSeries(c *gc.C) {
 	bundleContent := `
-        series: focal
+        default-base: ubuntu@20.04/stable
         applications:
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: focal
+                base: ubuntu@20.04/stable
                 channel: stable
                 num_units: 1
                 constraints: something
@@ -660,7 +660,7 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: focal
+                base: ubuntu@20.04/stable
                 channel: stable
                 num_units: 1
                 constraints: something
@@ -692,9 +692,9 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
 	expectedDiff := &bundlechanges.BundleDiff{
 		Machines: map[string]*bundlechanges.MachineDiff{
 			"0": {
-				Series: &bundlechanges.StringDiff{
+				Base: &bundlechanges.StringDiff{
 					Bundle: "",
-					Model:  "focal",
+					Model:  "ubuntu@20.04/stable",
 				},
 			},
 		},
@@ -708,7 +708,7 @@ func (s *diffSuite) TestApplicationOptions(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 options:
@@ -761,7 +761,7 @@ func (s *diffSuite) TestApplicationAnnotations(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 annotations:
@@ -812,7 +812,7 @@ func (s *diffSuite) TestApplicationAnnotationsWithOptionOff(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 annotations:
@@ -861,7 +861,7 @@ func (s *diffSuite) TestApplicationExpose(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [0]
@@ -916,7 +916,7 @@ func (s *diffSuite) TestApplicationExposeImplicitCIDRs(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 expose: true
@@ -976,7 +976,7 @@ func (s *diffSuite) TestApplicationPlacement(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 scale: 2
                 placement: foo=bar
@@ -1013,7 +1013,7 @@ func (s *diffSuite) TestModelMissingMachine(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 2
                 to: [0, 1]
@@ -1056,7 +1056,7 @@ func (s *diffSuite) TestBundleMissingMachine(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 2
                 to: [0]
@@ -1099,13 +1099,13 @@ func (s *diffSuite) TestMachineSeries(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [0]
         machines:
             0:
-                series: bionic
+                base: ubuntu@18.04/stable
             `
 	model := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
@@ -1130,9 +1130,9 @@ func (s *diffSuite) TestMachineSeries(c *gc.C) {
 	expectedDiff := &bundlechanges.BundleDiff{
 		Machines: map[string]*bundlechanges.MachineDiff{
 			"0": {
-				Series: &bundlechanges.StringDiff{
-					Bundle: "bionic",
-					Model:  "xenial",
+				Base: &bundlechanges.StringDiff{
+					Bundle: "ubuntu@18.04/stable",
+					Model:  "ubuntu@16.04/stable",
 				},
 			},
 		},
@@ -1146,7 +1146,7 @@ func (s *diffSuite) TestMachineAnnotations(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [0]
@@ -1198,7 +1198,7 @@ func (s *diffSuite) TestMachineAnnotationsWithOptionOff(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [0]
@@ -1247,14 +1247,14 @@ func (s *diffSuite) TestRelations(c *gc.C) {
             memcached:
                 charm: ch:memcached
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [0]
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [1]
@@ -1329,14 +1329,14 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
             memcached:
                 charm: ch:memcached
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [0]
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [1]
@@ -1408,7 +1408,7 @@ func (s *diffSuite) TestValidationMissingModel(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [0]
@@ -1429,7 +1429,7 @@ func (s *diffSuite) TestValidationMissingLogger(c *gc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 to: [0]

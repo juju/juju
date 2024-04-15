@@ -11,8 +11,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-
-	corebase "github.com/juju/juju/core/base"
 )
 
 // DiffSide represents one side of a bundle-model diff.
@@ -137,20 +135,19 @@ func (d *differ) diffApplication(name string) *ApplicationDiff {
 		}
 	}
 
-	// Use the bundle series as the fallback series if the application doesn't
-	// supply a series. This is the same machinery that Juju itself uses to
-	// apply series for applications.
-	bundleSeries := bundle.Series
-	if bundleSeries == "" {
-		bundleSeries = d.config.Bundle.Series
+	// Use the bundle base as the fallback base if the application doesn't
+	// supply a base. This is the same machinery that Juju itself uses to
+	// apply base for applications.
+	bundleBase := bundle.Base
+	if bundleBase == "" {
+		bundleBase = d.config.Bundle.DefaultBase
 	}
 
-	modelSeries, _ := corebase.GetSeriesFromBase(model.Base)
 	result := &ApplicationDiff{
 		Charm:            d.diffStrings(bundle.Charm, model.Charm),
 		Expose:           d.diffBools(effectiveBundleExpose, effectiveModelExpose),
 		ExposedEndpoints: d.diffExposedEndpoints(bundle.ExposedEndpoints, model.ExposedEndpoints),
-		Series:           d.diffStrings(bundleSeries, modelSeries),
+		Base:             d.diffStrings(bundleBase, model.Base.String()),
 		Channel:          d.diffStrings(bundle.Channel, model.Channel),
 		Constraints:      d.diffStrings(bundle.Constraints, model.Constraints),
 		Options:          d.diffOptions(bundle.Options, model.Options),
@@ -205,18 +202,17 @@ func (d *differ) diffMachines() map[string]*MachineDiff {
 			continue
 		}
 
-		// Use the bundle series as the fallback series if the machine doesn't
-		// supply a series. This is the same machinery that Juju itself uses to
-		// apply series for machines.
-		bundleSeries := bundleMachine.Series
-		if bundleSeries == "" {
-			bundleSeries = d.config.Bundle.Series
+		// Use the bundle base as the fallback base if the machine doesn't
+		// supply a base. This is the same machinery that Juju itself uses to
+		// apply base for machines.
+		bundleBase := bundleMachine.Base
+		if bundleBase == "" {
+			bundleBase = d.config.Bundle.DefaultBase
 		}
 
-		machineSeries, _ := corebase.GetSeriesFromBase(modelMachine.Base)
 		diff := &MachineDiff{
-			Series: d.diffStrings(
-				bundleSeries, machineSeries,
+			Base: d.diffStrings(
+				bundleBase, modelMachine.Base.String(),
 			),
 		}
 		if d.config.IncludeAnnotations {
@@ -416,7 +412,7 @@ func (d *BundleDiff) Empty() bool {
 type ApplicationDiff struct {
 	Missing          DiffSide                       `yaml:"missing,omitempty"`
 	Charm            *StringDiff                    `yaml:"charm,omitempty"`
-	Series           *StringDiff                    `yaml:"series,omitempty"`
+	Base             *StringDiff                    `yaml:"base,omitempty"`
 	Channel          *StringDiff                    `yaml:"channel,omitempty"`
 	Revision         *IntDiff                       `yaml:"revision,omitempty"`
 	Placement        *StringDiff                    `yaml:"placement,omitempty"`
@@ -437,7 +433,7 @@ type ApplicationDiff struct {
 func (d *ApplicationDiff) Empty() bool {
 	return d.Missing == None &&
 		d.Charm == nil &&
-		d.Series == nil &&
+		d.Base == nil &&
 		d.Channel == nil &&
 		d.Revision == nil &&
 		d.Placement == nil &&
@@ -480,14 +476,14 @@ type OptionDiff struct {
 type MachineDiff struct {
 	Missing     DiffSide              `yaml:"missing,omitempty"`
 	Annotations map[string]StringDiff `yaml:"annotations,omitempty"`
-	Series      *StringDiff           `yaml:"series,omitempty"`
+	Base        *StringDiff           `yaml:"base,omitempty"`
 }
 
 // Empty returns whether the compared bundle and model machines match.
 func (d *MachineDiff) Empty() bool {
 	return d.Missing == None &&
 		len(d.Annotations) == 0 &&
-		d.Series == nil
+		d.Base == nil
 }
 
 // RelationsDiff stores differences between relations in a bundle and

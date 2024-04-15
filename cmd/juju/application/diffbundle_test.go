@@ -102,7 +102,7 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 			"uuid":           {Value: testing.ModelTag.Id()},
 			"type":           {Value: "iaas"},
 			"name":           {Value: "horse"},
-			"default-series": {Value: "xenial"},
+			"default-base":   {Value: "ubuntu@16.04/stable"},
 			"secret-backend": {Value: "auto"},
 		},
 	}
@@ -267,9 +267,9 @@ machines:
   "0":
     missing: bundle
   "1":
-    series:
-      bundle: xenial
-      model: bionic
+    base:
+      bundle: ubuntu@16.04/stable
+      model: ubuntu@18.04/stable
 `[1:])
 }
 
@@ -355,13 +355,13 @@ applications:
     revision: 7
     channel: stable
     num_units: 1
-    series: xenial
+    base: ubuntu@16.04/stable
     expose: true
     to:
       - 0
 machines:
   '0':
-    series: xenial
+    base: ubuntu@16.04/stable
 `[1:],
 			expDiff: `
 applications:
@@ -394,12 +394,12 @@ applications:
     revision: 7
     channel: stable
     num_units: 1
-    series: xenial
+    base: ubuntu@16.04/stable
     to:
       - 0
 machines:
   '0':
-    series: xenial
+    base: ubuntu@16.04/stable
 ---
 applications:
   prometheus:
@@ -471,7 +471,7 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 				"uuid":           {Value: testing.ModelTag.Id()},
 				"type":           {Value: "iaas"},
 				"name":           {Value: "horse"},
-				"default-series": {Value: "xenial"},
+				"default-base":   {Value: "ubuntu@16.04/stable"},
 				"secret-backend": {Value: "auto"},
 			},
 		},
@@ -543,7 +543,7 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 				"uuid":           {Value: testing.ModelTag.Id()},
 				"type":           {Value: "iaas"},
 				"name":           {Value: "horse"},
-				"default-series": {Value: "xenial"},
+				"default-base":   {Value: "ubuntu@16.04/stable"},
 				"secret-backend": {Value: "auto"},
 			},
 		},
@@ -656,7 +656,7 @@ applications:
     revision: 47
     channel: stable
     num_units: 1
-    series: xenial
+    base: ubuntu@16.04/stable
     options:
       ontology: anselm
     annotations:
@@ -666,7 +666,7 @@ applications:
       - 0
 machines:
   '0':
-    series: xenial
+    base: ubuntu@16.04/stable
 `
 	withInclude = `
 applications:
@@ -675,7 +675,7 @@ applications:
     revision: 47
     channel: stable
     num_units: 1
-    series: xenial
+    base: ubuntu@16.04/stable
     options:
       ontology: include-file://include.yaml
     annotations:
@@ -685,7 +685,7 @@ applications:
       - 0
 machines:
   '0':
-    series: xenial
+    base: ubuntu@16.04/stable
 `
 	invalidBundle = `
 machines:
@@ -715,12 +715,12 @@ relations:
 `
 
 	withMissingRelationEndpoints = `
-series: xenial
+default-base: ubuntu@16.04/stable
 applications:
   prometheus:
     charm: 'ch:prometheus2'
     num_units: 1
-    series: xenial
+    base: ubuntu@16.04/stable
     options:
       ontology: anselm
     annotations:
@@ -729,20 +729,20 @@ applications:
   grafana:
     charm: 'ch:grafana'
     num_units: 1
-    series: bionic
+    base: ubuntu@18.04/stable
 relations:
 - - prometheus:juju-info
   - grafana
 `
 	withSeries = `
-series: bionic
+default-base: ubuntu@18.04/stable
 applications:
   prometheus:
     charm: 'prometheus2'
     revision: 47
     channel: stable
     num_units: 1
-    series: xenial
+    base: ubuntu@16.04/stable
     constraints: 'cores=3'
     options:
       ontology: kant
@@ -760,7 +760,7 @@ applications:
       - 1
 machines:
   "0":
-    series: xenial
+    base: ubuntu@16.04/stable
   "1": {}
 relations:
 bundle-additions:
