@@ -44,7 +44,6 @@ type listImagesCommand struct {
 
 	Stream          string
 	Region          string
-	Series          []string
 	Bases           []string
 	Arches          []string
 	VirtType        string
@@ -53,10 +52,6 @@ type listImagesCommand struct {
 
 // Init implements Command.Init.
 func (c *listImagesCommand) Init(args []string) (err error) {
-	if len(c.Bases) > 0 && len(c.Series) > 0 {
-		return errors.New("--series and --bases cannot be specified together")
-	}
-
 	if len(c.Arches) > 0 {
 		result := []string{}
 		for _, one := range c.Arches {
@@ -84,7 +79,6 @@ func (c *listImagesCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Stream, "stream", "", "image metadata stream")
 	f.StringVar(&c.Region, "region", "", "image metadata cloud region")
 
-	f.Var(cmd.NewAppendStringsValue(&c.Series), "series", "only show cloud image metadata for these series. DEPRECATED use --bases")
 	f.Var(cmd.NewAppendStringsValue(&c.Bases), "bases", "only show cloud image metadata for these bases")
 	f.Var(cmd.NewAppendStringsValue(&c.Arches), "arch", "only show cloud image metadata for these architectures")
 
@@ -101,21 +95,6 @@ func (c *listImagesCommand) SetFlags(f *gnuflag.FlagSet) {
 // Run implements Command.Run.
 func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 	var bases []corebase.Base
-	// Note: we validated that both series and bases cannot be specified in
-	// Init(), so it's safe to assume that only one of them is set here.
-	if len(c.Series) > 0 {
-		ctx.Warningf("series flag is deprecated, use --bases instead")
-		for _, s := range c.Series {
-			for _, one := range strings.Split(s, ",") {
-				b, err := corebase.GetBaseFromSeries(one)
-				if err != nil {
-					return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
-				}
-				bases = append(bases, b)
-			}
-		}
-		c.Series = nil
-	}
 	if len(c.Bases) > 0 {
 		for _, b := range c.Bases {
 			for _, one := range strings.Split(b, ",") {
@@ -170,7 +149,7 @@ var getImageMetadataListAPI = (*listImagesCommand).getImageMetadataListAPI
 // MetadataListAPI defines the API methods that list image metadata command uses.
 type MetadataListAPI interface {
 	Close() error
-	List(stream, region string, series []corebase.Base, arches []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
+	List(stream, region string, bases []corebase.Base, arches []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
 }
 
 func (c *listImagesCommand) getImageMetadataListAPI() (MetadataListAPI, error) {
