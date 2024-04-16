@@ -309,25 +309,86 @@ CREATE TABLE
 CREATE UNIQUE INDEX idx_secret_role_role ON secret_role (role);
 
 INSERT INTO secret_role VALUES
-    (0, 'view'),
-    (1, 'rotate'),
+    (0, 'none'),
+    (1, 'view'),
     (2, 'manage');
 
--- TODO: probably we need a model level permission table like the
--- recently added "permission" table in the controller database.
+CREATE TABLE
+    secret_grant_subject_type (
+        id   INT PRIMARY KEY,
+        type TEXT
+    );
+
+INSERT INTO secret_grant_subject_type VALUES
+    (0, 'unit'),
+    (1, 'application'),
+    (2, 'model');
+
+CREATE TABLE
+    secret_grant_scope_type (
+        id   INT PRIMARY KEY,
+        type TEXT
+    );
+
+INSERT INTO secret_grant_scope_type VALUES
+    (0, 'unit'),
+    (1, 'application'),
+    (2, 'model'),
+    (3, 'relation');
+
 CREATE TABLE
     secret_permission (
-        uuid TEXT PRIMARY KEY,
-        scope TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        role TEXT NOT NULL,
-        CONSTRAINT chk_empty_scope
-            CHECK(scope != ''),
-        CONSTRAINT chk_empty_subject
-            CHECK(subject != ''),
+        secret_id TEXT NOT NULL,
+        role_id INT NOT NULL,
+        -- subject_uuid is the entity which  
+        -- has been granted access to a secret.  
+        -- It will be an application, unit, or model uuid.  
+        subject_uuid TEXT NOT NULL,
+        subject_type_id INT NOT NULL,
+        -- scope_uuid is the entity which  
+        -- defines the scope of the grant.  
+        -- It will be an application, unit, relation, or model uuid.  
+        scope_uuid TEXT NOT NULL,
+        scope_type_id TEXT NOT NULL,
+        CONSTRAINT pk_secret_permission_secret_id_subject_uuid
+            PRIMARY KEY (secret_id,subject_uuid),
+        CONSTRAINT chk_empty_scope_uuid
+            CHECK(scope_uuid != ''),
+        CONSTRAINT chk_empty_subject_uuid
+            CHECK(subject_uuid != ''),
+        CONSTRAINT fk_secret_permission_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret_metadata (secret_id),
         CONSTRAINT fk_secret_permission_secret_role_id
-            FOREIGN KEY (role)
-            REFERENCES secret_role (role)
+            FOREIGN KEY (role_id)
+            REFERENCES secret_role (id),
+        CONSTRAINT fk_secret_permission_secret_grant_subject_type_id
+            FOREIGN KEY (subject_type_id)
+            REFERENCES secret_grant_subject_type (id),
+        CONSTRAINT fk_secret_permission_secret_grant_scope_type_id
+            FOREIGN KEY (scope_type_id)
+            REFERENCES secret_grant_scope_type (id)
     );
+
+CREATE INDEX idx_secret_permission_secret_id ON secret_permission (secret_id);
+CREATE INDEX idx_secret_permission_subject_uuid_subject_type_id ON secret_permission (subject_uuid,subject_type_id);
+
+CREATE VIEW v_secret_permission AS
+  SELECT secret_id, role_id, subject_type_id, scope_type_id,
+  -- subject_id is the natural id of the subject entity (uuid for model)
+  (CASE
+    WHEN sp.subject_type_id = 0 THEN (SELECT unit_id FROM unit WHERE unit.uuid = sp.subject_uuid)
+    WHEN sp.subject_type_id = 1 THEN (SELECT name FROM application WHERE application.uuid = sp.subject_uuid) 
+    WHEN sp.subject_type_id = 2 THEN (SELECT uuid FROM model) 
+  END) AS subject_id,
+  -- scope_id is the natural id of the scope entity (uuid for model)
+  (CASE
+    WHEN sp.scope_type_id = 0 THEN (SELECT unit_id FROM unit WHERE unit.uuid = sp.scope_uuid)
+    WHEN sp.scope_type_id = 1 THEN (SELECT name FROM application WHERE application.uuid = sp.scope_uuid) 
+    WHEN sp.scope_type_id = 2 THEN (SELECT uuid FROM model)
+    -- TODO: we don't have a relation table yet
+    WHEN sp.scope_type_id = 3 THEN sp.scope_uuid 
+  END) AS scope_id
+  FROM   secret_permission sp;
 `)
 }

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 )
 
@@ -37,8 +36,8 @@ type UpdateSecretParams struct {
 // SecretAccessParams are used to define access to a secret.
 type SecretAccessParams struct {
 	LeaderToken leadership.Token
-	Scope       permission.ID
-	Subject     permission.ID
+	Scope       SecretAccessScope
+	Subject     SecretAccessor
 	Role        secrets.SecretRole
 }
 
@@ -73,6 +72,7 @@ const (
 	ApplicationAccessScope SecretAccessScopeKind = "application"
 	UnitAccessScope        SecretAccessScopeKind = "unit"
 	RelationAccessScope    SecretAccessScopeKind = "relation"
+	ModelAccessScope       SecretAccessScopeKind = "model"
 )
 
 // SecretAccessScope represents the scope of a secret permission.

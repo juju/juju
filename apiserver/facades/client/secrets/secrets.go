@@ -520,8 +520,8 @@ func (s *SecretsAPI) secretsGrantRevoke(ctx context.Context, arg params.GrantRev
 
 	one := func(appName string) error {
 		if err := op(ctx, uri, secretservice.SecretAccessParams{
-			Scope:   permission.ID{ObjectType: permission.Model, Key: s.modelUUID},
-			Subject: permission.ID{ObjectType: permission.Application, Key: appName},
+			Scope:   secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: s.modelUUID},
+			Subject: secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: appName},
 			Role:    coresecrets.RoleView,
 		}); err != nil {
 			return errors.Annotatef(err, "cannot change access to %q for %q", uri, appName)
