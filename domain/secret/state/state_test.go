@@ -2387,6 +2387,24 @@ WHERE secret_id = ? AND revision = ?
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		[]string{
 			"mysql",
+			"mediawiki",
+		},
+		[]string{
+			"mysql/0",
+			"mediawiki/0",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		revID(uri1, 1),
+		revID(uri2, 1),
+		revID(uri3, 1),
+		revID(uri4, 1),
+	})
+
+	result, err = st.GetRevisionIDsForObsolete(ctx,
+		[]string{
+			"mysql",
 		},
 		[]string{
 			"mysql/0",

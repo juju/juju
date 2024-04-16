@@ -2325,13 +2325,14 @@ JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
 type obsoleteRevisionUUIDs []string
 
 // GetRevisionIDsForObsolete filters the revision IDs that are obsolete and owned by the specified owners.
+// Either revisionUUIDs, appOwners, or unitOwners must be specified.
 func (st State) GetRevisionIDsForObsolete(
 	ctx context.Context,
 	appOwners domainsecret.ApplicationOwners,
 	unitOwners domainsecret.UnitOwners,
 	revisionUUIDs ...string,
 ) ([]string, error) {
-	if len(revisionUUIDs) == 0 {
+	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, nil
 	}
 
@@ -2343,7 +2344,6 @@ func (st State) GetRevisionIDsForObsolete(
 	owners := append(appOwners, unitOwners...)
 	st.logger.Warningf("GetRevisionIDsForObsolete revisionUUIDs: %v, owners: %v", revisionUUIDs, owners)
 
-	var revs obsoleteRevisionUUIDs = revisionUUIDs
 	q := `
 SELECT 
     sr.revision AS &obsoleteRevisionRow.revision,
@@ -2351,15 +2351,22 @@ SELECT
 FROM secret_revision sr
 JOIN secret s ON sr.secret_id = s.id
 WHERE sr.obsolete = true 
-AND sr.uuid IN ($obsoleteRevisionUUIDs[:])
+--AND sr.uuid IN ($obsoleteRevisionUUIDs[:])
 `
 
+	var (
+		conditions  []string
+		queryParams []any
+	)
 	queryTypes := []any{
 		obsoleteRevisionRow{},
-		obsoleteRevisionUUIDs{},
 	}
-	queryParams := []any{revs}
-	var conditions []string
+
+	if len(revisionUUIDs) > 0 {
+		queryTypes = append(queryTypes, obsoleteRevisionUUIDs{})
+		queryParams = append(queryParams, obsoleteRevisionUUIDs(revisionUUIDs))
+		q += "AND sr.uuid IN ($obsoleteRevisionUUIDs[:])"
+	}
 
 	if len(appOwners) > 0 {
 		conditions = append(conditions, `

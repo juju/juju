@@ -127,10 +127,15 @@ func newObsoleteRevisionWatcher(
 }
 
 func (w *obsoleteRevisionWatcher) loop() (err error) {
-	// To allow the initial event to be sent.
-	out := w.out
 	var changes []string
 	ctx := w.tomb.Context(context.Background())
+
+	out := w.out
+	// Get the initial set of changes.
+	changes, err = w.processChanges(ctx, w.appOwners, w.unitOwners)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
 		case <-w.tomb.Dying():
