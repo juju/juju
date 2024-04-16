@@ -759,7 +759,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
 	modelObjectsCharmsHandler := &objectsCharmHandler{
-		ctxt: httpCtxt,
+		ctxt:          httpCtxt,
+		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
 		GetHandler:          modelObjectsCharmsHandler.ServeGet,
@@ -830,9 +831,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		PostHandler: migrateCharmsHandler.ServePost,
 		GetHandler:  migrateCharmsHandler.ServeUnsupported,
 	}
+	migrateObjectsCharmsHandler := &objectsCharmHandler{
+		ctxt:          httpCtxt,
+		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+	}
 	migrateObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
-		PutHandler:          modelObjectsCharmsHandler.ServePut,
-		GetHandler:          modelObjectsCharmsHandler.ServeUnsupported,
+		PutHandler:          migrateObjectsCharmsHandler.ServePut,
+		GetHandler:          migrateObjectsCharmsHandler.ServeUnsupported,
 		LegacyCharmsHandler: migrateCharmsHTTPHandler,
 	}
 	migrateToolsUploadHandler := &toolsUploadHandler{

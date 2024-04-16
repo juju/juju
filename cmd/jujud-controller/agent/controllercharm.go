@@ -278,7 +278,7 @@ func addLocalControllerCharm(st *state.State, charmFileName string) (*charm.URL,
 
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = apiserver.RepackageAndUploadCharm(st, archive, curl)
+	err = apiserver.RepackageAndUploadCharm(st, archive, curl.String(), archive.Revision())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
