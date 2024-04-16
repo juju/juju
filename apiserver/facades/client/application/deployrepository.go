@@ -540,7 +540,9 @@ type caasDeployFromRepositoryValidator struct {
 //   - Check the charm's min version against the caasVersion
 func (v caasDeployFromRepositoryValidator) ValidateArg(ctx context.Context, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(ctx, arg)
-
+	if len(errs) > 0 {
+		return dt, errs
+	}
 	if charm.MetaFormat(dt.charm) == charm.FormatV1 {
 		errs = append(errs, errors.NotSupportedf("deploying format v1 charm %q", arg.CharmName))
 	}
@@ -558,11 +560,14 @@ type iaasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
 }
 
-// ValidateArg validates DeployFromRepositoryArg from a iaas perspective.
+// ValidateArg validates DeployFromRepositoryArg from an iaas perspective.
 // First checking the common validation, then any validation specific to
 // iaas charms.
 func (v iaasDeployFromRepositoryValidator) ValidateArg(ctx context.Context, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(ctx, arg)
+	if len(errs) > 0 {
+		return dt, errs
+	}
 	attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, dt.numUnits)
 	if len(attachStorageErrs) > 0 {
 		errs = append(errs, attachStorageErrs...)

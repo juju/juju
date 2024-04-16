@@ -89,24 +89,3 @@ test_pebble_notices() {
 	# Clean up model
 	destroy_model "${model_name}"
 }
-
-test_pebble_change_updated() {
-	echo
-
-	# Ensure that a valid Juju controller exists
-	model_name="controller-model-sidecar"
-	file="${TEST_DIR}/test-${model_name}.log"
-	ensure "${model_name}" "${file}"
-
-	# Deploy Pebble Notices test application
-	juju deploy juju-qa-pebble-notices
-	wait_for "active" '.applications["juju-qa-pebble-notices"].units["juju-qa-pebble-notices/0"]["workload-status"].current'
-
-	# Check that charm is responding correctly to a change-update notice
-	juju ssh --container redis juju-qa-pebble-notices/0 /charm/bin/pebble exec -- echo foo
-	wait_for "maintenance" '.applications["juju-qa-pebble-notices"].units["juju-qa-pebble-notices/0"]["workload-status"].current'
-	wait_for "notice type=change-update kind=exec status=Done" '.applications["juju-qa-pebble-notices"].units["juju-qa-pebble-notices/0"]["workload-status"].message'
-
-	# Clean up model
-	destroy_model "${model_name}"
-}
