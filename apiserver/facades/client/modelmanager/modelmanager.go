@@ -1030,11 +1030,25 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// TODO (tlm): The modelService nil check will go when the tests are
 		// moved from mongo.
 		if m.modelService != nil {
-			err = m.modelService.DeleteModel(ctx, coremodel.UUID(stModel.UUID()))
+			// We need to get the model service factory from the model
+			// We should be able to directly access the model service factory
+			// because the model manager use the MultiModelContext to access
+			// other models.
+			modelUUID := coremodel.UUID(stModel.UUID())
+
+			// We use the returned model UUID as we can guarantee that's the one that
+			// was written to the database.
+			modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
+			modelInfoService := modelServiceFactory.ModelInfo()
+			if err := modelInfoService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+				return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
+			}
+
+			err = m.modelService.DeleteModel(ctx, modelUUID)
 			if err != nil && errors.Is(err, modelerrors.NotFound) {
 				return nil
 			}
-			return errors.Trace(err)
+			return errors.Annotatef(err, "failed to delete model %q", modelUUID)
 		}
 		return nil
 	}
