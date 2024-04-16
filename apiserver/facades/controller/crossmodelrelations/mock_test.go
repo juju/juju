@@ -46,7 +46,6 @@ type mockState struct {
 	offerConnectionsByKey map[string]*mockOfferConnection
 	remoteEntities        map[names.Tag]string
 	ingressNetworks       map[string][]string
-	secrets               map[string]coresecrets.SecretMetadata
 	migrationActive       bool
 }
 
@@ -62,7 +61,6 @@ func newMockState() *mockState {
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
 		ingressNetworks:       make(map[string][]string),
-		secrets:               make(map[string]coresecrets.SecretMetadata),
 	}
 }
 
@@ -97,10 +95,6 @@ func (st *mockState) ModelConfig(_ context.Context) (*config.Config, error) {
 }
 
 func (st *mockState) ApplyOperation(state.ModelOperation) error {
-	return nil
-}
-
-func (st *mockState) RemoveSecretConsumer(consumer names.Tag) error {
 	return nil
 }
 
@@ -264,31 +258,6 @@ func (st *mockState) Application(id string) (commoncrossmodel.Application, error
 		return nil, errors.NotFoundf("application %q", id)
 	}
 	return a, nil
-}
-
-func (st *mockState) GetSecretConsumerInfo(appToken, relToken string) (names.Tag, string, error) {
-	st.MethodCall(st, "GetSecretConsumerInfo", appToken, relToken)
-	if err := st.NextErr(); err != nil {
-		return nil, "", err
-	}
-	for e, t := range st.remoteEntities {
-		if t == appToken {
-			return e, relToken + "-uuid", nil
-		}
-	}
-	return nil, "", errors.NotFoundf("token %v", appToken)
-}
-
-func (st *mockState) GetSecret(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
-	st.MethodCall(st, "GetSecret", uri)
-	if err := st.NextErr(); err != nil {
-		return nil, err
-	}
-	md, ok := st.secrets[uri.ID]
-	if ok {
-		return &md, nil
-	}
-	return nil, errors.NotFoundf("secret id %q", uri.ID)
 }
 
 type mockSecretsWatcher struct {
@@ -736,4 +705,26 @@ type mockUnitsWatcher struct {
 
 func (w *mockUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.changes
+}
+
+type mockSecretService struct {
+	secrets map[string]coresecrets.SecretMetadata
+}
+
+func newMockSecretService() *mockSecretService {
+	return &mockSecretService{
+		secrets: make(map[string]coresecrets.SecretMetadata),
+	}
+}
+
+func (m *mockSecretService) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
+	md, ok := m.secrets[uri.ID]
+	if ok {
+		return &md, nil
+	}
+	return nil, errors.NotFoundf("secret id %q", uri.ID)
+}
+
+func (m *mockSecretService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
+	return &mockSecretsWatcher{}, nil
 }

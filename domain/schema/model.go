@@ -23,7 +23,6 @@ const (
 	tableSecretRotation
 	tableSecretRevisionObsolete
 	tableSecretRevisionExpire
-	tableSecretRemoteUnitConsumerCurrentRevision
 )
 
 // ModelDDL is used to create model databases.
@@ -65,8 +64,6 @@ func ModelDDL() *schema.Schema {
 			"secret_revision", "uuid", "obsolete", tableSecretRevisionObsolete),
 		changeLogTriggersForTableOnColumn(
 			"secret_revision_expire", "revision_uuid", "expire_time", tableSecretRevisionExpire),
-		changeLogTriggersForTableOnColumn(
-			"secret_remote_unit_consumer", "uuid", "current_revision", tableSecretRemoteUnitConsumerCurrentRevision),
 
 		triggersForImmutableTable("model", "", "model table is immutable"),
 	)

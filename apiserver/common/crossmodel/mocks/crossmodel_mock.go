@@ -20,7 +20,6 @@ import (
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
 	permission "github.com/juju/juju/core/permission"
-	secrets "github.com/juju/juju/core/secrets"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
@@ -490,20 +489,6 @@ func (mr *MockBackendMockRecorder) RemoteApplication(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteApplication", reflect.TypeOf((*MockBackend)(nil).RemoteApplication), arg0)
 }
 
-// RemoveSecretConsumer mocks base method.
-func (m *MockBackend) RemoveSecretConsumer(arg0 names.Tag) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveSecretConsumer", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveSecretConsumer indicates an expected call of RemoveSecretConsumer.
-func (mr *MockBackendMockRecorder) RemoveSecretConsumer(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretConsumer", reflect.TypeOf((*MockBackend)(nil).RemoveSecretConsumer), arg0)
-}
-
 // SaveIngressNetworks mocks base method.
 func (m *MockBackend) SaveIngressNetworks(arg0 string, arg1 []string) (state.RelationNetworks, error) {
 	m.ctrl.T.Helper()
@@ -517,21 +502,6 @@ func (m *MockBackend) SaveIngressNetworks(arg0 string, arg1 []string) (state.Rel
 func (mr *MockBackendMockRecorder) SaveIngressNetworks(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveIngressNetworks", reflect.TypeOf((*MockBackend)(nil).SaveIngressNetworks), arg0, arg1)
-}
-
-// UpdateSecretConsumerOperation mocks base method.
-func (m *MockBackend) UpdateSecretConsumerOperation(arg0 *secrets.URI, arg1 int) (state.ModelOperation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSecretConsumerOperation", arg0, arg1)
-	ret0, _ := ret[0].(state.ModelOperation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateSecretConsumerOperation indicates an expected call of UpdateSecretConsumerOperation.
-func (mr *MockBackendMockRecorder) UpdateSecretConsumerOperation(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretConsumerOperation", reflect.TypeOf((*MockBackend)(nil).UpdateSecretConsumerOperation), arg0, arg1)
 }
 
 // UserPermission mocks base method.

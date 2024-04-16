@@ -544,8 +544,8 @@ type LatestSecretRevisionChanges struct {
 
 // SecretRevisionChange describes a secret revision change.
 type SecretRevisionChange struct {
-	URI      string `json:"uri"`
-	Revision int    `json:"revision"`
+	URI            string `json:"uri"`
+	LatestRevision int    `json:"revision"`
 }
 
 // SecretRevisionWatchResult holds a SecretRevisionWatcher id, baseline state

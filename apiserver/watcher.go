@@ -1406,8 +1406,8 @@ func (w *srvSecretsRevisionWatcher) translateChanges(ctx context.Context, change
 			return nil, errors.Trace(err)
 		}
 		result[i] = params.SecretRevisionChange{
-			URI:      uri.String(),
-			Revision: md.LatestRevision,
+			URI:            uri.String(),
+			LatestRevision: md.LatestRevision,
 		}
 	}
 	return result, nil

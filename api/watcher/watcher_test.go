@@ -598,8 +598,8 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
 		Results: []params.SecretRevisionWatchResult{{
 			WatcherId: watcherID,
 			Changes: []params.SecretRevisionChange{{
-				URI:      "secret:9m4e2mr0ui3e8a215n4g",
-				Revision: 666,
+				URI:            "secret:9m4e2mr0ui3e8a215n4g",
+				LatestRevision: 666,
 			}},
 		}},
 	}
@@ -638,8 +638,8 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
 		eventCh <- &params.SecretRevisionWatchResult{
 			WatcherId: watcherID,
 			Changes: []params.SecretRevisionChange{{
-				URI:      "secret:9m4e2mr0ui3e8a215n4g",
-				Revision: 667,
+				URI:            "secret:9m4e2mr0ui3e8a215n4g",
+				LatestRevision: 667,
 			}},
 		}
 	}()

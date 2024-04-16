@@ -335,8 +335,8 @@ func (c *Client) ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChan
 	}
 	for i, c := range changes {
 		args.Changes[i] = params.SecretRevisionChange{
-			URI:      c.URI.String(),
-			Revision: c.Revision,
+			URI:            c.URI.String(),
+			LatestRevision: c.Revision,
 		}
 	}
 	var results params.ErrorResults

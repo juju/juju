@@ -124,9 +124,22 @@ CREATE TABLE
     );
 
 CREATE TABLE
+    -- secret_reference stores details about
+    -- secrets hosted by another model and
+    -- is used on the consumer side of cross
+    -- model secrets.
+    secret_reference (
+        secret_id TEXT PRIMARY KEY,
+        latest_revision INT NOT NULL,
+        CONSTRAINT fk_secret_id
+            FOREIGN KEY (secret_id)
+            REFERENCES secret (id)
+    );
+
+CREATE TABLE
     secret_metadata (
         secret_id TEXT PRIMARY KEY,
-        version INT,
+        version INT NOT NULL,
         description TEXT,
         rotate_policy_id INT NOT NULL,
         auto_prune BOOLEAN NOT NULL DEFAULT (FALSE),
@@ -272,20 +285,20 @@ CREATE UNIQUE INDEX idx_secret_unit_consumer_secret_id_unit_uuid ON secret_unit_
 CREATE UNIQUE INDEX idx_secret_unit_consumer_label ON secret_unit_consumer (label,unit_uuid) WHERE label != '';
 
 CREATE TABLE
+    -- This table records the tracked revisions from
+    -- units in the consuming model for cross model secrets.
     secret_remote_unit_consumer (
-        uuid TEXT PRIMARY KEY,
         secret_id TEXT NOT NULL,
-        unit_uuid TEXT NOT NULL,
+        -- unit_id is the anonymised name of the unit
+        -- from the consuming model.
+        unit_id TEXT NOT NULL,
         current_revision INT NOT NULL,
         CONSTRAINT fk_secret_remote_unit_consumer_secret_metadata_id
             FOREIGN KEY (secret_id)
-            REFERENCES secret_metadata (secret_id),
-        CONSTRAINT fk_secret_remote_unit_consumer_unit_uuid
-            FOREIGN KEY (unit_uuid)
-            REFERENCES unit (uuid)
+            REFERENCES secret_metadata (secret_id)
     );
 
-CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_uuid ON secret_remote_unit_consumer (secret_id,unit_uuid);
+CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_id ON secret_remote_unit_consumer (secret_id,unit_id);
 
 CREATE TABLE
     secret_role (
