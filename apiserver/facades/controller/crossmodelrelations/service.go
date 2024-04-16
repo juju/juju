@@ -14,6 +14,5 @@ import (
 
 type SecretService interface {
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
-	RemoveRemoteSecretConsumer(ctx context.Context, unitName string) error
 	WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error)
 }

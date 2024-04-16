@@ -31,10 +31,7 @@ var (
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
-func PublishRelationChange(
-	ctx context.Context, auth authoriser, backend Backend, service SecretService,
-	relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent,
-) error {
+func PublishRelationChange(auth authoriser, backend Backend, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent) error {
 	logger.Debugf("publish into model %v change for %v on %v: %#v", backend.ModelUUID(), relationTag, applicationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
@@ -102,7 +99,7 @@ func PublishRelationChange(
 		}
 	}
 
-	if err := handleDepartedUnits(ctx, service, change, applicationTag, rel); err != nil {
+	if err := handleDepartedUnits(change, applicationTag, rel); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -183,7 +180,7 @@ func handleSuspendedRelation(auth authoriser, backend Backend, change params.Rem
 	return nil
 }
 
-func handleDepartedUnits(ctx context.Context, service SecretService, change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
+func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
 	for _, id := range change.DepartedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
 		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), rel.Tag().Id())
@@ -193,9 +190,6 @@ func handleDepartedUnits(ctx context.Context, service SecretService, change para
 		}
 		logger.Debugf("%s leaving scope", unitTag.Id())
 		if err := ru.LeaveScope(); err != nil {
-			return errors.Trace(err)
-		}
-		if err := service.RemoveRemoteSecretConsumer(ctx, unitTag.Id()); err != nil {
 			return errors.Trace(err)
 		}
 	}

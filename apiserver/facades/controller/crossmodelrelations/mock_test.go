@@ -728,7 +728,3 @@ func (m *mockSecretService) GetSecret(ctx context.Context, uri *coresecrets.URI)
 func (m *mockSecretService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
 	return &mockSecretsWatcher{}, nil
 }
-
-func (m *mockSecretService) RemoveRemoteSecretConsumer(ctx context.Context, unitName string) error {
-	return nil
-}

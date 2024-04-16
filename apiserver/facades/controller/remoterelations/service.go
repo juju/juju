@@ -13,5 +13,4 @@ import (
 
 type SecretService interface {
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
-	RemoveRemoteSecretConsumer(ctx context.Context, unitName string) error
 }

@@ -121,8 +121,3 @@ func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *s
 func (s *SecretService) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error {
 	return nil
 }
-
-// RemoveRemoteSecretConsumer removes the consumer records for any remote secret for the specified unit.
-func (s *SecretService) RemoveRemoteSecretConsumer(ctx context.Context, unitName string) error {
-	return nil
-}
