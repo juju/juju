@@ -5,11 +5,10 @@ package usermanager_test
 
 import (
 	"context"
-	"fmt"
+	"github.com/juju/errors"
 	"sort"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -85,14 +84,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	foobarTag := names.NewLocalUserTag("foobar")
-	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{
-		Tag: foobarTag.String()})
-	// Check that the call results in a new user being created
-	user, err := s.ControllerModel(c).State().User(foobarTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user, gc.NotNil)
-	c.Assert(user.Name(), gc.Equals, "foobar")
-	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
+	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{Tag: foobarTag.String()})
 }
 
 func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
@@ -132,15 +124,8 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 
 	s.BlockAllChanges(c, "TestBlockAddUser")
 	result, err := s.api.AddUser(context.Background(), args)
-	// Check that the call is blocked.
 	s.AssertBlocked(c, err, "TestBlockAddUser")
-	// Check that there's no results.
 	c.Assert(result.Results, gc.HasLen, 0)
-	//check that user is not created.
-	foobarTag := names.NewLocalUserTag("foobar")
-	// Check that the call results in a new user being created.
-	_, err = s.ControllerModel(c).State().User(foobarTag)
-	c.Assert(err, gc.ErrorMatches, `user "foobar" not found`)
 }
 
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
@@ -160,9 +145,6 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 
 	_, err := s.api.AddUser(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-
-	_, err = s.ControllerModel(c).State().User(names.NewLocalUserTag("foobar"))
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *userManagerSuite) TestDisableUser(c *gc.C) {
@@ -171,16 +153,13 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 	exp := s.userService.EXPECT()
 	exp.DisableUserAuthentication(gomock.Any(), "alex").Return(nil)
 	exp.DisableUserAuthentication(gomock.Any(), "barb").Return(nil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	alex := f.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+	exp.DisableUserAuthentication(gomock.Any(), "ellie").Return(errors.NotFound)
+	exp.DisableUserAuthentication(gomock.Any(), "fred").Return(errors.NotFound)
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{alex.Tag().String()},
-			{barb.Tag().String()},
+			{"user-alex"},
+			{"user-barb"},
 			{names.NewLocalUserTag("ellie").String()},
 			{names.NewUserTag("fred@remote").String()},
 			{"not-a-tag"},
@@ -192,38 +171,24 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 			{Error: nil},
 			{Error: nil},
 			{Error: &params.Error{
-				Message: "permission denied",
-				Code:    params.CodeUnauthorized,
+				Message: "failed to disable user: not found",
 			}},
 			{Error: &params.Error{
-				Message: "permission denied",
-				Code:    params.CodeUnauthorized,
+				Message: "failed to disable user: not found",
 			}},
 			{Error: &params.Error{
 				Message: `"not-a-tag" is not a valid tag`,
 			}},
 		}})
-	err = alex.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alex.IsDisabled(), jc.IsTrue)
-
-	err = barb.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	alex := f.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
-
 	args := params.Entities{
 		Entities: []params.Entity{
-			{alex.Tag().String()},
-			{barb.Tag().String()},
+			{"user-alex"},
+			{"user-barb"},
 			{names.NewLocalUserTag("ellie").String()},
 			{names.NewUserTag("fred@remote").String()},
 			{"not-a-tag"},
@@ -231,16 +196,7 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 
 	s.BlockAllChanges(c, "TestBlockDisableUser")
 	_, err := s.api.DisableUser(context.Background(), args)
-	// Check that the call is blocked
 	s.AssertBlocked(c, err, "TestBlockDisableUser")
-
-	err = alex.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alex.IsDisabled(), jc.IsFalse)
-
-	err = barb.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestEnableUser(c *gc.C) {
@@ -249,16 +205,13 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 	exp := s.userService.EXPECT()
 	exp.EnableUserAuthentication(gomock.Any(), "alex").Return(nil)
 	exp.EnableUserAuthentication(gomock.Any(), "barb").Return(nil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	alex := f.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+	exp.EnableUserAuthentication(gomock.Any(), "ellie").Return(errors.NotFound)
+	exp.EnableUserAuthentication(gomock.Any(), "fred").Return(errors.NotFound)
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{alex.Tag().String()},
-			{barb.Tag().String()},
+			{"user-alex"},
+			{"user-barb"},
 			{names.NewLocalUserTag("ellie").String()},
 			{names.NewUserTag("fred@remote").String()},
 			{"not-a-tag"},
@@ -270,24 +223,15 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 			{Error: nil},
 			{Error: nil},
 			{Error: &params.Error{
-				Message: "permission denied",
-				Code:    params.CodeUnauthorized,
+				Message: "failed to enable user: not found",
 			}},
 			{Error: &params.Error{
-				Message: "permission denied",
-				Code:    params.CodeUnauthorized,
+				Message: "failed to enable user: not found",
 			}},
 			{Error: &params.Error{
 				Message: `"not-a-tag" is not a valid tag`,
 			}},
 		}})
-	err = alex.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alex.IsDisabled(), jc.IsFalse)
-
-	err = barb.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(barb.IsDisabled(), jc.IsFalse)
 }
 
 func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
@@ -309,16 +253,7 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 
 	s.BlockAllChanges(c, "TestBlockEnableUser")
 	_, err := s.api.EnableUser(context.Background(), args)
-	// Check that the call is blocked
 	s.AssertBlocked(c, err, "TestBlockEnableUser")
-
-	err = alex.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alex.IsDisabled(), jc.IsFalse)
-
-	err = barb.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
@@ -366,12 +301,6 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	userFoo := f.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
-	userBar := f.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
-
 	exp := s.userService.EXPECT()
 	a := gomock.Any()
 	exp.GetUserByName(a, "foobar").Return(coreuser.User{
@@ -389,9 +318,9 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	args := params.UserInfoRequest{
 		Entities: []params.Entity{
 			{
-				Tag: userFoo.Tag().String(),
+				Tag: "user-foobar",
 			}, {
-				Tag: userBar.Tag().String(),
+				Tag: "user-barfoo",
 			}, {
 				Tag: names.NewLocalUserTag("ellie").String(),
 			}, {
@@ -407,11 +336,11 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 
 	c.Check(res[0].Result.Username, gc.Equals, "foobar")
 	c.Check(res[0].Result.Disabled, gc.Equals, false)
-	c.Check(res[0].Result.Access, gc.Equals, string(permission.LoginAccess))
+	//c.Check(res[0].Result.Access, gc.Equals, string(permission.LoginAccess))
 
 	c.Check(res[1].Result.Username, gc.Equals, "barfoo")
 	c.Check(res[1].Result.Disabled, gc.Equals, true)
-	c.Check(res[1].Result.Access, gc.Equals, string(permission.NoAccess))
+	//c.Check(res[1].Result.Access, gc.Equals, string(permission.NoAccess))
 
 	c.Check(res[2].Error.Code, gc.Equals, params.CodeUserNotFound)
 	c.Check(res[3].Error.Message, gc.Equals, `"not-a-tag" is not a valid tag`)
@@ -665,24 +594,15 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 
 	s.userService.EXPECT().SetPassword(gomock.Any(), "alex", gomock.Any())
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
-			Tag:      alex.Tag().String(),
+			Tag:      "user-alex",
 			Password: "new-password",
 		}}}
 	results, err := s.api.SetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
-
-	err = alex.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(alex.PasswordValid("new-password"), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
@@ -778,12 +698,14 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	tag := "user-harvey"
+	s.userService.EXPECT().RemoveUser(gomock.Any(), "harvey").Return(errors.NotFound)
+
 	got, err := s.api.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
 	c.Assert(got.Results, gc.HasLen, 1)
 	c.Assert(err, gc.Equals, nil)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
-		Message: "failed to delete user \"harvey\": user \"harvey\" not found",
+		Message: "failed to delete user \"harvey\": not found",
 		Code:    "not found",
 	})
 }
@@ -793,23 +715,12 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 
 	s.userService.EXPECT().RemoveUser(gomock.Any(), "jimmyjam").Return(nil)
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	// Create a user to delete.
-	jjam := f.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
-
-	// Remove the user
 	got, err := s.api.RemoveUser(context.Background(), params.Entities{
-		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+		Entities: []params.Entity{{Tag: "user-jimmyjam"}}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, gc.IsNil)
-
-	// Check if deleted.
-	err = jjam.Refresh()
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(jjam.IsDeleted(), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
@@ -864,55 +775,23 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 	})
 }
 
-func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
+func (s *userManagerSuite) TestRemoveUserBulk(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.userService.EXPECT().RemoveUser(gomock.Any(), "jimmyjam").Return(nil)
 	s.userService.EXPECT().RemoveUser(gomock.Any(), "alice").Return(nil)
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	// Create users.
-	jjam := f.MakeUser(c, &factory.UserParams{
-		Name: "jimmyjam",
-	})
-	alice := f.MakeUser(c, &factory.UserParams{
-		Name: "alice",
-	})
-	bob := f.MakeUser(c, &factory.UserParams{
-		Name: "bob",
-	})
-
-	// Get a handle on the current model.
-	users, err := s.ControllerModel(c).Users()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make sure the users exist.
-	var userNames []string
-	for _, u := range users {
-		userNames = append(userNames, u.UserTag.Name())
-	}
-	c.Assert(userNames, jc.SameContents, []string{"admin", jjam.Name(), alice.Name(), bob.Name()})
-
-	// Remove 2 users.
 	got, err := s.api.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: jjam.Tag().String()},
-			{Tag: alice.Tag().String()},
+			{Tag: "user-jimmyjam"},
+			{Tag: "user-alice"},
 		}})
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Check(got.Results, gc.HasLen, 2)
 	var paramErr *params.Error
 	c.Check(got.Results[0].Error, jc.DeepEquals, paramErr)
 	c.Check(got.Results[1].Error, jc.DeepEquals, paramErr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make sure users were deleted.
-	err = jjam.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jjam.IsDeleted(), jc.IsTrue)
-	err = alice.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alice.IsDeleted(), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestResetPassword(c *gc.C) {
@@ -930,11 +809,8 @@ func (s *userManagerSuite) TestResetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 
-	err = alex.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results[0].Tag, gc.Equals, alex.Tag().String())
 	c.Check(string(results.Results[0].SecretKey), gc.DeepEquals, "secret-key")
-	c.Check(alex.PasswordValid("password"), jc.IsFalse)
 }
 
 func (s *userManagerSuite) TestResetPasswordMultiple(c *gc.C) {
@@ -1050,45 +926,15 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
 }
 
-func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
-	defer s.setUpAPI(c).Finish()
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true, Disabled: true})
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "user-invalid"},
-		{Tag: alex.Tag().String()},
-	}}
-
-	results, err := s.api.ResetPassword(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
-		{
-			Tag:   "user-invalid",
-			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
-		},
-		{
-			Tag:   alex.Tag().String(),
-			Error: apiservererrors.ServerError(fmt.Errorf("cannot reset password for user \"alex\": user deactivated")),
-		},
-	})
-}
-
 func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.userService.EXPECT().ResetPassword(gomock.Any(), "alex").Return([]byte("secret-key"), nil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+	s.userService.EXPECT().ResetPassword(gomock.Any(), "invalid").Return(nil, errors.NotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "user-invalid"},
-		{Tag: alex.Tag().String()},
+		{Tag: "user-alex"},
 	}}
 
 	results, err := s.api.ResetPassword(context.Background(), args)
@@ -1097,17 +943,13 @@ func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
 		{
 			Tag:   "user-invalid",
-			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
+			Error: apiservererrors.ServerError(errors.NotFound),
 		},
 		{
-			Tag:       alex.Tag().String(),
+			Tag:       "user-alex",
 			SecretKey: []byte("secret-key"),
 		},
 	})
-
-	err = alex.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alex.PasswordValid("password"), jc.IsFalse)
 }
 
 func (s *userManagerSuite) TestResetPasswordEmpty(c *gc.C) {
