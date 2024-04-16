@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -278,11 +279,17 @@ func (s *Stream) loop() error {
 			// time between now and the pruning of the change log.
 			// The addition of a witness_at timestamp allows us to see how
 			// far each controller is behind the current time.
-			if err := s.updateWatermark(); err != nil {
+			if err := s.updateWatermark(); errors.Is(err, coredatabase.ErrDBDead) {
+				// If the database is dead, then we should just return and
+				// let the worker die.
+				return errors.Trace(err)
+			} else if err != nil {
 				s.logger.Infof("failed to record last ID: %v", err)
 			}
 
-			watermarkTimer.Reset(defaultWatermarkInterval)
+			// Jitter the watermark interval to prevent all workers from
+			// polling the database at the same time.
+			watermarkTimer.Reset(jitter(defaultWatermarkInterval, 0.1))
 
 		default:
 
@@ -670,4 +677,11 @@ func (s *Stream) reportInternalState(state string) {
 	case s.internalStates <- state:
 	default:
 	}
+}
+
+// jitter returns a duration that is the input interval with a random factor
+// applied to it. This prevents all workers from polling the database at the
+// same time.
+func jitter(interval time.Duration, factor float64) time.Duration {
+	return time.Duration(float64(interval) * (1 + factor*(2*rand.Float64()-1)))
 }

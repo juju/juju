@@ -17,6 +17,10 @@ const (
 	// This error indicates to consuming workers that their dependency has
 	// become unmet and a restart by the dependency engine is imminent.
 	ErrDBAccessorDying = errors.ConstError("db-accessor worker is dying")
+
+	// ErrDBDead is used to indicate that the database is dead and should no
+	// longer be used.
+	ErrDBDead = errors.ConstError("database is dead")
 )
 
 // DBGetter describes the ability to supply a transaction runner

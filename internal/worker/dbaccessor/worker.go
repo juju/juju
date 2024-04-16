@@ -225,11 +225,19 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 			// that case we do want to cause the dbaccessor to go down. This
 			// will then bring up a new dqlite app.
 			IsFatal: func(err error) bool {
+				// If a database is dead we should not kill the worker.
+				if errors.Is(err, database.ErrDBDead) {
+					return false
+				}
+
 				// If there is a rebind during starting up a worker the dbApp
 				// will be nil. In this case, we'll return ErrTryAgain. In this
 				// case we don't want to kill the worker. We'll force the
 				// worker to try again.
 				return !errors.Is(err, errTryAgain)
+			},
+			ShouldRestart: func(err error) bool {
+				return !errors.Is(err, database.ErrDBDead)
 			},
 			RestartDelay: time.Second * 10,
 			Logger:       cfg.Logger,
@@ -313,16 +321,6 @@ func (w *dbWorker) loop() (err error) {
 					continue
 				}
 			} else if req.op == delOp {
-				// Close the database for the namespace.
-				if err := w.closeDatabase(req.namespace); err != nil {
-					select {
-					case req.done <- errors.Annotatef(err, "closing database for namespace %q", req.namespace):
-					case <-w.catacomb.Dying():
-						return w.catacomb.ErrDying()
-					}
-					continue
-				}
-
 				if err := w.deleteDatabase(req.namespace); err != nil {
 					select {
 					case req.done <- errors.Annotatef(err, "deleting database for namespace %q", req.namespace):
@@ -688,20 +686,9 @@ func (w *dbWorker) openDatabase(namespace string) error {
 	return errors.Trace(err)
 }
 
-func (w *dbWorker) closeDatabase(namespace string) error {
-	if namespace == database.ControllerNS {
-		return errors.Forbiddenf("cannot close controller database")
-	}
-
-	// Stop and remove the worker.
-	// This will wait for the worker to stop, which will potentially block
-	// any requests to access a new db. This should be ok, as there isn't
-	// currently any heavy loop logic in the model workers.
-	if err := w.dbRunner.StopAndRemoveWorker(namespace, w.catacomb.Dying()); err != nil {
-		return errors.Annotatef(err, "stopping worker")
-	}
-
-	return nil
+type killableWorker interface {
+	worker.Worker
+	KillWithReason(error)
 }
 
 func (w *dbWorker) deleteDatabase(namespace string) error {
@@ -714,6 +701,25 @@ func (w *dbWorker) deleteDatabase(namespace string) error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
+	worker, err := w.workerFromCache(namespace)
+	if err != nil {
+		return errors.Trace(err)
+	} else if worker == nil {
+		return errors.NotFoundf("worker for namespace %q", namespace)
+	}
+
+	killable, ok := worker.(killableWorker)
+	if !ok {
+		return errors.Errorf("worker for namespace %q is not killable", namespace)
+	}
+
+	// Kill the worker and wait for it to die.
+	killable.KillWithReason(database.ErrDBDead)
+	if err := killable.Wait(); err != nil && !errors.Is(err, database.ErrDBDead) {
+		return errors.Annotatef(err, "waiting for worker to die")
+	}
+
+	// Open the database as we don't
 	db, err := w.dbApp.Open(ctx, namespace)
 	if err != nil {
 		return errors.Annotatef(err, "opening database for deletion")

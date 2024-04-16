@@ -199,7 +199,7 @@ func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
 
 func (s *integrationSuite) TestWorkerDeletingControllerDB(c *gc.C) {
 	err := s.dbDeleter.DeleteDB(coredatabase.ControllerNS)
-	c.Assert(err, gc.ErrorMatches, `.*cannot close controller database`)
+	c.Assert(err, gc.ErrorMatches, `.*cannot delete controller database`)
 }
 
 func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {

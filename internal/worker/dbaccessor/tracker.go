@@ -234,6 +234,11 @@ func (w *trackedDBWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
+// KillWithReason kills the worker with a particular reason.
+func (w *trackedDBWorker) KillWithReason(reason error) {
+	w.tomb.Kill(reason)
+}
+
 // Wait implements worker.Worker
 func (w *trackedDBWorker) Wait() error {
 	return w.tomb.Wait()

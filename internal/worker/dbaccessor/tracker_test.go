@@ -21,6 +21,9 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+// Ensure that the trackedDBWorker is a killableWorker.
+var _ killableWorker = (*trackedDBWorker)(nil)
+
 type trackedDBWorkerSuite struct {
 	dbBaseSuite
 

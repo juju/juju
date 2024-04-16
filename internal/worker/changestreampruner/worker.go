@@ -183,6 +183,11 @@ func (w *Pruner) prune() (map[string]int64, error) {
 
 		p, err := w.pruneModel(ctx, mn.Namespace)
 		if err != nil {
+			// If the database is dead, continue on to the next model, as we
+			// don't want to kill the worker.
+			if errors.Is(err, coredatabase.ErrDBDead) {
+				continue
+			}
 			// If there is an error, continue on to the next model, as we don't
 			// want to kill the worker.
 			w.cfg.Logger.Infof("Error pruning model %q: %v", mn.UUID, err)
