@@ -285,8 +285,12 @@ CREATE UNIQUE INDEX idx_secret_unit_consumer_secret_id_unit_uuid ON secret_unit_
 CREATE UNIQUE INDEX idx_secret_unit_consumer_label ON secret_unit_consumer (label,unit_uuid) WHERE label != '';
 
 CREATE TABLE
+    -- This table records the tracked revisions from
+    -- units in the consuming model for cross model secrets.
     secret_remote_unit_consumer (
         secret_id TEXT NOT NULL,
+        -- unit_id is the anonymised name of the unit
+        -- from the consuming model.
         unit_id TEXT NOT NULL,
         current_revision INT NOT NULL,
         CONSTRAINT fk_secret_remote_unit_consumer_secret_metadata_id
