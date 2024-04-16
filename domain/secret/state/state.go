@@ -1519,14 +1519,14 @@ func (st State) checkExistsIfLocal(ctx context.Context, tx *sqlair.TX, uri *core
 	query := `
 WITH local AS
     (SELECT 'local' AS is_local FROM secret_metadata sm
-    WHERE 
-        (EXISTS (SELECT uuid FROM model WHERE uuid = $secretRef.source_uuid) OR $secretRef.source_uuid = '')
-        AND sm.secret_id = $secretRef.secret_id),
+WHERE
+       sm.secret_id = $secretRef.secret_id
+AND
+       $secretRef.source_uuid = '' OR
+       $secretRef.source_uuid = (SELECT uuid FROM model)),
 remote AS
     (SELECT 'remote' AS is_local FROM model
-     WHERE
-         NOT EXISTS (SELECT uuid FROM model WHERE uuid = $secretRef.source_uuid) AND $secretRef.source_uuid <> ''
-    )
+     WHERE $secretRef.source_uuid <> '' AND uuid <> $secretRef.source_uuid)
 SELECT is_local as &M.is_local 
 FROM (SELECT * FROM local UNION SELECT * FROM remote)
 `
@@ -1543,9 +1543,8 @@ FROM (SELECT * FROM local UNION SELECT * FROM remote)
 	}
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, secreterrors.SecretNotFound
-	} else {
-		return false, errors.Annotatef(err, "looking up secret URI %q", uri)
 	}
+	return false, errors.Annotatef(err, "looking up secret URI %q", uri)
 }
 
 // GetSecretConsumer returns the secret consumer info for the specified unit and secret, along with
@@ -1769,7 +1768,7 @@ WHERE rev.secret_id = $secretInfo.secret_id`
 
 		err = tx.Query(ctx, queryStmt, consumer).GetAll(&dbSecretConsumers)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotate(err, "querying secret consumers")
+			return errors.Annotatef(err, "querying secret consumer info for secret %q and unit %q", uri, unitName)
 		}
 
 		result := secretInfo{ID: uri.ID}
