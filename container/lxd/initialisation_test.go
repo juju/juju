@@ -171,7 +171,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 }
 
 func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
-	PatchHostSeries(s, "")
+	PatchHostSeries(s, "jammy")
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

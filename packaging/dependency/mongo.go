@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/packaging"
 )
 
@@ -24,29 +25,28 @@ func Mongo(snapChannel string) packaging.Dependency {
 }
 
 // PackageList implements packaging.Dependency.
-func (dep mongoDependency) PackageList(series string) ([]packaging.Package, error) {
+func (dep mongoDependency) PackageList(b base.Base) ([]packaging.Package, error) {
+	if b.OS != ubuntu {
+		return nil, errors.NotSupportedf("installing mongo on base %q", b)
+	}
+
 	var (
 		snapList []packaging.Package
 		pm       = packaging.AptPackageManager
 	)
 
-	switch series {
-	case "centos7":
-		return nil, errors.NotSupportedf("installing mongo on series %q", series)
-	default:
-		if dep.snapChannel == "" {
-			return nil, errors.NotValidf("snap channel for mongo dependency")
-		}
-
-		snapList = append(
-			snapList,
-			packaging.Package{
-				Name:           "juju-db",
-				InstallOptions: fmt.Sprintf("--channel %s", dep.snapChannel),
-				PackageManager: packaging.SnapPackageManager,
-			},
-		)
+	if dep.snapChannel == "" {
+		return nil, errors.NotValidf("snap channel for mongo dependency")
 	}
+
+	snapList = append(
+		snapList,
+		packaging.Package{
+			Name:           "juju-db",
+			InstallOptions: fmt.Sprintf("--channel %s", dep.snapChannel),
+			PackageManager: packaging.SnapPackageManager,
+		},
+	)
 
 	return append(
 		packaging.MakePackageList(pm, ""),

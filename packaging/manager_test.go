@@ -7,6 +7,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/packaging"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -23,7 +24,7 @@ func (s *DependencyManagerTestSuite) SetUpTest(c *gc.C) {
 
 func (s *DependencyManagerTestSuite) TestInstallWithCentos(c *gc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
-		series:       "centos7",
+		base:         base.MustParseBaseFromString("centos@7"),
 		pkg:          "foo",
 		pm:           packaging.YumPackageManager,
 		expPkgBinary: "yum",
@@ -35,7 +36,7 @@ func (s *DependencyManagerTestSuite) TestInstallWithCentos(c *gc.C) {
 
 func (s *DependencyManagerTestSuite) TestInstallWithAptOnJammy(c *gc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
-		series:       "jammy",
+		base:         base.MustParseBaseFromString("ubuntu@22.04"),
 		pkg:          "lxd",
 		pm:           packaging.AptPackageManager,
 		expPkgBinary: "apt-get",
@@ -50,7 +51,7 @@ func (s *DependencyManagerTestSuite) TestInstallWithAptOnJammy(c *gc.C) {
 
 func (s *DependencyManagerTestSuite) TestInstallWithAptOnBionic(c *gc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
-		series:       "bionic",
+		base:         base.MustParseBaseFromString("ubuntu@18.04"),
 		pkg:          "lxd",
 		pm:           packaging.AptPackageManager,
 		expPkgBinary: "apt-get",
@@ -64,7 +65,7 @@ func (s *DependencyManagerTestSuite) TestInstallWithAptOnBionic(c *gc.C) {
 
 func (s *DependencyManagerTestSuite) TestInstallWithSnapOnDisco(c *gc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
-		series:       "disco",
+		base:         base.MustParseBaseFromString("ubuntu@18.10"),
 		pkg:          "foo",
 		pm:           packaging.SnapPackageManager,
 		expPkgBinary: "snap", // cosmic and beyond default to snap
@@ -75,7 +76,7 @@ func (s *DependencyManagerTestSuite) TestInstallWithSnapOnDisco(c *gc.C) {
 }
 
 type assertParams struct {
-	series       string
+	base         base.Base
 	pkg          string
 	pm           packaging.PackageManagerName
 	expPkgBinary string
@@ -87,7 +88,7 @@ func (s *DependencyManagerTestSuite) assertInstallCallsCorrectBinary(c *gc.C, pa
 
 	err := packaging.InstallDependency(fakeDep{
 		pkgs: packaging.MakePackageList(params.pm, "", params.pkg),
-	}, params.series)
+	}, params.base)
 	c.Assert(err, gc.IsNil)
 	testing.AssertEchoArgs(c, params.expPkgBinary, params.expArgs...)
 }
@@ -96,6 +97,6 @@ type fakeDep struct {
 	pkgs []packaging.Package
 }
 
-func (f fakeDep) PackageList(_ string) ([]packaging.Package, error) {
+func (f fakeDep) PackageList(_ base.Base) ([]packaging.Package, error) {
 	return f.pkgs, nil
 }

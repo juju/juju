@@ -11,6 +11,7 @@ import (
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
@@ -48,9 +49,13 @@ func ensureDependencies() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	hostBase, err := base.GetBaseFromSeries(hostSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	dep := dependency.KVM(runtime.GOARCH)
-	if err = packaging.InstallDependency(dep, hostSeries); err != nil {
+	if err = packaging.InstallDependency(dep, hostBase); err != nil {
 		return errors.Trace(err)
 	}
 
