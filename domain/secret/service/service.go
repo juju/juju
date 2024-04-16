@@ -40,6 +40,9 @@ type State interface {
 	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
 	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
+	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
+	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
 }
 
 // Logger facilitates emitting log messages.
