@@ -634,13 +634,13 @@ type DefaultConstraintsChecker interface {
 // provide advance information about the series and hardware for controller
 // instances that have not been provisioned yet.
 type HardwareCharacteristicsDetector interface {
-	// DetectSeries returns the series for the controller instance.
-	DetectSeries() (string, error)
+	// DetectBase returns the base for the controller instance.
+	DetectBase() (corebase.Base, error)
 	// DetectHardware returns the hardware characteristics for the
 	// controller instance.
 	DetectHardware() (*instance.HardwareCharacteristics, error)
 	// UpdateModelConstraints returns true if the model constraints should
-	// be updated based on the returns of DetectSeries() and
+	// be updated based on the returns of DetectBase() and
 	// DetectHardware().
 	UpdateModelConstraints() bool
 }
