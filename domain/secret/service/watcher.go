@@ -142,7 +142,7 @@ func (w *obsoleteRevisionWatcher) loop() (err error) {
 			w.logger.Debugf("received obsolete revision changes: %v", revisionUUIDs)
 
 			var err error
-			changes, err = w.processChanges(ctx, revisionUUIDs...)
+			changes, err = w.processChanges(ctx, w.appOwners, w.unitOwners, revisionUUIDs...)
 			if err != nil {
 				return errors.Trace(err)
 			}

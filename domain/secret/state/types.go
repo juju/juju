@@ -270,9 +270,14 @@ func (rows secretUnitConsumers) toSecretConsumers() ([]*coresecrets.SecretConsum
 	return result, nil
 }
 
+type obsoleteDBArg struct {
+	RevisionUUIDs []string `db:"revision_uuids"`
+	Owners        []string `db:"owners"`
+}
+
 type obsoleteRevisionRow struct {
-	SecretID     string `db:"secret_id"`
-	RevisionUUID string `db:"revision_uuid"`
+	SecretID string `db:"secret_id"`
+	Revision string `db:"revision"`
 }
 
 type obsoleteRevisionRows []obsoleteRevisionRow
@@ -280,7 +285,7 @@ type obsoleteRevisionRows []obsoleteRevisionRow
 func (rows obsoleteRevisionRows) toRevIDs() []string {
 	result := make([]string, len(rows))
 	for i, row := range rows {
-		result[i] = fmt.Sprintf("%s/%s", row.SecretID, row.RevisionUUID)
+		result[i] = fmt.Sprintf("%s/%s", row.SecretID, row.Revision)
 	}
 	return result
 }
