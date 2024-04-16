@@ -97,7 +97,7 @@ func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) 
 	return spaces, nil
 }
 
-// Remove deletes a space identified by its uuid.
+// RemoveSpace deletes a space identified by its uuid.
 func (s *Service) RemoveSpace(ctx context.Context, uuid string) error {
 	return errors.Trace(s.st.DeleteSpace(ctx, uuid))
 }
@@ -119,9 +119,8 @@ func NewProviderService(st State, provider providertracker.ProviderGetter[Provid
 	}
 }
 
-// ReloadSpaces loads spaces and subnets from provider specified by environ into state.
-// Currently it's an append-only operation, no spaces/subnets are deleted.
-func (s *ProviderService) ReloadSpaces(ctx context.Context, constraintsGetter ConstraintsBySpaceNameGetter, fanConfig network.FanConfig) error {
+// ReloadSpaces loads spaces and subnets from the provider into state.
+func (s *ProviderService) ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error {
 	callContext := envcontext.WithoutCredentialInvalidator(ctx)
 	networkProvider, err := s.provider(ctx)
 	if errors.Is(err, errors.NotSupported) {
@@ -143,7 +142,7 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context, constraintsGetter Co
 
 		s.Service.logger.Infof("discovered spaces: %s", spaces.String())
 
-		providerSpaces := NewProviderSpaces(s, constraintsGetter, s.logger)
+		providerSpaces := NewProviderSpaces(s, s.logger)
 		if err := providerSpaces.saveSpaces(ctx, spaces, fanConfig); err != nil {
 			return errors.Trace(err)
 		}
@@ -244,30 +243,22 @@ func generateFanSubnetID(subnetNetwork, providerID string) string {
 	return fmt.Sprintf("%s-%s-%s", providerID, network.InFan, subnetWithDashes)
 }
 
-// ConstraintsBySpaceNameGetter is the type alias for the closure that
-// retrieves the constraints from the legacy state, needed to check if a space
-// can be safely deleted. The return type is []any because we don't care about
-// what the constraints are, only if they exist or not.
-type ConstraintsBySpaceNameGetter func(spaceName string) ([]any, error)
-
 // ProviderSpaces defines a set of operations to perform when dealing with
 // provider spaces. SaveSpaces, DeleteSpaces are operations for setting state
 // in the persistence layer.
 type ProviderSpaces struct {
-	modelSpaceMap     map[network.Id]network.SpaceInfo
-	updatedSpaces     network.IDSet
-	spaceService      *ProviderService
-	constraintsGetter ConstraintsBySpaceNameGetter
-	logger            Logger
+	modelSpaceMap map[network.Id]network.SpaceInfo
+	updatedSpaces network.IDSet
+	spaceService  *ProviderService
+	logger        Logger
 }
 
 // NewProviderSpaces creates a new ProviderSpaces to perform a series of
 // operations.
-func NewProviderSpaces(spaceService *ProviderService, constraintsGetter ConstraintsBySpaceNameGetter, logger Logger) *ProviderSpaces {
+func NewProviderSpaces(spaceService *ProviderService, logger Logger) *ProviderSpaces {
 	return &ProviderSpaces{
-		spaceService:      spaceService,
-		logger:            logger,
-		constraintsGetter: constraintsGetter,
+		spaceService: spaceService,
+		logger:       logger,
 
 		modelSpaceMap: make(map[network.Id]network.SpaceInfo),
 		updatedSpaces: network.MakeIDSet(),
@@ -389,13 +380,11 @@ func (s *ProviderSpaces) deleteSpaces(ctx context.Context) ([]string, error) {
 		// Check all endpoint bindings found within a model. If they reference
 		// a space name, then ignore then space for removal.
 
+		// TODO(nvinuesa): This check is removed. We are going to handle
+		// this validation by referential integrity (between spaces and
+		// constraints).
 		// Check to see if any space is within any constraints, if they are,
 		// ignore them for now.
-		if constraints, err := s.constraintsGetter(string(space.Name)); err != nil || len(constraints) > 0 {
-			warning := fmt.Sprintf("Unable to delete space %q. Space is used in a constraint.", space.Name)
-			warnings = append(warnings, warning)
-			continue
-		}
 
 		if err := s.spaceService.RemoveSpace(ctx, space.ID); err != nil {
 			return warnings, errors.Trace(err)

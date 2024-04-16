@@ -377,11 +377,8 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	s.logger.EXPECT().Debugf("environ does not support space discovery, falling back to subnet discovery")
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
 
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		return nil, nil
-	}
 	err := NewProviderService(s.st, s.providerGetter, s.logger).
-		ReloadSpaces(context.Background(), constraintsGetter, nil)
+		ReloadSpaces(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -398,11 +395,8 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 	s.logger.EXPECT().Debugf("environ does not support space discovery, falling back to subnet discovery")
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets).Return(errors.New("boom"))
 
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		return nil, nil
-	}
 	err := NewProviderService(s.st, s.providerGetter, s.logger).
-		ReloadSpaces(context.Background(), constraintsGetter, nil)
+		ReloadSpaces(context.Background(), nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -413,7 +407,7 @@ func (s *spaceSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
 		return nil, errors.NotSupported
 	}
 	err := NewProviderService(s.st, providerGetterFails, s.logger).
-		ReloadSpaces(context.Background(), nil, nil)
+		ReloadSpaces(context.Background(), nil)
 
 	c.Assert(err, gc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
 }
@@ -442,10 +436,7 @@ func (s *spaceSuite) TestSaveProviderSpaces(c *gc.C) {
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	fanConfig, err := network.ParseFanConfig("10.100.0.0/16=253.0.0.0/8")
 	c.Assert(err, jc.ErrorIsNil)
 	err = provider.saveSpaces(context.Background(), spaces, fanConfig)
@@ -486,10 +477,7 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *gc.C) {
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	fanConfig, err := network.ParseFanConfig("10.100.0.0/16=253.0.0.0/8")
 	c.Assert(err, jc.ErrorIsNil)
 	err = provider.saveSpaces(context.Background(), spaces, fanConfig)
@@ -509,10 +497,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpaces(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	c.Assert(provider.deltaSpaces(), gc.DeepEquals, network.MakeIDSet())
 }
 
@@ -542,10 +527,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpacesAfterNotUpdated(c *gc.C) {
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	fanConfig, err := network.ParseFanConfig("10.100.0.0/16=253.0.0.0/8")
 	c.Assert(err, jc.ErrorIsNil)
 	err = provider.saveSpaces(context.Background(), spaces, fanConfig)
@@ -557,10 +539,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesWithNoDeltas(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	warnings, err := provider.deleteSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string(nil))
@@ -572,11 +551,7 @@ func (s *spaceSuite) TestDeleteProviderSpaces(c *gc.C) {
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "1")
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		c.Check(spaceName, gc.Equals, "1")
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:         "1",
@@ -594,11 +569,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesAlphaSpace(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		c.Check(spaceName, gc.Equals, "1")
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -619,11 +590,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesDefaultBindingSpace(c *gc.C)
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		c.Check(spaceName, gc.Equals, "1")
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -639,14 +606,12 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesDefaultBindingSpace(c *gc.C)
 }
 
 func (s *spaceSuite) TestDeleteProviderSpacesContainsConstraintsSpace(c *gc.C) {
+	c.Skip("The check on spaces used in constraints before deleting has been removed until constraints are moved to dqlite.")
+
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		c.Check(spaceName, gc.Equals, "1")
-		return []any{"some constraint"}, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -693,11 +658,7 @@ func (s *spaceSuite) TestProviderSpacesRun(c *gc.C) {
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "1")
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
-	constraintsGetter := func(spaceName string) ([]any, error) {
-		c.Check(spaceName, gc.Equals, "space1")
-		return nil, nil
-	}
-	provider := NewProviderSpaces(providerService, constraintsGetter, s.logger)
+	provider := NewProviderSpaces(providerService, s.logger)
 	fanConfig, err := network.ParseFanConfig("10.100.0.0/16=253.0.0.0/8")
 	c.Assert(err, jc.ErrorIsNil)
 	err = provider.saveSpaces(context.Background(), spaces, fanConfig)
