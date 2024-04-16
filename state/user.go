@@ -9,7 +9,6 @@
 package state
 
 import (
-	"crypto/rand"
 	"fmt"
 	"strings"
 	"time"
@@ -48,11 +47,7 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 // The new user will not have a password. A password must be set, clearing the
 // secret key in the process, before the user can login normally.
 func (st *State) AddUserWithSecretKey(name, displayName, creator string) (*User, error) {
-	secretKey, err := generateSecretKey()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st.addUser(name, displayName, "", creator, secretKey)
+	return st.addUser(name, displayName, "", creator, []byte("big-secret"))
 }
 
 func (st *State) addUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
@@ -354,9 +349,8 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 
 // User represents a local user in the database.
 type User struct {
-	st           *State
-	doc          userDoc
-	lastLoginDoc userLastLoginDoc //nolint:unused
+	st  *State
+	doc userDoc
 }
 
 type userDoc struct {
@@ -372,18 +366,6 @@ type userDoc struct {
 	DateCreated  time.Time `bson:"datecreated"`
 	// RemovalLog keeps a track of removals for this user
 	RemovalLog []userRemovedLogEntry `bson:"removallog"`
-}
-
-type userLastLoginDoc struct {
-	DocID     string `bson:"_id"`
-	ModelUUID string `bson:"model-uuid"`
-	// LastLogin is updated by the apiserver whenever the user
-	// connects over the API. This update is not done using mgo.txn
-	// so this value could well change underneath a normal transaction
-	// and as such, it should NEVER appear in any transaction asserts.
-	// It is really informational only as far as everyone except the
-	// api server is concerned.
-	LastLogin time.Time `bson:"last-login"`
 }
 
 // userRemovedLog contains a log of entries added every time the user
@@ -428,32 +410,6 @@ func (u *User) Tag() names.Tag {
 func (u *User) UserTag() names.UserTag {
 	name := u.doc.Name
 	return names.NewLocalUserTag(name)
-}
-
-// UpdateLastLogin sets the LastLogin time of the user to be now (to the
-// nearest second).
-func (u *User) UpdateLastLogin() (err error) {
-	if err := u.ensureNotDeleted(); err != nil {
-		return errors.Annotate(err, "cannot update last login")
-	}
-	lastLogins, closer := u.st.db().GetCollection(userLastLoginC)
-	defer closer()
-
-	lastLoginsW := lastLogins.Writeable()
-
-	// Update the safe mode of the underlying session to not require
-	// write majority, nor sync to disk.
-	session := lastLoginsW.Underlying().Database.Session
-	session.SetSafe(&mgo.Safe{})
-
-	lastLogin := userLastLoginDoc{
-		DocID:     u.doc.DocID,
-		ModelUUID: u.st.ModelUUID(),
-		LastLogin: u.st.nowToTheSecond(),
-	}
-
-	_, err = lastLoginsW.UpsertId(lastLogin.DocID, lastLogin)
-	return errors.Trace(err)
 }
 
 // SecretKey returns the user's secret key, if any.
@@ -549,14 +505,6 @@ func (u *User) Disable() error {
 	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())
 }
 
-// Enable reactivates the user, setting disabled to false.
-func (u *User) Enable() error {
-	if err := u.ensureNotDeleted(); err != nil {
-		return errors.Annotate(err, "cannot enable")
-	}
-	return errors.Annotatef(u.setDeactivated(false), "cannot enable user %q", u.Name())
-}
-
 func (u *User) setDeactivated(value bool) error {
 	lowercaseName := strings.ToLower(u.Name())
 	ops := []txn.Op{{
@@ -597,60 +545,4 @@ func (u *User) ensureNotDeleted() error {
 		return newDeletedUserError(u.Name())
 	}
 	return nil
-}
-
-// ResetPassword clears the user's password (if there is one),
-// and generates a new secret key for the user.
-// This must be an active user.
-func (u *User) ResetPassword() ([]byte, error) {
-	var key []byte
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if err := u.ensureNotDeleted(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if u.IsDisabled() {
-			return nil, fmt.Errorf("user deactivated")
-		}
-		var err error
-		key, err = generateSecretKey()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		update := bson.D{
-			{
-				"$set", bson.D{
-				{"secretkey", key},
-			},
-			},
-			{
-				"$unset", bson.D{
-				{"passwordhash", ""},
-				{"passwordsalt", ""},
-			},
-			},
-		}
-		lowercaseName := strings.ToLower(u.Name())
-		return []txn.Op{{
-			C:      usersC,
-			Id:     lowercaseName,
-			Assert: txn.DocExists,
-			Update: update,
-		}}, nil
-	}
-	if err := u.st.db().Run(buildTxn); err != nil {
-		return nil, errors.Annotatef(err, "cannot reset password for user %q", u.Name())
-	}
-	u.doc.SecretKey = key
-	u.doc.PasswordHash = ""
-	u.doc.PasswordSalt = ""
-	return key, nil
-}
-
-// generateSecretKey generates a random, 32-byte secret key.
-func generateSecretKey() ([]byte, error) {
-	var secretKey [32]byte
-	if _, err := rand.Read(secretKey[:]); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return secretKey[:], nil
 }

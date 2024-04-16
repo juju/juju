@@ -5,10 +5,10 @@ package usermanager_test
 
 import (
 	"context"
-	"github.com/juju/errors"
 	"sort"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
