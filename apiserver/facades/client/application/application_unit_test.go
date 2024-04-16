@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -2603,12 +2602,12 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(s.expectRemoteApplication(ctrl, state.Alive, status.Active), nil)
 
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetailsV5.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
+	s.consumeApplicationArgs.Args[0].ApplicationOfferDetailsV5.SourceModelTag = names.NewModelTag(uuid.MustNewUUID().String()).String()
 
 	results, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         names.NewModelTag(utils.MustNewUUID().String()).String(),
+				SourceModelTag:         names.NewModelTag(uuid.MustNewUUID().String()).String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "a database",
