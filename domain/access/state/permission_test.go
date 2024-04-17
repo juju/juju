@@ -316,7 +316,7 @@ WHERE grant_to = 123
 	c.Assert(row2.Err(), jc.ErrorIsNil)
 	err = row2.Scan(&userUuid, &accessTypeID, &objectTypeID, &grantTo, &grantOn)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%q, %d, to %q, on %q", userUuid, accessTypeID, objectTypeID, grantTo, grantOn)
+	c.Logf("%q, %d, %d to %q, on %q", userUuid, accessTypeID, objectTypeID, grantTo, grantOn)
 
 	readUserAccess, err := st.ReadUserAccessForTarget(context.Background(), "bob", target)
 	c.Assert(err, jc.ErrorIsNil)

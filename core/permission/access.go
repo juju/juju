@@ -71,6 +71,11 @@ func (a Access) Validate() error {
 	return errors.NotValidf("access level %s", a)
 }
 
+// String returns the access level as a string.
+func (a Access) String() string {
+	return string(a)
+}
+
 // ObjectType is the type of the permission object/
 type ObjectType string
 
@@ -91,6 +96,11 @@ func (o ObjectType) Validate() error {
 		return errors.NotValidf("object type %q", o)
 	}
 	return nil
+}
+
+// String returns the object type as a string.
+func (o ObjectType) String() string {
+	return string(o)
 }
 
 // ID identifies the object of a permission, its key and type. Keys

@@ -111,8 +111,8 @@ func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissio
 		UUID:       spec.PermissionUUID,
 		GrantOn:    spec.Target.Key,
 		GrantTo:    spec.UserUUID,
-		AccessType: string(spec.Access),
-		ObjectType: string(spec.Target.ObjectType),
+		AccessType: spec.Access.String(),
+		ObjectType: spec.Target.ObjectType.String(),
 	}
 	err := insertPermission(ctx, tx, perm)
 	if err != nil {
@@ -697,8 +697,8 @@ AND     u.removed = false
 	apiUserUUID = user.UUID(readPerm[0].GrantTo)
 
 	for _, read := range readPerm {
-		if read.AccessType == string(corepermission.SuperuserAccess) ||
-			read.AccessType == string(corepermission.AdminAccess) {
+		if read.AccessType == corepermission.SuperuserAccess.String() ||
+			read.AccessType == corepermission.AdminAccess.String() {
 			return apiUserUUID, nil
 		}
 	}
@@ -737,7 +737,7 @@ func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, s
 	if aSpec.EqualOrGreaterThan(grantAccess) {
 		return errors.Errorf("user %q already has %q access or greater", args.Subject, grantAccess)
 	}
-	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, string(grantAccess)); err != nil {
+	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, grantAccess.String()); err != nil {
 		return errors.Annotatef(err, "updating current access during grant")
 	}
 	return nil
@@ -749,7 +749,7 @@ func (st *PermissionState) revokePermission(ctx context.Context, tx *sqlair.TX, 
 		err := st.deletePermission(ctx, tx, args.Subject, args.AccessSpec.Target)
 		return errors.Annotatef(err, "revoking %q", args.AccessSpec.Access)
 	}
-	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, string(newAccess)); err != nil {
+	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, newAccess.String()); err != nil {
 		return errors.Annotatef(err, "updating current access during revoke")
 	}
 	return nil
