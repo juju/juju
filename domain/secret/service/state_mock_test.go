@@ -129,6 +129,22 @@ func (mr *MockStateMockRecorder) GetSecretConsumer(arg0, arg1, arg2 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockState)(nil).GetSecretConsumer), arg0, arg1, arg2)
 }
 
+// GetSecretRemoteConsumer mocks base method.
+func (m *MockState) GetSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string) (*secrets.SecretConsumerMetadata, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretRemoteConsumer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetSecretRemoteConsumer indicates an expected call of GetSecretRemoteConsumer.
+func (mr *MockStateMockRecorder) GetSecretRemoteConsumer(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRemoteConsumer", reflect.TypeOf((*MockState)(nil).GetSecretRemoteConsumer), arg0, arg1, arg2)
+}
+
 // GetSecretRevision mocks base method.
 func (m *MockState) GetSecretRevision(arg0 context.Context, arg1 *secrets.URI, arg2 int) (*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
@@ -250,6 +266,34 @@ func (m *MockState) SaveSecretConsumer(arg0 context.Context, arg1 *secrets.URI, 
 func (mr *MockStateMockRecorder) SaveSecretConsumer(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretConsumer", reflect.TypeOf((*MockState)(nil).SaveSecretConsumer), arg0, arg1, arg2, arg3)
+}
+
+// SaveSecretRemoteConsumer mocks base method.
+func (m *MockState) SaveSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 *secrets.SecretConsumerMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveSecretRemoteConsumer", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveSecretRemoteConsumer indicates an expected call of SaveSecretRemoteConsumer.
+func (mr *MockStateMockRecorder) SaveSecretRemoteConsumer(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretRemoteConsumer", reflect.TypeOf((*MockState)(nil).SaveSecretRemoteConsumer), arg0, arg1, arg2, arg3)
+}
+
+// UpdateRemoteSecretRevision mocks base method.
+func (m *MockState) UpdateRemoteSecretRevision(arg0 context.Context, arg1 *secrets.URI, arg2 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRemoteSecretRevision", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRemoteSecretRevision indicates an expected call of UpdateRemoteSecretRevision.
+func (mr *MockStateMockRecorder) UpdateRemoteSecretRevision(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRemoteSecretRevision", reflect.TypeOf((*MockState)(nil).UpdateRemoteSecretRevision), arg0, arg1, arg2)
 }
 
 // UpdateSecret mocks base method.

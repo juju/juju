@@ -15,6 +15,7 @@ import (
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -332,6 +333,68 @@ func (s *serviceSuite) TestGetURIByConsumerLabel(c *gc.C) {
 	got, err := s.service().GetURIByConsumerLabel(context.Background(), "my label", "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, uri)
+}
+
+func (s *serviceSuite) TestUpdateRemoteSecretRevision(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri, 666).Return(nil)
+
+	err := s.service().UpdateRemoteSecretRevision(context.Background(), uri, 666)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateRemoteConsumedRevision(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
+		Return(&coresecrets.SecretConsumerMetadata{}, 666, nil)
+
+	got, err := s.service().UpdateRemoteConsumedRevision(context.Background(), uri, "remote-app/0", false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.Equals, 666)
+}
+
+func (s *serviceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	consumer := &coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 666,
+	}
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
+		Return(&coresecrets.SecretConsumerMetadata{}, 666, nil)
+	s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0", consumer).Return(nil)
+
+	got, err := s.service().UpdateRemoteConsumedRevision(context.Background(), uri, "remote-app/0", true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.Equals, 666)
+}
+
+func (s *serviceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	consumer := &coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 666,
+	}
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
+		Return(nil, 666, secreterrors.SecretConsumerNotFound)
+	s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0", consumer).Return(nil)
+
+	got, err := s.service().UpdateRemoteConsumedRevision(context.Background(), uri, "remote-app/0", true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.Equals, 666)
 }
 
 /*

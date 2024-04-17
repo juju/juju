@@ -12,6 +12,9 @@ const (
 	// does not exist.
 	SecretNotFound = errors.ConstError("secret not found")
 
+	// SecretIsNotLocal describes an error that occurs when a secret is not from the current model.
+	SecretIsNotLocal = errors.ConstError("secret is from a different model")
+
 	// SecretLabelAlreadyExists describes an error that occurs when there's already a secret label for
 	// a specified secret owner.
 	SecretLabelAlreadyExists = errors.ConstError("secret label already exists")
