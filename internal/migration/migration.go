@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/status"
 	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -132,6 +133,7 @@ type ModelImporter struct {
 	serviceFactoryGetter       servicefactory.ServiceFactoryGetter
 	configSchemaSourceProvider ConfigSchemaSourceProvider
 	storageRegistryGetter      storageRegistryGetter
+	statusHistoryFactory       status.StatusHistoryFactory
 
 	scope modelmigration.ScopeForModel
 }
@@ -146,6 +148,7 @@ func NewModelImporter(
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 	configSchemaSourceProvider ConfigSchemaSourceProvider,
 	storageRegistryGetter storageRegistryGetter,
+	statusHistoryFactory status.StatusHistoryFactory,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:        stateImporter,
@@ -154,6 +157,7 @@ func NewModelImporter(
 		serviceFactoryGetter:       serviceFactoryGetter,
 		configSchemaSourceProvider: configSchemaSourceProvider,
 		storageRegistryGetter:      storageRegistryGetter,
+		statusHistoryFactory:       statusHistoryFactory,
 	}
 }
 
@@ -187,8 +191,11 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+
+	statusHistory := status.StatusHistorySetterRunner(i.statusHistoryFactory, modelUUID.String())
+
 	coordinator := modelmigration.NewCoordinator()
-	migrations.ImportOperations(coordinator, logger, modelDefaultsProvider, registry)
+	migrations.ImportOperations(coordinator, logger, modelDefaultsProvider, registry, statusHistory)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID.String()), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}

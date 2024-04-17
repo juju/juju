@@ -368,7 +368,7 @@ func (m *ModelManagerAPI) createModelNew(
 	// Create the model information in the model database. This information
 	// is read-only and is used for providers and brokers without the need
 	// to query the controller database.
-	if err := modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, modelType)); err != nil {
+	if err := modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, modelType, user.Name)); err != nil {
 		return errors.Annotatef(err, "failed to create model info for model %q", modelUUID)
 	}
 

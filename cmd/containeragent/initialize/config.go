@@ -22,8 +22,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 )
 
-type configFromEnv struct {
-}
+type configFromEnv struct{}
 
 func (c *configFromEnv) DataDir() string {
 	panic("not implemented")
@@ -129,6 +128,14 @@ func (c *configFromEnv) AgentLogfileMaxSizeMB() int {
 }
 
 func (c *configFromEnv) AgentLogfileMaxBackups() int {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) ModelLogfileMaxSizeMB() int {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) ModelLogfileMaxBackups() int {
 	panic("not implemented")
 }
 

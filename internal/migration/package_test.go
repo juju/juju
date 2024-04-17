@@ -16,6 +16,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService
 //go:generate go run go.uber.org/mock/mockgen -package migration_test -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ServiceFactoryGetter,ServiceFactory
+//go:generate go run go.uber.org/mock/mockgen -package migration_test -destination status_mock_test.go github.com/juju/juju/core/status StatusHistoryFactory,StatusHistorySetter
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -54,6 +55,7 @@ func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.server = upgradevalidationmocks.NewMockServer(ctrl)
 	s.serverFactory = upgradevalidationmocks.NewMockServerFactory(ctrl)
+
 	return ctrl
 }
 

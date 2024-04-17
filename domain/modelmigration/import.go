@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"github.com/juju/juju/core/modelmigration"
+	status "github.com/juju/juju/core/status"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
@@ -38,6 +39,7 @@ func ImportOperations(
 	logger Logger,
 	modelDefaultsProvider modelconfigservice.ModelDefaultsProvider,
 	registry internalstorage.ProviderRegistry,
+	statusHistory status.StatusHistoryForModel,
 ) {
 	// Note: All the import operations are registered here.
 	// Order is important!
@@ -47,7 +49,7 @@ func ImportOperations(
 	model.RegisterImport(coordinator, logger)
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider)
 	machine.RegisterImport(coordinator)
-	application.RegisterImport(coordinator, registry)
+	application.RegisterImport(coordinator, registry, statusHistory)
 	blockdevice.RegisterImport(coordinator)
 	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
 	storage.RegisterImport(coordinator, registry)

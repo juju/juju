@@ -96,7 +96,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *gc.C) {
 // the owner does not exist we get back a [usererrors.NotFound] error.
 func (i *importSuite) TestModelOwnerNoExist(c *gc.C) {
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(coreuser.User{}, usererrors.UserNotFound)
+	i.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{}, usererrors.UserNotFound)
 
 	importOp := importOperation{
 		modelService: i.modelService,
@@ -110,7 +110,7 @@ func (i *importSuite) TestModelOwnerNoExist(c *gc.C) {
 			config.NameKey: "test-model",
 			config.UUIDKey: modelUUID.String(),
 		},
-		Owner: names.NewUserTag("tlm"),
+		Owner: names.NewUserTag(coreuser.AdminUserName),
 	})
 	err := importOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
@@ -122,9 +122,10 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+	i.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(
 		coreuser.User{
 			UUID: userUUID,
+			Name: coreuser.AdminUserName,
 		},
 		nil,
 	)
@@ -136,7 +137,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		CloudRegion:  "region1",
 		Credential: credential.Key{
 			Name:  "my-credential",
-			Owner: "tlm",
+			Owner: coreuser.AdminUserName,
 			Cloud: "AWS",
 		},
 		Name:  "test-model",
@@ -155,6 +156,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
 		coremodel.UUID(testing.ControllerTag.Id()),
 		coremodel.IAAS,
+		coreuser.AdminUserName,
 	)).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
@@ -164,13 +166,13 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		},
 		Cloud:              "AWS",
 		CloudRegion:        "region1",
-		Owner:              names.NewUserTag("tlm"),
+		Owner:              names.NewUserTag(coreuser.AdminUserName),
 		LatestToolsVersion: jujuversion.Current,
 		Type:               coremodel.CAAS.String(),
 	})
 
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("tlm"),
+		Owner: names.NewUserTag(coreuser.AdminUserName),
 		Cloud: names.NewCloudTag("AWS"),
 		Name:  "my-credential",
 	})
@@ -194,9 +196,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+	i.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(
 		coreuser.User{
 			UUID: userUUID,
+			Name: coreuser.AdminUserName,
 		},
 		nil,
 	)
@@ -208,7 +211,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		CloudRegion:  "region1",
 		Credential: credential.Key{
 			Name:  "my-credential",
-			Owner: "tlm",
+			Owner: coreuser.AdminUserName,
 			Cloud: "AWS",
 		},
 		Name:  "test-model",
@@ -227,6 +230,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
 		coremodel.UUID(testing.ControllerTag.Id()),
 		coremodel.IAAS,
+		coreuser.AdminUserName,
 	)).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
@@ -238,13 +242,13 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		},
 		Cloud:              "AWS",
 		CloudRegion:        "region1",
-		Owner:              names.NewUserTag("tlm"),
+		Owner:              names.NewUserTag(coreuser.AdminUserName),
 		LatestToolsVersion: jujuversion.Current,
 		Type:               coremodel.CAAS.String(),
 	})
 
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("tlm"),
+		Owner: names.NewUserTag(coreuser.AdminUserName),
 		Cloud: names.NewCloudTag("AWS"),
 		Name:  "my-credential",
 	})
@@ -268,9 +272,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+	i.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(
 		coreuser.User{
 			UUID: userUUID,
+			Name: coreuser.AdminUserName,
 		},
 		nil,
 	)
@@ -282,7 +287,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		CloudRegion:  "region1",
 		Credential: credential.Key{
 			Name:  "my-credential",
-			Owner: "tlm",
+			Owner: coreuser.AdminUserName,
 			Cloud: "AWS",
 		},
 		Name:  "test-model",
@@ -301,6 +306,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
 		coremodel.UUID(testing.ControllerTag.Id()),
 		coremodel.IAAS,
+		coreuser.AdminUserName,
 	)).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
@@ -312,13 +318,13 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		},
 		Cloud:              "AWS",
 		CloudRegion:        "region1",
-		Owner:              names.NewUserTag("tlm"),
+		Owner:              names.NewUserTag(coreuser.AdminUserName),
 		LatestToolsVersion: jujuversion.Current,
 		Type:               coremodel.CAAS.String(),
 	})
 
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("tlm"),
+		Owner: names.NewUserTag(coreuser.AdminUserName),
 		Cloud: names.NewCloudTag("AWS"),
 		Name:  "my-credential",
 	})
@@ -342,9 +348,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer i.setupMocks(c).Finish()
-	i.userService.EXPECT().GetUserByName(gomock.Any(), "tlm").Return(
+	i.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(
 		coreuser.User{
 			UUID: userUUID,
+			Name: coreuser.AdminUserName,
 		},
 		nil,
 	)
@@ -362,7 +369,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		CloudRegion:  "region1",
 		Credential: credential.Key{
 			Name:  "my-credential",
-			Owner: "tlm",
+			Owner: coreuser.AdminUserName,
 			Cloud: "AWS",
 		},
 		Name:  "test-model",
@@ -374,6 +381,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
 		coremodel.UUID(testing.ControllerTag.Id()),
 		coremodel.IAAS,
+		coreuser.AdminUserName,
 	)).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
@@ -385,13 +393,13 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		},
 		Cloud:              "AWS",
 		CloudRegion:        "region1",
-		Owner:              names.NewUserTag("tlm"),
+		Owner:              names.NewUserTag(coreuser.AdminUserName),
 		LatestToolsVersion: jujuversion.Current,
 		Type:               coremodel.CAAS.String(),
 	})
 
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("tlm"),
+		Owner: names.NewUserTag(coreuser.AdminUserName),
 		Cloud: names.NewCloudTag("AWS"),
 		Name:  "my-credential",
 	})

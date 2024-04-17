@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/agent"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 )
 
@@ -40,9 +39,8 @@ type ManifoldConfig struct {
 
 	// These attributes are the named workers this worker depends on.
 
-	ClockName          string
-	ServiceFactoryName string
-	AgentName          string
+	ClockName string
+	AgentName string
 }
 
 // Validate validates the manifold configuration.
@@ -56,9 +54,6 @@ func (config ManifoldConfig) Validate() error {
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
 	}
-	if config.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
-	}
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
@@ -71,21 +66,11 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ServiceFactoryName,
 			config.AgentName,
 			config.ClockName,
 		},
 		Output: outputFunc,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
-				return nil, errors.Trace(err)
-			}
-			controllerCfg, err := controllerServiceFactory.ControllerConfig().ControllerConfig(ctx)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot read controller config")
-			}
-
 			var clock clock.Clock
 			if err := getter.Get(config.ClockName, &clock); err != nil {
 				return nil, errors.Trace(err)
@@ -115,8 +100,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:         clock,
 				LogSinkConfig: logSinkConfig,
 				LoggerForModelFunc: getLoggerForModelFunc(
-					controllerCfg.ModelLogfileMaxSizeMB(),
-					controllerCfg.ModelLogfileMaxBackups(),
+					currentCfg.ModelLogfileMaxSizeMB(),
+					currentCfg.ModelLogfileMaxBackups(),
 					config.DebugLogger,
 					currentCfg.LogDir(),
 				),

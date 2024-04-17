@@ -264,7 +264,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		controllerModelCreateFunc,
-		modelbootstrap.CreateReadOnlyModel(controllerModelArgs, controllerUUID),
+		modelbootstrap.CreateReadOnlyModel(controllerModelArgs, controllerUUID, b.adminUser.Name()),
 		modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 	}
 	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)

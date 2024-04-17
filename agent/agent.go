@@ -289,6 +289,14 @@ type Config interface {
 	// files to keep (compressed).
 	AgentLogfileMaxBackups() int
 
+	// ModelLogfileMaxSizeMB returns the maximum file size in MB of each
+	// model log file.
+	ModelLogfileMaxSizeMB() int
+
+	// ModelLogfileMaxBackups returns the number of old model log
+	// files to keep (compressed).
+	ModelLogfileMaxBackups() int
+
 	// QueryTracingEnabled returns whether query tracing is enabled.
 	QueryTracingEnabled() bool
 
@@ -369,6 +377,14 @@ type configSetterOnly interface {
 
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
+
+	// SetModelLogfileMaxSizeMB sets the maximum file size in MB of each
+	// model log file.
+	SetModelLogfileMaxSizeMB(int)
+
+	// SetModelLogfileMaxBackups sets the number of old model log
+	// files to keep (compressed).
+	SetModelLogfileMaxBackups(int)
 
 	// SetQueryTracingEnabled sets whether query tracing is enabled.
 	SetQueryTracingEnabled(bool)
@@ -472,6 +488,8 @@ type configInternal struct {
 	jujuDBSnapChannel        string
 	agentLogfileMaxSizeMB    int
 	agentLogfileMaxBackups   int
+	modelLogfileMaxSizeMB    int
+	modelLogfileMaxBackups   int
 	queryTracingEnabled      bool
 	queryTracingThreshold    time.Duration
 	openTelemetryEnabled     bool
@@ -501,6 +519,8 @@ type AgentConfigParams struct {
 	JujuDBSnapChannel        string
 	AgentLogfileMaxSizeMB    int
 	AgentLogfileMaxBackups   int
+	ModelLogfileMaxSizeMB    int
+	ModelLogfileMaxBackups   int
 	QueryTracingEnabled      bool
 	QueryTracingThreshold    time.Duration
 	OpenTelemetryEnabled     bool
@@ -573,6 +593,8 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		jujuDBSnapChannel:        configParams.JujuDBSnapChannel,
 		agentLogfileMaxSizeMB:    configParams.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups:   configParams.AgentLogfileMaxBackups,
+		modelLogfileMaxSizeMB:    configParams.ModelLogfileMaxSizeMB,
+		modelLogfileMaxBackups:   configParams.ModelLogfileMaxBackups,
 		queryTracingEnabled:      configParams.QueryTracingEnabled,
 		queryTracingThreshold:    configParams.QueryTracingThreshold,
 		openTelemetryEnabled:     configParams.OpenTelemetryEnabled,
@@ -902,6 +924,26 @@ func (c *configInternal) AgentLogfileMaxSizeMB() int {
 // AgentLogfileMaxBackups implements Config.
 func (c *configInternal) AgentLogfileMaxBackups() int {
 	return c.agentLogfileMaxBackups
+}
+
+// SetModelLogfileMaxSizeMB implements configSetterOnly.
+func (c *configInternal) SetModelLogfileMaxSizeMB(v int) {
+	c.modelLogfileMaxSizeMB = v
+}
+
+// ModelLogfileMaxSizeMB implements Config.
+func (c *configInternal) ModelLogfileMaxSizeMB() int {
+	return c.modelLogfileMaxSizeMB
+}
+
+// SetModelLogfileMaxBackups implements configSetterOnly.
+func (c *configInternal) SetModelLogfileMaxBackups(v int) {
+	c.modelLogfileMaxBackups = v
+}
+
+// ModelLogfileMaxBackups implements Config.
+func (c *configInternal) ModelLogfileMaxBackups() int {
+	return c.modelLogfileMaxBackups
 }
 
 // QueryTracingEnabled implements Config.

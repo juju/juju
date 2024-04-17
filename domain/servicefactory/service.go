@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/status"
 )
 
 // ServiceFactory provides access to the services required by the apiserver.
@@ -24,6 +25,7 @@ func NewServiceFactory(
 	modelDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
 	providerTracker providertracker.ProviderFactory,
+	statusHistoryFactory status.StatusHistoryFactory,
 	logger Logger,
 ) *ServiceFactory {
 	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)
@@ -33,6 +35,7 @@ func NewServiceFactory(
 			modelUUID,
 			modelDB,
 			providerTracker,
+			statusHistoryFactory,
 			logger,
 		),
 	}

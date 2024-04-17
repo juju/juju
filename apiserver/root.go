@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs"
@@ -91,6 +92,10 @@ type apiHandler struct {
 	// controller-wide binary data.
 	controllerObjectStore objectstore.ObjectStore
 
+	// statusHistoryFactory is the factory for interacting with status history
+	// which is per model UUID.
+	statusHistoryFactory status.StatusHistoryFactory
+
 	// watcherRegistry is the registry for tracking watchers between API calls
 	// for a given model UUID.
 	watcherRegistry facade.WatcherRegistry
@@ -138,6 +143,7 @@ func newAPIHandler(
 	objectStore objectstore.ObjectStore,
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
+	statusHistoryFactory status.StatusHistoryFactory,
 	modelUUID string,
 	connectionID uint64,
 	serverHost string,
@@ -170,6 +176,7 @@ func newAPIHandler(
 		objectStore:           objectStore,
 		objectStoreGetter:     objectStoreGetter,
 		controllerObjectStore: controllerObjectStore,
+		statusHistoryFactory:  statusHistoryFactory,
 		model:                 m,
 		resources:             common.NewResources(),
 		watcherRegistry:       registry,
@@ -259,6 +266,11 @@ func (r *apiHandler) ObjectStoreGetter() objectstore.ObjectStoreGetter {
 // use case for this is agent tools.
 func (r *apiHandler) ControllerObjectStore() objectstore.ObjectStore {
 	return r.controllerObjectStore
+}
+
+// StatusHistoryFactory returns the status history factory.
+func (r *apiHandler) StatusHistoryFactory() status.StatusHistoryFactory {
+	return r.statusHistoryFactory
 }
 
 // SharedContext returns the server shared context.
@@ -448,6 +460,8 @@ type apiRootHandler interface {
 	WatcherRegistry() facade.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
+	// StatusHistoryFactory returns the status history factory.
+	StatusHistoryFactory() status.StatusHistoryFactory
 }
 
 // apiRoot implements basic method dispatching to the facade registry.
@@ -461,6 +475,7 @@ type apiRoot struct {
 	objectStore           objectstore.ObjectStore
 	objectStoreGetter     objectstore.ObjectStoreGetter
 	controllerObjectStore objectstore.ObjectStore
+	statusHistoryFactory  status.StatusHistoryFactory
 	shared                *sharedServerContext
 	facades               *facade.Registry
 	watcherRegistry       facade.WatcherRegistry
@@ -490,6 +505,7 @@ func newAPIRoot(
 		objectStore:           root.ObjectStore(),
 		objectStoreGetter:     root.ObjectStoreGetter(),
 		controllerObjectStore: root.ControllerObjectStore(),
+		statusHistoryFactory:  root.StatusHistoryFactory(),
 		shared:                root.SharedContext(),
 		facades:               facades,
 		resources:             root.Resources(),
@@ -908,6 +924,7 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		ctx.r.serviceFactoryGetter,
 		environs.ProviderConfigSchemaSource,
 		storageRegistryGetter(ctx),
+		ctx.r.statusHistoryFactory,
 	)
 }
 

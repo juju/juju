@@ -390,6 +390,8 @@ var attributeParams = agent.AgentConfigParams{
 	JujuDBSnapChannel:      controller.DefaultJujuDBSnapChannel,
 	AgentLogfileMaxSizeMB:  150,
 	AgentLogfileMaxBackups: 4,
+	ModelLogfileMaxSizeMB:  42,
+	ModelLogfileMaxBackups: 3,
 }
 
 func (*suite) TestAttributes(c *gc.C) {
@@ -398,14 +400,16 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
 	compareSystemIdentityPath := filepath.FromSlash("/data/dir/system-identity")
 	systemIdentityPath := filepath.FromSlash(conf.SystemIdentityPath())
-	c.Assert(systemIdentityPath, gc.Equals, compareSystemIdentityPath)
-	c.Assert(conf.Tag(), gc.Equals, names.NewMachineTag("1"))
-	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
-	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
-	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
-	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.4/stable")
-	c.Assert(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)
-	c.Assert(conf.AgentLogfileMaxBackups(), gc.Equals, 4)
+	c.Check(systemIdentityPath, gc.Equals, compareSystemIdentityPath)
+	c.Check(conf.Tag(), gc.Equals, names.NewMachineTag("1"))
+	c.Check(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
+	c.Check(conf.Nonce(), gc.Equals, "a nonce")
+	c.Check(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
+	c.Check(conf.JujuDBSnapChannel(), gc.Equals, "4.4/stable")
+	c.Check(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)
+	c.Check(conf.AgentLogfileMaxBackups(), gc.Equals, 4)
+	c.Check(conf.ModelLogfileMaxSizeMB(), gc.Equals, 42)
+	c.Check(conf.ModelLogfileMaxBackups(), gc.Equals, 3)
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -39,6 +40,9 @@ type State interface {
 
 	// AddUnits adds the specified units to the application.
 	AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitParams) error
+
+	// StatusHistoryModelNameAndOwner returns the name and owner of the model.
+	StatusHistoryModelNameAndOwner(ctx context.Context) (string, string, error)
 }
 
 // Service provides the API for working with applications.
@@ -46,21 +50,23 @@ type Service struct {
 	st     State
 	logger Logger
 
-	registry  storage.ProviderRegistry
-	modelType coremodel.ModelType
+	registry      storage.ProviderRegistry
+	statusHistory status.StatusHistoryForModel
+	modelType     coremodel.ModelType
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, logger Logger, registry storage.ProviderRegistry) *Service {
+func NewService(st State, registry storage.ProviderRegistry, statusHistory status.StatusHistoryForModel, logger Logger) *Service {
 	// Some uses of application service don't need to supply a storage registry, eg cleaner facade.
 	// In such cases it'd wasteful to create one as an environ instance would be needed.
 	if registry == nil {
 		registry = storage.NotImplementedProviderRegistry{}
 	}
 	return &Service{
-		st:       st,
-		logger:   logger,
-		registry: registry,
+		st:            st,
+		logger:        logger,
+		registry:      registry,
+		statusHistory: statusHistory,
 		// TODO(storage) - pass in model info getter
 		modelType: coremodel.IAAS,
 	}
@@ -88,8 +94,11 @@ func (s *Service) CreateApplication(ctx context.Context, name string, params Add
 		}
 	}
 
-	err := s.st.UpsertApplication(ctx, name, args...)
-	return errors.Annotatef(err, "saving application %q", name)
+	if err := s.st.UpsertApplication(ctx, name, args...); err != nil {
+		return errors.Annotatef(err, "saving application %q", name)
+	}
+
+	return s.SetStatusHistory(ctx, status.KindApplication, status.Unset, name)
 }
 
 // AddUnits adds units to the application.
@@ -152,5 +161,23 @@ func (s *Service) validateStorageDirectives(ctx context.Context, modelType corem
 			return fmt.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
 		}
 	}
+	return nil
+}
+
+func (s *Service) SetStatusHistory(ctx context.Context, kind status.HistoryKind, status status.Status, name string) error {
+	// TODO (sickupkid): We could cache this.
+	modelName, modelOwner, err := s.st.StatusHistoryModelNameAndOwner(ctx)
+	if err != nil {
+		return errors.Annotate(err, "getting model name and owner")
+	}
+
+	history, err := s.statusHistory(modelName, modelOwner)
+	if err != nil {
+		return errors.Annotate(err, "getting status history")
+	}
+	if err := history.SetStatusHistory(kind, status, name); err != nil {
+		return errors.Annotate(err, "setting status history")
+	}
+
 	return nil
 }

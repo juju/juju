@@ -16,6 +16,9 @@ type ReadOnlyModel struct {
 	// Name is the name of the model.
 	Name string
 
+	// Owner is the materialized name of the owner for the model.
+	Owner string
+
 	// Type is the type of the model.
 	Type ModelType
 

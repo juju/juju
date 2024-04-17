@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
@@ -35,10 +36,11 @@ import (
 
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
-	logger          Logger
-	modelUUID       model.UUID
-	modelDB         changestream.WatchableDBFactory
-	providerFactory providertracker.ProviderFactory
+	logger               Logger
+	modelUUID            model.UUID
+	modelDB              changestream.WatchableDBFactory
+	providerFactory      providertracker.ProviderFactory
+	statusHistoryFactory status.StatusHistoryFactory
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -47,13 +49,15 @@ func NewModelFactory(
 	modelUUID model.UUID,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
+	statusHistoryFactory status.StatusHistoryFactory,
 	logger Logger,
 ) *ModelFactory {
 	return &ModelFactory{
-		logger:          logger,
-		modelUUID:       modelUUID,
-		modelDB:         modelDB,
-		providerFactory: providerFactory,
+		logger:               logger,
+		modelUUID:            modelUUID,
+		modelDB:              modelDB,
+		providerFactory:      providerFactory,
+		statusHistoryFactory: statusHistoryFactory,
 	}
 }
 
@@ -103,8 +107,9 @@ func (s *ModelFactory) Application(registry storage.ProviderRegistry) *applicati
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("application"),
 		),
-		s.logger.Child("application"),
 		registry,
+		status.StatusHistorySetterRunner(s.statusHistoryFactory, s.modelUUID.String()),
+		s.logger.Child("application"),
 	)
 }
 

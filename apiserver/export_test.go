@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/trace"
@@ -96,6 +97,10 @@ func (testingAPIRootHandler) WatcherRegistry() facade.WatcherRegistry {
 	return nil
 }
 
+func (testingAPIRootHandler) StatusHistoryFactory() status.StatusHistoryFactory {
+	return nil
+}
+
 func (testingAPIRootHandler) Kill() {}
 
 // TestingAPIRoot gives you an APIRoot as a rpc.Methodfinder that is
@@ -129,7 +134,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, sf, nil, coretrace.NoopTracer{}, nil, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(srv, st, nil, sf, nil, coretrace.NoopTracer{}, nil, nil, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
 }

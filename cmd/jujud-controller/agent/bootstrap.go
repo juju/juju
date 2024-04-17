@@ -333,13 +333,19 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		}
 
 		agentConfig.SetJujuDBSnapChannel(args.ControllerConfig.JujuDBSnapChannel())
+
+		agentConfig.SetModelLogfileMaxSizeMB(args.ControllerConfig.ModelLogfileMaxSizeMB())
+		agentConfig.SetModelLogfileMaxBackups(args.ControllerConfig.ModelLogfileMaxBackups())
+
 		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
 		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())
+
 		agentConfig.SetOpenTelemetryEnabled(args.ControllerConfig.OpenTelemetryEnabled())
 		agentConfig.SetOpenTelemetryEndpoint(args.ControllerConfig.OpenTelemetryEndpoint())
 		agentConfig.SetOpenTelemetryInsecure(args.ControllerConfig.OpenTelemetryInsecure())
 		agentConfig.SetOpenTelemetryStackTraces(args.ControllerConfig.OpenTelemetryStackTraces())
 		agentConfig.SetOpenTelemetrySampleRatio(args.ControllerConfig.OpenTelemetrySampleRatio())
+
 		agentConfig.SetObjectStoreType(args.ControllerConfig.ObjectStoreType())
 
 		return nil

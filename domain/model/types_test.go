@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 )
 
@@ -141,7 +142,7 @@ func (*typesSuite) TestModelToReadOnlyModel(c *gc.C) {
 		Owner: userUUID,
 	}
 
-	model := args.AsReadOnly(controllerUUID, coremodel.IAAS)
+	model := args.AsReadOnly(controllerUUID, coremodel.IAAS, coreuser.AdminUserName)
 	c.Check(model, gc.DeepEquals, ReadOnlyModelCreationArgs{
 		UUID:            modelUUID,
 		ControllerUUID:  controllerUUID,
@@ -249,7 +250,7 @@ func (*typesSuite) TestReadOnlyModelCreationArgsValidation(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("testing: %d %v", i, test.Args)
 
-		err := test.Args.AsReadOnly(controllerUUID, coremodel.CAAS).Validate()
+		err := test.Args.AsReadOnly(controllerUUID, coremodel.CAAS, coreuser.AdminUserName).Validate()
 		if test.ErrTest == nil {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

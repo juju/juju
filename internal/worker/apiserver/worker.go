@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
@@ -56,6 +57,7 @@ type Config struct {
 	ServiceFactoryGetter    servicefactory.ServiceFactoryGetter
 	TracerGetter            trace.TracerGetter
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
+	StatusHistoryFactory    status.StatusHistoryFactory
 	ControllerConfigService ControllerConfigService
 }
 
@@ -126,6 +128,12 @@ func (config Config) Validate() error {
 	if config.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
 	}
+	if config.ControllerConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigService")
+	}
+	if config.StatusHistoryFactory == nil {
+		return errors.NotValidf("nil StatusHistoryFactory")
+	}
 	return nil
 }
 
@@ -188,6 +196,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ServiceFactoryGetter:          config.ServiceFactoryGetter,
 		TracerGetter:                  config.TracerGetter,
 		ObjectStoreGetter:             config.ObjectStoreGetter,
+		StatusHistoryFactory:          config.StatusHistoryFactory,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

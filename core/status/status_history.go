@@ -128,3 +128,27 @@ func AllHistoryKind() map[HistoryKind]string {
 		KindContainer:         "statuses from the containers only and not their host machines",
 	}
 }
+
+// StatusHistoryFactory defines a way of getting a StatusHistorySetter.
+type StatusHistoryFactory interface {
+	// StatusHistorySetterForModel returns a StatusHistorySetter for the model.
+	StatusHistorySetterForModel(modelUUID, modelName, modelOwner string) (StatusHistorySetter, error)
+}
+
+// StatusHistorySetter defines a way of setting status history.
+type StatusHistorySetter interface {
+	// SetStatusHistory sets a status history entry.
+	SetStatusHistory(HistoryKind, Status, string) error
+}
+
+// StatusHistorySetterRunner returns a function that can be used to get a
+// StatusHistorySetter. This is used to late bind a StatusHistorySetter.
+func StatusHistorySetterRunner(factory StatusHistoryFactory, modelUUID string) StatusHistoryForModel {
+	return func(modelName, modelOwner string) (StatusHistorySetter, error) {
+		return factory.StatusHistorySetterForModel(modelUUID, modelName, modelOwner)
+	}
+}
+
+// StatusHistoryForModel returns a function that can be used to get a
+// StatusHistorySetter. This is used to late bind a StatusHistorySetter.
+type StatusHistoryForModel func(modelName, modelOwner string) (StatusHistorySetter, error)

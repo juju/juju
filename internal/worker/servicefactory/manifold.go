@@ -14,6 +14,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/status"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
@@ -34,6 +35,7 @@ type ManifoldConfig struct {
 	DBAccessorName              string
 	ChangeStreamName            string
 	ProviderFactoryName         string
+	StatusHistoryName           string
 	Logger                      Logger
 	NewWorker                   func(Config) (worker.Worker, error)
 	NewServiceFactoryGetter     ServiceFactoryGetterFn
@@ -48,6 +50,7 @@ type ServiceFactoryGetterFn func(
 	Logger,
 	ModelServiceFactoryFn,
 	providertracker.ProviderFactory,
+	status.StatusHistoryFactory,
 ) servicefactory.ServiceFactoryGetter
 
 // ControllerServiceFactoryFn is a function that returns a controller service
@@ -63,6 +66,7 @@ type ModelServiceFactoryFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
+	status.StatusHistoryFactory,
 	Logger,
 ) servicefactory.ModelServiceFactory
 
@@ -76,6 +80,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
+	}
+	if config.StatusHistoryName == "" {
+		return errors.NotValidf("empty StatusHistoryName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -103,6 +110,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ChangeStreamName,
 			config.DBAccessorName,
 			config.ProviderFactoryName,
+			config.StatusHistoryName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -127,6 +135,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	var providerFactory providertracker.ProviderFactory
 	if err := getter.Get(config.ProviderFactoryName, &providerFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var statusHistoryFactory status.StatusHistoryFactory
+	if err := getter.Get(config.StatusHistoryName, &statusHistoryFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -184,12 +197,14 @@ func NewProviderTrackerModelServiceFactory(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
+	statusHistoryFactory status.StatusHistoryFactory,
 	logger Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
+		statusHistoryFactory,
 		serviceFactoryLogger{
 			Logger: logger,
 		},
@@ -208,6 +223,7 @@ func NewModelServiceFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
+		NoopStatusHistoryFactory{},
 		serviceFactoryLogger{
 			Logger: logger,
 		},
@@ -221,6 +237,7 @@ func NewServiceFactoryGetter(
 	logger Logger,
 	newModelServiceFactory ModelServiceFactoryFn,
 	providerFactory providertracker.ProviderFactory,
+	statusHistoryFactory status.StatusHistoryFactory,
 ) servicefactory.ServiceFactoryGetter {
 	return &serviceFactoryGetter{
 		ctrlFactory:            ctrlFactory,
@@ -228,6 +245,7 @@ func NewServiceFactoryGetter(
 		logger:                 logger,
 		newModelServiceFactory: newModelServiceFactory,
 		providerFactory:        providerFactory,
+		statusHistoryFactory:   statusHistoryFactory,
 	}
 }
 
@@ -235,4 +253,10 @@ type NoopProviderFactory struct{}
 
 func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
 	return nil, errors.NotSupportedf("provider")
+}
+
+type NoopStatusHistoryFactory struct{}
+
+func (NoopStatusHistoryFactory) StatusHistorySetterForModel(modelUUID, modelName, modelOwner string) (status.StatusHistorySetter, error) {
+	return nil, errors.NotSupportedf("status history")
 }
