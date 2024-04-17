@@ -107,7 +107,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 	}
 
 	if m.Type == coremodel.CAAS {
-		cloud, cred, err := s.st.GetCloudCredential(ctx, modelUUID)
+		cloud, cred, err := s.st.GetModelCloudAndCredential(ctx, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -293,7 +293,7 @@ func tryGetK8sBackend(ctx context.Context, st State, controllerUUID coremodel.UU
 		return nil, nil
 	}
 	// The kubernetes backend.
-	cloud, cred, err := st.GetCloudCredential(ctx, controllerUUID)
+	cloud, cred, err := st.GetModelCloudAndCredential(ctx, controllerUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

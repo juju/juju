@@ -44,10 +44,31 @@ func credentialKeyMap(key corecredential.Key) sqlair.M {
 	}
 }
 
-// credentialID finds and returns the uuid for the cloud credential identified
-// by key. If no credential is found then an error of
+// CredentialIDForKey finds and returns the id for the cloud credential
+// identified by key. If no credential is found then an error of
 // [credentialerrors.NotFound] is returned.
-func (st *State) credentialID(ctx context.Context, tx *sqlair.TX, key corecredential.Key) (corecredential.ID, error) {
+func (st *State) CredentialIDForKey(ctx context.Context, key corecredential.Key) (corecredential.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return corecredential.ID(""), errors.Trace(err)
+	}
+
+	var rval corecredential.ID
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		rval, err = st.credentialIDForKey(ctx, tx, key)
+		return err
+	})
+}
+
+// credentialIDForKey finds and returns the id for the cloud credential
+// identified by key. If no credential is found then an error of
+// [credentialerrors.NotFound] is returned.
+func (st *State) credentialIDForKey(
+	ctx context.Context,
+	tx *sqlair.TX,
+	key corecredential.Key,
+) (corecredential.ID, error) {
 	selectQ := `
 SELECT &M.uuid
 FROM v_cloud_credential
@@ -475,6 +496,84 @@ FROM   cloud_credential cc
 	return dbRows.ToCloudCredentials(dbAuthTypes, dbclouds, keyValues)
 }
 
+// GetCloudCredential is responsible for returning a cloud credential identified
+// by id. If no cloud credential exists for the given id then a
+// [credentialerrors.NotFound] error will be returned.
+func (st *State) GetCloudCredential(
+	ctx context.Context,
+	id corecredential.ID,
+) (credential.CloudCredentialResult, error) {
+	db, err := st.DB()
+	if err != nil {
+		return credential.CloudCredentialResult{}, errors.Trace(err)
+	}
+
+	var rval credential.CloudCredentialResult
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		rval, err = GetCloudCredential(ctx, st, tx, id)
+		return err
+	})
+}
+
+// GetCloudCredential is responsible for returning a cloud credential identified
+// by id. If no cloud credential exists for the given id then a
+// [credentialerrors.NotFound] error will be returned.
+func GetCloudCredential(
+	ctx context.Context,
+	st domain.Preparer,
+	tx *sqlair.TX,
+	id corecredential.ID,
+) (credential.CloudCredentialResult, error) {
+	q := `
+SELECT (uuid,
+        name,
+        revoked,
+        invalid, 
+        invalid_reason, 
+        owner_uuid,
+        auth_type,
+        attribute_key,
+        attribute_value,
+		cloud_name) AS (&credentialWithAttribute.*)
+FROM v_cloud_credential_attributes
+WHERE uuid = $M.id
+`
+
+	stmt, err := st.Prepare(q, credentialWithAttribute{}, sqlair.M{})
+	if err != nil {
+		return credential.CloudCredentialResult{}, errors.Trace(err)
+	}
+
+	args := sqlair.M{
+		"id": id,
+	}
+	rows := []credentialWithAttribute{}
+
+	err = tx.Query(ctx, stmt, args).GetAll(&rows)
+	if errors.Is(err, sql.ErrNoRows) {
+		return credential.CloudCredentialResult{}, fmt.Errorf("%w for id %q", credentialerrors.NotFound, id)
+	} else if err != nil {
+		return credential.CloudCredentialResult{}, fmt.Errorf("getting cloud credential for id %q: %w", id, domain.CoerceError(err))
+	}
+
+	rval := credential.CloudCredentialResult{
+		CloudCredentialInfo: credential.CloudCredentialInfo{
+			AuthType:      rows[0].AuthType,
+			Attributes:    make(map[string]string, len(rows)),
+			Revoked:       rows[0].Revoked,
+			Label:         rows[0].Name,
+			Invalid:       rows[0].Invalid,
+			InvalidReason: rows[0].InvalidReason,
+		},
+		CloudName: rows[0].CloudName,
+	}
+	for _, row := range rows {
+		rval.CloudCredentialInfo.Attributes[row.AttributeKey] = row.AttributeValue
+	}
+	return rval, nil
+}
+
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
 func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.Key]credential.CloudCredentialResult, error) {
@@ -531,7 +630,7 @@ WHERE  cloud_credential.uuid = $M.uuid
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		id, err := st.credentialID(ctx, tx, key)
+		id, err := st.credentialIDForKey(ctx, tx, key)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -558,7 +657,7 @@ func (st *State) WatchCredential(
 	var id corecredential.ID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		id, err = st.credentialID(ctx, tx, key)
+		id, err = st.credentialIDForKey(ctx, tx, key)
 		return errors.Trace(err)
 	})
 	if err != nil {

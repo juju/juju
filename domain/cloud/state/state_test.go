@@ -18,6 +18,8 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	corecloud "github.com/juju/juju/core/cloud"
+	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -98,17 +100,17 @@ func (s *stateSuite) assertCloud(c *gc.C, cloud cloud.Cloud) string {
 	db := s.DB()
 
 	// Check the cloud record.
-	row := db.QueryRow("SELECT uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify FROM cloud WHERE name = ?", "fluffy")
+	row := db.QueryRow("SELECT uuid, name, cloud_type, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify FROM v_cloud WHERE name = ?", "fluffy")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var dbCloud Cloud
-	err := row.Scan(&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify)
+	err := row.Scan(&dbCloud.ID, &dbCloud.Name, &dbCloud.Type, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify)
 	c.Assert(err, jc.ErrorIsNil)
 	if !utils.IsValidUUIDString(dbCloud.ID) {
 		c.Fatalf("invalid cloud uuid %q", dbCloud.ID)
 	}
 	c.Check(dbCloud.Name, gc.Equals, cloud.Name)
-	c.Check(dbCloud.TypeID, gc.Equals, 5) // 5 is "ec2"
+	c.Check(dbCloud.Type, gc.Equals, "ec2")
 	c.Check(dbCloud.Endpoint, gc.Equals, cloud.Endpoint)
 	c.Check(dbCloud.IdentityEndpoint, gc.Equals, cloud.IdentityEndpoint)
 	c.Check(dbCloud.StorageEndpoint, gc.Equals, cloud.StorageEndpoint)
@@ -962,4 +964,26 @@ FROM v_permission
 	c.Check(accessType, gc.Equals, string(access))
 	c.Check(grantTo, gc.Equals, userUUID)
 	c.Check(grantOn, gc.Equals, expectedGrantON)
+}
+
+func (s *stateSuite) TestGetCloudForNonExistentID(c *gc.C) {
+	fakeID := cloudtesting.GenCloudID(c)
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetCloudForID(context.Background(), fakeID)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+}
+
+func (s *stateSuite) TestGetCloudForID(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	s.assertInsertCloud(c, st, testCloud)
+
+	db := s.DB()
+	var id corecloud.ID
+	err := db.QueryRow("SELECT uuid FROM v_cloud where name = ?", testCloud.Name).Scan(&id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	cloud, err := st.GetCloudForID(context.Background(), id)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cloud, jc.DeepEquals, testCloud)
 }

@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	corecloud "github.com/juju/juju/core/cloud"
 	coredatabase "github.com/juju/juju/core/database"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
@@ -136,6 +136,85 @@ func (st *State) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 		return nil
 	})
 	return result, errors.Trace(err)
+}
+
+// GetCloudForID returns the cloud associated with the provided id. If no cloud is
+// found for the given id then a [clouderrors.NotFound] error is returned.
+func (st *State) GetCloudForID(ctx context.Context, id corecloud.ID) (cloud.Cloud, error) {
+	db, err := st.DB()
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+
+	var rval cloud.Cloud
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rval, err = GetCloudForID(ctx, st, tx, id)
+		return err
+	})
+}
+
+// GetCloudForID returns the cloud associated with the provided id. If no cloud is
+// found for the given id then a [clouderrors.NotFound] error is returned.
+func GetCloudForID(
+	ctx context.Context,
+	st domain.Preparer,
+	tx *sqlair.TX,
+	id corecloud.ID,
+) (cloud.Cloud, error) {
+	q := `
+	SELECT (uuid, name, cloud_type, cloud_type_id, endpoint,
+            identity_endpoint, storage_endpoint, skip_tls_verify,
+            is_controller_cloud, auth_type) AS (&CloudWithAuthType.*)
+    FROM v_cloud_auth
+	WHERE uuid = $M.cloud_uuid
+`
+
+	stmt, err := st.Prepare(q, sqlair.M{}, CloudWithAuthType{})
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+
+	args := sqlair.M{
+		"cloud_uuid": id.String(),
+	}
+
+	records := []CloudWithAuthType{}
+	err = tx.Query(ctx, stmt, args).GetAll(&records)
+	if errors.Is(err, sql.ErrNoRows) {
+		return cloud.Cloud{}, fmt.Errorf("%w for uuid %q", clouderrors.NotFound, id)
+	} else if err != nil {
+		return cloud.Cloud{}, fmt.Errorf("getting cloud %q: %w", id, domain.CoerceError(err))
+	}
+
+	cld := cloud.Cloud{
+		Name:              records[0].Name,
+		Type:              records[0].Type,
+		Endpoint:          records[0].Endpoint,
+		IdentityEndpoint:  records[0].IdentityEndpoint,
+		StorageEndpoint:   records[0].StorageEndpoint,
+		SkipTLSVerify:     records[0].SkipTLSVerify,
+		IsControllerCloud: records[0].IsControllerCloud,
+		AuthTypes:         make(cloud.AuthTypes, 0, len(records)),
+		Regions:           []cloud.Region{},
+		CACertificates:    []string{},
+	}
+	for _, record := range records {
+		cld.AuthTypes = append(cld.AuthTypes, cloud.AuthType(record.AuthType))
+	}
+
+	caCerts, err := loadCACerts(ctx, tx, []string{id.String()})
+	if err != nil {
+		return cloud.Cloud{}, fmt.Errorf("loading cloud %q ca certificates: %w", id, err)
+	}
+	cld.CACertificates = caCerts[id.String()]
+
+	regions, err := loadRegions(ctx, tx, []string{id.String()})
+	if err != nil {
+		return cloud.Cloud{}, fmt.Errorf("loading cloud %q regions: %w", id, err)
+	}
+	cld.Regions = regions[id.String()]
+
+	return cld, nil
 }
 
 // CloudDefaults provides the currently set cloud defaults for a cloud. If the
@@ -426,32 +505,20 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 
 // LoadClouds loads the cloud information from the database for the provided name.
 func LoadClouds(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name string) ([]cloud.Cloud, error) {
-	// First load the basic cloud info and auth types.
 	q := `
-WITH controllers AS (SELECT model.cloud_uuid
-        FROM model
-		INNER JOIN user
-        ON user.uuid = model.owner_uuid
-        AND model.name = $M.controller_name
-        AND user.name = $M.controller_user_name)
-SELECT (cloud.uuid, cloud.name, cloud_type_id, 
-       cloud.endpoint, cloud.identity_endpoint, 
-       cloud.storage_endpoint, skip_tls_verify) AS (&Cloud.*),
-       IIF(controllers.cloud_uuid IS NULL, false, true) AS &Cloud.is_controller_cloud,
-       auth_type.type AS &M.cloud_auth_type, cloud_type.type AS &M.cloud_type
-FROM   cloud
-       LEFT JOIN cloud_auth_type 
-            ON cloud.uuid = cloud_auth_type.cloud_uuid
-       JOIN auth_type 
-            ON auth_type.id = cloud_auth_type.auth_type_id
-       JOIN cloud_type 
-            ON cloud_type.id = cloud.cloud_type_id
-       LEFT JOIN controllers
-            ON controllers.cloud_uuid = cloud.uuid
+	SELECT (uuid, name, cloud_type, cloud_type_id, endpoint,
+            identity_endpoint, storage_endpoint, skip_tls_verify,
+            is_controller_cloud) AS (&Cloud.*),
+            auth_type AS &M.cloud_auth_type
+    FROM v_cloud_auth
 `
 
+	args := []any{}
 	if name != "" {
-		q += "WHERE cloud.name = $M.cloud_name"
+		q += "WHERE name = $M.cloud_name"
+		args = append(args, sqlair.M{
+			"cloud_name": name,
+		})
 	}
 
 	loadCloudStmt, err := st.Prepare(q, sqlair.M{}, Cloud{})
@@ -459,14 +526,7 @@ FROM   cloud
 		return nil, errors.Trace(err)
 	}
 
-	// The cloud_name entry in the map will be ignored if the WHERE clause above
-	// is not in the query.
-	args := sqlair.M{
-		"controller_name":      coremodel.ControllerModelName,
-		"controller_user_name": coremodel.ControllerModelOwnerUsername,
-		"cloud_name":           name,
-	}
-	iter := tx.Query(ctx, loadCloudStmt, args).Iter()
+	iter := tx.Query(ctx, loadCloudStmt, args...).Iter()
 	defer func() { _ = iter.Close() }()
 
 	clouds := make(map[string]*cloud.Cloud)
@@ -478,13 +538,9 @@ FROM   cloud
 		}
 		cld, ok := clouds[dbCloud.ID]
 		if !ok {
-			cloudType, ok := m["cloud_type"].(string)
-			if !ok {
-				return nil, fmt.Errorf("error getting cloud type from database")
-			}
 			cld = &cloud.Cloud{
 				Name:              dbCloud.Name,
-				Type:              cloudType,
+				Type:              dbCloud.Type,
 				Endpoint:          dbCloud.Endpoint,
 				IdentityEndpoint:  dbCloud.IdentityEndpoint,
 				StorageEndpoint:   dbCloud.StorageEndpoint,
@@ -902,6 +958,7 @@ func dbCloudFromCloud(ctx context.Context, tx *sqlair.TX, cloudUUID string, clou
 	cld := &Cloud{
 		ID:                cloudUUID,
 		Name:              cloud.Name,
+		Type:              cloud.Type,
 		Endpoint:          cloud.Endpoint,
 		IdentityEndpoint:  cloud.IdentityEndpoint,
 		StorageEndpoint:   cloud.StorageEndpoint,

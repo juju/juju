@@ -258,7 +258,8 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
-	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
+	c.Check(err, gc.ErrorMatches, `.*boom.*`)
+	c.Check(finalised, jc.IsFalse)
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc.C) {
@@ -288,7 +289,14 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		Owner: userUUID,
 		UUID:  modelUUID,
 	}
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
+
+	finalised := false
+	finaliser := func(_ context.Context) error {
+		finalised = true
+		return nil
+	}
+
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
 	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
 		coremodel.UUID(testing.ControllerTag.Id()),
@@ -324,7 +332,8 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
-	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
+	c.Check(err, gc.ErrorMatches, `.*boom.*`)
+	c.Check(finalised, jc.IsFalse)
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyModel(c *gc.C) {
@@ -341,6 +350,12 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	)
 	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
+	finalised := false
+	finaliser := func(_ context.Context) error {
+		finalised = true
+		return nil
+	}
+
 	args := model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "AWS",
@@ -354,7 +369,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		Owner: userUUID,
 		UUID:  modelUUID,
 	}
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
 	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
 		coremodel.UUID(testing.ControllerTag.Id()),
@@ -390,6 +405,6 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
-	c.Assert(err, gc.ErrorMatches, `.*boom.*`)
+	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 	c.Check(finalised, jc.IsFalse)
 }

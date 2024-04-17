@@ -515,7 +515,7 @@ func (s *credentialSuite) TestWatchCredential(c *gc.C) {
 	var id corecredential.ID
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		id, err = st.credentialID(ctx, tx, key)
+		id, err = st.credentialIDForKey(ctx, tx, key)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -608,4 +608,35 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 		coremodel.UUID(modelUUID):  "mymodel",
 		coremodel.UUID(modelUUID2): "mymodel2",
 	})
+}
+
+// TestGetCloudCredential is testing the happy path for GetCloudCredential.
+func (s *credentialSuite) TestGetCloudCredential(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.addCloud(c, s.userName, cloud.Cloud{
+		Name:      "cirrus",
+		Type:      "ec2",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	})
+
+	keyOne := corecredential.Key{Cloud: "cirrus", Owner: s.userName, Name: "foobar"}
+	one := s.createCloudCredential(c, st, keyOne)
+
+	id, err := st.CredentialIDForKey(context.Background(), keyOne)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := st.GetCloudCredential(context.Background(), id)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(res.CloudCredentialInfo, jc.DeepEquals, one)
+	c.Check(res.CloudName, gc.Equals, "cirrus")
+}
+
+func (s *credentialSuite) TestGetCloudCredentialNonExistent(c *gc.C) {
+	id, err := corecredential.NewID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err = st.GetCloudCredential(context.Background(), id)
+	c.Check(err, jc.ErrorIs, credentialerrors.NotFound)
 }

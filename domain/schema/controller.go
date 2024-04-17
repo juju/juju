@@ -223,6 +223,52 @@ CREATE TABLE cloud (
         REFERENCES        cloud_type(id)
 );
 
+-- v_cloud is used to fetch well construct information about a cloud. This view
+-- also includes information on if the cloud is the controller models cloud.
+CREATE VIEW v_cloud
+AS
+-- This selects the controller models cloud uuid. We use this when loading
+-- clouds to know if the cloud is the controllers cloud.
+WITH controllers AS (
+    SELECT m.cloud_uuid
+    FROM model m
+    INNER JOIN user u ON u.uuid = m.owner_uuid
+    WHERE m.name = "controller"
+    AND u.name = "admin"
+    AND m.finalised = true
+)
+SELECT c.uuid,
+       c.name,
+       c.cloud_type_id,
+       ct.type AS cloud_type,
+       c.endpoint,
+       c.identity_endpoint,
+       c.storage_endpoint,
+       c.skip_tls_verify,
+       IIF(controllers.cloud_uuid IS NULL, false, true) AS is_controller_cloud
+FROM cloud c
+INNER JOIN cloud_type ct ON c.cloud_type_id = ct.id
+LEFT JOIN controllers ON controllers.cloud_uuid = c.uuid;
+
+-- v_cloud_auth is a connivance view similar to v_cloud but includes a row for
+-- each cloud and auth type pair.
+CREATE VIEW v_cloud_auth
+AS
+SELECT c.uuid,
+       c.name,
+       c.cloud_type_id,
+       c.cloud_type,
+       c.endpoint,
+       c.identity_endpoint,
+       c.storage_endpoint,
+       c.skip_tls_verify,
+       c.is_controller_cloud,
+       at.id                  AS auth_type_id,
+       at.type                AS auth_type
+FROM v_cloud c
+LEFT JOIN cloud_auth_type cat ON c.uuid = cat.cloud_uuid
+JOIN auth_type at ON at.id = cat.auth_type_id;
+
 CREATE TABLE cloud_defaults (
     cloud_uuid TEXT NOT NULL,
     key TEXT NOT NULL,
@@ -321,19 +367,20 @@ CREATE VIEW v_cloud_credential
 AS
 SELECT cc.uuid,
        cc.cloud_uuid,
+       c.name             AS cloud_name,
        cc.auth_type_id,
+       at.type            AS auth_type,
        cc.owner_uuid,
        cc.name,
        cc.revoked,
        cc.invalid,
        cc.invalid_reason,
-       c.name AS cloud_name,
-       u.name AS owner_name
-FROM cloud_credential AS cc
-INNER JOIN cloud c
-ON c.uuid = cc.cloud_uuid
-INNER JOIN user u
-ON u.uuid = cc.owner_uuid;
+       c.name             AS cloud_name,
+       u.name             AS owner_name
+FROM cloud_credential cc
+INNER JOIN cloud c ON c.uuid = cc.cloud_uuid
+INNER JOIN user u ON u.uuid = cc.owner_uuid
+INNER JOIN auth_type at ON cc.auth_type_id = at.id;
 
 CREATE TABLE cloud_credential_attributes (
     cloud_credential_uuid TEXT NOT NULL,
@@ -345,6 +392,26 @@ CREATE TABLE cloud_credential_attributes (
         FOREIGN KEY (cloud_credential_uuid)
         REFERENCES cloud_credential(uuid)
 );
+
+-- v_cloud_credential_attributes is responsible for return a view of all cloud
+-- credentials and their attributes repeated for every attribute.
+CREATE VIEW v_cloud_credential_attributes
+AS
+SELECT uuid,
+       cloud_uuid,
+       auth_type_id,
+       auth_type,
+       owner_uuid,
+       name,
+       revoked,
+       invalid,
+       invalid_reason,
+       cloud_name,
+       owner_name,
+       cca.key         AS attribute_key,
+       cca.value       AS attribute_value
+FROM v_cloud_credential
+INNER JOIN cloud_credential_attributes cca ON uuid = cca.cloud_credential_uuid;
 `)
 }
 
@@ -449,14 +516,19 @@ CREATE INDEX idx_model_finalised ON model (finalised);
 CREATE VIEW v_model AS
 SELECT m.uuid AS uuid,
        m.cloud_uuid,
-       c.name           AS cloud_name,
-       cr.uuid          AS cloud_region_uuid,
-       cr.name          AS cloud_region_name,
-       cc.uuid          AS cloud_credential_uuid,
-       cc.name          AS cloud_credential_name,
-       ccc.name         AS cloud_credential_cloud_name,
-       cco.uuid         AS cloud_credential_owner_uuid,
-       cco.name         AS cloud_credential_owner_name,
+       c.name            AS cloud_name,
+       c.uuid            AS cloud_uuid,
+       ct.type           AS cloud_type,
+       c.endpoint        AS cloud_endpoint,
+       c.skip_tls_verify AS cloud_skip_tls_verify,
+
+       cr.uuid           AS cloud_region_uuid,
+       cr.name           AS cloud_region_name,
+       cc.uuid           AS cloud_credential_uuid,
+       cc.name           AS cloud_credential_name,
+       ccc.name          AS cloud_credential_cloud_name,
+       cco.uuid          AS cloud_credential_owner_uuid,
+       cco.name          AS cloud_credential_owner_name,
        m.model_type_id,
        mt.type          AS model_type_type,
        m.name AS name,
@@ -465,6 +537,7 @@ SELECT m.uuid AS uuid,
        l.value          AS life
 FROM model m
 INNER JOIN cloud c ON m.cloud_uuid = c.uuid
+INNER JOIN cloud_type ct ON c.cloud_type_id = ct.id
 LEFT JOIN cloud_region cr ON m.cloud_region_uuid = cr.uuid
 LEFT JOIN cloud_credential cc ON m.cloud_credential_uuid = cc.uuid
 LEFT JOIN cloud ccc ON cc.cloud_uuid = ccc.uuid

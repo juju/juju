@@ -342,7 +342,7 @@ func (w *Pruner) scopedContext() (context.Context, context.CancelFunc) {
 	return w.tomb.Context(ctx), cancel
 }
 
-// Model represents a model from the model_list table.
+// Model represents a model from the model table.
 type ModelNamespace struct {
 	UUID      string `db:"uuid"`
 	Namespace string `db:"namespace"`

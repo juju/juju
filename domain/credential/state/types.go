@@ -49,6 +49,49 @@ type Credential struct {
 	InvalidReason string `db:"invalid_reason"`
 }
 
+// credentialWithAttribute represents a single returned from the
+// v_cloud_credential_attributes table.
+type credentialWithAttribute struct {
+	ID string `db:"uuid"`
+
+	// CloudName holds the name of the cloud the credential references
+	CloudName string `db:"cloud_name"`
+
+	AuthType string `db:"auth_type"`
+
+	// Name is the name of the credential.
+	Name string `db:"name"`
+
+	// Owner is the user who owns the credential.
+	// TODO(wallyworld) - this will be a user reference when users are added.
+	OwnerUUID string `db:"owner_uuid"`
+
+	// Revoked is true if the credential has been revoked.
+	Revoked bool `db:"revoked"`
+
+	// Invalid stores flag that indicates if a credential is invalid.
+	// Note that the credential is valid:
+	//  * if the flag is explicitly set to 'false'; or
+	//  * if the flag is not set at all, as will be the case for
+	//    new inserts or credentials created with previous Juju versions. In
+	//    this case, we'd still read it as 'false' and the credential validity
+	//    will be interpreted correctly.
+	// This flag will need to be explicitly set to 'true' for a credential
+	// to be considered invalid.
+	Invalid bool `db:"invalid"`
+
+	// InvalidReason contains the reason why the credential was marked as invalid.
+	// This can range from cloud messages such as an expired credential to
+	// commercial reasons set via CLI or api calls.
+	InvalidReason string `db:"invalid_reason"`
+
+	// AttributeKey contains a single credential attribute key
+	AttributeKey string `db:"attribute_key"`
+
+	// AttributeValue contains a single credential attribute value
+	AttributeValue string `db:"attribute_value"`
+}
+
 // CredentialAttribute represents the persistent credential attributes schema
 // in the database.
 type CredentialAttribute struct {
