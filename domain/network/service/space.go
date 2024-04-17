@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs/envcontext"
@@ -106,29 +107,48 @@ func (s *Service) RemoveSpace(ctx context.Context, uuid string) error {
 type ProviderService struct {
 	Service
 	provider func(context.Context) (Provider, error)
+	broker   func(context.Context) (Provider, error)
 }
 
 // NewProviderService returns a new service reference wrapping the input state.
-func NewProviderService(st State, provider providertracker.ProviderGetter[Provider], logger Logger) *ProviderService {
+func NewProviderService(
+	st State,
+	provider providertracker.ProviderGetter[Provider],
+	broker providertracker.ProviderGetter[Provider],
+	logger Logger,
+) *ProviderService {
 	return &ProviderService{
 		Service: Service{
 			st:     st,
 			logger: logger,
 		},
 		provider: provider,
+		broker:   broker,
 	}
 }
 
 // ReloadSpaces loads spaces and subnets from the provider into state.
 func (s *ProviderService) ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error {
 	callContext := envcontext.WithoutCredentialInvalidator(ctx)
-	networkProvider, err := s.provider(ctx)
+
+	// Get cloud type and select provider or broker accordingly.
+	cloudType, err := s.st.GetModelCloudType(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var networkProvider Provider
+	if cloudType == model.CAAS {
+		networkProvider, err = s.broker(ctx)
+	} else {
+		networkProvider, err = s.provider(ctx)
+	}
 	if errors.Is(err, errors.NotSupported) {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	canDiscoverSpaces, err := networkProvider.SupportsSpaceDiscovery(callContext)
 	if err != nil {
 		return errors.Trace(err)

@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
+	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -128,6 +129,21 @@ func (m *MockState) GetAllSubnets(arg0 context.Context) (network.SubnetInfos, er
 func (mr *MockStateMockRecorder) GetAllSubnets(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSubnets", reflect.TypeOf((*MockState)(nil).GetAllSubnets), arg0)
+}
+
+// GetModelCloudType mocks base method.
+func (m *MockState) GetModelCloudType(arg0 context.Context) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelCloudType", arg0)
+	ret0, _ := ret[0].(model.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelCloudType indicates an expected call of GetModelCloudType.
+func (mr *MockStateMockRecorder) GetModelCloudType(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudType", reflect.TypeOf((*MockState)(nil).GetModelCloudType), arg0)
 }
 
 // GetSpace mocks base method.

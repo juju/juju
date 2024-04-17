@@ -315,8 +315,8 @@ CREATE UNIQUE INDEX idx_provider_network_id
 ON provider_network (provider_network_id);
 
 CREATE TABLE provider_network_subnet (
-    provider_network_uuid TEXT PRIMARY KEY,
-    subnet_uuid           TEXT NOT NULL,
+    subnet_uuid           TEXT PRIMARY KEY,
+    provider_network_uuid TEXT NOT NULL,
     CONSTRAINT            fk_provider_network_subnet_provider_network_uuid
         FOREIGN KEY           (provider_network_uuid)
         REFERENCES            provider_network(uuid),
@@ -324,9 +324,6 @@ CREATE TABLE provider_network_subnet (
         FOREIGN KEY           (subnet_uuid)
         REFERENCES            subnet(uuid)
 );
-
-CREATE UNIQUE INDEX idx_provider_network_subnet_uuid
-ON provider_network_subnet (subnet_uuid);
 
 CREATE TABLE availability_zone (
     uuid            TEXT PRIMARY KEY,

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 )
@@ -37,6 +38,10 @@ type SpaceState interface {
 	UpdateSpace(ctx context.Context, uuid string, name string) error
 	// DeleteSpace deletes the space identified by the passed uuid.
 	DeleteSpace(ctx context.Context, uuid string) error
+	// GetModelCloudType retrieves the cloud type from the (readonly) model table.
+	// This is needed for the ReloadSpaces method on the service to decide whether
+	// the provider or the broker is used.
+	GetModelCloudType(ctx context.Context) (model.ModelType, error)
 }
 
 // SubnetState describes persistence layer methods for the subnet (sub-) domain.

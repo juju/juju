@@ -255,8 +255,11 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 	if err := w.cfg.NetworkService.ReloadSpaces(ctx, fanConfig); err != nil {
-		w.logger.Errorf("reloading spaces %v", err)
-		// return errors.Trace(err)
+		if !errors.Is(err, errors.NotSupported) {
+			w.logger.Errorf("reloading spaces %v", err)
+			return errors.Trace(err)
+		}
+		w.logger.Debugf("Not performing spaces load on a non-networking environment")
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance
