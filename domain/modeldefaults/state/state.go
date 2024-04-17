@@ -126,6 +126,48 @@ WHERE model_metadata.model_uuid = ?
 	return rval, nil
 }
 
+// ModelMetadataDefaults is responsible for providing metadata default's for a
+// model's config. These include things like the model's name and uuid.
+// If no model exists for the provided uuid then a [modelerrors.NotFound] error
+// is returned.
+func (s *State) ModelMetadataDefaults(
+	ctx context.Context,
+	uuid coremodel.UUID,
+) (map[string]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We don't want to use v_model view here as that will only surface
+	// finalised models.
+	q := `
+	SELECT m.model_uuid, m.name, mt.type
+	FROM model_metadata m
+	INNER JOIN model_type mt ON m.model_type_id = mt.id
+	WHERE model_uuid = ?
+`
+
+	var (
+		uuidVal, nameVal, modelTypeVal string
+	)
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, q, uuid).Scan(&uuidVal, &nameVal, &modelTypeVal)
+	})
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+	} else if err != nil {
+		return nil, fmt.Errorf("getting model %q metadata defaults: %w", uuid, domain.CoerceError(err))
+	}
+
+	return map[string]string{
+		config.UUIDKey: uuidVal,
+		config.NameKey: nameVal,
+		config.TypeKey: modelTypeVal,
+	}, nil
+}
+
 // ModelProviderConfigSchema returns the providers config schema source based on
 // the cloud set for the model. If no provider or schema source is found then
 // an error satisfying errors.NotFound is returned. If the model is not found for

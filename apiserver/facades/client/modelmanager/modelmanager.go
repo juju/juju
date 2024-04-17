@@ -246,7 +246,6 @@ func (m *ModelManagerAPI) createModelNew(
 	ctx context.Context,
 	uuid string,
 	args params.ModelCreateArgs,
-	config *config.Config,
 ) error {
 	// TODO (stickupkid): We need to create a saga (pattern) coordinator here,
 	// to ensure that anything written to both databases are at least rollback
@@ -358,7 +357,7 @@ func (m *ModelManagerAPI) createModelNew(
 	modelDefaults := m.modelDefaultsService.ModelDefaultsProvider(modelUUID)
 	modelConfigService := modelServiceFactory.Config(modelDefaults)
 
-	if err := modelConfigService.SetModelConfig(ctx, config.SafeModelAttrs()); err != nil {
+	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
 		return errors.Annotatef(err, "failed to set model config for model %q", modelUUID)
 	}
 
@@ -535,7 +534,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// mode and don't make the calls so test can keep passing.
 	// THIS IS VERY TEMPORARY.
 	if m.modelService != nil {
-		return modelInfo, m.createModelNew(ctx, modelInfo.UUID, args, newConfig)
+		return modelInfo, m.createModelNew(ctx, modelInfo.UUID, args)
 	}
 	return modelInfo, nil
 }

@@ -32,6 +32,10 @@ type State struct {
 	// Defaults is the values returned for ConfigDefaults. If this value is nil
 	// then the defaults recorded in environs config is returned.
 	Defaults map[string]any
+
+	// MetadataDefaults  maintains a list of metadata defaults for each model
+	// uuid.
+	MetadataDefaults map[coremodel.UUID]map[string]string
 }
 
 // ConfigDefaults returns the default configuration values set in Juju.
@@ -67,4 +71,14 @@ func (s *State) ModelProviderConfigSchema(_ context.Context, uuid coremodel.UUID
 		return schemaSource, nil
 	}
 	return nil, errors.NotFound
+}
+
+// ModelMetadataDefaults returns the default values for the model specified by
+// uuid.
+func (s *State) ModelMetadataDefaults(_ context.Context, uuid coremodel.UUID) (map[string]string, error) {
+	defaults, exists := s.MetadataDefaults[uuid]
+	if !exists {
+		return map[string]string{}, fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+	}
+	return defaults, nil
 }
