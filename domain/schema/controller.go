@@ -811,14 +811,6 @@ INSERT INTO permission_access_type VALUES
     (5, 'add-model'),
     (6, 'superuser');
 
-CREATE VIEW v_permission AS
-SELECT at.type AS access_type,
-       p.uuid AS uuid,
-       p.grant_on AS grant_on,
-       p.grant_to AS grant_to
-FROM   permission p
-       JOIN permission_access_type at ON at.id = p.permission_type_id;
-
 CREATE TABLE permission_object_type (
     id    INT PRIMARY KEY,
     type  TEXT NOT NULL
@@ -866,20 +858,72 @@ INSERT INTO permission_object_access VALUES
 -- We will need to remove/replace it in the event of change
 CREATE TABLE permission (
     uuid               TEXT PRIMARY KEY,
-    permission_type_id INT NOT NULL,
+    access_type_id     INT NOT NULL,
+    object_type_id     INT NOT NULL,
     grant_on  		   TEXT NOT NULL, -- name or uuid of the object
     grant_to           TEXT NOT NULL,
     CONSTRAINT         fk_permission_user_uuid
         FOREIGN KEY    (grant_to)
         REFERENCES     user(uuid),
-    CONSTRAINT         fk_permission_access_type
-        FOREIGN KEY    (permission_type_id)
-        REFERENCES     permission_access_type(id)
+    CONSTRAINT      fk_permission_access_type
+        FOREIGN KEY (access_type_id)
+        REFERENCES  permission_access_type(id),
+    CONSTRAINT      fk_permission_object_type
+        FOREIGN KEY (object_type_id)
+        REFERENCES  permission_object_type(id)
 );
 
 -- Allow only 1 combination of grant_on and grant_to
 -- Otherwise we will get conflicting permissions.
 CREATE UNIQUE INDEX idx_permission_type_to
 ON permission (grant_on, grant_to);
+
+-- All permissions
+CREATE VIEW v_permission AS
+SELECT p.uuid AS uuid,
+       p.grant_on AS grant_on,
+       p.grant_to AS grant_to,
+       at.type AS access_type,
+       ot.type AS object_type
+FROM   permission p
+       JOIN permission_access_type at ON at.id = p.access_type_id
+       JOIN permission_object_type ot ON ot.id = p.object_type_id;
+
+-- All model permissions, verifying the model does exist.
+CREATE VIEW v_permission_model AS
+SELECT p.uuid AS uuid,
+       p.grant_on AS grant_on,
+       p.grant_to AS grant_to,
+       at.type AS access_type,
+       ot.type AS object_type
+FROM   permission p
+       JOIN permission_access_type at ON at.id = p.access_type_id
+       JOIN permission_object_type ot ON ot.id = p.object_type_id
+       INNER JOIN model ON model.uuid = p.grant_on;
+
+-- All controller cloud, verifying the cloud does exist.
+CREATE VIEW v_permission_cloud AS
+SELECT p.uuid AS uuid,
+       p.grant_on AS grant_on,
+       p.grant_to AS grant_to,
+       at.type AS access_type,
+       ot.type AS object_type
+FROM   permission p
+       JOIN permission_access_type at ON at.id = p.access_type_id
+       JOIN permission_object_type ot ON ot.id = p.object_type_id
+       INNER JOIN cloud ON cloud.name = p.grant_on;
+
+-- All controller permissions
+CREATE VIEW v_permission_controller AS
+SELECT p.uuid AS uuid,
+       p.grant_on AS grant_on,
+       p.grant_to AS grant_to,
+       at.type AS access_type,
+       ot.type AS object_type
+FROM   permission p
+       JOIN permission_access_type at ON at.id = p.access_type_id
+       JOIN permission_object_type ot ON ot.id = p.object_type_id
+WHERE  grant_on = 'controller';
+
 `)
 }
