@@ -25,6 +25,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/dependency"
@@ -228,6 +229,10 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 	if err != nil {
 		return errors.Annotatef(err, "cannot get host series")
 	}
+	hostBase, err := base.GetBaseFromSeries(hostSeries)
+	if err != nil {
+		return errors.Annotatef(err, "host series %q not a vlaid base", hostSeries)
+	}
 
 	mongoDep := dependency.Mongo(args.JujuDBSnapChannel)
 	if args.DataDir == "" {
@@ -252,7 +257,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 		return errors.Annotatef(err, "cannot create mongo snap service")
 	}
 
-	if err := installMongod(mongoDep, hostSeries, svc); err != nil {
+	if err := installMongod(mongoDep, hostBase, svc); err != nil {
 		return errors.Annotatef(err, "cannot install mongod")
 	}
 
@@ -455,11 +460,11 @@ func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService,
 // Override for testing.
 var installMongo = packaging.InstallDependency
 
-func installMongod(mongoDep packaging.Dependency, hostSeries string, snapSvc MongoSnapService) error {
+func installMongod(mongoDep packaging.Dependency, hostBase base.Base, snapSvc MongoSnapService) error {
 	// Do either a local snap install or a real install from the store.
 	if snapSvc.Name() == ServiceName {
 		// Store snap.
-		return installMongo(mongoDep, hostSeries)
+		return installMongo(mongoDep, hostBase)
 	} else {
 		// Local snap.
 		return snapSvc.Install()

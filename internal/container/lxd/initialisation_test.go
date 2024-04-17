@@ -10,8 +10,8 @@ import (
 
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/juju/packaging/v2/commands"
-	"github.com/juju/packaging/v2/manager"
+	"github.com/juju/packaging/v3/commands"
+	"github.com/juju/packaging/v3/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -171,7 +171,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 }
 
 func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
-	PatchHostSeries(s, "")
+	PatchHostSeries(s, "jammy")
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/packaging"
 )
 
-const blankSeries = ""
+var ubuntu = "ubuntu"
 
 // LXD returns a dependency instance for installing lxd support using the
 // specified channel preferences (applies to cosmic or later).
@@ -27,24 +27,20 @@ type lxdDependency struct {
 }
 
 // PackageList implements packaging.Dependency.
-func (dep lxdDependency) PackageList(series string) ([]packaging.Package, error) {
+func (dep lxdDependency) PackageList(b base.Base) ([]packaging.Package, error) {
+	if b.OS != ubuntu {
+		return nil, errors.NotSupportedf("LXD containers on base %q", b)
+	}
+
 	var pkg packaging.Package
 
-	switch series {
-	case base.Centos7.String(), base.Centos9.String():
-		return nil, errors.NotSupportedf("LXD containers on series %q", series)
-	case base.Bionic.String(), blankSeries:
-		pkg.Name = "lxd"
-		pkg.PackageManager = packaging.AptPackageManager
-	default: // Use snaps for cosmic and beyond
-		if dep.snapChannel == "" {
-			return nil, errors.NotValidf("snap channel for lxd dependency")
-		}
-
-		pkg.Name = "lxd"
-		pkg.InstallOptions = fmt.Sprintf("--classic --channel %s", dep.snapChannel)
-		pkg.PackageManager = packaging.SnapPackageManager
+	if dep.snapChannel == "" {
+		return nil, errors.NotValidf("snap channel for lxd dependency")
 	}
+
+	pkg.Name = "lxd"
+	pkg.InstallOptions = fmt.Sprintf("--classic --channel %s", dep.snapChannel)
+	pkg.PackageManager = packaging.SnapPackageManager
 
 	return []packaging.Package{pkg}, nil
 }

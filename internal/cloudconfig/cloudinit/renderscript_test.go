@@ -6,7 +6,7 @@ package cloudinit_test
 import (
 	"regexp"
 
-	"github.com/juju/packaging/v2"
+	"github.com/juju/packaging/v3"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
