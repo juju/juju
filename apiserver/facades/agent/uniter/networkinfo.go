@@ -40,6 +40,8 @@ type NetworkInfo interface {
 type NetworkInfoBase struct {
 	st *state.State
 
+	networkService NetworkService
+
 	// retryFactory returns a retry strategy template used to poll for
 	// and resolve addresses that may not yet have landed in state,
 	// such as for CAAS services.
@@ -58,7 +60,7 @@ type NetworkInfoBase struct {
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(ctx context.Context, st *state.State, tag names.UnitTag, logger loggo.Logger, networkService NetworkService) (NetworkInfo, error) {
+func NewNetworkInfo(ctx context.Context, st *state.State, networkService NetworkService, tag names.UnitTag, logger loggo.Logger) (NetworkInfo, error) {
 	n, err := NewNetworkInfoForStrategy(ctx, st, networkService, tag, defaultRetryFactory, net.LookupHost, logger)
 	return n, errors.Trace(err)
 }
@@ -117,19 +119,20 @@ func NewNetworkInfoForStrategy(
 	}
 
 	base := &NetworkInfoBase{
-		st:            st,
-		unit:          unit,
-		app:           app,
-		bindings:      allBindings,
-		defaultEgress: cfg.EgressSubnets(),
-		retryFactory:  retryFactory,
-		lookupHost:    lookupHost,
-		logger:        logger,
+		st:             st,
+		networkService: networkService,
+		unit:           unit,
+		app:            app,
+		bindings:       allBindings,
+		defaultEgress:  cfg.EgressSubnets(),
+		retryFactory:   retryFactory,
+		lookupHost:     lookupHost,
+		logger:         logger,
 	}
 
 	var netInfo NetworkInfo
 	if unit.ShouldBeAssigned() {
-		netInfo, err = newNetworkInfoIAAS(base)
+		netInfo, err = newNetworkInfoIAAS(ctx, base)
 	} else {
 		netInfo, err = newNetworkInfoCAAS(base)
 	}

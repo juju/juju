@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -45,24 +44,27 @@ type RemoteProReqRelation struct {
 	ru0, ru1               *state.Unit
 }
 
+type NetworkService interface {
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
+	AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error)
+	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+}
+
 type networkInfoSuite struct {
 	testing.ApiServerSuite
-
-	networkService *MockNetworkService
+	networkService NetworkService
 }
 
 var _ = gc.Suite(&networkInfoSuite{})
 
-func (s *networkInfoSuite) setUpMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.networkService = NewMockNetworkService(ctrl)
-	return ctrl
-}
-
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
+
+	serviceFactory := s.ControllerServiceFactory(c)
+	s.networkService = serviceFactory.Network()
 }
 
 func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
@@ -125,20 +127,7 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 }
 
 func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
-	// Add subnets for the addresses that the machine will have.
-	// We are testing a space-less deployment here.
 	st := s.ControllerModel(c).State()
-	_, err := st.AddSubnet(network.SubnetInfo{
-		CIDR:    "10.2.0.0/16",
-		SpaceID: network.AlphaSpaceId,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = st.AddSubnet(network.SubnetInfo{
-		CIDR:    "100.2.3.0/24",
-		SpaceID: network.AlphaSpaceId,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -150,6 +139,24 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,
 	})
+	_, err := s.networkService.AddSubnet(
+		context.Background(),
+		network.SubnetInfo{
+			CIDR:              "10.2.0.0/16",
+			SpaceID:           network.AlphaSpaceId,
+			ProviderId:        "subnet-0",
+			ProviderNetworkId: "subnet-0",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.networkService.AddSubnet(
+		context.Background(),
+		network.SubnetInfo{
+			CIDR:              "100.2.3.0/24",
+			SpaceID:           network.AlphaSpaceId,
+			ProviderId:        "subnet-1",
+			ProviderNetworkId: "subnet-1",
+		})
+	c.Assert(err, jc.ErrorIsNil)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,10 +203,14 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C) {
 	// Add a single subnet in the alpha space.
 	st := s.ControllerModel(c).State()
-	_, err := st.AddSubnet(network.SubnetInfo{
-		CIDR:    "10.2.0.0/16",
-		SpaceID: network.AlphaSpaceId,
-	})
+	_, err := s.networkService.AddSubnet(
+		context.Background(),
+		network.SubnetInfo{
+			CIDR:              "10.2.0.0/16",
+			SpaceID:           network.AlphaSpaceId,
+			ProviderId:        "subnet-0",
+			ProviderNetworkId: "subnet-0",
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -326,8 +337,6 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 }
 
 func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -434,7 +443,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 		network.WithConfigType(network.ConfigStatic),
 		network.WithCIDR("10.2.0.0/16"),
 	)}
-	exp[0].SpaceID = "3"
+	exp[0].SpaceID = "space-3"
 	c.Assert(ingress, gc.DeepEquals, exp)
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
@@ -610,8 +619,6 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -663,7 +670,6 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
 
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
@@ -692,7 +698,6 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
 
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
@@ -926,19 +931,25 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 }
 
 func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) network.SpaceInfo {
-	st := s.ControllerModel(c).State()
-	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = st.AddSubnet(network.SubnetInfo{
-		CIDR:    cidr,
-		SpaceID: space.Id(),
+	spaceID, err := s.networkService.AddSpace(context.Background(), network.SpaceInfo{
+		ID:   spaceName,
+		Name: network.SpaceName(spaceName),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	spInfo, err := space.NetworkSpace()
+	_, err = s.networkService.AddSubnet(
+		context.Background(),
+		network.SubnetInfo{
+			CIDR:              cidr,
+			SpaceID:           spaceID.String(),
+			ProviderId:        network.Id("subnet-" + spaceName),
+			ProviderNetworkId: network.Id("subnet-" + spaceName),
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	return spInfo
+
+	spInfo, err := s.networkService.Space(context.Background(), spaceID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	return *spInfo
 }
 
 // createNICAndBridgeWithIP creates a network interface and a bridge on the
@@ -984,8 +995,6 @@ func (s *networkInfoSuite) createNICWithIP(
 func (s *networkInfoSuite) newNetworkInfo(
 	c *gc.C, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
 ) uniter.NetworkInfo {
-	defer s.setUpMocks(c).Finish()
-
 	// Allow the caller to supply nil if this is not important.
 	// We fill it with an optimistic default.
 	if retryFactory == nil {
