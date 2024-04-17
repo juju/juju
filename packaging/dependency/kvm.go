@@ -21,9 +21,9 @@ type kvmDependency struct {
 }
 
 // PackageList implements packaging.Dependency.
-func (dep kvmDependency) PackageList(series string) ([]packaging.Package, error) {
-	if series == base.Centos7.String() || series == base.Centos9.String() {
-		return nil, errors.NotSupportedf("installing kvm on series %q", series)
+func (dep kvmDependency) PackageList(b base.Base) ([]packaging.Package, error) {
+	if b.OS != ubuntu {
+		return nil, errors.NotSupportedf("installing kvm on base %q", b)
 	}
 
 	var pkgList []string
@@ -39,17 +39,12 @@ func (dep kvmDependency) PackageList(series string) ([]packaging.Package, error)
 		"genisoimage",
 	)
 
-	switch series {
-	case "bionic":
-		pkgList = append(pkgList, "libvirt-bin")
-	default:
-		// On focal+ virsh is provided by libvirt-clients; also we need
-		// to install the daemon package separately.
-		pkgList = append(pkgList,
-			"libvirt-daemon-system",
-			"libvirt-clients",
-		)
-	}
+	// On focal+ virsh is provided by libvirt-clients; also we need
+	// to install the daemon package separately.
+	pkgList = append(pkgList,
+		"libvirt-daemon-system",
+		"libvirt-clients",
+	)
 
 	return packaging.MakePackageList(packaging.AptPackageManager, "", pkgList...), nil
 }

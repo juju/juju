@@ -12,10 +12,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/packaging/v2/manager"
+	"github.com/juju/packaging/v3/manager"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/container"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/juju/service"
@@ -71,8 +72,12 @@ func (ci *containerInitialiser) Initialise() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	localBase, err := corebase.GetBaseFromSeries(localSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	if err := ensureDependencies(ci.lxdSnapChannel, localSeries); err != nil {
+	if err := ensureDependencies(ci.lxdSnapChannel, localBase); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -185,7 +190,7 @@ var df = func(path string) (uint64, error) {
 }
 
 // ensureDependencies install the required dependencies for running LXD.
-func ensureDependencies(lxdSnapChannel, series string) error {
+func ensureDependencies(lxdSnapChannel string, base corebase.Base) error {
 	// If the snap is already installed, check whether the operator asked
 	// us to use a different channel. If so, switch to it.
 	if lxdViaSnap() {
@@ -209,7 +214,7 @@ func ensureDependencies(lxdSnapChannel, series string) error {
 		return nil
 	}
 
-	if err := packaging.InstallDependency(dependency.LXD(lxdSnapChannel), series); err != nil {
+	if err := packaging.InstallDependency(dependency.LXD(lxdSnapChannel), base); err != nil {
 		return errors.Trace(err)
 	}
 

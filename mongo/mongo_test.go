@@ -20,6 +20,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -226,7 +227,7 @@ func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "snap")
 
 	failure := errors.New("boom")
-	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, series string) error {
+	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, b base.Base) error {
 		return failure
 	})
 

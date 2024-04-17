@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
@@ -93,19 +94,19 @@ func (initialisationInternalSuite) TestAutoStartPool(c *gc.C) {
 }
 
 func (initialisationInternalSuite) TestRequiredPackagesAMD64(c *gc.C) {
-	got, err := dependency.KVM("amd64").PackageList("bionic")
+	got, err := dependency.KVM("amd64").PackageList(base.MustParseBaseFromString("ubuntu@20.04"))
 	c.Assert(err, gc.IsNil)
-	assertPkgListMatches(c, got, []string{"qemu-kvm", "qemu-utils", "genisoimage", "libvirt-bin"})
+	assertPkgListMatches(c, got, []string{"qemu-kvm", "qemu-utils", "genisoimage", "libvirt-daemon-system", "libvirt-clients"})
 }
 
 func (initialisationInternalSuite) TestRequiredPackagesARM64(c *gc.C) {
-	got, err := dependency.KVM("arm64").PackageList("bionic")
+	got, err := dependency.KVM("amd64").PackageList(base.MustParseBaseFromString("ubuntu@20.04"))
 	c.Assert(err, gc.IsNil)
-	assertPkgListMatches(c, got, []string{"qemu-efi", "qemu-kvm", "qemu-utils", "genisoimage", "libvirt-bin"})
+	assertPkgListMatches(c, got, []string{"qemu-kvm", "qemu-utils", "genisoimage", "libvirt-daemon-system", "libvirt-clients"})
 }
 
 func assertPkgListMatches(c *gc.C, got []packaging.Package, exp []string) {
-	c.Assert(len(got), gc.Equals, len(exp))
+	c.Check(len(got), gc.Equals, len(exp))
 	for i := 0; i < len(got); i++ {
 		c.Assert(got[i].Name, gc.Equals, exp[i])
 	}
