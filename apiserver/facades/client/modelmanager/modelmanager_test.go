@@ -67,6 +67,7 @@ type modelManagerSuite struct {
 	caasSt        *mockState
 	caasBroker    *mockCaasBroker
 	cloudService  *mockCloudService
+	accessService *mocks.MockAccessService
 	modelExporter *mocks.MockModelExporter
 	authoriser    apiservertesting.FakeAuthorizer
 	api           *modelmanager.ModelManagerAPI
@@ -146,7 +147,6 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				userName: "add-model",
 				access:   permission.AdminAccess,
 			}, {
-
 				userName: "otheruser",
 				access:   permission.WriteAccess,
 			}},
@@ -219,7 +219,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -242,7 +242,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(&caasCred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -277,7 +277,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(nil),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -746,7 +746,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(nil),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -876,7 +876,13 @@ func (s *modelManagerSuite) TestDumpModelsDBUsers(c *gc.C) {
 
 func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 	addModelUser := names.NewUserTag("add-model")
-	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.accessService = mocks.NewMockAccessService(ctrl)
+	as := s.accessService.EXPECT()
+	as.ReadUserAccessLevelForTarget(gomock.Any(), addModelUser.Id(), gomock.AssignableToTypeOf(permission.ID{})).Return(permission.AddModelAccess, nil)
+
 	s.setAPIUser(c, addModelUser)
 	_, err := s.api.CreateModel(stdcontext.Background(), createArgs(addModelUser))
 	c.Assert(err, jc.ErrorIsNil)
@@ -884,7 +890,13 @@ func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 
 func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	addModelUser := names.NewUserTag("add-model")
-	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.accessService = mocks.NewMockAccessService(ctrl)
+	as := s.accessService.EXPECT()
+	as.ReadUserAccessLevelForTarget(gomock.Any(), addModelUser.Id(), gomock.AssignableToTypeOf(permission.ID{})).Return(permission.AddModelAccess, nil)
+
 	s.setAPIUser(c, addModelUser)
 	nonAdminUser := names.NewUserTag("non-admin")
 	_, err := s.api.CreateModel(stdcontext.Background(), createArgs(nonAdminUser))
@@ -900,6 +912,7 @@ type modelManagerStateSuite struct {
 	authoriser   apiservertesting.FakeAuthorizer
 
 	controllerConfigService *mocks.MockControllerConfigService
+	accessService           *mocks.MockAccessService
 
 	store objectstore.ObjectStore
 }
@@ -929,6 +942,7 @@ func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.accessService = mocks.NewMockAccessService(ctrl)
 
 	return ctrl
 }
@@ -955,7 +969,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -986,7 +1000,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1014,7 +1028,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1069,7 +1083,14 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
+	userTag := names.NewUserTag("non-admin@remote")
+	s.setAPIUser(c, userTag)
+	as := s.accessService.EXPECT()
+	id := permission.ID{
+		ObjectType: permission.Cloud,
+		Key:        "dummy",
+	}
+	as.ReadUserAccessLevelForTarget(gomock.Any(), userTag.Id(), id).Return(permission.WriteAccess, nil)
 	owner := names.NewUserTag("external@remote")
 	_, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -1080,6 +1101,13 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
 
 	owner := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, owner)
+	as := s.accessService.EXPECT()
+	id := permission.ID{
+		ObjectType: permission.Cloud,
+		Key:        "dummy",
+	}
+	as.ReadUserAccessLevelForTarget(gomock.Any(), owner.Id(), id).Return(permission.WriteAccess, nil)
+
 	_, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -1253,7 +1281,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1317,7 +1345,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1369,7 +1397,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1842,7 +1870,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),

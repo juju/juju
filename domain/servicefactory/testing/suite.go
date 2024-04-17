@@ -102,7 +102,7 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.CloudName = "dummy"
-	err = cloudbootstrap.InsertCloud(cloud.Cloud{
+	err = cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
 		Name:      s.CloudName,
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},

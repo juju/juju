@@ -80,7 +80,7 @@ type ModelManagerAPI struct {
 	cloudService         CloudService
 	credentialService    CredentialService
 	configSchemaSource   config.ConfigSchemaSourceGetter
-	userService          UserService
+	accessService        AccessService
 	modelExporter        ModelExporter
 	store                objectstore.ObjectStore
 	secretBackendService SecretBackendService
@@ -141,7 +141,7 @@ func NewModelManagerAPI(
 		model:                m,
 		modelService:         services.ModelService,
 		modelDefaultsService: services.ModelDefaultsService,
-		userService:          services.UserService,
+		accessService:        services.AccessService,
 		secretBackendService: services.SecretBackendService,
 		controllerUUID:       controllerUUID,
 	}, nil
@@ -227,8 +227,12 @@ func (m *ModelManagerAPI) newModelConfig(
 	return creator.NewModelConfig(cloudSpec, baseConfig, joint)
 }
 
-func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.UserTag) (bool, error) {
-	perm, err := m.ctlrState.GetCloudAccess(cloud, userTag)
+func (m *ModelManagerAPI) checkAddModelPermission(ctx context.Context, cloud string, userTag names.UserTag) (bool, error) {
+	target := permission.ID{
+		ObjectType: permission.Cloud,
+		Key:        cloud,
+	}
+	perm, err := m.accessService.ReadUserAccessLevelForTarget(ctx, userTag.Id(), target)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return false, errors.Trace(err)
 	}
@@ -285,7 +289,7 @@ func (m *ModelManagerAPI) createModelNew(
 		return errors.Trace(err)
 	}
 	if err != nil {
-		canAddModel, err := m.checkAddModelPermission(cloudTag.Id(), m.apiUser)
+		canAddModel, err := m.checkAddModelPermission(ctx, cloudTag.Id(), m.apiUser)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -305,7 +309,7 @@ func (m *ModelManagerAPI) createModelNew(
 		return errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
-	user, err := m.userService.GetUserByName(ctx, ownerTag.Name())
+	user, err := m.accessService.GetUserByName(ctx, ownerTag.Name())
 	if err != nil {
 		// TODO handle error properly
 		return errors.Trace(err)
@@ -396,7 +400,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Trace(err)
 	}
 	if err != nil {
-		canAddModel, err := m.checkAddModelPermission(cloudTag.Id(), m.apiUser)
+		canAddModel, err := m.checkAddModelPermission(ctx, cloudTag.Id(), m.apiUser)
 		if err != nil {
 			return result, errors.Trace(err)
 		}

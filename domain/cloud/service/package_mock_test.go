@@ -57,6 +57,20 @@ func (mr *MockStateMockRecorder) Cloud(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockState)(nil).Cloud), arg0, arg1)
 }
 
+// CreateCloud mocks base method.
+func (m *MockState) CreateCloud(arg0 context.Context, arg1, arg2 string, arg3 cloud.Cloud) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCloud", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateCloud indicates an expected call of CreateCloud.
+func (mr *MockStateMockRecorder) CreateCloud(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCloud", reflect.TypeOf((*MockState)(nil).CreateCloud), arg0, arg1, arg2, arg3)
+}
+
 // DeleteCloud mocks base method.
 func (m *MockState) DeleteCloud(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -86,18 +100,18 @@ func (mr *MockStateMockRecorder) ListClouds(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListClouds", reflect.TypeOf((*MockState)(nil).ListClouds), arg0)
 }
 
-// UpsertCloud mocks base method.
-func (m *MockState) UpsertCloud(arg0 context.Context, arg1 cloud.Cloud) error {
+// UpdateCloud mocks base method.
+func (m *MockState) UpdateCloud(arg0 context.Context, arg1 cloud.Cloud) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertCloud", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateCloud", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpsertCloud indicates an expected call of UpsertCloud.
-func (mr *MockStateMockRecorder) UpsertCloud(arg0, arg1 any) *gomock.Call {
+// UpdateCloud indicates an expected call of UpdateCloud.
+func (mr *MockStateMockRecorder) UpdateCloud(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertCloud", reflect.TypeOf((*MockState)(nil).UpsertCloud), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloud", reflect.TypeOf((*MockState)(nil).UpdateCloud), arg0, arg1)
 }
 
 // WatchCloud mocks base method.

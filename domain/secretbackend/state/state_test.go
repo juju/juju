@@ -117,15 +117,16 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
-	err = cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
-		Name:           "my-cloud",
-		Type:           "ec2",
-		AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		CACertificates: []string{"my-ca-cert"},
-		Regions: []cloud.Region{
-			{Name: "my-region"},
-		},
-	})
+	err = cloudSt.CreateCloud(context.Background(), userName, uuid.MustNewUUID().String(),
+		cloud.Cloud{
+			Name:           "my-cloud",
+			Type:           "ec2",
+			AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+			CACertificates: []string{"my-ca-cert"},
+			Regions: []cloud.Region{
+				{Name: "my-region"},
+			},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := credential.CloudCredentialInfo{

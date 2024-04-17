@@ -174,6 +174,7 @@ type Service struct {
 // state.
 func NewService(st State) *Service {
 	return &Service{
-		UserService: NewUserService(st),
+		UserService:       NewUserService(st),
+		PermissionService: NewPermissionService(st),
 	}
 }

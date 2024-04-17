@@ -192,7 +192,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 			SecretBackendService: s.mockSecretBackendService,
 		},
@@ -224,7 +224,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			UserService:          nil,
+			AccessService:        nil,
 			ObjectStore:          &mockObjectStore{},
 			SecretBackendService: s.mockSecretBackendService,
 		},
@@ -841,14 +841,6 @@ func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
 		}
 	}
 	return false, st.NextErr()
-}
-
-func (st *mockState) GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error) {
-	st.MethodCall(st, "GetCloudAccess", user)
-	if perm, ok := st.cloudUsers[user.Id()]; ok {
-		return perm, nil
-	}
-	return permission.NoAccess, errors.NotFoundf("user %v", user.Id())
 }
 
 func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {

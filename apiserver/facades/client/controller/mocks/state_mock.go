@@ -146,35 +146,6 @@ func (mr *MockBackendMockRecorder) ControllerTag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTag", reflect.TypeOf((*MockBackend)(nil).ControllerTag))
 }
 
-// CreateCloudAccess mocks base method.
-func (m *MockBackend) CreateCloudAccess(arg0 string, arg1 names.UserTag, arg2 permission.Access) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateCloudAccess", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateCloudAccess indicates an expected call of CreateCloudAccess.
-func (mr *MockBackendMockRecorder) CreateCloudAccess(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCloudAccess", reflect.TypeOf((*MockBackend)(nil).CreateCloudAccess), arg0, arg1, arg2)
-}
-
-// GetCloudAccess mocks base method.
-func (m *MockBackend) GetCloudAccess(arg0 string, arg1 names.UserTag) (permission.Access, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCloudAccess", arg0, arg1)
-	ret0, _ := ret[0].(permission.Access)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetCloudAccess indicates an expected call of GetCloudAccess.
-func (mr *MockBackendMockRecorder) GetCloudAccess(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCloudAccess", reflect.TypeOf((*MockBackend)(nil).GetCloudAccess), arg0, arg1)
-}
-
 // Model mocks base method.
 func (m *MockBackend) Model() (*state.Model, error) {
 	m.ctrl.T.Helper()
@@ -232,20 +203,6 @@ func (m *MockBackend) RemoveAllBlocksForController() error {
 func (mr *MockBackendMockRecorder) RemoveAllBlocksForController() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllBlocksForController", reflect.TypeOf((*MockBackend)(nil).RemoveAllBlocksForController))
-}
-
-// RemoveCloudAccess mocks base method.
-func (m *MockBackend) RemoveCloudAccess(arg0 string, arg1 names.UserTag) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveCloudAccess", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveCloudAccess indicates an expected call of RemoveCloudAccess.
-func (mr *MockBackendMockRecorder) RemoveCloudAccess(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCloudAccess", reflect.TypeOf((*MockBackend)(nil).RemoveCloudAccess), arg0, arg1)
 }
 
 // RemoveUserAccess mocks base method.

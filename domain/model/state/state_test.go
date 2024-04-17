@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -62,16 +63,17 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err = cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
-		Name:      "my-cloud",
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		Regions: []cloud.Region{
-			{
-				Name: "my-region",
+	err = cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
+		cloud.Cloud{
+			Name:      "my-cloud",
+			Type:      "ec2",
+			AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+			Regions: []cloud.Region{
+				{
+					Name: "my-region",
+				},
 			},
-		},
-	})
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := credential.CloudCredentialInfo{
@@ -353,16 +355,17 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 
 func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err := cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
-		Name:      "my-cloud2",
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		Regions: []cloud.Region{
-			{
-				Name: "my-region",
+	err := cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
+		cloud.Cloud{
+			Name:      "my-cloud2",
+			Type:      "ec2",
+			AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+			Regions: []cloud.Region{
+				{
+					Name: "my-region",
+				},
 			},
-		},
-	})
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := credential.CloudCredentialInfo{
@@ -404,12 +407,13 @@ func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 // logic assuming that a cloud region was always set for a model.
 func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err := cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
-		Name:      "minikube",
-		Type:      "kubernetes",
-		AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType},
-		Regions:   []cloud.Region{},
-	})
+	err := cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
+		cloud.Cloud{
+			Name:      "minikube",
+			Type:      "kubernetes",
+			AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType},
+			Regions:   []cloud.Region{},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := credential.CloudCredentialInfo{

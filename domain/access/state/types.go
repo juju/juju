@@ -114,10 +114,12 @@ type dbAddUserPermission struct {
 	// PermissionType is the type of permission.
 	Access string `db:"access"`
 
-	// GrantOn is the tag that the permission is granted on.
+	// GrantOn is the unique identifier of the permission target.
+	// A name or UUID depending on the ObjectType.
 	GrantOn string `db:"grant_on"`
 
-	// GrantTo is the tag that the permission is granted to.
+	// GrantTo is the unique identifier of the user the permission
+	// is granted to.
 	GrantTo string `db:"grant_to"`
 }
 

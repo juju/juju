@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // WatcherFactory instances return a watcher for a specified credential UUID,
@@ -24,8 +25,12 @@ type WatcherFactory interface {
 type State interface {
 	ProviderState
 
-	// UpsertCloud persists the input cloud entity.
-	UpsertCloud(context.Context, cloud.Cloud) error
+	// CreateCloud creates the input cloud entity and provides Admin
+	// permissions for the owner.
+	CreateCloud(ctx context.Context, owner string, cloudUUID string, cloud cloud.Cloud) error
+
+	// UpdateCloud updates the input cloud entity.
+	UpdateCloud(context.Context, cloud.Cloud) error
 
 	// DeleteCloud deletes the input cloud entity.
 	DeleteCloud(context.Context, string) error
@@ -46,9 +51,20 @@ func NewService(st State) *Service {
 	}
 }
 
-// UpsertCloud inserts or updates the specified cloud.
-func (s *Service) UpsertCloud(ctx context.Context, cloud cloud.Cloud) error {
-	err := s.st.UpsertCloud(ctx, cloud)
+// CreateCloud creates the input cloud entity and provides Admin
+// permissions for the owner.
+func (s *Service) CreateCloud(ctx context.Context, owner string, cloud cloud.Cloud) error {
+	credUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Annotatef(err, "creating uuid for cloud %q", cloud.Name)
+	}
+	err = s.st.CreateCloud(ctx, owner, credUUID.String(), cloud)
+	return errors.Annotatef(err, "creating cloud %q", cloud.Name)
+}
+
+// UpdateCloud updates the specified cloud.
+func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
+	err := s.st.UpdateCloud(ctx, cloud)
 	return errors.Annotatef(err, "updating cloud %q", cloud.Name)
 }
 

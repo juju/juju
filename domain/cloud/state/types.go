@@ -138,3 +138,21 @@ type CloudCACert struct {
 	// CACert holds the ca cert.
 	CACert string `db:"ca_cert"`
 }
+
+// dbAddUserPermission represents a permission in the system where the values
+// overlap with corepermission.Permission.
+type dbAddUserPermission struct {
+	// UUID is the unique identifier for the permission.
+	UUID string `db:"uuid"`
+
+	// GrantOn is the unique identifier of the permission target.
+	// A name or UUID depending on the ObjectType.
+	GrantOn string `db:"grant_on"`
+
+	// Name is the name of the user that the permission is granted to.
+	Name string `db:"name"`
+
+	// Access is the type of access for this user for the
+	// GrantOn value.
+	Access string `db:"access"`
+}

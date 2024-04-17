@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -162,11 +161,6 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	credentialTag, ok := model.CloudCredentialTag()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(credentialTag, gc.Equals, userPassCredentialTag)
-
-	// Check that the cloud owner has admin access.
-	access, err := s.State.GetCloudAccess("dummy", owner)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.AdminAccess)
 
 	// Check that the alpha space is created.
 	_, err = s.State.SpaceByName(network.AlphaSpaceName)
