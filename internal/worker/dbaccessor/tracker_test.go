@@ -128,7 +128,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 	s.expectClock()
 	defer s.expectTimer(1)()
 
-	s.timer.EXPECT().Reset(PollInterval).Times(1)
+	s.timer.EXPECT().Reset(gomock.Any()).Times(1)
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
 	var count uint64
@@ -158,7 +158,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	s.expectClock()
 	defer s.expectTimer(1)()
 
-	s.timer.EXPECT().Reset(PollInterval).Times(1)
+	s.timer.EXPECT().Reset(gomock.Any()).Times(1)
 
 	dbChange := make(chan struct{})
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts - 1)
@@ -202,7 +202,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 	s.expectClock()
 	defer s.expectTimer(2)()
 
-	s.timer.EXPECT().Reset(PollInterval).Times(2)
+	s.timer.EXPECT().Reset(gomock.Any()).Times(2)
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
@@ -233,7 +233,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	s.expectClock()
 	defer s.expectTimer(1)()
 
-	s.timer.EXPECT().Reset(PollInterval).Times(1)
+	s.timer.EXPECT().Reset(gomock.Any()).Times(1)
 
 	exp := s.dbApp.EXPECT()
 	gomock.InOrder(

@@ -416,7 +416,7 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 	_, exists := s.state.models[s.modelUUID]
 	c.Assert(exists, jc.IsTrue)
 
-	err = svc.DeleteModel(context.Background(), s.modelUUID)
+	err = svc.DeleteModel(context.Background(), s.modelUUID, model.WithDeleteDB())
 	c.Assert(err, jc.ErrorIsNil)
 	_, exists = s.state.models[s.modelUUID]
 	c.Assert(exists, jc.IsFalse)

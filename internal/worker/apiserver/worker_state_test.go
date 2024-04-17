@@ -126,6 +126,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
+		DBDeleter:                  s.dbDeleter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,

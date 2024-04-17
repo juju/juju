@@ -44,6 +44,7 @@ type workerFixture struct {
 	logSink                 corelogger.ModelLogger
 	charmhubHTTPClient      *http.Client
 	dbGetter                stubWatchableDBGetter
+	dbDeleter               stubDBDeleter
 	tracerGetter            stubTracerGetter
 	objectStoreGetter       stubObjectStoreGetter
 	controllerConfigService *MockControllerConfigService
@@ -91,6 +92,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		LogSink:                           s.logSink,
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
 		DBGetter:                          s.dbGetter,
+		DBDeleter:                         s.dbDeleter,
 		ControllerConfigService:           s.controllerConfigService,
 		ServiceFactoryGetter:              s.serviceFactoryGetter,
 		TracerGetter:                      s.tracerGetter,

@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -180,6 +181,9 @@ func (w *trackedDBWorker) ensureModelDBInitialised(ctx context.Context) error {
 // should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
 	return w.run(ctx, func(db *sqlair.DB) error {
+		// Tie the worker tomb to the context, so that the worker can be
+		// killed by the context.
+		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
 		return errors.Trace(database.Txn(ctx, db, fn))
 	})
 }
@@ -191,6 +195,9 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 // should use.
 func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return w.run(ctx, func(db *sqlair.DB) error {
+		// Tie the worker tomb to the context, so that the worker can be
+		// killed by the context.
+		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
 		return errors.Trace(database.StdTxn(ctx, db.PlainDB(), fn))
 	})
 }
@@ -224,6 +231,11 @@ func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) er
 		// rather than potentially causing panics down the line.
 		if db == nil {
 			return errors.NotFoundf("database")
+		}
+
+		// Don't execute the function if we know the context is already done.
+		if err := ctx.Err(); err != nil {
+			return errors.Trace(err)
 		}
 
 		return fn(db)
@@ -325,7 +337,7 @@ func (w *trackedDBWorker) loop() error {
 				w.reportInternalState(stateDBReplaced)
 			}
 
-			timer.Reset(PollInterval)
+			timer.Reset(jitter(PollInterval, 0.1))
 		}
 	}
 }
@@ -454,4 +466,11 @@ func (r *report) Set(f func(*report)) {
 	r.Lock()
 	f(r)
 	r.Unlock()
+}
+
+// jitter returns a duration that is the input interval with a random factor
+// applied to it. This prevents all workers from polling the database at the
+// same time.
+func jitter(interval time.Duration, factor float64) time.Duration {
+	return time.Duration(float64(interval) * (1 + factor*(2*rand.Float64()-1)))
 }

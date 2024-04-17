@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"context"
-	stdcontext "context"
 	"net/http"
 	"strings"
 
@@ -85,7 +84,7 @@ type ManifoldConfig struct {
 	Presence                          presence.Recorder
 	GetControllerConfigService        GetControllerConfigServiceFunc
 
-	NewWorker           func(stdcontext.Context, Config) (worker.Worker, error)
+	NewWorker           func(context.Context, Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
 }
 
