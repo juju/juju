@@ -47,7 +47,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
-	osbase "github.com/juju/juju/core/os/base"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -177,7 +177,7 @@ func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
 }
 
 func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
-	if coreos.HostOS() != coreos.Ubuntu {
+	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
 
@@ -203,11 +203,11 @@ func stringp(v string) *string {
 }
 
 func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
-	if coreos.HostOS() != coreos.Ubuntu {
+	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
 
-	s.PatchValue(&osbase.HostBase, func() (corebase.Base, error) {
+	s.PatchValue(&coreos.HostBase, func() (corebase.Base, error) {
 		return corebase.ParseBaseFromString("ubuntu@22.04")
 	})
 
@@ -243,11 +243,11 @@ func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
-	if coreos.HostOS() != coreos.Ubuntu {
+	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
 
-	s.PatchValue(&osbase.HostBase, func() (corebase.Base, error) {
+	s.PatchValue(&coreos.HostBase, func() (corebase.Base, error) {
 		return corebase.ParseBaseFromString("ubuntu@22.04")
 	})
 

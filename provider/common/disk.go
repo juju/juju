@@ -3,15 +3,13 @@
 
 package common
 
-import (
-	jujuos "github.com/juju/juju/core/os"
-)
+import "github.com/juju/juju/core/os/ostype"
 
 // MinRootDiskSizeGiB is the minimum size for the root disk of an
 // instance, in Gigabytes. This value accommodates the anticipated
 // size of the initial image, any updates, and future application
 // data.
-func MinRootDiskSizeGiB(_ jujuos.OSType) uint64 {
+func MinRootDiskSizeGiB(_ ostype.OSType) uint64 {
 	return 8
 }
 

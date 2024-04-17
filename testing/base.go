@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	jujuversion "github.com/juju/juju/version"
@@ -127,14 +128,14 @@ func SkipIfWindowsBug(c *gc.C, bugID string) {
 // SkipUnlessControllerOS skips the test if the current OS is not a supported
 // controller OS.
 func SkipUnlessControllerOS(c *gc.C) {
-	if coreos.HostOS() != coreos.Ubuntu {
+	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("Test disabled for non-controller OS")
 	}
 }
 
 // SkipLXDNotSupported will skip tests if the host does not support LXD
 func SkipLXDNotSupported(c *gc.C) {
-	if coreos.HostOS() != coreos.Ubuntu {
+	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("Test disabled for non-LXD OS")
 	}
 }

@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -72,7 +73,7 @@ const (
 var (
 	// KubernetesSeriesName is the kubernetes series name that is validated at
 	// runtime, otherwise it panics.
-	KubernetesSeriesName = strings.ToLower(coreos.Kubernetes.String())
+	KubernetesSeriesName = strings.ToLower(ostype.Kubernetes.String())
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn

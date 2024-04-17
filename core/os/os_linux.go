@@ -8,6 +8,8 @@ import (
 	stdos "os"
 	"strings"
 	"sync"
+
+	"github.com/juju/juju/core/os/ostype"
 )
 
 var (
@@ -15,10 +17,10 @@ var (
 	// the linux type release version.
 	osReleaseFile = "/etc/os-release"
 	osOnce        sync.Once
-	os            OSType // filled in by the first call to hostOS
+	os            ostype.OSType // filled in by the first call to hostOS
 )
 
-func hostOS() OSType {
+func hostOS() ostype.OSType {
 	osOnce.Do(func() {
 		var err error
 		os, err = updateOS(osReleaseFile)
@@ -29,18 +31,18 @@ func hostOS() OSType {
 	return os
 }
 
-func updateOS(f string) (OSType, error) {
+func updateOS(f string) (ostype.OSType, error) {
 	values, err := ReadOSRelease(f)
 	if err != nil {
-		return Unknown, err
+		return ostype.Unknown, err
 	}
 	switch values["ID"] {
-	case strings.ToLower(Ubuntu.String()):
-		return Ubuntu, nil
-	case strings.ToLower(CentOS.String()):
-		return CentOS, nil
+	case strings.ToLower(ostype.Ubuntu.String()):
+		return ostype.Ubuntu, nil
+	case strings.ToLower(ostype.CentOS.String()):
+		return ostype.CentOS, nil
 	default:
-		return GenericLinux, nil
+		return ostype.GenericLinux, nil
 	}
 }
 

@@ -6,7 +6,7 @@ package common_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -23,7 +23,7 @@ func (s *DiskSuite) TestMinRootDiskSizeGiB(c *gc.C) {
 		{"centos", 8},
 	}
 	for _, t := range diskTests {
-		actualSize := common.MinRootDiskSizeGiB(os.OSTypeForName(t.osname))
+		actualSize := common.MinRootDiskSizeGiB(ostype.OSTypeForName(t.osname))
 		c.Assert(t.expectedSize, gc.Equals, actualSize)
 	}
 }

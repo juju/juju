@@ -14,7 +14,7 @@ import (
 	jujuos "github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
 
-	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 const (
@@ -105,9 +105,9 @@ func getAllSeriesVersions() map[SeriesName]seriesVersion {
 
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
-func GetOSFromSeries(series string) (coreos.OSType, error) {
+func GetOSFromSeries(series string) (ostype.OSType, error) {
 	if series == "" {
-		return coreos.Unknown, errors.NotValidf("series %q", series)
+		return ostype.Unknown, errors.NotValidf("series %q", series)
 	}
 
 	seriesVersionsMutex.Lock()
@@ -128,7 +128,7 @@ func GetOSFromSeries(series string) (coreos.OSType, error) {
 func DefaultOSTypeNameFromSeries(series string) string {
 	osType, err := GetOSFromSeries(series)
 	if err != nil {
-		osType = coreos.Ubuntu
+		osType = ostype.Ubuntu
 	}
 	return strings.ToLower(osType.String())
 }
@@ -251,21 +251,21 @@ func ubuntuVersions(
 	return save
 }
 
-func getOSFromSeries(series SeriesName) (coreos.OSType, error) {
+func getOSFromSeries(series SeriesName) (ostype.OSType, error) {
 	if _, ok := ubuntuSeries[series]; ok {
-		return coreos.Ubuntu, nil
+		return ostype.Ubuntu, nil
 	}
 	if _, ok := centosSeries[series]; ok {
-		return coreos.CentOS, nil
+		return ostype.CentOS, nil
 	}
 	if _, ok := kubernetesSeries[series]; ok {
-		return coreos.Kubernetes, nil
+		return ostype.Kubernetes, nil
 	}
 	if series == genericLinuxSeries {
-		return coreos.GenericLinux, nil
+		return ostype.GenericLinux, nil
 	}
 
-	return coreos.Unknown, errors.Trace(unknownOSForSeriesError(series))
+	return ostype.Unknown, errors.Trace(unknownOSForSeriesError(series))
 }
 
 var (

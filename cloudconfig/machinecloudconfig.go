@@ -14,7 +14,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	utilsos "github.com/juju/juju/core/os"
-	osbase "github.com/juju/juju/core/os/base"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/paths"
 )
 
@@ -80,9 +80,9 @@ func NewMachineInitReaderFromConfig(cfg MachineInitReaderConfig) InitReader {
 // GetInitConfig returns a map of configuration data used to provision the
 // machine. It is sourced from both Cloud-Init and Curtin data.
 func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
-	switch utilsos.OSTypeForName(r.config.Base.OS) {
-	case utilsos.Ubuntu, utilsos.CentOS:
-		base, err := osbase.HostBase()
+	switch ostype.OSTypeForName(r.config.Base.OS) {
+	case ostype.Ubuntu, ostype.CentOS:
+		base, err := utilsos.HostBase()
 		if err != nil || r.config.Base != base {
 			logger.Debugf("not attempting to get init config for %s, base of machine and container differ", r.config.Base.DisplayString())
 			return nil, nil

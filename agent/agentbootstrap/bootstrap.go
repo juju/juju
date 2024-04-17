@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
-	osbase "github.com/juju/juju/core/os/base"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -450,7 +450,7 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		return nil, errors.Trace(err)
 	}
 
-	base, err := osbase.HostBase()
+	base, err := coreos.HostBase()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

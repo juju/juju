@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/snap"
 	"github.com/juju/juju/core/watcher"
 )
@@ -172,7 +173,7 @@ func getPackageCommander() (commands.PackageCommander, error) {
 }
 
 func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
-	if hostOS := getHostOS(); hostOS == os.CentOS {
+	if hostOS := getHostOS(); hostOS == ostype.CentOS {
 		w.config.Logger.Tracef("no snap proxies on %s", hostOS)
 		return
 	}
@@ -248,7 +249,7 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 }
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror string) {
-	if hostOS := getHostOS(); hostOS == os.CentOS {
+	if hostOS := getHostOS(); hostOS == ostype.CentOS {
 		w.config.Logger.Tracef("no apt proxies on %s", hostOS)
 		return
 	}

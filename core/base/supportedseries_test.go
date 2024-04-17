@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 const distroInfoContents = `version,codename,series,created,release,eol,eol-server
@@ -92,20 +92,20 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
 
 var getOSFromSeriesTests = []struct {
 	series string
-	want   coreos.OSType
+	want   ostype.OSType
 	err    string
 }{{
 	series: "precise",
-	want:   coreos.Ubuntu,
+	want:   ostype.Ubuntu,
 }, {
 	series: "centos7",
-	want:   coreos.CentOS,
+	want:   ostype.CentOS,
 }, {
 	series: "kubernetes",
-	want:   coreos.Kubernetes,
+	want:   ostype.Kubernetes,
 }, {
 	series: "genericlinux",
-	want:   coreos.GenericLinux,
+	want:   ostype.GenericLinux,
 }, {
 	series: "",
 	err:    "series \"\" not valid",

@@ -15,8 +15,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	jujubase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/os"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -45,11 +44,11 @@ func SeriesImage(
 	base jujubase.Base, stream, location string,
 	client *armcompute.VirtualMachineImagesClient,
 ) (*instances.Image, error) {
-	seriesOS := jujuos.OSTypeForName(base.OS)
+	seriesOS := ostype.OSTypeForName(base.OS)
 
 	var publisher, offering, sku string
 	switch seriesOS {
-	case os.Ubuntu:
+	case ostype.Ubuntu:
 		series, err := jujubase.GetSeriesFromBase(base)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -60,7 +59,7 @@ func SeriesImage(
 			return nil, errors.Annotatef(err, "selecting SKU for %s", base.DisplayString())
 		}
 
-	case os.CentOS:
+	case ostype.CentOS:
 		publisher = centOSPublisher
 		offering = centOSOffering
 		switch base.Channel.Track {

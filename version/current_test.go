@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	osbase "github.com/juju/juju/core/os/base"
+	coreos "github.com/juju/juju/core/os"
 )
 
 type CurrentSuite struct{}
@@ -17,7 +17,7 @@ type CurrentSuite struct{}
 var _ = gc.Suite(&CurrentSuite{})
 
 func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
-	b, err := osbase.HostBase()
+	b, err := coreos.HostBase()
 	if err != nil {
 		c.Fatal(err)
 	}

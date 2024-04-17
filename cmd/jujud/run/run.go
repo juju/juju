@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/core/machinelock"
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
@@ -335,7 +336,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 // will work on most GNU/Linux systems.
 func (c *RunCommand) appendProxyToCommands() string {
 	switch jujuos.HostOS() {
-	case jujuos.Ubuntu:
+	case ostype.Ubuntu:
 		return `[ -f "/home/ubuntu/.juju-proxy" ] && . "/home/ubuntu/.juju-proxy"` + "\n" + c.commands
 	default:
 		return c.commands

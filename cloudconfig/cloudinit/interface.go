@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	jujupackaging "github.com/juju/juju/packaging"
 )
 
@@ -414,7 +414,7 @@ func WithDisableNetplanMACMatch(cfg *cloudConfig) {
 
 // New returns a new Config with no options set.
 func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
-	osType := os.OSTypeForName(osname)
+	osType := ostype.OSTypeForName(osname)
 	r, _ := shell.NewRenderer("bash")
 
 	cfg := &cloudConfig{
@@ -427,7 +427,7 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 	}
 
 	switch osType {
-	case os.Ubuntu:
+	case ostype.Ubuntu:
 		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
 			jujupackaging.AptPackageManager:  commands.NewAptPackageCommander(),
 			jujupackaging.SnapPackageManager: commands.NewSnapPackageCommander(),
@@ -436,7 +436,7 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(),
 		}
 		return &ubuntuCloudConfig{cfg}, nil
-	case os.CentOS:
+	case ostype.CentOS:
 		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
 			jujupackaging.YumPackageManager: commands.NewYumPackageCommander(),
 		}

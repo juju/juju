@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -594,7 +595,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-arm64")
