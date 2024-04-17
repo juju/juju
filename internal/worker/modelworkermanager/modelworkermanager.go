@@ -18,7 +18,7 @@ import (
 	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
@@ -102,7 +102,7 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // a model worker manager.
 type Config struct {
 	Authority                    pki.Authority
-	Logger                       logger.Logger
+	Logger                       corelogger.Logger
 	MachineID                    string
 	ModelWatcher                 ModelWatcher
 	ModelMetrics                 ModelMetrics
@@ -166,7 +166,10 @@ func New(config Config) (worker.Worker, error) {
 	m := &modelWorkerManager{
 		config: config,
 		runner: worker.NewRunner(worker.RunnerParams{
-			IsFatal:       neverFatal,
+			IsFatal: neverFatal,
+			ShouldRestart: func(err error) bool {
+				return !errors.Is(err, database.ErrDBDead)
+			},
 			MoreImportant: neverImportant,
 			RestartDelay:  config.ErrorDelay,
 			Logger:        config.Logger,

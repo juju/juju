@@ -15,6 +15,7 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
+	corecontext "github.com/juju/juju/core/context"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/schema"
@@ -85,7 +86,6 @@ type trackedDBWorker struct {
 
 	mutex sync.RWMutex
 	db    *sqlair.DB
-	err   error
 
 	clock   clock.Clock
 	logger  logger.Logger
@@ -180,7 +180,7 @@ func (w *trackedDBWorker) ensureModelDBInitialised(ctx context.Context) error {
 // should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
 	return w.run(ctx, func(db *sqlair.DB) error {
-		return errors.Trace(database.Txn(w.tomb.Context(ctx), db, fn))
+		return errors.Trace(database.Txn(ctx, db, fn))
 	})
 }
 
@@ -191,28 +191,40 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 // should use.
 func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return w.run(ctx, func(db *sqlair.DB) error {
-		return errors.Trace(database.StdTxn(w.tomb.Context(ctx), db.PlainDB(), fn))
+		return errors.Trace(database.StdTxn(ctx, db.PlainDB(), fn))
 	})
+}
+
+// Err returns the error that caused the worker to stop.
+func (w *trackedDBWorker) Err() error {
+	return w.tomb.Err()
 }
 
 func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) error {
 	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
-	return database.Retry(w.tomb.Context(ctx), func() (err error) {
+
+	// Tie the worker tomb to the context, so that the worker can be
+	// killed by the context.
+	ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
+
+	// Retry the so long as the tomb and the context are valid.
+	return database.Retry(ctx, func() (err error) {
 		begin := w.clock.Now()
 		w.metrics.TxnRetries.WithLabelValues(w.namespace).Inc()
 		w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
 		defer w.meterDBOpResult(begin, err)
 
-		// If the DB health check failed, the worker's error will be set,
-		// and we will be without a usable database reference. Return the error.
+		// The underlying db could be swapped out if the database becomes
+		// stale.
 		w.mutex.RLock()
-		if w.err != nil {
-			w.mutex.RUnlock()
-			return errors.Trace(w.err)
-		}
-
 		db := w.db
 		w.mutex.RUnlock()
+
+		// If we ever get a nil database, then ensure we return an error,
+		// rather than potentially causing panics down the line.
+		if db == nil {
+			return errors.NotFoundf("database")
+		}
 
 		return fn(db)
 	})
@@ -288,9 +300,6 @@ func (w *trackedDBWorker) loop() error {
 				if err := currentDB.Close(); err != nil {
 					w.logger.Errorf("error closing database: %v", err)
 				}
-				w.mutex.Lock()
-				w.err = errors.Trace(err)
-				w.mutex.Unlock()
 
 				// As we failed attempting to verify the db, we're in a fatal
 				// state. Collapse the worker and if required, cause the other
@@ -309,7 +318,6 @@ func (w *trackedDBWorker) loop() error {
 				w.report.Set(func(r *report) {
 					r.dbReplacements++
 				})
-				w.err = nil
 				w.mutex.Unlock()
 
 				// Notify the internal state channel that the database has been

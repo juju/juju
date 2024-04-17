@@ -52,7 +52,7 @@ type ModelService interface {
 	// ModelType returns the type of the model.
 	ModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 	// DeleteModel is responsible for removing a model from the system.
-	DeleteModel(context.Context, coremodel.UUID) error
+	DeleteModel(context.Context, coremodel.UUID, ...domainmodel.DeleteModelOption) error
 }
 
 // ReadOnlyModelService defines a service for interacting with the read only
@@ -107,6 +107,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		modelstate.NewState(scope.ControllerDB()),
 		scope.ModelDeleter(),
 		modelservice.DefaultAgentBinaryFinder(),
+		i.logger,
 	)
 	i.readOnlyModelServiceFunc = func(id coremodel.UUID) ReadOnlyModelService {
 		return modelservice.NewModelService(
@@ -234,7 +235,7 @@ func (i importOperation) Rollback(ctx context.Context, model description.Model) 
 	}
 
 	// If the model isn't found, we can simply ignore the error.
-	if err := i.modelService.DeleteModel(ctx, modelID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if err := i.modelService.DeleteModel(ctx, modelID, domainmodel.WithDeleteDB()); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return fmt.Errorf(
 			"rollback of model %q with uuid %q during migration: %w",
 			modelName, modelID, err,

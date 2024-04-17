@@ -110,3 +110,37 @@ type ReadOnlyModelCreationArgs struct {
 	// Optional and can be empty.
 	CredentialName string
 }
+
+// DeleteModelOptions is a struct that is used to modify the behavior of the
+// DeleteModel function.
+type DeleteModelOptions struct {
+	deleteDB bool
+}
+
+// DeleteDB returns a boolean value that indicates if the model should be
+// deleted from the database.
+func (o DeleteModelOptions) DeleteDB() bool {
+	return o.deleteDB
+}
+
+// DefaultDeleteModelOptions returns a pointer to a DeleteModelOptions struct
+// with the default values set.
+func DefaultDeleteModelOptions() *DeleteModelOptions {
+	return &DeleteModelOptions{
+		// Until we have correctly implemented tearing down the model, we want
+		// to keep the model around during normal model deletion.
+		deleteDB: false,
+	}
+}
+
+// DeleteModelOption is a functional option that can be used to modify the
+// behavior of the DeleteModel function.
+type DeleteModelOption func(*DeleteModelOptions)
+
+// WithDeleteDB is a functional option that can be used to modify the behavior
+// of the DeleteModel function to delete the model from the database.
+func WithDeleteDB() DeleteModelOption {
+	return func(o *DeleteModelOptions) {
+		o.deleteDB = true
+	}
+}

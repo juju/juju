@@ -855,15 +855,15 @@ func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelS
 		UserLastConnection: mi.UserLastConnection,
 	}
 	if mi.MachineCount > 0 {
-		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{Entity: params.Machines, Count: mi.MachineCount})
 	}
 
 	if mi.CoreCount > 0 {
-		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{Entity: params.Cores, Count: mi.CoreCount})
 	}
 
 	if mi.UnitCount > 0 {
-		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{Entity: params.Units, Count: mi.UnitCount})
 	}
 
 	access, err := common.StateToParamsUserAccessPermission(mi.Access)
