@@ -103,6 +103,7 @@ func CreateModel(
 func CreateReadOnlyModel(
 	args model.ModelCreationArgs,
 	controllerUUID coremodel.UUID,
+	ownerName string,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
@@ -124,7 +125,7 @@ func CreateReadOnlyModel(
 		}
 
 		return model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			return state.CreateReadOnlyModel(ctx, args.AsReadOnly(controllerUUID, modelType), tx)
+			return state.CreateReadOnlyModel(ctx, args.AsReadOnly(controllerUUID, modelType, ownerName), tx)
 		})
 	}
 }

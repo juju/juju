@@ -106,6 +106,7 @@ import (
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/stateconverter"
+	"github.com/juju/juju/internal/worker/statushistory"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
@@ -652,27 +653,33 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		logSinkName: ifController(logsink.Manifold(logsink.ManifoldConfig{
-			ClockName:          clockName,
-			ServiceFactoryName: serviceFactoryName,
-			AgentName:          agentName,
-			DebugLogger:        loggo.GetLogger("juju.worker.logsink"),
-			NewWorker:          logsink.NewWorker,
+			ClockName:   clockName,
+			AgentName:   agentName,
+			DebugLogger: loggo.GetLogger("juju.worker.logsink"),
+			NewWorker:   logsink.NewWorker,
+		})),
+
+		statusHistoryName: ifController(statushistory.Manifold(statushistory.ManifoldConfig{
+			LogSinkName: logSinkName,
+			NewWorker:   statushistory.NewWorker,
+			Clock:       config.Clock,
 		})),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
-			AgentName:              agentName,
-			AuthenticatorName:      httpServerArgsName,
-			ClockName:              clockName,
-			StateName:              stateName,
-			LogSinkName:            logSinkName,
-			MultiwatcherName:       multiwatcherName,
-			MuxName:                httpServerArgsName,
-			LeaseManagerName:       leaseManagerName,
-			UpgradeGateName:        upgradeStepsGateName,
-			AuditConfigUpdaterName: auditConfigUpdaterName,
-			CharmhubHTTPClientName: charmhubHTTPClientName,
-			TraceName:              traceName,
-			ObjectStoreName:        objectStoreName,
+			AgentName:                agentName,
+			AuthenticatorName:        httpServerArgsName,
+			ClockName:                clockName,
+			StateName:                stateName,
+			LogSinkName:              logSinkName,
+			MultiwatcherName:         multiwatcherName,
+			MuxName:                  httpServerArgsName,
+			LeaseManagerName:         leaseManagerName,
+			UpgradeGateName:          upgradeStepsGateName,
+			AuditConfigUpdaterName:   auditConfigUpdaterName,
+			CharmhubHTTPClientName:   charmhubHTTPClientName,
+			TraceName:                traceName,
+			ObjectStoreName:          objectStoreName,
+			StatusHistoryFactoryName: statusHistoryName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -732,6 +739,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         iaasProviderTrackerName,
 			BrokerFactoryName:           caasProviderTrackerName,
+			StatusHistoryName:           statusHistoryName,
 			Logger:                      workerservicefactory.NewLogger("juju.worker.servicefactory"),
 			NewWorker:                   workerservicefactory.NewWorker,
 			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
@@ -1380,7 +1388,8 @@ const (
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
 
-	logSinkName = "log-sink"
+	logSinkName       = "log-sink"
+	statusHistoryName = "status-history"
 
 	caasUnitsManager = "caas-units-manager"
 

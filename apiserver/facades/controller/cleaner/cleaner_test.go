@@ -52,7 +52,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	var err error
 	res := common.NewResources()
 	s.machineService = machineservice.NewService(nil)
-	s.applicationService = applicationservice.NewService(nil, loggo.GetLogger("test"), storage.NotImplementedProviderRegistry{})
+	s.applicationService = applicationservice.NewService(nil, storage.NotImplementedProviderRegistry{}, nil, loggo.GetLogger("test"))
 	s.unitService = unitservice.NewService(nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,

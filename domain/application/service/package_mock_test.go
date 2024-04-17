@@ -90,6 +90,22 @@ func (mr *MockStateMockRecorder) GetStoragePoolByName(arg0, arg1 any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolByName", reflect.TypeOf((*MockState)(nil).GetStoragePoolByName), arg0, arg1)
 }
 
+// StatusHistoryModelNameAndOwner mocks base method.
+func (m *MockState) StatusHistoryModelNameAndOwner(arg0 context.Context) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StatusHistoryModelNameAndOwner", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// StatusHistoryModelNameAndOwner indicates an expected call of StatusHistoryModelNameAndOwner.
+func (mr *MockStateMockRecorder) StatusHistoryModelNameAndOwner(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatusHistoryModelNameAndOwner", reflect.TypeOf((*MockState)(nil).StatusHistoryModelNameAndOwner), arg0)
+}
+
 // StorageDefaults mocks base method.
 func (m *MockState) StorageDefaults(arg0 context.Context) (storage.StorageDefaults, error) {
 	m.ctrl.T.Helper()

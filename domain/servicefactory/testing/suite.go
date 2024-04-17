@@ -16,6 +16,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
@@ -61,6 +62,10 @@ type ServiceFactorySuite struct {
 
 	// BrokerTracker is the broker tracker to use in the service factory.
 	BrokerTracker providertracker.ProviderFactory
+
+	// StatusHistoryFactory is the status history factory to use in the service
+	// factory.
+	StatusHistoryFactory status.StatusHistoryFactory
 }
 
 type stubDBDeleter struct {
@@ -150,7 +155,9 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.ControllerModelUUID = uuid
 
-	err = modelbootstrap.CreateReadOnlyModel(controllerArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	err = modelbootstrap.CreateReadOnlyModel(
+		controllerArgs, controllerUUID, coreuser.AdminUserName,
+	)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelArgs := modeldomain.ModelCreationArgs{
@@ -167,7 +174,9 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.DefaultModelUUID = uuid
 
-	err = modelbootstrap.CreateReadOnlyModel(modelArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	err = modelbootstrap.CreateReadOnlyModel(
+		modelArgs, controllerUUID, coreuser.AdminUserName,
+	)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -182,6 +191,7 @@ func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetter
 			stubDBDeleter{DB: s.DB()},
 			s.ProviderTracker,
 			s.BrokerTracker,
+			s.StatusHistoryFactory,
 			NewCheckLogger(c),
 		)
 	}

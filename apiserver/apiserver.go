@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
@@ -247,6 +248,10 @@ type ServerConfig struct {
 	// ObjectStoreGetter returns an object store for the given namespace.
 	// This is used for retrieving blobs for charms and agents.
 	ObjectStoreGetter objectstore.ObjectStoreGetter
+
+	// StatusHistoryFactory returns a status history factory that can be used
+	// by the model migration importer to record status history.
+	StatusHistoryFactory status.StatusHistoryFactory
 }
 
 // Validate validates the API server configuration.
@@ -290,16 +295,19 @@ func (c ServerConfig) Validate() error {
 		return errors.NotValidf("nil LogSink")
 	}
 	if c.MetricsCollector == nil {
-		return errors.NotValidf("missing MetricsCollector")
+		return errors.NotValidf("nil MetricsCollector")
 	}
 	if c.ServiceFactoryGetter == nil {
-		return errors.NotValidf("missing ServiceFactoryGetter")
+		return errors.NotValidf("nil ServiceFactoryGetter")
 	}
 	if c.TracerGetter == nil {
-		return errors.NotValidf("missing TracerGetter")
+		return errors.NotValidf("nil TracerGetter")
 	}
 	if c.ObjectStoreGetter == nil {
-		return errors.NotValidf("missing ObjectStoreGetter")
+		return errors.NotValidf("nil ObjectStoreGetter")
+	}
+	if c.StatusHistoryFactory == nil {
+		return errors.NotValidf("nil StatusHistoryFactory")
 	}
 	return nil
 }
@@ -359,6 +367,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,
 		tracerGetter:         cfg.TracerGetter,
 		objectStoreGetter:    cfg.ObjectStoreGetter,
+		statusHistoryFactory: cfg.StatusHistoryFactory,
 		machineTag:           cfg.Tag,
 		dataDir:              cfg.DataDir,
 		logDir:               cfg.LogDir,
@@ -1172,6 +1181,7 @@ func (srv *Server) serveConn(
 			objectStore,
 			srv.shared.objectStoreGetter,
 			controllerObjectStore,
+			srv.shared.statusHistoryFactory,
 			modelUUID,
 			connectionID,
 			host,

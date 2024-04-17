@@ -100,23 +100,29 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 			LogDir:          cfg.LogDir,
 			MetricsSpoolDir: cfg.MetricsSpoolDir,
 		},
-		Tag:                      tag,
-		UpgradedToVersion:        cfg.JujuVersion,
-		Password:                 cfg.APIInfo.Password,
-		APIAddresses:             cfg.APIHostAddrs(),
-		CACert:                   cfg.APIInfo.CACert,
-		Values:                   cfg.AgentEnvironment,
-		Controller:               cfg.ControllerTag,
-		Model:                    cfg.APIInfo.ModelTag,
-		MongoMemoryProfile:       mongo.MemoryProfile(cfg.Controller.MongoMemoryProfile()),
-		QueryTracingEnabled:      cfg.Controller.QueryTracingEnabled(),
-		QueryTracingThreshold:    cfg.Controller.QueryTracingThreshold(),
+		Tag:                tag,
+		UpgradedToVersion:  cfg.JujuVersion,
+		Password:           cfg.APIInfo.Password,
+		APIAddresses:       cfg.APIHostAddrs(),
+		CACert:             cfg.APIInfo.CACert,
+		Values:             cfg.AgentEnvironment,
+		Controller:         cfg.ControllerTag,
+		Model:              cfg.APIInfo.ModelTag,
+		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.MongoMemoryProfile()),
+
+		ModelLogfileMaxSizeMB:  cfg.Controller.ModelLogfileMaxSizeMB(),
+		ModelLogfileMaxBackups: cfg.Controller.ModelLogfileMaxBackups(),
+
+		QueryTracingEnabled:   cfg.Controller.QueryTracingEnabled(),
+		QueryTracingThreshold: cfg.Controller.QueryTracingThreshold(),
+
 		OpenTelemetryEnabled:     cfg.Controller.OpenTelemetryEnabled(),
 		OpenTelemetryEndpoint:    cfg.Controller.OpenTelemetryEndpoint(),
 		OpenTelemetryInsecure:    cfg.Controller.OpenTelemetryInsecure(),
 		OpenTelemetryStackTraces: cfg.Controller.OpenTelemetryStackTraces(),
 		OpenTelemetrySampleRatio: cfg.Controller.OpenTelemetrySampleRatio(),
-		ObjectStoreType:          cfg.Controller.ObjectStoreType(),
+
+		ObjectStoreType: cfg.Controller.ObjectStoreType(),
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
 }

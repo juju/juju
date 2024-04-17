@@ -78,6 +78,7 @@ func (m ModelCreationArgs) Validate() error {
 func (m ModelCreationArgs) AsReadOnly(
 	controllerUUID coremodel.UUID,
 	modelType coremodel.ModelType,
+	ownerName string,
 ) ReadOnlyModelCreationArgs {
 	var (
 		credOwner string
@@ -92,6 +93,7 @@ func (m ModelCreationArgs) AsReadOnly(
 		UUID:            m.UUID,
 		ControllerUUID:  controllerUUID,
 		Name:            m.Name,
+		Owner:           ownerName,
 		Type:            modelType,
 		Cloud:           m.Cloud,
 		CloudRegion:     m.CloudRegion,
@@ -116,6 +118,9 @@ type ReadOnlyModelCreationArgs struct {
 	// Name is the name of the model.
 	// Must not be empty for a valid struct.
 	Name string
+
+	// Owner is the materialized name of the user that owns this model.
+	Owner string
 
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.
@@ -148,6 +153,9 @@ func (m ReadOnlyModelCreationArgs) Validate() error {
 	}
 	if m.Name == "" {
 		return fmt.Errorf("%w name cannot be empty", errors.NotValid)
+	}
+	if m.Owner == "" {
+		return fmt.Errorf("%w owner cannot be empty", errors.NotValid)
 	}
 	if m.Cloud == "" {
 		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)

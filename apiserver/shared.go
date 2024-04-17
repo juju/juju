@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/trace"
@@ -52,6 +53,7 @@ type sharedServerContext struct {
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 	tracerGetter         trace.TracerGetter
 	objectStoreGetter    objectstore.ObjectStoreGetter
+	statusHistoryFactory status.StatusHistoryFactory
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -77,6 +79,7 @@ type sharedServerConfig struct {
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 	tracerGetter         trace.TracerGetter
 	objectStoreGetter    objectstore.ObjectStoreGetter
+	statusHistoryFactory status.StatusHistoryFactory
 	machineTag           names.Tag
 	dataDir              string
 	logDir               string
@@ -113,6 +116,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.objectStoreGetter == nil {
 		return errors.NotValidf("nil objectStoreGetter")
 	}
+	if c.statusHistoryFactory == nil {
+		return errors.NotValidf("nil statusHistoryFactory")
+	}
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
@@ -136,6 +142,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		serviceFactoryGetter: config.serviceFactoryGetter,
 		tracerGetter:         config.tracerGetter,
 		objectStoreGetter:    config.objectStoreGetter,
+		statusHistoryFactory: config.statusHistoryFactory,
 		machineTag:           config.machineTag,
 		dataDir:              config.dataDir,
 		logDir:               config.logDir,

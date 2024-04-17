@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -25,8 +26,10 @@ import (
 type serviceSuite struct {
 	testing.IsolationSuite
 
-	state   *MockState
-	charm   *MockCharm
+	state                *MockState
+	charm                *MockCharm
+	statusHistoryFactory *MockStatusHistoryFactory
+
 	service *Service
 }
 
@@ -34,13 +37,18 @@ var _ = gc.Suite(&serviceSuite{})
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
+	s.statusHistoryFactory = NewMockStatusHistoryFactory(ctrl)
+
 	registry := storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
-	s.service = NewService(s.state, loggo.GetLogger("test"), registry)
+	statusHistoryRunner := status.StatusHistorySetterRunner(s.statusHistoryFactory, "foo")
+
+	s.service = NewService(s.state, registry, statusHistoryRunner, loggo.GetLogger("test"))
 
 	return ctrl
 }

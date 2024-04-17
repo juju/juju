@@ -147,6 +147,7 @@ CREATE TABLE model (
     uuid             TEXT PRIMARY KEY,
     controller_uuid  TEXT NOT NULL,
     name             TEXT NOT NULL,
+    owner            TEXT NOT NULL,
     type             TEXT NOT NULL,
     cloud            TEXT NOT NULL,
     cloud_region     TEXT,

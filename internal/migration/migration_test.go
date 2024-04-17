@@ -40,6 +40,7 @@ type ImportSuite struct {
 	controllerConfigService *MockControllerConfigService
 	serviceFactory          *MockServiceFactory
 	serviceFactoryGetter    *MockServiceFactoryGetter
+	statusHistoryFactor     *MockStatusHistoryFactory
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -73,6 +74,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		s.statusHistoryFactor,
 	)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
@@ -149,6 +151,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		s.statusHistoryFactor,
 	)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)

@@ -66,6 +66,7 @@ type Suite struct {
 	cloudService              *commonmocks.MockCloudService
 	credentialService         *credentialcommon.MockCredentialService
 	credentialValidator       *MockCredentialValidator
+	statusHistoryFactory      *MockStatusHistoryFactory
 	modelImporter             *MockModelImporter
 
 	facadeContext facadetest.ModelContext
@@ -624,6 +625,8 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.serviceFactory = NewMockServiceFactory(ctrl)
 	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
 
+	s.statusHistoryFactory = NewMockStatusHistoryFactory(ctrl)
+
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
@@ -738,6 +741,7 @@ func (s *Suite) expectImportModel(c *gc.C) {
 		return migration.NewModelImporter(
 			controller, scope, s.controllerConfigService, s.serviceFactoryGetter, cloudSchemaSource,
 			func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+			s.statusHistoryFactory,
 		).ImportModel(ctx, bytes)
 	})
 }

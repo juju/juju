@@ -17,6 +17,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -174,7 +175,7 @@ func (s *manifoldSuite) TestNewModelServiceFactory(c *gc.C) {
 
 func (s *manifoldSuite) TestNewServiceFactoryGetter(c *gc.C) {
 	ctrlFactory := NewControllerServiceFactory(s.dbGetter, s.dbDeleter, s.logger)
-	factory := NewServiceFactoryGetter(ctrlFactory, s.dbGetter, s.logger, NewProviderTrackerModelServiceFactory, nil, nil)
+	factory := NewServiceFactoryGetter(ctrlFactory, s.dbGetter, s.logger, NewProviderTrackerModelServiceFactory, nil, nil, nil)
 	c.Assert(factory, gc.NotNil)
 
 	modelFactory := factory.FactoryForModel("model")
@@ -191,13 +192,13 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn, providertracker.ProviderFactory, providertracker.ProviderFactory) servicefactory.ServiceFactoryGetter {
+		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn, providertracker.ProviderFactory, providertracker.ProviderFactory, status.StatusHistoryFactory) servicefactory.ServiceFactoryGetter {
 			return nil
 		},
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
 			return nil
 		},
-		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, providertracker.ProviderFactory, Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, providertracker.ProviderFactory, status.StatusHistoryFactory, Logger) servicefactory.ModelServiceFactory {
 			return nil
 		},
 	}

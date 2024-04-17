@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
@@ -61,21 +62,22 @@ type ControllerConfigService interface {
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName              string
-	AuthenticatorName      string
-	ClockName              string
-	MultiwatcherName       string
-	MuxName                string
-	StateName              string
-	UpgradeGateName        string
-	AuditConfigUpdaterName string
-	LeaseManagerName       string
-	LogSinkName            string
-	CharmhubHTTPClientName string
-	ChangeStreamName       string
-	ServiceFactoryName     string
-	TraceName              string
-	ObjectStoreName        string
+	AgentName                string
+	AuthenticatorName        string
+	ClockName                string
+	MultiwatcherName         string
+	MuxName                  string
+	StateName                string
+	UpgradeGateName          string
+	AuditConfigUpdaterName   string
+	LeaseManagerName         string
+	LogSinkName              string
+	CharmhubHTTPClientName   string
+	ChangeStreamName         string
+	ServiceFactoryName       string
+	TraceName                string
+	ObjectStoreName          string
+	StatusHistoryFactoryName string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -140,6 +142,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
 	}
+	if config.StatusHistoryFactoryName == "" {
+		return errors.NotValidf("empty StatusHistoryFactoryName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -179,6 +184,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.TraceName,
 			config.ObjectStoreName,
 			config.LogSinkName,
+			config.StatusHistoryFactoryName,
 		},
 		Start: config.start,
 	}
@@ -265,6 +271,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var statusHistoryFactory status.StatusHistoryFactory
+	if err := getter.Get(config.StatusHistoryFactoryName, &statusHistoryFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -310,6 +321,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ServiceFactoryGetter:              serviceFactoryGetter,
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,
+		StatusHistoryFactory:              statusHistoryFactory,
 		ControllerConfigService:           controllerConfigService,
 	})
 	if err != nil {

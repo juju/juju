@@ -513,13 +513,19 @@ func (cfg *InstanceConfig) AgentConfig(
 	if cfg.ControllerConfig != nil {
 		configParams.AgentLogfileMaxBackups = cfg.ControllerConfig.AgentLogfileMaxBackups()
 		configParams.AgentLogfileMaxSizeMB = cfg.ControllerConfig.AgentLogfileMaxSizeMB()
+
+		configParams.ModelLogfileMaxBackups = cfg.ControllerConfig.ModelLogfileMaxBackups()
+		configParams.ModelLogfileMaxSizeMB = cfg.ControllerConfig.ModelLogfileMaxSizeMB()
+
 		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
 		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
+
 		configParams.OpenTelemetryEnabled = cfg.ControllerConfig.OpenTelemetryEnabled()
 		configParams.OpenTelemetryEndpoint = cfg.ControllerConfig.OpenTelemetryEndpoint()
 		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()
 		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
 		configParams.OpenTelemetrySampleRatio = cfg.ControllerConfig.OpenTelemetrySampleRatio()
+
 		configParams.ObjectStoreType = cfg.ControllerConfig.ObjectStoreType()
 	}
 	if cfg.Bootstrap == nil {

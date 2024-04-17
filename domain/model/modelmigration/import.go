@@ -195,7 +195,7 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	}
 
 	// If the model is read only, we need to create a read only model.
-	err = i.readOnlyModelService.CreateModel(ctx, args.AsReadOnly(controllerUUID, modelType))
+	err = i.readOnlyModelService.CreateModel(ctx, args.AsReadOnly(controllerUUID, modelType, user.Name))
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",

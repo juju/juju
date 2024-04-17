@@ -54,6 +54,8 @@ type format_2_0Serialization struct {
 
 	AgentLogfileMaxSizeMB  int `yaml:"agent-logfile-max-size"`
 	AgentLogfileMaxBackups int `yaml:"agent-logfile-max-backups"`
+	ModelLogfileMaxSizeMB  int `yaml:"model-logfile-max-size,omitempty"`
+	ModelLogfileMaxBackups int `yaml:"model-logfile-max-backups,omitempty"`
 
 	// Only controller machines have these next items set.
 	ControllerCert        string        `yaml:"controllercert,omitempty"`
@@ -128,6 +130,9 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 
 		agentLogfileMaxSizeMB:  format.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups: format.AgentLogfileMaxBackups,
+
+		modelLogfileMaxSizeMB:  format.ModelLogfileMaxSizeMB,
+		modelLogfileMaxBackups: format.ModelLogfileMaxBackups,
 
 		queryTracingEnabled:   format.QueryTracingEnabled,
 		queryTracingThreshold: format.QueryTracingThreshold,
@@ -220,6 +225,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 
 		AgentLogfileMaxSizeMB:  config.agentLogfileMaxSizeMB,
 		AgentLogfileMaxBackups: config.agentLogfileMaxBackups,
+
+		ModelLogfileMaxSizeMB:  config.modelLogfileMaxSizeMB,
+		ModelLogfileMaxBackups: config.modelLogfileMaxBackups,
 
 		QueryTracingEnabled:   config.queryTracingEnabled,
 		QueryTracingThreshold: config.queryTracingThreshold,

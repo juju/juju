@@ -13,6 +13,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/status"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 )
@@ -30,6 +31,10 @@ type Config struct {
 
 	// BrokerFactory is used to get broker instances.
 	BrokerFactory providertracker.ProviderFactory
+
+	// StatusHistoryFactory is used to get status history setter for a given
+	// model.
+	StatusHistoryFactory status.StatusHistoryFactory
 
 	// Logger is used to log messages.
 	Logger Logger
@@ -52,6 +57,9 @@ func (config Config) Validate() error {
 	}
 	if config.BrokerFactory == nil {
 		return errors.NotValidf("nil BrokerFactory")
+	}
+	if config.StatusHistoryFactory == nil {
+		return errors.NotValidf("nil StatusHistoryFactory")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -84,6 +92,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.NewModelServiceFactory,
 			config.ProviderFactory,
 			config.BrokerFactory,
+			config.StatusHistoryFactory,
 		),
 	}
 	w.tomb.Go(func() error {
@@ -146,6 +155,7 @@ type serviceFactoryGetter struct {
 	newModelServiceFactory ModelServiceFactoryFn
 	providerFactory        providertracker.ProviderFactory
 	brokerFactory          providertracker.ProviderFactory
+	statusHistoryFactory   status.StatusHistoryFactory
 }
 
 // FactoryForModel returns a service factory for the given model uuid.
@@ -156,6 +166,7 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.
 		ModelServiceFactory: s.newModelServiceFactory(
 			coremodel.UUID(modelUUID), s.dbGetter,
 			s.providerFactory, s.brokerFactory,
+			s.statusHistoryFactory,
 			s.logger,
 		),
 	}

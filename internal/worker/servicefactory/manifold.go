@@ -14,6 +14,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/status"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
@@ -35,6 +36,7 @@ type ManifoldConfig struct {
 	ChangeStreamName            string
 	ProviderFactoryName         string
 	BrokerFactoryName           string
+	StatusHistoryName           string
 	Logger                      Logger
 	NewWorker                   func(Config) (worker.Worker, error)
 	NewServiceFactoryGetter     ServiceFactoryGetterFn
@@ -50,6 +52,7 @@ type ServiceFactoryGetterFn func(
 	ModelServiceFactoryFn,
 	providertracker.ProviderFactory,
 	providertracker.ProviderFactory,
+	status.StatusHistoryFactory,
 ) servicefactory.ServiceFactoryGetter
 
 // ControllerServiceFactoryFn is a function that returns a controller service
@@ -66,6 +69,7 @@ type ModelServiceFactoryFn func(
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
 	providertracker.ProviderFactory,
+	status.StatusHistoryFactory,
 	Logger,
 ) servicefactory.ModelServiceFactory
 
@@ -82,6 +86,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.BrokerFactoryName == "" {
 		return errors.NotValidf("empty BrokerFactoryName")
+	}
+	if config.StatusHistoryName == "" {
+		return errors.NotValidf("empty StatusHistoryName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -110,6 +117,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DBAccessorName,
 			config.ProviderFactoryName,
 			config.BrokerFactoryName,
+			config.StatusHistoryName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -142,11 +150,18 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var statusHistoryFactory status.StatusHistoryFactory
+	if err := getter.Get(config.StatusHistoryName, &statusHistoryFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return config.NewWorker(Config{
-		DBGetter:                    dbGetter,
-		DBDeleter:                   dbDeleter,
-		ProviderFactory:             providerFactory,
-		BrokerFactory:               brokerFactory,
+		DBGetter:             dbGetter,
+		DBDeleter:            dbDeleter,
+		ProviderFactory:      providerFactory,
+		BrokerFactory:        brokerFactory,
+		StatusHistoryFactory: statusHistoryFactory,
+
 		Logger:                      config.Logger,
 		NewServiceFactoryGetter:     config.NewServiceFactoryGetter,
 		NewControllerServiceFactory: config.NewControllerServiceFactory,
@@ -198,6 +213,7 @@ func NewProviderTrackerModelServiceFactory(
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
 	brokerFactory providertracker.ProviderFactory,
+	statusHistoryFactory status.StatusHistoryFactory,
 	logger Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
@@ -205,6 +221,7 @@ func NewProviderTrackerModelServiceFactory(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
 		brokerFactory,
+		statusHistoryFactory,
 		serviceFactoryLogger{
 			Logger: logger,
 		},
@@ -224,6 +241,7 @@ func NewModelServiceFactory(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
 		NoopProviderFactory{},
+		NoopStatusHistoryFactory{},
 		serviceFactoryLogger{
 			Logger: logger,
 		},
@@ -238,6 +256,7 @@ func NewServiceFactoryGetter(
 	newModelServiceFactory ModelServiceFactoryFn,
 	providerFactory providertracker.ProviderFactory,
 	brokerFactory providertracker.ProviderFactory,
+	statusHistoryFactory status.StatusHistoryFactory,
 ) servicefactory.ServiceFactoryGetter {
 	return &serviceFactoryGetter{
 		ctrlFactory:            ctrlFactory,
@@ -246,6 +265,7 @@ func NewServiceFactoryGetter(
 		newModelServiceFactory: newModelServiceFactory,
 		providerFactory:        providerFactory,
 		brokerFactory:          brokerFactory,
+		statusHistoryFactory:   statusHistoryFactory,
 	}
 }
 
@@ -253,4 +273,10 @@ type NoopProviderFactory struct{}
 
 func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
 	return nil, errors.NotSupportedf("provider")
+}
+
+type NoopStatusHistoryFactory struct{}
+
+func (NoopStatusHistoryFactory) StatusHistorySetterForModel(modelUUID, modelName, modelOwner string) (status.StatusHistorySetter, error) {
+	return nil, errors.NotSupportedf("status history")
 }

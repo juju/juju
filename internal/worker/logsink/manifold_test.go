@@ -5,7 +5,6 @@ package logsink_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -22,8 +21,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
-	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/logsink"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -31,10 +28,8 @@ import (
 type ManifoldSuite struct {
 	jujutesting.BaseSuite
 
-	manifold               dependency.Manifold
-	getter                 dependency.Getter
-	serviceFactory         servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.WatchableService
+	manifold dependency.Manifold
+	getter   dependency.Getter
 
 	clock clock.Clock
 	stub  testing.Stub
@@ -45,24 +40,16 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	service := controllerconfigservice.NewService(stubControllerConfigService{})
-	s.controllerConfigGetter = &controllerconfigservice.WatchableService{
-		Service: *service,
-	}
-	s.serviceFactory = stubServiceFactory{
-		controllerConfigGetter: s.controllerConfigGetter,
-	}
 	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
 
 	s.stub.ResetCalls()
 
 	s.getter = s.newGetter(c, nil)
 	s.manifold = logsink.Manifold(logsink.ManifoldConfig{
-		ClockName:          "clock",
-		AgentName:          "agent",
-		ServiceFactoryName: "service-factory",
-		DebugLogger:        loggo.GetLogger("test"),
-		NewWorker:          s.newWorker,
+		ClockName:   "clock",
+		AgentName:   "agent",
+		DebugLogger: loggo.GetLogger("test"),
+		NewWorker:   s.newWorker,
 	})
 }
 
@@ -71,8 +58,7 @@ func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Ge
 		"agent": &fakeAgent{
 			logDir: c.MkDir(),
 		},
-		"service-factory": s.serviceFactory,
-		"clock":           s.clock,
+		"clock": s.clock,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -156,26 +142,4 @@ func (f *fakeAgent) Value(key string) string {
 
 func (f *fakeAgent) LogDir() string {
 	return f.logDir
-}
-
-type stubServiceFactory struct {
-	servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.WatchableService
-}
-
-func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
-	return s.controllerConfigGetter
-}
-
-type stubControllerConfigService struct {
-	controllerconfigservice.State
-}
-
-func (stubControllerConfigService) ControllerConfig(context.Context) (map[string]string, error) {
-	cfg := jujutesting.FakeControllerConfig()
-	result := make(map[string]string)
-	for k, v := range cfg {
-		result[k] = fmt.Sprintf("%v", v)
-	}
-	return result, nil
 }

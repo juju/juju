@@ -98,11 +98,12 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 	stmt := `
 SELECT uuid,
        controller_uuid,
-       name, 
-       type, 
-       cloud, 
-       cloud_region, 
-       credential_owner, 
+       name,
+	   owner,
+       type,
+       cloud,
+       cloud_region,
+       credential_owner,
        credential_name
 FROM model;
 `
@@ -114,6 +115,7 @@ FROM model;
 			&model.UUID,
 			&model.ControllerUUID,
 			&model.Name,
+			&model.Owner,
 			&model.Type,
 			&model.Cloud,
 			&model.CloudRegion,
@@ -137,14 +139,15 @@ FROM model;
 // database.
 func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationArgs, tx *sql.Tx) error {
 	stmt := `
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_region, credential_owner, credential_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO model (uuid, controller_uuid, name, owner, type, cloud, cloud_region, credential_owner, credential_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT (uuid) DO NOTHING;
 `
 	result, err := tx.ExecContext(ctx, stmt,
 		args.UUID,
 		args.ControllerUUID,
 		args.Name,
+		args.Owner,
 		args.Type,
 		args.Cloud,
 		args.CloudRegion,
