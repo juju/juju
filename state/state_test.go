@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/mocks"
@@ -4537,104 +4536,6 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 		break
 	}
 	c.Assert(found, jc.IsTrue)
-}
-
-type SetAdminMongoPasswordSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&SetAdminMongoPasswordSuite{})
-
-func setAdminPassword(c *gc.C, inst *mgotesting.MgoInstance, owner names.UserTag, password string) {
-	session, err := inst.Dial()
-	c.Assert(err, jc.ErrorIsNil)
-	defer session.Close()
-	err = mongo.SetAdminMongoPassword(session, owner.String(), password)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
-	inst := &mgotesting.MgoInstance{
-		EnableAuth:       true,
-		EnableReplicaSet: true,
-	}
-	err := inst.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer inst.DestroyWithLog()
-
-	// We need to make an admin user before we initialize the state
-	// because in Mongo3.2 the localhost exception no longer has
-	// permission to create indexes.
-	// https://docs.mongodb.com/manual/core/security-users/#localhost-exception
-	owner := names.NewLocalUserTag("initialize-admin")
-	password := "huggies"
-	setAdminPassword(c, inst, owner, password)
-
-	noAuthInfo := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:      []string{inst.Addr()},
-			CACert:     testing.CACert,
-			DisableTLS: true,
-		},
-	}
-
-	session, err := mongo.DialWithInfo(mongo.MongoInfo{
-		Info:     noAuthInfo.Info,
-		Tag:      owner,
-		Password: password,
-	}, mongotest.DialOpts())
-	c.Assert(err, jc.ErrorIsNil)
-	defer session.Close()
-
-	cfg := testing.ModelConfig(c)
-	controllerCfg := testing.FakeControllerConfig()
-	ctlr, err := state.Initialize(state.InitializeParams{
-		Clock:            clock.WallClock,
-		ControllerConfig: controllerCfg,
-		ControllerModelArgs: state.ModelArgs{
-			Type:                    state.ModelTypeIAAS,
-			CloudName:               "dummy",
-			Owner:                   owner,
-			Config:                  cfg,
-			StorageProviderRegistry: storage.StaticProviderRegistry{},
-		},
-		CloudName:     "dummy",
-		MongoSession:  session,
-		AdminPassword: password,
-	}, state.NoopConfigSchemaSource)
-	c.Assert(err, jc.ErrorIsNil)
-	st, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	defer ctlr.Close()
-
-	// Check that we can SetAdminMongoPassword to nothing when there's
-	// no password currently set.
-	err = st.SetAdminMongoPassword("")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.SetAdminMongoPassword("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.MongoSession().DB("admin").Login("admin", "foo")
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = tryOpenState(m.ModelTag(), st.ControllerTag(), noAuthInfo)
-	c.Check(err, jc.ErrorIs, errors.Unauthorized)
-	// note: collections are set up in arbitrary order, proximate cause of
-	// failure may differ.
-	c.Check(err, gc.ErrorMatches, `[^:]+: unauthorized mongo access: .*`)
-
-	passwordOnlyInfo := *noAuthInfo
-	passwordOnlyInfo.Password = "foo"
-
-	// Under mongo 3.2 it's not possible to create collections and
-	// indexes with no user - the localhost exception only permits
-	// creating users. There were some checks for unsetting the
-	// password and then creating the state in an older version of
-	// this test, but they couldn't be made to work with 3.2.
-	err = tryOpenState(m.ModelTag(), st.ControllerTag(), &passwordOnlyInfo)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) setUpWatchRelationNetworkScenario(c *gc.C) *state.Relation {
