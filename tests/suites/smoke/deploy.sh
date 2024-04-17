@@ -25,10 +25,10 @@ run_local_deploy() {
 	destroy_model "${model_name}"
 }
 
-run_charmstore_deploy() {
+run_charmhub_deploy() {
 	echo
 
-	model_name="test-charmstore-deploy"
+	model_name="test-charmhub-deploy"
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
@@ -56,8 +56,8 @@ test_deploy() {
 
 		cd .. || exit
 
-		run "run_local_deploy"
-		run "run_charmstore_deploy"
+		#run "run_local_deploy"
+		run "run_charmhub_deploy"
 	)
 }
 

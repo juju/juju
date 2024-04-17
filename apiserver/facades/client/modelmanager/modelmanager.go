@@ -1036,13 +1036,17 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			// other models.
 			modelUUID := coremodel.UUID(stModel.UUID())
 
-			// We use the returned model UUID as we can guarantee that's the one that
-			// was written to the database.
-			modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
-			modelInfoService := modelServiceFactory.ModelInfo()
-			if err := modelInfoService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
-				return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
-			}
+			// TODO (stickupkid): We need to delete the model info when
+			// destroying the model. This is because the model info is
+			// read-only. Attempting to delete the model causes everything to
+			// lock up. Once we implement tear-down we'll need to ensure we
+			// correctly delete the model info.
+			//
+			// modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
+			// modelInfoService := modelServiceFactory.ModelInfo()
+			// if err := modelInfoService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+			// 	return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
+			// }
 
 			err = m.modelService.DeleteModel(ctx, modelUUID)
 			if err != nil && errors.Is(err, modelerrors.NotFound) {
