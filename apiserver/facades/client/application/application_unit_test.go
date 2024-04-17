@@ -202,6 +202,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	api, err := application.NewAPIBase(
 		s.backend,
 		s.ecService,
+		s.networkService,
 		s.storageAccess,
 		s.authorizer,
 		nil,
@@ -225,7 +226,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		s.caasBroker,
 		s.store,
-		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

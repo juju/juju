@@ -213,6 +213,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	return NewAPIBase(
 		state,
 		serviceFactory.ExternalController(),
+		serviceFactory.Network(),
 		storageAccess,
 		ctx.Auth(),
 		updateBase,
@@ -231,7 +232,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		resources,
 		caasBroker,
 		ctx.ObjectStore(),
-		serviceFactory.Network(),
 	)
 }
 
@@ -242,6 +242,7 @@ type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, c
 func NewAPIBase(
 	backend Backend,
 	ecService ExternalControllerService,
+	networkService NetworkService,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
 	updateBase UpdateBase,
@@ -260,7 +261,6 @@ func NewAPIBase(
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
-	networkService NetworkService,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -269,6 +269,7 @@ func NewAPIBase(
 	return &APIBase{
 		backend:               backend,
 		ecService:             ecService,
+		networkService:        networkService,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		updateBase:            updateBase,
@@ -287,7 +288,6 @@ func NewAPIBase(
 		resources:             resources,
 		caasBroker:            caasBroker,
 		store:                 store,
-		networkService:        networkService,
 	}, nil
 }
 

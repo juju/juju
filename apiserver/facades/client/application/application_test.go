@@ -104,6 +104,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	api, err := application.NewAPIBase(
 		application.GetState(st, env),
 		nil,
+		s.networkService,
 		storageAccess,
 		s.authorizer,
 		nil,
@@ -122,7 +123,6 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ModelUUID()),
-		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

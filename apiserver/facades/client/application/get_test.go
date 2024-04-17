@@ -64,6 +64,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	api, err := application.NewAPIBase(
 		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
+		serviceFactory.Network(),
 		storageAccess,
 		s.authorizer,
 		nil,
@@ -82,7 +83,6 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
-		serviceFactory.Network(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = api
@@ -205,6 +205,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	api, err := application.NewAPIBase(
 		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
+		serviceFactory.Network(),
 		storageAccess,
 		s.authorizer,
 		nil,
@@ -223,7 +224,6 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
-		serviceFactory.Network(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

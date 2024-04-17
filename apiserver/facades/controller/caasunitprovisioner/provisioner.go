@@ -27,31 +27,31 @@ type NetworkService interface {
 }
 
 type Facade struct {
+	networkService NetworkService
 	resources      facade.Resources
 	state          CAASUnitProvisionerState
 	clock          clock.Clock
 	logger         loggo.Logger
-	networkService NetworkService
 }
 
 // NewFacade returns a new CAAS unit provisioner Facade facade.
 func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	networkService NetworkService,
 	st CAASUnitProvisionerState,
 	clock clock.Clock,
 	logger loggo.Logger,
-	networkService NetworkService,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
+		networkService: networkService,
 		resources:      resources,
 		state:          st,
 		clock:          clock,
 		logger:         logger,
-		networkService: networkService,
 	}, nil
 }
 
