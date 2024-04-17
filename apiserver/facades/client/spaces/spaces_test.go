@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statemocks "github.com/juju/juju/state/mocks"
 	"github.com/juju/juju/testing"
 )
 
@@ -34,8 +33,6 @@ import (
 // suites for each command. See move_tests.go.
 type APISuite struct {
 	spaces.APISuite
-
-	renameSpaceOp *statemocks.MockModelOperation
 }
 
 var _ = gc.Suite(&APISuite{})
@@ -323,13 +320,19 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
-	s.OpFactory.EXPECT().NewRenameSpaceOp(from, to).Return(nil, bamErr)
 	s.expectDefaultSpace(ctrl, to, errors.NotFoundf(""))
 	args := s.getRenameArgs(from, to)
+	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), from).Return(
+		&network.SpaceInfo{
+			ID: "bla-space-id",
+		},
+		nil,
+	)
+	s.NetworkService.EXPECT().UpdateSpace(gomock.Any(), "bla-space-id", "blub").Return(bamErr)
 
 	res, err := s.API.RenameSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results[0].Error, gc.ErrorMatches, bamErr.Error())
+	c.Assert(res.Results[0].Error, gc.ErrorMatches, ".*"+bamErr.Error())
 }
 
 func (s *APISuite) TestRenameAlphaSpaceError(c *gc.C) {
@@ -351,8 +354,6 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 	defer unreg()
 	from, to := "bla", "blub"
 
-	s.OpFactory.EXPECT().NewRenameSpaceOp(from, to).Return(s.renameSpaceOp, nil)
-	s.Backing.EXPECT().ApplyOperation(s.renameSpaceOp).Return(nil)
 	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"))
 	args := s.getRenameArgs(from, to)
 
@@ -792,7 +793,7 @@ type LegacySuite struct {
 	facade    *spaces.API
 
 	blockChecker   mockBlockChecker
-	NetworkService *spaces.MockNetworkService
+	networkService *spaces.MockNetworkService
 }
 
 var _ = gc.Suite(&LegacySuite{})
@@ -802,7 +803,7 @@ func (s *LegacySuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 
 	ctrl := gomock.NewController(c)
-	s.NetworkService = spaces.NewMockNetworkService(ctrl)
+	s.networkService = spaces.NewMockNetworkService(ctrl)
 }
 
 func (s *LegacySuite) TearDownSuite(c *gc.C) {
@@ -833,7 +834,7 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
 		Resources:                   s.resources,
 		Authorizer:                  s.auth,
-		NetworkService:              s.NetworkService,
+		NetworkService:              s.networkService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -958,6 +959,44 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 			SpaceTag:   "space-private",
 		}},
 	}}
+	retrievedSpaces := network.SpaceInfos{
+		{
+			ID:   "1",
+			Name: "default",
+			Subnets: network.SubnetInfos{{
+				CIDR:              "192.168.0.0/24",
+				ProviderId:        "provider-192.168.0.0/24",
+				AvailabilityZones: []string{"foo"},
+				SpaceName:         "default",
+			}, {
+				CIDR:              "192.168.3.0/24",
+				ProviderId:        "provider-192.168.3.0/24",
+				VLANTag:           23,
+				AvailabilityZones: []string{"bar", "bam"},
+				SpaceName:         "default",
+			}},
+		}, {
+			ID:   "2",
+			Name: "dmz",
+			Subnets: network.SubnetInfos{{
+				CIDR:              "192.168.1.0/24",
+				ProviderId:        "provider-192.168.1.0/24",
+				VLANTag:           23,
+				AvailabilityZones: []string{"bar", "bam"},
+				SpaceName:         "dmz",
+			}},
+		}, {
+			ID:   "3",
+			Name: "private",
+			Subnets: network.SubnetInfos{{
+				CIDR:              "192.168.2.0/24",
+				ProviderId:        "provider-192.168.2.0/24",
+				AvailabilityZones: []string{"foo"},
+				SpaceName:         "private",
+			}},
+		},
+	}
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(retrievedSpaces, nil)
 
 	result, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -982,6 +1021,7 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 		errors.New("space1 subnets failed"), // Space.Subnets()
 		errors.New("space2 subnets failed"), // Space.Subnets()
 	)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1003,6 +1043,7 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 		boom, // Space.Subnets() (2nd with error)
 	)
 
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	for i, space := range results.Results {

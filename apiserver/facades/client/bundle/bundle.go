@@ -43,6 +43,7 @@ import (
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
+	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 

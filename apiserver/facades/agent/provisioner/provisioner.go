@@ -56,7 +56,11 @@ type StoragePoolGetter interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
+	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// SpaceByName returns a space from state that matches the input name.
+	// An error is returned that satisfied errors.NotFound if the space was not found
+	// or an error static any problems fetching the given space.
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 }
 

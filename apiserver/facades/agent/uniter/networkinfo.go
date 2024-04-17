@@ -59,7 +59,7 @@ type NetworkInfoBase struct {
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
 func NewNetworkInfo(ctx context.Context, st *state.State, tag names.UnitTag, logger loggo.Logger, networkService NetworkService) (NetworkInfo, error) {
-	n, err := NewNetworkInfoForStrategy(ctx, st, tag, defaultRetryFactory, net.LookupHost, logger, networkService)
+	n, err := NewNetworkInfoForStrategy(ctx, st, networkService, tag, defaultRetryFactory, net.LookupHost, logger)
 	return n, errors.Trace(err)
 }
 
@@ -69,11 +69,11 @@ func NewNetworkInfo(ctx context.Context, st *state.State, tag names.UnitTag, log
 func NewNetworkInfoForStrategy(
 	ctx context.Context,
 	st *state.State,
+	networkService NetworkService,
 	tag names.UnitTag,
 	retryFactory func() retry.CallArgs,
 	lookupHost func(string) ([]string, error),
 	logger loggo.Logger,
-	networkService NetworkService,
 ) (NetworkInfo, error) {
 	model, err := st.Model()
 	if err != nil {
@@ -94,21 +94,6 @@ func NewNetworkInfoForStrategy(
 		return nil, errors.Trace(err)
 	}
 
-	// Get the ID for the model's configured default space name.
-	// We don't need to hit the DB if it is unset or is the alpha space.
-	// TODO (manadart 2020-12-07): For Juju 3.0 this config item should be
-	// defaulted to the alpha space.
-	// Handling for its unset value ("") should be removed at that time.
-	defaultSpaceID := network.AlphaSpaceId
-	defaultSpaceName := cfg.DefaultSpace()
-	if defaultSpaceName != "" && defaultSpaceName != network.AlphaSpaceName {
-		defaultSpace, err := networkService.SpaceByName(ctx, defaultSpaceName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defaultSpaceID = defaultSpace.ID
-	}
-
 	// Initialise the bindings map with all application endpoints.
 	// This will include those for which there is no explicit binding,
 	// such as the juju-info endpoint.
@@ -118,7 +103,8 @@ func NewNetworkInfoForStrategy(
 	}
 	allBindings := make(map[string]string)
 	for _, ep := range endpoints {
-		allBindings[ep.Name] = defaultSpaceID
+		// By default we bound each endpoint to the alpha space.
+		allBindings[ep.Name] = network.AlphaSpaceId
 	}
 
 	// Now fill in those that are bound.

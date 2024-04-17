@@ -33,15 +33,31 @@ type ControllerConfigService interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
+	// AddSpace creates and returns a new space.
 	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
+	// Space returns a space from state that matches the input ID.
+	// An error is returned if the space does not exist or if there was a problem
+	// accessing its information.
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	// SpaceByName returns a space from state that matches the input name.
+	// An error is returned that satisfied errors.NotFound if the space was not found
+	// or an error static any problems fetching the given space.
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// UpdateSpace updates the space name identified by the passed uuid.
 	UpdateSpace(ctx context.Context, uuid string, name string) error
+	// RemoveSpace deletes a space identified by its uuid.
 	RemoveSpace(ctx context.Context, uuid string) error
+	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	// SubnetsByCIDR returns the subnets matching the input CIDRs.
 	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
+	// Subnet returns the subnet identified by the input UUID,
+	// or an error if it is not found.
 	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
+	// UpdateSubnet updates the spaceUUID of the subnet identified by the input
+	// UUID.
 	UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error
 }
 
@@ -56,9 +72,8 @@ type API struct {
 	auth                        facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 
-	check     BlockChecker
-	opFactory OpFactory
-	logger    loggo.Logger
+	check  BlockChecker
+	logger loggo.Logger
 }
 
 type apiConfig struct {
@@ -70,7 +85,6 @@ type apiConfig struct {
 	CredentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	Resources                   facade.Resources
 	Authorizer                  facade.Authorizer
-	Factory                     OpFactory
 	logger                      loggo.Logger
 }
 
@@ -91,7 +105,6 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		auth:                        cfg.Authorizer,
 		credentialInvalidatorGetter: cfg.CredentialInvalidatorGetter,
 		check:                       cfg.Check,
-		opFactory:                   cfg.Factory,
 		logger:                      cfg.logger,
 	}, nil
 }
@@ -237,6 +250,9 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 			result.Space.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
 		}
 
+		// TODO(nvinuesa): This logic should be implemented in the
+		// network service once we finish migrating applications to
+		// dqlite.
 		applications, err := api.applicationsBoundToSpace(space.ID, allSpaces)
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching applications")
@@ -245,6 +261,9 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 		}
 		result.Applications = applications
 
+		// TODO(nvinuesa): This logic should be implemented in the
+		// network service once we finish migrating machines to
+		// dqlite.
 		machineCount, err := api.getMachineCountBySpaceID(space.ID)
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching machine count")

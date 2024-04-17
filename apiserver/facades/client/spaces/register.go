@@ -61,7 +61,6 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		CredentialInvalidatorGetter: credentialInvalidatorGetter,
 		Resources:                   ctx.Resources(),
 		Authorizer:                  auth,
-		Factory:                     newOpFactory(st, serviceFactory.ControllerConfig()),
 		logger:                      ctx.Logger().Child("spaces"),
 	})
 }
