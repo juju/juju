@@ -16,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/canonical/go-dqlite/client"
 	"github.com/canonical/sqlair"
 	"github.com/gosuri/uitable"
 	"github.com/juju/errors"
@@ -25,6 +26,10 @@ import (
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/txn"
+)
+
+const (
+	unixSocketAddress = "@dqlite-repl"
 )
 
 var (
@@ -94,9 +99,7 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("Opening database at %s\n", path)
-
-	dbApp, err := app.New(path)
+	dbApp, err := app.New(path, app.WithAddress(unixSocketAddress))
 	if err != nil {
 		panic(err)
 	}
@@ -115,6 +118,8 @@ func main() {
 	}); err != nil {
 		panic(err)
 	}
+
+	fmt.Printf("Opening database at %s\n", path)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -157,13 +162,20 @@ func main() {
 				}
 				return
 			}
-			if input == "exit" {
+			if input == ".exit" {
+				return
+			}
+			if strings.Index(input, ".dump") == 0 {
+				if err := dumpDB(ctx, db, path, *dbTypeFlag); err != nil {
+					fmt.Fprintln(os.Stderr, "Error: ", err)
+				}
 				return
 			}
 
+			// Process the input query.
 			result, err := processQuery(ctx, db, input)
 			if err != nil {
-				fmt.Println("Error: ", err)
+				fmt.Fprintln(os.Stderr, "Error: ", err)
 			} else {
 				line.AppendHistory(input)
 				if result != "" {
@@ -181,6 +193,30 @@ func main() {
 	}()
 
 	<-ctx.Done()
+}
+
+func dumpDB(ctx context.Context, db *sql.DB, path, name string) error {
+	cli, err := client.New(ctx, unixSocketAddress)
+	if err != nil {
+		return fmt.Errorf("client.New failed %w", err)
+	}
+
+	files, err := cli.Dump(ctx, name)
+	if err != nil {
+		return fmt.Errorf("dump failed")
+	}
+
+	for _, file := range files {
+		filePath := filepath.Join(path, file.Name)
+		fmt.Println("Dumping file", path)
+
+		err := os.WriteFile(filePath, file.Data, 0600)
+		if err != nil {
+			return fmt.Errorf("WriteFile failed on path %s", filePath)
+		}
+	}
+
+	return nil
 }
 
 func controllerSchema() *databaseschema.Schema {
