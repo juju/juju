@@ -3258,7 +3258,7 @@ func (s *StateSuite) TestRemoveExportingModelDocsRemovesOfferPermissions(c *gc.C
 	defer closer()
 	cnt, err := coll.Count()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cnt, gc.Equals, 8)
+	c.Assert(cnt, gc.Equals, 7)
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3273,7 +3273,7 @@ func (s *StateSuite) TestRemoveExportingModelDocsRemovesOfferPermissions(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	// 2 model permissions deleted.
 	// 2 offer permissions deleted.
-	c.Assert(cnt, gc.Equals, 4)
+	c.Assert(cnt, gc.Equals, 3)
 }
 
 func (s *StateSuite) createOffer(c *gc.C) {
