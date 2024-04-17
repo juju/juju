@@ -2287,39 +2287,47 @@ func (st State) InitialWatchStatementForObsoleteRevision(
 ) (string, string) {
 	tableName := "secret_revision"
 
-	q := `
-SELECT uuid
-FROM secret_revision sr
-`[1:]
-	// TODO: do we want to allow to you watch all obsolete revisions if the owners are empty?
-
 	// The condition is empty because we want to watch all obsolete revisions.
-	if len(appOwners)+len(unitOwners) == 0 {
-		return tableName, q
+	if len(appOwners) == 0 && len(unitOwners) == 0 {
+		return tableName, `
+SELECT uuid
+FROM secret_revision
+WHERE obsolete = true`[1:]
 	}
 
-	var join, condition string
 	if len(unitOwners) > 0 && len(appOwners) > 0 {
-		join = `
-JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-`[1:]
-		condition = fmt.Sprintf(
-			"WHERE sao.application_uuid IN (%s) OR suo.unit_uuid IN (%s)",
-			strings.Join(appOwners, ","), strings.Join(unitOwners, ","),
-		)
-	} else if len(appOwners) > 0 {
-		join = `
-JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-`[1:]
-		condition = fmt.Sprintf("WHERE sao.application_uuid IN (%s)", strings.Join(appOwners, ","))
-	} else {
-		join = `
-JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-`[1:]
-		condition = fmt.Sprintf("WHERE suo.unit_uuid IN (%s)", strings.Join(unitOwners, ","))
+		return tableName, fmt.Sprintf(`
+SELECT sr.uuid
+FROM secret_revision sr
+LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid
+LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid
+WHERE sr.obsolete = true
+AND (sao.application_uuid IS NOT NULL AND application.name IN ('%s'))
+AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('%s')`[1:],
+			strings.Join(appOwners, "','"), strings.Join(unitOwners, "','"))
 	}
-	return "secret_revision", q + join + condition
+
+	if len(appOwners) > 0 {
+		return tableName, fmt.Sprintf(`
+SELECT sr.uuid
+FROM secret_revision sr
+LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid
+WHERE sr.obsolete = true
+AND (sao.application_uuid IS NOT NULL AND application.name IN ('%s'))`[1:],
+			strings.Join(appOwners, "','"))
+	}
+
+	return tableName, fmt.Sprintf(`
+SELECT sr.uuid
+FROM secret_revision sr
+LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid
+WHERE sr.obsolete = true
+AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('%s')`[1:],
+		strings.Join(unitOwners, "','"))
 }
 
 type obsoleteRevisionUUIDs []string
@@ -2341,23 +2349,18 @@ func (st State) GetRevisionIDsForObsolete(
 		return nil, errors.Trace(err)
 	}
 
-	owners := append(appOwners, unitOwners...)
-	st.logger.Warningf("GetRevisionIDsForObsolete revisionUUIDs: %v, owners: %v", revisionUUIDs, owners)
-
 	q := `
 SELECT 
-    sr.revision AS &obsoleteRevisionRow.revision,
-    s.id AS &obsoleteRevisionRow.secret_id
+    (sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)
 FROM secret_revision sr
-JOIN secret s ON sr.secret_id = s.id
-WHERE sr.obsolete = true 
---AND sr.uuid IN ($obsoleteRevisionUUIDs[:])
+LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid
+LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid
+WHERE sr.obsolete = true
 `
 
-	var (
-		conditions  []string
-		queryParams []any
-	)
+	var queryParams []any
 	queryTypes := []any{
 		obsoleteRevisionRow{},
 	}
@@ -2365,38 +2368,30 @@ WHERE sr.obsolete = true
 	if len(revisionUUIDs) > 0 {
 		queryTypes = append(queryTypes, obsoleteRevisionUUIDs{})
 		queryParams = append(queryParams, obsoleteRevisionUUIDs(revisionUUIDs))
-		q += "AND sr.uuid IN ($obsoleteRevisionUUIDs[:])"
+		q += `
+AND sr.uuid IN ($obsoleteRevisionUUIDs[:])
+`[1:]
 	}
 
+	var conditions []string
 	if len(appOwners) > 0 {
-		conditions = append(conditions, `
-EXISTS (
-	SELECT 1
-	FROM secret_application_owner sao
-	JOIN application ON application.uuid = sao.application_uuid
-	WHERE sao.secret_id = s.id 
-	AND application.name IN ($ApplicationOwners[:])
-)`)
+		conditions = append(conditions, "(sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:]))")
 		queryTypes = append(queryTypes, domainsecret.ApplicationOwners{})
 		queryParams = append(queryParams, appOwners)
 	}
 	if len(unitOwners) > 0 {
-		conditions = append(conditions, `
-EXISTS (
-	SELECT 1
-	FROM secret_unit_owner suo
-	JOIN unit ON unit.uuid = suo.unit_uuid
-	WHERE suo.secret_id = s.id
-	AND unit.unit_id IN ($UnitOwners[:])
-)
-`[1:])
+		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
 		queryTypes = append(queryTypes, domainsecret.UnitOwners{})
 		queryParams = append(queryParams, unitOwners)
 	}
-	if len(conditions) > 0 {
-		q += fmt.Sprintf("AND (%s)", strings.Join(conditions, " OR "))
+	if len(conditions) > 1 {
+		q += fmt.Sprintf(`
+AND (%s)`[1:], strings.Join(conditions, " OR "))
+	} else if len(conditions) == 1 {
+		q += fmt.Sprintf(`
+AND %s`[1:], conditions[0])
 	}
-	st.logger.Warningf("GetRevisionIDsForObsolete query: \n%s", q)
+
 	stmt, err := st.Prepare(q, queryTypes...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2404,7 +2399,6 @@ EXISTS (
 	var rows obsoleteRevisionRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, queryParams...).GetAll(&rows)
-		st.logger.Warningf("GetRevisionIDsForObsolete rows: %v, err: %#v", rows, err)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// It's ok, the revisions probably have already been pruned.
 			return nil

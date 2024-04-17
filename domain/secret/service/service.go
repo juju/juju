@@ -49,7 +49,9 @@ type State interface {
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
 
-	InitialWatchStatementForObsoleteRevision(ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners) (string, string)
+	InitialWatchStatementForObsoleteRevision(
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) (tableName string, statement string)
 	GetRevisionIDsForObsolete(
 		ctx context.Context,
 		appOwners domainsecret.ApplicationOwners,

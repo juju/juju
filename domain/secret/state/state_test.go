@@ -946,7 +946,6 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	consumer := &coresecrets.SecretConsumerMetadata{
-		Label:           "my label",
 		CurrentRevision: 1,
 	}
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
@@ -2267,11 +2266,15 @@ func (s *stateSuite) TestInitialWatchStatementForObsoleteRevision(c *gc.C) {
 	)
 	c.Check(tableName, gc.Equals, "secret_revision")
 	c.Check(q, gc.DeepEquals, `
-SELECT uuid
+SELECT sr.uuid
 FROM secret_revision sr
-JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-WHERE sao.application_uuid IN (application-mysql,application-mediawiki) OR suo.unit_uuid IN (mysql/0,mediawiki/0)`[1:])
+LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid
+LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid
+WHERE sr.obsolete = true
+AND (sao.application_uuid IS NOT NULL AND application.name IN ('application-mysql','application-mediawiki'))
+AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('mysql/0','mediawiki/0')`[1:])
 
 	tableName, q = st.InitialWatchStatementForObsoleteRevision(context.Background(),
 		[]string{"application-mysql", "application-mediawiki"},
@@ -2279,31 +2282,33 @@ WHERE sao.application_uuid IN (application-mysql,application-mediawiki) OR suo.u
 	)
 	c.Check(tableName, gc.Equals, "secret_revision")
 	c.Check(q, gc.DeepEquals, `
-SELECT uuid
+SELECT sr.uuid
 FROM secret_revision sr
-JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-WHERE sao.application_uuid IN (application-mysql,application-mediawiki)`[1:])
+LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid
+WHERE sr.obsolete = true
+AND (sao.application_uuid IS NOT NULL AND application.name IN ('application-mysql','application-mediawiki'))`[1:])
 
 	tableName, q = st.InitialWatchStatementForObsoleteRevision(context.Background(),
 		nil,
 		[]string{"mysql/0", "mediawiki/0"},
 	)
 	c.Check(tableName, gc.Equals, "secret_revision")
+	c.Logf("q: \n%q", q)
 	c.Check(q, gc.DeepEquals, `
-SELECT uuid
+SELECT sr.uuid
 FROM secret_revision sr
-JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-WHERE suo.unit_uuid IN (mysql/0,mediawiki/0)`[1:])
+LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid
+WHERE sr.obsolete = true
+AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('mysql/0','mediawiki/0')`[1:])
 
-	tableName, q = st.InitialWatchStatementForObsoleteRevision(context.Background(),
-		nil,
-		nil,
-	)
+	tableName, q = st.InitialWatchStatementForObsoleteRevision(context.Background(), nil, nil)
 	c.Check(tableName, gc.Equals, "secret_revision")
 	c.Check(q, gc.DeepEquals, `
 SELECT uuid
-FROM secret_revision sr
-`[1:])
+FROM secret_revision
+WHERE obsolete = true`[1:])
 }
 
 func (s *stateSuite) TestGetRevisionIDsForObsolete(c *gc.C) {
@@ -2383,7 +2388,6 @@ WHERE secret_id = ? AND revision = ?
 		revID(uri3, 1),
 		revID(uri4, 1),
 	})
-
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		[]string{
 			"mysql",
@@ -2401,7 +2405,6 @@ WHERE secret_id = ? AND revision = ?
 		revID(uri3, 1),
 		revID(uri4, 1),
 	})
-
 	result, err = st.GetRevisionIDsForObsolete(ctx,
 		[]string{
 			"mysql",

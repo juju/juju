@@ -8,14 +8,16 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -66,7 +68,6 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
 func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
-	// TODO: do we allow you watch for all obsolete secrets if no owners are provided??
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -74,27 +75,24 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	table, stmt := s.st.InitialWatchStatementForObsoleteRevision(ctx, appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
-		table,
-		changestream.Update,
-		stmt,
+		table, changestream.Update, stmt,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newObsoleteRevisionWatcher(appOwners, unitOwners, w, s.logger, s.st.GetRevisionIDsForObsolete), nil
+	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
+		return s.st.GetRevisionIDsForObsolete(ctx, appOwners, unitOwners, revisionUUIDs...)
+	}
+	return newObsoleteRevisionWatcher(w, s.logger, processChanges)
 }
 
 type obsoleteRevisionWatcher struct {
-	tomb   tomb.Tomb
-	logger Logger
+	catacomb catacomb.Catacomb
+	logger   Logger
 
-	appOwners      domainsecret.ApplicationOwners
-	unitOwners     domainsecret.UnitOwners
 	sourceWatcher  watcher.StringsWatcher
 	processChanges func(
 		ctx context.Context,
-		appOwners domainsecret.ApplicationOwners,
-		unitOwners domainsecret.UnitOwners,
 		revisionUUID ...string,
 	) ([]string, error)
 
@@ -102,78 +100,100 @@ type obsoleteRevisionWatcher struct {
 }
 
 func newObsoleteRevisionWatcher(
-	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	sourceWatcher watcher.StringsWatcher, logger Logger,
-	processChanges func(
-		ctx context.Context,
-		appOwners domainsecret.ApplicationOwners,
-		unitOwners domainsecret.UnitOwners,
-		revisionUUID ...string,
-	) ([]string, error),
-) *obsoleteRevisionWatcher {
+	processChanges func(ctx context.Context, revisionUUID ...string) ([]string, error),
+) (*obsoleteRevisionWatcher, error) {
 	w := &obsoleteRevisionWatcher{
-		appOwners:      appOwners,
-		unitOwners:     unitOwners,
 		sourceWatcher:  sourceWatcher,
 		logger:         logger,
 		processChanges: processChanges,
 		out:            make(chan []string),
 	}
-	w.tomb.Go(func() error {
-		defer close(w.out)
-		return w.loop()
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: []worker.Worker{sourceWatcher},
 	})
-	return w
+	return w, errors.Trace(err)
 }
 
-func (w *obsoleteRevisionWatcher) loop() (err error) {
-	var changes []string
-	ctx := w.tomb.Context(context.Background())
+func (w *obsoleteRevisionWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
+}
 
+func (w *obsoleteRevisionWatcher) loop() error {
+	defer close(w.out)
+
+	var changes set.Strings
+	// To allow the initial event to be sent.
 	out := w.out
-	// Get the initial set of changes.
-	changes, err = w.processChanges(ctx, w.appOwners, w.unitOwners)
-	if err != nil {
-		return errors.Trace(err)
+
+	addChanges := func(processed ...string) {
+		if len(processed) == 0 {
+			return
+		}
+		if changes == nil {
+			changes = set.NewStrings()
+		}
+		for _, change := range processed {
+			changes.Add(change)
+		}
+		if out == nil {
+			out = w.out
+		}
 	}
+
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 		case revisionUUIDs, ok := <-w.sourceWatcher.Changes():
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
-			w.logger.Debugf("received obsolete revision changes: %v", revisionUUIDs)
-
-			var err error
-			changes, err = w.processChanges(ctx, w.appOwners, w.unitOwners, revisionUUIDs...)
+			if len(revisionUUIDs) == 0 {
+				continue
+			}
+			ctx, cancel := w.scopedContext()
+			processed, err := w.processChanges(ctx, revisionUUIDs...)
+			cancel()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if len(changes) > 0 {
-				out = w.out
-			}
-		case out <- changes:
+			addChanges(processed...)
+		case out <- changes.Values():
+			changes = nil
 			out = nil
 		}
 	}
 }
 
-// Changes (watcher.StringsWatcher) returns the channel of obsolete secret changes.
+// Changes returns the channel of obsolete secret changes.
 func (w *obsoleteRevisionWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// Kill (worker.Worker) kills the watcher via its tomb.
-func (w *obsoleteRevisionWatcher) Kill() {
-	w.tomb.Kill(nil)
+// Stop stops the watcher.
+func (w *obsoleteRevisionWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
 }
 
-// Wait (worker.Worker) waits for the watcher's tomb to die,
+// Kill kills the watcher via its tomb.
+func (w *obsoleteRevisionWatcher) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+// Wait waits for the watcher's tomb to die,
 // and returns the error with which it was killed.
 func (w *obsoleteRevisionWatcher) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
+}
+
+// Err returns the error with which the watcher was killed.
+func (w *obsoleteRevisionWatcher) Err() error {
+	return w.catacomb.Err()
 }
 
 // TODO(secrets) - replace with real watcher

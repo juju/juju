@@ -7,13 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"gopkg.in/tomb.v2"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/watcher"
 )
 
 type secretBackendRotateWatcher struct {
-	tomb          tomb.Tomb
+	catacomb      catacomb.Catacomb
 	sourceWatcher watcher.StringsWatcher
 	logger        Logger
 
@@ -25,37 +26,46 @@ type secretBackendRotateWatcher struct {
 func newSecretBackendRotateWatcher(
 	sourceWatcher watcher.StringsWatcher, logger Logger,
 	processChanges func(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error),
-) *secretBackendRotateWatcher {
+) (*secretBackendRotateWatcher, error) {
 	w := &secretBackendRotateWatcher{
 		sourceWatcher:  sourceWatcher,
 		logger:         logger,
 		processChanges: processChanges,
 		out:            make(chan []watcher.SecretBackendRotateChange),
 	}
-	w.tomb.Go(func() error {
-		defer close(w.out)
-		return w.loop()
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: []worker.Worker{sourceWatcher},
 	})
-	return w
+	return w, errors.Trace(err)
+}
+
+func (w *secretBackendRotateWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
 }
 
 func (w *secretBackendRotateWatcher) loop() (err error) {
+	defer close(w.out)
+
 	// To allow the initial event to be sent.
 	out := w.out
 	var changes []watcher.SecretBackendRotateChange
-	ctx := w.tomb.Context(context.Background())
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 		case backendIDs, ok := <-w.sourceWatcher.Changes():
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
 			w.logger.Debugf("received secret backend rotation changes: %v", backendIDs)
 
+			ctx, cancel := w.scopedContext()
 			var err error
 			changes, err = w.processChanges(ctx, backendIDs...)
+			cancel()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -73,13 +83,13 @@ func (w *secretBackendRotateWatcher) Changes() <-chan []watcher.SecretBackendRot
 	return w.out
 }
 
-// Kill (worker.Worker) kills the watcher via its tomb.
+// Kill (worker.Worker) kills the watcher via its catacomb.
 func (w *secretBackendRotateWatcher) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
-// Wait (worker.Worker) waits for the watcher's tomb to die,
+// Wait (worker.Worker) waits for the watcher's catacomb to die,
 // and returns the error with which it was killed.
 func (w *secretBackendRotateWatcher) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }

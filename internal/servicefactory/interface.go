@@ -87,7 +87,7 @@ type ModelServiceFactory interface {
 	// Storage returns the storage service.
 	Storage(registry storage.ProviderRegistry) *storageservice.Service
 	// Secret returns the secret service.
-	Secret(secretservice.BackendAdminConfigGetter) *secretservice.SecretService
+	Secret(secretservice.BackendAdminConfigGetter) *secretservice.WatchableService
 	// ModelInfo returns the model service for the model. The model info
 	// contains read-only information about the model.
 	// Note: This should be called model, but we have naming conflicts with

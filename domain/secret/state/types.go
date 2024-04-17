@@ -270,11 +270,6 @@ func (rows secretUnitConsumers) toSecretConsumers() ([]*coresecrets.SecretConsum
 	return result, nil
 }
 
-type obsoleteDBArg struct {
-	RevisionUUIDs []string `db:"revision_uuids"`
-	Owners        []string `db:"owners"`
-}
-
 type obsoleteRevisionRow struct {
 	SecretID string `db:"secret_id"`
 	Revision string `db:"revision"`
