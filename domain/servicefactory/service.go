@@ -24,7 +24,6 @@ func NewServiceFactory(
 	modelDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
 	providerTracker providertracker.ProviderFactory,
-	brokerTracker providertracker.ProviderFactory,
 	logger Logger,
 ) *ServiceFactory {
 	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)
@@ -34,7 +33,6 @@ func NewServiceFactory(
 			modelUUID,
 			modelDB,
 			providerTracker,
-			brokerTracker,
 			logger,
 		),
 	}

@@ -38,17 +38,6 @@ type ProviderFactory interface {
 	ProviderForModel(ctx context.Context, namespace string) (Provider, error)
 }
 
-// GenericProviderFactory is an interface that provides a way to get a provider
-// for a given model namespace. It will continue to be updated in the background
-// for as long as the Worker continues to run.
-type GenericProviderFactory[T Provider] interface {
-	// ProviderForModel returns the encapsulated provider for a given model
-	// namespace. It will continue to be updated in the background for as long
-	// as the Worker continues to run. If the worker is not a singular worker,
-	// then an error will be returned.
-	ProviderForModel(ctx context.Context, namespace string) (T, error)
-}
-
 // ProviderGetter is a function that returns a provider for a given type.
 // It's generic type any because it can return any type of provider, this should
 // be used in conjunction with the ProviderRunner function.

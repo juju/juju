@@ -325,6 +325,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// No Logger defined in gate package.
 		}),
 
+		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig{
+			ProviderServiceFactoriesName:    providerServiceFactoriesName,
+			NewWorker:                       providertracker.NewWorker,
+			NewTrackerWorker:                providertracker.NewTrackerWorker,
+			GetProviderServiceFactoryGetter: providertracker.GetModelProviderServiceFactoryGetter,
+			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+				return config.NewEnvironFunc(ctx, args)
+			}),
+			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
+				return config.NewContainerBrokerFunc(ctx, args)
+			}),
+			Logger: config.LoggingContext.GetLogger("juju.worker.providertracker"),
+			Clock:  config.Clock,
+		}))),
+
 		secretsPrunerName: ifNotMigrating(secretspruner.Manifold(secretspruner.ManifoldConfig{
 			APICallerName:        apiCallerName,
 			Logger:               config.LoggingContext.GetLogger("juju.worker.secretspruner"),
@@ -350,18 +365,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig[environs.Environ]{
-			ProviderServiceFactoriesName:    providerServiceFactoriesName,
-			NewWorker:                       providertracker.NewWorker[environs.Environ],
-			NewTrackerWorker:                providertracker.NewTrackerWorker[environs.Environ],
-			GetProviderServiceFactoryGetter: providertracker.GetModelProviderServiceFactoryGetter,
-			GetProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
-				return config.NewEnvironFunc(ctx, args)
-			}),
-			Logger: config.LoggingContext.GetLogger("juju.worker.providertracker"),
-			Clock:  config.Clock,
-		}))),
-
 		// Everything else should be wrapped in ifResponsible,
 		// ifNotAlive, ifNotDead, or ifNotMigrating (which also
 		// implies NotDead), to ensure that only a single
@@ -491,18 +494,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		providerTrackerName: ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig[caas.Broker]{
-			ProviderServiceFactoriesName:    providerServiceFactoriesName,
-			NewWorker:                       providertracker.NewWorker[caas.Broker],
-			NewTrackerWorker:                providertracker.NewTrackerWorker[caas.Broker],
-			GetProviderServiceFactoryGetter: providertracker.GetModelProviderServiceFactoryGetter,
-			GetProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
-				return config.NewContainerBrokerFunc(ctx, args)
-			}),
-			Logger: config.LoggingContext.GetLogger("juju.worker.providertracker"),
-			Clock:  config.Clock,
-		})),
-
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,

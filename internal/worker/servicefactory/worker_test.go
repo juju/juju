@@ -59,15 +59,14 @@ func (s *workerSuite) getConfig() Config {
 		DBGetter:        s.dbGetter,
 		DBDeleter:       s.dbDeleter,
 		ProviderFactory: s.providerFactory,
-		BrokerFactory:   s.providerFactory,
 		Logger:          s.logger,
-		NewServiceFactoryGetter: func(_ servicefactory.ControllerServiceFactory, _ changestream.WatchableDBGetter, _ Logger, _ ModelServiceFactoryFn, _, _ providertracker.ProviderFactory) servicefactory.ServiceFactoryGetter {
+		NewServiceFactoryGetter: func(_ servicefactory.ControllerServiceFactory, _ changestream.WatchableDBGetter, _ Logger, _ ModelServiceFactoryFn, _ providertracker.ProviderFactory) servicefactory.ServiceFactoryGetter {
 			return s.serviceFactoryGetter
 		},
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
 			return s.controllerServiceFactory
 		},
-		NewModelServiceFactory: func(_ coremodel.UUID, _ changestream.WatchableDBGetter, _, _ providertracker.ProviderFactory, _ Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(_ coremodel.UUID, _ changestream.WatchableDBGetter, _ providertracker.ProviderFactory, _ Logger) servicefactory.ModelServiceFactory {
 			return s.modelServiceFactory
 		},
 	}

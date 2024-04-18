@@ -252,6 +252,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"is-responsible-flag",
 		"provider-service-factories",
+		"valid-credential-flag",
 	},
 
 	"caas-model-config-manager": {
@@ -260,6 +261,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"provider-service-factories",
 		"provider-tracker",
+		"valid-credential-flag",
 	},
 
 	"caas-firewaller": {
@@ -273,6 +275,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
+		"valid-credential-flag",
 	},
 
 	"caas-model-operator": {
@@ -281,6 +284,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-service-factories",
 		"provider-tracker",
 		"is-responsible-flag",
+		"valid-credential-flag",
 	},
 
 	"caas-application-provisioner": {
@@ -295,6 +299,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
+		"valid-credential-flag",
 	},
 
 	"caas-storage-provisioner": {
