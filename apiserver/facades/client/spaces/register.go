@@ -55,12 +55,12 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 
 	return newAPIWithBacking(apiConfig{
 		ReloadSpacesAPI:             reloadSpacesAPI,
+		NetworkService:              ctx.ServiceFactory().Network(),
 		Backing:                     stateShim,
 		Check:                       check,
 		CredentialInvalidatorGetter: credentialInvalidatorGetter,
 		Resources:                   ctx.Resources(),
 		Authorizer:                  auth,
-		Factory:                     newOpFactory(st, serviceFactory.ControllerConfig()),
 		logger:                      ctx.Logger().Child("spaces"),
 	})
 }

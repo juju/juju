@@ -20,7 +20,7 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
-	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
+	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
@@ -61,11 +61,12 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	)
 
 	s.ctrl = gomock.NewController(c)
-	controllerConfigAPI := mocks.NewMockControllerConfigAPI(s.ctrl)
 	controllerConfigService := mocks.NewMockControllerConfigService(s.ctrl)
+	controllerConfigAPI := NewMockControllerConfigAPI(s.ctrl)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
 		firewaller.StateShim(st, s.ControllerModel(c)),
+		nil,
 		s.resources,
 		s.authorizer,
 		cloudSpecAPI,

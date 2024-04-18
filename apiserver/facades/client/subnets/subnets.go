@@ -4,6 +4,7 @@
 package subnets
 
 import (
+	"context"
 	stdcontext "context"
 
 	"github.com/juju/collections/set"
@@ -33,20 +34,27 @@ type Backing interface {
 	// zones with the given zones.
 	SetAvailabilityZones(network.AvailabilityZones) error
 
-	// AllSubnets returns all backing subnets.
-	AllSubnets() ([]networkingcommon.BackingSubnet, error)
-
-	// SubnetByCIDR returns a unique subnet based on the input CIDR.
-	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
-
-	// SubnetsByCIDR returns any subnets with the input CIDR.
-	SubnetsByCIDR(cidr string) ([]networkingcommon.BackingSubnet, error)
-
-	// AllSpaces returns all known Juju network spaces.
-	AllSpaces() ([]networkingcommon.BackingSpace, error)
-
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
+}
+
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// Space returns a space from state that matches the input ID.
+	// An error is returned if the space does not exist or if there was a problem
+	// accessing its information.
+	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	// SpaceByName returns a space from state that matches the input name.
+	// An error is returned that satisfied errors.NotFound if the space was not found
+	// or an error static any problems fetching the given space.
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// GetAllSubnets returns all the subnets for the model.
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	// SubnetsByCIDR returns the subnets matching the input CIDRs.
+	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
 }
 
 // API provides the subnets API facade for version 5.
@@ -56,6 +64,7 @@ type API struct {
 	authorizer                  facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	logger                      loggo.Logger
+	networkService              NetworkService
 }
 
 func (api *API) checkCanRead() error {
@@ -65,8 +74,12 @@ func (api *API) checkCanRead() error {
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
 func newAPIWithBacking(
-	backing Backing, credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
-	resources facade.Resources, authorizer facade.Authorizer, logger loggo.Logger,
+	backing Backing,
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	logger loggo.Logger,
+	networkService NetworkService,
 ) (*API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
@@ -78,6 +91,7 @@ func newAPIWithBacking(
 		authorizer:                  authorizer,
 		credentialInvalidatorGetter: credentialInvalidatorGetter,
 		logger:                      logger,
+		networkService:              networkService,
 	}, nil
 }
 
@@ -103,7 +117,7 @@ func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) 
 		return params.ListSubnetsResults{}, err
 	}
 
-	subs, err := api.backing.AllSubnets()
+	allSubnets, err := api.networkService.GetAllSubnets(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -118,19 +132,19 @@ func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) 
 	}
 	zoneFilter := args.Zone
 
-	for _, subnet := range subs {
-		if spaceFilter != "" && subnet.SpaceName() != spaceFilter {
+	for _, subnet := range allSubnets {
+		if spaceFilter != "" && subnet.SpaceName != spaceFilter {
 			api.logger.Tracef(
 				"filtering subnet %q from space %q not matching filter %q",
-				subnet.CIDR(), subnet.SpaceName(), spaceFilter,
+				subnet.CIDR, subnet.SpaceName, spaceFilter,
 			)
 			continue
 		}
-		zoneSet := set.NewStrings(subnet.AvailabilityZones()...)
+		zoneSet := set.NewStrings(subnet.AvailabilityZones...)
 		if zoneFilter != "" && !zoneSet.IsEmpty() && !zoneSet.Contains(zoneFilter) {
 			api.logger.Tracef(
 				"filtering subnet %q with zones %v not matching filter %q",
-				subnet.CIDR(), subnet.AvailabilityZones(), zoneFilter,
+				subnet.CIDR, subnet.AvailabilityZones, zoneFilter,
 			)
 			continue
 		}
@@ -155,7 +169,11 @@ func (api *API) SubnetsByCIDR(ctx stdcontext.Context, arg params.CIDRParams) (pa
 			continue
 		}
 
-		subnets, err := api.backing.SubnetsByCIDR(cidr)
+		// TODO(nvinuesa): the SubnetsByCIDR() method takes a list
+		// of CIDRs and will return every subnet included in them. We
+		// should therefore refactor this so we don't hit the db on
+		// every CIDR. The API response should be revisited.
+		subnets, err := api.networkService.SubnetsByCIDR(ctx, cidr)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue

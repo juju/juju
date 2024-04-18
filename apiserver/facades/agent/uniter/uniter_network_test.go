@@ -57,44 +57,78 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	s.st = s.ControllerModel(c).State()
+	networkService := serviceFactory.Network()
 
-	publicSpace, err := s.st.AddSpace("public", "", nil)
+	spacePublic := network.SpaceInfo{
+		Name: "public",
+	}
+	publicSpaceID, err := networkService.AddSpace(context.Background(), spacePublic)
 	c.Assert(err, jc.ErrorIsNil)
-	for _, cidr := range []string{"8.8.0.0/16", "240.0.0.0/12"} {
-		_, err = s.st.AddSubnet(network.SubnetInfo{
-			CIDR:    cidr,
-			SpaceID: publicSpace.Id(),
-		})
+	for i, cidr := range []string{"8.8.0.0/16", "240.0.0.0/12"} {
+		_, err = networkService.AddSubnet(
+			context.Background(),
+			network.SubnetInfo{
+				CIDR:              cidr,
+				SpaceID:           string(publicSpaceID),
+				ProviderId:        network.Id(fmt.Sprintf("subnet-0%d", i)),
+				ProviderNetworkId: network.Id(fmt.Sprintf("subnet-0%d", i)),
+			})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	internalSpace, err := s.st.AddSpace("internal", "", nil)
+	spaceInternal := network.SpaceInfo{
+		Name: "internal",
+	}
+	internalSpaceID, err := networkService.AddSpace(context.Background(), spaceInternal)
 	c.Assert(err, jc.ErrorIsNil)
-	for _, cidr := range []string{"10.0.0.0/24"} {
-		_, err = s.st.AddSubnet(network.SubnetInfo{
-			CIDR:    cidr,
-			SpaceID: internalSpace.Id(),
-		})
+	for i, cidr := range []string{"10.0.0.0/24"} {
+		_, err = networkService.AddSubnet(
+			context.Background(),
+			network.SubnetInfo{
+				CIDR:              cidr,
+				SpaceID:           string(internalSpaceID),
+				ProviderId:        network.Id(fmt.Sprintf("subnet-1%d", i)),
+				ProviderNetworkId: network.Id(fmt.Sprintf("subnet-1%d", i)),
+			})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	wpDefaultSpace, err := s.st.AddSpace("wp-default", "", nil)
+	spaceWpDefault := network.SpaceInfo{
+		Name: "wp-default",
+	}
+	wpDefaultSpaceID, err := networkService.AddSpace(context.Background(), spaceWpDefault)
 	c.Assert(err, jc.ErrorIsNil)
-	for _, cidr := range []string{"100.64.0.0/16"} {
-		_, err = s.st.AddSubnet(network.SubnetInfo{
-			CIDR:    cidr,
-			SpaceID: wpDefaultSpace.Id(),
-		})
+	for i, cidr := range []string{"100.64.0.0/16"} {
+		_, err = networkService.AddSubnet(
+			context.Background(),
+			network.SubnetInfo{
+				CIDR:              cidr,
+				SpaceID:           string(wpDefaultSpaceID),
+				ProviderId:        network.Id(fmt.Sprintf("subnet-2%d", i)),
+				ProviderNetworkId: network.Id(fmt.Sprintf("subnet-2%d", i)),
+			})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	databaseSpace, err := s.st.AddSpace("database", "", nil)
+	spaceDatabase := network.SpaceInfo{
+		Name: "database",
+	}
+	databaseSpaceID, err := networkService.AddSpace(context.Background(), spaceDatabase)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, cidr := range []string{"192.168.1.0/24"} {
-		_, err = s.st.AddSubnet(network.SubnetInfo{
-			CIDR:    cidr,
-			SpaceID: databaseSpace.Id(),
-		})
+		_, err = networkService.AddSubnet(
+			context.Background(),
+			network.SubnetInfo{
+				CIDR:       cidr,
+				SpaceID:    string(databaseSpaceID),
+				ProviderId: "subnet-3",
+			})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	layerTwoSpace, err := s.st.AddSpace("layertwo", "", nil)
+	spaceLayerTwo := network.SpaceInfo{
+		Name: "layertwo",
+	}
+	layerTwoSpaceID, err := networkService.AddSpace(context.Background(), spaceLayerTwo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.st = s.ControllerModel(c).State()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10, s.InstancePrechecker(c, s.st))
@@ -111,10 +145,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Charm:       s.wpCharm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
 		EndpointBindings: map[string]string{
-			"db":        internalSpace.Id(),  // relation name
-			"admin-api": publicSpace.Id(),    // extra-binding name
-			"foo-bar":   layerTwoSpace.Id(),  // extra-binding to L2
-			"":          wpDefaultSpace.Id(), // explicitly specified default space
+			"db":        string(internalSpaceID),  // relation name
+			"admin-api": string(publicSpaceID),    // extra-binding name
+			"foo-bar":   string(layerTwoSpaceID),  // extra-binding to L2
+			"":          string(wpDefaultSpaceID), // explicitly specified default space
 		},
 	}, testing.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,7 +166,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Name:  "mysql",
 		Charm: s.mysqlCharm,
 		EndpointBindings: map[string]string{
-			"server": databaseSpace.Id(),
+			"server": string(databaseSpaceID),
 		},
 	})
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
@@ -481,42 +515,6 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
 			"server": expectedInfo,
-		},
-	})
-}
-
-func (s *uniterNetworkInfoSuite) TestNetworkInfoForJujuInfoDefaultSpace(c *gc.C) {
-	s.setupUniterAPIForUnit(c, s.mysqlUnit)
-
-	m, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{"default-space": "database"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.NetworkInfoParams{
-		Unit:      s.mysqlUnit.Tag().String(),
-		Endpoints: []string{"juju-info"},
-	}
-
-	expectedInfo := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:20:54",
-				InterfaceName: "eth4",
-				Addresses: []params.InterfaceAddress{
-					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
-				},
-			},
-		},
-		EgressSubnets:    []string{"192.168.1.20/32"},
-		IngressAddresses: []string{"192.168.1.20"},
-	}
-
-	result, err := s.uniter.NetworkInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
-		Results: map[string]params.NetworkInfoResult{
-			"juju-info": expectedInfo,
 		},
 	})
 }

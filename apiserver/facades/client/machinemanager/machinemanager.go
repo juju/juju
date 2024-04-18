@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -80,6 +81,13 @@ type CharmhubClient interface {
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	controllerConfigService ControllerConfigService
@@ -97,6 +105,7 @@ type MachineManagerAPI struct {
 	controllerStore         objectstore.ObjectStore
 
 	machineService MachineService
+	networkService NetworkService
 
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	logger                      loggo.Logger
@@ -186,6 +195,7 @@ func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 		leadership,
 		chClient,
 		logger,
+		ctx.ServiceFactory().Network(),
 	)
 }
 
@@ -205,6 +215,7 @@ func NewMachineManagerAPI(
 	leadership Leadership,
 	charmhubClient CharmhubClient,
 	logger loggo.Logger,
+	networkService NetworkService,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -230,7 +241,8 @@ func NewMachineManagerAPI(
 			makeUpgradeSeriesValidator(charmhubClient),
 			auth,
 		),
-		logger: logger,
+		logger:         logger,
+		networkService: networkService,
 	}
 	return api, nil
 }
@@ -247,8 +259,13 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	if err := mm.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
+
+	allSpaces, err := mm.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
 	for i, p := range args.MachineParams {
-		m, err := mm.addOneMachine(ctx, p)
+		m, err := mm.addOneMachine(ctx, p, allSpaces)
 		results.Machines[i].Error = apiservererrors.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = m.Id()
@@ -257,7 +274,7 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	return results, nil
 }
 
-func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMachineParams) (result Machine, err error) {
+func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMachineParams, allSpaces network.SpaceInfos) (result Machine, err error) {
 	if p.ParentId != "" && p.ContainerType == "" {
 		return nil, fmt.Errorf("parent machine specified without container type")
 	}
@@ -337,7 +354,8 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 
 	// Convert the params to provider addresses, then convert those to
 	// space addresses by looking up the spaces.
-	sAddrs, err := params.ToProviderAddresses(p.Addrs...).ToSpaceAddresses(mm.st)
+	pas := params.ToProviderAddresses(p.Addrs...)
+	sAddrs, err := pas.ToSpaceAddresses(allSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

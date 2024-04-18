@@ -147,21 +147,6 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) AddPendingResource(arg0, ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPendingResource", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).AddPendingResource), arg0, arg1, arg2)
 }
 
-// AllSpaceInfos mocks base method.
-func (m *MockDeployFromRepositoryState) AllSpaceInfos() (network.SpaceInfos, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllSpaceInfos")
-	ret0, _ := ret[0].(network.SpaceInfos)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllSpaceInfos indicates an expected call of AllSpaceInfos.
-func (mr *MockDeployFromRepositoryStateMockRecorder) AllSpaceInfos() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaceInfos", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).AllSpaceInfos))
-}
-
 // Charm mocks base method.
 func (m *MockDeployFromRepositoryState) Charm(arg0 string) (Charm, error) {
 	m.ctrl.T.Helper()
@@ -263,21 +248,6 @@ func (m *MockDeployFromRepositoryState) RemovePendingResources(arg0 string, arg1
 func (mr *MockDeployFromRepositoryStateMockRecorder) RemovePendingResources(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingResources", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).RemovePendingResources), arg0, arg1, arg2)
-}
-
-// Space mocks base method.
-func (m *MockDeployFromRepositoryState) Space(arg0 string) (*state.Space, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Space", arg0)
-	ret0, _ := ret[0].(*state.Space)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Space indicates an expected call of Space.
-func (mr *MockDeployFromRepositoryStateMockRecorder) Space(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).Space), arg0)
 }
 
 // UpdateUploadedCharm mocks base method.

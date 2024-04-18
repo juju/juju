@@ -28,11 +28,6 @@ func (st *mockState) Application(name string) (caasunitprovisioner.Application, 
 	return &st.application, st.NextErr()
 }
 
-func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
-	m.MethodCall(m, "AllSpaceInfos")
-	return network.SpaceInfos{}, nil
-}
-
 type mockApplication struct {
 	testing.Stub
 	life            state.Life

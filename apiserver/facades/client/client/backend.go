@@ -27,8 +27,6 @@ import (
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
-	network.SpaceLookup
-
 	AddRelation(...state.Endpoint) (*state.Relation, error)
 	AllApplications() ([]*state.Application, error)
 	AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error)
@@ -37,7 +35,6 @@ type Backend interface {
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllRelations() ([]*state.Relation, error)
-	AllSubnets() ([]*state.Subnet, error)
 	Application(string) (Application, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTag() names.ControllerTag

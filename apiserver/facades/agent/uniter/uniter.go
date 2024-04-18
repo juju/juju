@@ -64,6 +64,17 @@ type UnitRemover interface {
 	DeleteUnit(context.Context, string) error
 }
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// SpaceByName returns a space from state that matches the input name.
+	// An error is returned that satisfied errors.NotFound if the space was not found
+	// or an error static any problems fetching the given space.
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	// GetAllSubnets returns all the subnets for the model.
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+}
+
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
@@ -84,6 +95,7 @@ type UniterAPI struct {
 	cloudService            CloudService
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
+	networkService          NetworkService
 	unitRemover             UnitRemover
 	clock                   clock.Clock
 	auth                    facade.Authorizer
@@ -1160,7 +1172,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 			return nil
 		}
 
-		netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, unitTag, u.logger)
 		if err != nil {
 			return err
 		}
@@ -1922,7 +1934,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
+	netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, unitTag, u.logger)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -2391,7 +2403,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(ctx context.Context, unitTag 
 			return nil, errors.Trace(err)
 		}
 
-		netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, unitTag, u.logger)
 		if err != nil {
 			return nil, err
 		}

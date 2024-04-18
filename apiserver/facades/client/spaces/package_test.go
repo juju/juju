@@ -19,7 +19,7 @@ import (
 	environmocks "github.com/juju/juju/environs/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,MovingSubnet,MovingSubnetBacking,MoveSubnetsOp,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings,ControllerConfigService
+//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings,NetworkService,ControllerConfigService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -35,7 +35,6 @@ type APISuite struct {
 
 	// TODO (manadart 2020-03-24): Localise this to the suites that need it.
 	Constraints *MockConstraints
-	OpFactory   *MockOpFactory
 
 	API *API
 
@@ -45,6 +44,7 @@ type APISuite struct {
 	ReloadSpacesEnviron     *MockReloadSpacesEnviron
 	ReloadSpacesAPI         *ReloadSpacesAPI
 	ControllerConfigService *MockControllerConfigService
+	NetworkService          *MockNetworkService
 }
 
 var _ = gc.Suite(&APISuite{})
@@ -57,7 +57,6 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	ctrl := gomock.NewController(c)
 
 	s.resource = facademocks.NewMockResources(ctrl)
-	s.OpFactory = NewMockOpFactory(ctrl)
 	s.Constraints = NewMockConstraints(ctrl)
 
 	s.blockChecker = NewMockBlockChecker(ctrl)
@@ -106,6 +105,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		),
 	)
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
+	s.NetworkService = NewMockNetworkService(ctrl)
 
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
@@ -115,8 +115,8 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
 		Resources:                   s.resource,
 		Authorizer:                  s.authorizer,
-		Factory:                     s.OpFactory,
 		ControllerConfigService:     s.ControllerConfigService,
+		NetworkService:              s.NetworkService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

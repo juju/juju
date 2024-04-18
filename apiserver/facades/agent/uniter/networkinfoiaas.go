@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"net"
 	"sort"
 
@@ -158,7 +159,7 @@ type NetworkInfoIAAS struct {
 	machineAddresses map[string][]NetInfoAddress
 }
 
-func newNetworkInfoIAAS(base *NetworkInfoBase) (*NetworkInfoIAAS, error) {
+func newNetworkInfoIAAS(ctx context.Context, base *NetworkInfoBase) (*NetworkInfoIAAS, error) {
 	spaces := set.NewStrings()
 	for _, binding := range base.bindings {
 		spaces.Add(binding)
@@ -170,7 +171,7 @@ func newNetworkInfoIAAS(base *NetworkInfoBase) (*NetworkInfoIAAS, error) {
 	if err = netInfo.populateUnitMachine(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if netInfo.subs, err = netInfo.st.AllSubnetInfos(); err != nil {
+	if netInfo.subs, err = netInfo.networkService.GetAllSubnets(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err = netInfo.populateMachineAddresses(); err != nil {

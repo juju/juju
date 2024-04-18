@@ -7,8 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -46,12 +44,6 @@ func (m *machineShim) Units() ([]Unit, error) {
 	return indirected, nil
 }
 
-// movingSubnet wraps a state.Subnet
-// reference so that it implements MovingSubnet.
-type movingSubnet struct {
-	*state.Subnet
-}
-
 // stateShim forwards and adapts state.State
 // methods to Backing methods.
 type stateShim struct {
@@ -71,24 +63,6 @@ func NewStateShim(st *state.State, cloudService common.CloudService, credentialS
 		State:               st,
 		model:               m,
 	}, nil
-}
-
-func (s *stateShim) AddSpace(
-	name string, providerId network.Id, subnetIds []string,
-) (networkingcommon.BackingSpace, error) {
-	result, err := s.State.AddSpace(name, providerId, subnetIds)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result, nil
-}
-
-func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
-	result, err := s.State.SpaceByName(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result, nil
 }
 
 // AllEndpointBindings returns all endpoint bindings,
@@ -117,36 +91,6 @@ func (s *stateShim) AllMachines() ([]Machine, error) {
 		all[i] = &machineShim{m}
 	}
 	return all, nil
-}
-
-func (s *stateShim) AllSpaces() ([]networkingcommon.BackingSpace, error) {
-	results, err := s.State.AllSpaces()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	spaces := make([]networkingcommon.BackingSpace, len(results))
-	for i, result := range results {
-		spaces[i] = result
-	}
-	return spaces, nil
-}
-
-func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error) {
-	result, err := s.State.SubnetByCIDR(cidr)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result, nil
-}
-
-// MovingSubnet wraps state.Subnet so that it
-// returns the MovingSubnet indirection.
-func (s *stateShim) MovingSubnet(id string) (MovingSubnet, error) {
-	result, err := s.State.Subnet(id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &movingSubnet{result}, nil
 }
 
 // AllConstraints returns all constraints in the model,

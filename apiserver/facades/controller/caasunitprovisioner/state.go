@@ -12,7 +12,6 @@ import (
 // CAASUnitProvisionerState provides the subset of global state
 // required by the CAAS unit provisioner facade.
 type CAASUnitProvisionerState interface {
-	network.SpaceLookup
 	Application(string) (Application, error)
 }
 

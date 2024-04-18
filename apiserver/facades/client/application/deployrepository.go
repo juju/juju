@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
@@ -62,9 +61,6 @@ type DeployFromRepositoryState interface {
 	ModelConstraints() (constraints.Value, error)
 
 	services.StateBackend
-
-	network.SpaceLookup
-	Space(id string) (*state.Space, error)
 
 	ReadSequence(name string) (int, error)
 }

@@ -7,7 +7,6 @@ import (
 	stdcontext "context"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
@@ -17,34 +16,6 @@ import (
 	providercommon "github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/rpc/params"
 )
-
-// addSubnetsCache holds cached lists of spaces, zones, and subnets, used for
-// fast lookups while adding subnets.
-type addSubnetsCache struct {
-	api            Backing
-	allSpaces      map[string]string    // all defined backing space names to ids
-	allZones       set.Strings          // all known provider zones
-	availableZones set.Strings          // all the available zones
-	allSubnets     []network.SubnetInfo // all (valid) provider subnets
-	// providerIdsByCIDR maps possibly duplicated CIDRs to one or more ids.
-	providerIdsByCIDR map[string]set.Strings
-	// subnetsByProviderId maps unique subnet ProviderIds to pointers
-	// to entries in allSubnets.
-	subnetsByProviderId map[string]*network.SubnetInfo
-}
-
-func NewAddSubnetsCache(api Backing) *addSubnetsCache {
-	// Empty cache initially.
-	return &addSubnetsCache{
-		api:                 api,
-		allSpaces:           nil,
-		allZones:            nil,
-		availableZones:      nil,
-		allSubnets:          nil,
-		providerIdsByCIDR:   nil,
-		subnetsByProviderId: nil,
-	}
-}
 
 func allZones(ctx envcontext.ProviderCallContext, api Backing, logger loggo.Logger) (params.ZoneResults, error) {
 	var results params.ZoneResults

@@ -24,6 +24,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	return NewFacade(
 		ctx.Resources(),
 		ctx.Auth(),
+		ctx.ServiceFactory().Network(),
 		stateShim{ctx.State()},
 		clock.WallClock,
 		ctx.Logger().Child("caasunitprovisioner"),

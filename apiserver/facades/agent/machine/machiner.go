@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -23,6 +24,13 @@ import (
 // that are needed by the machiner API.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
 // MachinerAPI implements the API used by the machiner worker.
@@ -34,6 +42,7 @@ type MachinerAPI struct {
 	*common.APIAddresser
 	*networkingcommon.NetworkConfigAPI
 
+	networkService          NetworkService
 	st                      *state.State
 	controllerConfigService ControllerConfigService
 	auth                    facade.Authorizer
@@ -47,6 +56,7 @@ func NewMachinerAPIForState(
 	ctrlSt, st *state.State,
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
+	networkService NetworkService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MachinerAPI, error) {
@@ -70,6 +80,7 @@ func NewMachinerAPIForState(
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, resources, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
 		NetworkConfigAPI:        netConfigAPI,
+		networkService:          networkService,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
 		auth:                    authorizer,
@@ -105,13 +116,19 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 	if err != nil {
 		return results, err
 	}
+	allSpaces, err := api.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
 	for i, arg := range args.MachineAddresses {
 		m, err := api.getMachine(arg.Tag, canModify)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		addresses, err := params.ToProviderAddresses(arg.Addresses...).ToSpaceAddresses(api.st)
+
+		pas := params.ToProviderAddresses(arg.Addresses...)
+		addresses, err := pas.ToSpaceAddresses(allSpaces)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

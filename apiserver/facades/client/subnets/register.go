@@ -32,5 +32,9 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	return newAPIWithBacking(
 		stateShim,
 		credentialcommon.CredentialInvalidatorGetter(ctx),
-		ctx.Resources(), ctx.Auth(), ctx.Logger().Child("subnets"))
+		ctx.Resources(),
+		ctx.Auth(),
+		ctx.Logger().Child("subnets"),
+		ctx.ServiceFactory().Network(),
+	)
 }

@@ -4,6 +4,7 @@
 package spaces
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -29,30 +30,61 @@ type ControllerConfigService interface {
 	ControllerConfig(stdcontext.Context) (controller.Config, error)
 }
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// AddSpace creates and returns a new space.
+	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
+	// Space returns a space from state that matches the input ID.
+	// An error is returned if the space does not exist or if there was a problem
+	// accessing its information.
+	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	// SpaceByName returns a space from state that matches the input name.
+	// An error is returned that satisfied errors.NotFound if the space was not found
+	// or an error static any problems fetching the given space.
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// UpdateSpace updates the space name identified by the passed uuid.
+	UpdateSpace(ctx context.Context, uuid string, name string) error
+	// RemoveSpace deletes a space identified by its uuid.
+	RemoveSpace(ctx context.Context, uuid string) error
+	// GetAllSubnets returns all the subnets for the model.
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	// SubnetsByCIDR returns the subnets matching the input CIDRs.
+	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
+	// Subnet returns the subnet identified by the input UUID,
+	// or an error if it is not found.
+	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
+	// UpdateSubnet updates the spaceUUID of the subnet identified by the input
+	// UUID.
+	UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error
+}
+
 // API provides the spaces API facade for version 6.
 type API struct {
 	reloadSpacesAPI         ReloadSpaces
 	controllerConfigService ControllerConfigService
 
+	networkService              NetworkService
 	backing                     Backing
 	resources                   facade.Resources
 	auth                        facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 
-	check     BlockChecker
-	opFactory OpFactory
-	logger    loggo.Logger
+	check  BlockChecker
+	logger loggo.Logger
 }
 
 type apiConfig struct {
 	ReloadSpacesAPI             ReloadSpaces
+	NetworkService              NetworkService
 	ControllerConfigService     ControllerConfigService
 	Backing                     Backing
 	Check                       BlockChecker
 	CredentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	Resources                   facade.Resources
 	Authorizer                  facade.Authorizer
-	Factory                     OpFactory
 	logger                      loggo.Logger
 }
 
@@ -66,13 +98,13 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 
 	return &API{
 		reloadSpacesAPI:             cfg.ReloadSpacesAPI,
+		networkService:              cfg.NetworkService,
 		controllerConfigService:     cfg.ControllerConfigService,
 		backing:                     cfg.Backing,
 		resources:                   cfg.Resources,
 		auth:                        cfg.Authorizer,
 		credentialInvalidatorGetter: cfg.CredentialInvalidatorGetter,
 		check:                       cfg.Check,
-		opFactory:                   cfg.Factory,
 		logger:                      cfg.logger,
 	}, nil
 }
@@ -94,7 +126,7 @@ func (api *API) CreateSpaces(ctx stdcontext.Context, args params.CreateSpacesPar
 	results.Results = make([]params.ErrorResult, len(args.Spaces))
 
 	for i, space := range args.Spaces {
-		err := api.createOneSpace(space)
+		err := api.createOneSpace(ctx, space)
 		if err == nil {
 			continue
 		}
@@ -106,27 +138,31 @@ func (api *API) CreateSpaces(ctx stdcontext.Context, args params.CreateSpacesPar
 
 // createOneSpace creates one new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
-func (api *API) createOneSpace(args params.CreateSpaceParams) error {
+func (api *API) createOneSpace(ctx context.Context, args params.CreateSpaceParams) error {
 	// Validate the args, assemble information for api.backing.AddSpaces
 	spaceTag, err := names.ParseSpaceTag(args.SpaceTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	subnetIDs := make([]string, len(args.CIDRs))
-	for i, cidr := range args.CIDRs {
+	for _, cidr := range args.CIDRs {
 		if !network.IsValidCIDR(cidr) {
 			return errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
 		}
-		subnet, err := api.backing.SubnetByCIDR(cidr)
-		if err != nil {
-			return err
-		}
-		subnetIDs[i] = subnet.ID()
+	}
+
+	subnets, err := api.networkService.SubnetsByCIDR(ctx, args.CIDRs...)
+	if err != nil {
+		return err
 	}
 
 	// Add the validated space.
-	_, err = api.backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs)
+	spaceInfo := network.SpaceInfo{
+		Name:       network.SpaceName(spaceTag.Id()),
+		ProviderId: network.Id(args.ProviderId),
+		Subnets:    subnets,
+	}
+	_, err = api.networkService.AddSpace(ctx, spaceInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -145,7 +181,7 @@ func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesRes
 		return results, apiservererrors.ServerError(errors.Trace(err))
 	}
 
-	spaces, err := api.backing.AllSpaces()
+	spaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -153,17 +189,16 @@ func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesRes
 	results.Results = make([]params.Space, len(spaces))
 	for i, space := range spaces {
 		result := params.Space{}
-		result.Id = space.Id()
-		result.Name = space.Name()
+		result.Id = space.ID
+		result.Name = string(space.Name)
 
-		spaceInfo, err := space.NetworkSpace()
 		if err != nil {
-			err = errors.Annotatef(err, "fetching subnets")
+			err = errors.Annotatef(err, "fetching spaces")
 			result.Error = apiservererrors.ServerError(err)
 			results.Results[i] = result
 			continue
 		}
-		subnets := spaceInfo.Subnets
+		subnets := space.Subnets
 
 		result.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
@@ -185,6 +220,13 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 	if err != nil {
 		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
 	}
+
+	// Retrieve the list of all spaces, needed for the bindings.
+	allSpaces, err := api.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
+	}
+
 	results := make([]params.ShowSpaceResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
 		spaceName, err := names.ParseSpaceTag(entity.Tag)
@@ -193,28 +235,25 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 			continue
 		}
 		var result params.ShowSpaceResult
-		space, err := api.backing.SpaceByName(spaceName.Id())
+		space, err := api.networkService.SpaceByName(ctx, spaceName.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching space %q", spaceName)
 			results[i].Error = apiservererrors.ServerError(newErr)
 			continue
 		}
-		result.Space.Name = space.Name()
-		result.Space.Id = space.Id()
-		spaceInfo, err := space.NetworkSpace()
-		if err != nil {
-			newErr := errors.Annotatef(err, "fetching subnets")
-			results[i].Error = apiservererrors.ServerError(newErr)
-			continue
-		}
-		subnets := spaceInfo.Subnets
+		result.Space.Name = string(space.Name)
+		result.Space.Id = space.ID
+		subnets := space.Subnets
 
 		result.Space.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
 			result.Space.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
 		}
 
-		applications, err := api.applicationsBoundToSpace(space.Id())
+		// TODO(nvinuesa): This logic should be implemented in the
+		// network service once we finish migrating applications to
+		// dqlite.
+		applications, err := api.applicationsBoundToSpace(space.ID, allSpaces)
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching applications")
 			results[i].Error = apiservererrors.ServerError(newErr)
@@ -222,7 +261,10 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 		}
 		result.Applications = applications
 
-		machineCount, err := api.getMachineCountBySpaceID(space.Id())
+		// TODO(nvinuesa): This logic should be implemented in the
+		// network service once we finish migrating machines to
+		// dqlite.
+		machineCount, err := api.getMachineCountBySpaceID(space.ID)
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching machine count")
 			results[i].Error = apiservererrors.ServerError(newErr)
@@ -277,7 +319,7 @@ func (api *API) getMachineCountBySpaceID(spaceID string) (int, error) {
 	return count, nil
 }
 
-func (api *API) applicationsBoundToSpace(spaceID string) ([]string, error) {
+func (api *API) applicationsBoundToSpace(spaceID string, allSpaces network.SpaceInfos) ([]string, error) {
 	allBindings, err := api.backing.AllEndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)

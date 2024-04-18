@@ -44,8 +44,17 @@ type RemoteProReqRelation struct {
 	ru0, ru1               *state.Unit
 }
 
+type NetworkService interface {
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error)
+	AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error)
+	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+}
+
 type networkInfoSuite struct {
 	testing.ApiServerSuite
+	networkService NetworkService
 }
 
 var _ = gc.Suite(&networkInfoSuite{})
@@ -53,6 +62,9 @@ var _ = gc.Suite(&networkInfoSuite{})
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
+
+	serviceFactory := s.ControllerServiceFactory(c)
+	s.networkService = serviceFactory.Network()
 }
 
 func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
@@ -115,20 +127,7 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 }
 
 func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
-	// Add subnets for the addresses that the machine will have.
-	// We are testing a space-less deployment here.
 	st := s.ControllerModel(c).State()
-	_, err := st.AddSubnet(network.SubnetInfo{
-		CIDR:    "10.2.0.0/16",
-		SpaceID: network.AlphaSpaceId,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = st.AddSubnet(network.SubnetInfo{
-		CIDR:    "100.2.3.0/24",
-		SpaceID: network.AlphaSpaceId,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -140,6 +139,24 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,
 	})
+	_, err := s.networkService.AddSubnet(
+		context.Background(),
+		network.SubnetInfo{
+			CIDR:              "10.2.0.0/16",
+			SpaceID:           network.AlphaSpaceId,
+			ProviderId:        "subnet-0",
+			ProviderNetworkId: "subnet-0",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.networkService.AddSubnet(
+		context.Background(),
+		network.SubnetInfo{
+			CIDR:              "100.2.3.0/24",
+			SpaceID:           network.AlphaSpaceId,
+			ProviderId:        "subnet-1",
+			ProviderNetworkId: "subnet-1",
+		})
+	c.Assert(err, jc.ErrorIsNil)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,10 +203,14 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C) {
 	// Add a single subnet in the alpha space.
 	st := s.ControllerModel(c).State()
-	_, err := st.AddSubnet(network.SubnetInfo{
-		CIDR:    "10.2.0.0/16",
-		SpaceID: network.AlphaSpaceId,
-	})
+	_, err := s.networkService.AddSubnet(
+		context.Background(),
+		network.SubnetInfo{
+			CIDR:              "10.2.0.0/16",
+			SpaceID:           network.AlphaSpaceId,
+			ProviderId:        "subnet-0",
+			ProviderNetworkId: "subnet-0",
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -348,7 +369,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, u.UnitTag(), nil, lookup, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, u.UnitTag(), nil, lookup, loggo.GetLogger("juju.apiserver.uniter"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
@@ -370,17 +391,17 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	spaceID1 := s.setupSpace(c, "space-1", "1.2.0.0/16")
-	spaceID2 := s.setupSpace(c, "space-2", "2.2.0.0/16")
-	spaceID3 := s.setupSpace(c, "space-3", "10.2.0.0/16")
+	space1 := s.setupSpace(c, "space-1", "1.2.0.0/16")
+	space2 := s.setupSpace(c, "space-2", "2.2.0.0/16")
+	space3 := s.setupSpace(c, "space-3", "10.2.0.0/16")
 	_ = s.setupSpace(c, "public-4", "4.2.0.0/16")
 
 	// We want to have all bindings set so that no actual binding is
 	// really set to the default.
 	bindings := map[string]string{
-		"":             spaceID3,
-		"server-admin": spaceID1,
-		"server":       spaceID2,
+		"":             space3.ID,
+		"server-admin": space1.ID,
+		"server":       space2.ID,
 	}
 
 	st := s.ControllerModel(c).State()
@@ -414,7 +435,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, spaceID3)
+	c.Assert(boundSpace, gc.Equals, space3.ID)
 
 	exp := network.SpaceAddresses{network.NewSpaceAddress(
 		"10.2.3.4",
@@ -422,7 +443,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 		network.WithConfigType(network.ConfigStatic),
 		network.WithCIDR("10.2.0.0/16"),
 	)}
-	exp[0].SpaceID = "3"
+	exp[0].SpaceID = "space-3"
 	c.Assert(ingress, gc.DeepEquals, exp)
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
@@ -617,7 +638,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
@@ -637,7 +658,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,6 +670,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.C) {
+
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -668,7 +690,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 	prr := newProReqRelationForApps(c, st, mySql, gitLab)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel)
@@ -676,6 +698,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c *gc.C) {
+
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -739,7 +762,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 		}
 	}
 
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// At this point we only have a container (local-machine) address.
@@ -760,7 +783,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"))
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -772,16 +795,16 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 }
 
 func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
-	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24")
-	spaceIDPublic := s.setupSpace(c, "public", "10.10.0.0/24")
+	spaceDefault := s.setupSpace(c, "default", "10.0.0.0/24")
+	spacePublic := s.setupSpace(c, "public", "10.10.0.0/24")
 	_ = s.setupSpace(c, "private", "10.20.0.0/24")
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
 	bindings := map[string]string{
-		"":             spaceIDDefault,
-		"server-admin": spaceIDPublic,
+		"":             spaceDefault.ID,
+		"server-admin": spacePublic.ID,
 	}
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: bindings,
@@ -825,14 +848,14 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 3)
 
-	resDefault, ok := res[spaceIDDefault]
+	resDefault, ok := res[spaceDefault.ID]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(resDefault, gc.HasLen, 1)
 	c.Check(resDefault[0].DeviceName(), gc.Equals, "br-eth0")
 	c.Check(resDefault[0].Host(), gc.Equals, "10.0.0.20")
 	c.Check(resDefault[0].AddressCIDR(), gc.Equals, "10.0.0.0/24")
 
-	resPublic, ok := res[spaceIDPublic]
+	resPublic, ok := res[spacePublic.ID]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(resPublic, gc.HasLen, 1)
 	c.Check(resPublic[0].DeviceName(), gc.Equals, "eth1")
@@ -907,18 +930,26 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	c.Check(resEmpty[0].AddressCIDR(), gc.Equals, "10.20.0.0/24")
 }
 
-func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
-	st := s.ControllerModel(c).State()
-	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = st.AddSubnet(network.SubnetInfo{
-		CIDR:    cidr,
-		SpaceID: space.Id(),
+func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) network.SpaceInfo {
+	spaceID, err := s.networkService.AddSpace(context.Background(), network.SpaceInfo{
+		ID:   spaceName,
+		Name: network.SpaceName(spaceName),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return space.Id()
+	_, err = s.networkService.AddSubnet(
+		context.Background(),
+		network.SubnetInfo{
+			CIDR:              cidr,
+			SpaceID:           spaceID.String(),
+			ProviderId:        network.Id("subnet-" + spaceName),
+			ProviderNetworkId: network.Id("subnet-" + spaceName),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	spInfo, err := s.networkService.Space(context.Background(), spaceID.String())
+	c.Assert(err, jc.ErrorIsNil)
+	return *spInfo
 }
 
 // createNICAndBridgeWithIP creates a network interface and a bridge on the
@@ -976,7 +1007,7 @@ func (s *networkInfoSuite) newNetworkInfo(
 		}
 	}
 
-	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), tag, retryFactory, lookupHost, loggo.GetLogger("juju.apiserver.uniter"))
+	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), s.networkService, tag, retryFactory, lookupHost, loggo.GetLogger("juju.apiserver.uniter"))
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }

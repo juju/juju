@@ -27,7 +27,13 @@ type State interface {
 	WatchOpenedPorts() state.StringsWatcher
 	FindEntity(tag names.Tag) (state.Entity, error)
 	AllEndpointBindings() (map[string]map[string]string, error)
-	SpaceInfos() (network.SpaceInfos, error)
+}
+
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
 // ControllerConfigAPI provides the subset of common.ControllerConfigAPI
@@ -86,8 +92,4 @@ func (st stateShim) AllEndpointBindings() (map[string]map[string]string, error) 
 		res[appName] = bindings.Map() // endpoint -> spaceID
 	}
 	return res, nil
-}
-
-func (st stateShim) SpaceInfos() (network.SpaceInfos, error) {
-	return st.st.AllSpaceInfos()
 }
