@@ -880,9 +880,9 @@ ON permission (grant_on, grant_to);
 
 -- All permissions
 CREATE VIEW v_permission AS
-SELECT p.uuid AS uuid,
-       p.grant_on AS grant_on,
-       p.grant_to AS grant_to,
+SELECT p.uuid,
+       p.grant_on,
+       p.grant_to,
        at.type AS access_type,
        ot.type AS object_type
 FROM   permission p
@@ -891,39 +891,35 @@ FROM   permission p
 
 -- All model permissions, verifying the model does exist.
 CREATE VIEW v_permission_model AS
-SELECT p.uuid AS uuid,
-       p.grant_on AS grant_on,
-       p.grant_to AS grant_to,
-       at.type AS access_type,
-       ot.type AS object_type
-FROM   permission p
-       JOIN permission_access_type at ON at.id = p.access_type_id
-       JOIN permission_object_type ot ON ot.id = p.object_type_id
-       INNER JOIN model ON model.uuid = p.grant_on;
+SELECT p.uuid,
+       p.grant_on,
+       p.grant_to,
+       p.access_type,
+       p.object_type
+FROM   v_permission p
+       INNER JOIN model ON model.uuid = p.grant_on
+WHERE  p.object_type = 'model';
 
 -- All controller cloud, verifying the cloud does exist.
 CREATE VIEW v_permission_cloud AS
-SELECT p.uuid AS uuid,
-       p.grant_on AS grant_on,
-       p.grant_to AS grant_to,
-       at.type AS access_type,
-       ot.type AS object_type
-FROM   permission p
-       JOIN permission_access_type at ON at.id = p.access_type_id
-       JOIN permission_object_type ot ON ot.id = p.object_type_id
-       INNER JOIN cloud ON cloud.name = p.grant_on;
+SELECT p.uuid,
+       p.grant_on,
+       p.grant_to,
+       p.access_type,
+       p.object_type
+FROM   v_permission p
+       INNER JOIN cloud ON cloud.name = p.grant_on
+WHERE  p.object_type = 'cloud';
 
 -- All controller permissions
 CREATE VIEW v_permission_controller AS
-SELECT p.uuid AS uuid,
-       p.grant_on AS grant_on,
-       p.grant_to AS grant_to,
-       at.type AS access_type,
-       ot.type AS object_type
-FROM   permission p
-       JOIN permission_access_type at ON at.id = p.access_type_id
-       JOIN permission_object_type ot ON ot.id = p.object_type_id
-WHERE  grant_on = 'controller';
+SELECT p.uuid,
+       p.grant_on,
+       p.grant_to,
+       p.access_type,
+       p.object_type
+FROM   v_permission p
+WHERE  grant_on = 'controller' AND p.object_type = 'controller';
 
 `)
 }
