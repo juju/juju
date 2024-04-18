@@ -342,7 +342,8 @@ func (w *Pruner) scopedContext() (context.Context, context.CancelFunc) {
 	return w.tomb.Context(ctx), cancel
 }
 
-// Model represents a model from the model table.
+// ModelNamespace represents a model and the associated DQlite namespace that it
+// uses.
 type ModelNamespace struct {
 	UUID      string `db:"uuid"`
 	Namespace string `db:"namespace"`

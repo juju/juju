@@ -10,7 +10,7 @@ import (
 	corecloud "github.com/juju/juju/core/cloud"
 )
 
-// GenModelUUID can be used in testing for generating a model uuid that is
+// GenModelUUID can be used in testing for generating a cloud id that is
 // checked for subsequent errors using the test suits go check instance.
 func GenCloudID(c *gc.C) corecloud.ID {
 	uuid, err := corecloud.NewID()

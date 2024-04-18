@@ -99,6 +99,10 @@ func (s *credentialSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(existingInvalid, gc.IsNil)
 
+	id, err := st.CredentialIDForKey(context.Background(), key)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(id != corecredential.ID(""), jc.IsTrue)
+
 	credResult := credential.CloudCredentialResult{
 		CloudCredentialInfo: credInfo,
 		CloudName:           "stratus",

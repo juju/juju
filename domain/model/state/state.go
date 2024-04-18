@@ -181,7 +181,7 @@ func GetModelType(
 	uuid coremodel.UUID,
 ) (coremodel.ModelType, error) {
 	stmt := `
-SELECT model_type_type
+SELECT model_type
 FROM v_model AS m
 WHERE uuid = ?
 `
@@ -209,7 +209,7 @@ func Get(
 SELECT name,
        cloud_name,
        cloud_region_name,
-       model_type_type,
+       model_type,
        owner_uuid,
        cloud_credential_cloud_name,
        cloud_credential_owner_name,
@@ -482,7 +482,9 @@ type FinaliserFunc func(context.Context, *sql.Tx, coremodel.UUID) error
 // transaction retry's.
 func GetFinaliser() FinaliserFunc {
 	existsStmt := `
-SELECT finalised FROM model WHERE uuid = ?
+SELECT finalised
+FROM model
+WHERE uuid = ?
 `
 	stmt := `
 UPDATE model 
@@ -633,10 +635,10 @@ func (st *State) NamespaceForModel(ctx context.Context, id coremodel.UUID) (stri
 	}
 
 	q := `
-    SELECT m.uuid, mn.namespace
-    FROM model m
-	LEFT JOIN model_namespace mn ON m.uuid = mn.model_uuid
-    WHERE m.uuid = ?
+SELECT m.uuid, mn.namespace
+FROM model m
+LEFT JOIN model_namespace mn ON m.uuid = mn.model_uuid
+WHERE m.uuid = ?
 `
 	var namespace sql.NullString
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

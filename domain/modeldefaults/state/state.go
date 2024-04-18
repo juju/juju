@@ -140,9 +140,10 @@ func (s *State) ModelMetadataDefaults(
 	}
 
 	stmt := `
-SELECT name, model_type_type
-FROM v_model
-WHERE uuid = ?
+SELECT m.name, mt.type
+FROM model m
+INNER JOIN model_type mt ON m.model_type_id = mt.id
+WHERE m.uuid = ?
 `
 
 	var (

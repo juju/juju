@@ -223,11 +223,12 @@ CREATE TABLE cloud (
         REFERENCES        cloud_type(id)
 );
 
--- v_cloud is used to fetch well construct information about a cloud. This view
--- also includes information on if the cloud is the controller models cloud.
+-- v_cloud is used to fetch well constructed information about a cloud. This
+-- view also includes information on whether the cloud is the controller
+-- model's cloud.
 CREATE VIEW v_cloud
 AS
--- This selects the controller models cloud uuid. We use this when loading
+-- This selects the controller model's cloud uuid. We use this when loading
 -- clouds to know if the cloud is the controllers cloud.
 WITH controllers AS (
     SELECT m.cloud_uuid
@@ -474,7 +475,7 @@ CREATE TABLE model (
     uuid                  TEXT PRIMARY KEY,
 -- finalised tells us if the model creation process has been completed and
 -- we can use this model. The reason for this is model creation still happens
--- over several transactions with anyone of them possibly failing. We write true
+-- over several transactions with any one of them possibly failing. We write true
 -- to this field when we are happy that the model can safely be used after all
 -- operations have been completed.
     finalised             BOOLEAN DEFAULT FALSE NOT NULL,
@@ -521,7 +522,6 @@ SELECT m.uuid AS uuid,
        ct.type           AS cloud_type,
        c.endpoint        AS cloud_endpoint,
        c.skip_tls_verify AS cloud_skip_tls_verify,
-
        cr.uuid           AS cloud_region_uuid,
        cr.name           AS cloud_region_name,
        cc.uuid           AS cloud_credential_uuid,
@@ -530,7 +530,7 @@ SELECT m.uuid AS uuid,
        cco.uuid          AS cloud_credential_owner_uuid,
        cco.name          AS cloud_credential_owner_name,
        m.model_type_id,
-       mt.type          AS model_type_type,
+       mt.type          AS model_type,
        m.name AS name,
        m.owner_uuid,
        o.name           AS owner_name,

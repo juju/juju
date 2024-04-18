@@ -14,17 +14,17 @@ import (
 // ID represents a unique id within the Juju controller for a cloud.
 type ID string
 
-// NewID generates a new credential [ID]
+// NewID generates a new cloud [ID]
 func NewID() (ID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return ID(""), fmt.Errorf("creating new credential id: %w", err)
+		return ID(""), fmt.Errorf("creating new cloud id: %w", err)
 	}
 	return ID(uuid.String()), nil
 }
 
 // String implements the stringer interface returning a string representation of
-// the credential ID.
+// the cloud ID.
 func (i ID) String() string {
 	return string(i)
 }
@@ -33,11 +33,11 @@ func (i ID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (i ID) Validate() error {
 	if i == "" {
-		return fmt.Errorf("credential id cannot be empty%w", errors.Hide(errors.NotValid))
+		return fmt.Errorf("cloud id cannot be empty%w", errors.Hide(errors.NotValid))
 	}
 
 	if !uuid.IsValidUUIDString(string(i)) {
-		return fmt.Errorf("credential id %q %w", i, errors.NotValid)
+		return fmt.Errorf("cloud id %q %w", i, errors.NotValid)
 	}
 	return nil
 }

@@ -190,7 +190,14 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 	// Ensure that each view is present.
 	expected := set.NewStrings(
 		"v_user_auth",
+
+		// Cloud
+		"v_cloud",
+		"v_cloud_auth",
+
+		// v_cloud_credential
 		"v_cloud_credential",
+		"v_cloud_credential_attributes",
 
 		// Models
 		"v_model",
