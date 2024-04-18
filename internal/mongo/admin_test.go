@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/packaging"
 	coretesting "github.com/juju/juju/testing"
@@ -23,7 +24,7 @@ var _ = gc.Suite(&adminSuite{})
 
 func (s *adminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, series string) error {
+	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, b base.Base) error {
 		return nil
 	})
 }

@@ -6,9 +6,9 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/packaging/v2"
-	"github.com/juju/packaging/v2/commands"
-	"github.com/juju/packaging/v2/config"
+	"github.com/juju/packaging/v3"
+	"github.com/juju/packaging/v3/commands"
+	"github.com/juju/packaging/v3/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/shell"
 	"golang.org/x/crypto/ssh"
@@ -433,7 +433,7 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 			jujupackaging.SnapPackageManager: commands.NewSnapPackageCommander(),
 		}
 		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(osname),
+			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(),
 		}
 		return &ubuntuCloudConfig{cfg}, nil
 	case os.CentOS:
@@ -441,7 +441,7 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 			jujupackaging.YumPackageManager: commands.NewYumPackageCommander(),
 		}
 		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-			jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer("centos7"),
+			jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer(),
 		}
 		return &centOSCloudConfig{
 			cloudConfig: cfg,

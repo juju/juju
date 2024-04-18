@@ -41,7 +41,7 @@ python-novaclient>=6.0.2
 pyOpenSSL>=17.5.0
 boto3>=1.5.18
 pyaml>=17.12.1
-dnspython==1.16.0
+dnspython==2.6.1
 google-api-python-client==1.7.8
 google-cloud-container==0.2.1
 cryptography==42.0.4
