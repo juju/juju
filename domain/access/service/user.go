@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"golang.org/x/crypto/nacl/secretbox"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	domainuser "github.com/juju/juju/domain/access"
 	usererrors "github.com/juju/juju/domain/access/errors"
@@ -279,12 +280,12 @@ func (s *UserService) DisableUserAuthentication(ctx context.Context, name string
 // The following error types are possible from this function:
 // - usererrors.UUIDNotValid: When the UUID supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
-func (s *UserService) UpdateLastLogin(ctx context.Context, name string) error {
+func (s *UserService) UpdateLastLogin(ctx context.Context, modelUUID coremodel.UUID, name string) error {
 	if err := domainuser.ValidateUserName(name); err != nil {
 		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
 	}
 
-	if err := s.st.UpdateLastLogin(ctx, name); err != nil {
+	if err := s.st.UpdateLastLogin(ctx, modelUUID, name); err != nil {
 		return errors.Annotatef(err, "updating last login for user %q", name)
 	}
 	return nil

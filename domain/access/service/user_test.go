@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
@@ -487,10 +488,10 @@ func FuzzGetUser(f *testing.F) {
 // TestUpdateLastLogin tests the happy path for UpdateLastLogin.
 func (s *userServiceSuite) TestUpdateLastLogin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.state.EXPECT().UpdateLastLogin(gomock.Any(), modelUUID, "name")
 
-	s.state.EXPECT().UpdateLastLogin(gomock.Any(), "name")
-
-	err := s.service().UpdateLastLogin(context.Background(), "name")
+	err := s.service().UpdateLastLogin(context.Background(), modelUUID, "name")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

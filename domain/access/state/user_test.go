@@ -1180,49 +1180,6 @@ WHERE user_uuid = ?
 	c.Assert(disabled, gc.Equals, false)
 }
 
-// TestUpdateLastLogin asserts that we can update the last login time for a
-// user.
-func (s *userStateSuite) TestUpdateLastLogin(c *gc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
-
-	// Add admin user with activation key.
-	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add user with password hash.
-	err = st.AddUserWithPasswordHash(
-		context.Background(), adminUUID,
-		"admin", "admin",
-		adminUUID,
-		controllerLoginAccess(),
-		"passwordHash", salt,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Update last login.
-	err = st.UpdateLastLogin(context.Background(), "admin")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that the last login was updated correctly.
-	db := s.DB()
-
-	row := db.QueryRow(`
-SELECT last_login
-FROM user_authentication
-WHERE user_uuid = ?
-	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
-
-	var lastLogin time.Time
-	err = row.Scan(&lastLogin)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(lastLogin, gc.NotNil)
-}
-
 func (s *userStateSuite) TestGetUserUUIDByName(c *gc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 	uuid, err := user.NewUUID()

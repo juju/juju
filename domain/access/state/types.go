@@ -143,6 +143,11 @@ type userName struct {
 	Name string `db:"name"`
 }
 
+// userUUID is used to retrieve the UUID from the user table.
+type userUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // permInOut is a struct to replace sqlair.M with permission
 // SQL that contains a user name, grant_on and access both
 // input and output.
@@ -150,4 +155,11 @@ type permInOut struct {
 	Name    string `db:"name"`
 	GrantOn string `db:"grant_on"`
 	Access  string `db:"access"`
+}
+
+// modelAccess is a struct used to record a users logging in to a particular
+// model.
+type modelAccess struct {
+	UserUUID  string `db:"user_uuid"`
+	ModelUUID string `db:"model_uuid"`
 }

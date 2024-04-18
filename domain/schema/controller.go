@@ -44,6 +44,7 @@ func ControllerDDL() *schema.Schema {
 		autocertCacheSchema,
 		objectStoreMetadataSchema,
 		userSchema,
+		modelLastLogin,
 		flagSchema,
 		userPermissionSchema,
 		secretBackendSchema,
@@ -647,6 +648,21 @@ CREATE TABLE model_migration_minion_sync (
     CONSTRAINT      fk_model_migration_minion_sync_model_migration
         FOREIGN KEY (migration_uuid)
         REFERENCES  model_migration(uuid)
+);`)
+}
+
+func modelLastLogin() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE model_last_login (
+    model_uuid TEXT NOT NULL,
+    user_uuid TEXT NOT NULL,
+    time TIMESTAMP,
+    CONSTRAINT            fk_model_last_login_model
+        FOREIGN KEY           (model_uuid)
+        REFERENCES            model(uuid),
+    CONSTRAINT            fk_model_last_login_user
+        FOREIGN KEY           (user_uuid)
+        REFERENCES            user(uuid)
 );`)
 }
 

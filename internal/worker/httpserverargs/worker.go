@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
+	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
@@ -154,8 +155,8 @@ func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreu
 
 // UpdateLastLogin updates the last login time for the user with the
 // given name.
-func (b *managedServices) UpdateLastLogin(ctx context.Context, name string) error {
-	return b.userService.UpdateLastLogin(b.tomb.Context(ctx), name)
+func (b *managedServices) UpdateLastLogin(ctx context.Context, modelUUID coremodel.UUID, name string) error {
+	return b.userService.UpdateLastLogin(b.tomb.Context(ctx), modelUUID, name)
 }
 
 // Kill is part of the worker.Worker interface.

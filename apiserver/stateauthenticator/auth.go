@@ -24,6 +24,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -312,7 +313,7 @@ func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess per
 		}
 
 		// Update the last login time for the user.
-		if err := a.authContext.userService.UpdateLastLogin(ctx, userTag.Name()); err != nil {
+		if err := a.authContext.userService.UpdateLastLogin(ctx, coremodel.UUID(model.UUID()), userTag.Name()); err != nil {
 			return errors.Trace(err)
 		}
 		return nil

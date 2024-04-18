@@ -15,6 +15,7 @@ import (
 
 	authentication "github.com/juju/juju/apiserver/authentication"
 	controller "github.com/juju/juju/controller"
+	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
 	auth "github.com/juju/juju/internal/auth"
 	state "github.com/juju/juju/state"
@@ -113,17 +114,17 @@ func (mr *MockUserServiceMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Cal
 }
 
 // UpdateLastLogin mocks base method.
-func (m *MockUserService) UpdateLastLogin(arg0 context.Context, arg1 string) error {
+func (m *MockUserService) UpdateLastLogin(arg0 context.Context, arg1 model.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateLastLogin indicates an expected call of UpdateLastLogin.
-func (mr *MockUserServiceMockRecorder) UpdateLastLogin(arg0, arg1 any) *gomock.Call {
+func (mr *MockUserServiceMockRecorder) UpdateLastLogin(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockUserService)(nil).UpdateLastLogin), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockUserService)(nil).UpdateLastLogin), arg0, arg1, arg2)
 }
 
 // MockAgentAuthenticatorFactory is a mock of AgentAuthenticatorFactory interface.

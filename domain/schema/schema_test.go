@@ -163,6 +163,7 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"user_authentication",
 		"user_password",
 		"user_activation_key",
+		"model_last_login",
 
 		// Flags
 		"flag",

@@ -82,6 +82,7 @@ func CreateTestModel(
 	credId, err := corecredential.NewID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	userName := "test-user" + name
 	runner, err := txnRunner()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -91,7 +92,7 @@ func CreateTestModel(
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?)
-		`, userUUID.String(), name, "test-user", false, userUUID, time.Now())
+		`, userUUID.String(), name, userName, false, userUUID, time.Now())
 		if err != nil {
 			return err
 		}

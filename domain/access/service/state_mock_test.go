@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
@@ -336,17 +337,17 @@ func (mr *MockStateMockRecorder) SetPasswordHash(arg0, arg1, arg2, arg3 any) *go
 }
 
 // UpdateLastLogin mocks base method.
-func (m *MockState) UpdateLastLogin(arg0 context.Context, arg1 string) error {
+func (m *MockState) UpdateLastLogin(arg0 context.Context, arg1 model.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateLastLogin indicates an expected call of UpdateLastLogin.
-func (mr *MockStateMockRecorder) UpdateLastLogin(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateMockRecorder) UpdateLastLogin(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockState)(nil).UpdateLastLogin), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockState)(nil).UpdateLastLogin), arg0, arg1, arg2)
 }
 
 // UpsertPermission mocks base method.
@@ -574,17 +575,17 @@ func (mr *MockUserStateMockRecorder) SetPasswordHash(arg0, arg1, arg2, arg3 any)
 }
 
 // UpdateLastLogin mocks base method.
-func (m *MockUserState) UpdateLastLogin(arg0 context.Context, arg1 string) error {
+func (m *MockUserState) UpdateLastLogin(arg0 context.Context, arg1 model.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateLastLogin indicates an expected call of UpdateLastLogin.
-func (mr *MockUserStateMockRecorder) UpdateLastLogin(arg0, arg1 any) *gomock.Call {
+func (mr *MockUserStateMockRecorder) UpdateLastLogin(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockUserState)(nil).UpdateLastLogin), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockUserState)(nil).UpdateLastLogin), arg0, arg1, arg2)
 }
 
 // MockPermissionState is a mock of PermissionState interface.
