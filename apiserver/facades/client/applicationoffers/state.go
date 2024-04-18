@@ -54,7 +54,6 @@ func (pool statePoolShim) GetModel(modelUUID string) (Model, func(), error) {
 // Backend provides selected methods off the state.State struct.
 type Backend interface {
 	commoncrossmodel.Backend
-	Charm(string) (commoncrossmodel.Charm, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
@@ -109,18 +108,6 @@ func (s *stateShim) Model() (Model, error) {
 
 func (s *stateShim) AllSpaceInfos() (network.SpaceInfos, error) {
 	return s.st.AllSpaceInfos()
-}
-
-type stateCharmShim struct {
-	*state.Charm
-}
-
-func (s stateShim) Charm(curl string) (commoncrossmodel.Charm, error) {
-	ch, err := s.st.Charm(curl)
-	if err != nil {
-		return nil, err
-	}
-	return stateCharmShim{ch}, nil
 }
 
 func (s *stateShim) ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error) {

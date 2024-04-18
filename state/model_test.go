@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -1309,105 +1308,6 @@ func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C
 
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Life(), gc.Equals, state.Dying)
-}
-
-func (s *ModelSuite) TestListModelUsers(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := s.addModelUsers(c, s.State)
-	obtained, err := model.Users()
-	c.Assert(err, gc.IsNil)
-
-	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
-}
-
-func (s *ModelSuite) TestListUsersIgnoredDeletedUsers(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedUsers := s.addModelUsers(c, s.State)
-
-	obtainedUsers, err := model.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedUsers)
-
-	lastUser := obtainedUsers[len(obtainedUsers)-1]
-	err = s.State.RemoveUser(lastUser.UserTag)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedAfterDeletion := obtainedUsers[:len(obtainedUsers)-1]
-
-	obtainedUsers, err = model.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedAfterDeletion)
-}
-
-func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	otherModelState := s.Factory.MakeModel(c, nil)
-	defer otherModelState.Close()
-	otherModel, err := otherModelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add users to both models
-	expectedUsers := s.addModelUsers(c, s.State)
-	expectedUsersOtherModel := s.addModelUsers(c, otherModelState)
-
-	// test that only the expected users are listed for each model
-	obtainedUsers, err := model.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedUsers)
-
-	obtainedUsersOtherModel, err := otherModel.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherModel, expectedUsersOtherModel)
-
-	// It doesn't matter how you obtain the Model.
-	otherModel2, ph, err := s.StatePool.GetModel(otherModel.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	defer ph.Release()
-	obtainedUsersOtherModel2, err := otherModel2.Users()
-	c.Assert(err, jc.ErrorIsNil)
-	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherModel2, expectedUsersOtherModel)
-}
-
-func (s *ModelSuite) addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) {
-	// get the model owner
-	testAdmin := names.NewUserTag("test-admin")
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	owner, err := st.UserAccess(testAdmin, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	f := factory.NewFactory(st, s.StatePool, testing.FakeControllerConfig())
-	return []permission.UserAccess{
-		// we expect the owner to be an existing model user
-		owner,
-		// add new users to the model
-		f.MakeModelUser(c, nil),
-		f.MakeModelUser(c, nil),
-		f.MakeModelUser(c, nil),
-	}
-}
-
-func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers []permission.UserAccess) {
-	c.Assert(len(obtainedUsers), gc.Equals, len(expectedUsers))
-	expectedByUser := make(map[string]permission.UserAccess, len(expectedUsers))
-	for _, access := range expectedUsers {
-		expectedByUser[access.UserName] = access
-	}
-	for _, obtained := range obtainedUsers {
-		expect := expectedByUser[obtained.UserName]
-		// We shouldn't get the same entry again
-		delete(expectedByUser, obtained.UserName)
-		c.Check(obtained.Object.Id(), gc.Equals, expect.Object.Id())
-		c.Check(obtained.UserTag, gc.Equals, expect.UserTag)
-		c.Check(obtained.DisplayName, gc.Equals, expect.DisplayName)
-		c.Check(obtained.CreatedBy, gc.Equals, expect.CreatedBy)
-	}
-	c.Check(expectedByUser, jc.DeepEquals, map[string]permission.UserAccess{})
 }
 
 func (s *ModelSuite) TestAllModelUUIDs(c *gc.C) {

@@ -302,10 +302,6 @@ func (m *mockState) ControllerTag() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (m *mockState) Charm(string) (crossmodel.Charm, error) {
-	return &mockCharm{}, nil
-}
-
 func (m *mockState) Application(name string) (crossmodel.Application, error) {
 	app, ok := m.applications[name]
 	if !ok {
