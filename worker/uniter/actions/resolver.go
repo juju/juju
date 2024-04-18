@@ -58,7 +58,7 @@ func (r *actionsResolver) NextOp(
 	// deferred until the unit is running. If the remote charm needs
 	// updating, hold off on action running.
 	if remoteState.ActionsBlocked || localState.OutdatedRemoteCharm {
-		r.logger.Infof("actions are blocked=%v; outdated remote charm=%v - have pending actions: %v", remoteState.ActionsBlocked, localState.OutdatedRemoteCharm, remoteState.ActionsPending)
+		r.logger.Debugf("actions are blocked=%v; outdated remote charm=%v - have pending actions: %v", remoteState.ActionsBlocked, localState.OutdatedRemoteCharm, remoteState.ActionsPending)
 		if localState.ActionId == nil {
 			r.logger.Debugf("actions are blocked, no in flight actions")
 			return nil, resolver.ErrNoOperation

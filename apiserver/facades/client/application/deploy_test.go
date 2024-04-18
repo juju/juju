@@ -77,7 +77,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, app, s.charm.URL())
 	s.assertSettings(c, app, charm.Settings{})
-	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes(nil))
+	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes{})
 	s.assertConstraints(c, app, constraints.MustParse("arch=amd64"))
 	s.assertMachines(c, app, constraints.Value{})
 }

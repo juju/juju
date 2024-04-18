@@ -899,6 +899,9 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	if params.PodSpec != nil {
+		if config == nil {
+			return errors.Errorf("config for k8s app %q cannot be nil", appName)
+		}
 		return k.ensureService(appName, deploymentName, statusCallback, params, numUnits, config)
 	}
 	if len(params.RawK8sSpec) > 0 {
