@@ -71,6 +71,8 @@ func (s *SecretsAPI) checkCanAdmin() error {
 }
 
 // ListSecrets lists available secrets.
+// If args specifies secret owners, then only charm secrets are queried because user secret don't have owners as such.
+// If no owners are specified, we use the more generic list method when returns all types of secret.
 func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs) (params.ListSecretResults, error) {
 	result := params.ListSecretResults{}
 	if arg.ShowSecrets {
