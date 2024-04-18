@@ -98,44 +98,6 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-
-	resultSource := params.StringResults{
-		Results: []params.StringResult{{
-			Result: "xenial",
-		}},
-	}
-	fCaller.EXPECT().FacadeCall("CurrentSeries", s.args, gomock.Any()).SetArg(2, resultSource)
-
-	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	target, err := api.CurrentSeries()
-	c.Assert(err, gc.IsNil)
-	c.Check(target, gc.Equals, "xenial")
-}
-
-func (s *upgradeSeriesSuite) TestTargetSeries(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-
-	resultSource := params.StringResults{
-		Results: []params.StringResult{{
-			Result: "bionic",
-		}},
-	}
-	fCaller.EXPECT().FacadeCall("TargetSeries", s.args, gomock.Any()).SetArg(2, resultSource)
-
-	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	target, err := api.TargetSeries()
-	c.Assert(err, gc.IsNil)
-	c.Check(target, gc.Equals, "bionic")
-}
-
 func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -41,21 +41,6 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
 }
 
-// CurrentSeries mocks base method.
-func (m *MockFacade) CurrentSeries() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CurrentSeries")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CurrentSeries indicates an expected call of CurrentSeries.
-func (mr *MockFacadeMockRecorder) CurrentSeries() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentSeries", reflect.TypeOf((*MockFacade)(nil).CurrentSeries))
-}
-
 // FinishUpgradeSeries mocks base method.
 func (m *MockFacade) FinishUpgradeSeries(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -140,21 +125,6 @@ func (m *MockFacade) StartUnitCompletion(arg0 string) error {
 func (mr *MockFacadeMockRecorder) StartUnitCompletion(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion), arg0)
-}
-
-// TargetSeries mocks base method.
-func (m *MockFacade) TargetSeries() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TargetSeries")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// TargetSeries indicates an expected call of TargetSeries.
-func (mr *MockFacadeMockRecorder) TargetSeries() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetSeries", reflect.TypeOf((*MockFacade)(nil).TargetSeries))
 }
 
 // UnitsCompleted mocks base method.
