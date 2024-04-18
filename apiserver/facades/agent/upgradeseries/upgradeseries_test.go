@@ -91,7 +91,9 @@ func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
 
 	s.machine.EXPECT().Base().Return(state.UbuntuBase("16.04")).AnyTimes()
 
-	results, err := s.api.CurrentSeries(s.entityArgs)
+	api := &upgradeseries.APIv3{s.api}
+
+	results, err := api.CurrentSeries(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{Result: "xenial"}},
@@ -103,7 +105,9 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
 
 	s.machine.EXPECT().UpgradeSeriesTarget().Return("bionic", nil)
 
-	results, err := s.api.TargetSeries(s.entityArgs)
+	api := &upgradeseries.APIv3{s.api}
+
+	results, err := api.TargetSeries(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{Result: "bionic"}},
