@@ -4659,6 +4659,7 @@ var updateApplicationConfigTests = []struct {
 }, {
 	about:  "unset missing string",
 	update: config.ConfigAttributes{"outlook": nil},
+	expect: config.ConfigAttributes{},
 }, {
 	about:   `empty strings are valid`,
 	initial: config.ConfigAttributes{"outlook": "positive"},
@@ -4682,6 +4683,7 @@ var updateApplicationConfigTests = []struct {
 	about:   "unset non-string type",
 	initial: config.ConfigAttributes{"skill-level": 303},
 	update:  config.ConfigAttributes{"skill-level": nil},
+	expect:  config.ConfigAttributes{},
 }}
 
 func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
@@ -4725,7 +4727,7 @@ func (s *ApplicationSuite) TestApplicationConfigNotFoundNoError(c *gc.C) {
 
 	cfg, err := app.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg, gc.IsNil)
+	c.Assert(cfg, gc.HasLen, 0)
 }
 
 func (s *ApplicationSuite) TestStatusInitial(c *gc.C) {
