@@ -34219,7 +34219,7 @@
                             "$ref": "#/definitions/ListSecretResults"
                         }
                     },
-                    "description": "ListSecrets lists available secrets."
+                    "description": "ListSecrets lists available secrets.\nIf args specifies secret owners, then only charm secrets are queried because user secret don't have owners as such.\nIf no owners are specified, we use the more generic list method when returns all types of secret."
                 },
                 "RemoveSecrets": {
                     "type": "object",
