@@ -355,20 +355,25 @@ CREATE VIEW v_secret_permission AS
 SELECT secret_id, role_id, subject_type_id, scope_type_id,
 -- subject_id is the natural id of the subject entity (uuid for model)
 (CASE
-WHEN sp.subject_type_id = 0 THEN (SELECT unit_id FROM unit WHERE unit.uuid = sp.subject_uuid)
-WHEN sp.subject_type_id = 1 THEN (SELECT name FROM application WHERE application.uuid = sp.subject_uuid)
-WHEN sp.subject_type_id = 2 THEN (SELECT uuid FROM model)
+WHEN sp.subject_type_id = 0 THEN suu.unit_id
+WHEN sp.subject_type_id = 1 THEN sua.name
+WHEN sp.subject_type_id = 2 THEN m.uuid
 -- TODO: we don't have a remote-application table yet
 WHEN sp.subject_type_id = 3 THEN sp.subject_uuid
 END) AS subject_id,
 -- scope_id is the natural id of the scope entity (uuid for model)
 (CASE
-WHEN sp.scope_type_id = 0 THEN (SELECT unit_id FROM unit WHERE unit.uuid = sp.scope_uuid)
-WHEN sp.scope_type_id = 1 THEN (SELECT name FROM application WHERE application.uuid = sp.scope_uuid)
-WHEN sp.scope_type_id = 2 THEN (SELECT uuid FROM model)
+WHEN sp.scope_type_id = 0 THEN scu.unit_id
+WHEN sp.scope_type_id = 1 THEN sca.name
+WHEN sp.scope_type_id = 2 THEN m.uuid
 -- TODO: we don't have a relation table yet
 WHEN sp.scope_type_id = 3 THEN sp.scope_uuid
 END) AS scope_id
-FROM   secret_permission sp;
+FROM secret_permission sp
+LEFT JOIN unit suu ON suu.uuid = sp.subject_uuid
+LEFT JOIN application sua ON sua.uuid = sp.subject_uuid
+LEFT JOIN unit scu ON scu.uuid = sp.scope_uuid
+LEFT JOIN application sca ON sca.uuid = sp.scope_uuid
+JOIN model m;
 `)
 }
