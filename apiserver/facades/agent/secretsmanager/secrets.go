@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -991,17 +990,40 @@ func (s *SecretsManagerAPI) SecretsRevoke(ctx context.Context, args params.Grant
 	return s.secretsGrantRevoke(ctx, args, s.secretsConsumer.RevokeSecretAccess)
 }
 
-func permissionIDFromTag(tag names.Tag) (permission.ID, error) {
+func accessorFromTag(tag names.Tag) (secretservice.SecretAccessor, error) {
+	result := secretservice.SecretAccessor{
+		ID: tag.Id(),
+	}
 	switch kind := tag.Kind(); kind {
 	case names.ApplicationTagKind:
-		return permission.ID{ObjectType: permission.Application, Key: tag.Id()}, nil
+		result.Kind = secretservice.ApplicationAccessor
 	case names.UnitTagKind:
-		return permission.ID{ObjectType: permission.Unit, Key: tag.Id()}, nil
-	case names.RelationTagKind:
-		return permission.ID{ObjectType: permission.Relation, Key: tag.Id()}, nil
+		result.Kind = secretservice.UnitAccessor
+	case names.ModelTagKind:
+		result.Kind = secretservice.ModelAccessor
 	default:
-		return permission.ID{}, errors.Errorf("tag kind %q not valid for secret permission", kind)
+		return secretservice.SecretAccessor{}, errors.Errorf("tag kind %q not valid for secret accessor", kind)
 	}
+	return result, nil
+}
+
+func accessScopeFromTag(tag names.Tag) (secretservice.SecretAccessScope, error) {
+	result := secretservice.SecretAccessScope{
+		ID: tag.Id(),
+	}
+	switch kind := tag.Kind(); kind {
+	case names.ApplicationTagKind:
+		result.Kind = secretservice.ApplicationAccessScope
+	case names.UnitTagKind:
+		result.Kind = secretservice.UnitAccessScope
+	case names.RelationTagKind:
+		result.Kind = secretservice.RelationAccessScope
+	case names.ModelTagKind:
+		result.Kind = secretservice.ModelAccessScope
+	default:
+		return secretservice.SecretAccessScope{}, errors.Errorf("tag kind %q not valid for secret access scope", kind)
+	}
+	return result, nil
 }
 
 func (s *SecretsManagerAPI) secretsGrantRevoke(ctx context.Context, args params.GrantRevokeSecretArgs, op grantRevokeFunc) (params.ErrorResults, error) {
@@ -1013,13 +1035,13 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(ctx context.Context, args params.
 		if err != nil {
 			return errors.Trace(err)
 		}
-		var scopeID permission.ID
+		var scope secretservice.SecretAccessScope
 		if arg.ScopeTag != "" {
 			scopeTag, err := names.ParseTag(arg.ScopeTag)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			scopeID, err = permissionIDFromTag(scopeTag)
+			scope, err = accessScopeFromTag(scopeTag)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -1037,14 +1059,14 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(ctx context.Context, args params.
 			if err != nil {
 				return errors.Trace(err)
 			}
-			subjectID, err := permissionIDFromTag(subjectTag)
+			subject, err := accessorFromTag(subjectTag)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if err := op(ctx, uri, secretservice.SecretAccessParams{
 				LeaderToken: token,
-				Scope:       scopeID,
-				Subject:     subjectID,
+				Scope:       scope,
+				Subject:     subject,
 				Role:        role,
 			}); err != nil {
 				return errors.Annotatef(err, "cannot change access to %q for %q", uri, tagStr)

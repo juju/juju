@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -1451,8 +1450,8 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	}, nil).AnyTimes()
 	s.secretsConsumer.EXPECT().GrantSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
 		LeaderToken: s.token,
-		Scope:       permission.ID{ObjectType: permission.Relation, Key: "wordpress:db mysql:server"},
-		Subject:     permission.ID{ObjectType: permission.Unit, Key: "wordpress/0"},
+		Scope:       secretservice.SecretAccessScope{Kind: secretservice.RelationAccessScope, ID: "wordpress:db mysql:server"},
+		Subject:     secretservice.SecretAccessor{Kind: secretservice.UnitAccessor, ID: "wordpress/0"},
 		Role:        coresecrets.RoleView,
 	}).Return(errors.New("boom"))
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
@@ -1495,8 +1494,8 @@ func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	}, nil).AnyTimes()
 	s.secretsConsumer.EXPECT().RevokeSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
 		LeaderToken: s.token,
-		Scope:       permission.ID{ObjectType: permission.Relation, Key: "wordpress:db mysql:server"},
-		Subject:     permission.ID{ObjectType: permission.Unit, Key: "wordpress/0"},
+		Scope:       secretservice.SecretAccessScope{Kind: secretservice.RelationAccessScope, ID: "wordpress:db mysql:server"},
+		Subject:     secretservice.SecretAccessor{Kind: secretservice.UnitAccessor, ID: "wordpress/0"},
 		Role:        coresecrets.RoleView,
 	}).Return(errors.New("boom"))
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)

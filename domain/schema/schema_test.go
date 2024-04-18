@@ -298,6 +298,8 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_remote_unit_consumer",
 		"secret_permission",
 		"secret_role",
+		"secret_grant_subject_type",
+		"secret_grant_scope_type",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "table"), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
@@ -421,6 +423,8 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_storage_volume_insert",
 		"trg_log_storage_volume_update",
 		"trg_log_storage_volume_delete",
+
+		"trg_secret_permission_immutable_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but

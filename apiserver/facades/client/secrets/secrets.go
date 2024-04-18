@@ -71,6 +71,8 @@ func (s *SecretsAPI) checkCanAdmin() error {
 }
 
 // ListSecrets lists available secrets.
+// If args specifies secret owners, then only charm secrets are queried because user secret don't have owners as such.
+// If no owners are specified, we use the more generic list method when returns all types of secret.
 func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs) (params.ListSecretResults, error) {
 	result := params.ListSecretResults{}
 	if arg.ShowSecrets {
@@ -520,8 +522,8 @@ func (s *SecretsAPI) secretsGrantRevoke(ctx context.Context, arg params.GrantRev
 
 	one := func(appName string) error {
 		if err := op(ctx, uri, secretservice.SecretAccessParams{
-			Scope:   permission.ID{ObjectType: permission.Model, Key: s.modelUUID},
-			Subject: permission.ID{ObjectType: permission.Application, Key: appName},
+			Scope:   secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: s.modelUUID},
+			Subject: secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: appName},
 			Role:    coresecrets.RoleView,
 		}); err != nil {
 			return errors.Annotatef(err, "cannot change access to %q for %q", uri, appName)

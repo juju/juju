@@ -76,20 +76,17 @@ type ObjectType string
 
 // These values must match the values in the permission_object_type table.
 const (
-	Cloud       ObjectType = "cloud"
-	Controller  ObjectType = "controller"
-	Model       ObjectType = "model"
-	Offer       ObjectType = "offer"
-	Application ObjectType = "application"
-	Unit        ObjectType = "unit"
-	Relation    ObjectType = "relation"
+	Cloud      ObjectType = "cloud"
+	Controller ObjectType = "controller"
+	Model      ObjectType = "model"
+	Offer      ObjectType = "offer"
 )
 
 // Validate returns an error if the object type is not in the
 // list of valid object types above.
 func (o ObjectType) Validate() error {
 	switch o {
-	case Cloud, Controller, Model, Offer, Application, Unit, Relation:
+	case Cloud, Controller, Model, Offer:
 	default:
 		return errors.NotValidf("object type %q", o)
 	}

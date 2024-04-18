@@ -192,11 +192,9 @@ AND    application_uuid = $secretApplicationOwner.application_uuid
 UNION
 SELECT secret_id
 FROM   secret_unit_owner
+JOIN   unit u ON u.uuid = unit_uuid
 WHERE  label = $secretApplicationOwner.label
-AND    unit_uuid IN (
-           SELECT uuid FROM unit
-           WHERE  application_uuid = $secretApplicationOwner.application_uuid
-       )
+AND    u.application_uuid = $secretApplicationOwner.application_uuid
 )
 `
 
@@ -307,20 +305,17 @@ func (st State) checkUnitSecretLabelExists(unit_uuid string) checkExistsFunc {
 SELECT secret_id AS &secretUnitOwner.secret_id
 FROM (
 SELECT secret_id
-FROM   secret_application_owner
+FROM   secret_application_owner sao
+JOIN   unit u ON sao.application_uuid = u.application_uuid
 WHERE  label = $secretUnitOwner.label
-AND    application_uuid = (
-           SELECT application_uuid FROM unit
-           WHERE  uuid = $secretUnitOwner.unit_uuid
-       )
+AND    u.uuid = $secretUnitOwner.unit_uuid
 UNION
-SELECT secret_id
+SELECT DISTINCT secret_id
 FROM   secret_unit_owner suo
+JOIN unit u ON suo.unit_uuid = u.uuid
+JOIN unit peer ON peer.application_uuid = u.application_uuid
 WHERE  label = $secretUnitOwner.label
-AND    suo.unit_uuid IN (SELECT uuid FROM unit WHERE application_uuid = (
-           SELECT application_uuid FROM unit
-           WHERE  uuid = $secretUnitOwner.unit_uuid
-       ))
+AND peer.uuid != u.uuid
 )
 `
 
