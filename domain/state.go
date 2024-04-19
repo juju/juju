@@ -4,6 +4,8 @@
 package domain
 
 import (
+	"context"
+	"database/sql"
 	"sync"
 
 	"github.com/canonical/sqlair"
@@ -94,4 +96,52 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 
 	st.statements[query] = stmt
 	return stmt, nil
+}
+
+type processFunc = func(in, out, samples []any) ([]any, []any, []any)
+
+// QueryRow runs the input single-row query
+// within the input SQLair transaction.
+func (st *StateBase) QueryRow(ctx context.Context, tx *sqlair.TX, query string, args ...processFunc) error {
+	s, in, out, err := st.prepareWithArgs(query, args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(tx.Query(ctx, s, in...).Get(out...))
+}
+
+// Query runs the input multi-row query within the input SQLair transaction.
+func (st *StateBase) Query(ctx context.Context, tx *sqlair.TX, query string, args ...processFunc) error {
+	s, in, out, err := st.prepareWithArgs(query, args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(tx.Query(ctx, s, in...).GetAll(out...))
+}
+
+// Exec runs the input DML statement within the input SQLair
+// transaction, Returning the affected sql.Result
+func (st *StateBase) Exec(ctx context.Context, tx *sqlair.TX, query string, args ...processFunc) (sql.Result, error) {
+	s, in, _, err := st.prepareWithArgs(query, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var oc sqlair.Outcome
+	err = errors.Trace(tx.Query(ctx, s, in...).Get(&oc))
+	return oc.Result(), errors.Trace(err)
+}
+
+func (st *StateBase) prepareWithArgs(query string, args []processFunc) (*sqlair.Statement, []any, []any, error) {
+	var in, out, samples []any
+	for _, f := range args {
+		in, out, samples = f(in, out, samples)
+	}
+
+	s, err := st.Prepare(query, samples...)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+
+	return s, in, out, nil
 }
