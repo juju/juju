@@ -161,6 +161,7 @@ func (s *Service) validateStorageDirectives(ctx context.Context, modelType corem
 	return nil
 }
 
+// SetStatusHistory sets the status history for the specified entity.
 func (s *Service) SetStatusHistory(ctx context.Context, kind status.HistoryKind, status status.Status, name string) error {
 	if err := s.statusHistory().SetStatusHistory(kind, status, name); err != nil {
 		return errors.Annotate(err, "setting status history")
