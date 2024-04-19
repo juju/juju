@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -130,8 +131,19 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
-			return logtailer.NewLogTailer(m.UUID(), corelogger.ModelLogFile(h.logDir, m.UUID(), modelOwnerAndName), p)
+			var (
+				logFile   string
+				modelUUID string
+			)
+			if p.Firehose {
+				logFile = filepath.Join(h.logDir, "logsink.log")
+			} else {
+				modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
+				logFile = corelogger.ModelLogFile(h.logDir, m.UUID(), modelOwnerAndName)
+				modelUUID = m.UUID()
+			}
+
+			return logtailer.NewLogTailer(modelUUID, logFile, p)
 		}
 		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop()); err != nil {
 			if isBrokenPipe(err) {
@@ -215,6 +227,7 @@ type debugLogParams struct {
 	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
+	firehose      bool
 	backlog       uint
 	filterLevel   loggo.Level
 	includeEntity []string
@@ -258,6 +271,14 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 			return params, errors.Errorf("noTail value %q is not a valid boolean", value)
 		}
 		params.noTail = noTail
+	}
+
+	if value := queryMap.Get("firehose"); value != "" {
+		firehose, err := strconv.ParseBool(value)
+		if err != nil {
+			return params, errors.Errorf("firehose value %q is not a valid boolean", value)
+		}
+		params.firehose = firehose
 	}
 
 	if value := queryMap.Get("backlog"); value != "" {

@@ -30,24 +30,26 @@ type LogRecord struct {
 }
 
 type logRecordJSON struct {
-	Time     time.Time         `json:"timestamp"`
-	Entity   string            `json:"entity"`
-	Level    string            `json:"level"`
-	Module   string            `json:"module"`
-	Location string            `json:"location"`
-	Message  string            `json:"message"`
-	Labels   map[string]string `json:"labels,omitempty"`
+	ModelUUID string            `json:"model-uuid,omitempty"`
+	Time      time.Time         `json:"timestamp"`
+	Entity    string            `json:"entity"`
+	Level     string            `json:"level"`
+	Module    string            `json:"module"`
+	Location  string            `json:"location"`
+	Message   string            `json:"message"`
+	Labels    map[string]string `json:"labels,omitempty"`
 }
 
 func (r *LogRecord) MarshalJSON() ([]byte, error) {
 	jrec := logRecordJSON{
-		Time:     r.Time,
-		Entity:   r.Entity,
-		Level:    r.Level.String(),
-		Module:   r.Module,
-		Location: r.Location,
-		Message:  r.Message,
-		Labels:   r.Labels,
+		ModelUUID: r.ModelUUID,
+		Time:      r.Time,
+		Entity:    r.Entity,
+		Level:     r.Level.String(),
+		Module:    r.Module,
+		Location:  r.Location,
+		Message:   r.Message,
+		Labels:    r.Labels,
 	}
 	return json.Marshal(jrec)
 }

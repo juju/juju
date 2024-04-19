@@ -49,7 +49,7 @@ func insertSorted(recs []LogRecord, in []LogRecord) []LogRecord {
 			recs = append(recs, r)
 			continue
 		}
-		copy(recs[:i+1], recs[i:])
+		recs = append(recs[:i+1], recs[i:]...)
 		recs[i] = r
 	}
 	return recs

@@ -5,6 +5,8 @@ package logger_test
 
 import (
 	"errors"
+	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -14,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/core/testing"
 )
 
 type BufferedLoggerSuite struct {
@@ -228,6 +230,53 @@ func (s *BufferedLoggerSuite) TestFlushSorts(c *gc.C) {
 		{"Log", []interface{}{[]corelogger.LogRecord{r3, r2}}},
 		{"Log", []interface{}{[]corelogger.LogRecord{r1}}},
 	})
+}
+
+func (s *BufferedLoggerSuite) TestInsertSorts(c *gc.C) {
+	const bufsz = 10
+	const flushInterval = time.Minute
+	mock := mockLogger{called: make(chan []corelogger.LogRecord, 1)}
+	clock := testclock.NewDilatedWallClock(time.Millisecond)
+
+	now := time.Now()
+	initial := make([]corelogger.LogRecord, 5)
+	for i := 0; i < 5; i++ {
+		d := rand.Int63n(int64(20))
+		r := corelogger.LogRecord{
+			Time:    now.Add(time.Millisecond * time.Duration(d)),
+			Entity:  "not-a-tag",
+			Message: fmt.Sprintf("foo-%d", i),
+		}
+		initial[i] = r
+	}
+	b := corelogger.NewBufferedLogger(&mock, bufsz, flushInterval, clock)
+
+	err := b.Log(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	in := make([]corelogger.LogRecord, 5)
+	for i := 0; i < 5; i++ {
+		d := rand.Int63n(int64(20))
+		r := corelogger.LogRecord{
+			Time:    now.Add(time.Millisecond * time.Duration(d)),
+			Entity:  "not-a-tag",
+			Message: fmt.Sprintf("foo-%d", 5+i),
+		}
+		in[i] = r
+	}
+
+	err = b.Log(in)
+	c.Assert(err, jc.ErrorIsNil)
+
+	clock.Advance(time.Minute)
+	records := s.waitFlush(c, &mock)
+	c.Assert(records, gc.HasLen, 10)
+
+	lastTime := now
+	for _, rec := range records {
+		c.Assert(!rec.Time.Before(lastTime), jc.IsTrue)
+		lastTime = rec.Time
+	}
 }
 
 func (s *BufferedLoggerSuite) TestFlushNothing(c *gc.C) {

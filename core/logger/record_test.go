@@ -34,6 +34,11 @@ func (s *LogRecordSuite) TestMarshall(c *gc.C) {
 	}
 	data, err := json.Marshal(rec)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.Equals, `{"model-uuid":"deadbeef-0bad-400d-8000-4b1d0d06f00d","timestamp":"2024-01-01T09:08:07Z","entity":"some-entity","level":"DEBUG","module":"some-module","location":"some-location","message":"some-message","labels":{"foo":"bar"}}`)
+
+	rec.ModelUUID = ""
+	data, err = json.Marshal(rec)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `{"timestamp":"2024-01-01T09:08:07Z","entity":"some-entity","level":"DEBUG","module":"some-module","location":"some-location","message":"some-message","labels":{"foo":"bar"}}`)
 }
 

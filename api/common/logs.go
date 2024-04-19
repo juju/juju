@@ -61,6 +61,8 @@ type DebugLogParams struct {
 	// StartTime should be a time in the past - only records with a
 	// log time on or after StartTime will be returned.
 	StartTime time.Time
+	// Firehose streams logs from all models from the logsink.log file.
+	Firehose bool
 }
 
 func (args DebugLogParams) URLQuery() url.Values {
@@ -100,6 +102,9 @@ func (args DebugLogParams) URLQuery() url.Values {
 	if args.NoTail {
 		attrs.Set("noTail", fmt.Sprint(args.NoTail))
 	}
+	if args.Firehose {
+		attrs.Set("firehose", fmt.Sprint(args.Firehose))
+	}
 	if args.Limit > 0 {
 		attrs.Set("maxLines", fmt.Sprint(args.Limit))
 	}
@@ -117,6 +122,7 @@ func (args DebugLogParams) URLQuery() url.Values {
 
 // LogMessage is a structured logging entry.
 type LogMessage struct {
+	ModelUUID string
 	Entity    string
 	Timestamp time.Time
 	Severity  string
@@ -154,6 +160,7 @@ func StreamDebugLog(ctx context.Context, source base.StreamConnector, args Debug
 				return
 			}
 			messages <- LogMessage{
+				ModelUUID: msg.ModelUUID,
 				Entity:    msg.Entity,
 				Timestamp: msg.Timestamp,
 				Severity:  msg.Severity,
