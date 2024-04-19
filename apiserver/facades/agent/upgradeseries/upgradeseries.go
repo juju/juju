@@ -30,6 +30,10 @@ type API struct {
 	leadership *common.LeadershipPinning
 }
 
+type APIv3 struct {
+	*API
+}
+
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
 // dedicated state indirection.
 func NewUpgradeSeriesAPI(
@@ -120,7 +124,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 // Note that a machine could have been upgraded out-of-band by running
 // do-release-upgrade outside of the upgrade-machine workflow,
 // making this value incorrect.
-func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) {
+func (a *APIv3) CurrentSeries(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{}
 
 	canAccess, err := a.AccessMachine()
@@ -149,7 +153,7 @@ func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) 
 
 // TargetSeries returns the series that a machine has been locked
 // for upgrading to.
-func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
+func (a *APIv3) TargetSeries(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{}
 
 	canAccess, err := a.AccessMachine()

@@ -178,8 +178,6 @@ func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepare
 	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-	exp.CurrentSeries().Return("focal", nil)
-	exp.TargetSeries().Return("jammy", nil)
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "completing preparation")
@@ -318,7 +316,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Logger:          s.logger,
 		Facade:          s.facade,
 		UnitDiscovery:   s.unitDiscovery,
-		UpgraderFactory: func(_, _ string) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
+		UpgraderFactory: func() (upgradeseries.Upgrader, error) { return s.upgrader, nil },
 	}
 
 	w, err := upgradeseries.NewWorker(cfg)
