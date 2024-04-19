@@ -865,13 +865,9 @@ CREATE TABLE permission (
     CONSTRAINT         fk_permission_user_uuid
         FOREIGN KEY    (grant_to)
         REFERENCES     user(uuid),
-    CONSTRAINT      fk_permission_access_type
-        FOREIGN KEY (access_type_id)
-        REFERENCES  permission_access_type(id),
-    CONSTRAINT      fk_permission_object_type
-        FOREIGN KEY (object_type_id)
-        REFERENCES  permission_object_type(id)
-);
+    CONSTRAINT         fk_permission_object_access
+        FOREIGN KEY    (access_type_id, object_type_id)
+        REFERENCES     permission_object_access(access_type_id, object_type_id));
 
 -- Allow only 1 combination of grant_on and grant_to
 -- Otherwise we will get conflicting permissions.
