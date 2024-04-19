@@ -61,9 +61,14 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		st.Release()
 		return errors.Trace(err)
 	}
-	if s.recordLogger, err = s.modelLogger.GetLogger(st.State.ModelUUID(), m.Name(), m.Owner().Id()); err != nil {
+
+	err = s.modelLogger.InitLogger(st.State.ModelUUID(), m.Name(), m.Owner().Id())
+	if err != nil && !errors.Is(err, errors.AlreadyExists) {
+		st.Release()
 		return errors.Trace(err)
 	}
+
+	s.recordLogger = s.modelLogger.GetLogger(st.State.ModelUUID())
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
 			return s.modelLogger.RemoveLogger(st.State.ModelUUID())

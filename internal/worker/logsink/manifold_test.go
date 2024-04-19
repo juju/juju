@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -40,7 +39,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
+	s.clock = clock.WallClock
 
 	s.stub.ResetCalls()
 
@@ -74,7 +73,7 @@ func (s *ManifoldSuite) newWorker(config logsink.Config) (worker.Worker, error) 
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"service-factory", "agent", "clock"}
+var expectedInputs = []string{"agent", "clock"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -142,4 +141,12 @@ func (f *fakeAgent) Value(key string) string {
 
 func (f *fakeAgent) LogDir() string {
 	return f.logDir
+}
+
+func (f *fakeAgent) ModelLogfileMaxSizeMB() int {
+	return 10
+}
+
+func (f *fakeAgent) ModelLogfileMaxBackups() int {
+	return 5
 }

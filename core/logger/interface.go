@@ -29,9 +29,12 @@ type ModelLogger interface {
 	// each of the tracked loggers.
 	io.Closer
 
+	// InitLogger initializes a logger for the given model.
+	InitLogger(modelUUID, modelName, modelOwner string) error
+
 	// GetLogger returns a logger for the given model and keeps
 	// track of it, returning the same one if called again.
-	GetLogger(modelUUID, modelName, modelOwner string) (LoggerCloser, error)
+	GetLogger(modelUUID string) LoggerCloser
 
 	// RemoveLogger stops tracking the given's model's logger and
 	// calls Close() on the logger.

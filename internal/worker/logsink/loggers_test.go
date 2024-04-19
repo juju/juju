@@ -6,7 +6,7 @@ package logsink
 import (
 	"time"
 
-	"github.com/juju/clock/testclock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -37,6 +37,29 @@ func (s *stubLogger) Close() error {
 	return nil
 }
 
+func (s *LoggersSuite) TestModelLoggerAlreadyExists(c *gc.C) {
+	logger1 := &stubLogger{}
+	logger2 := &stubLogger{}
+	loggers := map[string]corelogger.LoggerCloser{
+		"uuid1": logger1,
+		"uuid2": logger2,
+	}
+	ml := NewModelLogger(
+		func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
+			if l, ok := loggers[modelUUID]; ok {
+				return l, nil
+			}
+			return nil, errors.NotFound
+		},
+		1, time.Millisecond, clock.WallClock,
+	)
+
+	err := ml.InitLogger("uuid1", "l1", "fred")
+	c.Assert(err, jc.ErrorIsNil)
+	err = ml.InitLogger("uuid1", "l1", "fred")
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+}
+
 func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 	logger1 := &stubLogger{}
 	logger2 := &stubLogger{}
@@ -51,12 +74,16 @@ func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 			}
 			return nil, errors.NotFound
 		},
-		1, time.Millisecond, testclock.NewDilatedWallClock(time.Millisecond),
+		1, time.Millisecond, clock.WallClock,
 	)
-	_, err := ml.GetLogger("uuid1", "l1", "fred")
+
+	err := ml.InitLogger("uuid1", "l1", "fred")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = ml.GetLogger("uuid2", "l2", "fred")
+	err = ml.InitLogger("uuid2", "l2", "fred")
 	c.Assert(err, jc.ErrorIsNil)
+
+	ml.GetLogger("uuid1")
+	ml.GetLogger("uuid2")
 	err = ml.RemoveLogger("uuid2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ml.Close(), jc.ErrorIsNil)

@@ -280,15 +280,16 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		// Get the provider service factory for the model.
 		cfg.ProviderServiceFactoryGetter = m.config.ProviderServiceFactoryGetter
 
-		logSink, err := m.config.LogSink.GetLogger(modelUUID, cfg.ModelName, cfg.ModelOwner)
-		if err != nil {
+		// Create the initial logger for the model.
+		err = m.config.LogSink.InitLogger(modelUUID, cfg.ModelName, cfg.ModelOwner)
+		if err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return nil, errors.Trace(err)
 		}
 
 		cfg.ModelLogger = newModelLogger(
 			"controller-"+m.config.MachineID,
 			modelUUID,
-			logSink,
+			m.config.LogSink.GetLogger(modelUUID),
 			m.config.Logger,
 		)
 		worker, err := m.config.NewModelWorker(cfg)

@@ -6,7 +6,7 @@ package logsink
 import (
 	"time"
 
-	"github.com/juju/clock/testclock"
+	"github.com/juju/clock"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,30 +24,50 @@ type ModelLoggerSuite struct {
 var _ = gc.Suite(&ModelLoggerSuite{})
 
 func (s *ModelLoggerSuite) TestGetLogger(c *gc.C) {
-	testLogger := stubLogger{}
-	ml, err := NewWorker(Config{
+	modelID := coretesting.ModelTag.Id()
+
+	var received []request
+
+	var testLogger stubLogger
+	w, err := NewWorker(Config{
 		Logger: loggo.GetLogger("test"),
-		Clock:  testclock.NewDilatedWallClock(time.Millisecond),
+		Clock:  clock.WallClock,
 		LogSinkConfig: LogSinkConfig{
 			LoggerFlushInterval: time.Second,
 			LoggerBufferSize:    10,
 		},
 		LoggerForModelFunc: func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
-			c.Assert(modelUUID, gc.Equals, coretesting.ModelTag.Id())
-			c.Assert(modelName, gc.Equals, "fred-foo")
+			received = append(received, request{
+				modelUUID: modelUUID,
+				modelName: modelName,
+			})
 			return &testLogger, nil
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, ml)
+	defer workertest.CleanKill(c, w)
 
-	logger, err := ml.(*LogSink).logSink.GetLogger(coretesting.ModelTag.Id(), "foo", "fred")
+	err = w.(*LogSink).logSink.InitLogger(modelID, "foo", "fred")
 	c.Assert(err, jc.ErrorIsNil)
+
+	logger := w.(*LogSink).logSink.GetLogger(modelID)
 	rec := []corelogger.LogRecord{{Message: "message1"}, {Message: "message1"}}
 	err = logger.Log(rec)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// We ensure there is a fallback logger.
+	c.Check(received, jc.DeepEquals, []request{
+		{modelUUID: fallbackLoggerName, modelName: "admin-fallback"},
+		{modelUUID: modelID, modelName: "fred-foo"},
+	})
+
 	// Closing the logger forces it to flush.
 	err = logger.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testLogger.records, jc.DeepEquals, rec)
+	c.Check(testLogger.records, jc.DeepEquals, rec)
+}
+
+type request struct {
+	modelUUID string
+	modelName string
 }

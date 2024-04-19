@@ -257,6 +257,6 @@ func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace strin
 
 type NoopStatusHistoryFactory struct{}
 
-func (NoopStatusHistoryFactory) StatusHistorySetterForModel(modelUUID, modelName, modelOwner string) (status.StatusHistorySetter, error) {
-	return nil, errors.NotSupportedf("status history")
+func (NoopStatusHistoryFactory) StatusHistorySetterForModel(modelUUID string) status.StatusHistorySetter {
+	return nil
 }

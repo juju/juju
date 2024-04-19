@@ -40,18 +40,17 @@ func (m *MockStatusHistoryFactory) EXPECT() *MockStatusHistoryFactoryMockRecorde
 }
 
 // StatusHistorySetterForModel mocks base method.
-func (m *MockStatusHistoryFactory) StatusHistorySetterForModel(arg0, arg1, arg2 string) (status.StatusHistorySetter, error) {
+func (m *MockStatusHistoryFactory) StatusHistorySetterForModel(arg0 string) status.StatusHistorySetter {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StatusHistorySetterForModel", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "StatusHistorySetterForModel", arg0)
 	ret0, _ := ret[0].(status.StatusHistorySetter)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // StatusHistorySetterForModel indicates an expected call of StatusHistorySetterForModel.
-func (mr *MockStatusHistoryFactoryMockRecorder) StatusHistorySetterForModel(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockStatusHistoryFactoryMockRecorder) StatusHistorySetterForModel(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatusHistorySetterForModel", reflect.TypeOf((*MockStatusHistoryFactory)(nil).StatusHistorySetterForModel), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatusHistorySetterForModel", reflect.TypeOf((*MockStatusHistoryFactory)(nil).StatusHistorySetterForModel), arg0)
 }
 
 // MockStatusHistorySetter is a mock of StatusHistorySetter interface.

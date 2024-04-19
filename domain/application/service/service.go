@@ -40,9 +40,6 @@ type State interface {
 
 	// AddUnits adds the specified units to the application.
 	AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitParams) error
-
-	// StatusHistoryModelNameAndOwner returns the name and owner of the model.
-	StatusHistoryModelNameAndOwner(ctx context.Context) (string, string, error)
 }
 
 // Service provides the API for working with applications.
@@ -165,19 +162,8 @@ func (s *Service) validateStorageDirectives(ctx context.Context, modelType corem
 }
 
 func (s *Service) SetStatusHistory(ctx context.Context, kind status.HistoryKind, status status.Status, name string) error {
-	// TODO (sickupkid): We could cache this.
-	modelName, modelOwner, err := s.st.StatusHistoryModelNameAndOwner(ctx)
-	if err != nil {
-		return errors.Annotate(err, "getting model name and owner")
-	}
-
-	history, err := s.statusHistory(modelName, modelOwner)
-	if err != nil {
-		return errors.Annotate(err, "getting status history")
-	}
-	if err := history.SetStatusHistory(kind, status, name); err != nil {
+	if err := s.statusHistory().SetStatusHistory(kind, status, name); err != nil {
 		return errors.Annotate(err, "setting status history")
 	}
-
 	return nil
 }
