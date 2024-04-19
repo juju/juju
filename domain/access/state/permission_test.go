@@ -49,7 +49,7 @@ func (s *permissionStateSuite) SetUpTest(c *gc.C) {
 func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
-	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+	spec := corepermission.UserAccessSpec{
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
@@ -58,7 +58,8 @@ func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
 			},
 			Access: corepermission.WriteAccess,
 		},
-	})
+	}
+	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(userAccess.UserID, gc.Equals, "123")
@@ -69,13 +70,13 @@ func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
 	c.Check(userAccess.UserName, gc.Equals, "bob")
 	c.Check(userAccess.CreatedBy, gc.Equals, names.NewUserTag("admin"))
 
-	s.checkPermissionRow(c, corepermission.WriteAccess, "123", s.modelUUID.String())
+	s.checkPermissionRow(c, userAccess.UserID, spec)
 }
 
 func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
-	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+	spec := corepermission.UserAccessSpec{
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
@@ -84,7 +85,8 @@ func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
 			},
 			Access: corepermission.AddModelAccess,
 		},
-	})
+	}
+	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(userAccess.UserID, gc.Equals, "123")
@@ -95,13 +97,13 @@ func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
 	c.Check(userAccess.UserName, gc.Equals, "bob")
 	c.Check(userAccess.CreatedBy, gc.Equals, names.NewUserTag("admin"))
 
-	s.checkPermissionRow(c, corepermission.AddModelAccess, "123", "test-cloud")
+	s.checkPermissionRow(c, userAccess.UserID, spec)
 }
 
 func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
-	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+	spec := corepermission.UserAccessSpec{
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
@@ -110,7 +112,8 @@ func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
 			},
 			Access: corepermission.SuperuserAccess,
 		},
-	})
+	}
+	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(userAccess.UserID, gc.Equals, "123")
@@ -121,12 +124,13 @@ func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
 	c.Check(userAccess.UserName, gc.Equals, "bob")
 	c.Check(userAccess.CreatedBy, gc.Equals, names.NewUserTag("admin"))
 
-	s.checkPermissionRow(c, corepermission.SuperuserAccess, "123", "controller")
+	s.checkPermissionRow(c, userAccess.UserID, spec)
 }
 
 func (s *permissionStateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
+	// model "foo-bar" is not created in this test suite, thus invalid.
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
@@ -143,6 +147,8 @@ func (s *permissionStateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) 
 func (s *permissionStateSuite) TestCreatePermissionForControllerWithBadInfo(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 
+	// The only valid key for an object type of Controller is
+	// 'controller'
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
@@ -156,26 +162,27 @@ func (s *permissionStateSuite) TestCreatePermissionForControllerWithBadInfo(c *g
 	c.Assert(err, jc.ErrorIs, accesserrors.PermissionTargetInvalid)
 }
 
-func (s *permissionStateSuite) checkPermissionRow(c *gc.C, access corepermission.Access, expectedGrantTo, expectedGrantON string) {
+func (s *permissionStateSuite) checkPermissionRow(c *gc.C, userUUID string, spec corepermission.UserAccessSpec) {
 	db := s.DB()
 
 	// Find the permission
 	row := db.QueryRow(`
-SELECT uuid, access_type, grant_to, grant_on
+SELECT uuid, access_type, object_type, grant_to, grant_on
 FROM v_permission
 `)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	var (
-		accessType, userUuid, grantTo, grantOn string
+		accessType, objectType, permUuid, grantTo, grantOn string
 	)
-	err := row.Scan(&userUuid, &accessType, &grantTo, &grantOn)
+	err := row.Scan(&permUuid, &accessType, &objectType, &grantTo, &grantOn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify the permission as expected.
-	c.Check(userUuid, gc.Not(gc.Equals), "")
-	c.Check(accessType, gc.Equals, string(access))
-	c.Check(grantTo, gc.Equals, expectedGrantTo)
-	c.Check(grantOn, gc.Equals, expectedGrantON)
+	c.Check(permUuid, gc.Not(gc.Equals), "")
+	c.Check(accessType, gc.Equals, string(spec.Access))
+	c.Check(objectType, gc.Equals, string(spec.Target.ObjectType))
+	c.Check(grantTo, gc.Equals, userUUID)
+	c.Check(grantOn, gc.Equals, spec.Target.Key)
 }
 
 func (s *permissionStateSuite) TestCreatePermissionErrorNoUser(c *gc.C) {
@@ -211,17 +218,17 @@ func (s *permissionStateSuite) TestCreatePermissionErrorDuplicate(c *gc.C) {
 
 	// Find the permission
 	row := s.DB().QueryRow(`
-SELECT uuid, permission_type_id, grant_to, grant_on 
+SELECT uuid, access_type_id, object_type_id, grant_to, grant_on
 FROM permission
-WHERE permission_type_id = 0
+WHERE access_type_id = 0 AND object_type_id = 2
 `)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var (
 		userUuid, grantTo, grantOn string
-		permissionTypeId           int
+		accessTypeID, objectTypeID int
 	)
-	err = row.Scan(&userUuid, &permissionTypeId, &grantTo, &grantOn)
+	err = row.Scan(&userUuid, &accessTypeID, &objectTypeID, &grantTo, &grantOn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure each combination of grant_on and grant_two
@@ -230,12 +237,12 @@ WHERE permission_type_id = 0
 	_, err = st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIs, accesserrors.PermissionAlreadyExists)
 	row2 := s.DB().QueryRow(`
-SELECT uuid, permission_type_id, grant_to, grant_on 
+SELECT uuid, access_type_id, object_type_id, grant_to, grant_on
 FROM permission
-WHERE permission_type_id = 1
+WHERE access_type_id = 1 AND object_type_id = 2
 `)
 	c.Assert(row2.Err(), jc.ErrorIsNil)
-	err = row2.Scan(&userUuid, &permissionTypeId, &grantTo, &grantOn)
+	err = row2.Scan(&userUuid, &accessTypeID, &objectTypeID, &grantTo, &grantOn)
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
@@ -298,18 +305,18 @@ func (s *permissionStateSuite) TestReadUserAccessForTarget(c *gc.C) {
 
 	var (
 		userUuid, grantTo, grantOn string
-		permissionTypeId           int
+		accessTypeID, objectTypeID int
 	)
 
 	row2 := s.DB().QueryRow(`
-SELECT uuid, permission_type_id, grant_to, grant_on 
+SELECT uuid, access_type_id, object_type_id, grant_to, grant_on
 FROM permission
 WHERE grant_to = 123
 `)
 	c.Assert(row2.Err(), jc.ErrorIsNil)
-	err = row2.Scan(&userUuid, &permissionTypeId, &grantTo, &grantOn)
+	err = row2.Scan(&userUuid, &accessTypeID, &objectTypeID, &grantTo, &grantOn)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%q, %d, to %q, on %q", userUuid, permissionTypeId, grantTo, grantOn)
+	c.Logf("%q, %d, %d to %q, on %q", userUuid, accessTypeID, objectTypeID, grantTo, grantOn)
 
 	readUserAccess, err := st.ReadUserAccessForTarget(context.Background(), "bob", target)
 	c.Assert(err, jc.ErrorIsNil)
@@ -737,22 +744,21 @@ func (s *permissionStateSuite) ensureCloud(c *gc.C, uuid, name string) {
 
 func (s *permissionStateSuite) printPermissions(c *gc.C) {
 	rows, _ := s.DB().Query(`
-SELECT uuid, permission_type_id, grant_to, grant_on 
+SELECT uuid, access_type_id, object_type_id, grant_to, grant_on
 FROM permission
 `)
 	defer func() { _ = rows.Close() }()
 	var (
 		userUuid, grantTo, grantOn string
-		permissionTypeId           int
+		accessTypeID, objectTypeID int
 	)
 
 	c.Logf("PERMISSIONS")
 	for rows.Next() {
-		err := rows.Scan(&userUuid, &permissionTypeId, &grantTo, &grantOn)
+		err := rows.Scan(&userUuid, &accessTypeID, &objectTypeID, &grantTo, &grantOn)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("%q, %d, %q, %q", userUuid, permissionTypeId, grantTo, grantOn)
+		c.Logf("%q, %d, %d, %q, %q", userUuid, accessTypeID, objectTypeID, grantTo, grantOn)
 	}
-
 }
 
 func (s *permissionStateSuite) printUsers(c *gc.C) {
@@ -794,7 +800,7 @@ FROM user_authentication
 
 func (s *permissionStateSuite) printRead(c *gc.C) {
 	q := `
-SELECT  p.uuid, p.grant_on, p.grant_to, p.access_type,
+SELECT  p.uuid, p.grant_on, p.grant_to, p.access_type, p.object_type,
         u.uuid, u.name, creator.name
 FROM    v_user_auth u
         JOIN user AS creator ON u.created_by_uuid = creator.uuid
@@ -803,14 +809,14 @@ FROM    v_user_auth u
 	rows, _ := s.DB().Query(q)
 	defer func() { _ = rows.Close() }()
 	var (
-		permUUID, grantOn, grantTo, accessType string
-		userUUID, userName, createName         string
+		permUUID, grantOn, grantTo, accessType, objectType string
+		userUUID, userName, createName                     string
 	)
 	c.Logf("READ")
 	for rows.Next() {
-		err := rows.Scan(&permUUID, &grantOn, &grantTo, &accessType, &userUUID, &userName, &createName)
+		err := rows.Scan(&permUUID, &grantOn, &grantTo, &accessType, &objectType, &userUUID, &userName, &createName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("LINE: %q, %q, %q, %q, %q, %q, %q,", permUUID, grantOn, grantTo, accessType, userUUID, userName, createName)
+		c.Logf("LINE: %q, %q, %q, %q, %q, %q, %q, %q", permUUID, grantOn, grantTo, accessType, objectType, userUUID, userName, createName)
 	}
 }
 

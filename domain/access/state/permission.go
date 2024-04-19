@@ -74,7 +74,6 @@ func (st *PermissionState) CreatePermission(ctx context.Context, newPermissionUU
 		}
 
 		userAccess = user.toCoreUserAccess()
-
 		return nil
 	})
 	if err != nil {
@@ -104,15 +103,16 @@ func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissio
 		return fmt.Errorf("%q for %q %w ", spec.Access, spec.Target.Key, accesserrors.PermissionAccessInvalid)
 	}
 	// Validate the target exists.
-	if err := targetExists(ctx, tx, spec.Target.Key); err != nil {
+	if err := targetExists(ctx, tx, spec.Target); err != nil {
 		return errors.Trace(err)
 	}
 
-	perm := dbAddUserPermission{
-		UUID:    spec.PermissionUUID,
-		GrantOn: spec.Target.Key,
-		GrantTo: spec.UserUUID,
-		Access:  string(spec.Access),
+	perm := dbPermission{
+		UUID:       spec.PermissionUUID,
+		GrantOn:    spec.Target.Key,
+		GrantTo:    spec.UserUUID,
+		AccessType: spec.Access.String(),
+		ObjectType: spec.Target.ObjectType.String(),
 	}
 	err := insertPermission(ctx, tx, perm)
 	if err != nil {
@@ -201,7 +201,7 @@ func (st *PermissionState) ReadUserAccessForTarget(ctx context.Context, subject 
 	}
 
 	readQuery := `
-SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type) AS (&dbReadUserPermission.*),
+SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type, p.object_type) AS (&dbPermission.*),
         (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
         creator.name AS &dbPermissionUser.created_by_name
 FROM    v_user_auth u
@@ -213,13 +213,13 @@ AND     u.removed = false
 AND     p.grant_on = $permInOut.grant_on
 `
 
-	readStmt, err := st.Prepare(readQuery, dbReadUserPermission{}, dbPermissionUser{}, permInOut{})
+	readStmt, err := st.Prepare(readQuery, dbPermission{}, dbPermissionUser{}, permInOut{})
 	if err != nil {
 		return corepermission.UserAccess{}, errors.Trace(err)
 	}
 
 	var (
-		readUser dbReadUserPermission
+		readUser dbPermission
 		permUser dbPermissionUser
 	)
 
@@ -241,7 +241,6 @@ AND     p.grant_on = $permInOut.grant_on
 		return userAccess, errors.Trace(domain.CoerceError(err))
 	}
 
-	readUser.ObjectType = string(target.ObjectType)
 	return readUser.toUserAccess(permUser), nil
 }
 
@@ -272,30 +271,21 @@ func (st *PermissionState) ReadAllUserAccessForUser(ctx context.Context, subject
 		return nil, errors.Trace(err)
 	}
 	var (
-		permissions []dbReadUserPermission
+		permissions []dbPermission
 		users       []dbPermissionUser
 	)
 	query := `
-WITH what AS (
-    select 'cloud' AS type, name AS grant_on FROM cloud
-    UNION
-    select 'model' AS type, uuid AS grant_on FROM v_model
-    UNION
-    select 'controller' AS type, 'controller' AS grant_on
-)
 SELECT (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
        creator.name AS &dbPermissionUser.created_by_name,
-       w.type AS &dbReadUserPermission.object_type,
-       (p.uuid, p.grant_on, p.grant_to, p.access_type) AS (&dbReadUserPermission.*)
+       (p.uuid, p.grant_on, p.grant_to, p.access_type, p.object_type) AS (&dbPermission.*)
 FROM   v_user_auth u
        JOIN user AS creator ON u.created_by_uuid = creator.uuid
        JOIN v_permission p ON u.uuid = p.grant_to
-       JOIN what AS w ON p.grant_on = w.grant_on
 WHERE  u.removed = false
        AND u.name = $permUserName.name
 `
 
-	queryStmt, err := st.Prepare(query, dbPermissionUser{}, dbReadUserPermission{}, permUserName{})
+	queryStmt, err := st.Prepare(query, dbPermissionUser{}, dbPermission{}, permUserName{})
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing select all access for user query")
 	}
@@ -333,7 +323,7 @@ func (st *PermissionState) ReadAllUserAccessForTarget(ctx context.Context, targe
 		return nil, errors.Trace(err)
 	}
 	var (
-		permissions []dbReadUserPermission
+		permissions []dbPermission
 		users       map[string]dbPermissionUser
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -366,7 +356,6 @@ func (st *PermissionState) ReadAllUserAccessForTarget(ctx context.Context, targe
 		if !ok {
 			return userAccess, errors.Annotatef(accesserrors.UserNotFound, "%q", p.GrantTo)
 		}
-		p.ObjectType = string(target.ObjectType)
 		userAccess[i] = p.toUserAccess(user)
 	}
 
@@ -382,17 +371,17 @@ func (st *PermissionState) ReadAllAccessForUserAndObjectType(ctx context.Context
 		return nil, errors.Trace(err)
 	}
 	var (
-		permissions []dbReadUserPermission
+		permissions []dbPermission
 		actualUser  []dbPermissionUser
 	)
-	var andClause string
+	var view string
 	switch objectType {
 	case corepermission.Controller:
-		andClause = `AND     p.grant_on = ctrl.c`
+		view = "v_permission_controller"
 	case corepermission.Model:
-		andClause = `AND     m.uuid NOT NULL`
+		view = "v_permission_model"
 	case corepermission.Cloud:
-		andClause = `AND     c.name NOT NULL`
+		view = "v_permission_cloud"
 	case corepermission.Offer:
 		// TODO implement for offers
 		return nil, errors.NotImplementedf("ReadAllAccessForUserAndObjectType for offers")
@@ -401,22 +390,18 @@ func (st *PermissionState) ReadAllAccessForUserAndObjectType(ctx context.Context
 	}
 	readQuery := fmt.Sprintf(`
 WITH    ctrl AS (SELECT 'controller' AS c)
-SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type) AS (&dbReadUserPermission.*),
+SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type, p.object_type) AS (&dbPermission.*),
         (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
         creator.name AS &dbPermissionUser.created_by_name
 FROM    v_user_auth u
         JOIN user AS creator ON u.created_by_uuid = creator.uuid
-        JOIN v_permission p ON u.uuid = p.grant_to
-        LEFT JOIN cloud c ON p.grant_on = c.name
-        LEFT JOIN v_model m on p.grant_on = m.uuid
-        LEFT JOIN ctrl ON p.grant_on = ctrl.c
+        JOIN %s p ON u.uuid = p.grant_to
 WHERE   u.name = $permUserName.name
 AND     u.disabled = false
 AND     u.removed = false
-%s
-`, andClause)
+`, view)
 
-	readStmt, err := st.Prepare(readQuery, dbReadUserPermission{}, dbPermissionUser{}, permUserName{})
+	readStmt, err := st.Prepare(readQuery, dbPermission{}, dbPermissionUser{}, permUserName{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -437,7 +422,6 @@ AND     u.removed = false
 
 	userAccess := make([]corepermission.UserAccess, len(permissions))
 	for i, p := range permissions {
-		p.ObjectType = string(objectType)
 		userAccess[i] = p.toUserAccess(actualUser[i])
 	}
 
@@ -519,46 +503,46 @@ WHERE  u.removed = false
 }
 
 // targetExists returns an error if the target does not exist in neither the
-// cloud nor v_model tables and is not a controller.
-func targetExists(ctx context.Context, tx *sqlair.TX, target string) error {
-	if target == coredatabase.ControllerNS {
+// cloud nor model tables and is not a controller.
+func targetExists(ctx context.Context, tx *sqlair.TX, target corepermission.ID) error {
+	var targetExists string
+	switch target.ObjectType {
+	case coredatabase.ControllerNS:
+		if target.Key != coredatabase.ControllerNS {
+			return fmt.Errorf("%q %w", target, accesserrors.PermissionTargetInvalid)
+		}
 		return nil
-	}
-
-	targetExists := `
-SELECT &M.found_it FROM (
-    SELECT "cloud" AS found_it FROM cloud WHERE cloud.name = $M.grant_on
-    UNION
-    SELECT "model" AS found_it FROM v_model WHERE v_model.uuid = $M.grant_on
-)
+	case corepermission.Model:
+		targetExists = `
+SELECT  model.uuid AS &M.found
+FROM    model
+WHERE   model.uuid = $M.grant_on
 `
+	case corepermission.Cloud:
+		targetExists = `
+SELECT  cloud.name AS &M.found
+FROM    cloud
+WHERE   cloud.name = $M.grant_on
+`
+	case corepermission.Offer:
+		return errors.NotImplementedf("db permission support for offers")
+	default:
+		return errors.NotValidf("object type %q", target.ObjectType)
+	}
 
 	targetExistsStmt, err := sqlair.Prepare(targetExists, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Check that 1 row exists if the grant_on value is not ControllerNS.
-	// The behavior for this check is changing in sqlair, trying to
-	// account for either behavior. Old behavior: return no error and
-	// a slice length of zero. New behavior: if the length is 0, return
-	// ErrNoRows.
-	var foundIt = []sqlair.M{}
-	err = tx.Query(ctx, targetExistsStmt, sqlair.M{"grant_on": target}).GetAll(&foundIt)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	m := sqlair.M{}
+	err = tx.Query(ctx, targetExistsStmt, sqlair.M{"grant_on": target.Key}).Get(&m)
+	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
+		return fmt.Errorf("%q %w", target, accesserrors.PermissionTargetInvalid)
+	} else if err != nil {
 		return errors.Annotatef(err, "verifying %q target exists", target)
 	}
-
-	if len(foundIt) == 1 {
-		return nil
-	}
-
-	// Any answer other than 1 is an error. The target should exist
-	// as a unique identifier across the controller namespace.
-	if len(foundIt) == 0 {
-		return fmt.Errorf("%q %w", target, accesserrors.PermissionTargetInvalid)
-	}
-	return fmt.Errorf("%q %w", target, accesserrors.UniqueIdentifierIsNotUnique)
+	return nil
 }
 
 // objectTag returns a names.Tag for the given ID.
@@ -610,28 +594,28 @@ AND     u.removed = false
 	return inOut.UUID, nil
 }
 
-// targetPermissions returns a slice of dbReadUserPermission for
+// targetPermissions returns a slice of dbPermission for
 // every permission available for the given target specified by
 // grantOn.
 func (st *PermissionState) targetPermissions(ctx context.Context,
 	tx *sqlair.TX,
 	grantOn string,
-) ([]dbReadUserPermission, error) {
+) ([]dbPermission, error) {
 	type input struct {
 		GrantOn string `db:"grant_on"`
 	}
 	query := `
-SELECT (uuid, grant_on, grant_to, access_type) AS (&dbReadUserPermission.*)
+SELECT (uuid, grant_on, grant_to, access_type, object_type) AS (&dbPermission.*)
 FROM   v_permission
 WHERE  grant_on = $input.grant_on
 `
 	// Validate the grant_on target exists.
-	stmt, err := st.Prepare(query, dbReadUserPermission{}, input{})
+	stmt, err := st.Prepare(query, dbPermission{}, input{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var usersPermissions = []dbReadUserPermission{}
+	var usersPermissions = []dbPermission{}
 	in := input{GrantOn: grantOn}
 	err = tx.Query(ctx, stmt, in).GetAll(&usersPermissions)
 	if err != nil {
@@ -686,7 +670,7 @@ func (st *PermissionState) upsertPermissionAuthorized(
 	// Is permission the apiUser has on the target Admin?
 	authQuery := `
 WITH    ctrl AS (SELECT 'controller' AS c)
-SELECT  (p.grant_to, p.access_type) AS (&dbReadUserPermission.*)
+SELECT  (p.grant_to, p.access_type) AS (&dbPermission.*)
 FROM    v_permission p
         JOIN v_user_auth u ON u.uuid = p.grant_to
         LEFT JOIN ctrl ON p.grant_on = ctrl.c
@@ -695,11 +679,11 @@ AND     (p.grant_on = $permInOut.grant_on OR p.grant_on = ctrl.c)
 AND     u.disabled = false
 AND     u.removed = false
 `
-	authStmt, err := st.Prepare(authQuery, dbReadUserPermission{}, permInOut{})
+	authStmt, err := st.Prepare(authQuery, dbPermission{}, permInOut{})
 	if err != nil {
 		return apiUserUUID, errors.Trace(err)
 	}
-	var readPerm []dbReadUserPermission
+	var readPerm []dbPermission
 	in := permInOut{
 		GrantOn: grantOn,
 		Name:    apiUser,
@@ -713,8 +697,8 @@ AND     u.removed = false
 	apiUserUUID = user.UUID(readPerm[0].GrantTo)
 
 	for _, read := range readPerm {
-		if read.AccessType == string(corepermission.SuperuserAccess) ||
-			read.AccessType == string(corepermission.AdminAccess) {
+		if read.AccessType == corepermission.SuperuserAccess.String() ||
+			read.AccessType == corepermission.AdminAccess.String() {
 			return apiUserUUID, nil
 		}
 	}
@@ -731,11 +715,13 @@ func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, s
 		if err != nil {
 
 		}
-		perm := dbAddUserPermission{
-			UUID:    newUUID.String(),
-			Access:  string(args.AccessSpec.Access),
-			GrantOn: args.AccessSpec.Target.Key,
-			GrantTo: subjectUUID,
+		spec := args.AccessSpec
+		perm := dbPermission{
+			UUID:       newUUID.String(),
+			GrantOn:    spec.Target.Key,
+			GrantTo:    subjectUUID,
+			AccessType: string(spec.Access),
+			ObjectType: string(spec.Target.ObjectType),
 		}
 		err = insertPermission(ctx, tx, perm)
 		return errors.Trace(err)
@@ -751,7 +737,7 @@ func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, s
 	if aSpec.EqualOrGreaterThan(grantAccess) {
 		return errors.Errorf("user %q already has %q access or greater", args.Subject, grantAccess)
 	}
-	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, string(grantAccess)); err != nil {
+	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, grantAccess.String()); err != nil {
 		return errors.Annotatef(err, "updating current access during grant")
 	}
 	return nil
@@ -763,7 +749,7 @@ func (st *PermissionState) revokePermission(ctx context.Context, tx *sqlair.TX, 
 		err := st.deletePermission(ctx, tx, args.Subject, args.AccessSpec.Target)
 		return errors.Annotatef(err, "revoking %q", args.AccessSpec.Access)
 	}
-	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, string(newAccess)); err != nil {
+	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, newAccess.String()); err != nil {
 		return errors.Annotatef(err, "updating current access during revoke")
 	}
 	return nil
@@ -801,19 +787,19 @@ AND    grant_to IN (
 func (st *PermissionState) updatePermission(ctx context.Context, tx *sqlair.TX, subjectName, grantOn, access string) error {
 	updateQuery := `
 UPDATE permission
-SET    permission_type_id = (
-           SELECT id 
-           FROM   permission_access_type 
+SET    access_type_id = (
+           SELECT id
+           FROM   permission_access_type
            WHERE  type = $permInOut.access
-       ) 
+       )
 WHERE  grant_on = $permInOut.grant_on
 AND    grant_to IN (
-       SELECT uuid
-       FROM   v_user_auth
-       WHERE  name = $permInOut.name
-       AND    removed = false
-       AND    disabled = false
-)
+           SELECT uuid
+           FROM   v_user_auth
+           WHERE  name = $permInOut.name
+           AND    removed = false
+           AND    disabled = false
+       )
 `
 	updateQueryStmt, err := st.Prepare(updateQuery, permInOut{})
 	if err != nil {
@@ -831,22 +817,30 @@ AND    grant_to IN (
 	return nil
 }
 
-func insertPermission(ctx context.Context, tx *sqlair.TX, perm dbAddUserPermission) error {
+func insertPermission(ctx context.Context, tx *sqlair.TX, perm dbPermission) error {
 	// Insert a permission doc with
-	// * permissionObjectAccess as permission_type_id
+	// * id of access type as access_type_id
+	// * id of object type as object_type_id
 	// * uuid of the user (spec.User) as grant_to
 	// * spec.Target.Key as grant_on
 	newPermission := `
-INSERT INTO permission (uuid, permission_type_id, grant_to, grant_on)
-SELECT $dbAddUserPermission.uuid, t.id AS permission_type_id, u.uuid, $dbAddUserPermission.grant_on
-FROM   v_user_auth u, permission_access_type t
-WHERE  u.uuid = $dbAddUserPermission.grant_to
+INSERT INTO permission (uuid, access_type_id, object_type_id, grant_to, grant_on)
+SELECT $dbPermission.uuid,
+       at.id,
+       ot.id,
+       u.uuid,
+       $dbPermission.grant_on
+FROM   v_user_auth u,
+       permission_access_type at,
+       permission_object_type ot
+WHERE  u.uuid = $dbPermission.grant_to
 AND    u.disabled = false
 AND    u.removed = false
-AND    t.type = $dbAddUserPermission.access
+AND    at.type = $dbPermission.access_type
+AND    ot.type = $dbPermission.object_type
 `
 
-	insertPermissionStmt, err := sqlair.Prepare(newPermission, dbAddUserPermission{})
+	insertPermissionStmt, err := sqlair.Prepare(newPermission, dbPermission{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -857,7 +851,7 @@ AND    t.type = $dbAddUserPermission.access
 	if internaldatabase.IsErrConstraintUnique(err) {
 		return errors.Annotatef(accesserrors.PermissionAlreadyExists, "%q on %q", perm.GrantTo, perm.GrantOn)
 	} else if err != nil {
-		return errors.Annotatef(err, "adding permission %q for %q on %q", perm.Access, perm.GrantTo, perm.GrantOn)
+		return errors.Annotatef(err, "adding permission %q for %q on %q", perm.AccessType, perm.GrantTo, perm.GrantOn)
 	}
 	return nil
 }

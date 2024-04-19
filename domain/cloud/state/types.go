@@ -189,7 +189,11 @@ type dbAddUserPermission struct {
 	// Name is the name of the user that the permission is granted to.
 	Name string `db:"name"`
 
-	// Access is the type of access for this user for the
+	// AccessType is the type of access for this user for the
 	// GrantOn value.
-	Access string `db:"access"`
+	AccessType string `db:"access_type"`
+
+	// ObjectType is the type of the object for this user for the
+	// GrantOn value.
+	ObjectType string `db:"object_type"`
 }

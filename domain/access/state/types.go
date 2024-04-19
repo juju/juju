@@ -105,26 +105,8 @@ func (u dbPermissionUser) toCoreUserAccess() corepermission.UserAccess {
 	}
 }
 
-// dbAddUserPermission represents a permission in the system where the values
-// overlap with corepermission.Permission.
-type dbAddUserPermission struct {
-	// UUID is the unique identifier for the permission.
-	UUID string `db:"uuid"`
-
-	// PermissionType is the type of permission.
-	Access string `db:"access"`
-
-	// GrantOn is the unique identifier of the permission target.
-	// A name or UUID depending on the ObjectType.
-	GrantOn string `db:"grant_on"`
-
-	// GrantTo is the unique identifier of the user the permission
-	// is granted to.
-	GrantTo string `db:"grant_to"`
-}
-
-// dbReadUserPermission represents a permission in the system.
-type dbReadUserPermission struct {
+// dbPermission represents a permission in the system.
+type dbPermission struct {
 	// UUID is the unique identifier for the permission.
 	UUID string `db:"uuid"`
 
@@ -143,9 +125,9 @@ type dbReadUserPermission struct {
 	ObjectType string `db:"object_type"`
 }
 
-// toUserAccess combines a dbReadUserPermission with a user to create
+// toUserAccess combines a dbPermission with a user to create
 // a core permission UserAccess.
-func (r dbReadUserPermission) toUserAccess(u dbPermissionUser) corepermission.UserAccess {
+func (r dbPermission) toUserAccess(u dbPermissionUser) corepermission.UserAccess {
 	userAccess := u.toCoreUserAccess()
 	userAccess.PermissionID = r.UUID
 	userAccess.Object = objectTag(corepermission.ID{
