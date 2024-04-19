@@ -28,7 +28,7 @@ jobs:
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        channel: ["3.1/stable"]
+        channel: ["3.4/stable"]
         client: ['source', 'target']
 
     steps:
@@ -73,7 +73,7 @@ jobs:
 
       - name: Install target juju client
         run: |
-          make juju jujud &>/dev/null
+          make juju jujud-controller &>/dev/null
 
       - name: Bootstrap target controller
         run: |
