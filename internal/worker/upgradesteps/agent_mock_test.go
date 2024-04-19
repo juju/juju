@@ -313,6 +313,34 @@ func (mr *MockConfigMockRecorder) Model() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockConfig)(nil).Model))
 }
 
+// ModelLogfileMaxBackups mocks base method.
+func (m *MockConfig) ModelLogfileMaxBackups() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelLogfileMaxBackups")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// ModelLogfileMaxBackups indicates an expected call of ModelLogfileMaxBackups.
+func (mr *MockConfigMockRecorder) ModelLogfileMaxBackups() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelLogfileMaxBackups", reflect.TypeOf((*MockConfig)(nil).ModelLogfileMaxBackups))
+}
+
+// ModelLogfileMaxSizeMB mocks base method.
+func (m *MockConfig) ModelLogfileMaxSizeMB() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelLogfileMaxSizeMB")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// ModelLogfileMaxSizeMB indicates an expected call of ModelLogfileMaxSizeMB.
+func (mr *MockConfigMockRecorder) ModelLogfileMaxSizeMB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelLogfileMaxSizeMB", reflect.TypeOf((*MockConfig)(nil).ModelLogfileMaxSizeMB))
+}
+
 // MongoInfo mocks base method.
 func (m *MockConfig) MongoInfo() (*mongo.MongoInfo, bool) {
 	m.ctrl.T.Helper()
@@ -832,6 +860,34 @@ func (mr *MockConfigSetterMockRecorder) Model() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockConfigSetter)(nil).Model))
 }
 
+// ModelLogfileMaxBackups mocks base method.
+func (m *MockConfigSetter) ModelLogfileMaxBackups() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelLogfileMaxBackups")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// ModelLogfileMaxBackups indicates an expected call of ModelLogfileMaxBackups.
+func (mr *MockConfigSetterMockRecorder) ModelLogfileMaxBackups() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelLogfileMaxBackups", reflect.TypeOf((*MockConfigSetter)(nil).ModelLogfileMaxBackups))
+}
+
+// ModelLogfileMaxSizeMB mocks base method.
+func (m *MockConfigSetter) ModelLogfileMaxSizeMB() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelLogfileMaxSizeMB")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// ModelLogfileMaxSizeMB indicates an expected call of ModelLogfileMaxSizeMB.
+func (mr *MockConfigSetterMockRecorder) ModelLogfileMaxSizeMB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelLogfileMaxSizeMB", reflect.TypeOf((*MockConfigSetter)(nil).ModelLogfileMaxSizeMB))
+}
+
 // MongoInfo mocks base method.
 func (m *MockConfigSetter) MongoInfo() (*mongo.MongoInfo, bool) {
 	m.ctrl.T.Helper()
@@ -1061,6 +1117,30 @@ func (m *MockConfigSetter) SetLoggingConfig(arg0 string) {
 func (mr *MockConfigSetterMockRecorder) SetLoggingConfig(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLoggingConfig", reflect.TypeOf((*MockConfigSetter)(nil).SetLoggingConfig), arg0)
+}
+
+// SetModelLogfileMaxBackups mocks base method.
+func (m *MockConfigSetter) SetModelLogfileMaxBackups(arg0 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetModelLogfileMaxBackups", arg0)
+}
+
+// SetModelLogfileMaxBackups indicates an expected call of SetModelLogfileMaxBackups.
+func (mr *MockConfigSetterMockRecorder) SetModelLogfileMaxBackups(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelLogfileMaxBackups", reflect.TypeOf((*MockConfigSetter)(nil).SetModelLogfileMaxBackups), arg0)
+}
+
+// SetModelLogfileMaxSizeMB mocks base method.
+func (m *MockConfigSetter) SetModelLogfileMaxSizeMB(arg0 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetModelLogfileMaxSizeMB", arg0)
+}
+
+// SetModelLogfileMaxSizeMB indicates an expected call of SetModelLogfileMaxSizeMB.
+func (mr *MockConfigSetterMockRecorder) SetModelLogfileMaxSizeMB(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelLogfileMaxSizeMB", reflect.TypeOf((*MockConfigSetter)(nil).SetModelLogfileMaxSizeMB), arg0)
 }
 
 // SetMongoMemoryProfile mocks base method.
