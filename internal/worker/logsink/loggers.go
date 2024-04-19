@@ -12,13 +12,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
-)
-
-const (
-	// fallbackLoggerName is the name of the fallback logger, in case the model
-	// logger has not been created yet.
-	fallbackLoggerName = "fallback-logger"
 )
 
 type bufferedLoggerCloser struct {
@@ -50,7 +45,7 @@ func NewModelLogger(
 	}
 
 	// Create the fallback logger for models that have not been initialized yet.
-	if err := modelLogger.initLogger(fallbackLoggerName, "fallback", "admin"); err != nil {
+	if err := modelLogger.initLogger(database.ControllerNS, "log", "admin"); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -93,7 +88,7 @@ func (d *modelLogger) GetLogger(modelUUID string) corelogger.LoggerCloser {
 	// we've missed any locations that should have initialized the logger, but
 	// hasn't yet. We don't want to panic here, as it would bring down the
 	// entire dependency engine.
-	return d.modelLoggers[fallbackLoggerName]
+	return d.modelLoggers[database.ControllerNS]
 }
 
 // RemoveLogger the logger, cleans up the logger and stops tracking it.
