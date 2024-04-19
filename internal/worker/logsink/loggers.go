@@ -40,7 +40,7 @@ func NewModelLogger(
 	bufferSize int,
 	flushInterval time.Duration,
 	clock clock.Clock,
-) corelogger.ModelLogger {
+) (corelogger.ModelLogger, error) {
 	modelLogger := &modelLogger{
 		clock:               clock,
 		loggerBufferSize:    bufferSize,
@@ -50,9 +50,11 @@ func NewModelLogger(
 	}
 
 	// Create the fallback logger for models that have not been initialized yet.
-	modelLogger.initLogger(fallbackLoggerName, "fallback", "admin")
+	if err := modelLogger.initLogger(fallbackLoggerName, "fallback", "admin"); err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	return modelLogger
+	return modelLogger, nil
 }
 
 type modelLogger struct {
