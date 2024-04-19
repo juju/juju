@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // State is used to access the database.
@@ -45,7 +44,31 @@ func credentialKeyMap(key corecredential.Key) sqlair.M {
 	}
 }
 
-func (st *State) credentialUUID(ctx context.Context, tx *sqlair.TX, key corecredential.Key) (string, error) {
+// CredentialIDForKey finds and returns the id for the cloud credential
+// identified by key. If no credential is found then an error of
+// [credentialerrors.NotFound] is returned.
+func (st *State) CredentialIDForKey(ctx context.Context, key corecredential.Key) (corecredential.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return corecredential.ID(""), errors.Trace(err)
+	}
+
+	var rval corecredential.ID
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		rval, err = st.credentialIDForKey(ctx, tx, key)
+		return err
+	})
+}
+
+// credentialIDForKey finds and returns the id for the cloud credential
+// identified by key. If no credential is found then an error of
+// [credentialerrors.NotFound] is returned.
+func (st *State) credentialIDForKey(
+	ctx context.Context,
+	tx *sqlair.TX,
+	key corecredential.Key,
+) (corecredential.ID, error) {
 	selectQ := `
 SELECT &M.uuid
 FROM v_cloud_credential
@@ -53,7 +76,6 @@ WHERE name = $M.credential_name
 AND owner_name = $M.owner
 AND cloud_name = $M.cloud_name
 `
-
 	selectStmt, err := st.Prepare(selectQ, sqlair.M{})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -61,11 +83,20 @@ AND cloud_name = $M.cloud_name
 	uuid := sqlair.M{}
 	err = tx.Query(ctx, selectStmt, credentialKeyMap(key)).Get(&uuid)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", fmt.Errorf("cloud credential %q %w%w", key, errors.NotFound, errors.Hide(err))
+		return "", fmt.Errorf("cloud credential %q %w", key, credentialerrors.NotFound)
 	} else if err != nil {
 		return "", fmt.Errorf("fetching cloud credential %q: %w", key, err)
 	}
-	return uuid["uuid"].(string), nil
+
+	uuidStr, exists := uuid["uuid"]
+	if !exists {
+		return "", fmt.Errorf(
+			"%w expected cloud credential uuid for credential %q, got no returned value",
+			credentialerrors.NotFound, key,
+		)
+	}
+
+	return corecredential.ID(uuidStr.(string)), nil
 }
 
 // UpsertCloudCredential adds or updates a cloud credential with the given name,
@@ -107,19 +138,23 @@ AND owner_name = $M.owner
 		if ok {
 			existingInvalid = &invalid
 		}
-		credentialUUID, ok := result["uuid"].(string)
+		credentialID, ok := result["uuid"].(string)
 		if !ok {
 			if credential.Invalid || credential.InvalidReason != "" {
 				return fmt.Errorf("adding invalid credential %w", errors.NotSupported)
 			}
-			credentialUUID = uuid.MustNewUUID().String()
+			id, err := corecredential.NewID()
+			if err != nil {
+				return fmt.Errorf("generating new credential uuid: %w", err)
+			}
+			credentialID = id.String()
 		}
 
-		if err := upsertCredential(ctx, tx, credentialUUID, key, credential); err != nil {
+		if err := upsertCredential(ctx, tx, credentialID, key, credential); err != nil {
 			return domain.CoerceError(fmt.Errorf("updating credential: %w", err))
 		}
 
-		if err := updateCredentialAttributes(ctx, tx, credentialUUID, credential.Attributes); err != nil {
+		if err := updateCredentialAttributes(ctx, tx, credentialID, credential.Attributes); err != nil {
 			return domain.CoerceError(fmt.Errorf("updating credential %q attributes: %w", key.Name, err))
 		}
 
@@ -461,6 +496,84 @@ FROM   cloud_credential cc
 	return dbRows.ToCloudCredentials(dbAuthTypes, dbclouds, keyValues)
 }
 
+// GetCloudCredential is responsible for returning a cloud credential identified
+// by id. If no cloud credential exists for the given id then a
+// [credentialerrors.NotFound] error will be returned.
+func (st *State) GetCloudCredential(
+	ctx context.Context,
+	id corecredential.ID,
+) (credential.CloudCredentialResult, error) {
+	db, err := st.DB()
+	if err != nil {
+		return credential.CloudCredentialResult{}, errors.Trace(err)
+	}
+
+	var rval credential.CloudCredentialResult
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		rval, err = GetCloudCredential(ctx, st, tx, id)
+		return err
+	})
+}
+
+// GetCloudCredential is responsible for returning a cloud credential identified
+// by id. If no cloud credential exists for the given id then a
+// [credentialerrors.NotFound] error will be returned.
+func GetCloudCredential(
+	ctx context.Context,
+	st domain.Preparer,
+	tx *sqlair.TX,
+	id corecredential.ID,
+) (credential.CloudCredentialResult, error) {
+	q := `
+SELECT (uuid,
+        name,
+        revoked,
+        invalid, 
+        invalid_reason, 
+        owner_uuid,
+        auth_type,
+        attribute_key,
+        attribute_value,
+		cloud_name) AS (&credentialWithAttribute.*)
+FROM v_cloud_credential_attributes
+WHERE uuid = $M.id
+`
+
+	stmt, err := st.Prepare(q, credentialWithAttribute{}, sqlair.M{})
+	if err != nil {
+		return credential.CloudCredentialResult{}, errors.Trace(err)
+	}
+
+	args := sqlair.M{
+		"id": id,
+	}
+	rows := []credentialWithAttribute{}
+
+	err = tx.Query(ctx, stmt, args).GetAll(&rows)
+	if errors.Is(err, sql.ErrNoRows) {
+		return credential.CloudCredentialResult{}, fmt.Errorf("%w for id %q", credentialerrors.NotFound, id)
+	} else if err != nil {
+		return credential.CloudCredentialResult{}, fmt.Errorf("getting cloud credential for id %q: %w", id, domain.CoerceError(err))
+	}
+
+	rval := credential.CloudCredentialResult{
+		CloudCredentialInfo: credential.CloudCredentialInfo{
+			AuthType:      rows[0].AuthType,
+			Attributes:    make(map[string]string, len(rows)),
+			Revoked:       rows[0].Revoked,
+			Label:         rows[0].Name,
+			Invalid:       rows[0].Invalid,
+			InvalidReason: rows[0].InvalidReason,
+		},
+		CloudName: rows[0].CloudName,
+	}
+	for _, row := range rows {
+		rval.CloudCredentialInfo.Attributes[row.AttributeKey] = row.AttributeValue
+	}
+	return rval, nil
+}
+
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
 func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.Key]credential.CloudCredentialResult, error) {
@@ -517,11 +630,11 @@ WHERE  cloud_credential.uuid = $M.uuid
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		uuid, err := st.credentialUUID(ctx, tx, key)
+		id, err := st.credentialIDForKey(ctx, tx, key)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		uuidMap := sqlair.M{"uuid": uuid}
+		uuidMap := sqlair.M{"uuid": id.String()}
 		if err := tx.Query(ctx, credAttrDeleteStmt, uuidMap).Run(); err != nil {
 			return errors.Annotate(err, "deleting credential attributes")
 		}
@@ -541,16 +654,16 @@ func (st *State) WatchCredential(
 		return nil, errors.Trace(err)
 	}
 
-	var uuid string
+	var id corecredential.ID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		uuid, err = st.credentialUUID(ctx, tx, key)
+		id, err = st.credentialIDForKey(ctx, tx, key)
 		return errors.Trace(err)
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result, err := getWatcher("cloud_credential", uuid, changestream.All)
+	result, err := getWatcher("cloud_credential", id.String(), changestream.All)
 	return result, errors.Annotatef(err, "watching credential")
 }
 
@@ -562,21 +675,17 @@ func (st *State) ModelsUsingCloudCredential(ctx context.Context, key corecredent
 	}
 
 	query := `
-SELECT mm.model_uuid AS &M.model_uuid, mm.name AS &M.name
-FROM   model_metadata mm
-JOIN cloud_credential cc ON cc.uuid = mm.cloud_credential_uuid
-JOIN cloud ON cloud.uuid = cc.cloud_uuid
-JOIN user ON cc.owner_uuid = user.uuid
+SELECT m.uuid AS &M.model_uuid, m.name AS &M.name
+FROM   v_model m
 `
 
 	types := []any{
 		sqlair.M{},
 	}
 	condition, args := database.SqlairClauseAnd(map[string]any{
-		"cc.name":      key.Name,
-		"cloud.name":   key.Cloud,
-		"user.name":    key.Owner,
-		"user.removed": false,
+		"m.cloud_credential_name": key.Name,
+		"m.cloud_name":            key.Cloud,
+		"m.owner_name":            key.Owner,
 	})
 	query = query + "WHERE " + condition
 

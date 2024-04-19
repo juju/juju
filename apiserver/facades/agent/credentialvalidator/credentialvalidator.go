@@ -5,6 +5,7 @@ package credentialvalidator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -89,6 +90,9 @@ func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag para
 
 	result := params.NotifyWatchResult{}
 	watch, err := api.credentialService.WatchCredential(ctx, credential.KeyFromTag(credentialTag))
+	if errors.Is(err, credentialerrors.NotFound) {
+		err = fmt.Errorf("credential %q %w", credentialTag, errors.NotFound)
+	}
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil

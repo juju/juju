@@ -32,7 +32,10 @@ type Cloud struct {
 	// Name holds the cloud name.
 	Name string `db:"name"`
 
-	// Type holds the cloud type reference.
+	// Type holds the cloud type.
+	Type string `db:"cloud_type"`
+
+	// TypeID holds the unique cloud type id.
 	TypeID int `db:"cloud_type_id"`
 
 	// Endpoint holds the cloud's primary endpoint URL.
@@ -49,6 +52,40 @@ type Cloud struct {
 
 	// IsControllerCloud indicates if the cloud is hosting the controller model.
 	IsControllerCloud bool `db:"is_controller_cloud"`
+}
+
+// CloudWithAuthType represents a row from v_cloud_auth that can be decoded into
+// this type.
+type CloudWithAuthType struct {
+	// ID holds the cloud document key.
+	ID string `db:"uuid"`
+
+	// Name holds the cloud name.
+	Name string `db:"name"`
+
+	// Type holds the cloud type.
+	Type string `db:"cloud_type"`
+
+	// TypeID holds the unique cloud type id.
+	TypeID int `db:"cloud_type_id"`
+
+	// Endpoint holds the cloud's primary endpoint URL.
+	Endpoint string `db:"endpoint"`
+
+	// IdentityEndpoint holds the cloud's identity endpoint URK.
+	IdentityEndpoint string `db:"identity_endpoint"`
+
+	// StorageEndpoint holds the cloud's storage endpoint URL.
+	StorageEndpoint string `db:"storage_endpoint"`
+
+	// SkipTLSVerify indicates if the client should skip cert validation.
+	SkipTLSVerify bool `db:"skip_tls_verify"`
+
+	// IsControllerCloud indicates if the cloud is hosting the controller model.
+	IsControllerCloud bool `db:"is_controller_cloud"`
+
+	// AuthType describes one of the auth types supported by this cloud.
+	AuthType string `db:"auth_type"`
 }
 
 // Attrs stores a list of attributes corresponding to keys in the cloud_defaults

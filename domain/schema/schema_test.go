@@ -91,6 +91,9 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
+		// Namespaces for DQlite
+		"namespace_list",
+
 		// Autocert cache
 		"autocert_cache",
 		"autocert_cache_encoding",
@@ -124,8 +127,8 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"external_model",
 
 		// Model
-		"model_list",
-		"model_metadata",
+		"model",
+		"model_namespace",
 		"model_type",
 
 		// Life
@@ -187,9 +190,22 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 	// Ensure that each view is present.
 	expected := set.NewStrings(
 		"v_user_auth",
+
+		// Cloud
+		"v_cloud",
+		"v_cloud_auth",
+
+		// v_cloud_credential
 		"v_cloud_credential",
+		"v_cloud_credential_attributes",
+
+		// Models
 		"v_model",
+
+		// Secret backends
 		"v_model_secret_backend",
+
+		// Permissions
 		"v_permission",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
@@ -353,9 +369,9 @@ func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_log_secret_backend_rotation_next_rotation_time_update",
 		"trg_log_secret_backend_rotation_next_rotation_time_delete",
 
-		"trg_log_model_metadata_insert",
-		"trg_log_model_metadata_update",
-		"trg_log_model_metadata_delete",
+		"trg_log_model_insert",
+		"trg_log_model_update",
+		"trg_log_model_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but

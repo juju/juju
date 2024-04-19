@@ -28,14 +28,14 @@ const (
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() *schema.Schema {
 	patches := []func() schema.Patch{
+		namespaceSchema,
 		lifeSchema,
 		leaseSchema,
 		changeLogSchema,
 		changeLogControllerNamespacesSchema,
 		cloudSchema,
 		externalControllerSchema,
-		modelListSchema,
-		modelMetadataSchema,
+		modelSchema,
 		modelAgentSchema,
 		controllerConfigSchema,
 		controllerNodeTableSchema,
@@ -61,7 +61,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		changeLogTriggersForTableOnColumn("secret_backend_rotation", "backend_uuid", "next_rotation_time", tableSecretBackendRotation),
-		changeLogTriggersForTable("model_metadata", "model_uuid", tableModelMetadata),
+		changeLogTriggersForTable("model", "uuid", tableModelMetadata),
 
 		// We need to ensure that the internal and kubernetes backends are immutable after
 		// they are created by the controller during bootstrap time.
@@ -76,6 +76,16 @@ func ControllerDDL() *schema.Schema {
 	}
 
 	return ctrlSchema
+}
+
+func namespaceSchema() schema.Patch {
+	return schema.MakePatch(`
+-- namespace_list maintains a list of tracked dqlite namespaces for the
+-- controller.
+CREATE TABLE namespace_list (
+    namespace TEXT PRIMARY KEY
+);
+`)
 }
 
 func leaseSchema() schema.Patch {
@@ -146,7 +156,7 @@ INSERT INTO change_log_namespace VALUES
     (9, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
     (10, 'object_store_metadata_path', 'object store metadata path changes based on the path'),
     (11, 'secret_backend_rotation', 'secret backend rotation changes based on the backend UUID and next rotation time'),
-    (12, 'model_metadata', 'model metadata changes based on the model UUID');
+    (12, 'model', 'model changes based on the model UUID');
 `)
 }
 
@@ -212,6 +222,53 @@ CREATE TABLE cloud (
         FOREIGN KEY       (cloud_type_id)
         REFERENCES        cloud_type(id)
 );
+
+-- v_cloud is used to fetch well constructed information about a cloud. This
+-- view also includes information on whether the cloud is the controller
+-- model's cloud.
+CREATE VIEW v_cloud
+AS
+-- This selects the controller model's cloud uuid. We use this when loading
+-- clouds to know if the cloud is the controllers cloud.
+WITH controllers AS (
+    SELECT m.cloud_uuid
+    FROM model m
+    INNER JOIN user u ON u.uuid = m.owner_uuid
+    WHERE m.name = "controller"
+    AND u.name = "admin"
+    AND m.finalised = true
+)
+SELECT c.uuid,
+       c.name,
+       c.cloud_type_id,
+       ct.type AS cloud_type,
+       c.endpoint,
+       c.identity_endpoint,
+       c.storage_endpoint,
+       c.skip_tls_verify,
+       IIF(controllers.cloud_uuid IS NULL, false, true) AS is_controller_cloud
+FROM cloud c
+INNER JOIN cloud_type ct ON c.cloud_type_id = ct.id
+LEFT JOIN controllers ON controllers.cloud_uuid = c.uuid;
+
+-- v_cloud_auth is a connivance view similar to v_cloud but includes a row for
+-- each cloud and auth type pair.
+CREATE VIEW v_cloud_auth
+AS
+SELECT c.uuid,
+       c.name,
+       c.cloud_type_id,
+       c.cloud_type,
+       c.endpoint,
+       c.identity_endpoint,
+       c.storage_endpoint,
+       c.skip_tls_verify,
+       c.is_controller_cloud,
+       at.id                  AS auth_type_id,
+       at.type                AS auth_type
+FROM v_cloud c
+LEFT JOIN cloud_auth_type cat ON c.uuid = cat.cloud_uuid
+JOIN auth_type at ON at.id = cat.auth_type_id;
 
 CREATE TABLE cloud_defaults (
     cloud_uuid TEXT NOT NULL,
@@ -311,19 +368,20 @@ CREATE VIEW v_cloud_credential
 AS
 SELECT cc.uuid,
        cc.cloud_uuid,
+       c.name             AS cloud_name,
        cc.auth_type_id,
+       at.type            AS auth_type,
        cc.owner_uuid,
        cc.name,
        cc.revoked,
        cc.invalid,
        cc.invalid_reason,
-       c.name AS cloud_name,
-       u.name AS owner_name
-FROM cloud_credential AS cc
-INNER JOIN cloud c
-ON c.uuid = cc.cloud_uuid
-INNER JOIN user u
-ON u.uuid = cc.owner_uuid;
+       c.name             AS cloud_name,
+       u.name             AS owner_name
+FROM cloud_credential cc
+INNER JOIN cloud c ON c.uuid = cc.cloud_uuid
+INNER JOIN user u ON u.uuid = cc.owner_uuid
+INNER JOIN auth_type at ON cc.auth_type_id = at.id;
 
 CREATE TABLE cloud_credential_attributes (
     cloud_credential_uuid TEXT NOT NULL,
@@ -335,6 +393,26 @@ CREATE TABLE cloud_credential_attributes (
         FOREIGN KEY (cloud_credential_uuid)
         REFERENCES cloud_credential(uuid)
 );
+
+-- v_cloud_credential_attributes is responsible for return a view of all cloud
+-- credentials and their attributes repeated for every attribute.
+CREATE VIEW v_cloud_credential_attributes
+AS
+SELECT uuid,
+       cloud_uuid,
+       auth_type_id,
+       auth_type,
+       owner_uuid,
+       name,
+       revoked,
+       invalid,
+       invalid_reason,
+       cloud_name,
+       owner_name,
+       cca.key         AS attribute_key,
+       cca.value       AS attribute_value
+FROM v_cloud_credential
+INNER JOIN cloud_credential_attributes cca ON uuid = cca.cloud_credential_uuid;
 `)
 }
 
@@ -367,15 +445,20 @@ CREATE TABLE external_model (
 );`)
 }
 
-func modelListSchema() schema.Patch {
+func modelSchema() schema.Patch {
 	return schema.MakePatch(`
-CREATE TABLE model_list (
-    uuid    TEXT PRIMARY KEY
-);`)
-}
+-- model_namespace is a mapping table from models to the corresponding dqlite
+-- namespace database.
+CREATE TABLE model_namespace (
+    namespace  TEXT NOT NULL,
+    model_uuid TEXT UNIQUE NOT NULL,
+    CONSTRAINT fk_model_uuid
+        FOREIGN KEY (model_uuid)
+        REFERENCES  model(uuid)
+);
 
-func modelMetadataSchema() schema.Patch {
-	return schema.MakePatch(`
+CREATE UNIQUE INDEX idx_namespace_model_uuid ON model_namespace (namespace, model_uuid);
+
 CREATE TABLE model_type (
     id INT PRIMARY KEY,
     type TEXT NOT NULL
@@ -388,8 +471,14 @@ INSERT INTO model_type VALUES
     (0, 'iaas'),
     (1, 'caas');
 
-CREATE TABLE model_metadata (
-    model_uuid            TEXT PRIMARY KEY,
+CREATE TABLE model (
+    uuid                  TEXT PRIMARY KEY,
+-- finalised tells us if the model creation process has been completed and
+-- we can use this model. The reason for this is model creation still happens
+-- over several transactions with any one of them possibly failing. We write true
+-- to this field when we are happy that the model can safely be used after all
+-- operations have been completed.
+    finalised             BOOLEAN DEFAULT FALSE NOT NULL,
     cloud_uuid            TEXT NOT NULL,
     cloud_region_uuid     TEXT,
     cloud_credential_uuid TEXT,
@@ -397,60 +486,66 @@ CREATE TABLE model_metadata (
     life_id               INT NOT NULL,
     name                  TEXT NOT NULL,
     owner_uuid            TEXT NOT NULL,
-    CONSTRAINT            fk_model_metadata_model
-        FOREIGN KEY           (model_uuid)
-        REFERENCES            model_list(uuid),
-    CONSTRAINT            fk_model_metadata_cloud
+    CONSTRAINT            fk_model_cloud
         FOREIGN KEY           (cloud_uuid)
         REFERENCES            cloud(uuid),
-    CONSTRAINT            fk_model_metadata_cloud_region
+    CONSTRAINT            fk_model_cloud_region
         FOREIGN KEY           (cloud_region_uuid)
         REFERENCES            cloud_region(uuid),
-    CONSTRAINT            fk_model_metadata_cloud_credential
+    CONSTRAINT            fk_model_cloud_credential
         FOREIGN KEY           (cloud_credential_uuid)
         REFERENCES            cloud_credential(uuid),
-    CONSTRAINT            fk_model_metadata_model_type_id
+    CONSTRAINT            fk_model_model_type_id
         FOREIGN KEY           (model_type_id)
-        REFERENCES            model_type(id),
-    CONSTRAINT            fk_model_metadata_owner_uuid
+        REFERENCES            model_type(id)
+    CONSTRAINT            fk_model_owner_uuid
         FOREIGN KEY           (owner_uuid)
         REFERENCES            user(uuid)
-    CONSTRAINT            fk_model_metadata_life_id
+    CONSTRAINT            fk_model_life_id
         FOREIGN KEY           (life_id)
         REFERENCES            life(id)
 );
 
-CREATE UNIQUE INDEX idx_model_metadata_name_owner
-ON model_metadata (name, owner_uuid);
+-- idx_model_name_owner established an index that stops models being created
+-- with the same name for a given owner.
+CREATE UNIQUE INDEX idx_model_name_owner ON model (name, owner_uuid);
+CREATE INDEX idx_model_finalised ON model (finalised);
 
+--- v_model purpose is to provide an easy access mechanism for models in the
+--- system. It will only show models that have been finalised so the caller does
+--- not have to worry about retrieving half complete models.
 CREATE VIEW v_model AS
-SELECT m.uuid,
-       mm.cloud_uuid,
-       c.uuid        AS cloud_uuid,
-       c.name        AS cloud_name,
-       cr.uuid       AS cloud_region_uuid,
-       cr.name       AS cloud_region_name,
-       cc.uuid       AS cloud_credential_uuid,
-       cc.name       AS cloud_credential_name,
-       cc.owner_uuid AS cloud_credential_owner_uuid,
-       cco.name      AS cloud_credential_owner_name,
-       ccn.name      AS cloud_credential_cloud_name,
-       mm.model_type_id,
-       mt.type       AS model_type_type,
-       mm.name,
-       mm.owner_uuid,
-       u.name        AS owner_name,
-       l.value       AS life
-FROM model_list m
-INNER JOIN model_metadata mm ON m.uuid = mm.model_uuid
-INNER JOIN cloud c ON mm.cloud_uuid = c.uuid
-LEFT JOIN cloud_region cr ON mm.cloud_region_uuid = cr.uuid
-LEFT JOIN cloud_credential cc ON mm.cloud_credential_uuid = cc.uuid
-INNER JOIN user cco ON cc.owner_uuid = cco.uuid
-LEFT JOIN cloud ccn ON cc.cloud_uuid = ccn.uuid
-INNER JOIN model_type mt ON mm.model_type_id = mt.id
-INNER JOIN user u ON mm.owner_uuid = u.uuid
-INNER JOIN life l ON mm.life_id = l.id;
+SELECT m.uuid AS uuid,
+       m.cloud_uuid,
+       c.name            AS cloud_name,
+       c.uuid            AS cloud_uuid,
+       ct.type           AS cloud_type,
+       c.endpoint        AS cloud_endpoint,
+       c.skip_tls_verify AS cloud_skip_tls_verify,
+       cr.uuid           AS cloud_region_uuid,
+       cr.name           AS cloud_region_name,
+       cc.uuid           AS cloud_credential_uuid,
+       cc.name           AS cloud_credential_name,
+       ccc.name          AS cloud_credential_cloud_name,
+       cco.uuid          AS cloud_credential_owner_uuid,
+       cco.name          AS cloud_credential_owner_name,
+       m.model_type_id,
+       mt.type          AS model_type,
+       m.name AS name,
+       m.owner_uuid,
+       o.name           AS owner_name,
+       l.value          AS life
+FROM model m
+INNER JOIN cloud c ON m.cloud_uuid = c.uuid
+INNER JOIN cloud_type ct ON c.cloud_type_id = ct.id
+LEFT JOIN cloud_region cr ON m.cloud_region_uuid = cr.uuid
+LEFT JOIN cloud_credential cc ON m.cloud_credential_uuid = cc.uuid
+LEFT JOIN cloud ccc ON cc.cloud_uuid = ccc.uuid
+LEFT JOIN user cco ON cc.owner_uuid = cco.uuid
+INNER JOIN model_type mt ON m.model_type_id = mt.id
+INNER JOIN user o ON m.owner_uuid = o.uuid
+INNER JOIN life l on m.life_id = l.id
+WHERE m.finalised = true;
 `)
 }
 
@@ -470,7 +565,7 @@ CREATE TABLE model_agent (
     target_version TEXT NOT NULL,
     CONSTRAINT            fk_model_agent_model
         FOREIGN KEY           (model_uuid)
-        REFERENCES            model_list(uuid)
+        REFERENCES            model(uuid)
 );`)
 }
 

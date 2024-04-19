@@ -9,6 +9,8 @@ import (
 	"sort"
 	"time"
 
+	corecloud "github.com/juju/juju/core/cloud"
+	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
@@ -23,10 +25,17 @@ type ModelSecretBackend struct {
 	// Name is the name of the model.
 	Name string `db:"name"`
 	// Type is the type of the model.
-	Type coremodel.ModelType `db:"type"`
+	Type coremodel.ModelType `db:"model_type"`
 	// SecretBackendID is the unique identifier for the secret backend configured for the model.
 	// TODO: change to string once we changed the `model_secret_backend.secret_backend_uuid` column to be not null.
 	SecretBackendID sql.NullString `db:"secret_backend_uuid"`
+}
+
+// modelCloudAndCredentialID represents the IDs of a models cloud and cloud
+// credential.
+type modelCloudAndCredentialID struct {
+	CloudID      corecloud.ID      `db:"cloud_uuid"`
+	CredentialID corecredential.ID `db:"cloud_credential_uuid"`
 }
 
 // upsertSecretBackendParams are used to upsert a secret backend.

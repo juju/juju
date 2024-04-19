@@ -161,7 +161,7 @@ func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
 			IsControllerCloud: true,
 		}
 		cred = cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
-		s.mockState.EXPECT().GetCloudCredential(gomock.Any(), modelUUID).Return(cld, cred, nil)
+		s.mockState.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(cld, cred, nil)
 	}
 
 	s.mockState.EXPECT().ListSecretBackends(gomock.Any(), true).Return([]*secretbackend.SecretBackend{{
@@ -393,7 +393,7 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 			IsControllerCloud: true,
 		}
 		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
-		s.mockState.EXPECT().GetCloudCredential(gomock.Any(), controllerUUID).Return(cld, cred, nil)
+		s.mockState.EXPECT().GetModelCloudAndCredential(gomock.Any(), controllerUUID).Return(cld, cred, nil)
 	}
 	info, err := svc.BackendSummaryInfo(context.Background(), reveal, all, names...)
 	sort.Slice(info, func(i, j int) bool {

@@ -46,11 +46,11 @@ func (s *State) ModelCloudDefaults(
 SELECT cloud_defaults.key,
        cloud_defaults.value
 FROM cloud_defaults
-     INNER JOIN cloud
-         ON cloud.uuid = cloud_defaults.cloud_uuid
-     INNER JOIN model_metadata
-         ON model_metadata.cloud_uuid = cloud.uuid
-WHERE model_metadata.model_uuid = ?
+INNER JOIN cloud
+ON cloud.uuid = cloud_defaults.cloud_uuid
+INNER JOIN model m
+ON m.cloud_uuid = cloud.uuid
+WHERE m.uuid = ?
 `
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -94,11 +94,11 @@ func (s *State) ModelCloudRegionDefaults(
 SELECT cloud_region_defaults.key,
        cloud_region_defaults.value
 FROM cloud_region_defaults
-     INNER JOIN cloud_region
-         ON cloud_region.uuid = cloud_region_defaults.region_uuid
-     INNER JOIN model_metadata
-         ON model_metadata.cloud_region_uuid = cloud_region.uuid
-WHERE model_metadata.model_uuid = ?
+INNER JOIN cloud_region
+ON cloud_region.uuid = cloud_region_defaults.region_uuid
+INNER JOIN model m
+ON m.cloud_region_uuid = cloud_region.uuid
+WHERE m.uuid = ?
 `
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -121,7 +121,7 @@ WHERE model_metadata.model_uuid = ?
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, domain.CoerceError(err)
 	}
 	return rval, nil
 }
@@ -139,32 +139,35 @@ func (s *State) ModelMetadataDefaults(
 		return nil, errors.Trace(err)
 	}
 
-	// We don't want to use v_model view here as that will only surface
-	// finalised models.
-	q := `
-	SELECT m.model_uuid, m.name, mt.type
-	FROM model_metadata m
-	INNER JOIN model_type mt ON m.model_type_id = mt.id
-	WHERE model_uuid = ?
+	stmt := `
+SELECT m.name, mt.type
+FROM model m
+INNER JOIN model_type mt ON m.model_type_id = mt.id
+WHERE m.uuid = ?
 `
 
 	var (
-		uuidVal, nameVal, modelTypeVal string
+		modelName string
+		modelType string
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, q, uuid).Scan(&uuidVal, &nameVal, &modelTypeVal)
+		return tx.QueryRowContext(ctx, stmt, uuid).Scan(&modelName, &modelType)
 	})
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 	} else if err != nil {
-		return nil, fmt.Errorf("getting model %q metadata defaults: %w", uuid, domain.CoerceError(err))
+		return nil, fmt.Errorf(
+			"getting model metadata defaults for uuid %q: %w",
+			uuid,
+			domain.CoerceError(err),
+		)
 	}
 
 	return map[string]string{
-		config.UUIDKey: uuidVal,
-		config.NameKey: nameVal,
-		config.TypeKey: modelTypeVal,
+		config.NameKey: modelName,
+		config.UUIDKey: uuid.String(),
+		config.TypeKey: modelType,
 	}, nil
 }
 
@@ -184,11 +187,11 @@ func (s *State) ModelProviderConfigSchema(
 	cloudTypeStmt := `
 SELECT cloud_type.type
 FROM cloud_type
-     INNER JOIN cloud
-         ON cloud.cloud_type_id = cloud_type.id
-     INNER JOIN model_metadata
-         ON model_metadata.cloud_uuid = cloud.uuid
-WHERE model_metadata.model_uuid = ?
+INNER JOIN cloud
+ON cloud.cloud_type_id = cloud_type.id
+INNER JOIN model m
+ON m.cloud_uuid = cloud.uuid
+WHERE m.uuid = ?
 `
 
 	var cloudType string

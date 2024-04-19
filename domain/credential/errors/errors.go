@@ -12,6 +12,10 @@ const (
 	// cannot be validated for one or more models.
 	CredentialModelValidation = errors.ConstError("credential is not valid for one or more models")
 
+	// NotFound describes an error that occurs when a cloud credential cannot be
+	// found.
+	NotFound = errors.ConstError("credential not found")
+
 	// UnknownCloud describes an error that occurs when a credential for cloud
 	// not known to the controller is updated.
 	UnknownCloud = errors.ConstError("unknown cloud")

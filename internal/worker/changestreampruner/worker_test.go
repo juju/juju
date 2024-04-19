@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
+	modeltesting "github.com/juju/juju/domain/model/state/testing"
 )
 
 type workerSuite struct {
@@ -100,7 +101,6 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 	s.ApplyDDLForRunner(c, txnRunner)
 
 	s.expectControllerDBGet()
-	s.expectDBGet("foo", txnRunner)
 	s.expectClock()
 	s.expectAnyLogs(c)
 
@@ -109,7 +109,8 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 	now := time.Now()
 
 	s.insertControllerNodes(c, 1)
-	s.insertModelList(c, "foo")
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
+	s.expectDBGet(modelUUID.String(), txnRunner)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.truncateChangeLog(c, s.TxnRunner())
 	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
@@ -120,7 +121,7 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 	// This ensures that we always prune the controller namespace.
 	c.Check(result, gc.DeepEquals, map[string]int64{
 		coredatabase.ControllerNS: 3,
-		"foo":                     0,
+		modelUUID.String():        0,
 	})
 }
 
@@ -133,7 +134,6 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 	s.ApplyDDLForRunner(c, txnRunner)
 
 	s.expectControllerDBGet()
-	s.expectDBGet("foo", txnRunner)
 	s.expectClock()
 	s.expectAnyLogs(c)
 
@@ -142,7 +142,8 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 	now := time.Now()
 
 	s.insertControllerNodes(c, 1)
-	s.insertModelList(c, "foo")
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
+	s.expectDBGet(modelUUID.String(), txnRunner)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.truncateChangeLog(c, s.TxnRunner())
 	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
@@ -157,7 +158,7 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 	// This ensures that we always prune the controller namespace.
 	c.Check(result, gc.DeepEquals, map[string]int64{
 		coredatabase.ControllerNS: 3,
-		"foo":                     4,
+		modelUUID.String():        4,
 	})
 }
 
@@ -456,21 +457,6 @@ VALUES ($M.ctrl_id, $M.node_id, $M.addr)
 			}).Run()
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *workerSuite) insertModelList(c *gc.C, namespace string) {
-	query, err := sqlair.Prepare(`
-INSERT INTO model_list (uuid)
-VALUES ($M.uuid);
-`, sqlair.M{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, query, sqlair.M{"uuid": namespace}).Run()
-		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)

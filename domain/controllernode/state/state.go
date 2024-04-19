@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -85,31 +86,25 @@ AND    (dqlite_node_id != ? OR bind_address != ?)`
 	}))
 }
 
-// SelectModelUUID simply selects the input model UUID from the
-// model_list table, thereby verifying whether it exists.
-func (st *State) SelectModelUUID(ctx context.Context, modelUUID string) (string, error) {
+// SelectDatabaseNamespace is responsible for selecting and returning the
+// database namespace specified by namespace. If no namespace is registered an
+// error satisfying [errors.NotFound] is returned.
+func (st *State) SelectDatabaseNamespace(ctx context.Context, namespace string) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	var uuid string
 	err = db.StdTxn(ctx, func(ctx context.Context, db *sql.Tx) error {
-		row := db.QueryRowContext(ctx, "SELECT uuid FROM model_list WHERE uuid = ?", modelUUID)
-
-		if err := row.Scan(&uuid); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return errors.NotFoundf("model UUID %q", modelUUID)
-			}
-			return errors.Trace(err)
-		}
-
-		if err := row.Err(); err != nil {
-			return errors.Trace(err)
-		}
-
-		return nil
+		row := db.QueryRowContext(ctx, "SELECT namespace from namespace_list WHERE namespace = ?", namespace)
+		return row.Scan(&namespace)
 	})
 
-	return uuid, errors.Trace(err)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("namespace %q %w", namespace, errors.NotFound)
+	} else if err != nil {
+		return "", fmt.Errorf("selecting namespace %q: %w", namespace, domain.CoerceError(err))
+	}
+
+	return namespace, nil
 }

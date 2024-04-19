@@ -61,7 +61,7 @@ func (s *stateSuite) TestGetModel(c *gc.C) {
 		SecretBackendID: backendUUID,
 	})
 
-	nonExistingModelUUID := coremodel.UUID(uuid.MustNewUUID().String())
+	nonExistingModelUUID := modeltesting.GenModelUUID(c)
 	_, err = s.state.GetModel(context.Background(), nonExistingModelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: %q`, nonExistingModelUUID))
@@ -168,6 +168,9 @@ func (s *stateSuite) createModel(c *gc.C) (coremodel.UUID, string) {
 			Owner: userUUID,
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelSt.Finalise(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	q := `
@@ -1116,29 +1119,31 @@ func (s *stateSuite) TestGetModelSecretBackend(c *gc.C) {
 	c.Assert(result, gc.Equals, backendID)
 }
 
-func (s *stateSuite) TestGetCloudCredential(c *gc.C) {
+func (s *stateSuite) TestGetModelCloudAndCredential(c *gc.C) {
 	modelUUID, _ := s.createModel(c)
-	cld, cred, err := s.state.GetCloudCredential(context.Background(), modelUUID)
-	c.Assert(err, gc.IsNil)
-	c.Assert(cld, gc.DeepEquals, cloud.Cloud{
+	cld, cred, err := s.state.GetModelCloudAndCredential(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cld, gc.DeepEquals, cloud.Cloud{
 		Name:           "my-cloud",
 		Type:           "ec2",
-		AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType},
+		AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 		CACertificates: []string{"my-ca-cert"},
+		Regions: []cloud.Region{
+			{Name: "my-region"},
+		},
 	})
 	expectedCred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
 		"bar": "bar val",
 	})
 	expectedCred.Label = "foobar"
-	c.Assert(cred, gc.DeepEquals, expectedCred)
+	c.Check(cred, gc.DeepEquals, expectedCred)
 }
 
-func (s *stateSuite) TestGetCloudCredentialNotFound(c *gc.C) {
+func (s *stateSuite) TestGetModelCloudAndCredentialNotFound(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
-	_, _, err := s.state.GetCloudCredential(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`cloud credential for model %q`, modelUUID))
+	_, _, err := s.state.GetModelCloudAndCredential(context.Background(), modelUUID)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestInitialWatchStatement(c *gc.C) {

@@ -19,6 +19,14 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+// ModelFinaliser describes a closure type that must be called after creating a
+// new model to indicate that all model creation operations have been performed
+// and the model is active within the controller.
+//
+// This type may return an error satisfying [modelerrors.AlreadyFinalised] if
+// the model in question has been finalised already.
+type ModelFinaliser func(context.Context) error
+
 // ModelTypeState represents the state required for determining the type of model
 // based on the cloud being set for it.
 type ModelTypeState interface {
@@ -34,6 +42,13 @@ type State interface {
 
 	// Create creates a new model with all of its associated metadata.
 	Create(context.Context, coremodel.UUID, coremodel.ModelType, model.ModelCreationArgs) error
+
+	// Finalise is responsible for setting a model as fully constructed and
+	// indicates the final system state for the model is ready for use.
+	// If no model exists for the provided id then a [modelerrors.NotFound] will be
+	// returned. If the model as previously been finalised a
+	// [modelerrors.AlreadyFinalised] error will be returned.
+	Finalise(ctx context.Context, uuid coremodel.UUID) error
 
 	// Get returns the model associated with the provided uuid.
 	Get(context.Context, coremodel.UUID) (coremodel.Model, error)
@@ -134,12 +149,15 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 }
 
 // CreateModel is responsible for creating a new model from start to finish with
-// its associated metadata. The function will returned the created model's uuid.
+// its associated metadata. The function will return the created model's uuid.
 // If the ModelCreationArgs does not have a credential name set then no cloud
 // credential will be associated with model.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
+//
+// Models created by this function must be finalised using the returned
+// ModelFinaliser.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use or a model
@@ -152,14 +170,14 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.ModelCreationArgs,
-) (coremodel.UUID, error) {
+) (coremodel.UUID, func(context.Context) error, error) {
 	if err := args.Validate(); err != nil {
-		return coremodel.UUID(""), err
+		return coremodel.UUID(""), nil, err
 	}
 
 	modelType, err := ModelTypeForCloud(ctx, s.st, args.Cloud)
 	if err != nil {
-		return coremodel.UUID(""), fmt.Errorf(
+		return coremodel.UUID(""), nil, fmt.Errorf(
 			"determining model type when creating model %q: %w",
 			args.Name, err,
 		)
@@ -171,7 +189,7 @@ func (s *Service) CreateModel(
 	}
 
 	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
-		return coremodel.UUID(""), fmt.Errorf(
+		return coremodel.UUID(""), nil, fmt.Errorf(
 			"creating model %q with agent version %q: %w",
 			args.Name, agentVersion, err,
 		)
@@ -183,11 +201,15 @@ func (s *Service) CreateModel(
 		var err error
 		uuid, err = coremodel.NewUUID()
 		if err != nil {
-			return coremodel.UUID(""), fmt.Errorf("generating new model uuid: %w", err)
+			return coremodel.UUID(""), nil, fmt.Errorf("generating new model uuid: %w", err)
 		}
 	}
 
-	return uuid, s.st.Create(ctx, uuid, modelType, args)
+	finaliser := ModelFinaliser(func(ctx context.Context) error {
+		return s.st.Finalise(ctx, uuid)
+	})
+
+	return uuid, finaliser, s.st.Create(ctx, uuid, modelType, args)
 }
 
 // Model returns the model associated with the provided uuid.

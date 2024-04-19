@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 )
@@ -14,7 +15,7 @@ import (
 type State interface {
 	CurateNodes(context.Context, []string, []string) error
 	UpdateDqliteNode(context.Context, string, uint64, string) error
-	SelectModelUUID(context.Context, string) (string, error)
+	SelectDatabaseNamespace(context.Context, string) (string, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -41,15 +42,20 @@ func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nod
 	return errors.Annotatef(err, "updating Dqlite node details for %q", controllerID)
 }
 
-// IsModelKnownToController returns true if the input
-// model UUID is one managed by this controller.
-func (s *Service) IsModelKnownToController(ctx context.Context, modelUUID string) (bool, error) {
-	uuid, err := s.st.SelectModelUUID(ctx, modelUUID)
+// IsKnownDatabaseNamespace reports if the namespace is known to the controller.
+// If the namespace is not valid an error satisfying [errors.NotValid] is
+// returned.
+func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string) (bool, error) {
+	if namespace == "" {
+		return false, fmt.Errorf("namespace %q is %w, cannot be empty", namespace, errors.NotValid)
+	}
+
+	ns, err := s.st.SelectDatabaseNamespace(ctx, namespace)
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
-			return false, errors.Annotatef(err, "determining model existence")
+			return false, errors.Annotatef(err, "determining namespace existence")
 		}
 	}
 
-	return uuid == modelUUID, nil
+	return ns == namespace, nil
 }

@@ -73,22 +73,6 @@ func (mr *MockStateMockRecorder) DeleteSecretBackend(arg0, arg1, arg2 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecretBackend", reflect.TypeOf((*MockState)(nil).DeleteSecretBackend), arg0, arg1, arg2)
 }
 
-// GetCloudCredential mocks base method.
-func (m *MockState) GetCloudCredential(arg0 context.Context, arg1 model.UUID) (cloud.Cloud, cloud.Credential, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCloudCredential", arg0, arg1)
-	ret0, _ := ret[0].(cloud.Cloud)
-	ret1, _ := ret[1].(cloud.Credential)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetCloudCredential indicates an expected call of GetCloudCredential.
-func (mr *MockStateMockRecorder) GetCloudCredential(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCloudCredential", reflect.TypeOf((*MockState)(nil).GetCloudCredential), arg0, arg1)
-}
-
 // GetModel mocks base method.
 func (m *MockState) GetModel(arg0 context.Context, arg1 model.UUID) (secretbackend.ModelSecretBackend, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +86,22 @@ func (m *MockState) GetModel(arg0 context.Context, arg1 model.UUID) (secretbacke
 func (mr *MockStateMockRecorder) GetModel(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModel", reflect.TypeOf((*MockState)(nil).GetModel), arg0, arg1)
+}
+
+// GetModelCloudAndCredential mocks base method.
+func (m *MockState) GetModelCloudAndCredential(arg0 context.Context, arg1 model.UUID) (cloud.Cloud, cloud.Credential, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelCloudAndCredential", arg0, arg1)
+	ret0, _ := ret[0].(cloud.Cloud)
+	ret1, _ := ret[1].(cloud.Credential)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetModelCloudAndCredential indicates an expected call of GetModelCloudAndCredential.
+func (mr *MockStateMockRecorder) GetModelCloudAndCredential(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudAndCredential", reflect.TypeOf((*MockState)(nil).GetModelCloudAndCredential), arg0, arg1)
 }
 
 // GetModelSecretBackend mocks base method.

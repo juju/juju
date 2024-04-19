@@ -72,19 +72,19 @@ func (s *stateSuite) TestUpdateDqliteNode(c *gc.C) {
 	c.Check(addr, gc.Equals, "192.168.5.60")
 }
 
-func (s *stateSuite) TestSelectModelUUID(c *gc.C) {
+// TestSelectDatabaseNamespace is testing success for existing namespaces and
+// a not found error for namespaces that don't exist.
+func (s *stateSuite) TestSelectDatabaseNamespace(c *gc.C) {
 	db := s.DB()
-
-	_, err := db.Exec("INSERT INTO model_list (uuid) VALUES ('some-uuid')")
+	_, err := db.ExecContext(context.Background(), "INSERT INTO namespace_list (namespace) VALUES ('simon!!')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
+	namespace, err := st.SelectDatabaseNamespace(context.Background(), "simon!!")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(namespace, gc.Equals, "simon!!")
 
-	uuid, err := st.SelectModelUUID(context.Background(), "not-there")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Check(uuid, gc.Equals, "")
-
-	uuid, err = st.SelectModelUUID(context.Background(), "some-uuid")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid, gc.Equals, "some-uuid")
+	namespace, err = st.SelectDatabaseNamespace(context.Background(), "SIMon!!")
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(namespace, gc.Equals, "")
 }

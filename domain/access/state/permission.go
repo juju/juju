@@ -279,7 +279,7 @@ func (st *PermissionState) ReadAllUserAccessForUser(ctx context.Context, subject
 WITH what AS (
     select 'cloud' AS type, name AS grant_on FROM cloud
     UNION
-    select 'model' AS type, uuid AS grant_on FROM model_list
+    select 'model' AS type, uuid AS grant_on FROM v_model
     UNION
     select 'controller' AS type, 'controller' AS grant_on
 )
@@ -408,7 +408,7 @@ FROM    v_user_auth u
         JOIN user AS creator ON u.created_by_uuid = creator.uuid
         JOIN v_permission p ON u.uuid = p.grant_to
         LEFT JOIN cloud c ON p.grant_on = c.name
-        LEFT JOIN model_list m on p.grant_on = m.uuid
+        LEFT JOIN v_model m on p.grant_on = m.uuid
         LEFT JOIN ctrl ON p.grant_on = ctrl.c
 WHERE   u.name = $permUserName.name
 AND     u.disabled = false
@@ -519,7 +519,7 @@ WHERE  u.removed = false
 }
 
 // targetExists returns an error if the target does not exist in neither the
-// cloud nor model_list tables and is not a controller.
+// cloud nor v_model tables and is not a controller.
 func targetExists(ctx context.Context, tx *sqlair.TX, target string) error {
 	if target == coredatabase.ControllerNS {
 		return nil
@@ -529,7 +529,7 @@ func targetExists(ctx context.Context, tx *sqlair.TX, target string) error {
 SELECT &M.found_it FROM (
     SELECT "cloud" AS found_it FROM cloud WHERE cloud.name = $M.grant_on
     UNION
-    SELECT "model" AS found_it FROM model_list WHERE model_list.uuid = $M.grant_on
+    SELECT "model" AS found_it FROM v_model WHERE v_model.uuid = $M.grant_on
 )
 `
 

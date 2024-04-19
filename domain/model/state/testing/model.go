@@ -5,30 +5,29 @@ package testing
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	userstate "github.com/juju/juju/domain/access/state"
-	cloudstate "github.com/juju/juju/domain/cloud/state"
-	"github.com/juju/juju/domain/credential"
-	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
 // CreateTestModel is a testing utility function for creating a basic model for
 // a test to rely on. The created model will have it's uuid returned.
+//
+// This should only ever be used from within other state packages to establish a
+// reference model. This avoids the need for introducing cyclic imports with
+// tests.
 func CreateTestModel(
 	c *gc.C,
 	txnRunner database.TxnRunnerFactory,
@@ -36,50 +35,50 @@ func CreateTestModel(
 ) coremodel.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userState := userstate.NewState(txnRunner, jujutesting.NewCheckLogger(c))
-	err = userState.AddUser(
-		context.Background(),
-		userUUID,
-		"test-user",
-		"test-user",
-		userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess),
-	)
+
+	cloudUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudSt := cloudstate.NewState(txnRunner)
-	err = cloudSt.CreateCloud(context.Background(), "test-user",
-		uuid.MustNewUUID().String(),
-		cloud.Cloud{
-			Name:      "my-cloud",
-			Type:      "ec2",
-			AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-			Regions: []cloud.Region{
-				{
-					Name: "my-region",
-				},
-			},
-		})
+	credId, err := corecredential.NewID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cred := credential.CloudCredentialInfo{
-		Label:    "foobar",
-		AuthType: string(cloud.AccessKeyAuthType),
-		Attributes: map[string]string{
-			"foo": "foo val",
-			"bar": "bar val",
-		},
-	}
+	runner, err := txnRunner()
+	c.Assert(err, jc.ErrorIsNil)
+	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, userUUID.String(), name, "test-user", false, userUUID, time.Now())
+		if err != nil {
+			return err
+		}
 
-	credSt := credentialstate.NewState(txnRunner)
-	_, err = credSt.UpsertCloudCredential(
-		context.Background(), corecredential.Key{
-			Cloud: "my-cloud",
-			Owner: "test-user",
-			Name:  "foobar",
-		},
-		cred,
-	)
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
+			VALUES (?, ?, ?, "", true)
+		`, cloudUUID.String(), name, 5)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cloud_auth_type (cloud_uuid, auth_type_id)
+			VALUES (?, 0), (?, 2)
+		`, cloudUUID.String(), cloudUUID.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cloud_credential (uuid, cloud_uuid, auth_type_id, owner_uuid, name, revoked, invalid)
+			VALUES (?, ?, ?, ?, "foobar", false, false)
+		`, credId, cloudUUID.String(), 0, userUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -90,11 +89,10 @@ func CreateTestModel(
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:        name,
 			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: "test-user",
+				Cloud: name,
+				Owner: name,
 				Name:  "foobar",
 			},
 			Name:  name,
@@ -103,5 +101,34 @@ func CreateTestModel(
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = modelSt.Finalise(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
 	return modelUUID
+}
+
+// DeleteTestModel is responsible for cleaning up a testing mode previously
+// created with [CreateTestModel].
+func DeleteTestModel(
+	c *gc.C,
+	txnRunner database.TxnRunnerFactory,
+	uuid coremodel.UUID,
+) {
+	runner, err := txnRunner()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			DELETE FROM model_agent where model_uuid = ?
+		`, uuid)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			DELETE FROM model WHERE uuid = ?
+		`, uuid)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }

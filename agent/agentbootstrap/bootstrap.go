@@ -238,6 +238,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	controllerModelUUID := model.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
+
 	controllerModelArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: stateParams.AgentVersion,
 		Name:         stateParams.ControllerModelConfig.Name(),

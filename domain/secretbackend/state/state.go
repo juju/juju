@@ -19,7 +19,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
+	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
@@ -454,122 +456,63 @@ func (s *State) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.U
 	return m.SecretBackendID, errors.Trace(err)
 }
 
-// GetCloudCredential returns the cloud credential for the given model.
-func (s *State) GetCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (cloud.Cloud, cloud.Credential, error) {
-	var (
-		cld  cloud.Cloud
-		cred cloud.Credential
-	)
-
+// GetModelCloudAndCredential returns the cloud and cloud credential for the
+// given model id. If no model is found for the provided id an error of
+// [modelerrors.NotFound] is returned.
+func (s *State) GetModelCloudAndCredential(
+	ctx context.Context,
+	modelID coremodel.UUID,
+) (cloud.Cloud, cloud.Credential, error) {
 	db, err := s.DB()
 	if err != nil {
-		return cld, cred, errors.Trace(err)
+		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
-		cld, cred, err = loadCloudCredential(ctx, s, tx, modelUUID.String())
-		return errors.Trace(err)
-	})
-	return cld, cred, domain.CoerceError(err)
-}
+	q := `
+    SELECT (cloud_uuid, cloud_credential_uuid) AS (&modelCloudAndCredentialID.*)
+	FROM v_model
+	WHERE uuid = $M.model_id
+	`
 
-func loadCloudCredential(ctx context.Context, p domain.Preparer, tx *sqlair.TX, modelUUID string) (cloud.Cloud, cloud.Credential, error) {
-	var (
-		cld  cloud.Cloud
-		cred cloud.Credential
-	)
-
-	stmt, err := p.Prepare(`
-SELECT
-	c.uuid            AS &CloudRow.uuid,
-	c.name            AS &CloudRow.name,
-	ct.type           AS &CloudRow.type,
-	c.endpoint        AS &CloudRow.endpoint,
-	c.skip_tls_verify AS &CloudRow.skip_tls_verify,
-	at.type           AS &CloudRow.auth_type,
-	m.name            AS &CloudRow.model_name,
-	cu.name           AS &CloudRow.model_owner_user_name,
-(
-    cc.uuid, cc.name,
-    cc.revoked, cc.invalid,
-    cc.invalid_reason,
-    cc.owner_uuid
-) AS (&Credential.*),
-(
-	cc_attr.key, cc_attr.value
-) AS (&CredentialAttribute.*)
-FROM model_metadata m
-    JOIN cloud c ON m.cloud_uuid = c.uuid
-    JOIN cloud_type ct ON c.cloud_type_id = ct.id
-    JOIN cloud_auth_type cat ON c.uuid = cat.cloud_uuid
-    JOIN auth_type at ON cat.auth_type_id = at.id
-    LEFT JOIN user cu ON m.owner_uuid = cu.uuid
-    JOIN cloud_credential cc ON m.cloud_credential_uuid = cc.uuid
-    LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
-WHERE m.model_uuid = $M.uuid`,
-		sqlair.M{}, CloudRow{},
-		credentialstate.Credential{}, credentialstate.CredentialAttribute{},
-	)
+	stmt, err := s.Prepare(q, sqlair.M{}, modelCloudAndCredentialID{})
 	if err != nil {
-		return cld, cred, errors.Trace(err)
+		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
 	}
-	stmtCACerts, err := p.Prepare(`
-SELECT &CloudCACert.*
-FROM cloud_ca_cert
-WHERE cloud_uuid = $M.uuid`, sqlair.M{}, cloudstate.CloudCACert{})
-	if err != nil {
-		return cld, cred, errors.Trace(err)
+
+	args := sqlair.M{
+		"model_id": modelID,
 	}
+	ids := modelCloudAndCredentialID{}
 
 	var (
-		cloudRows []CloudRow
-		credRows  []credentialstate.Credential
-		keyValues []credentialstate.CredentialAttribute
+		cld        cloud.Cloud
+		credResult credential.CloudCredentialResult
 	)
-	err = tx.Query(ctx, stmt, sqlair.M{"uuid": modelUUID}).GetAll(
-		&cloudRows,
-		&credRows, &keyValues,
-	)
-	if errors.Is(err, sql.ErrNoRows) || len(cloudRows) == 0 || len(credRows) == 0 {
-		return cld, cred, fmt.Errorf("cloud credential for model %q%w", modelUUID, errors.Hide(errors.NotFound))
-	}
-	if err != nil {
-		return cld, cred, fmt.Errorf("querying cloud credential for model %q: %w", modelUUID, err)
-	}
-	cloudRow := cloudRows[0]
-	credRow := credRows[0]
-
-	var dbCloudCACerts []cloudstate.CloudCACert
-	err = tx.Query(ctx, stmtCACerts, sqlair.M{"uuid": cloudRow.ID}).GetAll(&dbCloudCACerts)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return cld, cred, errors.Trace(err)
-	}
-
-	authType := cloud.AuthType(cloudRow.AuthType)
-	isControllerCloud := cloudRow.ModelName == coremodel.ControllerModelName &&
-		cloudRow.ModelOwnerUserName == coremodel.ControllerModelOwnerUsername
-	cld = cloud.Cloud{
-		Name:              cloudRow.Name,
-		Type:              cloudRow.CloudType,
-		AuthTypes:         []cloud.AuthType{authType},
-		Endpoint:          cloudRow.Endpoint,
-		SkipTLSVerify:     cloudRow.SkipTLSVerify,
-		IsControllerCloud: isControllerCloud,
-	}
-	for _, c := range dbCloudCACerts {
-		cld.CACertificates = append(cld.CACertificates, c.CACert)
-	}
-	credAttrs := make(map[string]string, len(keyValues))
-	for _, kv := range keyValues {
-		if kv.Key == "" {
-			continue
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, args).Get(&ids)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
+		} else if err != nil {
+			return err
 		}
-		credAttrs[kv.Key] = kv.Value
+
+		cld, err = cloudstate.GetCloudForID(ctx, s, tx, ids.CloudID)
+		if err != nil {
+			return fmt.Errorf("getting model %q cloud for id %q: %w", modelID, ids.CloudID, err)
+		}
+
+		credResult, err = credentialstate.GetCloudCredential(ctx, s, tx, ids.CredentialID)
+		if err != nil {
+			return fmt.Errorf("getting model %q cloud credential for id %q: %w", modelID, ids.CredentialID, err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
 	}
-	cred = cloud.NewNamedCredential(credRow.Name, authType, credAttrs, credRow.Revoked)
-	cred.Invalid = credRow.Invalid
-	cred.InvalidReason = credRow.InvalidReason
-	return cld, cred, nil
+
+	return cld, cloud.NewNamedCredential(credResult.Label, cloud.AuthType(credResult.AuthType), credResult.Attributes, credResult.Revoked), nil
 }
 
 // InitialWatchStatement returns the initial watch statement and the table name to watch.

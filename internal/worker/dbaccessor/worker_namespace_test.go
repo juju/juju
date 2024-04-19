@@ -78,7 +78,7 @@ func (s *namespaceSuite) startWorker(c *gc.C, ctx context.Context) *dbWorker {
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		stmt := "INSERT INTO namespace_list (namespace) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, "foo")
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -201,7 +201,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		attempt++
 
-		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		stmt := "INSERT INTO namespace_list (namespace) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, "foo")
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -371,7 +371,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	ensureStartup(c, dbw)
 
 	err := dbw.closeDatabase("foo")
-	c.Assert(err, gc.ErrorMatches, `stopping worker: worker "foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `stopping worker: worker .* not found`)
 
 	workertest.CleanKill(c, w)
 }
