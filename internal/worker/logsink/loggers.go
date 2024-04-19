@@ -86,6 +86,11 @@ func (d *modelLogger) GetLogger(modelUUID string) corelogger.LoggerCloser {
 
 	// The fallback logger is used if the logger for the model has not been
 	// initialized yet.
+	//
+	// This shouldn't be ever triggered, but for now, we just want to know if
+	// we've missed any locations that should have initialized the logger, but
+	// hasn't yet. We don't want to panic here, as it would bring down the
+	// entire dependency engine.
 	return d.modelLoggers[fallbackLoggerName]
 }
 
