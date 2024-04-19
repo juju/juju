@@ -23,6 +23,7 @@ import (
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	statushistoryservice "github.com/juju/juju/domain/statushistory/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -204,5 +205,10 @@ func (s *TestingServiceFactory) WithUnitService(getter func() *unitservice.Servi
 // the model service. As this is only for read-only model information, we
 // can rename it to the more obscure version.
 func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
+	return nil
+}
+
+// StatusHistory returns the model's status history service.
+func (s *TestingServiceFactory) StatusHistory() *statushistoryservice.Service {
 	return nil
 }

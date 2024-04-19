@@ -23,6 +23,7 @@ import (
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	statushistoryservice "github.com/juju/juju/domain/statushistory/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -94,6 +95,8 @@ type ModelServiceFactory interface {
 	// the model service. As this is only for read-only model information, we
 	// can rename it to the more obscure version.
 	ModelInfo() *modelservice.ModelService
+	// StatusHistory returns the model's status history service.
+	StatusHistory() *statushistoryservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

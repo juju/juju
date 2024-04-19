@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/statushistory"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -50,6 +52,13 @@ type NetworkService interface {
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 }
 
+// StatusHistoryService is the interface that is used to interact with the
+// status history.
+type StatusHistoryService interface {
+	// GetStatusHistory returns the status history for the specified kind.
+	GetStatusHistory(ctx context.Context, kind status.HistoryKind) ([]statushistory.History, error)
+}
+
 type API struct {
 	stateAccessor           Backend
 	pool                    Pool
@@ -62,9 +71,10 @@ type API struct {
 
 	multiwatcherFactory multiwatcher.Factory
 
-	toolsFinder      common.ToolsFinder
-	leadershipReader leadership.Reader
-	networkService   NetworkService
+	toolsFinder          common.ToolsFinder
+	leadershipReader     leadership.Reader
+	networkService       NetworkService
+	statusHistoryService StatusHistoryService
 }
 
 // TODO(wallyworld) - remove this method
@@ -192,7 +202,8 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 		blockChecker,
 		leadershipReader,
 		factory,
-		ctx.ServiceFactory().Network(),
+		serviceFactory.Network(),
+		serviceFactory.StatusHistory(),
 		registry.New,
 	)
 }
@@ -214,6 +225,7 @@ func NewClient(
 	leadershipReader leadership.Reader,
 	factory multiwatcher.Factory,
 	networkService NetworkService,
+	statusHistoryService StatusHistoryService,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
@@ -233,6 +245,7 @@ func NewClient(
 			leadershipReader:        leadershipReader,
 			multiwatcherFactory:     factory,
 			networkService:          networkService,
+			statusHistoryService:    statusHistoryService,
 		},
 		newEnviron:      newEnviron,
 		check:           blockChecker,

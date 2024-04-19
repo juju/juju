@@ -27,6 +27,8 @@ import (
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
+	statushistoryservice "github.com/juju/juju/domain/statushistory/service"
+	statushistorystate "github.com/juju/juju/domain/statushistory/state"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	unitservice "github.com/juju/juju/domain/unit/service"
@@ -159,8 +161,18 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 	)
 }
 
+// ModelInfo returns the model (read-only) info service.
 func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 	return modelservice.NewModelService(
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// StatusHistory returns the model's status history service.
+func (s *ModelFactory) StatusHistory() *statushistoryservice.Service {
+	return statushistoryservice.NewService(
+		statushistorystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		"/var/log/juju",
+		s.logger.Child("statushistory"),
 	)
 }

@@ -146,7 +146,7 @@ func (c *Client) modelStatusHistory(filter status.StatusHistoryFilter) ([]params
 }
 
 // StatusHistory returns a slice of past statuses for several entities.
-func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
+func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
 	results := params.StatusHistoryResults{}
 	// TODO(perrito666) the contents of the loop could be split into
 	// a oneHistory method for clarity.
@@ -163,49 +163,67 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			}
 			results.Results = append(results.Results, history)
 			continue
-
 		}
 
 		if err := filter.Validate(); err != nil {
-			history := params.StatusHistoryResult{
+			result := params.StatusHistoryResult{
 				Error: apiservererrors.ServerError(errors.Annotate(err, "cannot validate status history filter")),
 			}
-			results.Results = append(results.Results, history)
+			results.Results = append(results.Results, result)
 			continue
 		}
 
-		var (
-			err  error
-			hist []params.DetailedStatus
-		)
 		kind := status.HistoryKind(request.Kind)
-		switch kind {
-		case status.KindModel:
-			hist, err = c.modelStatusHistory(filter)
-		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
-			var u names.UnitTag
-			if u, err = names.ParseUnitTag(request.Tag); err == nil {
-				hist, err = c.unitStatusHistory(u, filter, kind)
-			}
-		case status.KindApplication, status.KindSAAS:
-			var app names.ApplicationTag
-			if app, err = names.ParseApplicationTag(request.Tag); err == nil {
-				hist, err = c.applicationStatusHistory(app, filter, kind)
-			}
-		default:
-			var m names.MachineTag
-			if m, err = names.ParseMachineTag(request.Tag); err == nil {
-				hist, err = c.machineStatusHistory(m, filter, kind)
+		history, err := c.api.statusHistoryService.GetStatusHistory(ctx, kind)
+		if err != nil {
+			results.Results = append(results.Results,
+				params.StatusHistoryResult{
+					Error: apiservererrors.ServerError(errors.Annotatef(err, "cannot get status history for %q",
+						request.Tag)),
+				})
+			continue
+		}
+
+		result := make([]params.DetailedStatus, len(history))
+		for i, h := range history {
+			result[i] = params.DetailedStatus{
+				Kind: string(h.Kind),
 			}
 		}
 
+		/*
+			var (
+				err  error
+				hist []params.DetailedStatus
+			)
+
+			switch kind {
+			case status.KindModel:
+				hist, err = c.modelStatusHistory(filter)
+			case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
+				var u names.UnitTag
+				if u, err = names.ParseUnitTag(request.Tag); err == nil {
+					hist, err = c.unitStatusHistory(u, filter, kind)
+				}
+			case status.KindApplication, status.KindSAAS:
+				var app names.ApplicationTag
+				if app, err = names.ParseApplicationTag(request.Tag); err == nil {
+					hist, err = c.applicationStatusHistory(app, filter, kind)
+				}
+			default:
+				var m names.MachineTag
+				if m, err = names.ParseMachineTag(request.Tag); err == nil {
+					hist, err = c.machineStatusHistory(m, filter, kind)
+				}
+			}*/
+
 		if err == nil {
-			sort.Sort(byTime(hist))
+			sort.Sort(byTime(result))
 		}
 
 		results.Results = append(results.Results,
 			params.StatusHistoryResult{
-				History: params.History{Statuses: hist},
+				History: params.History{Statuses: result},
 				Error: apiservererrors.ServerError(errors.Annotatef(err, "fetching status history for %q",
 					request.Tag)),
 			})
