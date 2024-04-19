@@ -122,7 +122,6 @@ func (s *ModelFactory) Network() *networkservice.ProviderService {
 	return networkservice.NewProviderService(
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("network.state")),
 		providertracker.ProviderRunner[networkservice.Provider](s.providerFactory, s.modelUUID.String()),
-		providertracker.ProviderRunner[networkservice.Provider](s.brokerFactory, s.modelUUID.String()),
 		s.logger.Child("network.service"),
 	)
 }

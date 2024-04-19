@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 
 	coreDB "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 )
@@ -346,26 +345,4 @@ func (st *State) DeleteSpace(
 
 		return nil
 	})
-}
-
-// GetModelCloudType retrieves the cloud type from the (readonly) model table.
-// This is needed for the ReloadSpaces method on the service to decide whether
-// the provider or the broker is used.
-func (st *State) GetModelCloudType(ctx context.Context) (model.ModelType, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Trace(domain.CoerceError(err))
-	}
-
-	// The model table is a readonly representation of the model, so only
-	// one model should be present, no need to filter by uuid.
-	retrieveModelCloudTypeStmt := "SELECT type FROM model;"
-	var cloudType string
-	if err := db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, retrieveModelCloudTypeStmt)
-		return row.Scan(&cloudType)
-	}); err != nil {
-		return "", errors.Trace(domain.CoerceError(err))
-	}
-	return model.ModelType(cloudType), nil
 }
