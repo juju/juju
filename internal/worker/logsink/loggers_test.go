@@ -38,13 +38,15 @@ func (s *stubLogger) Close() error {
 }
 
 func (s *LoggersSuite) TestModelLoggerAlreadyExists(c *gc.C) {
+	fallback := &stubLogger{}
 	logger1 := &stubLogger{}
 	logger2 := &stubLogger{}
 	loggers := map[string]corelogger.LoggerCloser{
-		"uuid1": logger1,
-		"uuid2": logger2,
+		"fallback-logger": fallback,
+		"uuid1":           logger1,
+		"uuid2":           logger2,
 	}
-	ml := NewModelLogger(
+	ml, err := NewModelLogger(
 		func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
 			if l, ok := loggers[modelUUID]; ok {
 				return l, nil
@@ -53,21 +55,24 @@ func (s *LoggersSuite) TestModelLoggerAlreadyExists(c *gc.C) {
 		},
 		1, time.Millisecond, clock.WallClock,
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := ml.InitLogger("uuid1", "l1", "fred")
+	err = ml.InitLogger("uuid1", "l1", "fred")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ml.InitLogger("uuid1", "l1", "fred")
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
+	fallback := &stubLogger{}
 	logger1 := &stubLogger{}
 	logger2 := &stubLogger{}
 	loggers := map[string]corelogger.LoggerCloser{
-		"uuid1": logger1,
-		"uuid2": logger2,
+		"fallback-logger": fallback,
+		"uuid1":           logger1,
+		"uuid2":           logger2,
 	}
-	ml := NewModelLogger(
+	ml, err := NewModelLogger(
 		func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
 			if l, ok := loggers[modelUUID]; ok {
 				return l, nil
@@ -76,8 +81,9 @@ func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 		},
 		1, time.Millisecond, clock.WallClock,
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := ml.InitLogger("uuid1", "l1", "fred")
+	err = ml.InitLogger("uuid1", "l1", "fred")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ml.InitLogger("uuid2", "l2", "fred")
 	c.Assert(err, jc.ErrorIsNil)
