@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/worker/common"
@@ -136,15 +137,17 @@ func outputFunc(in worker.Worker, out interface{}) error {
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
 func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger Logger, logDir string) corelogger.LoggerForModelFunc {
-	return func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
-		if !names.IsValidModel(modelUUID) {
-			return nil, errors.NotValidf("model UUID %q", modelUUID)
+	return func(namespace, modelName string) (corelogger.LoggerCloser, error) {
+		if namespace != database.ControllerNS && !names.IsValidModel(namespace) {
+			return nil, errors.NotValidf("model UUID %q", namespace)
 		}
-		logFilename := corelogger.ModelLogFile(logDir, modelUUID, modelName)
+
+		logFilename := corelogger.ModelLogFile(logDir, namespace, modelName)
 		if err := paths.PrimeLogFile(logFilename); err != nil && !errors.Is(err, os.ErrPermission) {
 			// If we don't have permission to chown this, it means we are running rootless.
 			return nil, errors.Annotate(err, "unable to prime log file")
 		}
+
 		ljLogger := &lumberjack.Logger{
 			Filename:   logFilename,
 			MaxSize:    maxSize,
@@ -153,7 +156,7 @@ func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger Logger, logDir s
 		}
 		debugLogger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
-		modelFileLogger := &logWriter{ljLogger}
+		modelFileLogger := &logWriter{WriteCloser: ljLogger}
 		return modelFileLogger, nil
 	}
 }

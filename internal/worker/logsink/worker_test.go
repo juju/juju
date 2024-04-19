@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -57,7 +58,7 @@ func (s *ModelLoggerSuite) TestGetLogger(c *gc.C) {
 
 	// We ensure there is a fallback logger.
 	c.Check(received, jc.DeepEquals, []request{
-		{modelUUID: fallbackLoggerName, modelName: "admin-fallback"},
+		{modelUUID: database.ControllerNS, modelName: "admin-log"},
 		{modelUUID: modelID, modelName: "fred-foo"},
 	})
 

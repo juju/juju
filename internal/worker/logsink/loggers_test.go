@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 )
 
@@ -42,9 +43,9 @@ func (s *LoggersSuite) TestModelLoggerAlreadyExists(c *gc.C) {
 	logger1 := &stubLogger{}
 	logger2 := &stubLogger{}
 	loggers := map[string]corelogger.LoggerCloser{
-		"fallback-logger": fallback,
-		"uuid1":           logger1,
-		"uuid2":           logger2,
+		database.ControllerNS: fallback,
+		"uuid1":               logger1,
+		"uuid2":               logger2,
 	}
 	ml, err := NewModelLogger(
 		func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
@@ -68,9 +69,9 @@ func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 	logger1 := &stubLogger{}
 	logger2 := &stubLogger{}
 	loggers := map[string]corelogger.LoggerCloser{
-		"fallback-logger": fallback,
-		"uuid1":           logger1,
-		"uuid2":           logger2,
+		database.ControllerNS: fallback,
+		"uuid1":               logger1,
+		"uuid2":               logger2,
 	}
 	ml, err := NewModelLogger(
 		func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {

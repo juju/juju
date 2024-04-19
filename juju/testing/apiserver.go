@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -680,6 +681,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		CharmhubHTTPClient:         &http.Client{},
 		DBGetter:                   stubDBGetter{},
 		ServiceFactoryGetter:       nil,
+		StatusHistoryFactory:       &stubStatusHistoryFactory{},
 		TracerGetter:               &stubTracerGetter{},
 		ObjectStoreGetter:          &stubObjectStoreGetter{},
 		StatePool:                  &state.StatePool{},
@@ -704,6 +706,20 @@ type stubTracerGetter struct{}
 
 func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.TracerNamespace) (trace.Tracer, error) {
 	return trace.NoopTracer{}, nil
+}
+
+type stubStatusHistoryFactory struct{}
+
+// StatusHistorySetterForModel returns a StatusHistorySetter for the model.
+func (s *stubStatusHistoryFactory) StatusHistorySetterForModel(modelUUID string) status.StatusHistorySetter {
+	return &stubStatusHistorySetter{}
+
+}
+
+type stubStatusHistorySetter struct{}
+
+func (s *stubStatusHistorySetter) SetStatusHistory(status.HistoryKind, status.Status, string) error {
+	return nil
 }
 
 type stubObjectStoreGetter struct {
