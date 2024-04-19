@@ -234,12 +234,6 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.targetStorage = stor
 }
 
-func (s *uploadSuite) patchBundleTools(c *gc.C, v version.Number) {
-	// Mock out building of tools. Sync should not care about the contents
-	// of tools archives, other than that they hash correctly.
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(v))
-}
-
 func (s *uploadSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
 	c.Assert(v, gc.Equals, coretesting.CurrentVersion())
 }
@@ -360,11 +354,6 @@ func (s *badBuildSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	s.CleanupSuite.TearDownTest(c)
-}
-
-func (s *badBuildSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
-	current := coretesting.CurrentVersion()
-	c.Assert(v, gc.Equals, current)
 }
 
 func (s *uploadSuite) TestStorageToolsUploaderWriteMirrors(c *gc.C) {

@@ -690,43 +690,6 @@ func (s *bootstrapSuite) TestBootstrapDev(c *gc.C) {
 	c.Check(agentVersion.String(), gc.Equals, "2.99.0")
 }
 
-func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientArch string) {
-	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
-	// such as s390.
-	s.PatchValue(&arch.HostArch, func() string { return clientArch })
-	toolsArch := clientArch
-	findToolsOk := false
-	s.PatchValue(bootstrap.FindTools, func(_ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
-		c.Assert(filter.Arch, gc.Equals, toolsArch)
-		c.Assert(filter.OSType, gc.Equals, "ubuntu")
-		findToolsOk = true
-		vers := version.Binary{
-			Number:  jujuversion.Current,
-			Release: "ubuntu",
-			Arch:    toolsArch,
-		}
-		return tools.List{{
-			Version: vers,
-		}}, nil
-	})
-
-	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
-		s.callContext, bootstrap.BootstrapParams{
-			AdminSecret:             "admin-secret",
-			CAPrivateKey:            coretesting.CAKey,
-			ControllerConfig:        coretesting.FakeControllerConfig(),
-			BootstrapBase:           jammyBootstrapBase,
-			SupportedBootstrapBases: supportedJujuBases,
-			BuildAgentTarball: func(devSrcDir string, stream string, arch arch.Arch) (*sync.BuiltAgent, error) {
-				c.Fatal("should not call BuildAgentTarball if there are packaged tools")
-				return nil, nil
-			},
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(findToolsOk, jc.IsTrue)
-}
-
 func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
 	availableVersions := []version.Binary{
 		version.MustParseBinary("1.18.0-ubuntu-arm64"),

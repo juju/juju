@@ -226,11 +226,16 @@ jobs:
           
           $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.cloud }}}.sh 30
 
+      - name: setup env
+        shell: bash
+        run: |
+          echo "JUJU_METADATA_SOURCE=$GITHUB_WORKSPACE/_build/simplestreams" >> $GITHUB_ENV
+
       - name: Update Juju
         shell: bash
         run: |
           sudo snap remove juju --purge
-          make go-install
+          make simplestreams
 
       - name: Build jujud image
         if: matrix.cloud == 'microk8s'
@@ -260,6 +265,12 @@ jobs:
           set -euxo pipefail
           juju status
           juju version
+
+      - name: Sync binaries
+        shell: bash
+        run: |
+          set -euxo pipefail
+          juju sync-agent-binary --agent-version $(juju version | rev | cut -d- -f3- | rev) --local-dir=${JUJU_METADATA_SOURCE}
 
       - name: Test upgrade controller
         shell: bash

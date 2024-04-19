@@ -51,19 +51,30 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
-    - name: setup env
+    - name: Setup Environment
       shell: bash
       run: |
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-        echo "JUJU_METADATA_SOURCE=$HOME/snap/juju/common/simplestreams" >> $GITHUB_ENV
+        echo "JUJU_METADATA_SOURCE=$GITHUB_WORKSPACE/_build/simplestreams" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
     - name: Install local Juju
       shell: bash
       run: |
-        make simplestreams
+        make simplestreams JUJU_BUILD_NUMBER=0
         rm $(which juju)
         rm $(which juju-metadata)
+
+    - name: Simplestreams
+      uses: Eun/http-server-action@v1.0.11
+      with:
+        directory: ${{ github.workspace }}/_build/simplestreams/tools
+
+    - name: Setup Environment
+      shell: bash
+      run: |
+        echo "JUJU_METADATA_SOURCE=" >> $GITHUB_ENV
+        curl -v "http://$(hostname -I | awk '{print $1}'):8080/streams/v1/index2.json"
 
     - name: Build snap
       shell: bash
@@ -89,4 +100,4 @@ jobs:
       run: |
         set -euxo pipefail
         mkdir -p ~/.ssh
-        juju bootstrap localhost --debug
+        juju bootstrap localhost --debug --config agent-metadata-url="http://$(hostname -I | awk '{print $1}'):8080/"

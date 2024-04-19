@@ -432,15 +432,6 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 	return senders
 }
 
-func (s *environSuite) startInstanceSendersNoSizes() azuretesting.Senders {
-	senders := azuretesting.Senders{}
-	if s.ubuntuServerSKUs != nil {
-		senders = append(senders, makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs))
-	}
-	senders = append(senders, makeSender("/deployments/juju-06f00d-0", s.deployment))
-	return senders
-}
-
 func (s *environSuite) networkInterfacesSender(nics ...*armnetwork.Interface) *azuretesting.MockSender {
 	return makeSender(".*/networkInterfaces", armnetwork.InterfaceListResult{Value: nics})
 }

@@ -101,38 +101,3 @@ func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
 	_, err = r.Next()
 	c.Assert(err, gc.Equals, io.EOF)
 }
-
-func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
-	dir := c.MkDir()
-	err := os.WriteFile(filepath.Join(dir, "juju"), []byte("some data"), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	err = os.WriteFile(filepath.Join(dir, "jujuc"), []byte(fakeBinary), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	err = os.WriteFile(filepath.Join(dir, "jujud"), []byte(fakeBinary), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	if versionFile != "" {
-		err = os.WriteFile(filepath.Join(dir, "jujud-versions.yaml"), []byte(versionFile), 0755)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	// Mock out args[0] so that copyExistingJujus can find our fake
-	// binary. Tricky - we need to copy the test binary into the
-	// directory so patching out exec can work.
-	oldArg0 := os.Args[0]
-	testBinary := filepath.Join(dir, "tst")
-	os.Args[0] = testBinary
-	err = os.Link(oldArg0, testBinary)
-	if _, ok := err.(*os.LinkError); ok {
-		// Soft link when cross device.
-		err = os.Symlink(oldArg0, testBinary)
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	b.AddCleanup(func(c *gc.C) {
-		os.Args[0] = oldArg0
-	})
-	return dir
-}
-
-const (
-	fakeBinary = "some binary content\n"
-)

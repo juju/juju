@@ -111,7 +111,7 @@ func ToGoArch(arch Arch) string {
 	if arch == PPC64EL {
 		return "ppc64le"
 	}
-	return string(arch)
+	return arch
 }
 
 // IsSupportedArch returns true if arch is one supported by Juju.

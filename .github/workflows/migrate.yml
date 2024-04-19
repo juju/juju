@@ -75,9 +75,14 @@ jobs:
           /snap/bin/juju set-model-constraints arch=$(go env GOARCH)
           /snap/bin/juju deploy ubuntu
 
+      - name: Setup Environment
+        shell: bash
+        run: |
+          echo "JUJU_METADATA_SOURCE=$HOME/snap/juju/common/simplestreams" >> $GITHUB_ENV
+
       - name: Install target juju client
         run: |
-          make go-install &>/dev/null
+          make simplestreams &>/dev/null
 
       - name: Bootstrap target controller
         run: |
