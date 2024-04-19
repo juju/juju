@@ -99,13 +99,13 @@ if [ ! -z "$authorized_keys" ]; then
     su ubuntu -c 'printf "%%s\n" "$authorized_keys" >> ~/.ssh/authorized_keys'
 fi`
 
-// DetectSeriesAndHardwareCharacteristics detects the OS
-// series and hardware characteristics of the remote machine
+// DetectBaseAndHardwareCharacteristics detects the OS
+// base and hardware characteristics of the remote machine
 // by connecting to the machine and executing a bash script.
-var DetectSeriesAndHardwareCharacteristics = detectSeriesAndHardwareCharacteristics
+var DetectBaseAndHardwareCharacteristics = detectBaseAndHardwareCharacteristics
 
-func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
-	logger.Infof("Detecting series and characteristics on %s", host)
+func detectBaseAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, base corebase.Base, err error) {
+	logger.Infof("Detecting base and characteristics on %s", host)
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -115,21 +115,26 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
 		}
-		return hc, "", err
+		return hc, base, err
 	}
 	lines := strings.Split(stdout.String(), "\n")
-	series = strings.TrimSpace(lines[0])
+	os := strings.TrimSpace(lines[0])
+	channel := strings.TrimSpace(lines[1])
+	base, err = corebase.ParseBase(os, channel)
+	if err != nil {
+		return hc, base, err
+	}
 
-	arch := arch.NormaliseArch(lines[1])
+	arch := arch.NormaliseArch(lines[2])
 	hc.Arch = &arch
 
 	// HardwareCharacteristics wants memory in megabytes,
 	// meminfo reports it in kilobytes.
-	memkB := strings.Fields(lines[2])[1] // "MemTotal: NNN kB"
+	memkB := strings.Fields(lines[3])[1] // "MemTotal: NNN kB"
 	hc.Mem = new(uint64)
 	*hc.Mem, err = strconv.ParseUint(memkB, 10, 0)
 	if err != nil {
-		return hc, "", errors.Annotatef(err, "parsing %q", lines[2])
+		return hc, base, errors.Annotatef(err, "parsing %q", lines[3])
 	}
 	*hc.Mem /= 1024
 
@@ -140,14 +145,14 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	var physicalId string
 	var processorEntries uint64
 	hc.CpuCores = new(uint64)
-	for _, line := range lines[3:] {
+	for _, line := range lines[4:] {
 		if strings.HasPrefix(line, "physical id") {
 			physicalId = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
 		} else if strings.HasPrefix(line, "cpu cores") {
 			var cores uint64
 			value := strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
 			if cores, err = strconv.ParseUint(value, 10, 0); err != nil {
-				return hc, "", err
+				return hc, base, err
 			}
 			if !recorded[physicalId] {
 				*hc.CpuCores += cores
@@ -164,8 +169,8 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	}
 
 	// TODO(axw) calculate CpuPower. What algorithm do we use?
-	logger.Infof("series: %s, characteristics: %s", series, hc)
-	return hc, series, nil
+	logger.Infof("base: %s, characteristics: %s", base, hc)
+	return hc, base, nil
 }
 
 // CheckProvisioned checks if any juju init service already
@@ -195,16 +200,11 @@ func checkProvisioned(host string) (bool, error) {
 }
 
 // detectionScript is the script to run on the remote machine to
-// detect the OS series and hardware characteristics.
+// detect the OS base and hardware characteristics.
 const detectionScript = `#!/bin/bash
 set -e
-os_id=$(grep '^ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
-if [ "$os_id" = 'centos' ]; then
-  os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
-  echo "centos$os_version"
-else
-  lsb_release -cs
-fi
+echo "$(grep '^ID=' /etc/os-release | tr -d '"' | cut -d= -f2)"
+echo "$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2)"
 uname -m
 grep MemTotal /proc/meminfo
 cat /proc/cpuinfo`
@@ -235,17 +235,13 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, manual.ErrProvisioned
 	}
 
-	hc, machineSeries, err := DetectSeriesAndHardwareCharacteristics(hostname)
+	hc, machineBase, err := DetectBaseAndHardwareCharacteristics(hostname)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
 	}
-	info, err := corebase.GetBaseFromSeries(machineSeries)
-	if err != nil {
-		return nil, errors.NotValidf("machine series %q", machineSeries)
-	}
 	base := &params.Base{
-		Name:    info.OS,
-		Channel: info.Channel.String(),
+		Name:    machineBase.OS,
+		Channel: machineBase.Channel.String(),
 	}
 
 	// There will never be a corresponding "instance" that any provider

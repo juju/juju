@@ -47,7 +47,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	var series = jujuversion.DefaultSupportedLTS()
+	base := jujuversion.DefaultSupportedLTSBase()
 	const arch = "amd64"
 
 	args := s.getArgs(c)
@@ -59,7 +59,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	envtools.DefaultBaseURL = ""
 
 	defer fakeSSH{
-		Series:             series,
+		Base:               base,
 		Arch:               arch,
 		InitUbuntuUser:     true,
 		SkipProvisionAgent: true,
@@ -84,7 +84,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
 		defer fakeSSH{
-			Series:                 series,
+			Base:                   base,
 			Arch:                   arch,
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
@@ -129,10 +129,10 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestFinishInstanceConfig(c *gc.C) {
-	var series = jujuversion.DefaultSupportedLTS()
+	base := jujuversion.DefaultSupportedLTSBase()
 	const arch = "amd64"
 	defer fakeSSH{
-		Series:         series,
+		Base:           base,
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
@@ -153,10 +153,10 @@ func (s *provisionerSuite) TestFinishInstanceConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
-	var series = jujuversion.DefaultSupportedLTS()
+	base := jujuversion.DefaultSupportedLTSBase()
 	const arch = "amd64"
 	defer fakeSSH{
-		Series:         series,
+		Base:           base,
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.install(c).Restore()

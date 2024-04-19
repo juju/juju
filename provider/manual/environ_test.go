@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -149,12 +150,12 @@ exit 0
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
-	s.PatchValue(&sshprovisioner.DetectSeriesAndHardwareCharacteristics,
-		func(string) (instance.HardwareCharacteristics, string, error) {
+	s.PatchValue(&sshprovisioner.DetectBaseAndHardwareCharacteristics,
+		func(string) (instance.HardwareCharacteristics, base.Base, error) {
 			amd64 := "amd64"
 			return instance.HardwareCharacteristics{
 				Arch: &amd64,
-			}, "", nil
+			}, base.Base{}, nil
 		},
 	)
 

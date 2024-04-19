@@ -1350,7 +1350,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestTargetSeriesOverride(c *gc.C) {
-	env := newBootstrapEnvironWithHardwareDetection("foo", "artful", "amd64", useDefaultKeys, nil)
+	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@17.10"), "amd64", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
@@ -1363,7 +1363,7 @@ func (s *bootstrapSuite) TestTargetSeriesOverride(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
-	env := newBootstrapEnvironWithHardwareDetection("foo", "bionic", "riscv", useDefaultKeys, nil)
+	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@18.04"), "riscv", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
@@ -1394,7 +1394,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
-	env := newBootstrapEnvironWithHardwareDetection("foo", "haiku", "riscv", useDefaultKeys, nil)
+	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@17.04"), "riscv", useDefaultKeys, nil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
@@ -1551,11 +1551,11 @@ func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator(envcontext
 type bootstrapEnvironWithHardwareDetection struct {
 	*bootstrapEnviron
 
-	detectedSeries string
-	detectedHW     *instance.HardwareCharacteristics
+	detectedBase corebase.Base
+	detectedHW   *instance.HardwareCharacteristics
 }
 
-func newBootstrapEnvironWithHardwareDetection(name, detectedSeries, detectedArch string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnvironWithHardwareDetection {
+func newBootstrapEnvironWithHardwareDetection(name string, detectedBase corebase.Base, detectedArch string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnvironWithHardwareDetection {
 	var hw = new(instance.HardwareCharacteristics)
 	if detectedArch != "" {
 		hw.Arch = &detectedArch
@@ -1563,13 +1563,13 @@ func newBootstrapEnvironWithHardwareDetection(name, detectedSeries, detectedArch
 
 	return &bootstrapEnvironWithHardwareDetection{
 		bootstrapEnviron: newEnviron(name, defaultKeys, extraAttrs),
-		detectedSeries:   detectedSeries,
+		detectedBase:     detectedBase,
 		detectedHW:       hw,
 	}
 }
 
-func (e bootstrapEnvironWithHardwareDetection) DetectSeries() (string, error) {
-	return e.detectedSeries, nil
+func (e bootstrapEnvironWithHardwareDetection) DetectBase() (corebase.Base, error) {
+	return e.detectedBase, nil
 }
 func (e bootstrapEnvironWithHardwareDetection) DetectHardware() (*instance.HardwareCharacteristics, error) {
 	return e.detectedHW, nil

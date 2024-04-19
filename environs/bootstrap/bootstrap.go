@@ -352,7 +352,7 @@ func bootstrapIAAS(
 	// characteristics of the instance we are about to bootstrap, use this
 	// information to backfill in any missing series and/or arch contstraints.
 	if detector, supported := environ.(environs.HardwareCharacteristicsDetector); supported {
-		detectedSeries, err := detector.DetectSeries()
+		detectedBase, err := detector.DetectBase()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -361,12 +361,8 @@ func bootstrapIAAS(
 			return errors.Trace(err)
 		}
 
-		if args.BootstrapBase.Empty() && detectedSeries != "" {
-			base, err := corebase.GetBaseFromSeries(detectedSeries)
-			if err != nil {
-				base = jujuversion.DefaultSupportedLTSBase()
-			}
-			args.BootstrapBase = base
+		if args.BootstrapBase.Empty() && !detectedBase.Empty() {
+			args.BootstrapBase = detectedBase
 			logger.Debugf("auto-selecting bootstrap series %q", args.BootstrapBase.String())
 		}
 		if args.BootstrapConstraints.Arch == nil &&

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
@@ -460,9 +461,9 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 	return report(nil)
 }
 
-// DetectSeries is a no-op for lxd, must return an empty string.
-func (env *environ) DetectSeries() (string, error) {
-	return "", nil
+// DetectBase is a no-op for lxd, must return an empty string.
+func (env *environ) DetectBase() (base.Base, error) {
+	return base.Base{}, nil
 }
 
 // DetectHardware returns the hardware characteristics for the controller for
