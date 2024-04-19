@@ -234,8 +234,8 @@ type dummyModelLogger struct {
 	corelogger.ModelLogger
 }
 
-func (dummyModelLogger) GetLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
-	return stubLogger{}, nil
+func (dummyModelLogger) GetLogger(modelUUID string) corelogger.LoggerCloser {
+	return stubLogger{}
 }
 
 func (s *suite) startModelWorker(config modelworkermanager.NewModelConfig) (worker.Worker, error) {

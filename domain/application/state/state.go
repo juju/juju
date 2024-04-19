@@ -332,27 +332,3 @@ func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domains
 	}
 	return storagestate.GetStoragePoolByName(ctx, db, name)
 }
-
-func (st *State) StatusHistoryModelNameAndOwner(ctx context.Context) (string, string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-
-	stmt, err := st.Prepare(`SELECT &ModelNameOwner.* FROM model`, ModelNameOwner{})
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-
-	var modelNameOwner ModelNameOwner
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt).Get(&modelNameOwner)
-	})
-	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return "", "", errors.New("model not found")
-		}
-		return "", "", errors.Trace(err)
-	}
-	return modelNameOwner.Name, modelNameOwner.Owner, nil
-}

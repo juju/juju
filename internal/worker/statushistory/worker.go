@@ -63,16 +63,12 @@ func (w *statusHistoryWorker) Wait() error {
 
 // StatusHistorySetterForModel returns a status history setter for a given
 // model.
-func (w *statusHistoryWorker) StatusHistorySetterForModel(modelUUID, modelName, modelOwner string) (status.StatusHistorySetter, error) {
-	logger, err := w.modelLogger.GetLogger(modelUUID, modelName, modelOwner)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (w *statusHistoryWorker) StatusHistorySetterForModel(modelUUID string) status.StatusHistorySetter {
 	return &statusHistorySetter{
-		logger:    logger,
+		logger:    w.modelLogger.GetLogger(modelUUID),
 		clock:     w.clock,
 		modelUUID: modelUUID,
-	}, nil
+	}
 }
 
 func (w *statusHistoryWorker) loop() error {

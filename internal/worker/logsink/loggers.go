@@ -15,6 +15,12 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 )
 
+const (
+	// fallbackLoggerName is the name of the fallback logger, in case the model
+	// logger has not been created yet.
+	fallbackLoggerName = "fallback-logger"
+)
+
 type bufferedLoggerCloser struct {
 	*corelogger.BufferedLogger
 	closer io.Closer
@@ -35,13 +41,18 @@ func NewModelLogger(
 	flushInterval time.Duration,
 	clock clock.Clock,
 ) corelogger.ModelLogger {
-	return &modelLogger{
+	modelLogger := &modelLogger{
 		clock:               clock,
 		loggerBufferSize:    bufferSize,
 		loggerFlushInterval: flushInterval,
 		loggerForModel:      loggerForModelFunc,
 		modelLoggers:        make(map[string]corelogger.LoggerCloser),
 	}
+
+	// Create the fallback logger for models that have not been initialized yet.
+	modelLogger.initLogger(fallbackLoggerName, "fallback", "admin")
+
+	return modelLogger
 }
 
 type modelLogger struct {
@@ -55,34 +66,30 @@ type modelLogger struct {
 	loggerForModel corelogger.LoggerForModelFunc
 }
 
-// GetLogger implements ModelLogger.
-func (d *modelLogger) GetLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
+// InitLogger creates a new logger for the given model, with the model name
+// and owner.
+func (d *modelLogger) InitLogger(modelUUID, modelName, modelOwner string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if l, ok := d.modelLoggers[modelUUID]; ok {
-		return l, nil
-	}
 
-	modelPrefix := corelogger.ModelFilePrefix(modelOwner, modelName)
-	l, err := d.loggerForModel(modelUUID, modelPrefix)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting logger for model %q (%s)", modelPrefix, modelUUID)
-	}
-
-	bufferedLogger := &bufferedLoggerCloser{
-		BufferedLogger: corelogger.NewBufferedLogger(
-			l,
-			d.loggerBufferSize,
-			d.loggerFlushInterval,
-			d.clock,
-		),
-		closer: l,
-	}
-	d.modelLoggers[modelUUID] = bufferedLogger
-	return bufferedLogger, nil
+	return d.initLogger(modelUUID, modelName, modelOwner)
 }
 
-// RemoveLogger implements ModelLogger.
+// GetLogger returns a logger for a given model and keeps track of it.
+func (d *modelLogger) GetLogger(modelUUID string) corelogger.LoggerCloser {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if l, ok := d.modelLoggers[modelUUID]; ok {
+		return l
+	}
+
+	// The fallback logger is used if the logger for the model has not been
+	// initialized yet.
+	return d.modelLoggers[fallbackLoggerName]
+}
+
+// RemoveLogger the logger, cleans up the logger and stops tracking it.
 func (d *modelLogger) RemoveLogger(modelUUID string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -109,4 +116,30 @@ func (d *modelLogger) Close() error {
 		return nil
 	}
 	return errors.Errorf("errors closing loggers: %v", strings.Join(errs, "\n"))
+}
+
+func (d *modelLogger) initLogger(modelUUID, modelName, modelOwner string) error {
+	// If we've already created a logger for this model, return an error.
+	if _, ok := d.modelLoggers[modelUUID]; ok {
+		return errors.AlreadyExistsf("logger for model %q", modelUUID)
+	}
+
+	modelPrefix := corelogger.ModelFilePrefix(modelOwner, modelName)
+	l, err := d.loggerForModel(modelUUID, modelPrefix)
+	if err != nil {
+		return errors.Annotatef(err, "getting logger for model %q (%s)", modelPrefix, modelUUID)
+	}
+
+	bufferedLogger := &bufferedLoggerCloser{
+		BufferedLogger: corelogger.NewBufferedLogger(
+			l,
+			d.loggerBufferSize,
+			d.loggerFlushInterval,
+			d.clock,
+		),
+		closer: l,
+	}
+
+	d.modelLoggers[modelUUID] = bufferedLogger
+	return nil
 }

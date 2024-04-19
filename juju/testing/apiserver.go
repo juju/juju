@@ -751,8 +751,12 @@ func (noopLogger) Close() error { return nil }
 
 type noopLogSink struct{}
 
-func (s noopLogSink) GetLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
-	return &noopLogger{}, nil
+func (s noopLogSink) InitLogger(modelUUID, modelName, modelOwner string) error {
+	return nil
+}
+
+func (s noopLogSink) GetLogger(modelUUID string) corelogger.LoggerCloser {
+	return &noopLogger{}
 }
 
 func (s noopLogSink) RemoveLogger(modelUUID string) error {
