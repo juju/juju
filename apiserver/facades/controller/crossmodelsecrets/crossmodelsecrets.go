@@ -6,6 +6,7 @@ package crossmodelsecrets
 import (
 	stdcontext "context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -18,6 +19,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -263,8 +265,13 @@ func (s *CrossModelSecretsAPI) canRead(ctx stdcontext.Context, secretService Sec
 	}
 
 	appName, _ := names.UnitApplication(unit.Id())
+	k := secretservice.ApplicationAccessor
+	// Remote apps need a different accessor kind.
+	if strings.HasPrefix(appName, "remote-") {
+		k = secretservice.RemoteApplicationAccessor
+	}
 	hasRole, _ = secretService.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
-		Kind: secretservice.ApplicationAccessor,
+		Kind: k,
 		ID:   appName,
 	})
 	return hasRole.Allowed(coresecrets.RoleView)
@@ -288,12 +295,17 @@ func (s *CrossModelSecretsAPI) accessScope(ctx stdcontext.Context, secretService
 		Kind: secretservice.UnitAccessor,
 		ID:   unit.Id(),
 	})
-	if err == nil || !errors.Is(err, errors.NotFound) {
+	if err == nil || !errors.Is(err, secreterrors.SecretAccessScopeNotFound) {
 		return tagFromAccessScope(scope), errors.Trace(err)
 	}
 	appName, _ := names.UnitApplication(unit.Id())
+	k := secretservice.ApplicationAccessor
+	// Remote apps need a different accessor kind.
+	if strings.HasPrefix(appName, "remote-") {
+		k = secretservice.RemoteApplicationAccessor
+	}
 	scope, err = secretService.GetSecretAccessScope(ctx, uri, secretservice.SecretAccessor{
-		Kind: secretservice.ApplicationAccessor,
+		Kind: k,
 		ID:   appName,
 	})
 	return tagFromAccessScope(scope), errors.Trace(err)

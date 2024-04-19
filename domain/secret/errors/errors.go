@@ -28,4 +28,12 @@ const (
 
 	// AutoPruneNotSupported describes an error that occurs when a charm secret tries to set auto prune on a secret.
 	AutoPruneNotSupported = errors.ConstError("charm secrets do not support auto prune")
+
+	// InvalidSecretPermissionChange describes an error that occurs when an attempt is made to update a secret permission
+	// and the scope or subject type is changed.
+	InvalidSecretPermissionChange = errors.ConstError("cannot change a secret permission scope or subject type")
+
+	// SecretAccessScopeNotFound describes an error that occurs when the secret access scope
+	// being operated on does not exist.
+	SecretAccessScopeNotFound = errors.ConstError("secret access scope not found")
 )

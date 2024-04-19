@@ -43,6 +43,9 @@ type State interface {
 	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
 	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
+	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error
+	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
+	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -146,7 +149,6 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 		return errors.Errorf("secret with label %q is already being used", *params.Label)
 	}
 	return errors.Annotatef(err, "creating charm secret %q", uri.ID)
-	// also grant manage access to owner
 }
 
 // UpdateSecret creates a secret with the specified parameters, returning an error
