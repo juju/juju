@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	. "github.com/juju/juju/domain/query"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -96,16 +97,11 @@ WHERE  ctrl.uuid = (
     WHERE  model.uuid = $M.model
 )`
 
-	s, err := st.Prepare(q, Controller{}, sqlair.M{})
-	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q", q)
-	}
-
 	var resultControllerInfos Controllers
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, modelUUID := range modelUUIDs {
-			var rows Controllers
-			err := tx.Query(ctx, s, sqlair.M{"model": modelUUID}).GetAll(&rows)
+			var rows []Controller
+			err := st.Query(ctx, tx, q, In(sqlair.M{"model": modelUUID}), OutM(&rows))
 			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Trace(domain.CoerceError(err))
 			}

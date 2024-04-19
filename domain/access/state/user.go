@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	. "github.com/juju/juju/domain/query"
 	"github.com/juju/juju/internal/auth"
 	internaldatabase "github.com/juju/juju/internal/database"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -234,30 +235,20 @@ func (st *UserState) GetUserByName(ctx context.Context, name string) (user.User,
 		return user.User{}, errors.Annotate(err, "getting DB access")
 	}
 
-	uName := userName{Name: name}
-
-	var usr user.User
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getUserByNameQuery := `
+	q := `
 SELECT (uuid, name, display_name, created_by_uuid, created_at, last_login, disabled) AS (&dbUser.*)
 FROM   v_user_auth
 WHERE  name = $userName.name
 AND    removed = false`
 
-		selectGetUserByNameStmt, err := st.Prepare(getUserByNameQuery, dbUser{}, uName)
-		if err != nil {
-			return errors.Annotate(err, "preparing select getUserByName query")
-		}
-
-		var result dbUser
-		err = tx.Query(ctx, selectGetUserByNameStmt, uName).Get(&result)
+	var result dbUser
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.QueryRow(ctx, tx, q, In(userName{Name: name}), Out(&result))
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.UserNotFound, "%q", name)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting user with name %q", name)
 		}
-
-		usr = result.toCoreUser()
 
 		return nil
 	})
@@ -265,7 +256,7 @@ AND    removed = false`
 		return user.User{}, errors.Annotatef(err, "getting user with name %q", name)
 	}
 
-	return usr, nil
+	return result.toCoreUser(), nil
 }
 
 // GetUserByAuth will retrieve the user with checking authentication

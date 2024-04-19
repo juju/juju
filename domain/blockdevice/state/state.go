@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	. "github.com/juju/juju/domain/query"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -163,13 +164,9 @@ func (st *State) updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineU
 		return nil
 	}
 
-	fsTypeQuery := `SELECT * AS &FilesystemType.* FROM filesystem_type`
-	fsTypeStmt, err := st.Prepare(fsTypeQuery, FilesystemType{})
-	if err != nil {
-		return errors.Trace(err)
-	}
 	var fsTypes []FilesystemType
-	if err := tx.Query(ctx, fsTypeStmt).GetAll(&fsTypes); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	err := st.Query(ctx, tx, "SELECT * AS &FilesystemType.* FROM filesystem_type", OutM(&fsTypes))
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Trace(err)
 	}
 	fsTypeByName := make(map[string]int)
@@ -177,40 +174,8 @@ func (st *State) updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineU
 		fsTypeByName[fsType.Name] = fsType.ID
 	}
 
-	insertQuery := `
-INSERT INTO block_device (uuid, machine_uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, size_mib, filesystem_type_id, in_use)
-VALUES (
-    $BlockDevice.uuid,
-    $BlockDevice.machine_uuid,
-    $BlockDevice.name,
-    $BlockDevice.label,
-    $BlockDevice.device_uuid,
-    $BlockDevice.hardware_id,
-    $BlockDevice.wwn,
-    $BlockDevice.bus_address,
-    $BlockDevice.serial_id,
-    $BlockDevice.mount_point,
-    $BlockDevice.size_mib,
-    $BlockDevice.filesystem_type_id,
-    $BlockDevice.in_use
-)
-`
-	insertStmt, err := st.Prepare(insertQuery, BlockDevice{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	insertLinkQuery := `
-INSERT INTO block_device_link_device (block_device_uuid, name)
-VALUES (
-    $DeviceLink.block_device_uuid,
-    $DeviceLink.name
-)
-`
-	insertLinkStmt, err := st.Prepare(insertLinkQuery, DeviceLink{})
-	if err != nil {
-		return errors.Trace(err)
-	}
+	insertDML := "INSERT INTO block_device (*) VALUES ($BlockDevice.*)"
+	insertLinkDML := "INSERT INTO block_device_link_device (*) VALUES ($DeviceLink.*)"
 
 	blockDevicesByUUID := make(map[uuid.UUID]blockdevice.BlockDevice, len(devices))
 	for _, bd := range devices {
@@ -238,7 +203,7 @@ VALUES (
 			FilesystemType: fsTypeID,
 			InUse:          bd.InUse,
 		}
-		if err := tx.Query(ctx, insertStmt, dbBlockDevice).Run(); err != nil {
+		if _, err := st.Exec(ctx, tx, insertDML, In(dbBlockDevice)); err != nil {
 			return errors.Annotate(err, "inserting block devices")
 		}
 
@@ -247,7 +212,7 @@ VALUES (
 				ParentUUID: id.String(),
 				Name:       link,
 			}
-			if err := tx.Query(ctx, insertLinkStmt, dbDeviceLink).Run(); err != nil {
+			if _, err := st.Exec(ctx, tx, insertLinkDML, In(dbDeviceLink)); err != nil {
 				return errors.Annotate(err, "inserting block device links")
 			}
 		}
@@ -290,41 +255,37 @@ SELECT bd.* AS &BlockDevice.*,
 FROM   block_device bd
        JOIN machine ON bd.machine_uuid = machine.uuid
        LEFT JOIN block_device_link_device bdl ON bd.uuid = bdl.block_device_uuid
-       LEFT JOIN filesystem_type fs_type ON bd.filesystem_type_id = fs_type.id
-`
-
-	types := []any{
-		BlockDevice{},
-		FilesystemType{},
-		DeviceLink{},
-		BlockDeviceMachine{},
-	}
-
-	stmt, err := st.Prepare(query, types...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+       LEFT JOIN filesystem_type fs_type ON bd.filesystem_type_id = fs_type.id`
 
 	var (
-		blockDevices []blockdevice.BlockDevice
-		machines     []string
+		dbRows            []BlockDevice
+		dbDeviceLinks     []DeviceLink
+		dbFilesystemTypes []FilesystemType
+		dbMachines        []BlockDeviceMachine
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var (
-			dbRows            BlockDevices
-			dbDeviceLinks     []DeviceLink
-			dbFilesystemTypes []FilesystemType
-			dbMachines        []BlockDeviceMachine
-		)
-		if err := tx.Query(ctx, stmt).GetAll(&dbRows, &dbDeviceLinks, &dbFilesystemTypes, &dbMachines); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotate(err, "loading block devices")
+		err := st.Query(ctx, tx, query,
+			OutM(&dbRows),
+			OutM(&dbDeviceLinks),
+			OutM(&dbFilesystemTypes),
+			OutM(&dbMachines))
+		if err != nil {
+			if !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Annotate(err, "loading block devices")
+			}
 		}
-		blockDevices, machines, err = dbRows.toBlockDevicesAndMachines(dbDeviceLinks, dbFilesystemTypes, dbMachines)
-		return errors.Trace(err)
+		return nil
+
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	blockDevices, machines, err := BlockDevices(dbRows).toBlockDevicesAndMachines(dbDeviceLinks, dbFilesystemTypes, dbMachines)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	result := make([]blockdevice.MachineBlockDevice, len(blockDevices))
 	for i, bd := range blockDevices {
 		result[i] = blockdevice.MachineBlockDevice{
@@ -381,16 +342,16 @@ WHERE machine_uuid = $M.machine_uuid
 	return nil
 }
 
+type getWatcherFunc = func(
+	namespace, changeValue string,
+	changeMask changestream.ChangeType,
+	predicate eventsource.Predicate,
+) (watcher.NotifyWatcher, error)
+
 // WatchBlockDevices returns a new NotifyWatcher watching for
 // changes to block devices associated with the specified machine.
 func (st *State) WatchBlockDevices(
-	ctx context.Context,
-	getWatcher func(
-		namespace, changeValue string,
-		changeMask changestream.ChangeType,
-		predicate eventsource.Predicate,
-	) (watcher.NotifyWatcher, error),
-	machineId string,
+	ctx context.Context, getWatcher getWatcherFunc, machineId string,
 ) (watcher.NotifyWatcher, error) {
 	db, err := st.DB()
 	if err != nil {

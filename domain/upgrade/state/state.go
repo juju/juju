@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/domain"
+	. "github.com/juju/juju/domain/query"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -225,21 +226,18 @@ UPDATE upgrade_info
 SET state_type_id = $M.to_state 
 WHERE uuid = $M.info_uuid
 AND state_type_id = $M.from_state;`
-	completedDBUpgradeStmt, err := st.Prepare(q, sqlair.M{})
-	if err != nil {
-		return errors.Annotatef(err, "preparing %q", q)
-	}
 
 	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var outcome sqlair.Outcome
-		if err = tx.Query(ctx, completedDBUpgradeStmt, sqlair.M{
+		in := sqlair.M{
 			"info_uuid":  upgradeUUID,
 			"from_state": upgrade.Started,
 			"to_state":   upgrade.DBCompleted,
-		}).Get(&outcome); err != nil {
+		}
+		res, err := st.Exec(ctx, tx, q, In(in))
+		if err != nil {
 			return errors.Trace(err)
 		}
-		if num, err := outcome.Result().RowsAffected(); err != nil {
+		if num, err := res.RowsAffected(); err != nil {
 			return errors.Trace(err)
 		} else if num != 1 {
 			return errors.Errorf("expected to set db upgrade completed, but %d rows were affected", num)
