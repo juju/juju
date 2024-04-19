@@ -918,13 +918,20 @@ func insertPermission(ctx context.Context, tx *sqlair.TX, ownerName, cloudName s
 		return nil
 	}
 	newPermission := `
-INSERT INTO permission (uuid, permission_type_id, grant_to, grant_on)
-SELECT $dbAddUserPermission.uuid, t.id, u.uuid, $dbAddUserPermission.grant_on
-FROM   v_user_auth u, permission_access_type t
+INSERT INTO permission (uuid, access_type_id, object_type_id, grant_to, grant_on)
+SELECT $dbAddUserPermission.uuid,
+       at.id,
+       ot.id,
+       u.uuid,
+       $dbAddUserPermission.grant_on
+FROM   v_user_auth u,
+       permission_access_type at,
+       permission_object_type ot
 WHERE  u.name = $dbAddUserPermission.name
 AND    u.disabled = false
 AND    u.removed = false
-AND    t.type = $dbAddUserPermission.access
+AND    at.type = $dbAddUserPermission.access_type
+AND    ot.type = $dbAddUserPermission.object_type
 `
 	insertPermissionStmt, err := sqlair.Prepare(newPermission, dbAddUserPermission{})
 	if err != nil {
@@ -936,10 +943,11 @@ AND    t.type = $dbAddUserPermission.access
 		return errors.Trace(err)
 	}
 	perm := dbAddUserPermission{
-		UUID:    permUUID.String(),
-		GrantOn: cloudName,
-		Name:    ownerName,
-		Access:  string(permission.AdminAccess),
+		UUID:       permUUID.String(),
+		GrantOn:    cloudName,
+		Name:       ownerName,
+		AccessType: string(permission.AdminAccess),
+		ObjectType: string(permission.Cloud),
 	}
 
 	err = tx.Query(ctx, insertPermissionStmt, perm).Run()
