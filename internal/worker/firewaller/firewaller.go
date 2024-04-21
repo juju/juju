@@ -407,6 +407,7 @@ func (fw *Firewaller) subnetsChanged(ctx context.Context) error {
 		return nil // nothing to do
 	}
 
+	fw.logger.Debugf("updating %d units after changes in subnets", len(unitds))
 	if err := fw.flushUnits(ctx, unitds); err != nil {
 		return errors.Annotate(err, "cannot update unit ingress rules")
 	}

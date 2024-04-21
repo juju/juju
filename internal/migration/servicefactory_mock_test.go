@@ -338,10 +338,10 @@ func (mr *MockServiceFactoryMockRecorder) ModelInfo() *gomock.Call {
 }
 
 // Network mocks base method.
-func (m *MockServiceFactory) Network() *service14.ProviderService {
+func (m *MockServiceFactory) Network() *service14.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Network")
-	ret0, _ := ret[0].(*service14.ProviderService)
+	ret0, _ := ret[0].(*service14.WatchableService)
 	return ret0
 }
 

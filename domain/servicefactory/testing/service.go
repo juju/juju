@@ -122,7 +122,7 @@ func (s *TestingServiceFactory) Machine() *machineservice.Service {
 }
 
 // Network returns the network service.
-func (s *TestingServiceFactory) Network() *networkservice.ProviderService {
+func (s *TestingServiceFactory) Network() *networkservice.WatchableService {
 	return nil
 }
 

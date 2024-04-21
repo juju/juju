@@ -120,10 +120,11 @@ func (s *ModelFactory) Unit() *unitservice.Service {
 }
 
 // Network returns the model's network service.
-func (s *ModelFactory) Network() *networkservice.ProviderService {
-	return networkservice.NewProviderService(
+func (s *ModelFactory) Network() *networkservice.WatchableService {
+	return networkservice.NewWatchableService(
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("network.state")),
 		providertracker.ProviderRunner[networkservice.Provider](s.providerFactory, s.modelUUID.String()),
+		domain.NewWatcherFactory(s.modelDB, s.logger.Child("network.watcherfactory")),
 		s.logger.Child("network.service"),
 	)
 }

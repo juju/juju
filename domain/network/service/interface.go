@@ -6,7 +6,11 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/environs"
 )
 
@@ -14,6 +18,13 @@ import (
 // interact with the underlying provider.
 type Provider interface {
 	environs.Networking
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceMapperWatcher returns a new namespace watcher
+	// for events based on the input change mask and mapper.
+	NewNamespaceMapperWatcher(namespace string, changeMask changestream.ChangeType, initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper) (watcher.StringsWatcher, error)
 }
 
 // State describes retrieval and persistence methods needed for the network
@@ -60,6 +71,12 @@ type SubnetState interface {
 	// UpsertSubnets updates or adds each one of the provided subnets in one
 	// transaction.
 	UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error
+	// AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
+	// subnet table, needed for the subnets watcher.
+	AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error)
+	// AllAssociatedSubnetsQuery returns the SQL query that finds all associated
+	// subnet UUIDs from the subnet_association table, needed for the subnets watcher.
+	AllAssociatedSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error)
 }
 
 // Logger facilitates emitting log messages.
