@@ -56,14 +56,10 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
 		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
 		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
-		changeLogTriggersForTableOnColumn(
-			"secret_metadata", "secret_id", "auto_prune", tableSecretAutoPrune),
-		changeLogTriggersForTableOnColumn(
-			"secret_rotation", "secret_id", "next_rotation_time", tableSecretRotation),
-		changeLogTriggersForTableOnColumn(
-			"secret_revision", "uuid", "obsolete", tableSecretRevisionObsolete),
-		changeLogTriggersForTableOnColumn(
-			"secret_revision_expire", "revision_uuid", "expire_time", tableSecretRevisionExpire),
+		changeLogTriggersForTable("secret_rotation", "secret_id", tableSecretRotation),
+		changeLogTriggersForTable("secret_revision", "uuid", tableSecretRevisionObsolete),
+		changeLogTriggersForTable("secret_revision_expire", "revision_uuid", tableSecretRevisionExpire),
+		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretAutoPrune),
 
 		triggersForImmutableTable("model", "", "model table is immutable"),
 

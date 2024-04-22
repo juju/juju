@@ -1117,10 +1117,9 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(secrets) - uncomment when watcher is implemented
-	//if err := w.catacomb.Add(obsoleteRevisionsWatcher); err != nil {
-	//	return errors.Trace(err)
-	//}
+	if err := w.catacomb.Add(obsoleteRevisionsWatcher); err != nil {
+		return errors.Trace(err)
+	}
 	w.obsoleteRevisionWatcher = obsoleteRevisionsWatcher
 	w.obsoleteRevisionChanges = obsoleteRevisionsWatcher.Changes()
 
