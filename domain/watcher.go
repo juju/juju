@@ -49,7 +49,10 @@ func (f *WatcherFactory) NewNamespaceWatcher(
 		return nil, errors.Annotate(err, "creating base watcher")
 	}
 
-	return eventsource.NewNamespaceWatcher(base, namespace, changeMask, initialStateQuery), nil
+	return eventsource.NewNamespaceWatcher(
+		base, namespace, changeMask,
+		eventsource.InitialNamespaceChanges(initialStateQuery),
+	), nil
 }
 
 // NewNamespacePredicateWatcher returns a new namespace watcher
@@ -63,7 +66,11 @@ func (f *WatcherFactory) NewNamespacePredicateWatcher(
 		return nil, errors.Annotate(err, "creating base watcher")
 	}
 
-	return eventsource.NewNamespacePredicateWatcher(base, namespace, changeMask, initialStateQuery, predicate), nil
+	return eventsource.NewNamespacePredicateWatcher(
+		base, namespace, changeMask,
+		eventsource.InitialNamespaceChanges(initialStateQuery),
+		predicate,
+	), nil
 }
 
 // NewValueWatcher returns a watcher for a particular change value

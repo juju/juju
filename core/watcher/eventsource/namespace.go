@@ -12,8 +12,13 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher"
 )
+
+// NamespaceQuery is a function that returns the initial state of a
+// namespace watcher.
+type NamespaceQuery Query[[]string]
 
 // NamespaceWatcher watches for changes in a namespace.
 // Any time events matching the change mask occur in the namespace,
@@ -25,9 +30,9 @@ type NamespaceWatcher struct {
 
 	// TODO (manadart 2023-05-24): Consider making this plural (composite key)
 	// if/when it is supported by the change log table structure and stream.
-	namespace  string
-	selectAll  string
-	changeMask changestream.ChangeType
+	namespace    string
+	initialQuery NamespaceQuery
+	changeMask   changestream.ChangeType
 
 	predicate Predicate
 }
@@ -36,15 +41,15 @@ type NamespaceWatcher struct {
 // input base watcher's db/queue when changes in the namespace occur.
 func NewNamespaceWatcher(
 	base *BaseWatcher, namespace string,
-	changeMask changestream.ChangeType, initialStateQuery string,
+	changeMask changestream.ChangeType, initialQuery NamespaceQuery,
 ) watcher.StringsWatcher {
 	w := &NamespaceWatcher{
-		BaseWatcher: base,
-		out:         make(chan []string),
-		namespace:   namespace,
-		selectAll:   initialStateQuery,
-		changeMask:  changeMask,
-		predicate:   defaultPredicate,
+		BaseWatcher:  base,
+		out:          make(chan []string),
+		namespace:    namespace,
+		initialQuery: initialQuery,
+		changeMask:   changeMask,
+		predicate:    defaultPredicate,
 	}
 
 	w.tomb.Go(w.loop)
@@ -55,16 +60,16 @@ func NewNamespaceWatcher(
 // from the input base watcher's db/queue when changes in the namespace occur.
 func NewNamespacePredicateWatcher(
 	base *BaseWatcher, namespace string,
-	changeMask changestream.ChangeType, initialStateQuery string,
+	changeMask changestream.ChangeType, initialQuery NamespaceQuery,
 	predicate Predicate,
 ) watcher.StringsWatcher {
 	w := &NamespaceWatcher{
-		BaseWatcher: base,
-		out:         make(chan []string),
-		namespace:   namespace,
-		selectAll:   initialStateQuery,
-		changeMask:  changeMask,
-		predicate:   predicate,
+		BaseWatcher:  base,
+		out:          make(chan []string),
+		namespace:    namespace,
+		initialQuery: initialQuery,
+		changeMask:   changeMask,
+		predicate:    predicate,
 	}
 
 	w.tomb.Go(w.loop)
@@ -89,7 +94,9 @@ func (w *NamespaceWatcher) loop() error {
 	}
 	defer subscription.Unsubscribe()
 
-	changes, err := w.getInitialState()
+	ctx := w.tomb.Context(context.Background())
+
+	changes, err := w.initialQuery(ctx, w.watchableDB)
 	if err != nil {
 		return errors.Annotatef(
 			err, "retrieving initial watcher state for namespace %q", w.namespace)
@@ -107,9 +114,6 @@ func (w *NamespaceWatcher) loop() error {
 	// namespace watchers are __required__ to send the initial state. The API
 	// design for watchers when they subscribe is that they must send the
 	// initial state, and then optional deltas thereafter.
-
-	// Cache the context so we don't have to call it on every iteration.
-	ctx := w.tomb.Context(context.Background())
 
 	for {
 		select {
@@ -145,37 +149,38 @@ func (w *NamespaceWatcher) loop() error {
 	}
 }
 
-// getInitialState retrieves the current state of the world from the database,
-// as it concerns this watcher. It must be called after we are subscribed.
-// Note that killing the worker via its tomb cancels the context used here.
-func (w *NamespaceWatcher) getInitialState() ([]string, error) {
-	parentCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+// InitialNamespaceChanges retrieves the current state of the world from the
+// database, as it concerns this watcher.
+func InitialNamespaceChanges(selectAll string) NamespaceQuery {
+	return func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
 
-	var keys []string
-	err := w.watchableDB.StdTxn(w.tomb.Context(parentCtx), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, w.selectAll)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil
-			}
-			return errors.Trace(err)
-		}
-		defer func() { _ = rows.Close() }()
-
-		for i := 0; rows.Next(); i++ {
-			var key string
-			if err := rows.Scan(&key); err != nil {
+		var keys []string
+		err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			rows, err := tx.QueryContext(ctx, selectAll)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil
+				}
 				return errors.Trace(err)
 			}
-			keys = append(keys, key)
-		}
+			defer func() { _ = rows.Close() }()
 
-		if err := rows.Err(); err != nil {
-			return errors.Trace(err)
-		}
-		return errors.Trace(rows.Close())
-	})
+			for i := 0; rows.Next(); i++ {
+				var key string
+				if err := rows.Scan(&key); err != nil {
+					return errors.Trace(err)
+				}
+				keys = append(keys, key)
+			}
 
-	return keys, errors.Trace(err)
+			if err := rows.Err(); err != nil {
+				return errors.Trace(err)
+			}
+			return errors.Trace(rows.Close())
+		})
+
+		return keys, errors.Trace(err)
+	}
 }
