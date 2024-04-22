@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 )
@@ -59,7 +59,7 @@ type UserdataConfig interface {
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect icfg and conf better.
-	operatingSystem := os.OSTypeForName(icfg.Base.OS)
+	operatingSystem := ostype.OSTypeForName(icfg.Base.OS)
 	base := baseConfigure{
 		tag:  names.NewMachineTag(icfg.MachineId),
 		icfg: icfg,
@@ -68,9 +68,9 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	}
 
 	switch operatingSystem {
-	case os.Ubuntu:
+	case ostype.Ubuntu:
 		return &unixConfigure{base}, nil
-	case os.CentOS:
+	case ostype.CentOS:
 		return &unixConfigure{base}, nil
 	default:
 		return nil, errors.NotSupportedf("OS %s", icfg.Base.OS)
@@ -81,7 +81,7 @@ type baseConfigure struct {
 	tag  names.Tag
 	icfg *instancecfg.InstanceConfig
 	conf cloudinit.CloudConfig
-	os   os.OSType
+	os   ostype.OSType
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -134,12 +134,12 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 // It may make sense in the future to add a "juju" user instead across
 // all distributions.
 func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
-	targetOS := os.OSTypeForName(conf.GetOS())
+	targetOS := ostype.OSTypeForName(conf.GetOS())
 	var groups []string
 	switch targetOS {
-	case os.Ubuntu:
+	case ostype.Ubuntu:
 		groups = UbuntuGroups
-	case os.CentOS:
+	case ostype.CentOS:
 		groups = CentOSGroups
 	}
 	conf.AddUser(&cloudinit.User{

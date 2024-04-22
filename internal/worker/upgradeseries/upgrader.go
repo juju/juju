@@ -25,16 +25,6 @@ type Upgrader interface {
 type upgrader struct {
 	logger Logger
 
-	// jujuCurrentSeries is what Juju thinks the
-	// current series of the machine is.
-	jujuCurrentSeries string
-
-	// fromSeries is the actual current series,
-	// determined directly from the machine.
-	fromSeries string
-
-	toSeries string
-
 	machineAgent string
 	unitAgents   []string
 
@@ -44,18 +34,11 @@ type upgrader struct {
 // NewUpgrader uses the input function to determine the series that should be
 // supported, and returns a reference to a new Upgrader that supports it.
 func NewUpgrader(
-	currentSeries, toSeries string, manager service.SystemdServiceManager, logger Logger,
+	manager service.SystemdServiceManager, logger Logger,
 ) (Upgrader, error) {
-	fromSeries, err := hostSeries()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &upgrader{
-		logger:            logger,
-		jujuCurrentSeries: currentSeries,
-		fromSeries:        fromSeries,
-		toSeries:          toSeries,
-		manager:           manager,
+		logger:  logger,
+		manager: manager,
 	}, nil
 }
 

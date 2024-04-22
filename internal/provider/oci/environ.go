@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -437,13 +437,13 @@ func (e *Environ) getCloudInitConfig(osname string, apiPort int, statePort int) 
 		return cloudcfg, nil
 	}
 
-	operatingSystem := os.OSTypeForName(osname)
+	operatingSystem := ostype.OSTypeForName(osname)
 	switch operatingSystem {
-	case os.Ubuntu:
+	case ostype.Ubuntu:
 		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort))
 		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", statePort))
 		cloudcfg.AddScripts("/etc/init.d/netfilter-persistent save")
-	case os.CentOS:
+	case ostype.CentOS:
 		cloudcfg.AddRunCmd(fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", apiPort))
 		cloudcfg.AddRunCmd(fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", statePort))
 		cloudcfg.AddRunCmd("firewall-cmd --reload")

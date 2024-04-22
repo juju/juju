@@ -3,6 +3,8 @@
 
 package os
 
-func hostOS() OSType {
-	return Windows
+import "github.com/juju/juju/core/os/ostype"
+
+func hostOS() ostype.OSType {
+	return ostype.Windows
 }

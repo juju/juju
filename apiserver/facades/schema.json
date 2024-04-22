@@ -44985,7 +44985,7 @@
     {
         "Name": "UpgradeSeries",
         "Description": "API serves methods required by the machine agent upgrade-machine worker.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -44995,18 +44995,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "CurrentSeries": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringResults"
-                        }
-                    },
-                    "description": "CurrentSeries returns what Juju thinks the current series of the machine is.\nNote that a machine could have been upgraded out-of-band by running\ndo-release-upgrade outside of the upgrade-machine workflow,\nmaking this value incorrect."
-                },
                 "FinishUpgradeSeries": {
                     "type": "object",
                     "properties": {
@@ -45096,18 +45084,6 @@
                         }
                     },
                     "description": "StartUnitCompletion starts the upgrade series completion phase for all subordinate\nunits of a given machine."
-                },
-                "TargetSeries": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringResults"
-                        }
-                    },
-                    "description": "TargetSeries returns the series that a machine has been locked\nfor upgrading to."
                 },
                 "UnitsCompleted": {
                     "type": "object",
@@ -45400,36 +45376,6 @@
                     "additionalProperties": false,
                     "required": [
                         "entities"
-                    ]
-                },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "StringResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "UpdateChannelArg": {

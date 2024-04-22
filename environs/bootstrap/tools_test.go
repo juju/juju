@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/envcontext"
@@ -70,7 +71,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	arm64 := "arm64"
 	ubuntuFocal := corebase.MustParseBaseFromString("ubuntu@20.04")
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
-	s.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
+	s.PatchValue(&os.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	validator, err := env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arm64, &ubuntuFocal, validator)

@@ -10,6 +10,7 @@ import (
 	lxdclient "github.com/canonical/lxd/client"
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/container"
 )
@@ -45,8 +46,8 @@ func PatchLXDViaSnap(patcher patcher, isSnap bool) {
 	patcher.PatchValue(&lxdViaSnap, func() bool { return isSnap })
 }
 
-func PatchHostSeries(patcher patcher, series string) {
-	patcher.PatchValue(&hostSeries, func() (string, error) { return series, nil })
+func PatchHostBase(patcher patcher, b base.Base) {
+	patcher.PatchValue(&hostBase, func() (base.Base, error) { return b, nil })
 }
 
 func PatchGetSnapManager(patcher patcher, mgr SnapManager) {

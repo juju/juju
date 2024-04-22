@@ -63,6 +63,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/network",
 		"core/objectstore",
 		"core/os",
+		"core/os/ostype",
 		"core/output",
 		"core/paths",
 		"core/permission",

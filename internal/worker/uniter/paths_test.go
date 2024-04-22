@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/juju/sockets"
 )
@@ -31,7 +32,7 @@ func relPathFunc(base string) func(parts ...string) string {
 }
 
 func (s *PathsSuite) TestOther(c *gc.C) {
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Unknown })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Unknown })
 
 	dataDir := c.MkDir()
 	unitTag := names.NewUnitTag("some-application/323")
@@ -102,7 +103,7 @@ func (s *PathsSuite) TestTCPRemote(c *gc.C) {
 }
 
 func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Unknown })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Unknown })
 
 	dataDir := c.MkDir()
 	unitTag := names.NewUnitTag("some-application/323")

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -61,7 +61,7 @@ func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	udata, err := renderer.Render(cloudcfg, os.OSTypeForName(icfg.Base.OS))
+	udata, err := renderer.Render(cloudcfg, ostype.OSTypeForName(icfg.Base.OS))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

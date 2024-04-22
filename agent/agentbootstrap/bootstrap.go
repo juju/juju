@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
-	utilseries "github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -20,12 +19,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
@@ -611,12 +610,7 @@ func (b *AgentBootstrap) initBootstrapMachine(
 		hardware = *stateParams.BootstrapMachineHardwareCharacteristics
 	}
 
-	hostSeries, err := utilseries.HostSeries()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	base, err := corebase.GetBaseFromSeries(hostSeries)
+	base, err := coreos.HostBase()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

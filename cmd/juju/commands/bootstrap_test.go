@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -134,7 +135,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// override this.
 	s.PatchValue(&jujuversion.Current, v100u64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100u64.Arch })
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 
 	// Ensure KUBECONFIG doesn't interfere with tests.
@@ -1600,14 +1601,6 @@ func (s *BootstrapSuite) TestBootstrapWithDeprecatedBase(c *gc.C) {
 		"--config", "default-base=ubuntu@18.04",
 	)
 	c.Assert(err, gc.ErrorMatches, `base "ubuntu@18.04" not supported`)
-}
-
-func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillFails(c *gc.C) {
-	s.patchVersion(c)
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-base=spock",
-	)
-	c.Assert(err, gc.ErrorMatches, `invalid default base "spock".*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapBaseWithNoBootstrapSeriesUsesFallbackButStillFails(c *gc.C) {

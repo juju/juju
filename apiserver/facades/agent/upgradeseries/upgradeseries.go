@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -112,65 +111,6 @@ func (a *API) SetMachineStatus(ctx context.Context, args params.UpgradeSeriesSta
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 		}
-	}
-
-	result.Results = results
-	return result, nil
-}
-
-// CurrentSeries returns what Juju thinks the current series of the machine is.
-// Note that a machine could have been upgraded out-of-band by running
-// do-release-upgrade outside of the upgrade-machine workflow,
-// making this value incorrect.
-func (a *API) CurrentSeries(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{}
-
-	canAccess, err := a.AccessMachine()
-	if err != nil {
-		return result, err
-	}
-
-	results := make([]params.StringResult, len(args.Entities))
-	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(ctx, entity.Tag, canAccess)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		series, err := corebase.GetSeriesFromChannel(machine.Base().OS, machine.Base().Channel)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results[i].Result = series
-	}
-
-	result.Results = results
-	return result, nil
-}
-
-// TargetSeries returns the series that a machine has been locked
-// for upgrading to.
-func (a *API) TargetSeries(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{}
-
-	canAccess, err := a.AccessMachine()
-	if err != nil {
-		return result, err
-	}
-
-	results := make([]params.StringResult, len(args.Entities))
-	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(ctx, entity.Tag, canAccess)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		target, err := machine.UpgradeSeriesTarget()
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-		}
-		results[i].Result = target
 	}
 
 	result.Results = results

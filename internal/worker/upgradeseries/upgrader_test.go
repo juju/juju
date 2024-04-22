@@ -37,7 +37,7 @@ func (s *upgraderSuite) TestPerformUpgrade(c *gc.C) {
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
-	upg := s.newUpgrader(c, "focal", "jammy")
+	upg := s.newUpgrader(c)
 	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
@@ -49,8 +49,8 @@ func (s *upgraderSuite) setupMocks(ctrl *gomock.Controller) {
 	s.manager.EXPECT().FindAgents(paths.NixDataDir).Return(s.machineService, []string{"jujud-unit-ubuntu-0", "jujud-unit-redis-0"}, nil, nil)
 }
 
-func (s *upgraderSuite) newUpgrader(c *gc.C, currentSeries, toSeries string) upgradeseries.Upgrader {
-	upg, err := upgradeseries.NewUpgrader(currentSeries, toSeries, s.manager, s.logger)
+func (s *upgraderSuite) newUpgrader(c *gc.C) upgradeseries.Upgrader {
+	upg, err := upgradeseries.NewUpgrader(s.manager, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	return upg
 }

@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -843,7 +843,7 @@ func (env *azureEnviron) createVirtualMachine(
 
 	// On CentOS, we must add the CustomScript VM extension to run the
 	// CustomData script.
-	if seriesOS == os.CentOS {
+	if seriesOS == ostype.CentOS {
 		properties, err := vmExtensionProperties(seriesOS)
 		if err != nil {
 			return errors.Annotate(
@@ -1068,12 +1068,12 @@ func newOSProfile(
 	vmName string,
 	instanceConfig *instancecfg.InstanceConfig,
 	generateSSHKey func(string) (string, string, error),
-) (*armcompute.OSProfile, os.OSType, error) {
+) (*armcompute.OSProfile, ostype.OSType, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
 
 	customData, err := providerinit.ComposeUserData(instanceConfig, nil, AzureRenderer{})
 	if err != nil {
-		return nil, os.Unknown, errors.Annotate(err, "composing user data")
+		return nil, ostype.Unknown, errors.Annotate(err, "composing user data")
 	}
 
 	osProfile := &armcompute.OSProfile{
@@ -1081,12 +1081,12 @@ func newOSProfile(
 		CustomData:   to.Ptr(string(customData)),
 	}
 
-	instOS := os.OSTypeForName(instanceConfig.Base.OS)
+	instOS := ostype.OSTypeForName(instanceConfig.Base.OS)
 	if err != nil {
-		return nil, os.Unknown, errors.Trace(err)
+		return nil, ostype.Unknown, errors.Trace(err)
 	}
 	switch instOS {
-	case os.Ubuntu, os.CentOS:
+	case ostype.Ubuntu, ostype.CentOS:
 		// SSH keys are handled by custom data, but must also be
 		// specified in order to forego providing a password, and
 		// disable password authentication.
@@ -1100,7 +1100,7 @@ func newOSProfile(
 			// are updated with one that Juju tracks.
 			_, public, err := generateSSHKey("")
 			if err != nil {
-				return nil, os.Unknown, errors.Trace(err)
+				return nil, ostype.Unknown, errors.Trace(err)
 			}
 			authorizedKeys = public
 		}
@@ -1115,7 +1115,7 @@ func newOSProfile(
 			SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
 		}
 	default:
-		return nil, os.Unknown, errors.NotSupportedf("%s", instOS)
+		return nil, ostype.Unknown, errors.NotSupportedf("%s", instOS)
 	}
 	return osProfile, instOS, nil
 }

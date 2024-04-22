@@ -9,17 +9,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/rpc/params"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/internal/worker/upgradeseries Facade,UnitDiscovery,Upgrader
 
-var hostSeries = series.HostSeries
+var hostBase = os.HostBase
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
@@ -50,7 +50,7 @@ type Config struct {
 	// UpgraderFactory is a factory method that will return an upgrader capable
 	// of handling service and agent binary manipulation for a
 	// runtime-determined current and target OS series.
-	UpgraderFactory func(string, string) (Upgrader, error)
+	UpgraderFactory func() (Upgrader, error)
 }
 
 // Validate validates the upgrade-series worker configuration.
@@ -83,7 +83,7 @@ type upgradeSeriesWorker struct {
 	catacomb        catacomb.Catacomb
 	logger          Logger
 	unitDiscovery   UnitDiscovery
-	upgraderFactory func(string, string) (Upgrader, error)
+	upgraderFactory func() (Upgrader, error)
 
 	// Some local state retained for reporting purposes.
 	mu             sync.Mutex
@@ -248,17 +248,7 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete() error {
 	}
 
 	w.logger.Infof("preparing service units for series upgrade")
-	currentSeries, err := w.CurrentSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	toSeries, err := w.TargetSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	upgrader, err := w.upgraderFactory(currentSeries, toSeries)
+	upgrader, err := w.upgraderFactory()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -318,11 +308,11 @@ func (w *upgradeSeriesWorker) handleCompleted() error {
 		return errors.Trace(err)
 	}
 
-	s, err := hostSeries()
+	b, err := hostBase()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err = w.FinishUpgradeSeries(s); err != nil {
+	if err = w.FinishUpgradeSeries(b); err != nil {
 		return errors.Trace(err)
 	}
 	if err = w.unpinLeaders(); err != nil {

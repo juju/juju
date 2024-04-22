@@ -3218,13 +3218,13 @@ func (a *Application) ApplicationConfig() (config.ConfigAttributes, error) {
 	cfg, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
-			return config.ConfigAttributes(nil), nil
+			return config.ConfigAttributes{}, nil
 		}
 		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
 	}
 
 	if len(cfg.Keys()) == 0 {
-		return config.ConfigAttributes(nil), nil
+		return config.ConfigAttributes{}, nil
 	}
 	return cfg.Map(), nil
 }

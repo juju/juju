@@ -8,7 +8,7 @@ import (
 	"os"
 	"runtime"
 
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 type OS int // strongly typed runtime.GOOS value to help with refactoring
@@ -99,8 +99,8 @@ func CurrentOS() OS {
 
 // OSType converts the given os name to an OS value.
 func OSType(osName string) OS {
-	switch jujuos.OSTypeForName(osName) {
-	case jujuos.Windows:
+	switch ostype.OSTypeForName(osName) {
+	case ostype.Windows:
 		return OSWindows
 	default:
 		return OSUnixLike

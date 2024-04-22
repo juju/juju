@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -603,7 +604,7 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 	// Client host is CentOS system, wanting to bootstrap a trusty
 	// controller. This is fine.
 
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.CentOS })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
@@ -631,7 +632,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 	// Client host is a Windows system, wanting to bootstrap a jammy
 	// controller with local tools. This can't work.
 
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Windows })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
@@ -656,7 +657,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 	// bootstrap a trusty controller with local tools. This should be
 	// OK.
 
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
@@ -683,7 +684,6 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		c.Fatal("should not call FindTools if BuildAgent is specified")
@@ -773,7 +773,6 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
@@ -795,7 +794,6 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
@@ -1299,7 +1297,6 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C
 }
 
 func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&arch.HostArch, func() string {
 		return arch.S390X
 	})
@@ -1330,7 +1327,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestTargetSeriesOverride(c *gc.C) {
-	env := newBootstrapEnvironWithHardwareDetection("foo", "artful", "amd64", useDefaultKeys, nil)
+	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@17.10"), "amd64", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
@@ -1343,7 +1340,7 @@ func (s *bootstrapSuite) TestTargetSeriesOverride(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
-	env := newBootstrapEnvironWithHardwareDetection("foo", "bionic", "riscv", useDefaultKeys, nil)
+	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@18.04"), "riscv", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
@@ -1374,7 +1371,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
-	env := newBootstrapEnvironWithHardwareDetection("foo", "haiku", "riscv", useDefaultKeys, nil)
+	env := newBootstrapEnvironWithHardwareDetection("foo", corebase.MustParseBaseFromString("ubuntu@17.04"), "riscv", useDefaultKeys, nil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
@@ -1527,11 +1524,11 @@ func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator(envcontext
 type bootstrapEnvironWithHardwareDetection struct {
 	*bootstrapEnviron
 
-	detectedSeries string
-	detectedHW     *instance.HardwareCharacteristics
+	detectedBase corebase.Base
+	detectedHW   *instance.HardwareCharacteristics
 }
 
-func newBootstrapEnvironWithHardwareDetection(name, detectedSeries, detectedArch string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnvironWithHardwareDetection {
+func newBootstrapEnvironWithHardwareDetection(name string, detectedBase corebase.Base, detectedArch string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnvironWithHardwareDetection {
 	var hw = new(instance.HardwareCharacteristics)
 	if detectedArch != "" {
 		hw.Arch = &detectedArch
@@ -1539,13 +1536,13 @@ func newBootstrapEnvironWithHardwareDetection(name, detectedSeries, detectedArch
 
 	return &bootstrapEnvironWithHardwareDetection{
 		bootstrapEnviron: newEnviron(name, defaultKeys, extraAttrs),
-		detectedSeries:   detectedSeries,
+		detectedBase:     detectedBase,
 		detectedHW:       hw,
 	}
 }
 
-func (e bootstrapEnvironWithHardwareDetection) DetectSeries() (string, error) {
-	return e.detectedSeries, nil
+func (e bootstrapEnvironWithHardwareDetection) DetectBase() (corebase.Base, error) {
+	return e.detectedBase, nil
 }
 func (e bootstrapEnvironWithHardwareDetection) DetectHardware() (*instance.HardwareCharacteristics, error) {
 	return e.detectedHW, nil

@@ -89,30 +89,6 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	})
 }
 
-func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
-	defer s.arrangeTest(c).Finish()
-
-	s.machine.EXPECT().Base().Return(state.UbuntuBase("16.04")).AnyTimes()
-
-	results, err := s.api.CurrentSeries(context.Background(), s.entityArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{Result: "xenial"}},
-	})
-}
-
-func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
-	defer s.arrangeTest(c).Finish()
-
-	s.machine.EXPECT().UpgradeSeriesTarget().Return("bionic", nil)
-
-	results, err := s.api.TargetSeries(context.Background(), s.entityArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{Result: "bionic"}},
-	})
-}
-
 func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 

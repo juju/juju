@@ -8,7 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/errors"
 
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 const extensionName = "JujuCustomScriptExtension"
@@ -24,11 +24,11 @@ const (
 
 // vmExtension creates a CustomScript VM extension for the given VM
 // which will execute the CustomData on the machine as a script.
-func vmExtensionProperties(os jujuos.OSType) (*armcompute.VirtualMachineExtensionProperties, error) {
+func vmExtensionProperties(os ostype.OSType) (*armcompute.VirtualMachineExtensionProperties, error) {
 	var commandToExecute, extensionPublisher, extensionType, extensionVersion string
 
 	switch os {
-	case jujuos.CentOS:
+	case ostype.CentOS:
 		commandToExecute = linuxExecuteCustomScriptCommand
 		extensionPublisher = linuxCustomScriptPublisher
 		extensionType = linuxCustomScriptType

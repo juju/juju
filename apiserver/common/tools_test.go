@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
@@ -132,7 +133,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 
 	current := coretesting.CurrentVersion()
 	currentCopy := current
-	currentCopy.Release = coretesting.HostSeries(c)
+	currentCopy.Release = "foo"
 	configAttrs := map[string]interface{}{
 		"name":                 "some-name",
 		"type":                 "some-type",
@@ -475,7 +476,7 @@ func (s *findToolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 		{Version: "1.22.0-ubuntu-amd64"},
 	}
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	s.expectMatchingStorageTools(storageMetadata, nil)
 	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-ubuntu-amd64").Number)
