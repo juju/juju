@@ -29,7 +29,7 @@ func NewServiceFactory(
 	statusHistoryFactory status.StatusHistoryFactory,
 	logger Logger,
 ) *ServiceFactory {
-	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)
+	controllerFactory := NewControllerFactory(controllerDB, deleterDB, statusHistoryFactory, logger)
 	return &ServiceFactory{
 		ControllerFactory: controllerFactory,
 		ModelFactory: NewModelFactory(

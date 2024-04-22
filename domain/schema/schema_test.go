@@ -607,8 +607,8 @@ func (s *schemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 	controllerUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c,
 		`
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_region)
-VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'cloud-region-1');`,
+INSERT INTO model (uuid, controller_uuid, name, owner, type, cloud, cloud_region)
+VALUES (?, ?, 'my-model', 'admin', 'caas', 'cloud-1', 'cloud-region-1');`,
 		"", modelUUID, controllerUUID)
 	s.assertExecSQL(c,
 		"UPDATE model SET name = 'new-name' WHERE uuid = ?",

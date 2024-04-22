@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -30,7 +29,7 @@ func (d *dummyModelState) Delete(ctx context.Context, modelUUID coremodel.UUID) 
 }
 
 type modelServiceSuite struct {
-	testing.IsolationSuite
+	baseSuite
 
 	state *dummyModelState
 }
@@ -44,12 +43,15 @@ func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	svc := NewModelService(s.state)
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
+		Owner:       "admin",
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Type:        coremodel.IAAS,
@@ -63,12 +65,15 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 }
 
 func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	svc := NewModelService(s.state)
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
+		Owner:       "admin",
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Type:        coremodel.IAAS,

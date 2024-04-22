@@ -195,7 +195,14 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	statusHistory := status.StatusHistorySetterRunner(i.statusHistoryFactory, modelUUID.String())
 
 	coordinator := modelmigration.NewCoordinator()
-	migrations.ImportOperations(coordinator, logger, modelDefaultsProvider, registry, statusHistory)
+	migrations.ImportOperations(
+		coordinator,
+		modelDefaultsProvider,
+		registry,
+		i.statusHistoryFactory,
+		statusHistory,
+		logger,
+	)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID.String()), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}

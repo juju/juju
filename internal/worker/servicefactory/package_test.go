@@ -17,6 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination database_mock_test.go github.com/juju/juju/core/database DBDeleter
 //go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 //go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
+//go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination status_mock_test.go github.com/juju/juju/core/status StatusHistoryFactory,StatusHistorySetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -35,6 +36,9 @@ type baseSuite struct {
 
 	provider        *MockProvider
 	providerFactory *MockProviderFactory
+
+	statusHistoryFactory *MockStatusHistoryFactory
+	statusHistorySetter  *MockStatusHistorySetter
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -50,6 +54,9 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.provider = NewMockProvider(ctrl)
 	s.providerFactory = NewMockProviderFactory(ctrl)
+
+	s.statusHistoryFactory = NewMockStatusHistoryFactory(ctrl)
+	s.statusHistorySetter = NewMockStatusHistorySetter(ctrl)
 
 	return ctrl
 }

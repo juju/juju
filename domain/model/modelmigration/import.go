@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	accessservice "github.com/juju/juju/domain/access/service"
@@ -35,9 +36,10 @@ type Coordinator interface {
 
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
-func RegisterImport(coordinator Coordinator, logger Logger) {
+func RegisterImport(coordinator Coordinator, statusHistoryFactory status.StatusHistoryFactory, logger Logger) {
 	coordinator.Add(&importOperation{
-		logger: logger,
+		statusHistoryFactory: statusHistoryFactory,
+		logger:               logger,
 	})
 }
 
@@ -92,6 +94,7 @@ type importOperation struct {
 	readOnlyModelService    ReadOnlyModelService
 	userService             UserService
 	controllerConfigService ControllerConfigService
+	statusHistoryFactory    status.StatusHistoryFactory
 
 	logger Logger
 }
@@ -102,6 +105,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.modelService = modelservice.NewService(
 		modelstate.NewState(scope.ControllerDB()),
 		modelservice.DefaultAgentBinaryFinder(),
+		i.statusHistoryFactory,
 	)
 	i.readOnlyModelService = modelservice.NewModelService(
 		modelstate.NewModelState(scope.ModelDB()),

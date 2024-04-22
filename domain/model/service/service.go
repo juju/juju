@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	jujuversion "github.com/juju/juju/version"
@@ -74,8 +75,9 @@ type State interface {
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
-	st                State
-	agentBinaryFinder AgentBinaryFinder
+	st                   State
+	agentBinaryFinder    AgentBinaryFinder
+	statusHistoryFactory status.StatusHistoryFactory
 }
 
 // AgentBinaryFinder represents a helper for establishing if agent binaries for
@@ -100,10 +102,11 @@ func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, erro
 }
 
 // NewService returns a new Service for interacting with a models state.
-func NewService(st State, agentBinaryFinder AgentBinaryFinder) *Service {
+func NewService(st State, agentBinaryFinder AgentBinaryFinder, statusHistoryFactory status.StatusHistoryFactory) *Service {
 	return &Service{
-		st:                st,
-		agentBinaryFinder: agentBinaryFinder,
+		st:                   st,
+		agentBinaryFinder:    agentBinaryFinder,
+		statusHistoryFactory: statusHistoryFactory,
 	}
 }
 
@@ -206,6 +209,9 @@ func (s *Service) CreateModel(
 	}
 
 	finaliser := ModelFinaliser(func(ctx context.Context) error {
+		setter := s.statusHistoryFactory.StatusHistorySetterForModel(uuid.String())
+		setter.SetStatusHistory(status.KindModel, status.Available, uuid.String())
+
 		return s.st.Finalise(ctx, uuid)
 	})
 
