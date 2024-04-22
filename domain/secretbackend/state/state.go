@@ -421,24 +421,27 @@ func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.U
 		return errors.Trace(err)
 	}
 
-	modelBackendUpsertStmt, err := s.Prepare(`
+	// TODO(aflynn): Convert this query back to SQLair once we support nested
+	// select statements in INSERT statements. See SQLair issue #146.
+	modelBackendUpsertStmt := `
 INSERT INTO model_secret_backend
 	(model_uuid, secret_backend_uuid)
 VALUES (
-	$M.model_uuid,
-	(SELECT uuid FROM secret_backend WHERE name = $M.backend_name)
+	?,
+	(SELECT uuid FROM secret_backend WHERE name = ?)
 )
 ON CONFLICT (model_uuid) DO UPDATE SET
-	secret_backend_uuid = EXCLUDED.secret_backend_uuid`, sqlair.M{})
+	secret_backend_uuid = EXCLUDED.secret_backend_uuid`
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx,
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err = tx.ExecContext(ctx,
 			modelBackendUpsertStmt,
-			sqlair.M{"model_uuid": modelUUID, "backend_name": backendName},
-		).Run()
+			modelUUID,
+			backendName,
+		)
 		if database.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: either model %q or secret backend %q", errors.NotFound, modelUUID, backendName)
 		}
