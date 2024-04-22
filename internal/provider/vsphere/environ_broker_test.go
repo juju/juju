@@ -27,7 +27,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -356,7 +356,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c 
 
 	var (
 		arch      = "amd64"
-		rootDisk  = common.MinRootDiskSizeGiB(os.Ubuntu) * 1024
+		rootDisk  = common.MinRootDiskSizeGiB(ostype.Ubuntu) * 1024
 		datastore = "datastore0"
 	)
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
@@ -410,7 +410,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmal
 	startInstArgs.Constraints.RootDisk = &rootDisk
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB(os.Ubuntu)*uint64(1024))
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB(ostype.Ubuntu)*uint64(1024))
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
@@ -619,7 +619,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) 
 
 	var (
 		arch           = "amd64"
-		rootDisk       = common.MinRootDiskSizeGiB(os.Ubuntu) * 1024
+		rootDisk       = common.MinRootDiskSizeGiB(ostype.Ubuntu) * 1024
 		rootDiskSource = ""
 	)
 

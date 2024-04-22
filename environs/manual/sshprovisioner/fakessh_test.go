@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/internal/service"
 )
@@ -86,17 +87,15 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 }
 
 // installDetectionFakeSSH installs a fake SSH command, which will respond
-// to the series/hardware detection script with the specified
-// series/arch.
-func installDetectionFakeSSH(c *gc.C, series, arch string) testing.Restorer {
-	if series == "" {
-		series = "precise"
-	}
+// to the base/hardware detection script with the specified
+// base/arch.
+func installDetectionFakeSSH(c *gc.C, base corebase.Base, arch string) testing.Restorer {
 	if arch == "" {
 		arch = "amd64"
 	}
 	detectionoutput := strings.Join([]string{
-		series,
+		base.OS,
+		base.Channel.String(),
 		arch,
 		"MemTotal: 4096 kB",
 		"processor: 0",
@@ -106,8 +105,8 @@ func installDetectionFakeSSH(c *gc.C, series, arch string) testing.Restorer {
 
 // fakeSSH wraps the invocation of InstallFakeSSH based on the parameters.
 type fakeSSH struct {
-	Series string
-	Arch   string
+	Base corebase.Base
+	Arch string
 
 	// Provisioned should be set to true if the fakeSSH script
 	// should respond to checkProvisioned with a non-empty result.
@@ -146,7 +145,7 @@ func (r fakeSSH) install(c *gc.C) testing.Restorer {
 		add(nil, nil, r.ProvisionAgentExitCode)
 	}
 	if !r.SkipDetection {
-		restore.Add(installDetectionFakeSSH(c, r.Series, r.Arch))
+		restore.Add(installDetectionFakeSSH(c, r.Base, r.Arch))
 	}
 	var checkProvisionedOutput interface{}
 	if r.Provisioned {

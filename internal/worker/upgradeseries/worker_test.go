@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	workermocks "github.com/juju/juju/internal/worker/mocks"
@@ -178,8 +179,6 @@ func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepare
 	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-	exp.CurrentSeries().Return("focal", nil)
-	exp.TargetSeries().Return("jammy", nil)
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "completing preparation")
@@ -285,12 +284,13 @@ func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 }
 
 func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
-	s.patchHost("xenial")
+	b := base.MustParseBaseFromString("ubuntu@16.04")
+	s.patchHost(b)
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "finalising upgrade")
-	exp.FinishUpgradeSeries("xenial").Return(nil)
+	exp.FinishUpgradeSeries(b).Return(nil)
 
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "success")
 	exp.UnpinMachineApplications().Return(map[string]error{
@@ -318,7 +318,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Logger:          s.logger,
 		Facade:          s.facade,
 		UnitDiscovery:   s.unitDiscovery,
-		UpgraderFactory: func(_, _ string) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
+		UpgraderFactory: func() (upgradeseries.Upgrader, error) { return s.upgrader, nil },
 	}
 
 	w, err := upgradeseries.NewWorker(cfg)
@@ -363,8 +363,8 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) patchHost(series string) {
-	upgradeseries.PatchHostSeries(s, series)
+func (s *workerSuite) patchHost(b base.Base) {
+	upgradeseries.PatchHostBase(s, b)
 }
 
 // notify returns a suite behaviour that will cause the upgrade-series watcher

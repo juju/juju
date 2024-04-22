@@ -22,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	envtools "github.com/juju/juju/environs/tools"
@@ -784,7 +785,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 		{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 		{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
 	}
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	gomock.InOrder(
 		s.toolsFinder.EXPECT().FindAgents(
@@ -831,7 +832,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 	simpleStreams := []*coretools.Tools{
 		{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 	}
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	gomock.InOrder(
 		s.toolsFinder.EXPECT().FindAgents(gomock.Any(),
@@ -874,7 +875,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
 		{Version: version.MustParseBinary("2.9.12-ubuntu-amd64")},
 	}
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	gomock.InOrder(
 		s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{

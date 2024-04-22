@@ -67,8 +67,8 @@ func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCall
 
 	// Partially apply the upgrader factory function so we only need to request
 	// using the getter for the to/from OS series.
-	newUpgrader := func(currentSeries, targetSeries string) (Upgrader, error) {
-		return NewUpgrader(currentSeries, targetSeries, service.NewServiceManagerWithDefaults(), config.Logger)
+	newUpgrader := func() (Upgrader, error) {
+		return NewUpgrader(service.NewServiceManagerWithDefaults(), config.Logger)
 	}
 
 	cfg := Config{

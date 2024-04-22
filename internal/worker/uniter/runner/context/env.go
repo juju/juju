@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/os/v2/series"
-
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 // Environmenter represent the os environ interface for fetching host level environment
@@ -107,11 +106,11 @@ func ContextDependentEnvVars(env Environmenter) []string {
 // should be set for a hook context.
 func OSDependentEnvVars(paths Paths, env Environmenter) []string {
 	switch jujuos.HostOS() {
-	case jujuos.Ubuntu:
+	case ostype.Ubuntu:
 		return ubuntuEnv(paths, env)
-	case jujuos.CentOS:
+	case ostype.CentOS:
 		return centosEnv(paths, env)
-	case jujuos.GenericLinux:
+	case ostype.GenericLinux:
 		return genericLinuxEnv(paths, env)
 	}
 	return nil
@@ -145,8 +144,8 @@ func centosEnv(paths Paths, envVars Environmenter) []string {
 
 	// versions older than 7 are not supported and centos7 does not have patch 20150502 for ncurses 5.9
 	// with terminal definitions for "tmux" and "tmux-256color"
-	hostSeries, err := series.HostSeries()
-	if err == nil && hostSeries == "centos7" {
+	hostBase, err := jujuos.HostBase()
+	if err == nil && hostBase.Channel.Track == "7" {
 		env = append(env, "TERM=screen-256color")
 	} else {
 		env = append(env, "TERM=tmux-256color")

@@ -5,6 +5,8 @@
 
 package os
 
-func hostOS() OSType {
-	return Unknown
+import "github.com/juju/juju/core/os/ostype"
+
+func hostOS() ostype.OSType {
+	return ostype.Unknown
 }

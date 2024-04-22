@@ -5,7 +5,7 @@
 package renderers
 
 import (
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 )
 
@@ -15,5 +15,5 @@ import (
 // the userdata differently(bash vs yaml) since some providers might
 // not ship cloudinit on every OS
 type ProviderRenderer interface {
-	Render(cloudinit.CloudConfig, os.OSType) ([]byte, error)
+	Render(cloudinit.CloudConfig, ostype.OSType) ([]byte, error)
 }

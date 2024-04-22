@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -923,9 +923,9 @@ func (env *maasEnviron) newCloudinitConfig(hostname, osname string) (cloudinit.C
 		return nil, errors.Trace(err)
 	}
 
-	operatingSystem := os.OSTypeForName(osname)
+	operatingSystem := ostype.OSTypeForName(osname)
 	switch operatingSystem {
-	case os.Ubuntu:
+	case ostype.Ubuntu:
 		cloudcfg.SetSystemUpdate(true)
 		cloudcfg.AddScripts("set -xe", runCmd)
 		// DisableNetworkManagement can still disable the bridge(s) creation.

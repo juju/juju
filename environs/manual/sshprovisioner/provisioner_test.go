@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/base"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -89,8 +89,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	series, err := base.GetSeriesFromBase(jujuversion.DefaultSupportedLTSBase())
-	c.Assert(err, jc.ErrorIsNil)
+	base := jujuversion.DefaultSupportedLTSBase()
 
 	args := s.getArgs(c)
 	hostname := args.Host
@@ -98,7 +97,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	args.User = "ubuntu"
 
 	defer fakeSSH{
-		Series:             series,
+		Base:               base,
 		Arch:               arch.AMD64,
 		InitUbuntuUser:     true,
 		SkipProvisionAgent: true,
@@ -107,7 +106,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
 		defer fakeSSH{
-			Series:                 series,
+			Base:                   base,
 			Arch:                   arch.AMD64,
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
@@ -133,7 +132,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	_, err = sshprovisioner.ProvisionMachine(args)
+	_, err := sshprovisioner.ProvisionMachine(args)
 	c.Assert(err, gc.Equals, manual.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
@@ -147,11 +146,10 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
-	series, err := base.GetSeriesFromBase(jujuversion.DefaultSupportedLTSBase())
-	c.Assert(err, jc.ErrorIsNil)
+	base := jujuversion.DefaultSupportedLTSBase()
 
 	defer fakeSSH{
-		Series:         series,
+		Base:           base,
 		Arch:           arch.AMD64,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
@@ -161,7 +159,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		ControllerTag: testing.ControllerTag,
 		MachineId:     "10",
 		MachineNonce:  "5432",
-		Base:          base.MustParseBaseFromString("ubuntu@22.04"),
+		Base:          corebase.MustParseBaseFromString("ubuntu@22.04"),
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
@@ -182,7 +180,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		Version: version.MustParseBinary("6.6.6-ubuntu-amd64"),
 		URL:     "https://example.org",
 	}}
-	err = icfg.SetTools(tools)
+	err := icfg.SetTools(tools)
 	c.Assert(err, jc.ErrorIsNil)
 
 	script, err := sshprovisioner.ProvisioningScript(icfg)

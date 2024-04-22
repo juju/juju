@@ -126,7 +126,7 @@ var facadeVersions = facades.FacadeVersions{
 	"UnitAssigner":                 {1},
 	"Uniter":                       {19},
 	"Upgrader":                     {1},
-	"UpgradeSeries":                {3},
+	"UpgradeSeries":                {4},
 	"UpgradeSteps":                 {3},
 	"UserManager":                  {3},
 	"VolumeAttachmentsWatcher":     {2},

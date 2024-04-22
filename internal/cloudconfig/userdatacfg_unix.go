@@ -23,7 +23,7 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -175,7 +175,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 		"set -xe", // ensure we run all the scripts or abort.
 	)
 	switch w.os {
-	case os.CentOS:
+	case ostype.CentOS:
 		w.conf.AddScripts(
 			// Mask and stop firewalld, if enabled, so it cannot start. See
 			// http://pad.lv/1492066. firewalld might be missing, in which case
@@ -223,7 +223,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 func (w *unixConfigure) setDataDirPermissions() string {
 	var user string
 	switch w.os {
-	case os.CentOS:
+	case ostype.CentOS:
 		user = "root"
 	default:
 		user = "syslog"

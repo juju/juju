@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/agent/upgradeseries"
 	"github.com/juju/juju/api/base/mocks"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -98,44 +99,6 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-
-	resultSource := params.StringResults{
-		Results: []params.StringResult{{
-			Result: "xenial",
-		}},
-	}
-	fCaller.EXPECT().FacadeCall(gomock.Any(), "CurrentSeries", s.args, gomock.Any()).SetArg(3, resultSource)
-
-	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	target, err := api.CurrentSeries()
-	c.Assert(err, gc.IsNil)
-	c.Check(target, gc.Equals, "xenial")
-}
-
-func (s *upgradeSeriesSuite) TestTargetSeries(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-
-	resultSource := params.StringResults{
-		Results: []params.StringResult{{
-			Result: "bionic",
-		}},
-	}
-	fCaller.EXPECT().FacadeCall(gomock.Any(), "TargetSeries", s.args, gomock.Any()).SetArg(3, resultSource)
-
-	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	target, err := api.TargetSeries()
-	c.Assert(err, gc.IsNil)
-	c.Check(target, gc.Equals, "bionic")
-}
-
 func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -217,7 +180,7 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "FinishUpgradeSeries", args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.FinishUpgradeSeries("xenial")
+	err := api.FinishUpgradeSeries(corebase.MustParseBaseFromString("ubuntu@16.04"))
 	c.Assert(err, gc.IsNil)
 }
 

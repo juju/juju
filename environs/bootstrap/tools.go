@@ -15,6 +15,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/internal/tools"
@@ -45,7 +46,7 @@ func validateUploadAllowed(env environs.ConfigGetter, toolsArch *string, toolsBa
 	}
 	hostOS := coreos.HostOS()
 	if toolsBase != nil {
-		if !coreos.OSTypeForName(toolsBase.OS).EquivalentTo(hostOS) {
+		if !ostype.OSTypeForName(toolsBase.OS).EquivalentTo(hostOS) {
 			return errors.Errorf("cannot use agent built for %q using a machine running %q", toolsBase.String(), hostOS)
 		}
 	}
@@ -92,7 +93,7 @@ func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ erro
 	buildNumber := jujuversion.Current
 	// Increment the build number so we know it's a custom build.
 	buildNumber.Build++
-	if !coreos.HostOS().EquivalentTo(coreos.Ubuntu) {
+	if !coreos.HostOS().EquivalentTo(ostype.Ubuntu) {
 		return buildable, buildNumber, nil
 	}
 	binary := version.Binary{

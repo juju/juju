@@ -226,8 +226,7 @@ func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *gc.C) {
 	s.waitForFile(c, s.proxyEnvFile, proxySettings.AsScriptEnvironment())
 	s.waitForFile(c, s.proxySystemdFile, proxySettings.AsSystemdDefaultEnv())
 
-	paccmder, err := commands.NewPackageCommander(coretesting.HostSeries(c))
-	c.Assert(err, jc.ErrorIsNil)
+	paccmder := commands.NewAptPackageCommander()
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
 
@@ -249,8 +248,7 @@ func (s *ProxyUpdaterSuite) TestInitialStateJujuProxy(c *gc.C) {
 	s.waitForFile(c, s.proxyEnvFile, empty.AsScriptEnvironment())
 	s.waitForFile(c, s.proxySystemdFile, empty.AsSystemdDefaultEnv())
 
-	paccmder, err := commands.NewPackageCommander(coretesting.HostSeries(c))
-	c.Assert(err, jc.ErrorIsNil)
+	paccmder := commands.NewAptPackageCommander()
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
 

@@ -26,7 +26,6 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/arch"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
@@ -81,7 +80,6 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, v.Number)
 }
 

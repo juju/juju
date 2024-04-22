@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
@@ -104,14 +105,14 @@ func SkipIfWindowsBug(c *gc.C, bugID string) {
 // SkipUnlessControllerOS skips the test if the current OS is not a supported
 // controller OS.
 func SkipUnlessControllerOS(c *gc.C) {
-	if coreos.HostOS() != coreos.Ubuntu {
+	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("Test disabled for non-controller OS")
 	}
 }
 
 // SkipLXDNotSupported will skip tests if the host does not support LXD
 func SkipLXDNotSupported(c *gc.C) {
-	if coreos.HostOS() != coreos.Ubuntu {
+	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("Test disabled for non-LXD OS")
 	}
 }
@@ -276,16 +277,8 @@ func CurrentVersion() version.Binary {
 }
 
 // HostSeries returns series.HostSeries(), asserting on error.
-func HostSeries(c *gc.C) string {
-	hostSeries, err := series.HostSeries()
-	c.Assert(err, jc.ErrorIsNil)
-	return hostSeries
-}
-
 func HostBase(c *gc.C) base.Base {
-	hostSeries, err := series.HostSeries()
+	hostBase, err := coreos.HostBase()
 	c.Assert(err, jc.ErrorIsNil)
-	base, err := base.GetBaseFromSeries(hostSeries)
-	c.Assert(err, jc.ErrorIsNil)
-	return base
+	return hostBase
 }

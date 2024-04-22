@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/access/service"
@@ -477,7 +478,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 		{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
 	}
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
@@ -562,7 +563,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
 		{Version: version.MustParseBinary("2.9.12-ubuntu-amd64")},
 	}
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	coretools "github.com/juju/juju/internal/tools"
@@ -101,7 +101,7 @@ func (tc *ToolsConstraint) IndexIds() []string {
 func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	var allIds []string
 	for _, release := range tc.Releases {
-		if !coreos.IsValidOSTypeName(release) {
+		if !ostype.IsValidOSTypeName(release) {
 			logger.Debugf("ignoring unknown os type %q", release)
 			continue
 		}
@@ -150,7 +150,7 @@ func (t *ToolsMetadata) binary() (version.Binary, error) {
 }
 
 func (t *ToolsMetadata) productId() (string, error) {
-	if !coreos.IsValidOSTypeName(t.Release) {
+	if !ostype.IsValidOSTypeName(t.Release) {
 		return "", errors.NotValidf("os type %q", t.Release)
 	}
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", t.Release, t.Arch), nil

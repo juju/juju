@@ -55,10 +55,10 @@ type manualEnviron struct {
 	user string
 	mu   sync.Mutex
 	cfg  *environConfig
-	// hw and series are detected by running a script on the
+	// hw and base are detected by running a script on the
 	// target machine. We cache these, as they should not change.
-	hw     *instance.HardwareCharacteristics
-	series string
+	hw   *instance.HardwareCharacteristics
+	base corebase.Base
 }
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
@@ -116,7 +116,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcont
 	if provisioned {
 		return nil, manual.ErrProvisioned
 	}
-	hw, series, err := e.seriesAndHardwareCharacteristics()
+	hw, base, err := e.baseAndHardwareCharacteristics()
 	if err != nil {
 		return nil, err
 	}
@@ -129,10 +129,6 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcont
 		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg, nil)
 	}
 
-	base, err := corebase.GetBaseFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	result := &environs.BootstrapResult{
 		Arch:                    *hw.Arch,
 		Base:                    base,
@@ -346,7 +342,7 @@ func (e *manualEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext)
 	} else {
 		// We're running outside of the Juju controller, so we must
 		// SSH to the machine and detect its architecture.
-		hw, _, err := e.seriesAndHardwareCharacteristics()
+		hw, _, err := e.baseAndHardwareCharacteristics()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -355,18 +351,18 @@ func (e *manualEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext)
 	return validator, nil
 }
 
-func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.HardwareCharacteristics, series string, _ error) {
+func (e *manualEnviron) baseAndHardwareCharacteristics() (*instance.HardwareCharacteristics, corebase.Base, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.hw != nil {
-		return e.hw, e.series, nil
+		return e.hw, e.base, nil
 	}
-	hw, series, err := sshprovisioner.DetectSeriesAndHardwareCharacteristics(e.host)
+	hw, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics(e.host)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, corebase.Base{}, errors.Trace(err)
 	}
-	e.hw, e.series = &hw, series
-	return e.hw, e.series, nil
+	e.hw, e.base = &hw, base
+	return e.hw, e.base, nil
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {
@@ -377,18 +373,18 @@ func isRunningController() bool {
 	return filepath.Base(os.Args[0]) == names.Jujud
 }
 
-// DetectSeries returns the series for the controller for this environment.
+// DetectBase returns the base for the controller for this environment.
 // This method is part of the environs.HardwareCharacteristicsDetector interface.
-func (e *manualEnviron) DetectSeries() (string, error) {
-	_, series, err := e.seriesAndHardwareCharacteristics()
-	return series, err
+func (e *manualEnviron) DetectBase() (corebase.Base, error) {
+	_, base, err := e.baseAndHardwareCharacteristics()
+	return base, err
 }
 
 // DetectHardware returns the hardware characteristics for the controller for
 // this environment. This method is part of the environs.HardwareCharacteristicsDetector
 // interface.
 func (e *manualEnviron) DetectHardware() (*instance.HardwareCharacteristics, error) {
-	hw, _, err := e.seriesAndHardwareCharacteristics()
+	hw, _, err := e.baseAndHardwareCharacteristics()
 	return hw, err
 }
 

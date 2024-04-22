@@ -78,47 +78,6 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	return "", errors.Trace(r.Error)
 }
 
-// CurrentSeries returns what Juju thinks the current series of the machine is.
-// Note that a machine could have been upgraded out-of-band by running
-// do-release-upgrade outside of the upgrade-machine workflow,
-// making this value incorrect.
-func (s *Client) CurrentSeries() (string, error) {
-	series, err := s.series("CurrentSeries")
-	return series, errors.Trace(err)
-}
-
-// TargetSeries returns the series that a machine has been locked
-// for upgrading to.
-func (s *Client) TargetSeries() (string, error) {
-	series, err := s.series("TargetSeries")
-	return series, errors.Trace(err)
-}
-
-func (s *Client) series(methodName string) (string, error) {
-	var results params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.authTag.String()}},
-	}
-
-	err := s.facade.FacadeCall(context.TODO(), methodName, args, &results)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-
-	r := results.Results[0]
-	if r.Error == nil {
-		return r.Result, nil
-	}
-
-	if params.IsCodeNotFound(r.Error) {
-		return "", errors.NewNotFound(r.Error, "")
-	}
-	return "", errors.Trace(r.Error)
-}
-
 // UnitsPrepared returns the units running on this machine that have
 // completed their upgrade-machine preparation, and are ready to be stopped and
 // have their unit agent services converted for the target series.
@@ -220,18 +179,14 @@ func (s *Client) StartUnitCompletion(reason string) error {
 // completely finished, passing the current host OS series.
 // We use the name "Finish" to distinguish this method from the various
 // "Complete" phases.
-func (s *Client) FinishUpgradeSeries(hostSeries string) error {
+func (s *Client) FinishUpgradeSeries(hostBase corebase.Base) error {
 	var results params.ErrorResults
-	base, err := corebase.GetBaseFromSeries(hostSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	args := params.UpdateChannelArgs{Args: []params.UpdateChannelArg{{
 		Entity:  params.Entity{Tag: s.authTag.String()},
-		Channel: base.Channel.Track,
+		Channel: hostBase.Channel.Track,
 	}}}
 
-	err = s.facade.FacadeCall(context.TODO(), "FinishUpgradeSeries", args, &results)
+	err := s.facade.FacadeCall(context.TODO(), "FinishUpgradeSeries", args, &results)
 	if err != nil {
 		return err
 	}

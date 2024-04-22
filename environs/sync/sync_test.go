@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -547,7 +548,7 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 	current := version.MustParseBinary("1.9.1-ubuntu-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	buildToolsFunc := toolstesting.GetMockBuildTools(c)
 	builtTools, err := buildToolsFunc(true, "released",
 		func(version.Number) version.Number { return jujuversion.Current },

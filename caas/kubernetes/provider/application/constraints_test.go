@@ -69,6 +69,8 @@ func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
 			TopologyKey:   "foo",
 		}},
 	})
+	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
 }
 
 func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
@@ -94,6 +96,8 @@ func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
 			},
 		}},
 	})
+	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
@@ -135,6 +139,8 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *gc.C) {
 			TopologyKey:   "foo",
 		}},
 	})
+	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
@@ -160,6 +166,8 @@ func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
 			},
 		}},
 	})
+	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
@@ -186,6 +194,8 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
 			TopologyKey: "foo",
 		}},
 	})
+	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
 }
 
 func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
@@ -210,4 +220,6 @@ func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
 			}},
 		},
 	})
+	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
 }
