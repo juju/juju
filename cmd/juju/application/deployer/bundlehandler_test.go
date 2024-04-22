@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v13"
 	charmresource "github.com/juju/charm/v13/resource"
@@ -64,10 +63,6 @@ var _ = gc.Suite(&BundleDeployRepositorySuite{})
 func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
-
-	s.PatchValue(&SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, corebase.ParseBaseFromString)
-	})
 }
 
 func (s *BundleDeployRepositorySuite) TearDownTest(_ *gc.C) {

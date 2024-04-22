@@ -771,17 +771,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return errors.NotValidf("bootstrap base %q", c.BootstrapBase)
 		}
 	}
-
-	// Get the supported bootstrap series.
-	var imageStream string
-	if cfg, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok {
-		imageStream = cfg.(string)
-	}
-	now := c.clock.Now()
-	supportedBootstrapBases, err := supportedJujuBases(now, bootstrapBase, imageStream)
-	if err != nil {
-		return errors.Annotate(err, "error reading supported bootstrap series")
-	}
+	supportedBootstrapBases := supportedJujuBases()
 	logger.Tracef("supported bootstrap bases %v", supportedBootstrapBases)
 
 	bootstrapCfg.controller[controller.ControllerName] = c.controllerName

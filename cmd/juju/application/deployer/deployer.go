@@ -289,10 +289,7 @@ func (d *factory) determineBaseForLocalCharm(ch charm.Charm, getter ModelConfigG
 	}
 
 	imageStream = modelCfg.ImageStream()
-	workloadBases, err := SupportedJujuBases(d.clock.Now(), d.base, imageStream)
-	if err != nil {
-		return corebase.Base{}, "", errors.Trace(err)
-	}
+	workloadBases := SupportedJujuBases()
 
 	supportedBases, err := corecharm.ComputedBases(ch)
 	if err != nil {
@@ -666,12 +663,7 @@ func (d *factory) validateCharmBase(base corebase.Base, imageStream string) erro
 	}
 	// attempt to locate the charm base from the list of known juju bases
 	// that we currently support.
-	workloadBases, err := SupportedJujuBases(d.clock.Now(), base, imageStream)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, workloadBase := range workloadBases {
+	for _, workloadBase := range SupportedJujuBases() {
 		if workloadBase == base {
 			return nil
 		}

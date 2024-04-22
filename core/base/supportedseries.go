@@ -32,26 +32,6 @@ var UbuntuDistroInfo = series.UbuntuDistroInfo
 // controller and workload types.
 type SupportedSeriesFunc = func(time.Time, string, string) (set.Strings, error)
 
-// ControllerSeries returns all the controller series available to it at the
-// execution time.
-func ControllerSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
-	supported, err := seriesForTypes(UbuntuDistroInfo, now, requestedSeries, imageStream)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return set.NewStrings(supported.controllerSeries()...), nil
-}
-
-// WorkloadSeries returns the supported workload series available to it at the
-// execution time.
-func WorkloadSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
-	supported, err := seriesForTypes(UbuntuDistroInfo, now, requestedSeries, imageStream)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return set.NewStrings(supported.workloadSeries(false)...), nil
-}
-
 // AllWorkloadVersions returns all the workload versions (supported or not).
 func AllWorkloadVersions(requestedSeries, imageStream string) (set.Strings, error) {
 	supported, err := seriesForTypes(UbuntuDistroInfo, time.Now(), requestedSeries, imageStream)

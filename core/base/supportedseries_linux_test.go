@@ -4,12 +4,9 @@
 package base
 
 import (
-	"time"
-
 	jujuos "github.com/juju/os/v2"
 	jujuseries "github.com/juju/os/v2/series"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -70,17 +67,4 @@ func (s *SupportedSeriesLinuxSuite) TestUbuntuSeriesVersion(c *gc.C) {
 func (s *SupportedSeriesLinuxSuite) TestUbuntuInvalidSeriesVersion(c *gc.C) {
 	_, err := UbuntuSeriesVersion("firewolf")
 	c.Assert(err, gc.ErrorMatches, `.*unknown version for series: "firewolf".*`)
-}
-
-func (s *SupportedSeriesLinuxSuite) TestWorkloadSeries(c *gc.C) {
-	tmpFile, close := makeTempFile(c, distroInfoContents)
-	defer close()
-
-	s.PatchValue(&UbuntuDistroInfo, tmpFile.Name())
-
-	series, err := WorkloadSeries(time.Time{}, "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series.SortedValues(), gc.DeepEquals, []string{
-		"centos7", "centos9", "focal", "genericlinux", "jammy", "noble",
-	})
 }

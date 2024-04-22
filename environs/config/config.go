@@ -1002,10 +1002,7 @@ func (c *Config) validateDefaultBase() error {
 		return errors.Annotatef(err, "invalid default base %q", defaultBase)
 	}
 
-	supported, err := corebase.WorkloadBases(time.Now(), corebase.Base{}, "")
-	if err != nil {
-		return errors.Annotate(err, "cannot read supported bases")
-	}
+	supported := corebase.WorkloadBases()
 	logger.Tracef("supported bases %s", supported)
 	var found bool
 	for _, supportedBase := range supported {
