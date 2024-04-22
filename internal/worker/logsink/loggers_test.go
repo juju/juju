@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type LoggersSuite struct {
@@ -55,6 +56,7 @@ func (s *LoggersSuite) TestModelLoggerAlreadyExists(c *gc.C) {
 			return nil, errors.NotFound
 		},
 		1, time.Millisecond, clock.WallClock,
+		jujutesting.NewCheckLogger(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -81,6 +83,7 @@ func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 			return nil, errors.NotFound
 		},
 		1, time.Millisecond, clock.WallClock,
+		jujutesting.NewCheckLogger(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

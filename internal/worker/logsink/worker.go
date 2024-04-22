@@ -16,12 +16,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 )
 
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
-
 // LogSink is a worker which provides access to a log sink
 // which allows log entries to be stored for specified models.
 type LogSink struct {
@@ -66,6 +60,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		cfg.LogSinkConfig.LoggerBufferSize,
 		cfg.LogSinkConfig.LoggerFlushInterval,
 		cfg.Clock,
+		cfg.Logger,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

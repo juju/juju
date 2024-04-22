@@ -37,7 +37,7 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-// Manifold returns a dependency manifold that runs a log sink
+// Manifold returns a dependency manifold that runs a status history
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
@@ -63,7 +63,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// outputFunc extracts an API connection from a *apiConnWorker.
+// outputFunc extracts status history worker from the manifold.
 func outputFunc(in worker.Worker, out interface{}) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Unwrap()

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/user"
 )
 
 type bufferedLoggerCloser struct {
@@ -35,17 +36,21 @@ func NewModelLogger(
 	bufferSize int,
 	flushInterval time.Duration,
 	clock clock.Clock,
+	logger Logger,
 ) (corelogger.ModelLogger, error) {
 	modelLogger := &modelLogger{
-		clock:               clock,
+		clock:  clock,
+		logger: logger,
+
 		loggerBufferSize:    bufferSize,
 		loggerFlushInterval: flushInterval,
 		loggerForModel:      loggerForModelFunc,
-		modelLoggers:        make(map[string]corelogger.LoggerCloser),
+
+		modelLoggers: make(map[string]corelogger.LoggerCloser),
 	}
 
 	// Create the fallback logger for models that have not been initialized yet.
-	if err := modelLogger.initLogger(database.ControllerNS, "log", "admin"); err != nil {
+	if err := modelLogger.initLogger(database.ControllerNS, "log", user.AdminUserName); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -55,7 +60,9 @@ func NewModelLogger(
 type modelLogger struct {
 	mu sync.Mutex
 
-	clock               clock.Clock
+	clock  clock.Clock
+	logger Logger
+
 	loggerBufferSize    int
 	loggerFlushInterval time.Duration
 
@@ -84,10 +91,9 @@ func (d *modelLogger) GetLogger(modelUUID string) corelogger.LoggerCloser {
 	// The fallback logger is used if the logger for the model has not been
 	// initialized yet.
 	//
-	// This shouldn't be ever triggered, but for now, we just want to know if
-	// we've missed any locations that should have initialized the logger, but
-	// hasn't yet. We don't want to panic here, as it would bring down the
-	// entire dependency engine.
+	// TODO (stickupkid): This should be removed once we've implemented all
+	// the set status calls for the domain types.
+	d.logger.Infof("using fallback logger for model %q", modelUUID)
 	return d.modelLoggers[database.ControllerNS]
 }
 

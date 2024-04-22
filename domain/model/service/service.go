@@ -72,12 +72,18 @@ type State interface {
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
 }
 
+// Logger is a simple logging interface.
+type Logger interface {
+	Infof(string, ...any)
+}
+
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
 	st                   State
 	agentBinaryFinder    AgentBinaryFinder
 	statusHistoryFactory status.StatusHistoryFactory
+	logger               Logger
 }
 
 // AgentBinaryFinder represents a helper for establishing if agent binaries for
@@ -102,11 +108,17 @@ func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, erro
 }
 
 // NewService returns a new Service for interacting with a models state.
-func NewService(st State, agentBinaryFinder AgentBinaryFinder, statusHistoryFactory status.StatusHistoryFactory) *Service {
+func NewService(
+	st State,
+	agentBinaryFinder AgentBinaryFinder,
+	statusHistoryFactory status.StatusHistoryFactory,
+	logger Logger,
+) *Service {
 	return &Service{
 		st:                   st,
 		agentBinaryFinder:    agentBinaryFinder,
 		statusHistoryFactory: statusHistoryFactory,
+		logger:               logger,
 	}
 }
 
@@ -210,7 +222,9 @@ func (s *Service) CreateModel(
 
 	finaliser := ModelFinaliser(func(ctx context.Context) error {
 		setter := s.statusHistoryFactory.StatusHistorySetterForModel(uuid.String())
-		setter.SetStatusHistory(status.KindModel, status.Available, uuid.String())
+		if err := setter.SetStatusHistory(status.KindModel, status.Available, uuid.String()); err != nil {
+			s.logger.Infof("failed to set model status history: %v", err)
+		}
 
 		return s.st.Finalise(ctx, uuid)
 	})

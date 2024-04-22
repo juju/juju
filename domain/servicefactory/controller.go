@@ -93,6 +93,7 @@ func (s *ControllerFactory) Model() *modelservice.Service {
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelservice.DefaultAgentBinaryFinder(),
 		s.statusHistoryFactory,
+		s.logger.Child("model"),
 	)
 }
 

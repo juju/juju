@@ -73,7 +73,8 @@ type UserService interface {
 
 // Logger is the interface used by the state to log messages.
 type Logger interface {
-	Debugf(string, ...interface{})
+	Debugf(string, ...any)
+	Infof(string, ...any)
 }
 
 // ControllerConfigService defines the controller config service used for model
@@ -106,6 +107,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		modelstate.NewState(scope.ControllerDB()),
 		modelservice.DefaultAgentBinaryFinder(),
 		i.statusHistoryFactory,
+		i.logger,
 	)
 	i.readOnlyModelService = modelservice.NewModelService(
 		modelstate.NewModelState(scope.ModelDB()),

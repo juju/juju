@@ -35,7 +35,7 @@ func (s *workerSuite) TestStatusHistory(c *gc.C) {
 		ModelUUID: "foo",
 		Entity:    "blah",
 		Module:    "statushistory",
-		Location:  "worker.go:103",
+		Location:  "worker.go:102",
 		Message:   "status history: application - unset status",
 		Labels: map[string]string{
 			"domain": "status",
@@ -52,13 +52,6 @@ func (s *workerSuite) TestStatusHistory(c *gc.C) {
 	statusHistory := worker.StatusHistorySetterForModel("foo")
 	err := statusHistory.SetStatusHistory(status.KindApplication, status.Unset, "blah")
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestLocationResultsInSameLocation(c *gc.C) {
-	setter := statusHistorySetter{}
-	a := setter.location()
-	b := setter.location()
-	c.Assert(a, gc.Equals, b)
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {

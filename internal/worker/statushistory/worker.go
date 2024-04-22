@@ -65,9 +65,10 @@ func (w *statusHistoryWorker) Wait() error {
 // model.
 func (w *statusHistoryWorker) StatusHistorySetterForModel(modelUUID string) status.StatusHistorySetter {
 	return &statusHistorySetter{
-		logger:    w.modelLogger.GetLogger(modelUUID),
-		clock:     w.clock,
-		modelUUID: modelUUID,
+		logger:       w.modelLogger.GetLogger(modelUUID),
+		clock:        w.clock,
+		modelUUID:    modelUUID,
+		fileLocation: sync.OnceValue[string](fileLocationForLog),
 	}
 }
 
@@ -83,9 +84,7 @@ type statusHistorySetter struct {
 	logger    logger.Logger
 	clock     clock.Clock
 
-	mutex            sync.RWMutex
-	fileLocation     string
-	fileLocationOnce sync.Once
+	fileLocation func() string
 }
 
 // SetStatusHistory sets a status history for a given entity.
@@ -100,7 +99,7 @@ func (s *statusHistorySetter) SetStatusHistory(kind status.HistoryKind, status s
 		Entity:    entityID,
 		Level:     logLevel,
 		Module:    logModule,
-		Location:  s.location(),
+		Location:  s.fileLocation(),
 		Message:   fmt.Sprintf("status history: %s - %s status", kind, status.String()),
 		Labels: map[string]string{
 			"domain": "status",
@@ -111,20 +110,9 @@ func (s *statusHistorySetter) SetStatusHistory(kind status.HistoryKind, status s
 	}})
 }
 
-func (s *statusHistorySetter) location() string {
-	s.fileLocationOnce.Do(func() {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-		s.fileLocation = location()
-	})
-
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.fileLocation
-}
-
-func location() string {
+// fileLocationForLog returns the file location for the log, this will be
+// cached for the lifetime of the statusHistorySetter.
+func fileLocationForLog() string {
 	// Get caller frame for the set status history call.
 	var pcs [1]uintptr
 	n := runtime.Callers(6, pcs[:])

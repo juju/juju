@@ -99,7 +99,7 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 SELECT uuid,
        controller_uuid,
        name,
-	   owner,
+       owner,
        type,
        cloud,
        cloud_region,

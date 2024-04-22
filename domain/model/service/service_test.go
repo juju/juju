@@ -20,6 +20,7 @@ import (
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -236,7 +237,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 func (s *serviceSuite) TestCreateModelInvalidArgs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
@@ -258,7 +259,7 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -287,7 +288,7 @@ func (s *serviceSuite) TestModelCreationInvalidCloud(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.clouds["aws"] = dummyStateCloud{}
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -305,7 +306,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "noexist",
@@ -329,7 +330,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 	notFoundUser, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	_, _, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -348,7 +349,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 		Regions:     []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -374,7 +375,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 		Regions:     []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	_, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -399,7 +400,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *gc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	err := svc.UpdateCredential(context.Background(), id, credential.Key{
 		Owner: s.userUUID.String(),
 		Name:  "foo",
@@ -426,7 +427,7 @@ func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -464,7 +465,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -497,7 +498,7 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -540,7 +541,7 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -578,7 +579,7 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -610,7 +611,7 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -633,7 +634,7 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 func (s *serviceSuite) TestDeleteModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	err := svc.DeleteModel(context.Background(), s.modelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
@@ -659,7 +660,7 @@ func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 	agentVersion, err := version.Parse("99.9.9")
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: agentVersion,
 		Cloud:        "aws",
@@ -696,7 +697,7 @@ func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 	agentVersion, err := version.Parse("1.9.9")
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory)
+	svc := NewService(s.state, DefaultAgentBinaryFinder(), s.statusHistoryFactory, testing.NewCheckLogger(c))
 	id, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: agentVersion,
 		Cloud:        "aws",

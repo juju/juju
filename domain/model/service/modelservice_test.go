@@ -11,6 +11,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/model"
 )
 
@@ -51,7 +52,7 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 	args := model.ReadOnlyModelCreationArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
-		Owner:       "admin",
+		Owner:       user.AdminUserName,
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Type:        coremodel.IAAS,
@@ -73,7 +74,7 @@ func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
 	args := model.ReadOnlyModelCreationArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
-		Owner:       "admin",
+		Owner:       user.AdminUserName,
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Type:        coremodel.IAAS,
