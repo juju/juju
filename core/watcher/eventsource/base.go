@@ -23,10 +23,10 @@ type BaseWatcher struct {
 }
 
 // NewBaseWatcher returns a BaseWatcher constructed from the arguments.
-func NewBaseWatcher(watchableDB changestream.WatchableDB, l Logger) *BaseWatcher {
+func NewBaseWatcher(watchableDB changestream.WatchableDB, logger Logger) *BaseWatcher {
 	return &BaseWatcher{
 		watchableDB: watchableDB,
-		logger:      l,
+		logger:      logger,
 	}
 }
 
@@ -51,3 +51,6 @@ type Predicate func(context.Context, database.TxnRunner, []changestream.ChangeEv
 func defaultPredicate(context.Context, database.TxnRunner, []changestream.ChangeEvent) (bool, error) {
 	return true, nil
 }
+
+// Query is a function that returns the initial state of a watcher.
+type Query[T any] func(context.Context, database.TxnRunner) (T, error)
