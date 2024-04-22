@@ -9,9 +9,3 @@ type KeyValue struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
 }
-
-// ModelNameOwner represents the name and owner of a model.
-type ModelNameOwner struct {
-	Name  string `db:"name"`
-	Owner string `db:"owner"`
-}
