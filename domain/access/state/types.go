@@ -138,9 +138,8 @@ func (r dbPermission) toUserAccess(u dbPermissionUser) corepermission.UserAccess
 	return userAccess
 }
 
-// permUserName is a struct to replace sqlair.M with permission
-// SQL that provides a user name for input.
-type permUserName struct {
+// userName is used to pass a user's name as an argument to SQL.
+type userName struct {
 	Name string `db:"name"`
 }
 

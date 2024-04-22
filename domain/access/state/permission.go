@@ -282,17 +282,18 @@ FROM   v_user_auth u
        JOIN user AS creator ON u.created_by_uuid = creator.uuid
        JOIN v_permission p ON u.uuid = p.grant_to
 WHERE  u.removed = false
-       AND u.name = $permUserName.name
+       AND u.name = $userName.name
 `
 
-	queryStmt, err := st.Prepare(query, dbPermissionUser{}, dbPermission{}, permUserName{})
+	uName := userName{Name: subject}
+
+	queryStmt, err := st.Prepare(query, dbPermissionUser{}, dbPermission{}, uName)
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing select all access for user query")
 	}
 
-	n := permUserName{Name: subject}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryStmt, n).GetAll(&permissions, &users)
+		err = tx.Query(ctx, queryStmt, uName).GetAll(&permissions, &users)
 		if err != nil && errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.UserNotFound, "%q", subject)
 		} else if err != nil {
@@ -365,7 +366,9 @@ func (st *PermissionState) ReadAllUserAccessForTarget(ctx context.Context, targe
 // ReadAllAccessForUserAndObjectType return a slice of user access for the subject
 // (user) specified and of the given access type.
 // E.G. All clouds the user has access to.
-func (st *PermissionState) ReadAllAccessForUserAndObjectType(ctx context.Context, subject string, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error) {
+func (st *PermissionState) ReadAllAccessForUserAndObjectType(
+	ctx context.Context, subject string, objectType corepermission.ObjectType,
+) ([]corepermission.UserAccess, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -396,19 +399,20 @@ SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type, p.object_type) AS (&dbPe
 FROM    v_user_auth u
         JOIN user AS creator ON u.created_by_uuid = creator.uuid
         JOIN %s p ON u.uuid = p.grant_to
-WHERE   u.name = $permUserName.name
+WHERE   u.name = $userName.name
 AND     u.disabled = false
 AND     u.removed = false
 `, view)
 
-	readStmt, err := st.Prepare(readQuery, dbPermission{}, dbPermissionUser{}, permUserName{})
+	uName := userName{Name: subject}
+
+	readStmt, err := st.Prepare(readQuery, dbPermission{}, dbPermissionUser{}, uName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	n := permUserName{Name: subject}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, readStmt, n).GetAll(&permissions, &actualUser)
+		err = tx.Query(ctx, readStmt, uName).GetAll(&permissions, &actualUser)
 		if err != nil && errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", subject, objectType)
 		} else if err != nil {
@@ -430,12 +434,10 @@ AND     u.removed = false
 
 // findUserByName finds the user provided exists, hasn't been removed and is not
 // disabled. Return data needed to fill in corePermission.UserAccess.
-func (st *PermissionState) findUserByName(
-	ctx context.Context,
-	tx *sqlair.TX,
-	userName string,
-) (dbPermissionUser, error) {
+func (st *PermissionState) findUserByName(ctx context.Context, tx *sqlair.TX, name string) (dbPermissionUser, error) {
 	var result dbPermissionUser
+
+	uName := userName{Name: name}
 
 	getUserQuery := `
 SELECT (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
@@ -443,21 +445,20 @@ SELECT (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermiss
 FROM   v_user_auth u
        JOIN user AS creator ON u.created_by_uuid = creator.uuid
 WHERE  u.removed = false
-       AND u.name = $permUserName.name`
+       AND u.name = $userName.name`
 
-	selectUserStmt, err := st.Prepare(getUserQuery, dbPermissionUser{}, permUserName{})
+	selectUserStmt, err := st.Prepare(getUserQuery, dbPermissionUser{}, uName)
 	if err != nil {
 		return result, errors.Annotate(err, "preparing select getUser query")
 	}
-	n := permUserName{Name: userName}
-	err = tx.Query(ctx, selectUserStmt, n).Get(&result)
+	err = tx.Query(ctx, selectUserStmt, uName).Get(&result)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
-		return result, errors.Annotatef(accesserrors.UserNotFound, "%q", userName)
+		return result, errors.Annotatef(accesserrors.UserNotFound, "%q", name)
 	} else if err != nil {
-		return result, errors.Annotatef(err, "getting user with name %q", userName)
+		return result, errors.Annotatef(err, "getting user with name %q", name)
 	}
 	if result.Disabled {
-		return result, errors.Annotatef(accesserrors.UserAuthenticationDisabled, "%q", userName)
+		return result, errors.Annotatef(accesserrors.UserAuthenticationDisabled, "%q", name)
 	}
 	return result, nil
 }

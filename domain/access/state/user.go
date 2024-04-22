@@ -196,44 +196,30 @@ WHERE  uuid = $M.uuid`
 // If the user does not exist an error that satisfies [accesserrors.UserNotFound] will
 // be returned.
 // Exported for use in credential.
-func GetUserUUIDByName(
-	ctx context.Context,
-	tx *sqlair.TX,
-	name string,
-) (user.UUID, error) {
+func GetUserUUIDByName(ctx context.Context, tx *sqlair.TX, name string) (user.UUID, error) {
+	uName := userName{Name: name}
+
 	stmt := `
 SELECT user.uuid AS &M.userUUID
 FROM user
-WHERE user.name = $M.name
-AND user.removed = false
-`
+WHERE user.name = $userName.name
+AND user.removed = false`
 
-	selectUserUUIDStmt, err := sqlair.Prepare(stmt, sqlair.M{})
+	selectUserUUIDStmt, err := sqlair.Prepare(stmt, sqlair.M{}, uName)
 	if err != nil {
-		return user.UUID(""), errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	result := sqlair.M{}
-	err = tx.Query(ctx, selectUserUUIDStmt, sqlair.M{"name": name}).Get(&result)
+	err = tx.Query(ctx, selectUserUUIDStmt, uName).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
-		return user.UUID(""), fmt.Errorf(
-			"%w when finding user uuid for name %q",
-			accesserrors.UserNotFound,
-			name,
-		)
+		return "", fmt.Errorf("%w when finding user uuid for name %q", accesserrors.UserNotFound, name)
 	} else if err != nil {
-		return user.UUID(""), fmt.Errorf(
-			"looking up user uuid for name %q: %w",
-			name,
-			err,
-		)
+		return "", fmt.Errorf("looking up user uuid for name %q: %w", name, err)
 	}
 
 	if result["userUUID"] == nil {
-		return user.UUID(""), fmt.Errorf(
-			"retrieving user uuid for user name %q, no result provided",
-			name,
-		)
+		return "", fmt.Errorf("retrieving user uuid for user name %q, no result provided", name)
 	}
 
 	return user.UUID(result["userUUID"].(string)), nil
@@ -248,21 +234,23 @@ func (st *UserState) GetUserByName(ctx context.Context, name string) (user.User,
 		return user.User{}, errors.Annotate(err, "getting DB access")
 	}
 
+	uName := userName{Name: name}
+
 	var usr user.User
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getUserByNameQuery := `
 SELECT (uuid, name, display_name, created_by_uuid, created_at, last_login, disabled) AS (&dbUser.*)
 FROM   v_user_auth
-WHERE  name = $M.name
+WHERE  name = $userName.name
 AND    removed = false`
 
-		selectGetUserByNameStmt, err := st.Prepare(getUserByNameQuery, dbUser{}, sqlair.M{})
+		selectGetUserByNameStmt, err := st.Prepare(getUserByNameQuery, dbUser{}, uName)
 		if err != nil {
 			return errors.Annotate(err, "preparing select getUserByName query")
 		}
 
 		var result dbUser
-		err = tx.Query(ctx, selectGetUserByNameStmt, sqlair.M{"name": name}).Get(&result)
+		err = tx.Query(ctx, selectGetUserByNameStmt, uName).Get(&result)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.UserNotFound, "%q", name)
 		} else if err != nil {
@@ -290,6 +278,8 @@ func (st *UserState) GetUserByAuth(ctx context.Context, name string, password au
 		return user.User{}, errors.Annotate(err, "getting DB access")
 	}
 
+	uName := userName{Name: name}
+
 	getUserWithAuthQuery := `
 SELECT (
 		user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
@@ -299,18 +289,18 @@ SELECT (
 FROM   v_user_auth AS user
 		LEFT JOIN user_password 
 		ON        user.uuid = user_password.user_uuid
-WHERE  user.name = $M.name 
+WHERE  user.name = $userName.name 
 AND    removed = false
 	`
 
-	selectGetUserByAuthStmt, err := st.Prepare(getUserWithAuthQuery, dbUser{}, sqlair.M{})
+	selectGetUserByAuthStmt, err := st.Prepare(getUserWithAuthQuery, dbUser{}, uName)
 	if err != nil {
 		return user.User{}, errors.Annotate(err, "preparing select getUserWithAuth query")
 	}
 
 	var result dbUser
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, selectGetUserByAuthStmt, sqlair.M{"name": name}).Get(&result)
+		err = tx.Query(ctx, selectGetUserByAuthStmt, uName).Get(&result)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.UserNotFound, "%q", name)
 		} else if err != nil {
