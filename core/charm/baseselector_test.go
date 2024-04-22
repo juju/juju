@@ -32,7 +32,6 @@ var (
 	precise     = base.MustParseBaseFromString("ubuntu@14.04")
 	utopic      = base.MustParseBaseFromString("ubuntu@16.10")
 	vivid       = base.MustParseBaseFromString("ubuntu@17.04")
-	latest      = base.LatestLTSBase()
 	jujuDefault = version.DefaultSupportedLTSBase()
 )
 
@@ -128,31 +127,13 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 			err: `base: ubuntu@18.04/stable`,
 		},
 		{
-			title: "juju deploy multiseries    # fallback to base.LatestLTSBase()",
-			selector: BaseSelector{
-				supportedBases: []base.Base{utopic, vivid, latest},
-			},
-			expectedBase: latest,
-		},
-		{
 			title: "juju deploy multiseries    # fallback to version.DefaultSupportedLTSBase()",
 			selector: BaseSelector{
 				supportedBases: []base.Base{utopic, vivid, jujuDefault},
 			},
 			expectedBase: jujuDefault,
 		},
-		{
-			title: "juju deploy multiseries    # prefer base.LatestLTSBase() to  version.DefaultSupportedLTSBase()",
-			selector: BaseSelector{
-				supportedBases: []base.Base{utopic, vivid, jujuDefault, latest},
-			},
-			expectedBase: latest,
-		},
 	}
-
-	// Use bionic for LTS for all calls.
-	previous := base.SetLatestLtsForTesting("focal")
-	defer base.SetLatestLtsForTesting(previous)
 
 	for i, test := range deployBasesTests {
 		c.Logf("test %d [%s]", i, test.title)

@@ -86,15 +86,3 @@ func UbuntuBaseVersion(base Base) (string, error) {
 	}
 	return UbuntuSeriesVersion(s)
 }
-
-// LatestLTSBase returns the latest LTS base.
-// TODO(stickupkid): The underlying series version should be a base, until that
-// logic has changes, just convert between base and series.
-func LatestLTSBase() Base {
-	lts := LatestLTS()
-	b, err := GetBaseFromSeries(lts)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}

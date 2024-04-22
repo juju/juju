@@ -156,15 +156,6 @@ func (s BaseSelector) CharmBase() (selectedBase base.Base, err error) {
 		return s.userRequested(s.defaultBase)
 	}
 
-	// Prefer latest Ubuntu LTS.
-	preferredBase, err := BaseForCharm(base.LatestLTSBase(), s.supportedBases)
-	if err == nil {
-		s.logger.Infof(msgLatestLTSBase, base.LatestLTSBase())
-		return preferredBase, nil
-	} else if errors.Is(err, MissingBaseError) {
-		return base.Base{}, err
-	}
-
 	// Try juju's current default supported Ubuntu LTS
 	jujuDefaultBase, err := BaseForCharm(version.DefaultSupportedLTSBase(), s.supportedBases)
 	if err == nil {

@@ -274,34 +274,6 @@ var (
 	seriesVersionsMutex sync.Mutex
 )
 
-// latestLtsSeries is used to ensure we only do
-// the work to determine the latest lts series once.
-var latestLtsSeries string
-
-// LatestLTS returns the Latest LTS Release found in distro-info
-func LatestLTS() string {
-	if latestLtsSeries != "" {
-		return latestLtsSeries
-	}
-
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-	updateSeriesVersionsOnce()
-
-	var latest SeriesName
-	for k, seriesVersion := range ubuntuSeries {
-		if !seriesVersion.LTS || !seriesVersion.Supported {
-			continue
-		}
-		if seriesVersion.Version > ubuntuSeries[latest].Version {
-			latest = k
-		}
-	}
-
-	latestLtsSeries = string(latest)
-	return latestLtsSeries
-}
-
 // versionSeries provides a mapping between versions and series names.
 var (
 	versionSeries     map[string]string
