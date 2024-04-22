@@ -3,11 +3,18 @@
 
 package statushistory
 
-import "github.com/juju/juju/core/status"
+import (
+	"time"
+
+	"github.com/juju/juju/core/status"
+)
 
 // History represents the status history.
 type History struct {
-	Kind status.HistoryKind
+	Timestamp time.Time
+	Kind      status.HistoryKind
+	Status    status.Status
+	Message   string
 }
 
 // ReadOnlyModel represents a read-only model for the status history.

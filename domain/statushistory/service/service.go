@@ -5,14 +5,20 @@ package service
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/statushistory"
+)
+
+var (
+	statusHistoryNamespace = []byte("statushistory")
 )
 
 // Logger is the interface for logging.
@@ -56,28 +62,55 @@ func (s *Service) GetStatusHistory(ctx context.Context, kind status.HistoryKind)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	defer file.Close()
 
 	var histories []statushistory.History
 
+	// Read the log file line by line.
+	// TODO (stickupkid): If this operation becomes expensive, invert the file
+	// and read from the end to the beginning. Most likely this is what the
+	// caller will want to do anyway.
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		bytes := scanner.Bytes()
-		if len(bytes) == 0 {
+		b := scanner.Bytes()
+		if len(b) == 0 {
+			continue
+		}
+
+		// Sniff the line to determine if it is a status history line.
+		if !bytes.Contains(b, statusHistoryNamespace) {
 			continue
 		}
 
 		var line logLine
-		if err := json.Unmarshal(bytes, &line); err != nil {
-			s.logger.Infof("failed to unmarshal status history: %v", err)
+		if err := json.Unmarshal(b, &line); err != nil {
+			s.logger.Infof("failed to unmarshal status history: %s %v", string(b), err)
 			continue
 		}
 
-		if line.Kind != kind {
+		// We're only interested in status history modules that have labels.
+		// If it doesn't match this criteria, skip to the next line.
+		if line.Module != string(statusHistoryNamespace) || len(line.Labels) == 0 {
+			continue
+		}
+
+		var labels logLineLabels
+		if err := json.Unmarshal(line.Labels, &labels); err != nil {
+			s.logger.Infof("failed to unmarshal status history labels: %v", err)
+			continue
+		}
+
+		// We're only interested in status history lines that match the
+		// specified kind.
+		if !matchesKind(kind, labels.Kind) {
 			continue
 		}
 
 		histories = append(histories, statushistory.History{
-			Kind: line.Kind,
+			Timestamp: line.Timestamp,
+			Kind:      labels.Kind,
+			Status:    labels.Status,
+			Message:   line.Message,
 		})
 	}
 
@@ -88,7 +121,33 @@ func (s *Service) GetStatusHistory(ctx context.Context, kind status.HistoryKind)
 	return histories, nil
 }
 
+func matchesKind(requested, observed status.HistoryKind) bool {
+	// If the requested kind matches the observed kind, return true.
+	if requested == observed {
+		return true
+	}
+
+	// Unit kinds are special in that you also get additional information about
+	// the agent history.
+	if requested == status.KindUnit && observed == status.KindUnitAgent {
+		return true
+	}
+
+	return false
+}
+
 // logLine represents a line in the status history log.
 type logLine struct {
-	Kind status.HistoryKind `json:"kind"`
+	Timestamp time.Time       `json:"timestamp"`
+	Entity    string          `json:"entity"`
+	Level     string          `json:"level"`
+	Module    string          `json:"module"`
+	Labels    json.RawMessage `json:"labels"`
+	Message   string          `json:"message"`
+}
+
+type logLineLabels struct {
+	Domain string             `json:"domain"`
+	Kind   status.HistoryKind `json:"kind"`
+	Status status.Status      `json:"status"`
 }

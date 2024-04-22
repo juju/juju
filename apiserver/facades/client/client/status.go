@@ -56,95 +56,6 @@ func (s byTime) Less(i, j int) bool {
 	return s[i].Since.Before(*s[j].Since)
 }
 
-// applicationStatusHistory returns status history for the given (remote) application.
-func (c *Client) applicationStatusHistory(appTag names.ApplicationTag, filter status.StatusHistoryFilter,
-	kind status.HistoryKind) ([]params.DetailedStatus, error) {
-	var (
-		app status.StatusHistoryGetter
-		err error
-	)
-	if kind == status.KindApplication {
-		app, err = c.api.stateAccessor.Application(appTag.Name)
-	} else {
-		app, err = c.api.stateAccessor.RemoteApplication(appTag.Name)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	sInfo, err := app.StatusHistory(filter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return agentStatusFromStatusInfo(sInfo, kind), nil
-}
-
-// unitStatusHistory returns a list of status history entries for unit agents or workloads.
-func (c *Client) unitStatusHistory(unitTag names.UnitTag, filter status.StatusHistoryFilter,
-	kind status.HistoryKind) ([]params.DetailedStatus, error) {
-	unit, err := c.api.stateAccessor.Unit(unitTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	statuses := []params.DetailedStatus{}
-	if kind == status.KindUnit || kind == status.KindWorkload {
-		unitStatuses, err := unit.StatusHistory(filter)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		statuses = agentStatusFromStatusInfo(unitStatuses, status.KindWorkload)
-
-	}
-	if kind == status.KindUnit || kind == status.KindUnitAgent {
-		agentStatuses, err := unit.AgentHistory().StatusHistory(filter)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		statuses = append(statuses, agentStatusFromStatusInfo(agentStatuses, status.KindUnitAgent)...)
-	}
-
-	sort.Sort(byTime(statuses))
-	if kind == status.KindUnit && filter.Size > 0 {
-		if len(statuses) > filter.Size {
-			statuses = statuses[len(statuses)-filter.Size:]
-		}
-	}
-
-	return statuses, nil
-}
-
-// machineStatusHistory returns status history for the given machine.
-func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status.StatusHistoryFilter,
-	kind status.HistoryKind) ([]params.DetailedStatus, error) {
-	machine, err := c.api.stateAccessor.Machine(machineTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var sInfo []status.StatusInfo
-	if kind == status.KindMachineInstance || kind == status.KindContainerInstance {
-		sInfo, err = machine.InstanceStatusHistory(filter)
-	} else {
-		sInfo, err = machine.StatusHistory(filter)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return agentStatusFromStatusInfo(sInfo, kind), nil
-}
-
-// modelStatusHistory returns status history for the current model.
-func (c *Client) modelStatusHistory(filter status.StatusHistoryFilter) ([]params.DetailedStatus, error) {
-	m, err := c.api.stateAccessor.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get model")
-	}
-
-	sInfo, err := m.StatusHistory(filter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return agentStatusFromStatusInfo(sInfo, status.KindModel), nil
-}
-
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
 	results := params.StatusHistoryResults{}
@@ -186,36 +97,13 @@ func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistory
 
 		result := make([]params.DetailedStatus, len(history))
 		for i, h := range history {
+			since := h.Timestamp
 			result[i] = params.DetailedStatus{
-				Kind: string(h.Kind),
+				Kind:   string(h.Kind),
+				Status: string(h.Status),
+				Since:  &since,
 			}
 		}
-
-		/*
-			var (
-				err  error
-				hist []params.DetailedStatus
-			)
-
-			switch kind {
-			case status.KindModel:
-				hist, err = c.modelStatusHistory(filter)
-			case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
-				var u names.UnitTag
-				if u, err = names.ParseUnitTag(request.Tag); err == nil {
-					hist, err = c.unitStatusHistory(u, filter, kind)
-				}
-			case status.KindApplication, status.KindSAAS:
-				var app names.ApplicationTag
-				if app, err = names.ParseApplicationTag(request.Tag); err == nil {
-					hist, err = c.applicationStatusHistory(app, filter, kind)
-				}
-			default:
-				var m names.MachineTag
-				if m, err = names.ParseMachineTag(request.Tag); err == nil {
-					hist, err = c.machineStatusHistory(m, filter, kind)
-				}
-			}*/
 
 		if err == nil {
 			sort.Sort(byTime(result))
