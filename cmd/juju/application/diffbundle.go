@@ -122,7 +122,6 @@ type diffBundleCommand struct {
 	channel        charm.Channel
 	arch           string
 	arches         arch.Arches
-	series         string
 	base           string
 	annotations    bool
 
@@ -160,7 +159,6 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", "", "specify a series. DEPRECATED: use --base")
 	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from Charmhub")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
@@ -170,10 +168,6 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is part of cmd.Command.
 func (c *diffBundleCommand) Init(args []string) error {
-	if c.base != "" && c.series != "" {
-		return errors.New("--series and --base cannot be specified together")
-	}
-
 	if len(args) < 1 {
 		return errors.New("no bundle specified")
 	}
@@ -203,16 +197,6 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 		base corebase.Base
 		err  error
 	)
-	// Note: we validated that both series and base cannot be specified in
-	// Init(), so it's safe to assume that only one of them is set here.
-	if c.series != "" {
-		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = corebase.GetBaseFromSeries(c.series); err != nil {
-			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
-		}
-		c.base = base.String()
-		c.series = ""
-	}
 	if c.base != "" {
 		if base, err = corebase.ParseBaseFromString(c.base); err != nil {
 			return errors.Trace(err)
