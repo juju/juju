@@ -10,8 +10,10 @@ import (
 	"github.com/juju/packaging/v3"
 	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
+	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	coretesting "github.com/juju/juju/testing"
@@ -566,4 +568,36 @@ func (S) TestSetOutput(c *gc.C) {
 		c.Assert(stdout, gc.Equals, t.stdout)
 		c.Assert(stderr, gc.Equals, t.stderr)
 	}
+}
+
+func (S) TestFileTransporter(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ft := NewMockFileTransporter(ctrl)
+	ft.EXPECT().SendBytes("/dev/nonsense", []byte{0, 1, 2, 3}).Return("/tmp/dev-nonsense")
+
+	cfg, err := cloudinit.New("ubuntu")
+	c.Assert(err, jc.ErrorIsNil)
+	cfg.SetFileTransporter(ft)
+
+	cfg.AddRunBinaryFile(
+		"/dev/nonsense",
+		[]byte{0, 1, 2, 3},
+		0644,
+	)
+
+	out, err := cfg.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+
+	unmarshalled := map[string]any{}
+	err = yaml.Unmarshal(out, unmarshalled)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(unmarshalled, gc.DeepEquals, map[string]any{
+		"runcmd": []any{
+			"install -D -m 644 /dev/null '/dev/nonsense'",
+			"cat '/tmp/dev-nonsense' > '/dev/nonsense'",
+		},
+	})
 }

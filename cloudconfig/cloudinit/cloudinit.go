@@ -32,6 +32,10 @@ type cloudConfig struct {
 	// renderer is the shell Renderer for this cloudConfig.
 	renderer shell.Renderer
 
+	// fileTransporter allows the cloud config to optionally emit files that it
+	// wants to be planted on the target machine.
+	fileTransporter FileTransporter
+
 	// attrs is the map of options set on this cloudConfig.
 	// main attributes used in the options map and their corresponding types:
 	//
@@ -114,6 +118,10 @@ func (cfg *cloudConfig) SetAttr(name string, value interface{}) {
 // UnsetAttr is defined on the CloudConfig interface.
 func (cfg *cloudConfig) UnsetAttr(name string) {
 	delete(cfg.attrs, name)
+}
+
+func (cfg *cloudConfig) SetFileTransporter(ft FileTransporter) {
+	cfg.fileTransporter = ft
 }
 
 func annotateKeys(rawKeys string) []string {
@@ -401,6 +409,11 @@ func (cfg *cloudConfig) AddBootTextFile(filename, contents string, perm uint) {
 
 // AddRunBinaryFile is defined on the WrittenFilesConfig interface.
 func (cfg *cloudConfig) AddRunBinaryFile(filename string, data []byte, mode uint) {
+	if cfg.fileTransporter != nil {
+		source := cfg.fileTransporter.SendBytes(filename, data)
+		cfg.AddScripts(addFileCopyCmds(source, filename, mode)...)
+		return
+	}
 	cfg.AddScripts(addFileCmds(filename, data, mode, true)...)
 }
 
