@@ -76,7 +76,12 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ctrlFactory := config.NewControllerServiceFactory(config.DBGetter, config.DBDeleter, config.Logger)
+	ctrlFactory := config.NewControllerServiceFactory(
+		config.DBGetter,
+		config.DBDeleter,
+		config.StatusHistoryFactory,
+		config.Logger,
+	)
 	w := &serviceFactoryWorker{
 		ctrlFactory: ctrlFactory,
 		factoryGetter: config.NewServiceFactoryGetter(

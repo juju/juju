@@ -29,36 +29,17 @@ type serviceSuite struct {
 	state                *MockState
 	charm                *MockCharm
 	statusHistoryFactory *MockStatusHistoryFactory
+	statusHistorySetter  *MockStatusHistorySetter
 
 	service *Service
 }
 
 var _ = gc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.state = NewMockState(ctrl)
-	s.charm = NewMockCharm(ctrl)
-	s.statusHistoryFactory = NewMockStatusHistoryFactory(ctrl)
-
-	registry := storage.ChainedProviderRegistry{
-		dummystorage.StorageProviders(),
-		provider.CommonStorageProviders(),
-	}
-	statusHistoryRunner := status.StatusHistorySetterRunner(s.statusHistoryFactory, "foo")
-
-	s.service = NewService(s.state, registry, statusHistoryRunner, loggo.GetLogger("test"))
-
-	return ctrl
-}
-
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *serviceSuite) TestCreateApplication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectStatusHistory(c)
 
 	u := application.AddUnitParams{
 		UnitName: ptr("foo/666"),
@@ -78,6 +59,8 @@ func (s *serviceSuite) TestCreateApplication(c *gc.C) {
 
 func (s *serviceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectStatusHistory(c)
 
 	u := application.AddUnitParams{
 		UnitName: ptr("foo/666"),
@@ -110,6 +93,8 @@ func (s *serviceSuite) TestCreateWithStorageBlock(c *gc.C) {
 
 func (s *serviceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectStatusHistory(c)
 
 	u := application.AddUnitParams{
 		UnitName: ptr("foo/666"),
@@ -146,6 +131,8 @@ func (s *serviceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.C) {
 func (s *serviceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectStatusHistory(c)
+
 	u := application.AddUnitParams{
 		UnitName: ptr("foo/666"),
 	}
@@ -177,6 +164,8 @@ func (s *serviceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 
 func (s *serviceSuite) TestCreateWithStorageFilesystemDefaultSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectStatusHistory(c)
 
 	u := application.AddUnitParams{
 		UnitName: ptr("foo/666"),
@@ -324,4 +313,38 @@ func (s *serviceSuite) TestAddUpsertCAASUnit(c *gc.C) {
 	}
 	err := s.service.UpsertCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockState(ctrl)
+	s.charm = NewMockCharm(ctrl)
+	s.statusHistoryFactory = NewMockStatusHistoryFactory(ctrl)
+	s.statusHistorySetter = NewMockStatusHistorySetter(ctrl)
+
+	registry := storage.ChainedProviderRegistry{
+		dummystorage.StorageProviders(),
+		provider.CommonStorageProviders(),
+	}
+	statusHistoryRunner := status.StatusHistorySetterRunner(s.statusHistoryFactory, "foo")
+
+	s.service = NewService(s.state, registry, statusHistoryRunner, loggo.GetLogger("test"))
+
+	return ctrl
+}
+
+func (s *serviceSuite) expectStatusHistory(c *gc.C) {
+	// We use a random UUID for the model namespace. We should only ever receive
+	// one request though.
+	s.statusHistoryFactory.EXPECT().StatusHistorySetterForModel(gomock.Any()).Return(s.statusHistorySetter)
+	s.statusHistorySetter.EXPECT().SetStatusHistory(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(kind status.HistoryKind, s status.Status, id string) error {
+		c.Check(kind, gc.Equals, status.KindApplication)
+		c.Check(s, gc.Equals, status.Unset)
+		return nil
+	})
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

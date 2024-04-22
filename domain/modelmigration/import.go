@@ -36,17 +36,18 @@ type Logger interface {
 // to register all the import operations.
 func ImportOperations(
 	coordinator Coordinator,
-	logger Logger,
 	modelDefaultsProvider modelconfigservice.ModelDefaultsProvider,
 	registry internalstorage.ProviderRegistry,
+	statusHistoryFactory status.StatusHistoryFactory,
 	statusHistory status.StatusHistoryForModel,
+	logger Logger,
 ) {
 	// Note: All the import operations are registered here.
 	// Order is important!
 	lease.RegisterImport(coordinator, logger)
 	externalcontroller.RegisterImport(coordinator)
 	credential.RegisterImport(coordinator)
-	model.RegisterImport(coordinator, logger)
+	model.RegisterImport(coordinator, statusHistoryFactory, logger)
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider)
 	machine.RegisterImport(coordinator)
 	application.RegisterImport(coordinator, registry, statusHistory)

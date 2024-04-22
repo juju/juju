@@ -71,12 +71,14 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		"dbaccessor":      s.dbDeleter,
 		"changestream":    s.dbGetter,
 		"providerfactory": s.providerFactory,
+		"statushistory":   s.statusHistoryFactory,
 	}
 
 	manifold := Manifold(ManifoldConfig{
 		DBAccessorName:              "dbaccessor",
 		ChangeStreamName:            "changestream",
 		ProviderFactoryName:         "providerfactory",
+		StatusHistoryName:           "statushistory",
 		Logger:                      s.logger,
 		NewWorker:                   NewWorker,
 		NewServiceFactoryGetter:     NewServiceFactoryGetter,
@@ -96,6 +98,7 @@ func (s *manifoldSuite) TestOutputControllerServiceFactory(c *gc.C) {
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
+		StatusHistoryFactory:        s.statusHistoryFactory,
 		NewServiceFactoryGetter:     NewServiceFactoryGetter,
 		NewControllerServiceFactory: NewControllerServiceFactory,
 		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
@@ -116,6 +119,7 @@ func (s *manifoldSuite) TestOutputServiceFactoryGetter(c *gc.C) {
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
+		StatusHistoryFactory:        s.statusHistoryFactory,
 		NewServiceFactoryGetter:     NewServiceFactoryGetter,
 		NewControllerServiceFactory: NewControllerServiceFactory,
 		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
@@ -136,6 +140,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
+		StatusHistoryFactory:        s.statusHistoryFactory,
 		NewServiceFactoryGetter:     NewServiceFactoryGetter,
 		NewControllerServiceFactory: NewControllerServiceFactory,
 		NewModelServiceFactory:      NewProviderTrackerModelServiceFactory,
@@ -151,7 +156,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestNewControllerServiceFactory(c *gc.C) {
-	factory := NewControllerServiceFactory(s.dbGetter, s.dbDeleter, s.logger)
+	factory := NewControllerServiceFactory(s.dbGetter, s.dbDeleter, s.statusHistoryFactory, s.logger)
 	c.Assert(factory, gc.NotNil)
 }
 
@@ -165,7 +170,7 @@ func (s *manifoldSuite) TestNewModelServiceFactory(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestNewServiceFactoryGetter(c *gc.C) {
-	ctrlFactory := NewControllerServiceFactory(s.dbGetter, s.dbDeleter, s.logger)
+	ctrlFactory := NewControllerServiceFactory(s.dbGetter, s.dbDeleter, s.statusHistoryFactory, s.logger)
 	factory := NewServiceFactoryGetter(ctrlFactory, s.dbGetter, s.logger, NewProviderTrackerModelServiceFactory, nil, nil)
 	c.Assert(factory, gc.NotNil)
 
@@ -178,6 +183,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		DBAccessorName:      "dbaccessor",
 		ChangeStreamName:    "changestream",
 		ProviderFactoryName: "providerfactory",
+		StatusHistoryName:   "statushistory",
 		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
@@ -185,7 +191,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn, providertracker.ProviderFactory, status.StatusHistoryFactory) servicefactory.ServiceFactoryGetter {
 			return nil
 		},
-		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
+		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, status.StatusHistoryFactory, Logger) servicefactory.ControllerServiceFactory {
 			return nil
 		},
 		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, status.StatusHistoryFactory, Logger) servicefactory.ModelServiceFactory {

@@ -58,6 +58,7 @@ type ServiceFactoryGetterFn func(
 type ControllerServiceFactoryFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
+	status.StatusHistoryFactory,
 	Logger,
 ) servicefactory.ControllerServiceFactory
 
@@ -180,11 +181,13 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewControllerServiceFactory(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
+	statusHistoryFactory status.StatusHistoryFactory,
 	logger Logger,
 ) servicefactory.ControllerServiceFactory {
 	return domainservicefactory.NewControllerFactory(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
+		statusHistoryFactory,
 		serviceFactoryLogger{
 			Logger: logger,
 		},

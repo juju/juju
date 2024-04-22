@@ -6,6 +6,7 @@ package servicefactory
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
 	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
@@ -46,9 +47,10 @@ type Logger interface {
 
 // ControllerFactory provides access to the services required by the apiserver.
 type ControllerFactory struct {
-	controllerDB changestream.WatchableDBFactory
-	dbDeleter    database.DBDeleter
-	logger       Logger
+	logger               Logger
+	controllerDB         changestream.WatchableDBFactory
+	dbDeleter            database.DBDeleter
+	statusHistoryFactory status.StatusHistoryFactory
 }
 
 // NewControllerFactory returns a new registry which uses the provided controllerDB
@@ -56,12 +58,14 @@ type ControllerFactory struct {
 func NewControllerFactory(
 	controllerDB changestream.WatchableDBFactory,
 	dbDeleter database.DBDeleter,
+	statusHistoryFactory status.StatusHistoryFactory,
 	logger Logger,
 ) *ControllerFactory {
 	return &ControllerFactory{
-		controllerDB: controllerDB,
-		dbDeleter:    dbDeleter,
-		logger:       logger,
+		controllerDB:         controllerDB,
+		dbDeleter:            dbDeleter,
+		logger:               logger,
+		statusHistoryFactory: statusHistoryFactory,
 	}
 }
 
@@ -88,6 +92,7 @@ func (s *ControllerFactory) Model() *modelservice.Service {
 	return modelservice.NewService(
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelservice.DefaultAgentBinaryFinder(),
+		s.statusHistoryFactory,
 	)
 }
 

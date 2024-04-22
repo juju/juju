@@ -147,6 +147,7 @@ func (*typesSuite) TestModelToReadOnlyModel(c *gc.C) {
 		UUID:            modelUUID,
 		ControllerUUID:  controllerUUID,
 		Name:            "my-awesome-model",
+		Owner:           coreuser.AdminUserName,
 		Type:            coremodel.IAAS,
 		Cloud:           "my-cloud",
 		CloudRegion:     "my-region",
