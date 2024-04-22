@@ -11,18 +11,18 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/packaging/v3/manager"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/container"
 	corebase "github.com/juju/juju/core/base"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/juju/service"
 )
 
-var hostSeries = series.HostSeries
+var hostBase = coreos.HostBase
 
 type containerInitialiser struct {
 	containerNetworkingMethod string
@@ -68,11 +68,7 @@ func NewContainerInitialiser(lxdSnapChannel, containerNetworkingMethod string) c
 
 // Initialise is specified on the container.Initialiser interface.
 func (ci *containerInitialiser) Initialise() (err error) {
-	localSeries, err := hostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	localBase, err := corebase.GetBaseFromSeries(localSeries)
+	localBase, err := hostBase()
 	if err != nil {
 		return errors.Trace(err)
 	}

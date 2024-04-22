@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/packaging/v3/commands"
 	"github.com/juju/packaging/v3/config"
 	"github.com/juju/proxy"
@@ -164,12 +163,8 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 
 // getPackageCommander is a helper function which returns the
 // package commands implementation for the current system.
-func getPackageCommander() (commands.PackageCommander, error) {
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return commands.NewPackageCommander(hostSeries)
+func getPackageCommander() commands.PackageCommander {
+	return commands.NewAptPackageCommander()
 }
 
 func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
@@ -261,11 +256,7 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror
 		err      error
 	)
 	if updateNeeded {
-		paccmder, err = getPackageCommander()
-		if err != nil {
-			w.config.Logger.Errorf("unable to process apt proxy changes: %v", err)
-			return
-		}
+		paccmder = getPackageCommander()
 	}
 
 	if aptSettings != w.aptProxy || w.first {

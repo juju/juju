@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
@@ -300,8 +301,8 @@ func CurrentVersion() version.Binary {
 }
 
 // HostSeries returns series.HostSeries(), asserting on error.
-func HostSeries(c *gc.C) string {
-	hostSeries, err := series.HostSeries()
+func HostBase(c *gc.C) base.Base {
+	hostBase, err := coreos.HostBase()
 	c.Assert(err, jc.ErrorIsNil)
-	return hostSeries
+	return hostBase
 }

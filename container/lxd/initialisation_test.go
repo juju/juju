@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	"github.com/juju/juju/core/base"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -86,7 +87,7 @@ func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdI
 
 func (s *InitialiserSuite) TestSnapInstalled(c *gc.C) {
 	PatchLXDViaSnap(s, true)
-	PatchHostSeries(s, "jammy")
+	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@22.04"))
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -103,7 +104,7 @@ func (s *InitialiserSuite) TestSnapInstalled(c *gc.C) {
 
 func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
 	PatchLXDViaSnap(s, true)
-	PatchHostSeries(s, "focal")
+	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -121,7 +122,7 @@ func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
 
 func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
 	PatchLXDViaSnap(s, true)
-	PatchHostSeries(s, "focal")
+	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -143,7 +144,7 @@ func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
 func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 	PatchLXDViaSnap(s, false)
 
-	PatchHostSeries(s, "focal")
+	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	paccmder := commands.NewSnapPackageCommander()
 
@@ -157,7 +158,7 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 
 func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	s.patchDF100GB()
-	PatchHostSeries(s, "focal")
+	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ci := s.containerInitialiser(nil, true, "local")
 	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
@@ -171,7 +172,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 }
 
 func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
-	PatchHostSeries(s, "jammy")
+	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -8,10 +8,9 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/core/base"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
@@ -45,11 +44,7 @@ func (ci *containerInitialiser) Initialise() error {
 }
 
 func ensureDependencies() error {
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	hostBase, err := base.GetBaseFromSeries(hostSeries)
+	hostBase, err := coreos.HostBase()
 	if err != nil {
 		return errors.Trace(err)
 	}
