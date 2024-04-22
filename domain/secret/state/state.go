@@ -44,26 +44,32 @@ func (st State) GetModelUUID(ctx context.Context) (string, error) {
 		return "", errors.Trace(err)
 	}
 
+	var modelUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		modelUUID, err = st.getModelUUID(ctx, tx)
+		return err
+	})
+	return modelUUID, errors.Trace(domain.CoerceError(err))
+}
+
+func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
 	getModelUUIDSQL := "SELECT &M.uuid FROM model"
 	getModelUUIDStmt, err := st.Prepare(getModelUUIDSQL, sqlair.M{})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	var modelUUID string
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := sqlair.M{}
-		err = tx.Query(ctx, getModelUUIDStmt).Get(&result)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return modelerrors.NotFound
-			} else {
-				return errors.Annotatef(err, "looking up model UUID")
-			}
+
+	result := sqlair.M{}
+	err = tx.Query(ctx, getModelUUIDStmt).Get(&result)
+	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", modelerrors.NotFound
+		} else {
+			return "", errors.Annotatef(err, "looking up model UUID")
 		}
-		modelUUID = result["uuid"].(string)
-		return nil
-	})
-	return modelUUID, errors.Trace(domain.CoerceError(err))
+	}
+	return result["uuid"].(string), nil
 }
 
 // CreateUserSecret creates a user secret, returning an error satisfying [secreterrors.SecretAlreadyExists]
@@ -75,11 +81,6 @@ func (st State) CreateUserSecret(ctx context.Context, version int, uri *coresecr
 	}
 
 	revisionUUID, err := uuid.NewUUID()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	modelUUID, err := st.GetModelUUID(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -96,6 +97,11 @@ func (st State) CreateUserSecret(ctx context.Context, version int, uri *coresecr
 		dbSecretOwner := secretModelOwner{SecretID: uri.ID, Label: label}
 		if err := st.upsertSecretModelOwner(ctx, tx, dbSecretOwner); err != nil {
 			return errors.Annotatef(err, "inserting user secret record for secret %q", uri)
+		}
+
+		modelUUID, err := st.getModelUUID(ctx, tx)
+		if err != nil {
+			return errors.Trace(err)
 		}
 
 		if err := st.grantSecretOwnerManage(ctx, tx, uri, modelUUID, domainsecret.SubjectModel); err != nil {
@@ -1960,65 +1966,6 @@ func (st State) GrantAccess(ctx context.Context, uri *coresecrets.URI, params do
 		return errors.Trace(err)
 	}
 
-	// Setup the queries used to look up the UUID of the subject and access scope entities.
-
-	selectUnitUUID := `SELECT uuid AS &entityRef.uuid FROM unit WHERE unit_id=$entityRef.id`
-	selectApplicationUUID := `SELECT uuid AS &entityRef.uuid FROM application WHERE name=$entityRef.id`
-	selectModelUUID := `SELECT uuid AS &entityRef.uuid FROM model WHERE uuid=$entityRef.id`
-
-	var (
-		selectSubjectUUID        string
-		selectSubjectQueryParams = entityRef{ID: params.SubjectID}
-		subjectNotFoundError     error
-	)
-	switch params.SubjectTypeID {
-	case domainsecret.SubjectUnit:
-		selectSubjectUUID = selectUnitUUID
-		subjectNotFoundError = uniterrors.NotFound
-	case domainsecret.SubjectApplication:
-		selectSubjectUUID = selectApplicationUUID
-		subjectNotFoundError = applicationerrors.ApplicationNotFound
-	case domainsecret.SubjectRemoteApplication:
-		// TODO(secrets) - we don't have remote applications in dqlite yet
-		// Just use a temporary query that returns the id as uuid.
-		selectSubjectUUID = fmt.Sprintf(
-			`SELECT uuid AS &entityRef.uuid FROM (SELECT '%s' AS uuid FROM model) WHERE $entityRef.id <> ''`, params.SubjectID)
-		subjectNotFoundError = applicationerrors.ApplicationNotFound
-	case domainsecret.SubjectModel:
-		selectSubjectUUID = selectModelUUID
-		subjectNotFoundError = modelerrors.NotFound
-	}
-	selectSubjectUUIDStmt, err := st.Prepare(selectSubjectUUID, entityRef{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var (
-		selectScopeUUID        string
-		selectScopeQueryParams = entityRef{ID: params.ScopeID}
-		scopeNotFoundError     error
-	)
-	switch params.ScopeTypeID {
-	case domainsecret.ScopeUnit:
-		selectScopeUUID = selectUnitUUID
-		scopeNotFoundError = uniterrors.NotFound
-	case domainsecret.ScopeApplication:
-		selectScopeUUID = selectApplicationUUID
-		scopeNotFoundError = applicationerrors.ApplicationNotFound
-	case domainsecret.ScopeModel:
-		selectScopeUUID = selectModelUUID
-		scopeNotFoundError = modelerrors.NotFound
-	case domainsecret.ScopeRelation:
-		// TODO(secrets) - we don't have relations in dqlite yet
-		// Just use a temporary query that returns the id as uuid.
-		selectScopeUUID = fmt.Sprintf(
-			`SELECT uuid AS &entityRef.uuid FROM (SELECT '%s' AS uuid FROM model) WHERE $entityRef.id <> ''`, params.ScopeID)
-	}
-	selectScopeUUIDStmt, err := st.Prepare(selectScopeUUID, entityRef{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	checkInvariantQuery := `
 SELECT sp.secret_id AS &secretID.id
 FROM   secret_permission sp
@@ -2047,38 +1994,18 @@ AND    (sp.subject_type_id <> $secretPermission.subject_type_id
 		}
 
 		// Look up the UUID of the subject.
-		result := entityRef{}
-		err = tx.Query(ctx, selectSubjectUUIDStmt, selectSubjectQueryParams).Get(&result)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("%#v %q not found%w", params.SubjectTypeID, params.SubjectID, errors.Hide(subjectNotFoundError))
-			} else {
-				subject := params.SubjectID
-				if params.SubjectTypeID == domainsecret.SubjectModel {
-					subject = "model"
-				}
-				return errors.Annotatef(err, "looking up secret grant subject UUID for %q", subject)
-			}
-		}
-		perm.SubjectUUID = result.UUID
 		perm.SubjectTypeID = params.SubjectTypeID
+		perm.SubjectUUID, err = st.lookupSubjectUUID(ctx, tx, params.SubjectID, params.SubjectTypeID)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		// Look up the UUID of the access scope entity.
-		result = entityRef{}
-		err = tx.Query(ctx, selectScopeUUIDStmt, selectScopeQueryParams).Get(&result)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("%#v %q not found%w", params.ScopeTypeID, params.ScopeID, errors.Hide(scopeNotFoundError))
-			} else {
-				scope := params.ScopeID
-				if params.ScopeTypeID == domainsecret.ScopeModel {
-					scope = "model"
-				}
-				return errors.Annotatef(err, "looking up secret grant scope UUID for %q", scope)
-			}
-		}
-		perm.ScopeUUID = result.UUID
 		perm.ScopeTypeID = params.ScopeTypeID
+		perm.ScopeUUID, err = st.lookupScopeUUID(ctx, tx, params.ScopeID, params.ScopeTypeID)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		// Check that the access scope or subject type is not changing.
 		id := secretID{}
@@ -2093,6 +2020,98 @@ AND    (sp.subject_type_id <> $secretPermission.subject_type_id
 		return st.grantAccess(ctx, tx, perm)
 	})
 	return errors.Trace(domain.CoerceError(err))
+}
+
+const (
+	selectUnitUUID        = `SELECT uuid AS &entityRef.uuid FROM unit WHERE unit_id=$entityRef.id`
+	selectApplicationUUID = `SELECT uuid AS &entityRef.uuid FROM application WHERE name=$entityRef.id`
+	selectModelUUID       = `SELECT uuid AS &entityRef.uuid FROM model WHERE uuid=$entityRef.id`
+)
+
+func (st State) lookupSubjectUUID(ctx context.Context, tx *sqlair.TX, subjectID string, subjectTypeID domainsecret.GrantSubjectType) (string, error) {
+	var (
+		selectSubjectUUID        string
+		selectSubjectQueryParams = []any{entityRef{ID: subjectID}}
+		subjectNotFoundError     error
+	)
+	switch subjectTypeID {
+	case domainsecret.SubjectUnit:
+		selectSubjectUUID = selectUnitUUID
+		subjectNotFoundError = uniterrors.NotFound
+	case domainsecret.SubjectApplication:
+		selectSubjectUUID = selectApplicationUUID
+		subjectNotFoundError = applicationerrors.ApplicationNotFound
+	case domainsecret.SubjectRemoteApplication:
+		// TODO(secrets) - we don't have remote applications in dqlite yet
+		// Just use a temporary query that returns the id as uuid.
+		selectSubjectUUID = "SELECT uuid AS &entityRef.uuid FROM (SELECT $M.subject_id AS uuid FROM model) WHERE $entityRef.id <> ''"
+		selectSubjectQueryParams = append(selectSubjectQueryParams, sqlair.M{"subject_id": subjectID})
+		subjectNotFoundError = applicationerrors.ApplicationNotFound
+	case domainsecret.SubjectModel:
+		selectSubjectUUID = selectModelUUID
+		subjectNotFoundError = modelerrors.NotFound
+	}
+	selectSubjectUUIDStmt, err := st.Prepare(selectSubjectUUID, selectSubjectQueryParams...)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	result := entityRef{}
+	err = tx.Query(ctx, selectSubjectUUIDStmt, selectSubjectQueryParams...).Get(&result)
+	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", fmt.Errorf("%s %q not found%w", subjectTypeID, subjectID, errors.Hide(subjectNotFoundError))
+		} else {
+			subject := subjectID
+			if subjectTypeID == domainsecret.SubjectModel {
+				subject = "model"
+			}
+			return "", errors.Annotatef(err, "looking up secret grant subject UUID for %q", subject)
+		}
+	}
+	return result.UUID, nil
+}
+
+func (st State) lookupScopeUUID(ctx context.Context, tx *sqlair.TX, scopeID string, scopeTypeID domainsecret.GrantScopeType) (string, error) {
+	var (
+		selectScopeUUID        string
+		selectScopeQueryParams = []any{entityRef{ID: scopeID}}
+		scopeNotFoundError     error
+	)
+	switch scopeTypeID {
+	case domainsecret.ScopeUnit:
+		selectScopeUUID = selectUnitUUID
+		scopeNotFoundError = uniterrors.NotFound
+	case domainsecret.ScopeApplication:
+		selectScopeUUID = selectApplicationUUID
+		scopeNotFoundError = applicationerrors.ApplicationNotFound
+	case domainsecret.ScopeModel:
+		selectScopeUUID = selectModelUUID
+		scopeNotFoundError = modelerrors.NotFound
+	case domainsecret.ScopeRelation:
+		// TODO(secrets) - we don't have relations in dqlite yet
+		// Just use a temporary query that returns the id as uuid.
+		selectScopeUUID = "SELECT uuid AS &entityRef.uuid FROM (SELECT $M.scope_id AS uuid FROM model) WHERE $entityRef.id <> ''"
+		selectScopeQueryParams = append(selectScopeQueryParams, sqlair.M{"scope_id": scopeID})
+	}
+	selectScopeUUIDStmt, err := st.Prepare(selectScopeUUID, selectScopeQueryParams...)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	result := entityRef{}
+	err = tx.Query(ctx, selectScopeUUIDStmt, selectScopeQueryParams...).Get(&result)
+	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", fmt.Errorf("%s %q not found%w", scopeTypeID, scopeID, errors.Hide(scopeNotFoundError))
+		} else {
+			scope := scopeID
+			if scopeTypeID == domainsecret.ScopeModel {
+				scope = "model"
+			}
+			return "", errors.Annotatef(err, "looking up secret grant scope UUID for %q", scope)
+		}
+	}
+	return result.UUID, nil
 }
 
 func (st State) grantAccess(ctx context.Context, tx *sqlair.TX, perm secretPermission) error {

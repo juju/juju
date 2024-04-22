@@ -38,8 +38,8 @@ const (
 	ScopeRelation
 )
 
-// GoString implements fmt.GoStringer.
-func (s GrantScopeType) GoString() string {
+// String implements fmt.Stringer.
+func (s GrantScopeType) String() string {
 	switch s {
 	case ScopeUnit:
 		return "unit"
@@ -65,8 +65,8 @@ const (
 	SubjectRemoteApplication
 )
 
-// GoString implements fmt.GoStringer.
-func (s GrantSubjectType) GoString() string {
+// String implements fmt.Stringer.
+func (s GrantSubjectType) String() string {
 	switch s {
 	case SubjectUnit:
 		return "unit"
