@@ -96,7 +96,10 @@ func (c *Client) ApplicationConfig(applicationName string) (config.ConfigAttribu
 	if len(results.Results) != len(args.Entities) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
 	}
-	return config.ConfigAttributes(results.Results[0].Config), nil
+	if err := results.Results[0].Error; err != nil {
+		return nil, params.TranslateWellKnownError(err)
+	}
+	return results.Results[0].Config, nil
 }
 
 // WatchApplicationScale returns a NotifyWatcher that notifies of
