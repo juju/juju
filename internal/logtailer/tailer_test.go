@@ -51,6 +51,33 @@ func (s *TailerSuite) TestProcessForwardNoTail(c *gc.C) {
 	c.Assert(records, jc.DeepEquals, logRecords)
 }
 
+func (s *TailerSuite) TestWithModelUUID(c *gc.C) {
+	testFileName := filepath.Join(c.MkDir(), "test.log")
+	err := os.WriteFile(testFileName, []byte(logContentWithModelUUID), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tailer, err := logtailer.NewLogTailer("", testFileName, logtailer.LogTailerParams{
+		NoTail:   true,
+		Firehose: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var records []*corelogger.LogRecord
+	logs := tailer.Logs()
+	for {
+		rec, ok := <-logs
+		if !ok {
+			break
+		}
+		records = append(records, rec)
+	}
+	recordsWithModel := logRecords[:]
+	for i, r := range recordsWithModel {
+		r.ModelUUID = fmt.Sprintf("modelUUID%d", i+1)
+	}
+	c.Assert(records, jc.DeepEquals, recordsWithModel)
+}
+
 func (s *TailerSuite) TestProcessReverseNoTail(c *gc.C) {
 	testFileName := filepath.Join(c.MkDir(), "test.log")
 	err := os.WriteFile(testFileName, []byte(logContent), 0644)
@@ -159,6 +186,12 @@ var logContent = `
 {"timestamp":"2024-02-15T06:23:23.00000000Z","entity":"machine-0","level":"INFO","module":"juju.worker.dbaccessor","location":"worker.go:518","message":"host is configured to use cloud-local address as a Dqlite node"}
 {"timestamp":"2024-02-15T06:23:24.00000000Z","entity":"machine-1","level":"WARNING","module":"juju.worker.dependency","location":"engine.go:598","message":"\"lease-manager\" manifold worker started at 2024-02-15 06:23:23.016373586 +0000 UTC"}
 {"timestamp":"2024-02-15T06:23:25.00000000Z","entity":"machine-0","level":"CRITICAL","module":"juju.worker.dependency","location":"engine.go:598","message":"\"change-stream\" manifold worker started at 2024-02-15 06:23:23.01677874 +0000 UTC"}`[1:]
+
+var logContentWithModelUUID = `
+modelUUID1: {"timestamp":"2024-02-15T06:23:22.00000000Z","entity":"machine-0","level":"DEBUG","module":"juju.worker.dependency","location":"engine.go:598","message":"\"db-accessor\" manifold worker started at 2024-02-15 06:23:23.006402802 +0000 UTC"}
+modelUUID2: {"timestamp":"2024-02-15T06:23:23.00000000Z","entity":"machine-0","level":"INFO","module":"juju.worker.dbaccessor","location":"worker.go:518","message":"host is configured to use cloud-local address as a Dqlite node"}
+modelUUID3: {"timestamp":"2024-02-15T06:23:24.00000000Z","entity":"machine-1","level":"WARNING","module":"juju.worker.dependency","location":"engine.go:598","message":"\"lease-manager\" manifold worker started at 2024-02-15 06:23:23.016373586 +0000 UTC"}
+modelUUID4: {"timestamp":"2024-02-15T06:23:25.00000000Z","entity":"machine-0","level":"CRITICAL","module":"juju.worker.dependency","location":"engine.go:598","message":"\"change-stream\" manifold worker started at 2024-02-15 06:23:23.01677874 +0000 UTC"}`[1:]
 
 var logRecords = []*corelogger.LogRecord{
 	{

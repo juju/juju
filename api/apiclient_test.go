@@ -1381,6 +1381,7 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		Level:         loggo.ERROR,
 		Replay:        true,
 		NoTail:        true,
+		Firehose:      true,
 		StartTime:     time.Date(2016, 11, 30, 11, 48, 0, 100, time.UTC),
 	}
 
@@ -1397,6 +1398,7 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		"level":         {"ERROR"},
 		"replay":        {"true"},
 		"noTail":        {"true"},
+		"firehose":      {"true"},
 		"startTime":     {"2016-11-30T11:48:00.0000001Z"},
 	}
 

@@ -112,6 +112,10 @@ new WARNING and ERROR messages as they are logged:
 
     juju debug-log --replay --level WARNING
 
+To see logs from all models hosted on the controller, use the --firehose option.
+
+    juju debug-log --firehose
+
 In the HA case, debug-log can be configured to stream messages from a selected controller.
 Use juju show-controller to see the available controller numbers.
 
@@ -197,6 +201,7 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.UintVar(&c.params.Limit, "limit", 0, "Exit once this many of the most recent (possibly filtered) lines are shown")
 	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire (possibly filtered) log and continue to append")
 
+	f.BoolVar(&c.params.Firehose, "firehose", false, "Show logs from all models")
 	f.BoolVar(&c.noTail, "no-tail", false, "Stop after returning existing log messages")
 	f.BoolVar(&c.tail, "tail", false, "Wait for new logs")
 	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
@@ -479,13 +484,14 @@ func (c *debugLogCommand) streamLogs(ctx context.Context, controllerAddr []strin
 				}
 				level, _ := loggo.ParseLevel(msg.Severity)
 				logRecord := corelogger.LogRecord{
-					Time:     msg.Timestamp,
-					Entity:   msg.Entity,
-					Level:    level,
-					Module:   msg.Module,
-					Location: msg.Location,
-					Message:  msg.Message,
-					Labels:   msg.Labels,
+					ModelUUID: msg.ModelUUID,
+					Time:      msg.Timestamp,
+					Entity:    msg.Entity,
+					Level:     level,
+					Module:    msg.Module,
+					Location:  msg.Location,
+					Message:   msg.Message,
+					Labels:    msg.Labels,
 				}
 				if err := buf.Log([]corelogger.LogRecord{logRecord}); err != nil {
 					return err
@@ -549,6 +555,9 @@ func (c *debugLogCommand) writeText(w io.Writer, v interface{}) error {
 		return fmt.Errorf("expected log message of type %T, got %t", common.LogMessage{}, v)
 	}
 	ts := r.Time.In(c.tz).Format(c.format)
+	if c.params.Firehose {
+		fmt.Fprintf(w, "%s: ", r.ModelUUID)
+	}
 	fmt.Fprintf(w, "%s: %s ", r.Entity, ts)
 	SeverityColor[r.Level].Fprintf(c.tw, r.Level.String())
 	fmt.Fprintf(w, " %s ", r.Module)

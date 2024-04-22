@@ -46,6 +46,7 @@ type LogTailerParams struct {
 	StartTime     time.Time
 	MinLevel      loggo.Level
 	InitialLines  int
+	Firehose      bool
 	NoTail        bool
 	IncludeEntity []string
 	ExcludeEntity []string
@@ -353,6 +354,17 @@ func makeModulePattern(modules []string) string {
 }
 
 func logLineToRecord(modelUUID string, line string) (*corelogger.LogRecord, error) {
+	// If no model uuid is supplied, it is expected to be the first record on each line.
+	// ie we are parsing logsink.log.
+	if modelUUID == "" {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) < 2 {
+			return nil, errors.Errorf("unexpected log line: %s", line)
+		}
+		modelUUID = parts[0]
+		line = parts[1]
+	}
+
 	var result corelogger.LogRecord
 	err := json.Unmarshal([]byte(line), &result)
 	if err != nil {

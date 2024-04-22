@@ -110,6 +110,12 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				Replay:  true,
 			},
 		}, {
+			args: []string{"--firehose"},
+			expected: common.DebugLogParams{
+				Backlog:  10,
+				Firehose: true,
+			},
+		}, {
 			args:     []string{"--no-tail", "--tail"},
 			errMatch: `setting --tail and --no-tail not valid`,
 		}, {
@@ -168,6 +174,7 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand, _ []string) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{log: []common.LogMessage{
 			{
+				ModelUUID: "model-uuid",
 				Entity:    "machine-0",
 				Timestamp: time.Date(2016, 10, 9, 8, 15, 23, 345000000, time.UTC),
 				Severity:  "INFO",
@@ -204,7 +211,7 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 		"machine-0: 14:15:23 INFO test.module somefile.go:123 this is the log output\n")
 	checkOutput(
 		"--format", "json",
-		`{"timestamp":"2016-10-09T08:15:23.345Z","entity":"machine-0","level":"INFO","module":"test.module","location":"somefile.go:123","message":"this is the log output"}`+"\n")
+		`{"model-uuid":"model-uuid","timestamp":"2016-10-09T08:15:23.345Z","entity":"machine-0","level":"INFO","module":"test.module","location":"somefile.go:123","message":"this is the log output"}`+"\n")
 }
 
 func (s *DebugLogSuite) TestSpecifiedController(c *gc.C) {

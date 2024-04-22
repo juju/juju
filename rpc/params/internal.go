@@ -850,6 +850,7 @@ type SingularClaims struct {
 // from the api server /logs endpoint.
 // The client is used for model migration and debug-log.
 type LogMessage struct {
+	ModelUUID string            `json:"uuid,omitempty"`
 	Entity    string            `json:"tag"`
 	Timestamp time.Time         `json:"ts"`
 	Severity  string            `json:"sev"`
@@ -872,6 +873,7 @@ type LogMessageV1 struct {
 }
 
 type logMessageJSON struct {
+	ModelUUID string    `json:"uuid,omitempty"`
 	Entity    string    `json:"tag"`
 	Timestamp time.Time `json:"ts"`
 	Severity  string    `json:"sev"`
@@ -888,6 +890,7 @@ func (m *LogMessage) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &jm); err != nil {
 		return errors.Trace(err)
 	}
+	m.ModelUUID = jm.ModelUUID
 	m.Timestamp = jm.Timestamp
 	m.Entity = jm.Entity
 	m.Severity = jm.Severity
