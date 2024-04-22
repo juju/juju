@@ -58,9 +58,6 @@ type ServiceFactorySuite struct {
 
 	// ProviderTracker is the provider tracker to use in the service factory.
 	ProviderTracker providertracker.ProviderFactory
-
-	// BrokerTracker is the broker tracker to use in the service factory.
-	BrokerTracker providertracker.ProviderFactory
 }
 
 type stubDBDeleter struct {
@@ -181,7 +178,6 @@ func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetter
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID)),
 			stubDBDeleter{DB: s.DB()},
 			s.ProviderTracker,
-			s.BrokerTracker,
 			NewCheckLogger(c),
 		)
 	}

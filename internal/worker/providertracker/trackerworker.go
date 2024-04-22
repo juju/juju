@@ -26,17 +26,17 @@ const (
 )
 
 // TrackerConfig describes the dependencies of a Worker.
-type TrackerConfig[T Provider] struct {
-	ModelService      ModelService
-	CloudService      CloudService
-	ConfigService     ConfigService
-	CredentialService CredentialService
-	GetProvider       GetProviderFunc[T]
-	Logger            Logger
+type TrackerConfig struct {
+	ModelService       ModelService
+	CloudService       CloudService
+	ConfigService      ConfigService
+	CredentialService  CredentialService
+	GetProviderForType func(coremodel.ModelType) (GetProviderFunc, error)
+	Logger             Logger
 }
 
 // Validate returns an error if the config cannot be used to start a Worker.
-func (config TrackerConfig[T]) Validate() error {
+func (config TrackerConfig) Validate() error {
 	if config.CloudService == nil {
 		return errors.NotValidf("nil CloudService")
 	}
@@ -46,8 +46,8 @@ func (config TrackerConfig[T]) Validate() error {
 	if config.CredentialService == nil {
 		return errors.NotValidf("nil CredentialService")
 	}
-	if config.GetProvider == nil {
-		return errors.NotValidf("nil GetProvider")
+	if config.GetProviderForType == nil {
+		return errors.NotValidf("nil GetProviderForType")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -57,13 +57,13 @@ func (config TrackerConfig[T]) Validate() error {
 
 // trackerWorker loads an environment, makes it available to clients, and updates
 // the environment in response to config changes until it is killed.
-type trackerWorker[T Provider] struct {
+type trackerWorker struct {
 	catacomb       catacomb.Catacomb
 	internalStates chan string
 
-	config           TrackerConfig[T]
+	config           TrackerConfig
 	model            coremodel.ReadOnlyModel
-	provider         T
+	provider         Provider
 	currentCloudSpec environscloudspec.CloudSpec
 
 	providerGetter providerGetter
@@ -72,11 +72,11 @@ type trackerWorker[T Provider] struct {
 // NewTrackerWorker loads a provider from the observer and returns a new Worker,
 // or an error if anything goes wrong. If a tracker is returned, its Environ()
 // method is immediately usable.
-func NewTrackerWorker[T Provider](ctx context.Context, config TrackerConfig[T]) (worker.Worker, error) {
+func NewTrackerWorker(ctx context.Context, config TrackerConfig) (worker.Worker, error) {
 	return newTrackerWorker(ctx, config, nil)
 }
 
-func newTrackerWorker[T Provider](ctx context.Context, config TrackerConfig[T], internalStates chan string) (*trackerWorker[T], error) {
+func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates chan string) (*trackerWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,12 +93,16 @@ func newTrackerWorker[T Provider](ctx context.Context, config TrackerConfig[T], 
 		credentialService: config.CredentialService,
 	}
 	// Given the model, we can now get the provider.
-	provider, spec, err := config.GetProvider(ctx, getter)
+	newProviderType, err := config.GetProviderForType(model.Type)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, spec, err := newProviderType(ctx, getter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	t := &trackerWorker[T]{
+	t := &trackerWorker{
 		internalStates:   internalStates,
 		config:           config,
 		model:            model,
@@ -118,21 +122,26 @@ func newTrackerWorker[T Provider](ctx context.Context, config TrackerConfig[T], 
 
 // Provider returns the encapsulated Environ. It will continue to be updated in
 // the background for as long as the Worker continues to run.
-func (t *trackerWorker[T]) Provider() T {
+func (t *trackerWorker) Provider() Provider {
 	return t.provider
 }
 
+// ModelType returns the type of the model.
+func (t *trackerWorker) ModelType() coremodel.ModelType {
+	return t.model.Type
+}
+
 // Kill is part of the worker.Worker interface.
-func (t *trackerWorker[T]) Kill() {
+func (t *trackerWorker) Kill() {
 	t.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (t *trackerWorker[T]) Wait() error {
+func (t *trackerWorker) Wait() error {
 	return t.catacomb.Wait()
 }
 
-func (t *trackerWorker[T]) loop() (err error) {
+func (t *trackerWorker) loop() (err error) {
 	cfg := t.provider.Config()
 	defer errors.DeferredAnnotatef(&err, "model %q (%s)", cfg.Name(), cfg.UUID())
 
@@ -220,12 +229,12 @@ func (t *trackerWorker[T]) loop() (err error) {
 // scopedContext returns a context that is in the scope of the worker lifetime.
 // It returns a cancellable context that is cancelled when the action has
 // completed.
-func (t *trackerWorker[T]) scopedContext() (context.Context, context.CancelFunc) {
+func (t *trackerWorker) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return t.catacomb.Context(ctx), cancel
 }
 
-func (t *trackerWorker[T]) reportInternalState(state string) {
+func (t *trackerWorker) reportInternalState(state string) {
 	select {
 	case <-t.catacomb.Dying():
 	case t.internalStates <- state:
@@ -233,7 +242,7 @@ func (t *trackerWorker[T]) reportInternalState(state string) {
 	}
 }
 
-func (t *trackerWorker[T]) watchCloudChanges(ctx context.Context) (<-chan struct{}, error) {
+func (t *trackerWorker) watchCloudChanges(ctx context.Context) (<-chan struct{}, error) {
 	cloudWatcher, err := t.config.CloudService.WatchCloud(ctx, t.model.Cloud)
 	if err != nil {
 		return nil, errors.Annotate(err, "watching cloud")
@@ -244,7 +253,7 @@ func (t *trackerWorker[T]) watchCloudChanges(ctx context.Context) (<-chan struct
 	return cloudWatcher.Changes(), nil
 }
 
-func (t *trackerWorker[T]) watchCredentialChanges(ctx context.Context) (<-chan struct{}, error) {
+func (t *trackerWorker) watchCredentialChanges(ctx context.Context) (<-chan struct{}, error) {
 	credentialName := t.model.CredentialName
 	if credentialName == "" {
 		return nil, nil
@@ -264,7 +273,7 @@ func (t *trackerWorker[T]) watchCredentialChanges(ctx context.Context) (<-chan s
 	return credentialWatcher.Changes(), nil
 }
 
-func (t *trackerWorker[T]) updateCloudSpec(ctx context.Context, cloudSetter environs.CloudSpecSetter) error {
+func (t *trackerWorker) updateCloudSpec(ctx context.Context, cloudSetter environs.CloudSpecSetter) error {
 	spec, err := t.providerGetter.CloudSpec(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "getting cloud spec")
@@ -284,7 +293,7 @@ func (t *trackerWorker[T]) updateCloudSpec(ctx context.Context, cloudSetter envi
 	return nil
 }
 
-func (t *trackerWorker[T]) addNotifyWatcher(ctx context.Context, watcher eventsource.Watcher[struct{}]) error {
+func (t *trackerWorker) addNotifyWatcher(ctx context.Context, watcher eventsource.Watcher[struct{}]) error {
 	if err := t.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
@@ -299,7 +308,7 @@ func (t *trackerWorker[T]) addNotifyWatcher(ctx context.Context, watcher eventso
 	return nil
 }
 
-func (t *trackerWorker[T]) addStringsWatcher(ctx context.Context, watcher eventsource.Watcher[[]string]) error {
+func (t *trackerWorker) addStringsWatcher(ctx context.Context, watcher eventsource.Watcher[[]string]) error {
 	if err := t.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}

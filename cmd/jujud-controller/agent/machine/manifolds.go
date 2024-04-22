@@ -730,8 +730,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		serviceFactoryName: workerservicefactory.Manifold(workerservicefactory.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
-			ProviderFactoryName:         iaasProviderTrackerName,
-			BrokerFactoryName:           caasProviderTrackerName,
+			ProviderFactoryName:         providerTrackerName,
 			Logger:                      workerservicefactory.NewLogger("juju.worker.servicefactory"),
 			NewWorker:                   workerservicefactory.NewWorker,
 			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
@@ -877,27 +876,18 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                  objectstores3caller.NewWorker,
 		})),
 
-		caasProviderTrackerName: ifDatabaseUpgradeComplete(providertracker.MultiTrackerManifold[caas.Broker](providertracker.ManifoldConfig[caas.Broker]{
+		providerTrackerName: ifDatabaseUpgradeComplete(providertracker.MultiTrackerManifold(providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName:    providerServiceFactoryName,
-			NewWorker:                       providertracker.NewWorker[caas.Broker],
-			NewTrackerWorker:                providertracker.NewTrackerWorker[caas.Broker],
+			NewWorker:                       providertracker.NewWorker,
+			NewTrackerWorker:                providertracker.NewTrackerWorker,
 			GetProviderServiceFactoryGetter: providertracker.GetProviderServiceFactoryGetter,
-			GetProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
-				return config.NewCAASBrokerFunc(ctx, args)
-			}),
-			Logger: loggo.GetLogger("juju.worker.caasprovidertracker"),
-			Clock:  config.Clock,
-		})),
-
-		iaasProviderTrackerName: ifDatabaseUpgradeComplete(providertracker.MultiTrackerManifold[environs.Environ](providertracker.ManifoldConfig[environs.Environ]{
-			ProviderServiceFactoriesName:    providerServiceFactoryName,
-			NewWorker:                       providertracker.NewWorker[environs.Environ],
-			NewTrackerWorker:                providertracker.NewTrackerWorker[environs.Environ],
-			GetProviderServiceFactoryGetter: providertracker.GetProviderServiceFactoryGetter,
-			GetProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 				return config.NewEnvironFunc(ctx, args)
 			}),
-			Logger: loggo.GetLogger("juju.worker.iaasprovidertracker"),
+			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
+				return config.NewCAASBrokerFunc(ctx, args)
+			}),
+			Logger: loggo.GetLogger("juju.worker.providertracker"),
 			Clock:  config.Clock,
 		})),
 	}
@@ -1362,8 +1352,7 @@ const (
 	leaseManagerName              = "lease-manager"
 	stateConverterName            = "state-converter"
 	serviceFactoryName            = "service-factory"
-	caasProviderTrackerName       = "caas-provider-tracker"
-	iaasProviderTrackerName       = "iaas-provider-tracker"
+	providerTrackerName           = "provider-tracker"
 	providerServiceFactoryName    = "provider-service-factory"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	controllerAgentConfigName     = "controller-agent-config"

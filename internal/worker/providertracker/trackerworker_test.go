@@ -12,6 +12,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
@@ -177,15 +178,21 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) getConfig(environ environs.Environ) TrackerConfig[environs.Environ] {
-	return TrackerConfig[environs.Environ]{
+func (s *trackerWorkerSuite) getConfig(c *gc.C, environ environs.Environ) TrackerConfig {
+	return TrackerConfig{
 		ModelService:      s.modelService,
 		CloudService:      s.cloudService,
 		ConfigService:     s.configService,
 		CredentialService: s.credentialService,
-		GetProvider: IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
-			return environ, nil
-		}),
+		GetProviderForType: getProviderForType(
+			IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+				return environ, nil
+			}),
+			CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
+				c.Fatal("unexpected call")
+				return nil, nil
+			}),
+		),
 		Logger: s.logger,
 	}
 }
@@ -299,8 +306,8 @@ func (s *trackerWorkerSuite) expectCredentialWatcher(c *gc.C) chan struct{} {
 	return ch
 }
 
-func (s *trackerWorkerSuite) newWorker(c *gc.C, environ environs.Environ) (*trackerWorker[environs.Environ], error) {
-	return newTrackerWorker(context.Background(), s.getConfig(environ), s.states)
+func (s *trackerWorkerSuite) newWorker(c *gc.C, environ environs.Environ) (*trackerWorker, error) {
+	return newTrackerWorker(context.Background(), s.getConfig(c, environ), s.states)
 }
 
 func (s *trackerWorkerSuite) newCloudSpecEnviron() *cloudSpecEnviron {

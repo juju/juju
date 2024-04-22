@@ -34,7 +34,6 @@ type ManifoldConfig struct {
 	DBAccessorName              string
 	ChangeStreamName            string
 	ProviderFactoryName         string
-	BrokerFactoryName           string
 	Logger                      Logger
 	NewWorker                   func(Config) (worker.Worker, error)
 	NewServiceFactoryGetter     ServiceFactoryGetterFn
@@ -48,7 +47,6 @@ type ServiceFactoryGetterFn func(
 	changestream.WatchableDBGetter,
 	Logger,
 	ModelServiceFactoryFn,
-	providertracker.ProviderFactory,
 	providertracker.ProviderFactory,
 ) servicefactory.ServiceFactoryGetter
 
@@ -65,7 +63,6 @@ type ModelServiceFactoryFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
-	providertracker.ProviderFactory,
 	Logger,
 ) servicefactory.ModelServiceFactory
 
@@ -79,9 +76,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
-	}
-	if config.BrokerFactoryName == "" {
-		return errors.NotValidf("empty BrokerFactoryName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -109,7 +103,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ChangeStreamName,
 			config.DBAccessorName,
 			config.ProviderFactoryName,
-			config.BrokerFactoryName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -137,16 +130,10 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var brokerFactory providertracker.ProviderFactory
-	if err := getter.Get(config.BrokerFactoryName, &brokerFactory); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
 		DBDeleter:                   dbDeleter,
 		ProviderFactory:             providerFactory,
-		BrokerFactory:               brokerFactory,
 		Logger:                      config.Logger,
 		NewServiceFactoryGetter:     config.NewServiceFactoryGetter,
 		NewControllerServiceFactory: config.NewControllerServiceFactory,
@@ -197,14 +184,12 @@ func NewProviderTrackerModelServiceFactory(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
-	brokerFactory providertracker.ProviderFactory,
 	logger Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
-		brokerFactory,
 		serviceFactoryLogger{
 			Logger: logger,
 		},
@@ -223,7 +208,6 @@ func NewModelServiceFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
-		NoopProviderFactory{},
 		serviceFactoryLogger{
 			Logger: logger,
 		},
@@ -237,7 +221,6 @@ func NewServiceFactoryGetter(
 	logger Logger,
 	newModelServiceFactory ModelServiceFactoryFn,
 	providerFactory providertracker.ProviderFactory,
-	brokerFactory providertracker.ProviderFactory,
 ) servicefactory.ServiceFactoryGetter {
 	return &serviceFactoryGetter{
 		ctrlFactory:            ctrlFactory,
@@ -245,7 +228,6 @@ func NewServiceFactoryGetter(
 		logger:                 logger,
 		newModelServiceFactory: newModelServiceFactory,
 		providerFactory:        providerFactory,
-		brokerFactory:          brokerFactory,
 	}
 }
 

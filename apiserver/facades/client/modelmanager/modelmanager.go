@@ -343,13 +343,6 @@ func (m *ModelManagerAPI) createModelNew(
 	modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
 	modelInfoService := modelServiceFactory.ModelInfo()
 
-	// Create the model information in the model database. This information
-	// is read-only and is used for providers and brokers without the need
-	// to query the controller database.
-	if err := modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, coremodel.CAAS)); err != nil {
-		return errors.Annotatef(err, "failed to create model info for model %q", modelUUID)
-	}
-
 	modelDefaults := m.modelDefaultsService.ModelDefaultsProvider(modelUUID)
 	modelConfigService := modelServiceFactory.Config(modelDefaults)
 
@@ -357,8 +350,26 @@ func (m *ModelManagerAPI) createModelNew(
 		return errors.Annotatef(err, "failed to set model config for model %q", modelUUID)
 	}
 
+	// TODO (stickupkid): Once tlm has fixed the CreateModel method to read
+	// from the model database to create the model, move the finaliser call
+	// to the end of the method.
 	if err := finaliser(ctx); err != nil {
 		return errors.Annotatef(err, "failed to finalise model %q", modelUUID)
+	}
+
+	// Get the model type for the model, that was written in to the database.
+	// This model type is stored in the controller database, we can then use
+	// that information to create the read-only model info for the model.
+	modelType, err := m.modelService.ModelType(ctx, modelUUID)
+	if err != nil {
+		return errors.Annotatef(err, "failed to get model type for model %q", modelUUID)
+	}
+
+	// Create the model information in the model database. This information
+	// is read-only and is used for providers and brokers without the need
+	// to query the controller database.
+	if err := modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, modelType)); err != nil {
+		return errors.Annotatef(err, "failed to create model info for model %q", modelUUID)
 	}
 
 	return err

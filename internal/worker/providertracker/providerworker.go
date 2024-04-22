@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 )
 
 const (
@@ -24,22 +25,26 @@ const (
 //
 // It's arguable that it should be called WorkerConfig, because of the heavy
 // use of model config in this package.
-type Config[T Provider] struct {
+type Config struct {
 	TrackerType          TrackerType
 	ServiceFactoryGetter ServiceFactoryGetter
-	GetProvider          GetProviderFunc[T]
-	NewTrackerWorker     NewTrackerWorkerFunc[T]
+	GetIAASProvider      GetProviderFunc
+	GetCAASProvider      GetProviderFunc
+	NewTrackerWorker     NewTrackerWorkerFunc
 	Logger               Logger
 	Clock                clock.Clock
 }
 
 // Validate returns an error if the config cannot be used to start a Worker.
-func (config Config[T]) Validate() error {
+func (config Config) Validate() error {
 	if config.ServiceFactoryGetter == nil {
 		return errors.NotValidf("nil ServiceFactoryGetter")
 	}
-	if config.GetProvider == nil {
-		return errors.NotValidf("nil GetProvider")
+	if config.GetIAASProvider == nil {
+		return errors.NotValidf("nil GetIAASProvider")
+	}
+	if config.GetCAASProvider == nil {
+		return errors.NotValidf("nil GetCAASProvider")
 	}
 	if config.NewTrackerWorker == nil {
 		return errors.NotValidf("nil NewTrackerWorker")
@@ -58,28 +63,28 @@ type trackerRequest struct {
 }
 
 // providerWorker defines a worker that runs provider tracker workers.
-type providerWorker[T Provider] struct {
+type providerWorker struct {
 	internalStates chan string
 	catacomb       catacomb.Catacomb
 	runner         *worker.Runner
 
-	config Config[T]
+	config Config
 
 	requests chan trackerRequest
 }
 
 // NewWorker creates a new object store worker.
-func NewWorker[T Provider](cfg Config[T]) (worker.Worker, error) {
+func NewWorker(cfg Config) (worker.Worker, error) {
 	return newWorker(cfg, nil)
 }
 
 // newWorker creates a new worker to run provider trackers.
-func newWorker[T Provider](config Config[T], internalStates chan string) (*providerWorker[T], error) {
+func newWorker(config Config, internalStates chan string) (*providerWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	w := &providerWorker[T]{
+	w := &providerWorker{
 		config: config,
 		runner: worker.NewRunner(worker.RunnerParams{
 			IsFatal: func(err error) bool {
@@ -109,20 +114,20 @@ func newWorker[T Provider](config Config[T], internalStates chan string) (*provi
 // Provider returns the encapsulated provider. It will continue to be updated in
 // the background for as long as the Worker continues to run. If the worker
 // is not a singular worker, then an error will be returned.
-func (w *providerWorker[T]) Provider() (res T, err error) {
+func (w *providerWorker) Provider() (Provider, error) {
 	// If we're a singular namespace, we can't get the provider for a model.
 	namespace, ok := w.config.TrackerType.SingularNamespace()
 	if !ok {
-		return res, errors.NotValidf("provider for non-singular tracker")
+		return nil, errors.NotValidf("provider for non-singular tracker")
 	}
 
 	tracker, err := w.workerFromCache(namespace)
 	if err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
-			return res, ErrProviderWorkerDying
+			return nil, ErrProviderWorkerDying
 		}
 
-		return res, errors.Trace(err)
+		return nil, errors.Trace(err)
 	} else if tracker != nil {
 		return tracker.Provider(), nil
 	}
@@ -131,9 +136,9 @@ func (w *providerWorker[T]) Provider() (res T, err error) {
 	// Otherwise return an error.
 	select {
 	case <-w.catacomb.Dying():
-		return res, ErrProviderWorkerDying
+		return nil, ErrProviderWorkerDying
 	default:
-		return res, errors.NotFoundf("provider")
+		return nil, errors.NotFoundf("provider")
 	}
 }
 
@@ -141,24 +146,24 @@ func (w *providerWorker[T]) Provider() (res T, err error) {
 // namespace. It will continue to be updated in the background for as long as
 // the Worker continues to run. If the worker is not a singular worker, then an
 // error will be returned.
-func (w *providerWorker[T]) ProviderForModel(ctx context.Context, namespace string) (res T, err error) {
+func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string) (Provider, error) {
 	// The controller namespace is the global names and has no models associated
 	// with it, so fail early.
 	if namespace == database.ControllerNS {
-		return res, errors.NotValidf("provider for controller namespace")
+		return nil, errors.NotValidf("provider for controller namespace")
 	}
 	// If we're a singular namespace, we can't get the provider for a model.
 	if _, ok := w.config.TrackerType.SingularNamespace(); ok {
-		return res, errors.NotValidf("provider for model with singular tracker")
+		return nil, errors.NotValidf("provider for model with singular tracker")
 	}
 
 	tracker, err := w.workerFromCache(namespace)
 	if err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
-			return res, ErrProviderWorkerDying
+			return nil, ErrProviderWorkerDying
 		}
 
-		return res, errors.Trace(err)
+		return nil, errors.Trace(err)
 	} else if tracker != nil {
 		return tracker.Provider(), nil
 	}
@@ -172,9 +177,9 @@ func (w *providerWorker[T]) ProviderForModel(ctx context.Context, namespace stri
 	select {
 	case w.requests <- req:
 	case <-w.catacomb.Dying():
-		return res, ErrProviderWorkerDying
+		return nil, ErrProviderWorkerDying
 	case <-ctx.Done():
-		return res, errors.Trace(ctx.Err())
+		return nil, errors.Trace(ctx.Err())
 	}
 
 	// Wait for the worker loop to indicate it's done.
@@ -183,37 +188,37 @@ func (w *providerWorker[T]) ProviderForModel(ctx context.Context, namespace stri
 		// If we know we've got an error, just return that error before
 		// attempting to ask the objectStoreRunnerWorker.
 		if err != nil {
-			return res, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return res, ErrProviderWorkerDying
+		return nil, ErrProviderWorkerDying
 	case <-ctx.Done():
-		return res, errors.Trace(ctx.Err())
+		return nil, errors.Trace(ctx.Err())
 	}
 
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
 	tracked, err := w.runner.Worker(namespace, w.catacomb.Dying())
 	if err != nil {
-		return res, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if tracked == nil {
-		return res, errors.NotFoundf("provider")
+		return nil, errors.NotFoundf("provider")
 	}
-	return tracked.(*trackerWorker[T]).Provider(), nil
+	return tracked.(*trackerWorker).Provider(), nil
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *providerWorker[T]) Kill() {
+func (w *providerWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *providerWorker[T]) Wait() error {
+func (w *providerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *providerWorker[T]) loop() (err error) {
+func (w *providerWorker) loop() (err error) {
 	// If we're a singular namespace, we need to start the worker early.
 	if namespace, ok := w.config.TrackerType.SingularNamespace(); ok {
 		if err := w.initTrackerWorker(namespace); err != nil {
@@ -250,10 +255,10 @@ func (w *providerWorker[T]) loop() (err error) {
 	}
 }
 
-func (w *providerWorker[T]) workerFromCache(namespace string) (*trackerWorker[T], error) {
+func (w *providerWorker) workerFromCache(namespace string) (*trackerWorker, error) {
 	// If the worker already exists, return the existing worker early.
 	if tracker, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return tracker.(*trackerWorker[T]), nil
+		return tracker.(*trackerWorker), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
 		select {
@@ -272,7 +277,7 @@ func (w *providerWorker[T]) workerFromCache(namespace string) (*trackerWorker[T]
 	return nil, nil
 }
 
-func (w *providerWorker[T]) initTrackerWorker(namespace string) error {
+func (w *providerWorker) initTrackerWorker(namespace string) error {
 	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
@@ -280,13 +285,16 @@ func (w *providerWorker[T]) initTrackerWorker(namespace string) error {
 		// Create the tracker worker based on the namespace.
 		serviceFactory := w.config.ServiceFactoryGetter.FactoryForModel(namespace)
 
-		tracker, err := w.config.NewTrackerWorker(ctx, TrackerConfig[T]{
+		tracker, err := w.config.NewTrackerWorker(ctx, TrackerConfig{
 			ModelService:      serviceFactory.Model(),
 			CloudService:      serviceFactory.Cloud(),
 			ConfigService:     serviceFactory.Config(),
 			CredentialService: serviceFactory.Credential(),
-			GetProvider:       w.config.GetProvider,
-			Logger:            w.config.Logger,
+			GetProviderForType: getProviderForType(
+				w.config.GetIAASProvider,
+				w.config.GetCAASProvider,
+			),
+			Logger: w.config.Logger,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -299,15 +307,28 @@ func (w *providerWorker[T]) initTrackerWorker(namespace string) error {
 	return errors.Trace(err)
 }
 
+func getProviderForType(getIAASProvider, getCAASProvider GetProviderFunc) func(coremodel.ModelType) (GetProviderFunc, error) {
+	return func(modelType coremodel.ModelType) (GetProviderFunc, error) {
+		switch modelType {
+		case coremodel.IAAS:
+			return getIAASProvider, nil
+		case coremodel.CAAS:
+			return getCAASProvider, nil
+		default:
+			return nil, errors.Errorf("unknown provider type %q", modelType.String())
+		}
+	}
+}
+
 // scopedContext returns a context that is in the scope of the worker lifetime.
 // It returns a cancellable context that is cancelled when the action has
 // completed.
-func (w *providerWorker[T]) scopedContext() (context.Context, context.CancelFunc) {
+func (w *providerWorker) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return w.catacomb.Context(ctx), cancel
 }
 
-func (w *providerWorker[T]) reportInternalState(state string) {
+func (w *providerWorker) reportInternalState(state string) {
 	select {
 	case <-w.catacomb.Dying():
 	case w.internalStates <- state:

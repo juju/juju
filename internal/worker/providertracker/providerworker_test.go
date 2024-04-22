@@ -20,7 +20,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/testing"
 )
@@ -50,7 +49,7 @@ func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *gc.C) 
 	// continue forever.
 	workertest.DirtyKill(c, w)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	_, err := worker.Provider()
 	c.Assert(err, jc.ErrorIs, ErrProviderWorkerDying)
 }
@@ -70,7 +69,7 @@ func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *gc.C) {
 	// continue forever.
 	workertest.DirtyKill(c, w)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	_, err := worker.ProviderForModel(context.Background(), "hunter2")
 	c.Assert(err, jc.ErrorIs, ErrProviderWorkerDying)
 }
@@ -86,7 +85,7 @@ func (s *providerWorkerSuite) TestMultiFailsForSingularModels(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	_, err := worker.Provider()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
@@ -104,7 +103,7 @@ func (s *providerWorkerSuite) TestSingularFailsForMultiModels(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	_, err := worker.ProviderForModel(context.Background(), "hunter2")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
@@ -121,7 +120,7 @@ func (s *providerWorkerSuite) TestControllerNamespaceFails(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	_, err := worker.ProviderForModel(context.Background(), database.ControllerNS)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
@@ -138,7 +137,7 @@ func (s *providerWorkerSuite) TestProvider(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	provider, err := worker.Provider()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(provider, gc.NotNil)
@@ -157,7 +156,7 @@ func (s *providerWorkerSuite) TestProviderIsCached(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	for i := 0; i < 10; i++ {
 		_, err := worker.Provider()
 		c.Assert(err, jc.ErrorIsNil)
@@ -180,7 +179,7 @@ func (s *providerWorkerSuite) TestProviderForModel(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 
 	provider, err := worker.ProviderForModel(context.Background(), "hunter2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,7 +199,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsCached(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	for i := 0; i < 10; i++ {
 		_, err := worker.Provider()
 		c.Assert(err, jc.ErrorIsNil)
@@ -227,7 +226,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespa
 
 	s.ensureStartup(c)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("hunter-%d", i)
 
@@ -259,7 +258,7 @@ func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *gc.C) {
 	var wg sync.WaitGroup
 	wg.Add(10)
 
-	worker := w.(*providerWorker[environs.Environ])
+	worker := w.(*providerWorker)
 	for i := 0; i < 10; i++ {
 		go func(i int) {
 			defer wg.Done()
@@ -289,16 +288,20 @@ func (s *providerWorkerSuite) newMultiWorker(c *gc.C) worker.Worker {
 }
 
 func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker.Worker {
-	w, err := newWorker(Config[environs.Environ]{
+	w, err := newWorker(Config{
 		TrackerType:          trackerType,
 		ServiceFactoryGetter: s.serviceFactoryGetter,
-		GetProvider: func(ctx context.Context, pcg ProviderConfigGetter) (environs.Environ, cloudspec.CloudSpec, error) {
+		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
-		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig[environs.Environ]) (worker.Worker, error) {
+		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+			c.Fatalf("unexpected call to GetCAASProvider")
+			return nil, cloudspec.CloudSpec{}, nil
+		},
+		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
 
-			w := &trackerWorker[environs.Environ]{
+			w := &trackerWorker{
 				provider: s.environ,
 			}
 			err := catacomb.Invoke(catacomb.Plan{

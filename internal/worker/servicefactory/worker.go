@@ -28,9 +28,6 @@ type Config struct {
 	// ProviderFactory is used to get provider instances.
 	ProviderFactory providertracker.ProviderFactory
 
-	// BrokerFactory is used to get broker instances.
-	BrokerFactory providertracker.ProviderFactory
-
 	// Logger is used to log messages.
 	Logger Logger
 
@@ -49,9 +46,6 @@ func (config Config) Validate() error {
 	}
 	if config.ProviderFactory == nil {
 		return errors.NotValidf("nil ProviderFactory")
-	}
-	if config.BrokerFactory == nil {
-		return errors.NotValidf("nil BrokerFactory")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -83,7 +77,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.Logger,
 			config.NewModelServiceFactory,
 			config.ProviderFactory,
-			config.BrokerFactory,
 		),
 	}
 	w.tomb.Go(func() error {
@@ -145,7 +138,6 @@ type serviceFactoryGetter struct {
 	logger                 Logger
 	newModelServiceFactory ModelServiceFactoryFn
 	providerFactory        providertracker.ProviderFactory
-	brokerFactory          providertracker.ProviderFactory
 }
 
 // FactoryForModel returns a service factory for the given model uuid.
@@ -155,7 +147,7 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.
 		ControllerServiceFactory: s.ctrlFactory,
 		ModelServiceFactory: s.newModelServiceFactory(
 			coremodel.UUID(modelUUID), s.dbGetter,
-			s.providerFactory, s.brokerFactory,
+			s.providerFactory,
 			s.logger,
 		),
 	}
