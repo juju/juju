@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
@@ -1106,7 +1106,7 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 }
 
 func minRootDiskSizeMiB(osname string) uint64 {
-	return gibToMib(common.MinRootDiskSizeGiB(os.OSTypeForName(osname)))
+	return gibToMib(common.MinRootDiskSizeGiB(ostype.OSTypeForName(osname)))
 }
 
 // getBlockDeviceMappings translates constraints into BlockDeviceMappings.

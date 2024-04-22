@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	corebase "github.com/juju/juju/core/base"
-	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -172,7 +172,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 	var osTypeName string
 	if vers.Number.Major == 2 && vers.Number.Minor <= 8 {
 		wantedOSType := vers.Release
-		if !coreos.IsValidOSTypeName(vers.Release) {
+		if !ostype.IsValidOSTypeName(vers.Release) {
 			wantedOSType = corebase.DefaultOSTypeNameFromSeries(vers.Release)
 		}
 		vers.Release = wantedOSType
@@ -197,7 +197,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 				continue
 			}
 			metaOSType := metaVers.Release
-			if !coreos.IsValidOSTypeName(metaVers.Release) {
+			if !ostype.IsValidOSTypeName(metaVers.Release) {
 				metaOSType = corebase.DefaultOSTypeNameFromSeries(metaVers.Release)
 			}
 			toCompare := metaVers

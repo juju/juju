@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
-	utilsseries "github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig"
 	corebase "github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/testing"
 )
 
@@ -27,7 +27,7 @@ type fromHostSuite struct {
 var _ = gc.Suite(&fromHostSuite{})
 
 func (s *fromHostSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return "jammy", nil })
+	s.PatchValue(&coreos.HostBase, func() (corebase.Base, error) { return corebase.ParseBaseFromString("ubuntu@22.04") })
 
 	// Pre-seed /etc/cloud/cloud.cfg.d replacement for testing
 	s.tempCloudCfgDir = c.MkDir() // will clean up
@@ -88,9 +88,7 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 func (s *fromHostSuite) TestGetMachineCloudInitDataVerifySeries(c *gc.C) {
 	for i, test := range cloudinitDataVerifyTests {
 		c.Logf("Test %d of %d: %s", i, len(cloudinitDataVerifyTests), test.description)
-		machineSeries, err := corebase.GetSeriesFromBase(test.machineBase)
-		c.Assert(err, jc.ErrorIsNil)
-		s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return machineSeries, nil })
+		s.PatchValue(&coreos.HostBase, func() (corebase.Base, error) { return test.machineBase, nil })
 		obtained, err := s.newMachineInitReader(test.containerBase).GetInitConfig()
 		c.Assert(err, gc.IsNil)
 		if test.result != nil {
@@ -159,7 +157,7 @@ func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritProperties(c *gc
 }
 
 func (s *fromHostSuite) TestCurtinConfigAptProperties(c *gc.C) {
-	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	// Seed the curtin install config as for MAAS 2.5+
 	curtinDir := c.MkDir()

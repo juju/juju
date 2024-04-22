@@ -10,16 +10,16 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 type AzureRenderer struct{}
 
-func (AzureRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
+func (AzureRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
 	switch os {
-	case jujuos.Ubuntu:
+	case ostype.Ubuntu:
 		return renderers.RenderYAML(cfg, utils.Gzip, renderers.ToBase64)
-	case jujuos.CentOS:
+	case ostype.CentOS:
 		return renderers.RenderScript(cfg, renderers.ToBase64)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os)

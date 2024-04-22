@@ -18,7 +18,7 @@ import (
 	jujuarch "github.com/juju/juju/core/arch"
 	jujubase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 )
@@ -244,11 +244,11 @@ func isCompatibleVirtType(virtType instance.VirtType, instanceType string) bool 
 }
 
 func constructBaseRemoteAlias(base jujubase.Base, arch string) (string, error) {
-	seriesOS := jujuos.OSTypeForName(base.OS)
+	seriesOS := ostype.OSTypeForName(base.OS)
 	switch seriesOS {
-	case jujuos.Ubuntu:
+	case ostype.Ubuntu:
 		return path.Join(base.Channel.Track, arch), nil
-	case jujuos.CentOS:
+	case ostype.CentOS:
 		if arch == jujuarch.AMD64 {
 			switch base.Channel.Track {
 			case "7", "8":

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
-	utilseries "github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
@@ -22,11 +21,11 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
-	corebase "github.com/juju/juju/core/base"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -446,17 +445,12 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		hardware = *args.BootstrapMachineHardwareCharacteristics
 	}
 
-	hostSeries, err := utilseries.HostSeries()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	spaceAddrs, err := args.BootstrapMachineAddresses.ToSpaceAddresses(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	base, err := corebase.GetBaseFromSeries(hostSeries)
+	base, err := coreos.HostBase()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

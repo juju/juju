@@ -10,18 +10,18 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 // OCIRenderer implements the renderers.ProviderRenderer interface
 type OCIRenderer struct{}
 
 // Renderer is defined in the renderers.ProviderRenderer interface
-func (OCIRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
+func (OCIRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
 	var renderedUdata []byte
 	var err error
 	switch os {
-	case jujuos.Ubuntu, jujuos.CentOS:
+	case ostype.Ubuntu, ostype.CentOS:
 		renderedUdata, err = renderers.RenderYAML(cfg)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())

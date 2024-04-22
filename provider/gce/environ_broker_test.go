@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -201,7 +201,7 @@ func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
-	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Ubuntu)
+	metadata, err := gce.GetMetadata(s.StartInstArgs, ostype.Ubuntu)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata, jc.DeepEquals, s.UbuntuMetadata)
@@ -209,7 +209,7 @@ func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
-	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.GenericLinux)
+	metadata, err := gce.GetMetadata(s.StartInstArgs, ostype.GenericLinux)
 
 	c.Assert(metadata, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot pack metadata for os GenericLinux on the gce provider")
@@ -227,7 +227,7 @@ var getDisksTests = []struct {
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	for _, test := range getDisksTests {
-		os := jujuos.OSTypeForName(test.osname)
+		os := ostype.OSTypeForName(test.osname)
 		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, os, "32f7d570-5bac-4b72-b169-250c24a94b2b", test.basePath)
 		if test.error != nil {
 			c.Assert(err, gc.Equals, err)
@@ -238,9 +238,9 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 			diskSpec := diskSpecs[0]
 
 			switch os {
-			case jujuos.Ubuntu:
+			case ostype.Ubuntu:
 				c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
-			case jujuos.Windows:
+			case ostype.Windows:
 				c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(40))
 			default:
 				c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
@@ -249,7 +249,7 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 		}
 	}
 
-	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, jujuos.Ubuntu, "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
+	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, ostype.Ubuntu, "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	spec := diskSpecs[0]

@@ -7,11 +7,12 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
-	if os.HostOS() == os.Ubuntu {
+	if os.HostOS() == ostype.Ubuntu {
 		testing.MgoTestPackage(t)
 	}
 }

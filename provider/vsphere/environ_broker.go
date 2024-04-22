@@ -19,7 +19,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -123,7 +123,7 @@ func (env *sessionEnviron) newRawInstance(
 ) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
 	// Obtain the final constraints by merging with defaults.
 	cons := args.Constraints
-	os := jujuos.OSTypeForName(args.InstanceConfig.Base.OS)
+	os := ostype.OSTypeForName(args.InstanceConfig.Base.OS)
 	minRootDisk := common.MinRootDiskSizeGiB(os) * 1024
 	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
 		cons.RootDisk = &minRootDisk

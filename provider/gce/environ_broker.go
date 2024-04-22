@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -128,14 +128,14 @@ func (env *environ) findInstanceSpec(
 	return spec, errors.Trace(err)
 }
 
-func (env *environ) imageURLBase(os jujuos.OSType) (string, error) {
+func (env *environ) imageURLBase(os ostype.OSType) (string, error) {
 	base, useCustomPath := env.ecfg.baseImagePath()
 	if useCustomPath {
 		return base, nil
 	}
 
 	switch os {
-	case jujuos.Ubuntu:
+	case ostype.Ubuntu:
 		switch env.Config().ImageStream() {
 		case "daily":
 			base = ubuntuDailyImageBasePath
@@ -162,7 +162,7 @@ func (env *environ) newRawInstance(
 		return nil, environs.ZoneIndependentError(err)
 	}
 
-	os := jujuos.OSTypeForName(args.InstanceConfig.Base.OS)
+	os := ostype.OSTypeForName(args.InstanceConfig.Base.OS)
 	metadata, err := getMetadata(args, os)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
@@ -214,7 +214,7 @@ func (env *environ) newRawInstance(
 
 // getMetadata builds the raw "user-defined" metadata for the new
 // instance (relative to the provided args) and returns it.
-func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[string]string, error) {
+func getMetadata(args environs.StartInstanceParams, os ostype.OSType) (map[string]string, error) {
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, GCERenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
@@ -226,7 +226,7 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 		metadata[tag] = value
 	}
 	switch os {
-	case jujuos.Ubuntu:
+	case ostype.Ubuntu:
 		// We store a gz snapshop of information that is used by
 		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
 		// for the instance. Due to a limitation with GCE and binary blobs
@@ -247,7 +247,7 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os jujuos.OSType, eUUID string, imageURLBase string) ([]google.DiskSpec, error) {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os ostype.OSType, eUUID string, imageURLBase string) ([]google.DiskSpec, error) {
 	size := common.MinRootDiskSizeGiB(os)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)

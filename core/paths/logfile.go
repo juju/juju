@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 // LogfilePermission is the file mode to use for log files.
@@ -62,7 +63,7 @@ func PrimeLogFile(path string) error {
 // SyslogUserGroup returns the names of the user and group that own the log files.
 func SyslogUserGroup() (string, string) {
 	switch jujuos.HostOS() {
-	case jujuos.CentOS:
+	case ostype.CentOS:
 		return "root", "adm"
 	default:
 		return "syslog", "adm"

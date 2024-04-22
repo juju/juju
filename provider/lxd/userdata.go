@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 )
 
 type lxdRenderer struct{}
 
 // EncodeUserdata implements renderers.ProviderRenderer.
-func (lxdRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
+func (lxdRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
 	switch os {
-	case jujuos.Ubuntu, jujuos.CentOS:
+	case ostype.Ubuntu, ostype.CentOS:
 		bytes, err := renderers.RenderYAML(cfg)
 		return bytes, errors.Trace(err)
 	default:

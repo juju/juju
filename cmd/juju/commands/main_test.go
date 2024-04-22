@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -213,7 +214,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will

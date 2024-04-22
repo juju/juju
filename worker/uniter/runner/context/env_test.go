@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/juju/names/v5"
-	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/keyvalues"
@@ -15,7 +14,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -206,7 +207,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	unit := mocks.NewMockHookUnit(ctrl)
 	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
 
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
 	ubuntuVars := []string{
@@ -262,18 +263,18 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 	unit := mocks.NewMockHookUnit(ctrl)
 	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
 
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.CentOS })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
 	// TERM is different for centos7.
-	for _, testSeries := range []string{"centos7", "centos8"} {
-		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
+	for _, testBase := range []base.Base{base.MustParseBaseFromString("centos@7"), base.MustParseBaseFromString("centos@8")} {
+		s.PatchValue(&jujuos.HostBase, func() (base.Base, error) { return testBase, nil })
 		centosVars := []string{
 			"LANG=C.UTF-8",
 			"PATH=path-to-tools:foo:bar",
 		}
 
-		if testSeries == "centos7" {
+		if testBase.Channel.Track == "7" {
 			centosVars = append(centosVars, "TERM=screen-256color")
 		} else {
 			centosVars = append(centosVars, "TERM=tmux-256color")
@@ -323,7 +324,7 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 	unit := mocks.NewMockHookUnit(ctrl)
 	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
 
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
 	genericLinuxVars := []string{
@@ -375,7 +376,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	unit := mocks.NewMockHookUnit(ctrl)
 	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
 
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
 	genericLinuxVars := []string{
