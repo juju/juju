@@ -86,6 +86,9 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	return newObsoleteRevisionWatcher(w, s.logger, processChanges)
 }
 
+// obsoleteRevisionWatcher watches for obsolete changes to secret revisions.
+// It receives a stream of revision UUIDs and processes them to determine which
+// are obsolete. It then sends the slice of `<uri>/<version>` to its output channel.
 type obsoleteRevisionWatcher struct {
 	catacomb catacomb.Catacomb
 	logger   Logger
@@ -117,9 +120,10 @@ func newObsoleteRevisionWatcher(
 	return w, errors.Trace(err)
 }
 
-func (w *obsoleteRevisionWatcher) scopedContext() (context.Context, context.CancelFunc) {
+func (w *obsoleteRevisionWatcher) getRevisionIDs(revisionUUIDs ...string) ([]string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
+	defer cancel()
+	return w.processChanges(w.catacomb.Context(ctx), revisionUUIDs...)
 }
 
 func (w *obsoleteRevisionWatcher) loop() error {
@@ -139,9 +143,7 @@ func (w *obsoleteRevisionWatcher) loop() error {
 		for _, change := range processed {
 			changes.Add(change)
 		}
-		if out == nil {
-			out = w.out
-		}
+		out = w.out
 	}
 
 	for {
@@ -155,9 +157,7 @@ func (w *obsoleteRevisionWatcher) loop() error {
 			if len(revisionUUIDs) == 0 {
 				continue
 			}
-			ctx, cancel := w.scopedContext()
-			processed, err := w.processChanges(ctx, revisionUUIDs...)
-			cancel()
+			processed, err := w.getRevisionIDs(revisionUUIDs...)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -189,11 +189,6 @@ func (w *obsoleteRevisionWatcher) Kill() {
 // and returns the error with which it was killed.
 func (w *obsoleteRevisionWatcher) Wait() error {
 	return w.catacomb.Wait()
-}
-
-// Err returns the error with which the watcher was killed.
-func (w *obsoleteRevisionWatcher) Err() error {
-	return w.catacomb.Err()
 }
 
 // TODO(secrets) - replace with real watcher

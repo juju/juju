@@ -5,7 +5,6 @@ package secret_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -13,16 +12,15 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/life"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	"github.com/juju/juju/internal/changestream/testing"
-	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -32,25 +30,16 @@ type watcherSuite struct {
 
 var _ = gc.Suite(&watcherSuite{})
 
-func setupUnits(c *gc.C, runner database.TxnRunner, appName string) {
-	err := runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		applicationUUID := uuid.MustNewUUID().String()
-		_, err := tx.ExecContext(context.Background(), `
-INSERT INTO application (uuid, name, life_id)
-VALUES (?, ?, ?)
-`, applicationUUID, appName, life.Alive)
-		c.Assert(err, jc.ErrorIsNil)
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		unitUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(context.Background(), `
-INSERT INTO unit (uuid, life_id, unit_id, net_node_uuid, application_uuid)
-VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
-`, unitUUID, life.Alive, fmt.Sprintf("%s/%d", appName, 0), netNodeUUID, appName)
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
-	})
+func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
+	logger := coretesting.NewCheckLogger(c)
+	st := applicationstate.NewState(s.TxnRunnerFactory(), logger)
+	svc := applicationservice.NewService(st, logger, nil)
+
+	unitName := fmt.Sprintf("%s/0", appName)
+	err := svc.CreateApplication(context.Background(),
+		appName, applicationservice.AddApplicationParams{},
+		applicationservice.AddUnitParams{UnitName: &unitName},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -58,19 +47,26 @@ func revID(uri *coresecrets.URI, rev int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, rev)
 }
 
-func (s *watcherSuite) TestWatchObsolete(c *gc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision")
+func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService, *state.State) {
 	logger := coretesting.NewCheckLogger(c)
+	st := state.NewState(s.TxnRunnerFactory(), logger)
+	factory := domain.NewWatcherFactory(
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision"),
+		logger,
+	)
+	return service.NewWatchableService(
+		st, logger,
+		factory, nil,
+	), st
+}
+
+func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
 
 	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
 
-	st := state.NewState(func() (database.TxnRunner, error) { return factory() }, logger)
-	db, err := st.DB()
-	c.Assert(err, jc.ErrorIsNil)
-	setupUnits(c, db, "mysql")
-	setupUnits(c, db, "mediawiki")
-
-	svc := service.NewWatchableService(st, logger, domain.NewWatcherFactory(factory, logger), nil)
 	createNewRevision := func(c *gc.C, uri *coresecrets.URI) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo-new": "bar-new"},
@@ -83,7 +79,7 @@ func (s *watcherSuite) TestWatchObsolete(c *gc.C) {
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	err = st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
@@ -121,34 +117,10 @@ func (s *watcherSuite) TestWatchObsolete(c *gc.C) {
 	c.Assert(watchAll, gc.NotNil)
 	defer workertest.CleanKill(c, watchAll)
 
-	watchSingleApplicaiton, err := svc.WatchObsolete(ctx,
-		service.CharmSecretOwner{
-			Kind: service.ApplicationOwner,
-			ID:   "mysql",
-		},
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(watchSingleApplicaiton, gc.NotNil)
-	defer workertest.CleanKill(c, watchSingleApplicaiton)
-
-	watchSingleUnit, err := svc.WatchObsolete(ctx,
-		service.CharmSecretOwner{
-			Kind: service.UnitOwner,
-			ID:   "mysql/0",
-		},
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(watchSingleUnit, gc.NotNil)
-	defer workertest.CleanKill(c, watchSingleUnit)
-
 	wCAll := watchertest.NewStringsWatcherC(c, watchAll)
-	wCSingleApplication := watchertest.NewStringsWatcherC(c, watchSingleApplicaiton)
-	wCSingleUnit := watchertest.NewStringsWatcherC(c, watchSingleUnit)
 
 	// Wait for the initial changes.
 	wCAll.AssertChange([]string(nil)...)
-	wCSingleApplication.AssertChange([]string(nil)...)
-	wCSingleUnit.AssertChange([]string(nil)...)
 
 	// create revision 2, and obsolete revision 1.
 	createNewRevision(c, uri1)
@@ -162,12 +134,6 @@ func (s *watcherSuite) TestWatchObsolete(c *gc.C) {
 		revID(uri3, 1),
 		revID(uri4, 1),
 	)
-	wCSingleApplication.AssertChange(
-		revID(uri1, 1),
-	)
-	wCSingleUnit.AssertChange(
-		revID(uri2, 1),
-	)
 
 	// create revision 3, and obsolete revision 2.
 	createNewRevision(c, uri1)
@@ -179,14 +145,124 @@ func (s *watcherSuite) TestWatchObsolete(c *gc.C) {
 		revID(uri2, 2),
 		revID(uri3, 2),
 	)
+
+	wCAll.AssertNoChange()
+}
+
+func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
+	s.setupUnits(c, "mysql")
+
+	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
+
+	createNewRevision := func(c *gc.C, uri *coresecrets.URI) {
+		sp := secret.UpsertSecretParams{
+			Data: coresecrets.SecretData{"foo-new": "bar-new"},
+		}
+		err := st.UpdateSecret(ctx, uri, sp)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	watchSingleApplicaiton, err := svc.WatchObsolete(ctx,
+		service.CharmSecretOwner{
+			Kind: service.ApplicationOwner,
+			ID:   "mysql",
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(watchSingleApplicaiton, gc.NotNil)
+	defer workertest.CleanKill(c, watchSingleApplicaiton)
+
+	wCSingleApplication := watchertest.NewStringsWatcherC(c, watchSingleApplicaiton)
+
+	// Wait for the initial changes.
+	wCSingleApplication.AssertChange([]string(nil)...)
+
+	// create revision 2, and obsolete revision 1.
+	createNewRevision(c, uri1)
+	createNewRevision(c, uri2)
+
+	wCSingleApplication.AssertChange(
+		revID(uri1, 1),
+	)
+
+	// create revision 3, and obsolete revision 2.
+	createNewRevision(c, uri1)
+	createNewRevision(c, uri2)
+
 	wCSingleApplication.AssertChange(
 		revID(uri1, 2),
 	)
+
+	wCSingleApplication.AssertNoChange()
+}
+
+func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
+	s.setupUnits(c, "mysql")
+
+	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
+
+	createNewRevision := func(c *gc.C, uri *coresecrets.URI) {
+		sp := secret.UpsertSecretParams{
+			Data: coresecrets.SecretData{"foo-new": "bar-new"},
+		}
+		err := st.UpdateSecret(ctx, uri, sp)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	watchSingleUnit, err := svc.WatchObsolete(ctx,
+		service.CharmSecretOwner{
+			Kind: service.UnitOwner,
+			ID:   "mysql/0",
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(watchSingleUnit, gc.NotNil)
+	defer workertest.CleanKill(c, watchSingleUnit)
+
+	wCSingleUnit := watchertest.NewStringsWatcherC(c, watchSingleUnit)
+
+	// Wait for the initial changes.
+	wCSingleUnit.AssertChange([]string(nil)...)
+
+	// create revision 2, and obsolete revision 1.
+	createNewRevision(c, uri1)
+	createNewRevision(c, uri2)
+
+	wCSingleUnit.AssertChange(
+		revID(uri2, 1),
+	)
+
+	// create revision 3, and obsolete revision 2.
+	createNewRevision(c, uri1)
+	createNewRevision(c, uri2)
+
 	wCSingleUnit.AssertChange(
 		revID(uri2, 2),
 	)
 
-	wCAll.AssertNoChange()
-	wCSingleApplication.AssertNoChange()
 	wCSingleUnit.AssertNoChange()
 }
