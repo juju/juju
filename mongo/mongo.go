@@ -20,13 +20,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/juju/service/common"
@@ -225,15 +225,6 @@ func EnsureServerInstalled(ctx context.Context, args EnsureServerParams) error {
 func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweaks map[string]string) (err error) {
 	tweakSysctlForMongo(mongoKernelTweaks)
 
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return errors.Annotatef(err, "cannot get host series")
-	}
-	hostBase, err := base.GetBaseFromSeries(hostSeries)
-	if err != nil {
-		return errors.Annotatef(err, "host series %q not a vlaid base", hostSeries)
-	}
-
 	mongoDep := dependency.Mongo(args.JujuDBSnapChannel)
 	if args.DataDir == "" {
 		args.DataDir = dataPathForJujuDbSnap
@@ -255,6 +246,11 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 	svc, err := mongoSnapService(args.DataDir, args.ConfigDir, args.JujuDBSnapChannel)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create mongo snap service")
+	}
+
+	hostBase, err := coreos.HostBase()
+	if err != nil {
+		return errors.Annotatef(err, "cannot get host base")
 	}
 
 	if err := installMongod(mongoDep, hostBase, svc); err != nil {

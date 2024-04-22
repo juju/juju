@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/agent/upgradeseries"
 	"github.com/juju/juju/api/base/mocks"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -179,7 +180,7 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 	fCaller.EXPECT().FacadeCall("FinishUpgradeSeries", args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.FinishUpgradeSeries("xenial")
+	err := api.FinishUpgradeSeries(corebase.MustParseBaseFromString("ubuntu@16.04"))
 	c.Assert(err, gc.IsNil)
 }
 

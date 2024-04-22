@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
@@ -283,12 +284,13 @@ func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 }
 
 func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
-	s.patchHost("xenial")
+	b := base.MustParseBaseFromString("ubuntu@16.04")
+	s.patchHost(b)
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "finalising upgrade")
-	exp.FinishUpgradeSeries("xenial").Return(nil)
+	exp.FinishUpgradeSeries(b).Return(nil)
 
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "success")
 	exp.UnpinMachineApplications().Return(map[string]error{
@@ -361,8 +363,8 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) patchHost(series string) {
-	upgradeseries.PatchHostSeries(s, series)
+func (s *workerSuite) patchHost(b base.Base) {
+	upgradeseries.PatchHostBase(s, b)
 }
 
 // notify returns a suite behaviour that will cause the upgrade-series watcher

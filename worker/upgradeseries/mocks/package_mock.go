@@ -12,6 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	base "github.com/juju/juju/core/base"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	names "github.com/juju/names/v5"
@@ -42,7 +43,7 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 }
 
 // FinishUpgradeSeries mocks base method.
-func (m *MockFacade) FinishUpgradeSeries(arg0 string) error {
+func (m *MockFacade) FinishUpgradeSeries(arg0 base.Base) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinishUpgradeSeries", arg0)
 	ret0, _ := ret[0].(error)

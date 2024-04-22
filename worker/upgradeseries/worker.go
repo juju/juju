@@ -9,17 +9,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/rpc/params"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,UnitDiscovery,Upgrader
 
-var hostSeries = series.HostSeries
+var hostBase = os.HostBase
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
@@ -308,11 +308,11 @@ func (w *upgradeSeriesWorker) handleCompleted() error {
 		return errors.Trace(err)
 	}
 
-	s, err := hostSeries()
+	b, err := hostBase()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err = w.FinishUpgradeSeries(s); err != nil {
+	if err = w.FinishUpgradeSeries(b); err != nil {
 		return errors.Trace(err)
 	}
 	if err = w.unpinLeaders(); err != nil {

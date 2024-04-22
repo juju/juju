@@ -170,18 +170,14 @@ func (s *Client) StartUnitCompletion(reason string) error {
 // completely finished, passing the current host OS series.
 // We use the name "Finish" to distinguish this method from the various
 // "Complete" phases.
-func (s *Client) FinishUpgradeSeries(hostSeries string) error {
+func (s *Client) FinishUpgradeSeries(hostBase corebase.Base) error {
 	var results params.ErrorResults
-	base, err := corebase.GetBaseFromSeries(hostSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	args := params.UpdateChannelArgs{Args: []params.UpdateChannelArg{{
 		Entity:  params.Entity{Tag: s.authTag.String()},
-		Channel: base.Channel.Track,
+		Channel: hostBase.Channel.Track,
 	}}}
 
-	err = s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
+	err := s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
 	if err != nil {
 		return err
 	}

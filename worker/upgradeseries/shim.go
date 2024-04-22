@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/agent/upgradeseries"
 	"github.com/juju/juju/api/base"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 )
@@ -23,7 +24,7 @@ type Facade interface {
 	// Setters
 	StartUnitCompletion(reason string) error
 	SetMachineStatus(status model.UpgradeSeriesStatus, reason string) error
-	FinishUpgradeSeries(string) error
+	FinishUpgradeSeries(corebase.Base) error
 	PinMachineApplications() (map[string]error, error)
 	UnpinMachineApplications() (map[string]error, error)
 	SetInstanceStatus(model.UpgradeSeriesStatus, string) error

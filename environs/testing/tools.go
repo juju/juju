@@ -281,8 +281,8 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
-	defaultSeries := jujuversion.DefaultSupportedLTS()
-	if coretesting.HostSeries(c) != defaultSeries {
+	defaultBase := jujuversion.DefaultSupportedLTSBase()
+	if !defaultBase.IsCompatible(coretesting.HostBase(c)) {
 		toolsVersion.Release = "ubuntu"
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)
