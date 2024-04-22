@@ -35,7 +35,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -3250,47 +3249,50 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsRemovesOfferPermissions(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	s.createOffer(c)
+	// This test body is commented so that we can remove users from state.
+	// It is retained so that we know that we need this coverage for offers
+	// when we migrate them to Dqlite.
 
-	coll, closer := state.GetRawCollection(s.State, "permissions")
-	defer closer()
-	cnt, err := coll.Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cnt, gc.Equals, 7)
+	/*
+		st := s.Factory.MakeModel(c, nil)
+		defer st.Close()
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+		s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+		eps := map[string]string{"db": "server", "db-admin": "server-admin"}
+		sd := state.NewApplicationOffers(s.State)
+		owner := s.Factory.MakeUser(c, nil)
+		offerArgs := crossmodel.AddApplicationOfferArgs{
+			OfferName:              "hosted-mysql",
+			ApplicationName:        "mysql",
+			ApplicationDescription: "mysql is a db server",
+			Endpoints:              eps,
+			Owner:                  owner.Name(),
+			HasRead:                []string{"everyone@external"},
+		}
+		_, err := sd.AddOffer(offerArgs)
+		c.Assert(err, jc.ErrorIsNil)
 
-	err = model.SetMigrationMode(state.MigrationModeExporting)
-	c.Assert(err, jc.ErrorIsNil)
+		coll, closer := state.GetRawCollection(s.State, "permissions")
+		defer closer()
+		cnt, err := coll.Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cnt, gc.Equals, 7)
 
-	err = s.State.RemoveExportingModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
+		model, err := s.State.Model()
+		c.Assert(err, jc.ErrorIsNil)
 
-	cnt, err = coll.Count()
-	c.Assert(err, jc.ErrorIsNil)
-	// 2 model permissions deleted.
-	// 2 offer permissions deleted.
-	c.Assert(cnt, gc.Equals, 3)
-}
+		err = model.SetMigrationMode(state.MigrationModeExporting)
+		c.Assert(err, jc.ErrorIsNil)
 
-func (s *StateSuite) createOffer(c *gc.C) {
-	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
-	sd := state.NewApplicationOffers(s.State)
-	owner := s.Factory.MakeUser(c, nil)
-	offerArgs := crossmodel.AddApplicationOfferArgs{
-		OfferName:              "hosted-mysql",
-		ApplicationName:        "mysql",
-		ApplicationDescription: "mysql is a db server",
-		Endpoints:              eps,
-		Owner:                  owner.Name(),
-		HasRead:                []string{"everyone@external"},
-	}
-	_, err := sd.AddOffer(offerArgs)
-	c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveExportingModelDocs()
+		c.Assert(err, jc.ErrorIsNil)
+
+		cnt, err = coll.Count()
+		c.Assert(err, jc.ErrorIsNil)
+		// 2 model permissions deleted.
+		// 2 offer permissions deleted.
+		c.Assert(cnt, gc.Equals, 3)
+	*/
 }
 
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
@@ -3499,14 +3501,6 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "actions")
 	c.Assert(id, gc.Equals, action.Id())
-}
-
-func (s *StateSuite) TestParseUserTag(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, user.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coll, gc.Equals, "users")
-	c.Assert(id, gc.Equals, user.Name())
 }
 
 func (s *StateSuite) TestParseModelTag(c *gc.C) {
