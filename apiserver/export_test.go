@@ -145,6 +145,20 @@ func (s *StubServiceFactoryGetter) FactoryForModel(string) servicefactory.Servic
 	return nil
 }
 
+type StubStatusHistoryFactory struct{}
+
+// StatusHistorySetterForModel returns a StatusHistorySetter for the model.
+func (s *StubStatusHistoryFactory) StatusHistorySetterForModel(modelUUID string) status.StatusHistorySetter {
+	return &StubStatusHistorySetter{}
+}
+
+type StubStatusHistorySetter struct{}
+
+// SetStatusHistory sets the status history for the given entity.
+func (*StubStatusHistorySetter) SetStatusHistory(kind status.HistoryKind, s status.Status, id string) error {
+	return nil
+}
+
 type StubTracerGetter struct {
 	trace.TracerGetter
 }

@@ -203,6 +203,9 @@ func (s *ServiceFactorySuite) SetUpTest(c *gc.C) {
 	if s.DefaultModelUUID == "" {
 		s.DefaultModelUUID = modeltesting.GenModelUUID(c)
 	}
+	if s.StatusHistoryFactory == nil {
+		s.StatusHistoryFactory = NoopStatusHistoryFactory{}
+	}
 	s.SeedAdminUser(c)
 	s.SeedCloudAndCredential(c)
 	s.SeedModelDatabases(c)
@@ -215,4 +218,16 @@ type ServiceFactoryGetterFunc func(string) servicefactory.ServiceFactory
 // FactoryForModel implements the ServiceFactoryGetter interface.
 func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
 	return s(modelUUID)
+}
+
+type NoopStatusHistoryFactory struct{}
+
+func (NoopStatusHistoryFactory) StatusHistorySetterForModel(modelUUID string) status.StatusHistorySetter {
+	return NoopStatusHistorySetter{}
+}
+
+type NoopStatusHistorySetter struct{}
+
+func (NoopStatusHistorySetter) SetStatusHistory(kind status.HistoryKind, s status.Status, id string) error {
+	return nil
 }

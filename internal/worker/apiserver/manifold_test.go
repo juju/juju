@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/gate"
@@ -67,6 +68,7 @@ type ManifoldSuite struct {
 	controllerConfigService *MockControllerConfigService
 	tracerGetter            stubTracerGetter
 	objectStoreGetter       stubObjectStoreGetter
+	statusHistoryFactory    stubStatusHistoryFactory
 
 	stub testing.Stub
 }
@@ -111,6 +113,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		TraceName:                         "trace",
 		ObjectStoreName:                   "object-store",
 		ChangeStreamName:                  "change-stream",
+		StatusHistoryFactoryName:          "status-history",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -140,6 +143,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"service-factory":      s.serviceFactoryGetter,
 		"trace":                s.tracerGetter,
 		"object-store":         s.objectStoreGetter,
+		"status-history":       s.statusHistoryFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -171,7 +175,7 @@ var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"charmhub-http-client", "change-stream", "service-factory",
-	"trace", "object-store", "log-sink",
+	"trace", "object-store", "log-sink", "status-history",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -244,6 +248,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ControllerConfigService:    s.controllerConfigService,
+		StatusHistoryFactory:       s.statusHistoryFactory,
 	})
 }
 
@@ -417,4 +422,8 @@ type stubTracerGetter struct {
 
 type stubObjectStoreGetter struct {
 	objectstore.ObjectStoreGetter
+}
+
+type stubStatusHistoryFactory struct {
+	status.StatusHistoryFactory
 }

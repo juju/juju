@@ -148,6 +148,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		DBGetter:                    dbGetter,
 		DBDeleter:                   dbDeleter,
 		ProviderFactory:             providerFactory,
+		StatusHistoryFactory:        statusHistoryFactory,
 		Logger:                      config.Logger,
 		NewServiceFactoryGetter:     config.NewServiceFactoryGetter,
 		NewControllerServiceFactory: config.NewControllerServiceFactory,
@@ -261,5 +262,11 @@ func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace strin
 type NoopStatusHistoryFactory struct{}
 
 func (NoopStatusHistoryFactory) StatusHistorySetterForModel(modelUUID string) status.StatusHistorySetter {
+	return NoopStatusHistorySetter{}
+}
+
+type NoopStatusHistorySetter struct{}
+
+func (NoopStatusHistorySetter) SetStatusHistory(kind status.HistoryKind, s status.Status, id string) error {
 	return nil
 }

@@ -6,10 +6,11 @@ package service
 import (
 	"testing"
 
-	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/status"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package service -destination status_mock_test.go github.com/juju/juju/core/status StatusHistoryFactory,StatusHistorySetter

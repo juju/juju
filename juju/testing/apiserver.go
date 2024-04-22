@@ -713,12 +713,11 @@ type stubStatusHistoryFactory struct{}
 // StatusHistorySetterForModel returns a StatusHistorySetter for the model.
 func (s *stubStatusHistoryFactory) StatusHistorySetterForModel(modelUUID string) status.StatusHistorySetter {
 	return &stubStatusHistorySetter{}
-
 }
 
 type stubStatusHistorySetter struct{}
 
-func (s *stubStatusHistorySetter) SetStatusHistory(status.HistoryKind, status.Status, string) error {
+func (*stubStatusHistorySetter) SetStatusHistory(status.HistoryKind, status.Status, string) error {
 	return nil
 }
 

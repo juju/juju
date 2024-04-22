@@ -66,6 +66,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		serviceFactoryGetter: &StubServiceFactoryGetter{},
 		tracerGetter:         &StubTracerGetter{},
 		objectStoreGetter:    &StubObjectStoreGetter{},
+		statusHistoryFactory: &StubStatusHistoryFactory{},
 		machineTag:           names.NewMachineTag("0"),
 		dataDir:              c.MkDir(),
 		logDir:               c.MkDir(),

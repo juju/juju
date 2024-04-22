@@ -11,6 +11,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package apiserver_test -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/apiserver ControllerConfigService
 //go:generate go run go.uber.org/mock/mockgen -package apiserver_test -destination service_mock_test.go github.com/juju/juju/internal/servicefactory ServiceFactoryGetter
+//go:generate go run go.uber.org/mock/mockgen -package status_test -destination status_mock_test.go github.com/juju/juju/core/status StatusHistoryFactory,StatusHistorySetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
