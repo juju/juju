@@ -81,12 +81,12 @@ func (b Base) String() string {
 
 // UbuntuBase is used in tests.
 func UbuntuBase(channel string) Base {
-	return Base{OS: "ubuntu", Channel: channel + "/stable"}
+	return Base{OS: corebase.UbuntuOS, Channel: channel + "/stable"}
 }
 
 // DefaultLTSBase is used in tests.
 func DefaultLTSBase() Base {
-	return Base{OS: "ubuntu", Channel: jujuversion.DefaultSupportedLTSBase().Channel.String()}
+	return Base{OS: corebase.UbuntuOS, Channel: jujuversion.DefaultSupportedLTSBase().Channel.String()}
 }
 
 // Platform identifies the platform the charm was installed on.
