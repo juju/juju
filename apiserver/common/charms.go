@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/domain"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -31,7 +31,7 @@ func ReadCharmFromStorage(ctx context.Context, objectStore ReadObjectStore, data
 	// Use the storage to retrieve and save the charm archive.
 	reader, _, err := objectStore.Get(ctx, storagePath)
 	if err != nil {
-		if errors.Is(err, domain.ErrNoRecord) {
+		if errors.Is(err, objectstoreerrors.ErrNotFound) {
 			return "", errors.NewNotFound(err, "charm not found in model storage")
 		}
 		return "", errors.Annotate(err, "cannot get charm from model storage")

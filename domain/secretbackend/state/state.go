@@ -25,7 +25,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
-	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -105,7 +105,13 @@ func (s *State) CreateSecretBackend(ctx context.Context, params secretbackend.Cr
 		})
 		return errors.Trace(err)
 	})
-	return params.ID, domain.CoerceError(err)
+	if err != nil {
+		if database.IsErrConstraintUnique(err) {
+			return "", fmt.Errorf("%w: secret backend with name %q", secretbackenderrors.AlreadyExists, params.Name)
+		}
+		return "", domain.CoerceError(err)
+	}
+	return params.ID, nil
 }
 
 // UpdateSecretBackend updates the secret backend.
@@ -249,7 +255,7 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 		}
 		err = tx.Query(ctx, backendStmt, arg).Run()
 		if database.IsErrConstraintTrigger(err) {
-			return fmt.Errorf("%w: %q is immutable", backenderrors.Forbidden, identifier.ID)
+			return fmt.Errorf("%w: %q is immutable", secretbackenderrors.Forbidden, identifier.ID)
 		}
 		if err != nil {
 			return fmt.Errorf("deleting secret backend for %q: %w", identifier.ID, err)
@@ -398,10 +404,10 @@ WHERE  m.uuid = $M.uuid
 
 func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, identifier secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
 	if identifier.ID == "" && identifier.Name == "" {
-		return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
+		return nil, fmt.Errorf("%w: both ID and name are missing", secretbackenderrors.NotValid)
 	}
 	if identifier.ID != "" && identifier.Name != "" {
-		return nil, fmt.Errorf("%w: both ID and name are provided", backenderrors.NotValid)
+		return nil, fmt.Errorf("%w: both ID and name are provided", secretbackenderrors.NotValid)
 	}
 	columName := "uuid"
 	v := identifier.ID
@@ -430,7 +436,7 @@ WHERE b.%s = $M.identifier`, columName)
 	var rows SecretBackendRows
 	err = tx.Query(ctx, stmt, sqlair.M{"identifier": v}).GetAll(&rows)
 	if errors.Is(err, sql.ErrNoRows) || len(rows) == 0 {
-		return nil, fmt.Errorf("%w: %q", backenderrors.NotFound, v)
+		return nil, fmt.Errorf("%w: %q", secretbackenderrors.NotFound, v)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("querying secret backends: %w", err)
@@ -441,10 +447,10 @@ WHERE b.%s = $M.identifier`, columName)
 // GetSecretBackend returns the secret backend for the given backend ID or Name.
 func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
 	if params.ID == "" && params.Name == "" {
-		return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
+		return nil, fmt.Errorf("%w: both ID and name are missing", secretbackenderrors.NotValid)
 	}
 	if params.ID != "" && params.Name != "" {
-		return nil, fmt.Errorf("%w: both ID and name are provided", backenderrors.NotValid)
+		return nil, fmt.Errorf("%w: both ID and name are provided", secretbackenderrors.NotValid)
 	}
 	db, err := s.DB()
 	if err != nil {
@@ -486,7 +492,7 @@ WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
 		var sb SecretBackendRotationRow
 		err := tx.Query(ctx, getStmt, sqlair.M{"uuid": backendID}).Get(&sb)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", backenderrors.NotFound, backendID)
+			return fmt.Errorf("%w: %q", secretbackenderrors.NotFound, backendID)
 		}
 		if err != nil {
 			return fmt.Errorf("checking if secret backend %q exists: %w", backendID, err)
@@ -539,7 +545,7 @@ WHERE b.name = $SecretBackendRow.name`
 		var result SecretBackendRow
 		err = tx.Query(ctx, stmt, backend).Get(&result)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", backenderrors.NotFound, backendName)
+			return fmt.Errorf("%w: %q", secretbackenderrors.NotFound, backendName)
 		}
 		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)

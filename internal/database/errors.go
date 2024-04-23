@@ -141,11 +141,15 @@ func IsError(target any) bool {
 	if _, is := target.(dqlite.Error); is {
 		return true
 	}
-	if _, is := target.(sqlite3.Error); is {
-		return true
-	}
+
+	// TODO (stickupkid): This is a compatibility layer for sqlite3, we should
+	// remove this once we are only using dqlite.
 	if _, is := target.(*sqlite3.Error); is {
 		return true
 	}
+	if _, is := target.(sqlite3.Error); is {
+		return true
+	}
+
 	return false
 }

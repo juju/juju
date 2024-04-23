@@ -17,13 +17,13 @@ type asError struct {
 	Message string
 }
 
-type errorsSuite struct{}
-
-var _ = gc.Suite(&errorsSuite{})
-
 func (a asError) Error() string {
 	return a.Message
 }
+
+type errorsSuite struct{}
+
+var _ = gc.Suite(&errorsSuite{})
 
 // TestCoerceForNilError checks that if you pass a nil error to CoerceError you
 // get back a nil error.

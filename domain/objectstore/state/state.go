@@ -48,6 +48,9 @@ WHERE path = ?`
 		return row.Scan(&metadata.Path, &metadata.UUID, &metadata.Size, &metadata.Hash)
 	})
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return objectstore.Metadata{}, objectstoreerrors.ErrNotFound
+		}
 		return objectstore.Metadata{}, errors.Annotatef(domain.CoerceError(err), "retrieving metadata %s", path)
 	}
 	return metadata, nil

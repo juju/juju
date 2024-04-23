@@ -4,37 +4,33 @@
 package domain
 
 import (
-	"fmt"
+	"database/sql"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/database"
 )
 
-const (
-	// ErrDuplicate is returned when a record already exists.
-	ErrDuplicate = errors.ConstError("record already exists")
-
-	// ErrNoRecord is returned when a record does not exist.
-	ErrNoRecord = errors.ConstError("record does not exist")
-)
-
-// CoerceError converts an error from a state layer into a domain specific error
-// hiding the existence of any state based errors. If the error to coerce is nil
-// then nil will be returned.
+// CoerceError converts all sql, sqlite and dqlite errors into an error that
+// is impossible to unwrwap, thus hiding the error from errors.As and errors.Is.
+// This is done to prevent checking the error type at the wrong layer. All sql
+// errors should be handled at the domain layer and not above. Thus we don't
+// expose couple the API client/server to the database layer.
 func CoerceError(err error) error {
 	if err == nil {
 		return nil
 	}
 
-	mErr := maskError{err}
-	if database.IsErrConstraintUnique(err) {
-		return fmt.Errorf("%w%w", ErrDuplicate, errors.Hide(mErr))
+	// If the error is a sql error, a dqlite error or a database error, we mask
+	// the error to prevent it from being unwrapped.
+	if errors.Is(err, sql.ErrNoRows) ||
+		database.IsError(err) ||
+		errors.Is(err, sql.ErrTxDone) ||
+		errors.Is(err, sql.ErrConnDone) {
+		return errors.Trace(maskError{error: err})
 	}
-	if database.IsErrNotFound(err) {
-		return fmt.Errorf("%w%w", ErrNoRecord, errors.Hide(mErr))
-	}
-	return mErr
+
+	return err
 }
 
 // maskError is used to mask the existence of sql related errors. It will not
