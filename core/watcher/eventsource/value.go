@@ -24,7 +24,7 @@ type ValueWatcher struct {
 	changeValue string
 	changeMask  changestream.ChangeType
 
-	predicate Predicate
+	mapper Mapper
 }
 
 // NewValueWatcher returns a new watcher that receives changes from the input
@@ -37,24 +37,24 @@ func NewValueWatcher(base *BaseWatcher, namespace, changeValue string, changeMas
 		namespace:   namespace,
 		changeValue: changeValue,
 		changeMask:  changeMask,
-		predicate:   defaultPredicate,
+		mapper:      defaultMapper,
 	}
 
 	w.tomb.Go(w.loop)
 	return w
 }
 
-// NewValuePredicateWatcher returns a new watcher that receives changes from
-// the input base watcher's db/queue when predicate accepts the change-log
+// NewValueMapperWatcher returns a new watcher that receives changes from
+// the input base watcher's db/queue when mapper accepts the change-log
 // events occur for a specific changeValue from the input namespace.
-func NewValuePredicateWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, predicate Predicate) *ValueWatcher {
+func NewValueMapperWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, mapper Mapper) *ValueWatcher {
 	w := &ValueWatcher{
 		BaseWatcher: base,
 		out:         make(chan struct{}),
 		namespace:   namespace,
 		changeValue: changeValue,
 		changeMask:  changeMask,
-		predicate:   predicate,
+		mapper:      mapper,
 	}
 
 	w.tomb.Go(w.loop)
@@ -105,13 +105,14 @@ func (w *ValueWatcher) loop() error {
 				return nil
 			}
 
-			// Check with the predicate to determine if we should send a
-			// notification.
-			allow, err := w.predicate(ctx, w.watchableDB, changes)
+			// Allow the possibility of the mapper to drop/filter events.
+			changed, err := w.mapper(ctx, w.watchableDB, changes)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if !allow {
+			// If the mapper has dropped all events, we don't need to do
+			// anything.
+			if len(changed) == 0 {
 				continue
 			}
 

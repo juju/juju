@@ -83,7 +83,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestInitialStateSentByPredicate(c *gc.C) {
+func (s *namespaceSuite) TestInitialStateSentByMapper(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -117,14 +117,14 @@ func (s *namespaceSuite) TestInitialStateSentByPredicate(c *gc.C) {
 		return err
 	})
 
-	// Notice that even if the predicate returns false, the initial state is
-	// still sent. This is a hard requirement of the API.
+	// Notice that even if the mapper returns an empty list of change events,
+	// the initial state is still sent. This is a hard requirement of the API.
 
 	c.Assert(err, jc.ErrorIsNil)
-	w := NewNamespacePredicateWatcher(
+	w := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(), "random_namespace", changestream.All, InitialNamespaceChanges("SELECT key_name FROM random_namespace"),
-		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) (bool, error) {
-			return false, nil
+		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			return nil, nil
 		},
 	)
 	defer workertest.CleanKill(c, w)
@@ -201,7 +201,7 @@ func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestDeltasSentByPredicate(c *gc.C) {
+func (s *namespaceSuite) TestDeltasSentByMapper(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -210,7 +210,7 @@ func (s *namespaceSuite) TestDeltasSentByPredicate(c *gc.C) {
 	// - Dispatch initial events.
 	// - Read deltas.
 	// - Dispatch deltas.
-	// - Read deltas. -- notice no dispatch because of the predicate.
+	// - Read deltas. -- notice no dispatch because of the mapper.
 	// - Pick up tomb.Dying()
 	done := make(chan struct{})
 	subExp.Done().Return(done).Times(5)
@@ -230,10 +230,13 @@ func (s *namespaceSuite) TestDeltasSentByPredicate(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewNamespacePredicateWatcher(
+	w := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"),
-		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) (bool, error) {
-			return e[0].Changed() == "some-ec-uuid", nil
+		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			if e[0].Changed() == "some-ec-uuid" {
+				return e, nil
+			}
+			return nil, nil
 		},
 	)
 	defer workertest.CleanKill(c, w)
@@ -283,7 +286,7 @@ func (s *namespaceSuite) TestDeltasSentByPredicate(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceSuite) TestDeltasSentByPredicateError(c *gc.C) {
+func (s *namespaceSuite) TestDeltasSentByMapperError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -306,10 +309,10 @@ func (s *namespaceSuite) TestDeltasSentByPredicateError(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewNamespacePredicateWatcher(
+	w := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"),
-		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) (bool, error) {
-			return false, errors.New("boom")
+		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			return nil, errors.New("boom")
 		},
 	)
 	defer workertest.DirtyKill(c, w)
@@ -334,7 +337,7 @@ func (s *namespaceSuite) TestDeltasSentByPredicateError(c *gc.C) {
 
 	select {
 	case _, ok := <-w.Changes():
-		// Ensure the channel is closed, when the predicate dies.
+		// Ensure the channel is closed, when the mapper dies.
 		c.Assert(ok, jc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for watcher delta")

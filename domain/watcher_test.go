@@ -97,7 +97,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *watcherSuite) TestNewNamespacePredicateWatcherSuccess(c *gc.C) {
+func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
@@ -117,11 +117,11 @@ func (s *watcherSuite) TestNewNamespacePredicateWatcherSuccess(c *gc.C) {
 		}, nil
 	}, nil)
 
-	w, err := factory.NewNamespacePredicateWatcher(
+	w, err := factory.NewNamespaceMapperWatcher(
 		"some-namespace", changestream.All,
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
-		func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) (bool, error) {
-			return true, nil
+		func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			return ce, nil
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -157,7 +157,7 @@ func (s *watcherSuite) TestNewValueWatcherSuccess(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *watcherSuite) TestNewValuePredicateWatcherSuccess(c *gc.C) {
+func (s *watcherSuite) TestNewValueMapperWatcherSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
@@ -168,9 +168,12 @@ func (s *watcherSuite) TestNewValuePredicateWatcherSuccess(c *gc.C) {
 		}, nil
 	}, nil)
 
-	w, err := factory.NewValuePredicateWatcher("some-namespace", "some-id-from-namespace", changestream.All, func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) (bool, error) {
-		return true, nil
-	})
+	w, err := factory.NewValueMapperWatcher(
+		"some-namespace", "some-id-from-namespace", changestream.All,
+		func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			return ce, nil
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

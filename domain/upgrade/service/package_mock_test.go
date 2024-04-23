@@ -198,17 +198,17 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
 }
 
-// NewValuePredicateWatcher mocks base method.
-func (m *MockWatcherFactory) NewValuePredicateWatcher(arg0, arg1 string, arg2 changestream.ChangeType, arg3 eventsource.Predicate) (watcher.Watcher[struct{}], error) {
+// NewValueMapperWatcher mocks base method.
+func (m *MockWatcherFactory) NewValueMapperWatcher(arg0, arg1 string, arg2 changestream.ChangeType, arg3 eventsource.Mapper) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewValuePredicateWatcher", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "NewValueMapperWatcher", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewValuePredicateWatcher indicates an expected call of NewValuePredicateWatcher.
-func (mr *MockWatcherFactoryMockRecorder) NewValuePredicateWatcher(arg0, arg1, arg2, arg3 any) *gomock.Call {
+// NewValueMapperWatcher indicates an expected call of NewValueMapperWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewValueMapperWatcher(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewValuePredicateWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewValuePredicateWatcher), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewValueMapperWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewValueMapperWatcher), arg0, arg1, arg2, arg3)
 }

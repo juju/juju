@@ -388,7 +388,7 @@ func (st *State) WatchBlockDevices(
 	getWatcher func(
 		namespace, changeValue string,
 		changeMask changestream.ChangeType,
-		predicate eventsource.Predicate,
+		mapper eventsource.Mapper,
 	) (watcher.NotifyWatcher, error),
 	machineId string,
 ) (watcher.NotifyWatcher, error) {
@@ -413,15 +413,9 @@ func (st *State) WatchBlockDevices(
 		return nil, errors.Errorf("cannot watch block devices on dead machine %q", machineId)
 	}
 
-	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
-		for _, ch := range changes {
-			if ch.Changed() == machineUUID {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-	baseWatcher, err := getWatcher("block_device", machineUUID, changestream.All, predicate)
+	baseWatcher, err := getWatcher("block_device", machineUUID, changestream.All, eventsource.FilterEvents(func(ce changestream.ChangeEvent) bool {
+		return ce.Changed() == machineUUID
+	}))
 	if err != nil {
 		return nil, errors.Annotatef(err, "watching machine %q block devices", machineId)
 	}

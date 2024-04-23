@@ -18,7 +18,7 @@ import (
 type getWatcherFunc = func(
 	namespace, changeValue string,
 	changeMask changestream.ChangeType,
-	predicate eventsource.Predicate,
+	mapper eventsource.Mapper,
 ) (watcher.NotifyWatcher, error)
 
 // State defines an interface for interacting with the underlying state.
@@ -45,10 +45,10 @@ type Logger interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	NewValuePredicateWatcher(
+	NewValueMapperWatcher(
 		namespace, changeValue string,
 		changeMask changestream.ChangeType,
-		predicate eventsource.Predicate,
+		mapper eventsource.Mapper,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -119,5 +119,5 @@ func (s *WatchableService) WatchBlockDevices(
 	ctx context.Context,
 	machineId string,
 ) (watcher.NotifyWatcher, error) {
-	return s.st.WatchBlockDevices(ctx, s.watcherFactory.NewValuePredicateWatcher, machineId)
+	return s.st.WatchBlockDevices(ctx, s.watcherFactory.NewValueMapperWatcher, machineId)
 }
