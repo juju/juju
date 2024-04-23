@@ -1134,6 +1134,9 @@ func (srv *Server) serveConn(
 		resolvedModelUUID = systemState.ModelUUID()
 	}
 
+	// Inject the resolved model UUID into the context for logging.
+	ctx = corelogger.WithNamespaceForContext(ctx, resolvedModelUUID)
+
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
 		coretrace.Namespace("apiserver", resolvedModelUUID),

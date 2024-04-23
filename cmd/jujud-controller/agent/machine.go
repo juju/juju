@@ -6,6 +6,7 @@ package agent
 import (
 	stdcontext "context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -517,7 +518,14 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 
-	agentconf.SetupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
+	cfg := a.CurrentConfig()
+
+	{
+		logger := slog.New(corelogger.NewJSONModelLoggerHandler(cfg.LogDir(), nil))
+		slog.SetDefault(logger)
+	}
+
+	agentconf.SetupAgentLogging(loggo.DefaultContext(), cfg)
 
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.

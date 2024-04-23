@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
@@ -68,6 +69,8 @@ func NewService(st State, logger Logger, registry storage.ProviderRegistry) *Ser
 
 // CreateApplication creates the specified application and units if required.
 func (s *Service) CreateApplication(ctx context.Context, name string, params AddApplicationParams, units ...AddUnitParams) error {
+	slog.InfoContext(ctx, "Creating application %q", name, slog.String("name", name))
+
 	args := make([]application.AddUnitParams, len(units))
 	for i, u := range units {
 		args[i] = application.AddUnitParams{
