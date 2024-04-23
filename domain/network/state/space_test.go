@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -118,8 +119,7 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Check(name, gc.Equals, "space0")
 	// Fails when trying to add a new space with the same name.
 	err = st.AddSpace(ctx.Background(), spaceUUID.String(), "space0", "bar", subnets)
-	c.Assert(err, gc.ErrorMatches, "inserting space (.*) into space table: record already exists")
-
+	c.Assert(err, jc.ErrorIs, networkerrors.ErrAlreadyExists)
 }
 
 func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {

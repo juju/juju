@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/database"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -104,6 +106,9 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 
 		if err := tx.Query(ctx, insertSpaceStmt, Space{UUID: uuid, Name: name}).Run(); err != nil {
 			st.logger.Errorf("inserting space uuid %q into space table, %v", uuid, err)
+			if database.IsErrConstraintUnique(err) {
+				return fmt.Errorf("inserting space uuid %q into space table: %w", uuid, networkerrors.ErrAlreadyExists)
+			}
 			return errors.Annotatef(domain.CoerceError(err), "inserting space uuid %q into space table", uuid)
 		}
 		if providerID != "" {
