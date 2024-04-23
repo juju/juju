@@ -5,26 +5,13 @@ package controller
 
 import (
 	"github.com/juju/charm/v13"
-	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
 
 // The interfaces below are used to create mocks for testing.
 
-type ControllerAccess interface {
-	ControllerTag() names.ControllerTag
-	AddControllerUser(spec state.UserAccessSpec) (permission.UserAccess, error)
-	UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error)
-	ControllerInfo() (*state.ControllerInfo, error)
-	UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
-	RemoveUserAccess(subject names.UserTag, target names.Tag) error
-	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
-}
-
 type Backend interface {
-	ControllerAccess
 	Model() (*state.Model, error)
 	Application(name string) (Application, error)
 	MongoVersion() (string, error)

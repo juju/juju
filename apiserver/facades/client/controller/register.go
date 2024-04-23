@@ -45,5 +45,6 @@ func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*Cont
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Upgrade(),
+		serviceFactory.Access(),
 	)
 }

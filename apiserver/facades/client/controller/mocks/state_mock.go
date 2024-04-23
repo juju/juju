@@ -14,9 +14,7 @@ import (
 
 	charm "github.com/juju/charm/v13"
 	controller "github.com/juju/juju/apiserver/facades/client/controller"
-	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,21 +39,6 @@ func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
-}
-
-// AddControllerUser mocks base method.
-func (m *MockBackend) AddControllerUser(arg0 state.UserAccessSpec) (permission.UserAccess, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddControllerUser", arg0)
-	ret0, _ := ret[0].(permission.UserAccess)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddControllerUser indicates an expected call of AddControllerUser.
-func (mr *MockBackendMockRecorder) AddControllerUser(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddControllerUser", reflect.TypeOf((*MockBackend)(nil).AddControllerUser), arg0)
 }
 
 // AllBlocksForController mocks base method.
@@ -103,21 +86,6 @@ func (mr *MockBackendMockRecorder) Application(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockBackend)(nil).Application), arg0)
 }
 
-// ControllerInfo mocks base method.
-func (m *MockBackend) ControllerInfo() (*state.ControllerInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerInfo")
-	ret0, _ := ret[0].(*state.ControllerInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerInfo indicates an expected call of ControllerInfo.
-func (mr *MockBackendMockRecorder) ControllerInfo() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerInfo", reflect.TypeOf((*MockBackend)(nil).ControllerInfo))
-}
-
 // ControllerModelUUID mocks base method.
 func (m *MockBackend) ControllerModelUUID() string {
 	m.ctrl.T.Helper()
@@ -130,20 +98,6 @@ func (m *MockBackend) ControllerModelUUID() string {
 func (mr *MockBackendMockRecorder) ControllerModelUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerModelUUID", reflect.TypeOf((*MockBackend)(nil).ControllerModelUUID))
-}
-
-// ControllerTag mocks base method.
-func (m *MockBackend) ControllerTag() names.ControllerTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerTag")
-	ret0, _ := ret[0].(names.ControllerTag)
-	return ret0
-}
-
-// ControllerTag indicates an expected call of ControllerTag.
-func (mr *MockBackendMockRecorder) ControllerTag() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTag", reflect.TypeOf((*MockBackend)(nil).ControllerTag))
 }
 
 // Model mocks base method.
@@ -203,65 +157,6 @@ func (m *MockBackend) RemoveAllBlocksForController() error {
 func (mr *MockBackendMockRecorder) RemoveAllBlocksForController() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllBlocksForController", reflect.TypeOf((*MockBackend)(nil).RemoveAllBlocksForController))
-}
-
-// RemoveUserAccess mocks base method.
-func (m *MockBackend) RemoveUserAccess(arg0 names.UserTag, arg1 names.Tag) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveUserAccess", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveUserAccess indicates an expected call of RemoveUserAccess.
-func (mr *MockBackendMockRecorder) RemoveUserAccess(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUserAccess", reflect.TypeOf((*MockBackend)(nil).RemoveUserAccess), arg0, arg1)
-}
-
-// SetUserAccess mocks base method.
-func (m *MockBackend) SetUserAccess(arg0 names.UserTag, arg1 names.Tag, arg2 permission.Access) (permission.UserAccess, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUserAccess", arg0, arg1, arg2)
-	ret0, _ := ret[0].(permission.UserAccess)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SetUserAccess indicates an expected call of SetUserAccess.
-func (mr *MockBackendMockRecorder) SetUserAccess(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUserAccess", reflect.TypeOf((*MockBackend)(nil).SetUserAccess), arg0, arg1, arg2)
-}
-
-// UserAccess mocks base method.
-func (m *MockBackend) UserAccess(arg0 names.UserTag, arg1 names.Tag) (permission.UserAccess, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UserAccess", arg0, arg1)
-	ret0, _ := ret[0].(permission.UserAccess)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UserAccess indicates an expected call of UserAccess.
-func (mr *MockBackendMockRecorder) UserAccess(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UserAccess", reflect.TypeOf((*MockBackend)(nil).UserAccess), arg0, arg1)
-}
-
-// UserPermission mocks base method.
-func (m *MockBackend) UserPermission(arg0 names.UserTag, arg1 names.Tag) (permission.Access, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UserPermission", arg0, arg1)
-	ret0, _ := ret[0].(permission.Access)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UserPermission indicates an expected call of UserPermission.
-func (mr *MockBackendMockRecorder) UserPermission(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UserPermission", reflect.TypeOf((*MockBackend)(nil).UserPermission), arg0, arg1)
 }
 
 // MockApplication is a mock of Application interface.
