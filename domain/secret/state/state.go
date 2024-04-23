@@ -2245,42 +2245,6 @@ AND    subject_id = $secretAccessor.subject_id
 
 }
 
-// markObsoleteRevisions obsoletes the revisions and sets the pending_delete to true in the secret_revision table
-// for the specified secret if the revision is not the latest revision and there are no consumers for the revision.
-func markObsoleteRevisions(ctx context.Context, p domain.Preparer, tx *sqlair.TX, uri *coresecrets.URI) error {
-	stmt, err := p.Prepare(`
-WITH in_use AS (
-    -- revisions that have local consumers.
-    SELECT DISTINCT current_revision FROM secret_unit_consumer suc
-    WHERE  suc.secret_id = $M.secret_id
-UNION
-    -- revisions that have remote consumers.
-    SELECT DISTINCT current_revision FROM secret_remote_unit_consumer suc
-    WHERE  suc.secret_id = $M.secret_id
-UNION
-    -- the latest revision.
-    SELECT MAX(revision) FROM secret_revision rev
-    WHERE  rev.secret_id = $M.secret_id)
-)
-UPDATE secret_revision
-SET    obsolete = true,
-       pending_delete = true,
-       update_time = DATETIME('now')
-WHERE secret_id = $M.secret_id
-AND   obsolete = false
-AND   revision NOT IN (
-	SELECT * FROM in_use
-)`, sqlair.M{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = tx.Query(ctx, stmt, sqlair.M{"secret_id": uri.ID}).Run()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // InitialWatchStatementForObsolete returns the initial watch statement and the table name for watching obsolete revisions.
 func (st State) InitialWatchStatementForObsoleteRevision(
 	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
