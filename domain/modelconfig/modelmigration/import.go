@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
+	"github.com/juju/juju/environs/config"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -52,6 +53,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// nil watcher factory.
 	i.service = service.NewService(
 		i.defaultsProvider,
+		config.NoControllerAttributesValidator(),
 		state.NewState(scope.ModelDB()))
 	return nil
 }

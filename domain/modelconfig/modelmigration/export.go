@@ -43,6 +43,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		// We shouldn't be using model defaults during export, so we use a
 		// no-op provider.
 		noopModelDefaultsProvider{},
+		config.ModelValidator(),
 		state.NewState(scope.ModelDB()))
 	return nil
 }
