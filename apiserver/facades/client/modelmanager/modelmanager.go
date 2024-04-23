@@ -373,24 +373,18 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// Reload the substrate spaces for the newly created model.
-	modelNetworkService := modelServiceFactory.Network()
-	modelConfig, err := m.state.ModelConfig(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	fanConfig, err := modelConfig.FanConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	return reloadSpaces(ctx, modelServiceFactory.Network())
+}
 
-	if err = modelNetworkService.ReloadSpaces(ctx, fanConfig); err != nil {
+// reloadSpaces wraps the call to ReloadSpaces and its returned errors.
+func reloadSpaces(ctx context.Context, modelNetworkService NetworkService) error {
+	if err := modelNetworkService.ReloadSpaces(ctx); err != nil {
 		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
 			return errors.Annotate(err, "Failed to perform spaces discovery")
 		}
 	}
-
 	return nil
 }
 

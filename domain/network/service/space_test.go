@@ -431,6 +431,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(false, nil)
 	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
 	s.logger.EXPECT().Debugf("environ does not support space discovery, falling back to subnet discovery")
+	s.st.EXPECT().FanConfig(gomock.Any()).Return("", nil)
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) {
 			c.Check(subnets, gc.HasLen, 2)
@@ -440,7 +441,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	)
 
 	err := NewProviderService(s.st, s.providerGetter, s.logger).
-		ReloadSpaces(context.Background(), nil)
+		ReloadSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -455,6 +456,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(false, nil)
 	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
 	s.logger.EXPECT().Debugf("environ does not support space discovery, falling back to subnet discovery")
+	s.st.EXPECT().FanConfig(gomock.Any()).Return("", nil)
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) {
 			c.Check(subnets, gc.HasLen, 2)
@@ -464,7 +466,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 	).Return(errors.New("boom"))
 
 	err := NewProviderService(s.st, s.providerGetter, s.logger).
-		ReloadSpaces(context.Background(), nil)
+		ReloadSpaces(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -475,7 +477,7 @@ func (s *spaceSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
 		return nil, errors.NotSupported
 	}
 	err := NewProviderService(s.st, providerGetterFails, s.logger).
-		ReloadSpaces(context.Background(), nil)
+		ReloadSpaces(context.Background())
 
 	c.Assert(err, gc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
 }

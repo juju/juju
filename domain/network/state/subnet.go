@@ -165,7 +165,7 @@ VALUES ($ProviderNetworkSubnet.provider_network_uuid, $ProviderNetworkSubnet.sub
 		// If the provider network doesn't exist, insert it.
 		pnUUID, err := uuid.NewV7()
 		if err != nil {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 		pnUUIDStr = pnUUID.String()
 
@@ -234,7 +234,7 @@ VALUES ($M.availability_zone_uuid, $M.subnet_uuid)`, sqlair.M{})
 		if errors.Is(err, sql.ErrNoRows) {
 			azUUID, err := uuid.NewV7()
 			if err != nil {
-				return errors.Annotatef(domain.CoerceError(err), "generating UUID for availability zone %q for subnet %q", az, subnetUUID)
+				return errors.Annotatef(err, "generating UUID for availability zone %q for subnet %q", az, subnetUUID)
 			}
 			azUUIDStr = azUUID.String()
 			if err := tx.Query(

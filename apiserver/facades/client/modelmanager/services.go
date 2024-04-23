@@ -13,7 +13,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
@@ -118,7 +117,7 @@ type AccessService interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
-	ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error
+	ReloadSpaces(ctx context.Context) error
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.

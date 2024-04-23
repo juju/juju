@@ -242,24 +242,11 @@ func (w *bootstrapWorker) loop() error {
 	}
 
 	// Load spaces from the underlying substrate.
-	bootstrapModel, err := w.cfg.SystemState.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	modelConfig, err := bootstrapModel.Config()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	fanConfig, err := modelConfig.FanConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.cfg.NetworkService.ReloadSpaces(ctx, fanConfig); err != nil {
+	if err := w.cfg.NetworkService.ReloadSpaces(ctx); err != nil {
 		if !errors.Is(err, errors.NotSupported) {
-			w.logger.Errorf("reloading spaces %v", err)
 			return errors.Trace(err)
 		}
-		w.logger.Debugf("Not performing spaces load on a non-networking environment")
+		w.logger.Debugf("reload spaces not supported due to a non-networking environement")
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance

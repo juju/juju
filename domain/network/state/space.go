@@ -16,6 +16,7 @@ import (
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/environs/config"
 )
 
 // Logger facilitates emitting log messages.
@@ -343,6 +344,27 @@ func (st *State) DeleteSpace(
 			return fmt.Errorf("space %s not found", uuid)
 		}
 
+		return nil
+	})
+}
+
+// FanConfig returns the current model's fan config value.
+func (st *State) FanConfig(ctx context.Context) (string, error) {
+	var fanConfig string
+
+	db, err := st.DB()
+	if err != nil {
+		return fanConfig, errors.Trace(err)
+	}
+
+	return fanConfig, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `SELECT value FROM model_config WHERE key=?`
+		row := tx.QueryRowContext(ctx, stmt, config.FanConfig)
+		if err := row.Scan(&fanConfig); errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("model's fan config %w%w", errors.NotFound, errors.Hide(err))
+		} else if err != nil {
+			return domain.CoerceError(err)
+		}
 		return nil
 	})
 }

@@ -124,13 +124,23 @@ func NewProviderService(
 }
 
 // ReloadSpaces loads spaces and subnets from the provider into state.
-func (s *ProviderService) ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error {
+func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	callContext := envcontext.WithoutCredentialInvalidator(ctx)
 
 	networkProvider, err := s.provider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
 	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Retrieve the fan config from the model config.
+	fanConfigStr, err := s.st.FanConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fanConfig, err := network.ParseFanConfig(fanConfigStr)
 	if err != nil {
 		return errors.Trace(err)
 	}

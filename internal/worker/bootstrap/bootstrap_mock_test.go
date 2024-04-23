@@ -636,17 +636,17 @@ func (mr *MockNetworkServiceMockRecorder) GetAllSpaces(arg0 any) *gomock.Call {
 }
 
 // ReloadSpaces mocks base method.
-func (m *MockNetworkService) ReloadSpaces(arg0 context.Context, arg1 network.FanConfig) error {
+func (m *MockNetworkService) ReloadSpaces(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReloadSpaces", arg0, arg1)
+	ret := m.ctrl.Call(m, "ReloadSpaces", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReloadSpaces indicates an expected call of ReloadSpaces.
-func (mr *MockNetworkServiceMockRecorder) ReloadSpaces(arg0, arg1 any) *gomock.Call {
+func (mr *MockNetworkServiceMockRecorder) ReloadSpaces(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockNetworkService)(nil).ReloadSpaces), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockNetworkService)(nil).ReloadSpaces), arg0)
 }
 
 // Space mocks base method.

@@ -332,9 +332,7 @@ func (s *workerSuite) expectStateServingInfo() {
 }
 
 func (s *workerSuite) expectReloadSpaces() {
-	s.state.EXPECT().Model().Return(s.stateModel, nil)
-	s.stateModel.EXPECT().Config().Return(&config.Config{}, nil)
-	s.networkService.EXPECT().ReloadSpaces(gomock.Any(), nil)
+	s.networkService.EXPECT().ReloadSpaces(gomock.Any())
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {

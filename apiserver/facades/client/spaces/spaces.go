@@ -50,7 +50,7 @@ type NetworkService interface {
 	// RemoveSpace deletes a space identified by its uuid.
 	RemoveSpace(ctx context.Context, uuid string) error
 	// ReloadSpaces loads spaces and subnets from the provider into state.
-	ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error
+	ReloadSpaces(ctx context.Context) error
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	// SubnetsByCIDR returns the subnets matching the input CIDRs.
@@ -286,15 +286,7 @@ func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	modelConfig, err := api.backing.ModelConfig(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	fanConfig, err := modelConfig.FanConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(api.networkService.ReloadSpaces(ctx, fanConfig))
+	return errors.Trace(api.networkService.ReloadSpaces(ctx))
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron
