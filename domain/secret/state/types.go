@@ -158,6 +158,18 @@ type secretAccessScope struct {
 	ScopeTypeID domainsecret.GrantScopeType `db:"scope_type_id"`
 }
 
+type ownerKind struct {
+	Model       string `db:"model_owner_kind"`
+	Unit        string `db:"unit_owner_kind"`
+	Application string `db:"application_owner_kind"`
+}
+
+var ownerKindParam = ownerKind{
+	Model:       string(coresecrets.ModelOwner),
+	Unit:        string(coresecrets.UnitOwner),
+	Application: string(coresecrets.ApplicationOwner),
+}
+
 type secrets []secretInfo
 
 func (rows secrets) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets.SecretMetadata, error) {
