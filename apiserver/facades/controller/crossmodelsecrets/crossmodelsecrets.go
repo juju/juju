@@ -265,13 +265,13 @@ func (s *CrossModelSecretsAPI) canRead(ctx stdcontext.Context, secretService Sec
 	}
 
 	appName, _ := names.UnitApplication(unit.Id())
-	k := secretservice.ApplicationAccessor
+	kind := secretservice.ApplicationAccessor
 	// Remote apps need a different accessor kind.
 	if strings.HasPrefix(appName, "remote-") {
-		k = secretservice.RemoteApplicationAccessor
+		kind = secretservice.RemoteApplicationAccessor
 	}
 	hasRole, _ = secretService.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
-		Kind: k,
+		Kind: kind,
 		ID:   appName,
 	})
 	return hasRole.Allowed(coresecrets.RoleView)
@@ -299,13 +299,13 @@ func (s *CrossModelSecretsAPI) accessScope(ctx stdcontext.Context, secretService
 		return tagFromAccessScope(scope), errors.Trace(err)
 	}
 	appName, _ := names.UnitApplication(unit.Id())
-	k := secretservice.ApplicationAccessor
+	kind := secretservice.ApplicationAccessor
 	// Remote apps need a different accessor kind.
 	if strings.HasPrefix(appName, "remote-") {
-		k = secretservice.RemoteApplicationAccessor
+		kind = secretservice.RemoteApplicationAccessor
 	}
 	scope, err = secretService.GetSecretAccessScope(ctx, uri, secretservice.SecretAccessor{
-		Kind: k,
+		Kind: kind,
 		ID:   appName,
 	})
 	return tagFromAccessScope(scope), errors.Trace(err)

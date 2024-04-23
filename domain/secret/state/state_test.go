@@ -2258,6 +2258,168 @@ func (s *stateSuite) TestGetAccessNoGrant(c *gc.C) {
 	c.Assert(role, gc.Equals, "")
 }
 
+func (s *stateSuite) TestGetSecretGrantsNone(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	g, err := st.GetSecretGrants(ctx, uri, coresecrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(g, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetSecretGrantsAppUnit(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/1",
+		RoleID:        domainsecret.RoleManage,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p2 := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	g, err := st.GetSecretGrants(ctx, uri, coresecrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(g, jc.DeepEquals, []domainsecret.GrantParams{{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}})
+}
+
+func (s *stateSuite) TestGetSecretGrantsModel(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/1",
+		RoleID:        domainsecret.RoleManage,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p2 := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeModel,
+		ScopeID:       s.modelUUID,
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	g, err := st.GetSecretGrants(ctx, uri, coresecrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(g, jc.DeepEquals, []domainsecret.GrantParams{{
+		ScopeTypeID:   domainsecret.ScopeModel,
+		ScopeID:       s.modelUUID,
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}})
+}
+
+func (s *stateSuite) TestRevokeAccess(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/1",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p2 := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RevokeAccess(ctx, uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	g, err := st.GetSecretGrants(ctx, uri, coresecrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(g, jc.DeepEquals, []domainsecret.GrantParams{{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}})
+}
+
 func (s *stateSuite) prepareSecretObsoleteRevisions(c *gc.C, st *State) (
 	*coresecrets.URI, *coresecrets.URI, *coresecrets.URI, *coresecrets.URI,
 ) {

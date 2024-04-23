@@ -237,34 +237,56 @@ func (rows secretRevisions) toSecretRevisions(revExpire secretRevisionsExpire) (
 
 type secretValues []secretContent
 
-func (rows secretValues) toSecretData() (coresecrets.SecretData, error) {
+func (rows secretValues) toSecretData() coresecrets.SecretData {
 	result := make(coresecrets.SecretData)
 	for _, row := range rows {
 		result[row.Name] = row.Content
 	}
-	return result, nil
+	return result
 }
 
 type secretRemoteUnitConsumers []secretRemoteUnitConsumer
 
-func (rows secretRemoteUnitConsumers) toSecretConsumers() ([]*coresecrets.SecretConsumerMetadata, error) {
+func (rows secretRemoteUnitConsumers) toSecretConsumers() []*coresecrets.SecretConsumerMetadata {
 	result := make([]*coresecrets.SecretConsumerMetadata, len(rows))
 	for i, row := range rows {
 		result[i] = &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: row.CurrentRevision,
 		}
 	}
-	return result, nil
+	return result
 }
 
 type secretUnitConsumers []secretUnitConsumer
 
-func (rows secretUnitConsumers) toSecretConsumers() ([]*coresecrets.SecretConsumerMetadata, error) {
+func (rows secretUnitConsumers) toSecretConsumers() []*coresecrets.SecretConsumerMetadata {
 	result := make([]*coresecrets.SecretConsumerMetadata, len(rows))
 	for i, row := range rows {
 		result[i] = &coresecrets.SecretConsumerMetadata{
 			Label:           row.Label,
 			CurrentRevision: row.CurrentRevision,
+		}
+	}
+	return result
+}
+
+type secretAccessors []secretAccessor
+
+type secretAccessScopes []secretAccessScope
+
+func (rows secretAccessors) toSecretGrants(scopes secretAccessScopes) ([]domainsecret.GrantParams, error) {
+	if len(rows) != len(scopes) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch composing grant results")
+	}
+	result := make([]domainsecret.GrantParams, len(rows))
+	for i, row := range rows {
+		result[i] = domainsecret.GrantParams{
+			SubjectTypeID: row.SubjectTypeID,
+			SubjectID:     row.SubjectID,
+			RoleID:        row.RoleID,
+			ScopeTypeID:   scopes[i].ScopeTypeID,
+			ScopeID:       scopes[i].ScopeID,
 		}
 	}
 	return result, nil

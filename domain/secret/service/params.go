@@ -82,6 +82,13 @@ type SecretAccessScope struct {
 	ID   string
 }
 
+// SecretAccess is used to define access to a secret.
+type SecretAccess struct {
+	Scope   SecretAccessScope
+	Subject SecretAccessor
+	Role    secrets.SecretRole
+}
+
 // CharmSecretOwnerKind represents the kind of a charm secret owner entity.
 type CharmSecretOwnerKind string
 

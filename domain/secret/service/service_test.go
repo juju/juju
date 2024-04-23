@@ -512,6 +512,67 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestRevokeSecretUnitAccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+	}).Return(nil)
+
+	err := s.service().RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
+		LeaderToken: successfulToken{},
+		Subject: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mysql/0",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}).Return(nil)
+
+	err := s.service().RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
+		LeaderToken: successfulToken{},
+		Subject: SecretAccessor{
+			Kind: ApplicationAccessor,
+			ID:   "mysql",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestRevokeSecretModelAccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectModel,
+	}).Return(nil)
+
+	err := s.service().RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
+		LeaderToken: successfulToken{},
+		Subject: SecretAccessor{
+			Kind: ModelAccessor,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestGetSecretAccess(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -598,6 +659,35 @@ func (s *serviceSuite) TestGetSecretAccessRelationScope(c *gc.C) {
 		Kind: RelationAccessScope,
 		ID:   "mysql:db mediawiki:db",
 	})
+}
+
+func (s *serviceSuite) TestGetSecretGrants(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]domainsecret.GrantParams{{
+		ScopeTypeID:   domainsecret.ScopeModel,
+		ScopeID:       "model-uuid",
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+		RoleID:        domainsecret.RoleView,
+	}}, nil)
+
+	g, err := s.service().GetSecretGrants(context.Background(), uri, coresecrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(g, jc.DeepEquals, []SecretAccess{{
+		Scope: SecretAccessScope{
+			Kind: ModelAccessScope,
+			ID:   "model-uuid",
+		},
+		Subject: SecretAccessor{
+			Kind: ApplicationAccessor,
+			ID:   "mysql",
+		},
+		Role: coresecrets.RoleView,
+	}})
 }
 
 /*

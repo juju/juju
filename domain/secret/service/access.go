@@ -12,9 +12,47 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
-func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error) {
-	//TODO implement me
-	return nil, nil
+// GetSecretGrants returns the subjects which have the specified access to the secret.
+// It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
+func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]SecretAccess, error) {
+	accessors, err := s.st.GetSecretGrants(ctx, uri, role)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]SecretAccess, len(accessors))
+	for i, accessor := range accessors {
+		sa := SecretAccess{Role: role}
+		sa.Subject.ID = accessor.SubjectID
+		switch accessor.SubjectTypeID {
+		case domainsecret.SubjectUnit:
+			sa.Subject.Kind = UnitAccessor
+		case domainsecret.SubjectApplication:
+			sa.Subject.Kind = ApplicationAccessor
+		case domainsecret.SubjectModel:
+			sa.Subject.Kind = ModelAccessor
+		default:
+			// Should never happen.
+			return nil, errors.Errorf("unexpected accessor subject type: %#v", accessor.SubjectTypeID)
+		}
+
+		sa.Scope.ID = accessor.ScopeID
+		switch accessor.ScopeTypeID {
+		case domainsecret.ScopeUnit:
+			sa.Scope.Kind = UnitAccessScope
+		case domainsecret.ScopeApplication:
+			sa.Scope.Kind = ApplicationAccessScope
+		case domainsecret.ScopeModel:
+			sa.Scope.Kind = ModelAccessScope
+		case domainsecret.ScopeRelation:
+			sa.Scope.Kind = RelationAccessScope
+		default:
+			// Should never happen.
+			return nil, errors.Errorf("unexpected accessor scope type: %#v", accessor.ScopeTypeID)
+		}
+
+		result[i] = sa
+	}
+	return result, nil
 }
 
 // GetSecretAccessScope returns the access scope for the specified accessor's permission on the secret.
@@ -121,7 +159,28 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 	return s.st.GrantAccess(ctx, uri, p)
 }
 
+// RevokeSecretAccess revokes access to the secret for the specified subject.
+// It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
-	//TODO implement me
-	return nil
+	if params.LeaderToken != nil {
+		if err := params.LeaderToken.Check(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	p := domainsecret.AccessParams{
+		SubjectID: params.Subject.ID,
+	}
+	switch params.Subject.Kind {
+	case UnitAccessor:
+		p.SubjectTypeID = domainsecret.SubjectUnit
+	case ApplicationAccessor:
+		p.SubjectTypeID = domainsecret.SubjectApplication
+	case RemoteApplicationAccessor:
+		p.SubjectTypeID = domainsecret.SubjectRemoteApplication
+	case ModelAccessor:
+		p.SubjectTypeID = domainsecret.SubjectModel
+	}
+
+	return s.st.RevokeAccess(ctx, uri, p)
 }

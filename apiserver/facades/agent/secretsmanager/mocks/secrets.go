@@ -369,10 +369,10 @@ func (mr *MockSecretServiceMockRecorder) GetSecret(arg0, arg1 any) *gomock.Call 
 }
 
 // GetSecretGrants mocks base method.
-func (m *MockSecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error) {
+func (m *MockSecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]service.SecretAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecretGrants", ctx, uri, role)
-	ret0, _ := ret[0].([]secrets.AccessInfo)
+	ret0, _ := ret[0].([]service.SecretAccess)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
