@@ -611,5 +611,5 @@ func (s *WatchableService) WatchSecretBackendRotationChanges() (watcher.SecretBa
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newSecretBackendRotateWatcher(w, s.logger, s.st.GetSecretBackendRotateChanges), nil
+	return newSecretBackendRotateWatcher(w, s.logger, s.st.GetSecretBackendRotateChanges)
 }

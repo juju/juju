@@ -15,6 +15,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -25,6 +26,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -976,6 +978,8 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	)
 	ch := make(chan []string)
 	s.mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	s.mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	s.mockStringWatcher.EXPECT().Kill().AnyTimes()
 
 	s.mockState.EXPECT().InitialWatchStatement().Return("table", "SELECT * FROM table")
 	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.All, "SELECT * FROM table").Return(s.mockStringWatcher, nil)
@@ -995,29 +999,27 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	w, err := svc.WatchSecretBackendRotationChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+
+	wC := watchertest.NewSecretBackendRotateWatcherC(c, w)
+
 	select {
-	case <-w.Changes():
-		// consume the initial empty change then send the backend IDs
-		ch <- []string{backendID1, backendID2}
+	case ch <- []string{backendID1, backendID2}:
 	case <-time.After(jujutesting.ShortWait):
 		c.Fatalf("timed out waiting for the initial changes")
 	}
 
-	select {
-	case changes, ok := <-w.Changes():
-		c.Assert(ok, gc.Equals, true)
-		c.Assert(changes, gc.HasLen, 2)
-		sort.Slice(changes, func(i, j int) bool {
-			return changes[i].Name < changes[j].Name
-		})
-
-		c.Assert(changes[0].ID, gc.Equals, backendID1)
-		c.Assert(changes[0].Name, gc.Equals, "my-backend1")
-		c.Assert(changes[0].NextTriggerTime.Equal(nextRotateTime1), jc.IsTrue)
-		c.Assert(changes[1].ID, gc.Equals, backendID2)
-		c.Assert(changes[1].Name, gc.Equals, "my-backend2")
-		c.Assert(changes[1].NextTriggerTime.Equal(nextRotateTime2), jc.IsTrue)
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("timed out waiting for backend rotation changes")
-	}
+	wC.AssertChanges(
+		watcher.SecretBackendRotateChange{
+			ID:              backendID1,
+			Name:            "my-backend1",
+			NextTriggerTime: nextRotateTime1,
+		},
+		watcher.SecretBackendRotateChange{
+			ID:              backendID2,
+			Name:            "my-backend2",
+			NextTriggerTime: nextRotateTime2,
+		},
+	)
+	wC.AssertNoChange()
 }

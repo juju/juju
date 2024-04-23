@@ -137,7 +137,7 @@ func (s *TestingServiceFactory) Storage(storage.ProviderRegistry) *storageservic
 }
 
 // Secret returns the secret service.
-func (s *TestingServiceFactory) Secret(secretservice.BackendAdminConfigGetter) *secretservice.SecretService {
+func (s *TestingServiceFactory) Secret(secretservice.BackendAdminConfigGetter) *secretservice.WatchableService {
 	return nil
 }
 

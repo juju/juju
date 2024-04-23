@@ -23,16 +23,25 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// Logger is the interface used by the state to log messages.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
 // State represents database interactions dealing with storage pools.
 type State struct {
 	*domain.StateBase
+	logger Logger
 }
 
 // NewState returns a new secretMetadata state
 // based on the input database factory method.
-func NewState(factory coredatabase.TxnRunnerFactory) *State {
+func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
+		logger:    logger,
 	}
 }
 
@@ -606,6 +615,41 @@ WHERE sm.secret_id = $secretID.id
 	return nil
 }
 
+// markObsoleteRevisions obsoletes the revisions and sets the pending_delete to true in the secret_revision table
+// for the specified secret if the revision is not the latest revision and there are no consumers for the revision.
+func (st State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
+	stmt, err := st.Prepare(`
+WITH in_use AS (
+    -- revisions that have local consumers.
+    SELECT DISTINCT current_revision FROM secret_unit_consumer suc
+    WHERE  suc.secret_id = $secretRef.secret_id
+UNION
+    -- revisions that have remote consumers.
+    SELECT DISTINCT current_revision FROM secret_remote_unit_consumer suc
+    WHERE  suc.secret_id = $secretRef.secret_id
+UNION
+    -- the latest revision.
+    SELECT MAX(revision) FROM secret_revision rev
+    WHERE  rev.secret_id = $secretRef.secret_id
+)
+UPDATE secret_revision
+SET    obsolete = true,
+       pending_delete = true,
+       update_time = DATETIME('now')
+WHERE  secret_id = $secretRef.secret_id
+AND    obsolete = false
+AND    revision NOT IN (SELECT * FROM in_use)`, secretRef{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = tx.Query(ctx, stmt, secretRef{ID: uri.ID}).Run()
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// No obsolete revisions to mark.
+		return nil
+	}
+	return errors.Trace(err)
+}
+
 func (st State) upsertSecretLabel(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, label string, owner coresecrets.Owner) error {
 	switch owner.Kind {
 	case coresecrets.ModelOwner:
@@ -636,40 +680,6 @@ func (st State) upsertSecretLabel(ctx context.Context, tx *sqlair.TX, uri *cores
 		if err := st.upsertSecretUnitOwner(ctx, tx, dbSecretOwner); err != nil {
 			return errors.Annotatef(err, "updating unit secret record for secret %q", uri)
 		}
-	}
-	return nil
-}
-
-func (st State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
-	query := `
-WITH inuse AS
-       (SELECT current_revision AS revision FROM secret_unit_consumer suc
-        WHERE  suc.secret_id = $secretRef.secret_id
-        UNION
-        SELECT current_revision AS revision FROM secret_remote_unit_consumer suc
-        WHERE  suc.secret_id = $secretRef.secret_id
-        UNION
-        -- always keep the last revision for a secret
-        SELECT MAX(revision) AS revision FROM secret_revision rev
-        WHERE  rev.secret_id = $secretRef.secret_id)
-UPDATE secret_revision
-SET    obsolete = True,
-       pending_delete = True,
-       update_time = DATETIME('now')
-WHERE  secret_id = $secretRef.secret_id
-AND    revision NOT IN (
-           SELECT revision FROM inuse
-       )
-`
-	markObsoleteStmt, err := st.Prepare(query, secretRef{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = tx.Query(ctx, markObsoleteStmt, secretRef{
-		ID: uri.ID,
-	}).Run()
-	if err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }
@@ -844,7 +854,6 @@ func (st State) upsertSecretRevision(ctx context.Context, tx *sqlair.TX, dbRevis
 INSERT INTO secret_revision (*)
 VALUES ($secretRevision.*)
 ON CONFLICT(uuid) DO UPDATE SET
-    obsolete=excluded.obsolete,
     pending_delete=excluded.pending_delete,
     update_time=excluded.update_time
 `
@@ -1153,16 +1162,14 @@ exp AS
 app_owners AS
     (SELECT $ownerKind.application_owner_kind AS owner_kind, application.name AS owner_id, label, secret_id
      FROM   secret_application_owner so
-     JOIN   application
-     WHERE  application.uuid = so.application_uuid
+     JOIN   application ON application.uuid = so.application_uuid
      AND application.name IN ($ApplicationOwners[:]))`[1:]
 
 	unitOwnerSelect := `
 unit_owners AS
     (SELECT $ownerKind.unit_owner_kind AS owner_kind, unit.unit_id AS owner_id, label, secret_id
      FROM   secret_unit_owner so
-     JOIN   unit
-     WHERE  unit.uuid = so.unit_uuid
+     JOIN   unit ON unit.uuid = so.unit_uuid
      AND unit.unit_id IN ($UnitOwners[:]))`[1:]
 
 	if len(appOwners) > 0 {
@@ -1341,8 +1348,7 @@ WHERE  mso.label = $M.label
 
 	var dbSecrets secrets
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		err = tx.Query(ctx, queryStmt, sqlair.M{"label": label}).GetAll(&dbSecrets)
+		err := tx.Query(ctx, queryStmt, sqlair.M{"label": label}).GetAll(&dbSecrets)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "querying secret URI for label %q", label)
 		}
@@ -1401,8 +1407,7 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 		}
 
 		suc := secretUnitConsumer{UnitUUID: result.UUID, Label: label}
-		var err error
-		err = tx.Query(ctx, queryStmt, suc).GetAll(&dbConsumers)
+		err := tx.Query(ctx, queryStmt, suc).GetAll(&dbConsumers)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "querying secret URI for label %q", label)
 		}
@@ -1578,7 +1583,7 @@ FROM (SELECT * FROM local UNION SELECT * FROM remote)
 	result := sqlair.M{}
 	err = tx.Query(ctx, queryStmt, secretRef{ID: uri.ID, SourceUUID: uri.SourceUUID}).Get(&result)
 	if err == nil {
-		isLocal, _ := result["is_local"]
+		isLocal := result["is_local"]
 		return isLocal == "local", nil
 	}
 	if errors.Is(err, sqlair.ErrNoRows) {
@@ -1953,6 +1958,9 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		if err := tx.Query(ctx, insertLatestStmt, secret).Run(); err != nil {
 			return errors.Annotatef(err, "updating latest revision %d for cross model secret %q", latestRevision, uri)
 		}
+		if err := st.markObsoleteRevisions(ctx, tx, uri); err != nil {
+			return errors.Annotatef(err, "marking obsolete revisions for secret %q", uri)
+		}
 		return nil
 	})
 	return errors.Trace(domain.CoerceError(err))
@@ -2234,4 +2242,145 @@ AND    subject_id = $secretAccessor.subject_id
 		ScopeTypeID: result.ScopeTypeID,
 		ScopeID:     result.ScopeID,
 	}, nil
+
+}
+
+// InitialWatchStatementForObsolete returns the initial watch statement and the table name for watching obsolete revisions.
+func (st State) InitialWatchStatementForObsoleteRevision(
+	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (string, string) {
+	tableName := "secret_revision"
+
+	// The condition is empty because we want to watch all obsolete revisions.
+	if len(appOwners) == 0 && len(unitOwners) == 0 {
+		return tableName, `
+SELECT uuid
+FROM secret_revision
+WHERE obsolete = true`[1:]
+	}
+
+	if len(unitOwners) > 0 && len(appOwners) > 0 {
+		return tableName, fmt.Sprintf(`
+SELECT sr.uuid
+FROM secret_revision sr
+LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid
+LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid
+WHERE sr.obsolete = true
+AND (
+    sao.application_uuid IS NOT NULL AND application.name IN ('%s')
+    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('%s')
+)`[1:],
+			strings.Join(appOwners, "','"), strings.Join(unitOwners, "','"))
+	}
+
+	if len(appOwners) > 0 {
+		return tableName, fmt.Sprintf(`
+SELECT sr.uuid
+FROM secret_revision sr
+LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid
+WHERE sr.obsolete = true
+AND (sao.application_uuid IS NOT NULL AND application.name IN ('%s'))`[1:],
+			strings.Join(appOwners, "','"))
+	}
+
+	return tableName, fmt.Sprintf(`
+SELECT sr.uuid
+FROM secret_revision sr
+LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid
+WHERE sr.obsolete = true
+AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('%s')`[1:],
+		strings.Join(unitOwners, "','"))
+}
+
+type obsoleteRevisionUUIDs []string
+
+// GetRevisionIDsForObsolete filters the revision IDs that are obsolete and owned by the specified owners.
+// Either revisionUUIDs, appOwners, or unitOwners must be specified.
+func (st State) GetRevisionIDsForObsolete(
+	ctx context.Context,
+	appOwners domainsecret.ApplicationOwners,
+	unitOwners domainsecret.UnitOwners,
+	revisionUUIDs ...string,
+) ([]string, error) {
+	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	q := `
+SELECT 
+    (sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)
+FROM secret_revision sr`
+
+	var queryParams []any
+	var joins []string
+	conditions := []string{
+		"sr.obsolete = true",
+	}
+	if len(revisionUUIDs) > 0 {
+		queryParams = append(queryParams, obsoleteRevisionUUIDs(revisionUUIDs))
+		conditions = append(conditions, "AND sr.uuid IN ($obsoleteRevisionUUIDs[:])")
+	}
+	if len(appOwners) > 0 && len(unitOwners) > 0 {
+		queryParams = append(queryParams, appOwners, unitOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
+			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
+			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		)
+		conditions = append(conditions, `AND (
+    sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
+    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
+)`)
+	} else if len(appOwners) > 0 {
+		queryParams = append(queryParams, appOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
+			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+		)
+		conditions = append(conditions, "AND sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
+	} else if len(unitOwners) > 0 {
+		queryParams = append(queryParams, unitOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
+			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		)
+		conditions = append(conditions, "AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
+	}
+	if len(joins) > 0 {
+		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
+	}
+	if len(conditions) > 0 {
+		q += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, "\n"))
+	}
+	st.logger.Tracef(
+		"revisionUUIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
+		revisionUUIDs, appOwners, unitOwners, q,
+	)
+	stmt, err := st.Prepare(q, append([]any{obsoleteRevisionRow{}}, queryParams...)...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var rows obsoleteRevisionRows
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryParams...).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// It's ok, the revisions probably have already been pruned.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rows.toRevIDs(), nil
 }

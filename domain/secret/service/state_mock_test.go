@@ -98,6 +98,26 @@ func (mr *MockStateMockRecorder) GetModelUUID(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelUUID", reflect.TypeOf((*MockState)(nil).GetModelUUID), arg0)
 }
 
+// GetRevisionIDsForObsolete mocks base method.
+func (m *MockState) GetRevisionIDsForObsolete(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners, arg3 ...string) ([]string, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetRevisionIDsForObsolete", varargs...)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRevisionIDsForObsolete indicates an expected call of GetRevisionIDsForObsolete.
+func (mr *MockStateMockRecorder) GetRevisionIDsForObsolete(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRevisionIDsForObsolete", reflect.TypeOf((*MockState)(nil).GetRevisionIDsForObsolete), varargs...)
+}
+
 // GetSecret mocks base method.
 func (m *MockState) GetSecret(arg0 context.Context, arg1 *secrets.URI) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
@@ -248,6 +268,21 @@ func (m *MockState) GrantAccess(arg0 context.Context, arg1 *secrets.URI, arg2 se
 func (mr *MockStateMockRecorder) GrantAccess(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantAccess", reflect.TypeOf((*MockState)(nil).GrantAccess), arg0, arg1, arg2)
+}
+
+// InitialWatchStatementForObsoleteRevision mocks base method.
+func (m *MockState) InitialWatchStatementForObsoleteRevision(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners) (string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForObsoleteRevision", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
+}
+
+// InitialWatchStatementForObsoleteRevision indicates an expected call of InitialWatchStatementForObsoleteRevision.
+func (mr *MockStateMockRecorder) InitialWatchStatementForObsoleteRevision(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForObsoleteRevision", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForObsoleteRevision), arg0, arg1, arg2)
 }
 
 // ListCharmSecrets mocks base method.

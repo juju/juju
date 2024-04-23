@@ -10,10 +10,13 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/changestream"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher/watchertest"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	coretesting "github.com/juju/juju/testing"
@@ -681,6 +684,7 @@ func (s *serviceSuite) TestGetSecretContentConsumerFirstTimeUsingLabelFailed(c *
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `consumer label "label-1" not found`)
 }
+
 func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretSameLabel(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -760,6 +764,7 @@ func (s *SecretsManagerSuite) TestUpdateSecretDuplicateLabel(c *gc.C) {
 		}},
 	})
 }
+
 func (s *SecretsManagerSuite) TestSecretsRotatedThenNever(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -832,3 +837,63 @@ func (s *SecretsManagerSuite) TestGetSecretContentForUnitOwnedSecretUpdateLabel(
 	})
 }
 */
+
+func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.state = NewMockState(ctrl)
+	mockWatcherFactory := NewMockWatcherFactory(ctrl)
+
+	ch := make(chan []string)
+	mockStringWatcher := NewMockStringsWatcher(ctrl)
+	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockStringWatcher.EXPECT().Kill().AnyTimes()
+
+	s.state.EXPECT().InitialWatchStatementForObsoleteRevision(gomock.Any(),
+		domainsecret.ApplicationOwners([]string{"mysql"}),
+		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+	).Return("table", "stmt")
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Update, "stmt").Return(mockStringWatcher, nil)
+
+	gomock.InOrder(
+		s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(),
+			domainsecret.ApplicationOwners([]string{"mysql"}),
+			domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+			"revision-uuid-1", "revision-uuid-2",
+		).Return([]string{"yyy/1", "yyy/2"}, nil),
+	)
+
+	svc := NewWatchableService(s.state, coretesting.NewCheckLogger(c), mockWatcherFactory, nil)
+	w, err := svc.WatchObsolete(context.Background(),
+		CharmSecretOwner{
+			Kind: ApplicationOwner,
+			ID:   "mysql",
+		},
+		CharmSecretOwner{
+			Kind: UnitOwner,
+			ID:   "mysql/0",
+		},
+		CharmSecretOwner{
+			Kind: UnitOwner,
+			ID:   "mysql/1",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+	wC := watchertest.NewStringsWatcherC(c, w)
+
+	select {
+	case ch <- []string{"revision-uuid-1", "revision-uuid-2"}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+
+	wC.AssertChange(
+		"yyy/1",
+		"yyy/2",
+	)
+	wC.AssertNoChange()
+}

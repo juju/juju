@@ -366,10 +366,10 @@ func (mr *MockServiceFactoryMockRecorder) ObjectStore() *gomock.Call {
 }
 
 // Secret mocks base method.
-func (m *MockServiceFactory) Secret(arg0 service16.BackendAdminConfigGetter) *service16.SecretService {
+func (m *MockServiceFactory) Secret(arg0 service16.BackendAdminConfigGetter) *service16.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Secret", arg0)
-	ret0, _ := ret[0].(*service16.SecretService)
+	ret0, _ := ret[0].(*service16.WatchableService)
 	return ret0
 }
 

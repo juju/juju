@@ -60,7 +60,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
-		changeLogTriggersForTableOnColumn("secret_backend_rotation", "backend_uuid", "next_rotation_time", tableSecretBackendRotation),
+		changeLogTriggersForTable("secret_backend_rotation", "backend_uuid", tableSecretBackendRotation),
 		changeLogTriggersForTable("model", "uuid", tableModelMetadata),
 
 		// We need to ensure that the internal and kubernetes backends are immutable after

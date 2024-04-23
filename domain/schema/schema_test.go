@@ -368,9 +368,9 @@ func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_log_upgrade_info_update",
 		"trg_log_upgrade_info_delete",
 
-		"trg_log_secret_backend_rotation_next_rotation_time_insert",
-		"trg_log_secret_backend_rotation_next_rotation_time_update",
-		"trg_log_secret_backend_rotation_next_rotation_time_delete",
+		"trg_log_secret_backend_rotation_insert",
+		"trg_log_secret_backend_rotation_update",
+		"trg_log_secret_backend_rotation_delete",
 
 		"trg_log_model_insert",
 		"trg_log_model_update",
@@ -403,17 +403,17 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_metadata_auto_prune_update",
 		"trg_log_secret_metadata_auto_prune_delete",
 
-		"trg_log_secret_revision_expire_expire_time_insert",
-		"trg_log_secret_revision_expire_expire_time_update",
-		"trg_log_secret_revision_expire_expire_time_delete",
+		"trg_log_secret_revision_expire_insert",
+		"trg_log_secret_revision_expire_update",
+		"trg_log_secret_revision_expire_delete",
 
-		"trg_log_secret_revision_obsolete_insert",
-		"trg_log_secret_revision_obsolete_update",
-		"trg_log_secret_revision_obsolete_delete",
+		"trg_log_secret_revision_insert",
+		"trg_log_secret_revision_update",
+		"trg_log_secret_revision_delete",
 
-		"trg_log_secret_rotation_next_rotation_time_insert",
-		"trg_log_secret_rotation_next_rotation_time_update",
-		"trg_log_secret_rotation_next_rotation_time_delete",
+		"trg_log_secret_rotation_insert",
+		"trg_log_secret_rotation_update",
+		"trg_log_secret_rotation_delete",
 
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",
