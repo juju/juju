@@ -18,6 +18,8 @@ const (
 	ErrInvalidNote errors.ConstError = "invalid version note"
 )
 
+// ELFExtractVersion reads an ELF file, extracting the ".note.juju.version" section
+// and decoding the note which has the juju version in the description.
 func ELFExtractVersion(path string) (version.Binary, error) {
 	bin, err := elf.Open(path)
 	if err != nil {

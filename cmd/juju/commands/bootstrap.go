@@ -347,7 +347,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
 		"The Charmhub channel to download the controller charm from (if not using a local charm)")
-	if jujuversion.Current.Build > 0 {
+	if jujuversion.IsDev() {
 		f.BoolVar(&c.Dev, "dev", false, "Use local build for development")
 	}
 }
@@ -383,7 +383,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.Dev {
 		devSrcDir, err := devtools.SourceDir()
 		if err != nil {
-			return fmt.Errorf("--dev %w", err)
+			return fmt.Errorf("local dev mode %w", err)
 		}
 		c.devSrcDir = devSrcDir
 	}

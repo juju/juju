@@ -11,6 +11,10 @@ import (
 	"runtime"
 )
 
+// SourceDir finds the source directory based on debug information
+// present in the current executing binary. It requires `go` exist
+// in the PATH and this binary was built on the same machine with
+// the juju source checked out.
 var SourceDir = sourceDir
 
 func sourceDir() (string, error) {

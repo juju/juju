@@ -17,7 +17,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -220,26 +219,6 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 	return u.UploadTools(toolsDir, stream, tools, buf.Bytes())
 }
 
-// generateAgentMetadata copies the built tools tarball into a tarball for the specified
-// stream and series and generates corresponding metadata.
-func generateAgentMetadata(ss envtools.SimplestreamsFetcher, toolsInfo *BuiltAgent, stream string) error {
-	// Copy the tools to the target storage, recording a Tools struct for each one.
-	var targetTools coretools.List
-	targetTools = append(targetTools, &coretools.Tools{
-		Version: toolsInfo.Version,
-		Size:    toolsInfo.Size,
-		SHA256:  toolsInfo.Sha256Hash,
-	})
-	// The tools have been copied to a temp location from which they will be uploaded,
-	// now write out the matching simplestreams metadata so that SyncTools can find them.
-	metadataStore, err := filestorage.NewFileStorageWriter(toolsInfo.Dir)
-	if err != nil {
-		return err
-	}
-	logger.Debugf("generating agent metadata")
-	return envtools.MergeAndWriteMetadata(ss, metadataStore, stream, stream, targetTools, false)
-}
-
 // BuiltAgent contains metadata for a tools tarball resulting from
 // a call to BundleTools.
 type BuiltAgent struct {
@@ -324,41 +303,6 @@ func buildAgentTarball(devSrcDir string, stream string, arch arch.Arch) (_ *Buil
 	}, nil
 }
 
-// syncBuiltTools copies to storage a tools tarball and cloned copies for each series.
-func syncBuiltTools(ss envtools.SimplestreamsFetcher, store storage.Storage, stream string, builtTools *BuiltAgent) (*coretools.Tools, error) {
-	if err := generateAgentMetadata(ss, builtTools, stream); err != nil {
-		return nil, err
-	}
-	syncContext := &SyncContext{
-		Source:            builtTools.Dir,
-		TargetToolsFinder: StorageToolsFinder{store},
-		TargetToolsUploader: StorageToolsUploader{
-			Fetcher:       ss,
-			Storage:       store,
-			WriteMetadata: false,
-			WriteMirrors:  false,
-		},
-		AllVersions:   true,
-		Stream:        stream,
-		ChosenVersion: builtTools.Version.Number,
-	}
-	logger.Debugf("uploading agent binaries to cloud storage")
-	err := SyncTools(syncContext)
-	if err != nil {
-		return nil, err
-	}
-	url, err := store.URL(builtTools.StorageName)
-	if err != nil {
-		return nil, err
-	}
-	return &coretools.Tools{
-		Version: builtTools.Version,
-		URL:     url,
-		Size:    builtTools.Size,
-		SHA256:  builtTools.Sha256Hash,
-	}, nil
-}
-
 // StorageToolsFinder is an implementation of ToolsFinder
 // that searches for tools in the specified storage.
 type StorageToolsFinder struct {
@@ -393,110 +337,4 @@ func (u StorageToolsUploader) UploadTools(toolsDir, stream string, tools *coreto
 		return err
 	}
 	return nil
-}
-
-func UploadTestTools(
-	ss envtools.SimplestreamsFetcher, store storage.Storage, stream string,
-	toolsVersion version.Binary,
-) (t *coretools.Tools, err error) {
-	baseToolsDir, err := os.MkdirTemp("", "juju-tools")
-	if err != nil {
-		return nil, err
-	}
-
-	// If we exit with an error, clean up the built tools directory.
-	defer func() {
-		if err != nil {
-			os.RemoveAll(baseToolsDir)
-		}
-	}()
-
-	err = os.MkdirAll(filepath.Join(baseToolsDir, storage.BaseToolsPath, stream), 0755)
-	if err != nil {
-		return nil, err
-	}
-
-	storageName := envtools.StorageName(toolsVersion, stream)
-	f, err := os.Create(filepath.Join(baseToolsDir, storageName))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	sum, err := envtools.BundleTestTools(f)
-	if err != nil {
-		return nil, err
-	}
-
-	finfo, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	builtTools := &BuiltAgent{
-		Version:     toolsVersion,
-		Dir:         baseToolsDir,
-		StorageName: storageName,
-		Size:        finfo.Size(),
-		Sha256Hash:  sum,
-	}
-	defer os.RemoveAll(baseToolsDir)
-	return syncBuiltTools(ss, store, stream, builtTools)
-}
-
-func BuildTestTools(stream string, ver version.Binary) (_ *BuiltAgent, err error) {
-	logger.Debugf("Making agent binary tarball")
-	// We create the entire archive before asking the environment to
-	// start uploading so that we can be sure we have archived
-	// correctly.
-	f, err := os.CreateTemp("", "juju-tgz")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = f.Close()
-		_ = os.Remove(f.Name())
-	}()
-
-	sha256Hash, err := envtools.BundleTestTools(f)
-	if err != nil {
-		return nil, err
-	}
-
-	fileInfo, err := f.Stat()
-	if err != nil {
-		return nil, errors.Errorf("cannot stat newly made agent binary archive: %v", err)
-	}
-	size := fileInfo.Size()
-	agentBinary := "agent binary"
-	logger.Infof("using %s %v (%dkB)", agentBinary, ver, (size+512)/1024)
-
-	baseToolsDir, err := os.MkdirTemp("", "juju-tools")
-	if err != nil {
-		return nil, err
-	}
-
-	// If we exit with an error, clean up the built tools directory.
-	defer func() {
-		if err != nil {
-			os.RemoveAll(baseToolsDir)
-		}
-	}()
-
-	err = os.MkdirAll(filepath.Join(baseToolsDir, storage.BaseToolsPath, stream), 0755)
-	if err != nil {
-		return nil, err
-	}
-	storageName := envtools.StorageName(ver, stream)
-	err = utils.CopyFile(filepath.Join(baseToolsDir, storageName), f.Name())
-	if err != nil {
-		return nil, err
-	}
-	return &BuiltAgent{
-		Version:     ver,
-		Dir:         baseToolsDir,
-		StorageName: storageName,
-		Size:        size,
-		Sha256Hash:  sha256Hash,
-	}, nil
 }

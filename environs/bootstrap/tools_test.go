@@ -27,52 +27,6 @@ type toolsSuite struct {
 
 var _ = gc.Suite(&toolsSuite{})
 
-// func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
-// 	// Host runs amd64, want ppc64 tools.
-// 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-// 	// Force a dev version by having a non zero build number.
-// 	// This is because we have not uploaded any tools and auto
-// 	// upload is only enabled for dev versions.
-// 	devVersion := jujuversion.Current
-// 	devVersion.Build = 1234
-// 	s.PatchValue(&jujuversion.Current, devVersion)
-// 	env := newEnviron("foo", useDefaultKeys, nil)
-// 	arch := arch.PPC64EL
-// 	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	err = bootstrap.ValidateUploadAllowed(env, &arch, nil, validator)
-// 	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "ppc64el" using a machine running on "amd64"`)
-// }
-
-// func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
-// 	// Host runs ppc64el, environment only supports amd64, arm64.
-// 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
-// 	// Force a dev version by having a non zero build number.
-// 	// This is because we have not uploaded any tools and auto
-// 	// upload is only enabled for dev versions.
-// 	devVersion := jujuversion.Current
-// 	devVersion.Build = 1234
-// 	s.PatchValue(&jujuversion.Current, devVersion)
-// 	env := newEnviron("foo", useDefaultKeys, nil)
-// 	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	err = bootstrap.ValidateUploadAllowed(env, nil, nil, validator)
-// 	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
-// }
-
-// func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
-// 	env := newEnviron("foo", useDefaultKeys, nil)
-// 	// Host runs arm64, environment supports arm64.
-// 	arm64 := "arm64"
-// 	ubuntuFocal := corebase.MustParseBaseFromString("ubuntu@20.04")
-// 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
-// 	s.PatchValue(&os.HostOS, func() ostype.OSType { return ostype.Ubuntu })
-// 	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	err = bootstrap.ValidateUploadAllowed(env, &arm64, &ubuntuFocal, validator)
-// 	c.Assert(err, jc.ErrorIsNil)
-// }
-
 func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	var called int
 	var filter tools.Filter
@@ -148,7 +102,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		if test.streams != nil {
 			c.Check(findStreams, gc.DeepEquals, test.streams)
 		} else {
-			if test.dev || jujuversion.IsDev(*test.version) {
+			if test.dev || jujuversion.IsPreRelease(*test.version) {
 				c.Check(findStreams, gc.DeepEquals, []string{"devel", "proposed", "released"})
 			} else {
 				c.Check(findStreams, gc.DeepEquals, []string{"released"})

@@ -131,7 +131,7 @@ func (c *upgradeControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
 		"Don't check if all agents have already reached the current version")
 	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Timeout before upgrade is aborted")
-	if jujuversion.Current.Build > 0 {
+	if jujuversion.IsDev() {
 		f.BoolVar(&c.Dev, "dev", false, "Use local build for development")
 	}
 }
@@ -148,7 +148,7 @@ func (c *upgradeControllerCommand) Init(args []string) error {
 	if c.Dev {
 		devSrcDir, err := devtools.SourceDir()
 		if err != nil {
-			return fmt.Errorf("--dev %w", err)
+			return fmt.Errorf("local dev mode %w", err)
 		}
 		c.devSrcDir = devSrcDir
 	}

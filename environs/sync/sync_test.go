@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
+	synctesting "github.com/juju/juju/environs/sync/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
@@ -250,7 +251,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	ss := NewMockSimplestreamsFetcher(ctrl)
 	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
 
-	t, err := sync.UploadTestTools(ss, s.targetStorage, "released", coretesting.CurrentVersion())
+	t, err := synctesting.UploadTestTools(ss, s.targetStorage, "released", coretesting.CurrentVersion())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -265,9 +266,9 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	ss := NewMockSimplestreamsFetcher(ctrl)
 	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
 
-	builtTools, err := sync.BuildTestTools("released", coretesting.CurrentVersion())
+	builtTools, err := synctesting.BuildTestTools("released", coretesting.CurrentVersion())
 	c.Assert(err, jc.ErrorIsNil)
-	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
+	t, err := synctesting.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")

@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/sync"
+	synctesting "github.com/juju/juju/environs/sync/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
@@ -239,7 +239,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
 		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-		_, err := sync.UploadTestTools(ss, t.toolsStorage, "released", coretesting.CurrentVersion())
+		_, err := synctesting.UploadTestTools(ss, t.toolsStorage, "released", coretesting.CurrentVersion())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	args := t.bootstrapParams()
@@ -959,7 +959,7 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	upgradeTools, err := sync.UploadTestTools(
+	upgradeTools, err := synctesting.UploadTestTools(
 		ss, t.toolsStorage, "released",
 		version.Binary{Number: newVersion.Number, Arch: arch.HostArch()},
 	)

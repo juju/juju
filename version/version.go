@@ -64,15 +64,22 @@ func isOdd(x int) bool {
 	return x%2 != 0
 }
 
-// IsDev returns whether the version represents a development version. A
+// IsPreRelease returns whether the version represents a pre-release version. A
 // version with a tag or a nonzero build component is considered to be a
-// development version.  Versions older than or equal to 1.19.3 (the switch
+// pre-release version.  Versions older than or equal to 1.19.3 (the switch
 // over time) check for odd minor versions.
-func IsDev(v semversion.Number) bool {
+func IsPreRelease(v semversion.Number) bool {
 	if v.Compare(switchOverVersion) <= 0 {
 		return isOdd(v.Minor) || v.Build > 0
 	}
 	return v.Tag != "" || v.Build > 0
+}
+
+// IsDev returns true if the current build is a dev build. A dev build is any
+// build with a build number present. Version 3.6-beta1 is not a dev build,
+// but version 3.6-beta1.1 is a dev build.
+func IsDev() bool {
+	return Current.Build > 0
 }
 
 func mustParseBuildInt(buildInt string) int {
