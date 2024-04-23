@@ -561,7 +561,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantLessAccess(c *gc.C) {
 		Subject: "bob",
 	}
 	err := st.UpsertPermission(context.Background(), arg)
-	c.Assert(err, gc.ErrorMatches, `user "bob" already has "read" access or greater`)
+	c.Assert(err, jc.ErrorIs, accesserrors.PermissionAccessGreater)
 }
 
 func (s *permissionStateSuite) TestUpsertPermissionNotAuthorized(c *gc.C) {

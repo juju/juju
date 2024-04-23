@@ -736,7 +736,7 @@ func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, s
 	}
 
 	if aSpec.EqualOrGreaterThan(grantAccess) {
-		return errors.Errorf("user %q already has %q access or greater", args.Subject, grantAccess)
+		return fmt.Errorf("user %q already has %q %w", args.Subject, grantAccess, accesserrors.PermissionAccessGreater)
 	}
 	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, grantAccess.String()); err != nil {
 		return errors.Annotatef(err, "updating current access during grant")
