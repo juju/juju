@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/permission"
 )
 
 // DestroyControllerArgs holds the arguments for destroying a controller.
@@ -125,6 +126,10 @@ const (
 	GrantControllerAccess  ControllerAction = "grant"
 	RevokeControllerAccess ControllerAction = "revoke"
 )
+
+func (c ControllerAction) AccessChange() permission.AccessChange {
+	return permission.AccessChange(c)
+}
 
 // ControllerVersionResults holds the results from an api call
 // to get the controller's version information.
