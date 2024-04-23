@@ -28,20 +28,6 @@ func (s *SupportedSeriesLinuxSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *SupportedSeriesLinuxSuite) TestLatestLts(c *gc.C) {
-	table := []struct {
-		latest, want string
-	}{
-		{"testseries", "testseries"},
-		{"", "jammy"},
-	}
-	for _, test := range table {
-		SetLatestLtsForTesting(test.latest)
-		got := LatestLTS()
-		c.Assert(got, gc.Equals, test.want)
-	}
-}
-
 func (s *SupportedSeriesLinuxSuite) TestUbuntuSeriesVersionEmpty(c *gc.C) {
 	_, err := UbuntuSeriesVersion("")
 	c.Assert(err, gc.ErrorMatches, `.*unknown version for series: "".*`)

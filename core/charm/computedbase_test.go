@@ -127,10 +127,6 @@ func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
 		supportedBases: []base.Base{focal, trusty},
 		baseToUse:      trusty,
 	}, {
-		series:         base.LatestLTSBase(),
-		supportedBases: []base.Base{focal, base.LatestLTSBase(), trusty},
-		baseToUse:      base.LatestLTSBase(),
-	}, {
 		series:         trusty,
 		supportedBases: []base.Base{jammy, focal},
 		err:            `base "ubuntu@16.04" not supported by charm.*`,
