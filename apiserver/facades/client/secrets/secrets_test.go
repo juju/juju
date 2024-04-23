@@ -179,11 +179,17 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	s.secretService.EXPECT().ListSecrets(gomock.Any(), nil, secret.NilRevision, secret.NilLabels).Return(
 		metadata, revisions, nil,
 	)
-	s.secretService.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{
+	s.secretService.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]secretservice.SecretAccess{
 		{
-			Target: "application-gitlab",
-			Scope:  "relation-key",
-			Role:   coresecrets.RoleView,
+			Scope: secretservice.SecretAccessScope{
+				Kind: secretservice.RelationAccessScope,
+				ID:   "gitlab:server mysql:db",
+			},
+			Subject: secretservice.SecretAccessor{
+				Kind: secretservice.ApplicationAccessor,
+				ID:   "gitlab",
+			},
+			Role: coresecrets.RoleView,
 		},
 	}, nil)
 
@@ -239,7 +245,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 				ExpireTime:  ptr(now.Add(2 * time.Hour)),
 			}},
 			Access: []params.AccessInfo{
-				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
+				{TargetTag: "application-gitlab", ScopeTag: "relation-gitlab.server#mysql.db", Role: "view"},
 			},
 		}},
 	})

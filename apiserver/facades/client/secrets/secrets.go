@@ -156,8 +156,16 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			return result, errors.Trace(err)
 		}
 		for _, g := range grants {
+			accessorTag, err := tagFromSubject(g.Subject)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			scopeTag, err := tagFromAccessScope(g.Scope)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
 			secretResult.Access = append(secretResult.Access, params.AccessInfo{
-				TargetTag: g.Target, ScopeTag: g.Scope, Role: g.Role,
+				TargetTag: accessorTag.String(), ScopeTag: scopeTag.String(), Role: g.Role,
 			})
 		}
 		for _, r := range revisionMetadata[i] {
@@ -198,6 +206,34 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 		result.Results[i] = secretResult
 	}
 	return result, nil
+}
+
+func tagFromSubject(access secretservice.SecretAccessor) (names.Tag, error) {
+	switch kind := access.Kind; kind {
+	case secretservice.UnitAccessor:
+		return names.NewUnitTag(access.ID), nil
+	case secretservice.ApplicationAccessor:
+		return names.NewApplicationTag(access.ID), nil
+	case secretservice.ModelAccessor:
+		return names.NewModelTag(access.ID), nil
+	default:
+		return nil, errors.NotValidf("subject kind %q", kind)
+	}
+}
+
+func tagFromAccessScope(access secretservice.SecretAccessScope) (names.Tag, error) {
+	switch kind := access.Kind; kind {
+	case secretservice.UnitAccessScope:
+		return names.NewUnitTag(access.ID), nil
+	case secretservice.ApplicationAccessScope:
+		return names.NewApplicationTag(access.ID), nil
+	case secretservice.ModelAccessScope:
+		return names.NewModelTag(access.ID), nil
+	case secretservice.RelationAccessScope:
+		return names.NewRelationTag(access.ID), nil
+	default:
+		return nil, errors.NotValidf("access scope kind %q", kind)
+	}
 }
 
 func (s *SecretsAPI) getBackendInfo(ctx context.Context) error {

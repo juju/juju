@@ -1004,7 +1004,6 @@ func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 
 // GetSecret returns the secret with the given URI, returning an error satisfying [secreterrors.SecretNotFound]
 // if the secret does not exist.
-// TODO(secrets) - fill in Access etc
 func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -1537,10 +1536,7 @@ WHERE  rev.secret_id = $secretRevision.secret_id AND rev.revision = $secretRevis
 
 	// Compose and return any secret content from the db.
 	if len(dbSecretValues) > 0 {
-		content, err := dbSecretValues.toSecretData()
-		if err != nil {
-			return nil, nil, errors.Annotatef(err, "composing secret content for secret %q revision %d from database", uri, revision)
-		}
+		content := dbSecretValues.toSecretData()
 		return content, nil, nil
 	}
 
@@ -1698,10 +1694,7 @@ WHERE ref.secret_id = $secretRef.secret_id`
 	if len(dbSecretConsumers) == 0 {
 		return nil, latestRevision, fmt.Errorf("secret consumer for %q and unit %q%w", uri.ID, unitName, secreterrors.SecretConsumerNotFound)
 	}
-	consumers, err := dbSecretConsumers.toSecretConsumers()
-	if err != nil {
-		return nil, 0, errors.Trace(err)
-	}
+	consumers := dbSecretConsumers.toSecretConsumers()
 	return consumers[0], latestRevision, nil
 }
 
@@ -1864,10 +1857,7 @@ WHERE rev.secret_id = $secretInfo.secret_id`
 	if len(dbSecretConsumers) == 0 {
 		return nil, latestRevision, fmt.Errorf("secret consumer for %q and unit %q%w", uri.ID, unitName, secreterrors.SecretConsumerNotFound)
 	}
-	consumers, err := dbSecretConsumers.toSecretConsumers()
-	if err != nil {
-		return nil, 0, errors.Trace(err)
-	}
+	consumers := dbSecretConsumers.toSecretConsumers()
 	return consumers[0], latestRevision, nil
 }
 
@@ -2148,6 +2138,49 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 
 }
 
+// RevokeAccess revokes access to the secret for the specified subject.
+// It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
+func (st State) RevokeAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteQuery := `
+DELETE FROM secret_permission
+WHERE  secret_id = $secretPermission.secret_id
+AND    subject_type_id = $secretPermission.subject_type_id
+AND    subject_uuid = $secretPermission.subject_uuid
+`
+
+	perm := secretPermission{
+		SecretID:      uri.ID,
+		SubjectTypeID: params.SubjectTypeID,
+	}
+	deleteStmt, err := st.Prepare(deleteQuery, perm)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
+			return errors.Trace(err)
+		} else if !isLocal {
+			// Should never happen.
+			return secreterrors.SecretIsNotLocal
+		}
+
+		// Look up the UUID of the subject.
+		perm.SubjectUUID, err = st.lookupSubjectUUID(ctx, tx, params.SubjectID, params.SubjectTypeID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = tx.Query(ctx, deleteStmt, perm).Run()
+		return errors.Annotatef(err, "deleting secret grant for %q on %q", params.SubjectID, uri)
+	})
+	return errors.Trace(domain.CoerceError(err))
+}
+
 // GetSecretAccess returns the access to the secret for the specified accessor.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (st State) GetSecretAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams) (string, error) {
@@ -2165,16 +2198,16 @@ AND    subject_type_id = $secretAccessor.subject_type_id
 AND    subject_id = $secretAccessor.subject_id
 `
 
-	selectStmt, err := st.Prepare(query, secretAccessor{}, sqlair.M{})
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	access := secretAccessor{
 		SecretID:      uri.ID,
 		SubjectTypeID: params.SubjectTypeID,
 		SubjectID:     params.SubjectID,
 	}
+	selectRoleStmt, err := st.Prepare(query, access, sqlair.M{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	var role string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
@@ -2184,7 +2217,7 @@ AND    subject_id = $secretAccessor.subject_id
 			return secreterrors.SecretIsNotLocal
 		}
 		result := sqlair.M{}
-		err = tx.Query(ctx, selectStmt, access).Get(&result)
+		err = tx.Query(ctx, selectRoleStmt, access).Get(&result)
 		if err == nil || errors.Is(err, sqlair.ErrNoRows) {
 			role, _ = result["role"].(string)
 			return nil
@@ -2210,15 +2243,14 @@ AND    subject_type_id = $secretAccessor.subject_type_id
 AND    subject_id = $secretAccessor.subject_id
 `
 
-	selectStmt, err := st.Prepare(query, secretAccessor{}, secretAccessScope{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	access := secretAccessor{
 		SecretID:      uri.ID,
 		SubjectTypeID: params.SubjectTypeID,
 		SubjectID:     params.SubjectID,
+	}
+	selectScopeStmt, err := st.Prepare(query, access, secretAccessScope{})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	result := secretAccessScope{}
@@ -2229,7 +2261,7 @@ AND    subject_id = $secretAccessor.subject_id
 			// Should never happen.
 			return secreterrors.SecretIsNotLocal
 		}
-		err = tx.Query(ctx, selectStmt, access).Get(&result)
+		err = tx.Query(ctx, selectScopeStmt, access).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("access scope for %q on secret %q not found%w", params.SubjectID, uri, errors.Hide(secreterrors.SecretAccessScopeNotFound))
 		}
@@ -2383,4 +2415,58 @@ FROM secret_revision sr`
 		return nil, errors.Trace(err)
 	}
 	return rows.toRevIDs(), nil
+}
+
+// GetSecretGrants returns the subjects which have the specified access to the secret.
+// It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
+func (st State) GetSecretGrants(ctx context.Context, uri *coresecrets.URI, role coresecrets.SecretRole) ([]domainsecret.GrantParams, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT (sp.*) AS (&secretAccessor.*),
+       (sp.*) AS (&secretAccessScope.*)
+FROM   v_secret_permission sp
+WHERE  secret_id = $secretID.id
+AND    role_id = $secretAccessor.role_id
+-- exclude remote applications
+AND    subject_type_id != $M.remote_application_type`
+
+	selectStmt, err := st.Prepare(query, secretID{}, secretAccessor{}, secretAccessScope{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	secretIDParam := secretID{
+		ID: uri.ID,
+	}
+	secretRole := secretAccessor{
+		RoleID: domainsecret.MarshallRole(role),
+	}
+
+	var (
+		accessors    secretAccessors
+		accessScopes secretAccessScopes
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
+			return errors.Trace(err)
+		} else if !isLocal {
+			// Should never happen.
+			return secreterrors.SecretIsNotLocal
+		}
+		err = tx.Query(ctx, selectStmt, secretIDParam, secretRole, sqlair.M{
+			"remote_application_type": domainsecret.SubjectRemoteApplication,
+		}).GetAll(&accessors, &accessScopes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Annotatef(err, "looking up secret grants for %q", uri)
+	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	return accessors.toSecretGrants(accessScopes)
 }

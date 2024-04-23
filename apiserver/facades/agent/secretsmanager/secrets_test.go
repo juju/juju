@@ -560,11 +560,17 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 			Revision: 667,
 		},
 	}}, nil)
-	s.secretService.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{
+	s.secretService.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return([]secretservice.SecretAccess{
 		{
-			Target: "application-gitlab",
-			Scope:  "relation-key",
-			Role:   coresecrets.RoleView,
+			Scope: secretservice.SecretAccessScope{
+				Kind: secretservice.RelationAccessScope,
+				ID:   "gitlab:server mysql:db",
+			},
+			Subject: secretservice.SecretAccessor{
+				Kind: secretservice.ApplicationAccessor,
+				ID:   "gitlab",
+			},
+			Role: coresecrets.RoleView,
 		},
 	}, nil)
 
@@ -590,7 +596,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 				Revision: 667,
 			}},
 			Access: []params.AccessInfo{
-				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
+				{TargetTag: "application-gitlab", ScopeTag: "relation-gitlab.server#mysql.db", Role: "view"},
 			},
 		}},
 	})

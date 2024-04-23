@@ -179,6 +179,21 @@ func (mr *MockStateMockRecorder) GetSecretConsumer(arg0, arg1, arg2 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockState)(nil).GetSecretConsumer), arg0, arg1, arg2)
 }
 
+// GetSecretGrants mocks base method.
+func (m *MockState) GetSecretGrants(arg0 context.Context, arg1 *secrets.URI, arg2 secrets.SecretRole) ([]secret.GrantParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretGrants", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]secret.GrantParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretGrants indicates an expected call of GetSecretGrants.
+func (mr *MockStateMockRecorder) GetSecretGrants(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretGrants", reflect.TypeOf((*MockState)(nil).GetSecretGrants), arg0, arg1, arg2)
+}
+
 // GetSecretRemoteConsumer mocks base method.
 func (m *MockState) GetSecretRemoteConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string) (*secrets.SecretConsumerMetadata, int, error) {
 	m.ctrl.T.Helper()
@@ -331,6 +346,20 @@ func (m *MockState) ListUserSecrets(arg0 context.Context) ([]*secrets.SecretMeta
 func (mr *MockStateMockRecorder) ListUserSecrets(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUserSecrets", reflect.TypeOf((*MockState)(nil).ListUserSecrets), arg0)
+}
+
+// RevokeAccess mocks base method.
+func (m *MockState) RevokeAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.AccessParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeAccess", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevokeAccess indicates an expected call of RevokeAccess.
+func (mr *MockStateMockRecorder) RevokeAccess(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeAccess", reflect.TypeOf((*MockState)(nil).RevokeAccess), arg0, arg1, arg2)
 }
 
 // SaveSecretConsumer mocks base method.
