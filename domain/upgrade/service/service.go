@@ -36,9 +36,9 @@ type State interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewValuePredicateWatcher returns a new namespace watcher
+	// NewValueMapperWatcher returns a new namespace watcher
 	// for events based on the input change mask and predicate.
-	NewValuePredicateWatcher(string, string, changestream.ChangeType, eventsource.Predicate) (watcher.NotifyWatcher, error)
+	NewValueMapperWatcher(string, string, changestream.ChangeType, eventsource.Mapper) (watcher.NotifyWatcher, error)
 }
 
 // Service provides the API for working with upgrade info
@@ -180,10 +180,18 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 	}
 
 	mask := changestream.Create | changestream.Update
-	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
-		return s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
+	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		ready, err := s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// Only dispatch if all controllers are ready.
+		if ready {
+			return changes, nil
+		}
+		return nil, nil
 	}
-	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, predicate)
+	return s.watcherFactory.NewValueMapperWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, mapper)
 }
 
 // WatchForUpgradeState creates a watcher which notifies when the upgrade
@@ -194,12 +202,15 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 	}
 
 	mask := changestream.Create | changestream.Update
-	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
+	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		info, err := s.st.UpgradeInfo(ctx, upgradeUUID)
 		if err != nil {
-			return false, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		return info.State == state, nil
+		if info.State == state {
+			return changes, nil
+		}
+		return nil, nil
 	}
-	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info", upgradeUUID.String(), mask, predicate)
+	return s.watcherFactory.NewValueMapperWatcher("upgrade_info", upgradeUUID.String(), mask, mapper)
 }

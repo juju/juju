@@ -34,7 +34,7 @@ type NamespaceWatcher struct {
 	initialQuery NamespaceQuery
 	changeMask   changestream.ChangeType
 
-	predicate Predicate
+	mapper Mapper
 }
 
 // NewNamespaceWatcher returns a new watcher that receives changes from the
@@ -49,19 +49,19 @@ func NewNamespaceWatcher(
 		namespace:    namespace,
 		initialQuery: initialQuery,
 		changeMask:   changeMask,
-		predicate:    defaultPredicate,
+		mapper:       defaultMapper,
 	}
 
 	w.tomb.Go(w.loop)
 	return w
 }
 
-// NewNamespacePredicateWatcher returns a new watcher that receives changes
+// NewNamespaceMapperWatcher returns a new watcher that receives changes
 // from the input base watcher's db/queue when changes in the namespace occur.
-func NewNamespacePredicateWatcher(
+func NewNamespaceMapperWatcher(
 	base *BaseWatcher, namespace string,
 	changeMask changestream.ChangeType, initialQuery NamespaceQuery,
-	predicate Predicate,
+	mapper Mapper,
 ) watcher.StringsWatcher {
 	w := &NamespaceWatcher{
 		BaseWatcher:  base,
@@ -69,7 +69,7 @@ func NewNamespacePredicateWatcher(
 		namespace:    namespace,
 		initialQuery: initialQuery,
 		changeMask:   changeMask,
-		predicate:    predicate,
+		mapper:       mapper,
 	}
 
 	w.tomb.Go(w.loop)
@@ -110,7 +110,7 @@ func (w *NamespaceWatcher) loop() error {
 	var in <-chan []changestream.ChangeEvent
 	out := w.out
 
-	// Note: we don't use the predicate to prevent the initial event. All
+	// Note: we don't use the mappper to prevent the initial event. All
 	// namespace watchers are __required__ to send the initial state. The API
 	// design for watchers when they subscribe is that they must send the
 	// initial state, and then optional deltas thereafter.
@@ -127,13 +127,14 @@ func (w *NamespaceWatcher) loop() error {
 				return nil
 			}
 
-			// Check with the predicate to determine if we should send a
-			// notification.
-			allow, err := w.predicate(ctx, w.watchableDB, subChanges)
+			// Allow the possibility of the mapper to drop/filter events.
+			changed, err := w.mapper(ctx, w.watchableDB, subChanges)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if !allow {
+			// If the mapper has dropped all events, we don't need to do
+			// anything.
+			if len(changed) == 0 {
 				continue
 			}
 

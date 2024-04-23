@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package service -destination state_mock_test.go github.com/juju/juju/domain/blockdevice/service State,WatcherFactory
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
