@@ -15,6 +15,7 @@ import (
 
 	changestream "github.com/juju/juju/core/changestream"
 	watcher "github.com/juju/juju/core/watcher"
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -108,7 +109,7 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 }
 
 // NewNamespaceWatcher mocks base method.
-func (m *MockWatcherFactory) NewNamespaceWatcher(arg0 string, arg1 changestream.ChangeType, arg2 string) (watcher.Watcher[[]string], error) {
+func (m *MockWatcherFactory) NewNamespaceWatcher(arg0 string, arg1 changestream.ChangeType, arg2 eventsource.NamespaceQuery) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewNamespaceWatcher", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])

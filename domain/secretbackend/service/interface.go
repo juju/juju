@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/secretbackend"
 )
 
@@ -42,5 +43,5 @@ type Logger interface {
 type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
 }

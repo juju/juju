@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/objectstore"
 	"github.com/juju/juju/internal/uuid"
@@ -36,7 +37,7 @@ type State interface {
 type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
 }
 
 // Service provides the API for working with the coreobjectstore.
@@ -126,6 +127,9 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 	}
 }
 
+// It's for testing.
+var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
+
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
@@ -133,6 +137,6 @@ func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher(
 		table,
 		changestream.All,
-		stmt,
+		InitialNamespaceChanges(stmt),
 	)
 }

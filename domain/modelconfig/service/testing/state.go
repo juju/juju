@@ -67,7 +67,11 @@ func NewState() *MemoryState {
 	st := &MemoryState{
 		Config: make(map[string]string),
 	}
-	st.NamespaceWatcherFactory = testing.NewNamespaceWatcherFactory(st.KeysQuery)
+	st.NamespaceWatcherFactory = testing.NewNamespaceWatcherFactory(
+		func() ([]string, error) {
+			return st.KeysQuery(allKeysQuery)
+		},
+	)
 	return st
 }
 
@@ -98,9 +102,7 @@ func (s *MemoryState) UpdateModelConfig(
 	remove []string,
 ) error {
 	for _, k := range remove {
-		if _, exists := s.Config[k]; exists {
-			delete(s.Config, k)
-		}
+		delete(s.Config, k)
 	}
 	for k, v := range update {
 		s.Config[k] = v

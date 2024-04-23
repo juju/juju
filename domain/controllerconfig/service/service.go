@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 )
 
 // ModificationValidatorFunc is a function that validates a modification
@@ -32,7 +33,7 @@ type State interface {
 type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -245,8 +246,11 @@ func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
 	}
 }
 
+// It's for testing.
+var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
+
 // Watch returns a watcher that returns keys for any changes to controller
 // config.
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, s.st.AllKeysQuery())
+	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, InitialNamespaceChanges(s.st.AllKeysQuery()))
 }

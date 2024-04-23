@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/modelconfig/service/testing"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
@@ -53,6 +54,11 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	defer st.Close()
 
 	svc := NewWatchableService(defaults, st, st)
+
+	s.PatchValue(&InitialNamespaceChanges, func(selectAll string) eventsource.NamespaceQuery {
+		c.Assert(selectAll, gc.Equals, st.AllKeysQuery())
+		return nil
+	})
 
 	watcher, err := svc.Watch()
 	c.Assert(err, jc.ErrorIsNil)

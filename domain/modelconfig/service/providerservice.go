@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -73,8 +74,13 @@ func NewWatchableProviderService(
 	}
 }
 
+// It's for testing.
+var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
+
 // Watch returns a watcher that returns keys for any changes to model
 // config.
 func (s *WatchableProviderService) Watch() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewNamespaceWatcher("model_config", changestream.All, s.st.AllKeysQuery())
+	return s.watcherFactory.NewNamespaceWatcher(
+		"model_config", changestream.All, InitialNamespaceChanges(s.st.AllKeysQuery()),
+	)
 }

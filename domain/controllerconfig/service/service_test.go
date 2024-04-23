@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
 )
 
 type serviceSuite struct {
@@ -162,7 +163,12 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 
 	q := "the query does not matter"
 	s.state.EXPECT().AllKeysQuery().Return(q)
-	s.watcherFactory.EXPECT().NewNamespaceWatcher("controller_config", changestream.All, q).Return(s.stringsWatcher, nil)
+
+	s.PatchValue(&InitialNamespaceChanges, func(selectAll string) eventsource.NamespaceQuery {
+		c.Assert(selectAll, gc.Equals, q)
+		return nil
+	})
+	s.watcherFactory.EXPECT().NewNamespaceWatcher("controller_config", changestream.All, gomock.Any()).Return(s.stringsWatcher, nil)
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()
 	c.Assert(err, jc.ErrorIsNil)

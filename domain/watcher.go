@@ -35,30 +35,28 @@ func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger eventsource
 func (f *WatcherFactory) NewUUIDsWatcher(
 	tableName string, changeMask changestream.ChangeType,
 ) (watcher.StringsWatcher, error) {
-	w, err := f.NewNamespaceWatcher(tableName, changeMask, "SELECT uuid from "+tableName)
+	w, err := f.NewNamespaceWatcher(tableName, changeMask, eventsource.InitialNamespaceChanges("SELECT uuid from "+tableName))
 	return w, errors.Trace(err)
 }
 
 // NewNamespaceWatcher returns a new namespace watcher
 // for events based on the input change mask.
 func (f *WatcherFactory) NewNamespaceWatcher(
-	namespace string, changeMask changestream.ChangeType, initialStateQuery string,
+	namespace string, changeMask changestream.ChangeType, initialStateQuery eventsource.NamespaceQuery,
 ) (watcher.StringsWatcher, error) {
 	base, err := f.newBaseWatcher()
 	if err != nil {
 		return nil, errors.Annotate(err, "creating base watcher")
 	}
 
-	return eventsource.NewNamespaceWatcher(
-		base, namespace, changeMask,
-		eventsource.InitialNamespaceChanges(initialStateQuery),
-	), nil
+	return eventsource.NewNamespaceWatcher(base, namespace, changeMask, initialStateQuery), nil
 }
 
 // NewNamespacePredicateWatcher returns a new namespace watcher
 // for events based on the input change mask and predicate.
 func (f *WatcherFactory) NewNamespacePredicateWatcher(
-	namespace string, changeMask changestream.ChangeType, initialStateQuery string,
+	namespace string, changeMask changestream.ChangeType,
+	initialStateQuery eventsource.NamespaceQuery,
 	predicate eventsource.Predicate,
 ) (watcher.StringsWatcher, error) {
 	base, err := f.newBaseWatcher()
@@ -67,9 +65,7 @@ func (f *WatcherFactory) NewNamespacePredicateWatcher(
 	}
 
 	return eventsource.NewNamespacePredicateWatcher(
-		base, namespace, changeMask,
-		eventsource.InitialNamespaceChanges(initialStateQuery),
-		predicate,
+		base, namespace, changeMask, initialStateQuery, predicate,
 	), nil
 }
 

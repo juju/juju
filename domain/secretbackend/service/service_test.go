@@ -26,6 +26,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -981,8 +982,12 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	s.mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	s.mockStringWatcher.EXPECT().Kill().AnyTimes()
 
+	s.PatchValue(&InitialNamespaceChanges, func(selectAll string) eventsource.NamespaceQuery {
+		c.Assert(selectAll, gc.Equals, "SELECT * FROM table")
+		return nil
+	})
 	s.mockState.EXPECT().InitialWatchStatement().Return("table", "SELECT * FROM table")
-	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.All, "SELECT * FROM table").Return(s.mockStringWatcher, nil)
+	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.All, gomock.Any()).Return(s.mockStringWatcher, nil)
 	s.mockState.EXPECT().GetSecretBackendRotateChanges(gomock.Any(), backendID1, backendID2).Return([]watcher.SecretBackendRotateChange{
 		{
 			ID:              backendID1,
