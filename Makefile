@@ -716,9 +716,9 @@ static-analysis: dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
 
-.PHONY: rev
-rev:
-## rev: increase the builder number
+.PHONY: rev-build-number
+rev-build-number:
+## rev-build-number: increase the builder number
 	@mkdir -p $(BUILD_DIR)
 	@printf $$(($(JUJU_BUILD_NUMBER)+1)) > $(BUILD_DIR)/build.number
 	@cat $(BUILD_DIR)/build.number
