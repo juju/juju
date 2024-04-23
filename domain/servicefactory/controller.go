@@ -41,6 +41,7 @@ type Logger interface {
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
 	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
 	Child(string) Logger
 }
 

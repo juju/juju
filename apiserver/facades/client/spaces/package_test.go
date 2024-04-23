@@ -19,7 +19,7 @@ import (
 	environmocks "github.com/juju/juju/environs/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings,NetworkService,ControllerConfigService
+//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,Unit,Bindings,NetworkService,ControllerConfigService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -38,11 +38,6 @@ type APISuite struct {
 
 	API *API
 
-	AuthorizerState         *MockAuthorizerState
-	EnvironSpaces           *MockEnvironSpaces
-	ReloadSpacesState       *MockReloadSpacesState
-	ReloadSpacesEnviron     *MockReloadSpacesEnviron
-	ReloadSpacesAPI         *ReloadSpacesAPI
 	ControllerConfigService *MockControllerConfigService
 	NetworkService          *MockNetworkService
 }
@@ -89,27 +84,11 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 
 	unReg := environs.RegisterProvider("mock-provider", mockProvider)
 
-	s.EnvironSpaces = NewMockEnvironSpaces(ctrl)
-	s.ReloadSpacesState = NewMockReloadSpacesState(ctrl)
-	s.ReloadSpacesEnviron = NewMockReloadSpacesEnviron(ctrl)
-	s.AuthorizerState = NewMockAuthorizerState(ctrl)
-	s.ReloadSpacesAPI = NewReloadSpacesAPI(
-		s.ReloadSpacesState,
-		s.ReloadSpacesEnviron,
-		s.EnvironSpaces,
-		apiservertesting.NoopModelCredentialInvalidatorGetter,
-		DefaultReloadSpacesAuthorizer(
-			s.authorizer,
-			s.blockChecker,
-			s.AuthorizerState,
-		),
-	)
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 	s.NetworkService = NewMockNetworkService(ctrl)
 
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
-		ReloadSpacesAPI:             s.ReloadSpacesAPI,
 		Backing:                     s.Backing,
 		Check:                       s.blockChecker,
 		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,

@@ -16,12 +16,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ReloadSpaces offers a version 1 of the ReloadSpacesAPI.
-type ReloadSpaces interface {
-	// ReloadSpaces refreshes spaces from the substrate.
-	ReloadSpaces(context.Context) error
-}
-
 // BlockChecker defines the block-checking functionality required by
 // the spaces facade. This is implemented by apiserver/common.BlockChecker.
 type BlockChecker interface {

@@ -24,6 +24,7 @@ type spaceSuite struct {
 	logger         *MockLogger
 	provider       *MockProvider
 	providerGetter func(context.Context) (Provider, error)
+	brokerGetter   func(context.Context) (Provider, error)
 }
 
 var _ = gc.Suite(&spaceSuite{})
@@ -36,6 +37,9 @@ func (s *spaceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.provider = NewMockProvider(ctrl)
 	s.providerGetter = func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}
+	s.brokerGetter = func(ctx context.Context) (Provider, error) {
+		return nil, errors.NotSupportedf("network discovery not supported on caas brokers")
 	}
 
 	return ctrl
@@ -200,7 +204,18 @@ func (s *spaceSuite) TestSaveProviderSubnetsWithoutSpaceUUID(c *gc.C) {
 		},
 	}
 
-	s.st.EXPECT().UpsertSubnets(context.Background(), twoSubnets)
+	s.st.EXPECT().UpsertSubnets(
+		gomock.Any(),
+		gomock.Any()).Do(
+		func(cxt context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 2)
+			c.Check(subnets[0].ProviderId, gc.Equals, twoSubnets[0].ProviderId)
+			c.Check(subnets[0].AvailabilityZones, jc.SameContents, twoSubnets[0].AvailabilityZones)
+			c.Check(subnets[0].CIDR, gc.Equals, twoSubnets[0].CIDR)
+			c.Check(subnets[1].ProviderId, gc.Equals, twoSubnets[1].ProviderId)
+			c.Check(subnets[1].AvailabilityZones, jc.SameContents, twoSubnets[1].AvailabilityZones)
+			c.Check(subnets[1].CIDR, gc.Equals, twoSubnets[1].CIDR)
+		})
 
 	err := NewProviderService(s.st, s.providerGetter, s.logger).saveProviderSubnets(context.Background(), twoSubnets, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,7 +237,17 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *gc.C) {
 		},
 	}
 
-	s.st.EXPECT().UpsertSubnets(context.Background(), twoSubnets)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 2)
+			c.Check(subnets[0].ProviderId, gc.Equals, twoSubnets[0].ProviderId)
+			c.Check(subnets[0].AvailabilityZones, jc.SameContents, twoSubnets[0].AvailabilityZones)
+			c.Check(subnets[0].CIDR, gc.Equals, twoSubnets[0].CIDR)
+			c.Check(subnets[1].ProviderId, gc.Equals, twoSubnets[1].ProviderId)
+			c.Check(subnets[1].AvailabilityZones, jc.SameContents, twoSubnets[1].AvailabilityZones)
+			c.Check(subnets[1].CIDR, gc.Equals, twoSubnets[1].CIDR)
+		},
+	)
 
 	err := NewProviderService(s.st, s.providerGetter, s.logger).saveProviderSubnets(context.Background(), twoSubnets, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -235,7 +260,14 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *gc.C) {
 		},
 	}
 
-	s.st.EXPECT().UpsertSubnets(context.Background(), anotherSubnet)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 1)
+			c.Check(subnets[0].ProviderId, gc.Equals, anotherSubnet[0].ProviderId)
+			c.Check(subnets[0].AvailabilityZones, jc.SameContents, anotherSubnet[0].AvailabilityZones)
+			c.Check(subnets[0].CIDR, gc.Equals, anotherSubnet[0].CIDR)
+		},
+	)
 
 	err = NewProviderService(s.st, s.providerGetter, s.logger).saveProviderSubnets(context.Background(), anotherSubnet, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -252,12 +284,27 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyIdempotent(c *gc.C) {
 		},
 	}
 
-	s.st.EXPECT().UpsertSubnets(context.Background(), oneSubnet)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 1)
+			c.Check(subnets[0].ProviderId, gc.Equals, oneSubnet[0].ProviderId)
+			c.Check(subnets[0].AvailabilityZones, jc.SameContents, oneSubnet[0].AvailabilityZones)
+			c.Check(subnets[0].CIDR, gc.Equals, oneSubnet[0].CIDR)
+		},
+	)
+
 	err := NewProviderService(s.st, s.providerGetter, s.logger).saveProviderSubnets(context.Background(), oneSubnet, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We expect the same subnets to be passed to the state methods.
-	s.st.EXPECT().UpsertSubnets(context.Background(), oneSubnet)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 1)
+			c.Check(subnets[0].ProviderId, gc.Equals, oneSubnet[0].ProviderId)
+			c.Check(subnets[0].AvailabilityZones, jc.SameContents, oneSubnet[0].AvailabilityZones)
+			c.Check(subnets[0].CIDR, gc.Equals, oneSubnet[0].CIDR)
+		},
+	)
 	err = NewProviderService(s.st, s.providerGetter, s.logger).saveProviderSubnets(context.Background(), oneSubnet, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -287,10 +334,19 @@ func (s *spaceSuite) TestSaveProviderSubnetsWithFAN(c *gc.C) {
 		}},
 	)
 
-	s.st.EXPECT().UpsertSubnets(context.Background(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) {
 			c.Check(subnets, gc.HasLen, 3)
-			c.Check(subnets, gc.DeepEquals, expected)
+			c.Check(subnets[0].ProviderId, gc.Equals, expected[0].ProviderId)
+			c.Check(subnets[0].AvailabilityZones, jc.SameContents, expected[0].AvailabilityZones)
+			c.Check(subnets[0].CIDR, gc.Equals, expected[0].CIDR)
+			c.Check(subnets[1].ProviderId, gc.Equals, expected[1].ProviderId)
+			c.Check(subnets[1].AvailabilityZones, jc.SameContents, expected[1].AvailabilityZones)
+			c.Check(subnets[1].CIDR, gc.Equals, expected[1].CIDR)
+			c.Check(subnets[2].ProviderId, gc.Equals, expected[2].ProviderId)
+			c.Check(subnets[2].AvailabilityZones, jc.SameContents, expected[2].AvailabilityZones)
+			c.Check(subnets[2].CIDR, gc.Equals, expected[2].CIDR)
+			c.Check(subnets[2].FanInfo, gc.DeepEquals, expected[2].FanInfo)
 		},
 	)
 
@@ -367,36 +423,50 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV4LinkLocalUnicast(c *gc.C) 
 func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	subnets := []network.SubnetInfo{
+	twoSubnets := []network.SubnetInfo{
 		{CIDR: "10.0.0.1/12"},
 		{CIDR: "10.12.24.1/24"},
 	}
 
 	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(false, nil)
-	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(subnets, nil)
+	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
 	s.logger.EXPECT().Debugf("environ does not support space discovery, falling back to subnet discovery")
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
+	s.st.EXPECT().FanConfig(gomock.Any()).Return("", nil)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 2)
+			c.Check(subnets[0].CIDR, gc.Equals, twoSubnets[0].CIDR)
+			c.Check(subnets[1].CIDR, gc.Equals, twoSubnets[1].CIDR)
+		},
+	)
 
 	err := NewProviderService(s.st, s.providerGetter, s.logger).
-		ReloadSpaces(context.Background(), nil)
+		ReloadSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	subnets := []network.SubnetInfo{
+	twoSubnets := []network.SubnetInfo{
 		{CIDR: "10.0.0.1/12"},
 		{CIDR: "10.12.24.1/24"},
 	}
 
 	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(false, nil)
-	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(subnets, nil)
+	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
 	s.logger.EXPECT().Debugf("environ does not support space discovery, falling back to subnet discovery")
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets).Return(errors.New("boom"))
+	s.st.EXPECT().FanConfig(gomock.Any()).Return("", nil)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 2)
+			c.Check(subnets[0].CIDR, gc.Equals, twoSubnets[0].CIDR)
+			c.Check(subnets[1].CIDR, gc.Equals, twoSubnets[1].CIDR)
+		},
+	).Return(errors.New("boom"))
 
 	err := NewProviderService(s.st, s.providerGetter, s.logger).
-		ReloadSpaces(context.Background(), nil)
+		ReloadSpaces(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -407,7 +477,7 @@ func (s *spaceSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
 		return nil, errors.NotSupported
 	}
 	err := NewProviderService(s.st, providerGetterFails, s.logger).
-		ReloadSpaces(context.Background(), nil)
+		ReloadSpaces(context.Background())
 
 	c.Assert(err, gc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
 }
@@ -424,16 +494,22 @@ func (s *spaceSuite) TestSaveProviderSpaces(c *gc.C) {
 	}
 	s.st.EXPECT().GetAllSpaces(gomock.Any()).Return(res, nil)
 
-	subnets := network.SubnetInfos{
+	oneSubnet := network.SubnetInfos{
 		{
 			CIDR:    "10.0.0.1/12",
 			SpaceID: "1",
 		},
 	}
 	spaces := []network.SpaceInfo{
-		{ProviderId: network.Id("1"), Subnets: subnets},
+		{ProviderId: network.Id("1"), Subnets: oneSubnet},
 	}
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 1)
+			c.Check(subnets[0].CIDR, gc.Equals, oneSubnet[0].CIDR)
+			c.Check(subnets[0].SpaceID, gc.Equals, oneSubnet[0].SpaceID)
+		},
+	)
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
 	provider := NewProviderSpaces(providerService, s.logger)
@@ -458,13 +534,13 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *gc.C) {
 	}
 	s.st.EXPECT().GetAllSpaces(gomock.Any()).Return(res, nil)
 
-	subnets := network.SubnetInfos{
+	oneSubnet := network.SubnetInfos{
 		{
 			CIDR: "10.0.0.1/12",
 		},
 	}
 	spaces := []network.SpaceInfo{
-		{ProviderId: network.Id("2"), Subnets: subnets},
+		{ProviderId: network.Id("2"), Subnets: oneSubnet},
 	}
 	s.logger.EXPECT().Debugf("Adding space %s from provider %s", "empty", "2")
 	var receivedSpaceID string
@@ -474,7 +550,12 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *gc.C) {
 			return nil
 		}).
 		Return(nil)
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 1)
+			c.Check(subnets[0].CIDR, gc.Equals, oneSubnet[0].CIDR)
+		},
+	)
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
 	provider := NewProviderSpaces(providerService, s.logger)
@@ -513,18 +594,23 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpacesAfterNotUpdated(c *gc.C) {
 	}
 	s.st.EXPECT().GetAllSpaces(gomock.Any()).Return(res, nil)
 
-	subnets := network.SubnetInfos{
+	oneSubnet := network.SubnetInfos{
 		{
 			CIDR: "10.0.0.1/12",
 		},
 	}
 	spaces := []network.SpaceInfo{
-		{ProviderId: network.Id("2"), Subnets: subnets},
+		{ProviderId: network.Id("2"), Subnets: oneSubnet},
 	}
 	s.logger.EXPECT().Debugf("Adding space %s from provider %s", "empty", "2")
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), "empty", network.Id("2"), []string{}).
 		Return(nil)
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 1)
+			c.Check(subnets[0].CIDR, gc.Equals, oneSubnet[0].CIDR)
+		},
+	)
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)
 	provider := NewProviderSpaces(providerService, s.logger)
@@ -638,13 +724,13 @@ func (s *spaceSuite) TestProviderSpacesRun(c *gc.C) {
 	}
 	s.st.EXPECT().GetAllSpaces(gomock.Any()).Return(res, nil)
 
-	subnets := network.SubnetInfos{
+	oneSubnet := network.SubnetInfos{
 		{
 			CIDR: "10.0.0.1/12",
 		},
 	}
 	spaces := []network.SpaceInfo{
-		{ProviderId: network.Id("2"), Subnets: subnets},
+		{ProviderId: network.Id("2"), Subnets: oneSubnet},
 	}
 	s.logger.EXPECT().Debugf("Adding space %s from provider %s", "empty", "2")
 	var receivedSpaceID string
@@ -654,7 +740,12 @@ func (s *spaceSuite) TestProviderSpacesRun(c *gc.C) {
 			return nil
 		}).
 		Return(nil)
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), subnets)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 1)
+			c.Check(subnets[0].CIDR, gc.Equals, oneSubnet[0].CIDR)
+		},
+	)
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "1")
 
 	providerService := NewProviderService(s.st, s.providerGetter, s.logger)

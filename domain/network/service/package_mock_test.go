@@ -100,6 +100,21 @@ func (mr *MockStateMockRecorder) DeleteSubnet(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnet", reflect.TypeOf((*MockState)(nil).DeleteSubnet), arg0, arg1)
 }
 
+// FanConfig mocks base method.
+func (m *MockState) FanConfig(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FanConfig", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FanConfig indicates an expected call of FanConfig.
+func (mr *MockStateMockRecorder) FanConfig(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FanConfig", reflect.TypeOf((*MockState)(nil).FanConfig), arg0)
+}
+
 // GetAllSpaces mocks base method.
 func (m *MockState) GetAllSpaces(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()

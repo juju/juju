@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -35,7 +34,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	environsContext "github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -79,6 +77,7 @@ type ModelManagerAPI struct {
 	modelDefaultsService ModelDefaultsService
 	cloudService         CloudService
 	credentialService    CredentialService
+	networkService       NetworkService
 	configSchemaSource   config.ConfigSchemaSourceGetter
 	accessService        AccessService
 	modelExporter        ModelExporter
@@ -130,6 +129,7 @@ func NewModelManagerAPI(
 		ctlrState:            ctlrSt,
 		cloudService:         services.CloudService,
 		credentialService:    services.CredentialService,
+		networkService:       services.NetworkService,
 		configSchemaSource:   configSchemaSource,
 		store:                services.ObjectStore,
 		getBroker:            getBroker,
@@ -372,7 +372,20 @@ func (m *ModelManagerAPI) createModelNew(
 		return errors.Annotatef(err, "failed to create model info for model %q", modelUUID)
 	}
 
-	return err
+	// Reload the substrate spaces for the newly created model.
+	return reloadSpaces(ctx, modelServiceFactory.Network())
+}
+
+// reloadSpaces wraps the call to ReloadSpaces and its returned errors.
+func reloadSpaces(ctx context.Context, modelNetworkService NetworkService) error {
+	if err := modelNetworkService.ReloadSpaces(ctx); err != nil {
+		if errors.Is(err, errors.NotSupported) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return errors.Annotate(err, "Failed to perform spaces discovery")
+		}
+	}
+	return nil
 }
 
 // CreateModel creates a new model using the account and
@@ -673,21 +686,6 @@ func (m *ModelManagerAPI) newIAASModel(
 		}
 	}
 
-	invalidatorFuncGetter := credentialcommon.ModelCredentialInvalidatorGetter(m.credentialService, credentialStateShim{st.(StateBackend)})
-	invalidatorFunc, err := invalidatorFuncGetter()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	callCtx = environsContext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	if err = space.ReloadSpaces(callCtx, spaceStateShim{
-		ModelManagerBackend: st,
-	}, env); err != nil {
-		if errors.Is(err, errors.NotSupported) {
-			logger.Debugf("Not performing spaces load on a non-networking environment")
-		} else {
-			return nil, errors.Annotate(err, "Failed to perform spaces discovery")
-		}
-	}
 	return model, nil
 }
 

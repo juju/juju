@@ -109,7 +109,11 @@ type ProviderService struct {
 }
 
 // NewProviderService returns a new service reference wrapping the input state.
-func NewProviderService(st State, provider providertracker.ProviderGetter[Provider], logger Logger) *ProviderService {
+func NewProviderService(
+	st State,
+	provider providertracker.ProviderGetter[Provider],
+	logger Logger,
+) *ProviderService {
 	return &ProviderService{
 		Service: Service{
 			st:     st,
@@ -120,8 +124,9 @@ func NewProviderService(st State, provider providertracker.ProviderGetter[Provid
 }
 
 // ReloadSpaces loads spaces and subnets from the provider into state.
-func (s *ProviderService) ReloadSpaces(ctx context.Context, fanConfig network.FanConfig) error {
+func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	callContext := envcontext.WithoutCredentialInvalidator(ctx)
+
 	networkProvider, err := s.provider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
@@ -129,6 +134,17 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context, fanConfig network.Fa
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Retrieve the fan config from the model config.
+	fanConfigStr, err := s.st.FanConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fanConfig, err := network.ParseFanConfig(fanConfigStr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	canDiscoverSpaces, err := networkProvider.SupportsSpaceDiscovery(callContext)
 	if err != nil {
 		return errors.Trace(err)
@@ -161,7 +177,9 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context, fanConfig network.Fa
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(s.saveProviderSubnets(ctx, subnets, "", fanConfig))
+	// TODO(nvinuesa): Here, the alpha space is scaffolding, it should be
+	// replaced with the model's default space.
+	return errors.Trace(s.saveProviderSubnets(ctx, subnets, network.AlphaSpaceId, fanConfig))
 }
 
 // SaveProviderSubnets loads subnets into state.
@@ -229,12 +247,27 @@ func (s *ProviderService) saveProviderSubnets(
 	}
 
 	if len(subnetsToUpsert) > 0 {
-		if err := s.st.UpsertSubnets(ctx, subnetsToUpsert); err != nil {
-			return errors.Trace(err)
-		}
+		return errors.Trace(s.upsertProviderSubnets(ctx, subnetsToUpsert))
 	}
 
 	return nil
+}
+
+// upsertProviderSubnets shims the state method for upserting subnets, and also
+// makes sure a uuid is inserted by checking if one was provided otherwise
+// create a new UUID v7.
+func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUpsert network.SubnetInfos) error {
+	for i, sn := range subnetsToUpsert {
+		if sn.ID.String() == "" {
+			uuid, err := uuid.NewV7()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			subnetsToUpsert[i].ID = network.Id(uuid.String())
+		}
+
+	}
+	return errors.Trace(s.st.UpsertSubnets(ctx, subnetsToUpsert))
 }
 
 // generateFanSubnetID generates a correct ID for a subnet of type fan overlay.

@@ -240,6 +240,15 @@ func (w *bootstrapWorker) loop() error {
 	if !ok {
 		return errors.Errorf("state serving information not available")
 	}
+
+	// Load spaces from the underlying substrate.
+	if err := w.cfg.NetworkService.ReloadSpaces(ctx); err != nil {
+		if !errors.Is(err, errors.NotSupported) {
+			return errors.Trace(err)
+		}
+		w.logger.Debugf("reload spaces not supported due to a non-networking environement")
+	}
+
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
 	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, servingInfo.APIPort); err != nil {

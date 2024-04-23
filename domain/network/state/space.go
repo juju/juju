@@ -16,17 +16,25 @@ import (
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/environs/config"
 )
+
+// Logger facilitates emitting log messages.
+type Logger interface {
+	Errorf(string, ...interface{})
+}
 
 // State represents a type for interacting with the underlying state.
 type State struct {
 	*domain.StateBase
+	logger Logger
 }
 
 // NewState returns a new State for interacting with the underlying state.
-func NewState(factory coreDB.TxnRunnerFactory) *State {
+func NewState(factory coreDB.TxnRunnerFactory, logger Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
+		logger:    logger,
 	}
 }
 
@@ -40,21 +48,21 @@ func (st *State) AddSpace(
 ) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(domain.CoerceError(err))
 	}
 
 	insertSpaceStmt, err := sqlair.Prepare(`
 INSERT INTO space (uuid, name) 
 VALUES ($Space.uuid, $Space.name)`, Space{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(domain.CoerceError(err))
 	}
 
 	insertProviderStmt, err := sqlair.Prepare(`
 INSERT INTO provider_space (provider_id, space_uuid)
 VALUES ($ProviderSpace.provider_id, $ProviderSpace.space_uuid)`, ProviderSpace{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(domain.CoerceError(err))
 	}
 
 	findFanSubnetsStmt, err := sqlair.Prepare(`
@@ -62,7 +70,7 @@ SELECT subject_subnet_uuid AS &Subnet.uuid
 FROM   subnet_association
 WHERE  association_type_id = 0 AND associated_subnet_uuid IN ($S[:])`, sqlair.S{}, Subnet{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(domain.CoerceError(err))
 	}
 
 	checkInputSubnetsStmt, err := sqlair.Prepare(`
@@ -72,7 +80,7 @@ JOIN   subnet_type
 ON     subnet.subnet_type_id = subnet_type.id
 WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair.S{}, Subnet{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(domain.CoerceError(err))
 	}
 
 	subnetIDsInS := sqlair.S{}
@@ -86,7 +94,8 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 
 		var nonSettableSubnets []Subnet
 		if err := tx.Query(ctx, checkInputSubnetsStmt, subnetIDsInS).GetAll(&nonSettableSubnets); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid)
+			st.logger.Errorf("checking if there are fan subnets for space %q, %v", uuid, err)
+			return errors.Annotatef(domain.CoerceError(err), "checking if there are fan subnets for space %q", uuid)
 		}
 
 		// If any row is returned we must fail with the returned fan
@@ -98,11 +107,13 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		}
 
 		if err := tx.Query(ctx, insertSpaceStmt, Space{UUID: uuid, Name: name}).Run(); err != nil {
-			return errors.Annotatef(err, "inserting space uuid %q into space table", uuid)
+			st.logger.Errorf("inserting space uuid %q into space table, %v", uuid, err)
+			return errors.Annotatef(domain.CoerceError(err), "inserting space uuid %q into space table", uuid)
 		}
 		if providerID != "" {
-			if err := tx.Query(ctx, insertProviderStmt, ProviderSpace{ProviderId: providerID, SpaceUUID: uuid}).Run(); err != nil {
-				return errors.Annotatef(err, "inserting provider id %q into provider_space table", providerID)
+			if err := tx.Query(ctx, insertProviderStmt, ProviderSpace{ProviderID: providerID, SpaceUUID: uuid}).Run(); err != nil {
+				st.logger.Errorf("inserting provider id %q into provider_space table, %v", providerID, err)
+				return errors.Annotatef(domain.CoerceError(err), "inserting provider id %q into provider_space table", providerID)
 			}
 		}
 
@@ -110,7 +121,8 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		var fanSubnets []Subnet
 		err = tx.Query(ctx, findFanSubnetsStmt, subnetIDsInS).GetAll(&fanSubnets)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "retrieving the fan subnets for space %q", uuid)
+			st.logger.Errorf("retrieving the fan subnets for space %q, %v", uuid, err)
+			return errors.Annotatef(domain.CoerceError(err), "retrieving the fan subnets for space %q", uuid)
 		}
 		// Append the fan subnet (unique) ids (if any) to the provided
 		// subnet ids.
@@ -121,12 +133,13 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		// the space uuid.
 		for _, subnetID := range subnetIDs {
 			if err := st.updateSubnetSpaceID(ctx, tx, subnetID, uuid); err != nil {
-				return errors.Annotatef(err, "updating subnet %q using space uuid %q", subnetID, uuid)
+				st.logger.Errorf("updating subnet %q using space uuid %q, %v", subnetID, uuid, err)
+				return errors.Annotatef(domain.CoerceError(err), "updating subnet %q using space uuid %q", subnetID, uuid)
 			}
 		}
 		return nil
 	})
-	return errors.Trace(err)
+	return errors.Trace(domain.CoerceError(err))
 }
 
 const retrieveSpacesStmt = `
@@ -163,7 +176,7 @@ func (st *State) GetSpace(
 ) (*network.SpaceInfo, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(domain.CoerceError(err))
 	}
 
 	// Append the space uuid condition to the query only if it's passed to the function.
@@ -171,21 +184,23 @@ func (st *State) GetSpace(
 
 	spacesStmt, err := sqlair.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q", q)
+		return nil, errors.Annotatef(domain.CoerceError(err), "preparing %q", q)
 	}
 
 	var spaceRows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, spacesStmt, sqlair.M{"id": uuid}).GetAll(&spaceRows)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "retrieving space %q", uuid)
+			st.logger.Errorf("retrieving space %q, %v", uuid, err)
+			return errors.Annotatef(domain.CoerceError(err), "retrieving space %q", uuid)
 		}
 
 		return nil
 	}); errors.Is(err, sqlair.ErrNoRows) || len(spaceRows) == 0 {
 		return nil, errors.NotFoundf("space %q", uuid)
 	} else if err != nil {
-		return nil, errors.Annotate(err, "querying spaces")
+		st.logger.Errorf("querying spaces, %v", err)
+		return nil, errors.Annotate(domain.CoerceError(err), "querying spaces")
 	}
 
 	return &spaceRows.ToSpaceInfos()[0], nil
@@ -198,7 +213,7 @@ func (st *State) GetSpaceByName(
 ) (*network.SpaceInfo, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(domain.CoerceError(err))
 	}
 
 	// Append the space.name condition to the query.
@@ -206,7 +221,7 @@ func (st *State) GetSpaceByName(
 
 	s, err := sqlair.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q", q)
+		return nil, errors.Annotatef(domain.CoerceError(err), "preparing %q", q)
 	}
 
 	var rows SpaceSubnetRows
@@ -215,7 +230,8 @@ func (st *State) GetSpaceByName(
 	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
 		return nil, errors.NotFoundf("space with name %q", name)
 	} else if err != nil {
-		return nil, errors.Annotate(err, "querying spaces by name")
+		st.logger.Errorf("querying spaces by name %q, %v", name, err)
+		return nil, errors.Annotate(domain.CoerceError(err), "querying spaces by name")
 	}
 
 	return &rows.ToSpaceInfos()[0], nil
@@ -228,12 +244,12 @@ func (st *State) GetAllSpaces(
 
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(domain.CoerceError(err))
 	}
 
 	s, err := sqlair.Prepare(retrieveSpacesStmt, SpaceSubnetRow{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q", retrieveSpacesStmt)
+		return nil, errors.Annotatef(domain.CoerceError(err), "preparing %q", retrieveSpacesStmt)
 	}
 
 	var rows SpaceSubnetRows
@@ -242,7 +258,8 @@ func (st *State) GetAllSpaces(
 	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Annotate(err, "querying all spaces")
+		st.logger.Errorf("querying all spaces, %v", err)
+		return nil, errors.Annotate(domain.CoerceError(err), "querying all spaces")
 	}
 
 	return rows.ToSpaceInfos(), nil
@@ -256,7 +273,7 @@ func (st *State) UpdateSpace(
 ) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(domain.CoerceError(err))
 	}
 
 	q := `
@@ -266,11 +283,12 @@ WHERE  uuid = ?;`
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, q, name, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			st.logger.Errorf("updating space %q with name %q, %v", uuid, name, err)
+			return errors.Trace(domain.CoerceError(err))
 		}
 		affected, err := res.RowsAffected()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Trace(domain.CoerceError(err))
 		}
 		if affected == 0 {
 			return errors.NotFoundf("space %q", uuid)
@@ -287,7 +305,7 @@ func (st *State) DeleteSpace(
 ) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(domain.CoerceError(err))
 	}
 
 	deleteSpaceStmt := "DELETE FROM space WHERE uuid = ?;"
@@ -297,32 +315,56 @@ func (st *State) DeleteSpace(
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		delProviderSpaceResult, err := tx.ExecContext(ctx, deleteProviderSpaceStmt, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			st.logger.Errorf("removing space %q from the provider_space table, %v", uuid, err)
+			return errors.Trace(domain.CoerceError(err))
 		}
 		delProviderSpaceAffected, err := delProviderSpaceResult.RowsAffected()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Trace(domain.CoerceError(err))
 		}
 		if delProviderSpaceAffected != 1 {
 			return fmt.Errorf("provider space id for space %s not found", uuid)
 		}
 
 		if _, err := tx.ExecContext(ctx, updateSubnetSpaceUUIDStmt, network.AlphaSpaceId, uuid); err != nil {
-			return errors.Trace(err)
+			st.logger.Errorf("updating subnet table by removing the space %q, %v", uuid, err)
+			return errors.Trace(domain.CoerceError(err))
 		}
 
 		delSpaceResult, err := tx.ExecContext(ctx, deleteSpaceStmt, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			st.logger.Errorf("removing space %q, %v", uuid, err)
+			return errors.Trace(domain.CoerceError(err))
 		}
 		delSpaceAffected, err := delSpaceResult.RowsAffected()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Trace(domain.CoerceError(err))
 		}
 		if delSpaceAffected != 1 {
 			return fmt.Errorf("space %s not found", uuid)
 		}
 
+		return nil
+	})
+}
+
+// FanConfig returns the current model's fan config value.
+func (st *State) FanConfig(ctx context.Context) (string, error) {
+	var fanConfig string
+
+	db, err := st.DB()
+	if err != nil {
+		return fanConfig, errors.Trace(err)
+	}
+
+	return fanConfig, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `SELECT value FROM model_config WHERE key=?`
+		row := tx.QueryRowContext(ctx, stmt, config.FanConfig)
+		if err := row.Scan(&fanConfig); errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("model's fan config %w%w", errors.NotFound, errors.Hide(err))
+		} else if err != nil {
+			return domain.CoerceError(err)
+		}
 		return nil
 	})
 }
