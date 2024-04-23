@@ -1089,6 +1089,14 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 }
 
 func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C) {
+	s.assertGetSecretContentCrossModelNewConsumer(c, secreterrors.SecretConsumerNotFound)
+}
+
+func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumerAndSecret(c *gc.C) {
+	s.assertGetSecretContentCrossModelNewConsumer(c, secreterrors.SecretNotFound)
+}
+
+func (s *SecretsManagerSuite) assertGetSecretContentCrossModelNewConsumer(c *gc.C, consumerErr error) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1102,7 +1110,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C)
 	s.remoteClient.EXPECT().Close().Return(nil)
 
 	s.crossModelState.EXPECT().GetToken(names.NewApplicationTag("mariadb")).Return("token", nil)
-	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(nil, secreterrors.SecretConsumerNotFound)
+	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(nil, consumerErr)
 	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 
 	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)

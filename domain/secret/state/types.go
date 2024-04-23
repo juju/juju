@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	coresecrets "github.com/juju/juju/core/secrets"
+	domainsecret "github.com/juju/juju/domain/secret"
 )
 
 // These structs represent the persistent secretMetadata entity schema in the database.
@@ -19,6 +20,11 @@ type secretID struct {
 
 type revisionUUID struct {
 	UUID string `db:"uuid"`
+}
+
+type entityRef struct {
+	UUID string `db:"uuid"`
+	ID   string `db:"id"`
 }
 
 type unit struct {
@@ -129,6 +135,39 @@ type secretRemoteUnitConsumer struct {
 type remoteSecret struct {
 	SecretID       string `db:"secret_id"`
 	LatestRevision int    `db:"latest_revision"`
+}
+
+type secretPermission struct {
+	SecretID      string                        `db:"secret_id"`
+	RoleID        domainsecret.Role             `db:"role_id"`
+	SubjectUUID   string                        `db:"subject_uuid"`
+	SubjectTypeID domainsecret.GrantSubjectType `db:"subject_type_id"`
+	ScopeUUID     string                        `db:"scope_uuid"`
+	ScopeTypeID   domainsecret.GrantScopeType   `db:"scope_type_id"`
+}
+
+type secretAccessor struct {
+	SecretID      string                        `db:"secret_id"`
+	SubjectID     string                        `db:"subject_id"`
+	SubjectTypeID domainsecret.GrantSubjectType `db:"subject_type_id"`
+	RoleID        domainsecret.Role             `db:"role_id"`
+}
+
+type secretAccessScope struct {
+	ScopeID     string                      `db:"scope_id"`
+	ScopeTypeID domainsecret.GrantScopeType `db:"scope_type_id"`
+}
+
+type ownerKind struct {
+	Model       string `db:"model_owner_kind"`
+	Unit        string `db:"unit_owner_kind"`
+	Application string `db:"application_owner_kind"`
+}
+
+var ownerKindParam = ownerKind{
+	Model:       string(coresecrets.ModelOwner),
+	Unit:        string(coresecrets.UnitOwner),
+	Application: string(coresecrets.ApplicationOwner),
 }
 
 type secrets []secretInfo

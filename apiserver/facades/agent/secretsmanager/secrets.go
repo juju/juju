@@ -5,6 +5,7 @@ package secretsmanager
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -582,7 +583,11 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 
 	unitName := s.authTag.Id()
 	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(ctx, uri, unitName)
-	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
+	if err != nil &&
+		// Secret will be not found if the consuming side has not yet
+		// received an update on the latest revision, so we force a refresh below.
+		!errors.Is(err, secreterrors.SecretConsumerNotFound) &&
+		!errors.Is(err, secreterrors.SecretNotFound) {
 		return nil, nil, false, errors.Trace(err)
 	}
 	var wantRevision int
@@ -996,7 +1001,11 @@ func accessorFromTag(tag names.Tag) (secretservice.SecretAccessor, error) {
 	}
 	switch kind := tag.Kind(); kind {
 	case names.ApplicationTagKind:
-		result.Kind = secretservice.ApplicationAccessor
+		if strings.HasPrefix(result.ID, "remote-") {
+			result.Kind = secretservice.RemoteApplicationAccessor
+		} else {
+			result.Kind = secretservice.ApplicationAccessor
+		}
 	case names.UnitTagKind:
 		result.Kind = secretservice.UnitAccessor
 	case names.ModelTagKind:

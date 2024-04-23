@@ -179,6 +179,14 @@ func (s *stateSuite) TestCreateUserSecretWithContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectModel,
+		SubjectID:     s.modelUUID,
+	}
+	access, err := st.GetSecretAccess(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, "manage")
 }
 
 func (s *stateSuite) TestCreateManyUserSecretsNoLabelClash(c *gc.C) {
@@ -489,6 +497,14 @@ func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+
+	ap := domainsecret.AccessParams{
+		SubjectID:     "mysql",
+		SubjectTypeID: domainsecret.SubjectApplication,
+	}
+	access, err := st.GetSecretAccess(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, "manage")
 }
 
 func (s *stateSuite) TestCreateCharmApplicationSecretNotFound(c *gc.C) {
@@ -525,6 +541,14 @@ func (s *stateSuite) TestCreateCharmUserSecretWithContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+
+	ap := domainsecret.AccessParams{
+		SubjectID:     "mysql/0",
+		SubjectTypeID: domainsecret.SubjectUnit,
+	}
+	access, err := st.GetSecretAccess(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, "manage")
 }
 
 func (s *stateSuite) TestCreateCharmUnitSecretNotFound(c *gc.C) {
@@ -1025,6 +1049,30 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
 	}
 
 	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, consumer)
+}
+
+// TestSaveSecretConsumerDifferentModelFirstTime is the same as
+// TestSaveSecretConsumerDifferentModel bu there's no remote revision
+// recorded yet.
+func (s *stateSuite) TestSaveSecretConsumerDifferentModelFirstTime(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	uri := coresecrets.NewURI().WithSource("some-other-model")
+
+	ctx := context.Background()
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 666,
+	}
+
+	err := st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
@@ -1769,4 +1817,400 @@ func (s *stateSuite) TestUpdateRemoteSecretRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	got = getLatest()
 	c.Assert(got, gc.Equals, 667)
+}
+
+func (s *stateSuite) TestGrantUnitAccess(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeUnit,
+		ScopeID:       "mysql/0",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: p.SubjectTypeID,
+		SubjectID:     p.SubjectID,
+	}
+	role, err := st.GetSecretAccess(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(role, gc.Equals, "view")
+}
+
+func (s *stateSuite) TestGetUnitGrantAccessScope(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeUnit,
+		ScopeID:       "mysql/0",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: p.SubjectTypeID,
+		SubjectID:     p.SubjectID,
+	}
+	scope, err := st.GetSecretAccessScope(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scope, jc.DeepEquals, &domainsecret.AccessScope{
+		ScopeTypeID: domainsecret.ScopeUnit,
+		ScopeID:     "mysql/0",
+	})
+}
+
+func (s *stateSuite) TestGrantApplicationAccess(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeApplication,
+		ScopeID:       "mysql",
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: p.SubjectTypeID,
+		SubjectID:     p.SubjectID,
+	}
+	role, err := st.GetSecretAccess(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(role, gc.Equals, "view")
+}
+
+func (s *stateSuite) TestGetApplicationGrantAccessScope(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeApplication,
+		ScopeID:       "mysql",
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: p.SubjectTypeID,
+		SubjectID:     p.SubjectID,
+	}
+	scope, err := st.GetSecretAccessScope(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scope, jc.DeepEquals, &domainsecret.AccessScope{
+		ScopeTypeID: domainsecret.ScopeApplication,
+		ScopeID:     "mysql",
+	})
+}
+
+func (s *stateSuite) TestGrantModelAccess(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeModel,
+		ScopeID:       s.modelUUID,
+		SubjectTypeID: domainsecret.SubjectModel,
+		SubjectID:     s.modelUUID,
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: p.SubjectTypeID,
+		SubjectID:     p.SubjectID,
+	}
+	role, err := st.GetSecretAccess(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(role, gc.Equals, "view")
+}
+
+func (s *stateSuite) TestGrantRelationScope(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/1",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: p.SubjectTypeID,
+		SubjectID:     p.SubjectID,
+	}
+	role, err := st.GetSecretAccess(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(role, gc.Equals, "view")
+}
+
+func (s *stateSuite) TestGetRelationGrantAccessScope(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/1",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: p.SubjectTypeID,
+		SubjectID:     p.SubjectID,
+	}
+	scope, err := st.GetSecretAccessScope(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scope, jc.DeepEquals, &domainsecret.AccessScope{
+		ScopeTypeID: domainsecret.ScopeRelation,
+		ScopeID:     "mysql:db mediawiki:db",
+	})
+}
+
+func (s *stateSuite) TestGrantAccessInvariantScope(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeUnit,
+		ScopeID:       "mysql/0",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	p.ScopeID = "mysql"
+	p.ScopeTypeID = domainsecret.ScopeApplication
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIs, secreterrors.InvalidSecretPermissionChange)
+}
+
+func (s *stateSuite) TestGrantSecretNotFound(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeUnit,
+		ScopeID:       "mysql/0",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err := st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *stateSuite) TestGrantUnitNotFound(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeUnit,
+		ScopeID:       "mysql/0",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/2",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+}
+
+func (s *stateSuite) TestGrantApplicationNotFound(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeUnit,
+		ScopeID:       "mysql/0",
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "postgresql",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestGrantScopeNotFound(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeUnit,
+		ScopeID:       "mysql/2",
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIs, uniterrors.NotFound)
+}
+
+func (s *stateSuite) TestGetAccessNoGrant(c *gc.C) {
+	st := newSecretState(s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ap := domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}
+	role, err := st.GetSecretAccess(ctx, uri, ap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(role, gc.Equals, "")
 }

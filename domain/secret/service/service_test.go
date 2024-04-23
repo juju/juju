@@ -397,6 +397,206 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c *gc.C)
 	c.Assert(got, gc.Equals, 666)
 }
 
+func (s *serviceSuite) TestGrantSecretUnitAccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeApplication,
+		ScopeID:       "mysql",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleManage,
+	}).Return(nil)
+
+	err := s.service().GrantSecretAccess(context.Background(), uri, SecretAccessParams{
+		LeaderToken: successfulToken{},
+		Scope: SecretAccessScope{
+			Kind: ApplicationAccessScope,
+			ID:   "mysql",
+		},
+		Subject: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mysql/0",
+		},
+		Role: "manage",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGrantSecretApplicationAccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeApplication,
+		ScopeID:       "mysql",
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+		RoleID:        domainsecret.RoleView,
+	}).Return(nil)
+
+	err := s.service().GrantSecretAccess(context.Background(), uri, SecretAccessParams{
+		LeaderToken: successfulToken{},
+		Scope: SecretAccessScope{
+			Kind: ApplicationAccessScope,
+			ID:   "mysql",
+		},
+		Subject: SecretAccessor{
+			Kind: ApplicationAccessor,
+			ID:   "mysql",
+		},
+		Role: "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGrantSecretModelAccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeModel,
+		SubjectTypeID: domainsecret.SubjectModel,
+		RoleID:        domainsecret.RoleManage,
+	}).Return(nil)
+
+	err := s.service().GrantSecretAccess(context.Background(), uri, SecretAccessParams{
+		LeaderToken: successfulToken{},
+		Scope: SecretAccessScope{
+			Kind: ModelAccessScope,
+		},
+		Subject: SecretAccessor{
+			Kind: ModelAccessor,
+		},
+		Role: "manage",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGrantSecretRelationScope(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+		RoleID:        domainsecret.RoleView,
+	}).Return(nil)
+
+	err := s.service().GrantSecretAccess(context.Background(), uri, SecretAccessParams{
+		LeaderToken: successfulToken{},
+		Scope: SecretAccessScope{
+			Kind: RelationAccessScope,
+			ID:   "mysql:db mediawiki:db",
+		},
+		Subject: SecretAccessor{
+			Kind: ApplicationAccessor,
+			ID:   "mysql",
+		},
+		Role: "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetSecretAccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}).Return("manage", nil)
+
+	role, err := s.service().GetSecretAccess(context.Background(), uri, SecretAccessor{
+		Kind: ApplicationAccessor,
+		ID:   "mysql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(role, gc.Equals, coresecrets.RoleManage)
+}
+
+func (s *serviceSuite) TestGetSecretAccessNone(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}).Return("", nil)
+
+	role, err := s.service().GetSecretAccess(context.Background(), uri, SecretAccessor{
+		Kind: ApplicationAccessor,
+		ID:   "mysql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(role, gc.Equals, coresecrets.RoleNone)
+}
+
+func (s *serviceSuite) TestGetSecretAccessApplicationScope(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccessScope(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}).Return(&domainsecret.AccessScope{
+		ScopeTypeID: domainsecret.ScopeApplication,
+		ScopeID:     "mysql",
+	}, nil)
+
+	scope, err := s.service().GetSecretAccessScope(context.Background(), uri, SecretAccessor{
+		Kind: ApplicationAccessor,
+		ID:   "mysql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scope, jc.DeepEquals, SecretAccessScope{
+		Kind: ApplicationAccessScope,
+		ID:   "mysql",
+	})
+}
+
+func (s *serviceSuite) TestGetSecretAccessRelationScope(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccessScope(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}).Return(&domainsecret.AccessScope{
+		ScopeTypeID: domainsecret.ScopeRelation,
+		ScopeID:     "mysql:db mediawiki:db",
+	}, nil)
+
+	scope, err := s.service().GetSecretAccessScope(context.Background(), uri, SecretAccessor{
+		Kind: ApplicationAccessor,
+		ID:   "mysql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scope, jc.DeepEquals, SecretAccessScope{
+		Kind: RelationAccessScope,
+		ID:   "mysql:db mediawiki:db",
+	})
+}
+
 /*
 // TODO(secrets) - tests copied from facade which need to be re-implemented here
 func (s *serviceSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {

@@ -53,9 +53,10 @@ type SecretAccessorKind string
 
 // These represent the kinds of secret accessor.
 const (
-	ApplicationAccessor SecretAccessorKind = "application"
-	UnitAccessor        SecretAccessorKind = "unit"
-	ModelAccessor       SecretAccessorKind = "model"
+	ApplicationAccessor       SecretAccessorKind = "application"
+	RemoteApplicationAccessor SecretAccessorKind = "remote-application"
+	UnitAccessor              SecretAccessorKind = "unit"
+	ModelAccessor             SecretAccessorKind = "model"
 )
 
 // SecretAccessor represents an entity that can access a secret.

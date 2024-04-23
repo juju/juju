@@ -113,6 +113,36 @@ func (mr *MockStateMockRecorder) GetSecret(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockState)(nil).GetSecret), arg0, arg1)
 }
 
+// GetSecretAccess mocks base method.
+func (m *MockState) GetSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.AccessParams) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretAccess", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretAccess indicates an expected call of GetSecretAccess.
+func (mr *MockStateMockRecorder) GetSecretAccess(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccess", reflect.TypeOf((*MockState)(nil).GetSecretAccess), arg0, arg1, arg2)
+}
+
+// GetSecretAccessScope mocks base method.
+func (m *MockState) GetSecretAccessScope(arg0 context.Context, arg1 *secrets.URI, arg2 secret.AccessParams) (*secret.AccessScope, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretAccessScope", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*secret.AccessScope)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretAccessScope indicates an expected call of GetSecretAccessScope.
+func (mr *MockStateMockRecorder) GetSecretAccessScope(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccessScope", reflect.TypeOf((*MockState)(nil).GetSecretAccessScope), arg0, arg1, arg2)
+}
+
 // GetSecretConsumer mocks base method.
 func (m *MockState) GetSecretConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string) (*secrets.SecretConsumerMetadata, int, error) {
 	m.ctrl.T.Helper()
@@ -204,6 +234,20 @@ func (m *MockState) GetUserSecretURIByLabel(arg0 context.Context, arg1 string) (
 func (mr *MockStateMockRecorder) GetUserSecretURIByLabel(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserSecretURIByLabel", reflect.TypeOf((*MockState)(nil).GetUserSecretURIByLabel), arg0, arg1)
+}
+
+// GrantAccess mocks base method.
+func (m *MockState) GrantAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.GrantParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GrantAccess", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GrantAccess indicates an expected call of GrantAccess.
+func (mr *MockStateMockRecorder) GrantAccess(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantAccess", reflect.TypeOf((*MockState)(nil).GrantAccess), arg0, arg1, arg2)
 }
 
 // ListCharmSecrets mocks base method.
