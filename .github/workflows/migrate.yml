@@ -126,7 +126,9 @@ jobs:
             if [[ -n $RES ]]; then
               break
             fi
-            juju status -m target-controller/test-migrate || true
+
+            juju status -m target-controller:test-migrate || true
+
             sleep 5
             attempt=$((attempt+1))
             if [ "$attempt" -eq 10 ]; then
@@ -145,7 +147,7 @@ jobs:
             fi
           done
 
-          juju status -m target-controller/test-migrate
+          juju status -m target-controller:test-migrate
 
           juju switch test-migrate
           juju wait-for application ubuntu

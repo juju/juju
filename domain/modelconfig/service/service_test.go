@@ -53,7 +53,7 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	st := testing.NewState()
 	defer st.Close()
 
-	svc := NewWatchableService(defaults, st, st)
+	svc := NewWatchableService(defaults, config.ModelValidator(), st, st)
 
 	s.PatchValue(&InitialNamespaceChanges, func(selectAll string) eventsource.NamespaceQuery {
 		c.Assert(selectAll, gc.Equals, st.AllKeysQuery())

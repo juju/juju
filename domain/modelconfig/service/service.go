@@ -55,16 +55,19 @@ type WatcherFactory interface {
 // Service defines the service for interacting with ModelConfig.
 type Service struct {
 	defaultsProvider ModelDefaultsProvider
+	modelValidator   config.Validator
 	st               State
 }
 
 // NewService creates a new ModelConfig service.
 func NewService(
 	defaultsProvider ModelDefaultsProvider,
+	modelValidator config.Validator,
 	st State,
 ) *Service {
 	return &Service{
 		defaultsProvider: defaultsProvider,
+		modelValidator:   modelValidator,
 		st:               st,
 	}
 }
@@ -95,16 +98,16 @@ func (s *Service) ModelConfigValues(
 		return config.ConfigValues{}, fmt.Errorf("getting model defaults: %w", err)
 	}
 
-	allAtrs := cfg.AllAttrs()
-	if len(allAtrs) == 0 {
-		allAtrs = map[string]any{}
+	allAttrs := cfg.AllAttrs()
+	if len(allAttrs) == 0 {
+		allAttrs = map[string]any{}
 		for k, v := range defaults {
-			allAtrs[k] = v.Value
+			allAttrs[k] = v.Value
 		}
 	}
 
-	result := make(config.ConfigValues, len(allAtrs))
-	for attr, val := range allAtrs {
+	result := make(config.ConfigValues, len(allAttrs))
+	for attr, val := range allAttrs {
 		isDefault, source := defaults[attr].Has(val)
 		if !isDefault {
 			source = config.JujuModelConfigSource
@@ -199,7 +202,7 @@ func (s *Service) SetModelConfig(
 		return fmt.Errorf("constructing new model config with model defaults: %w", err)
 	}
 
-	_, err = config.ModelValidator().Validate(setCfg, nil)
+	_, err = s.modelValidator.Validate(setCfg, nil)
 	if err != nil {
 		return fmt.Errorf("validating model config to set for model: %w", err)
 	}
@@ -290,7 +293,7 @@ func (s *Service) updateModelConfigValidator(
 ) config.Validator {
 	agg := &config.AggregateValidator{
 		Validators: []config.Validator{
-			config.ModelValidator(),
+			s.modelValidator,
 			validators.CharmhubURLChange(),
 			validators.SpaceChecker(&dummySpaceProvider{}),
 			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
@@ -311,12 +314,14 @@ type WatchableService struct {
 // ModelConfig and the ability to create watchers.
 func NewWatchableService(
 	defaultsProvider ModelDefaultsProvider,
+	modelValidator config.Validator,
 	st State,
 	watcherFactory WatcherFactory,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			defaultsProvider: defaultsProvider,
+			modelValidator:   modelValidator,
 			st:               st,
 		},
 		watcherFactory: watcherFactory,

@@ -30,6 +30,7 @@ import (
 	storagestate "github.com/juju/juju/domain/storage/state"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	unitstate "github.com/juju/juju/domain/unit/state"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -65,6 +66,7 @@ func (s *ModelFactory) Config(
 ) *modelconfigservice.WatchableService {
 	return modelconfigservice.NewWatchableService(
 		defaultsProvider,
+		config.ModelValidator(),
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),
 	)
