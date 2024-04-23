@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   migrate:
-    name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
+    name: migrate from ${{ matrix.channel }} client
     timeout-minutes: 30
     runs-on: [self-hosted, linux, arm64, aws, xlarge]
     if: github.event.pull_request.draft == false
@@ -28,8 +28,7 @@ jobs:
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        channel: ["local", "3.1/stable"]
-        client: ['source', 'target']
+        channel: ["local", "3.5/stable"]
 
     steps:
       - name: Checkout code
@@ -97,7 +96,7 @@ jobs:
         run: |
           # Determine which Juju client to use
           JUJU='juju'
-          if [[ ${{ matrix.channel }} != 'local' && ${{ matrix.client }} == 'source' ]]; then
+          if [[ ${{ matrix.channel }} != 'local' ]]; then
             JUJU='/snap/bin/juju'
           fi
 
@@ -119,7 +118,6 @@ jobs:
         run: |
           set -x
           juju switch target-controller
-          juju status -m target-controller/test-migrate
 
           # Wait for 'test-migrate' model to come through
           attempt=0
@@ -128,14 +126,26 @@ jobs:
             if [[ -n $RES ]]; then
               break
             fi
-            juju status
+            juju status -m target-controller/test-migrate || true
             sleep 5
             attempt=$((attempt+1))
             if [ "$attempt" -eq 10 ]; then
               echo "Migration timed out"
+              echo "-------------------"
+
+              echo " - Migration source controller logs"
+              juju switch source-controller
+              juju debug-log -m controller || true
+
+              echo " - Migration target controller logs"
+              juju switch target-controller
+              juju debug-log -m controller || true
+
               exit 1
             fi
           done
+
+          juju status -m target-controller/test-migrate
 
           juju switch test-migrate
           juju wait-for application ubuntu
