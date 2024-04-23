@@ -181,6 +181,18 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		)
 	}
 
+	// NOTE: If we add any more steps to the import operation, we should
+	// consider adding a rollback operation to undo the changes made by the
+	// import operation.
+
+	// finaliser needs to be called as the last operation to say that we are
+	// happy that the model is ready to rock and roll.
+	if err := finaliser(ctx); err != nil {
+		return fmt.Errorf(
+			"finalising imported model %q with uuid %q: %w", modelName, uuid, err,
+		)
+	}
+
 	// When importing a model, we need to move the model from the prior
 	// controller to the current controller. This is done, during the import
 	// operation, so it never changes once the model is up and running.
@@ -200,18 +212,6 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
 			modelName, uuid, err,
-		)
-	}
-
-	// NOTE: If we add any more steps to the import operation, we should
-	// consider adding a rollback operation to undo the changes made by the
-	// import operation.
-
-	// finaliser needs to be called as the last operation to say that we are
-	// happy that the model is ready to rock and roll.
-	if err := finaliser(ctx); err != nil {
-		return fmt.Errorf(
-			"finalising imported model %q with uuid %q: %w", modelName, uuid, err,
 		)
 	}
 

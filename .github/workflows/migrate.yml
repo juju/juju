@@ -28,7 +28,7 @@ jobs:
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        channel: ["3.1/stable"]
+        channel: ["local", "3.1/stable"]
         client: ['source', 'target']
 
     steps:
@@ -58,12 +58,18 @@ jobs:
             sleep 10
           done
 
+      - name: Build local juju client
+        run: |
+          make juju jujud jujud-controller &>/dev/null
+
       - name: Install Juju ${{ matrix.channel }}
+        if: matrix.channel != "local"
         run: |
           mkdir -p ~/.local/share/juju
           sudo snap install juju --channel ${{ matrix.channel }}
 
-      - name: Bootstrap a ${{ matrix.channel }} controller and model
+      - name: Bootstrap a ${{ matrix.channel }} source controller and model
+        if: matrix.channel != "local"
         run: |
           /snap/bin/juju version
           /snap/bin/juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
@@ -71,9 +77,14 @@ jobs:
           /snap/bin/juju set-model-constraints arch=$(go env GOARCH)
           /snap/bin/juju deploy ubuntu
 
-      - name: Install target juju client
+      - name: Bootstrap a ${{ matrix.channel }} source controller and model
+        if: matrix.channel == "local"
         run: |
-          make juju jujud &>/dev/null
+          juju version
+          juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
+          juju add-model test-migrate
+          juju set-model-constraints arch=$(go env GOARCH)
+          juju deploy ubuntu
 
       - name: Bootstrap target controller
         run: |
@@ -86,7 +97,7 @@ jobs:
         run: |
           # Determine which Juju client to use
           JUJU='juju'
-          if [[ ${{ matrix.client }} == 'source' ]]; then
+          if [[ ${{ matrix.channel }} != 'local' && ${{ matrix.client }} == 'source' ]]; then
             JUJU='/snap/bin/juju'
           fi
 
