@@ -15,7 +15,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -941,11 +943,14 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	mockStringWatcher.EXPECT().Kill().AnyTimes()
 
+	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
+		return []string{"revision-uuid-1", "revision-uuid-2"}, nil
+	}
 	s.state.EXPECT().InitialWatchStatementForObsoleteRevision(gomock.Any(),
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return("table", "stmt")
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Update, "stmt").Return(mockStringWatcher, nil)
+	).Return("table", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Update, gomock.Any()).Return(mockStringWatcher, nil)
 
 	gomock.InOrder(
 		s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(),

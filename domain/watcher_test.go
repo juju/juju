@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/watcher/eventsource"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -81,7 +82,10 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *gc.C) {
 		}, nil
 	}, nil)
 
-	w, err := factory.NewNamespaceWatcher("some-namespace", changestream.All, "SELECT uuid from some_namespace")
+	w, err := factory.NewNamespaceWatcher(
+		"some-namespace", changestream.All,
+		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -113,9 +117,12 @@ func (s *watcherSuite) TestNewNamespacePredicateWatcherSuccess(c *gc.C) {
 		}, nil
 	}, nil)
 
-	w, err := factory.NewNamespacePredicateWatcher("some-namespace", changestream.All, "SELECT uuid from some_namespace", func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) (bool, error) {
-		return true, nil
-	})
+	w, err := factory.NewNamespacePredicateWatcher(
+		"some-namespace", changestream.All,
+		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
+		func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) (bool, error) {
+			return true, nil
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

@@ -73,9 +73,9 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	}
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	table, stmt := s.st.InitialWatchStatementForObsoleteRevision(ctx, appOwners, unitOwners)
+	table, query := s.st.InitialWatchStatementForObsoleteRevision(ctx, appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.Update, stmt,
+		table, changestream.Update, query,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

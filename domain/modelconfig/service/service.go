@@ -328,6 +328,6 @@ func NewWatchableService(
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher(
 		"model_config", changestream.All,
-		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
+		InitialNamespaceChanges(s.st.AllKeysQuery()),
 	)
 }
