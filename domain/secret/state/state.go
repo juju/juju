@@ -12,8 +12,10 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -2274,147 +2276,6 @@ AND    subject_id = $secretAccessor.subject_id
 		ScopeTypeID: result.ScopeTypeID,
 		ScopeID:     result.ScopeID,
 	}, nil
-
-}
-
-// InitialWatchStatementForObsolete returns the initial watch statement and the table name for watching obsolete revisions.
-func (st State) InitialWatchStatementForObsoleteRevision(
-	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-) (string, string) {
-	tableName := "secret_revision"
-
-	// The condition is empty because we want to watch all obsolete revisions.
-	if len(appOwners) == 0 && len(unitOwners) == 0 {
-		return tableName, `
-SELECT uuid
-FROM secret_revision
-WHERE obsolete = true`[1:]
-	}
-
-	if len(unitOwners) > 0 && len(appOwners) > 0 {
-		return tableName, fmt.Sprintf(`
-SELECT sr.uuid
-FROM secret_revision sr
-LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-LEFT JOIN application ON application.uuid = sao.application_uuid
-LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-LEFT JOIN unit ON unit.uuid = suo.unit_uuid
-WHERE sr.obsolete = true
-AND (
-    sao.application_uuid IS NOT NULL AND application.name IN ('%s')
-    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('%s')
-)`[1:],
-			strings.Join(appOwners, "','"), strings.Join(unitOwners, "','"))
-	}
-
-	if len(appOwners) > 0 {
-		return tableName, fmt.Sprintf(`
-SELECT sr.uuid
-FROM secret_revision sr
-LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-LEFT JOIN application ON application.uuid = sao.application_uuid
-WHERE sr.obsolete = true
-AND (sao.application_uuid IS NOT NULL AND application.name IN ('%s'))`[1:],
-			strings.Join(appOwners, "','"))
-	}
-
-	return tableName, fmt.Sprintf(`
-SELECT sr.uuid
-FROM secret_revision sr
-LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-LEFT JOIN unit ON unit.uuid = suo.unit_uuid
-WHERE sr.obsolete = true
-AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('%s')`[1:],
-		strings.Join(unitOwners, "','"))
-}
-
-type obsoleteRevisionUUIDs []string
-
-// GetRevisionIDsForObsolete filters the revision IDs that are obsolete and owned by the specified owners.
-// Either revisionUUIDs, appOwners, or unitOwners must be specified.
-func (st State) GetRevisionIDsForObsolete(
-	ctx context.Context,
-	appOwners domainsecret.ApplicationOwners,
-	unitOwners domainsecret.UnitOwners,
-	revisionUUIDs ...string,
-) ([]string, error) {
-	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
-		return nil, nil
-	}
-
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	q := `
-SELECT 
-    (sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)
-FROM secret_revision sr`
-
-	var queryParams []any
-	var joins []string
-	conditions := []string{
-		"sr.obsolete = true",
-	}
-	if len(revisionUUIDs) > 0 {
-		queryParams = append(queryParams, obsoleteRevisionUUIDs(revisionUUIDs))
-		conditions = append(conditions, "AND sr.uuid IN ($obsoleteRevisionUUIDs[:])")
-	}
-	if len(appOwners) > 0 && len(unitOwners) > 0 {
-		queryParams = append(queryParams, appOwners, unitOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
-			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
-			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
-			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
-		)
-		conditions = append(conditions, `AND (
-    sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
-    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
-)`)
-	} else if len(appOwners) > 0 {
-		queryParams = append(queryParams, appOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
-			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
-		)
-		conditions = append(conditions, "AND sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
-	} else if len(unitOwners) > 0 {
-		queryParams = append(queryParams, unitOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
-			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
-		)
-		conditions = append(conditions, "AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
-	}
-	if len(joins) > 0 {
-		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
-	}
-	if len(conditions) > 0 {
-		q += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, "\n"))
-	}
-	st.logger.Tracef(
-		"revisionUUIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
-		revisionUUIDs, appOwners, unitOwners, q,
-	)
-	stmt, err := st.Prepare(q, append([]any{obsoleteRevisionRow{}}, queryParams...)...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var rows obsoleteRevisionRows
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, queryParams...).GetAll(&rows)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// It's ok, the revisions probably have already been pruned.
-			return nil
-		}
-		return errors.Trace(err)
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return rows.toRevIDs(), nil
 }
 
 // GetSecretGrants returns the subjects which have the specified access to the secret.
@@ -2469,4 +2330,132 @@ AND    subject_type_id != $M.remote_application_type`
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
 	return accessors.toSecretGrants(accessScopes)
+}
+
+// InitialWatchStatementForObsolete returns the initial watch statement and the table name for watching obsolete revisions.
+func (st State) InitialWatchStatementForObsoleteRevision(
+	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		var revisions []secretRevision
+		if err := st.getRevisionForObsolete(
+			ctx, runner, "sr.uuid AS &secretRevision.uuid", secretRevision{}, &revisions,
+			appOwners, unitOwners,
+		); err != nil {
+			return nil, errors.Trace(err)
+		}
+		revUUIDs := make([]string, len(revisions))
+		for i, rev := range revisions {
+			revUUIDs[i] = rev.ID
+		}
+		return revUUIDs, nil
+	}
+	return "secret_revision", queryFunc
+}
+
+type obsoleteRevisionUUIDs []string
+
+// GetRevisionIDsForObsolete filters the revision IDs that are obsolete and owned by the specified owners.
+// Either revisionUUIDs, appOwners, or unitOwners must be specified.
+func (st State) GetRevisionIDsForObsolete(
+	ctx context.Context,
+	appOwners domainsecret.ApplicationOwners,
+	unitOwners domainsecret.UnitOwners,
+	revisionUUIDs ...string,
+) ([]string, error) {
+	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, nil
+	}
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var rows obsoleteRevisionRows
+	if err := st.getRevisionForObsolete(
+		ctx, db,
+		"(sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)", obsoleteRevisionRow{}, &rows,
+		appOwners, unitOwners, revisionUUIDs...,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rows.toRevIDs(), nil
+}
+
+func (st State) getRevisionForObsolete(
+	ctx context.Context, runner coredatabase.TxnRunner,
+	selectStmt string,
+	outputType, result any,
+	appOwners domainsecret.ApplicationOwners,
+	unitOwners domainsecret.UnitOwners,
+	revisionUUIDs ...string,
+) error {
+	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil
+	}
+
+	q := fmt.Sprintf(`
+SELECT 
+    %s
+FROM secret_revision sr`, selectStmt)
+
+	var queryParams []any
+	var joins []string
+	conditions := []string{
+		"sr.obsolete = true",
+	}
+	if len(revisionUUIDs) > 0 {
+		queryParams = append(queryParams, obsoleteRevisionUUIDs(revisionUUIDs))
+		conditions = append(conditions, "AND sr.uuid IN ($obsoleteRevisionUUIDs[:])")
+	}
+	if len(appOwners) > 0 && len(unitOwners) > 0 {
+		queryParams = append(queryParams, appOwners, unitOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
+			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
+			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		)
+		conditions = append(conditions, `AND (
+    sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
+    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
+)`)
+	} else if len(appOwners) > 0 {
+		queryParams = append(queryParams, appOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
+			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+		)
+		conditions = append(conditions, "AND sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
+	} else if len(unitOwners) > 0 {
+		queryParams = append(queryParams, unitOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
+			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		)
+		conditions = append(conditions, "AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
+	}
+	if len(joins) > 0 {
+		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
+	}
+	if len(conditions) > 0 {
+		q += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, "\n"))
+	}
+	st.logger.Tracef(
+		"revisionUUIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
+		revisionUUIDs, appOwners, unitOwners, q,
+	)
+	stmt, err := st.Prepare(q, append([]any{outputType}, queryParams...)...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryParams...).GetAll(result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// It's ok, the revisions probably have already been pruned.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	return errors.Trace(err)
 }

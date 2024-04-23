@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
@@ -18,7 +19,7 @@ import (
 // needs to be consumed from the watcher before the next lot of data is placed
 // to avoid a single goroutine lock.
 type NamespaceWatcherFactory struct {
-	InitialStateFunc func(string) ([]string, error)
+	InitialStateFunc func() ([]string, error)
 	WatcherChans     map[string]chan []string
 }
 
@@ -57,7 +58,7 @@ func (f *NamespaceWatcherFactory) FeedChange(
 func (f *NamespaceWatcherFactory) NewNamespaceWatcher(
 	namespace string,
 	changeMask changestream.ChangeType,
-	initialStateQuery string,
+	initialStateQuery eventsource.NamespaceQuery,
 ) (watcher.StringsWatcher, error) {
 	ch, exists := f.WatcherChans[namespace]
 	if !exists {
@@ -65,7 +66,7 @@ func (f *NamespaceWatcherFactory) NewNamespaceWatcher(
 		ch = f.WatcherChans[namespace]
 	}
 	if f.InitialStateFunc != nil {
-		state, err := f.InitialStateFunc(initialStateQuery)
+		state, err := f.InitialStateFunc()
 		if err != nil {
 			return nil, fmt.Errorf("fetching initial state for watcher: %w", err)
 		}
@@ -77,7 +78,7 @@ func (f *NamespaceWatcherFactory) NewNamespaceWatcher(
 // NewNamespaceWatcherFactory constructs a new NamespaceWatchFactory with a func
 // that can provide initial state into newly minted watchers. initial func can
 // be nil in which cash no initial state will be supplied to watchers.
-func NewNamespaceWatcherFactory(initial func(string) ([]string, error)) *NamespaceWatcherFactory {
+func NewNamespaceWatcherFactory(initial func() ([]string, error)) *NamespaceWatcherFactory {
 	return &NamespaceWatcherFactory{
 		InitialStateFunc: initial,
 		WatcherChans:     map[string]chan []string{},

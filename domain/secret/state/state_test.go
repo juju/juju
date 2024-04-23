@@ -2452,102 +2452,20 @@ func (s *stateSuite) prepareSecretObsoleteRevisions(c *gc.C, st *State) (
 	return uri1, uri2, uri3, uri4
 }
 
-func assertRevUUIDsForSuppliedQuery(c *gc.C, db *sql.DB, query string, expected []string) {
-	rows, err := db.Query(query)
+func (s *stateSuite) TestInitialWatchStatementForObsoleteRevision(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	uri1, uri2, uri3, uri4 := s.prepareSecretObsoleteRevisions(c, st)
+	ctx := context.Background()
+
+	tableName, f := st.InitialWatchStatementForObsoleteRevision(ctx,
+		[]string{"mysql", "mediawiki"},
+		[]string{"mysql/0", "mediawiki/0"},
+	)
+	c.Assert(tableName, gc.Equals, "secret_revision")
+	revisionUUIDs, err := f(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
-	defer rows.Close()
-	var revUUIDs []string
-	for rows.Next() {
-		var revUUID string
-		err := rows.Scan(&revUUID)
-		c.Check(err, jc.ErrorIsNil)
-		revUUIDs = append(revUUIDs, revUUID)
-	}
-	c.Check(revUUIDs, jc.SameContents, expected)
-}
-
-func (s *stateSuite) TestInitialWatchStatementForObsoleteRevisionWithBothAppAndUnitOwners(c *gc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	uri1, uri2, uri3, uri4 := s.prepareSecretObsoleteRevisions(c, st)
-	tableName, q := st.InitialWatchStatementForObsoleteRevision(context.Background(),
-		[]string{"mysql", "mediawiki"},
-		[]string{"mysql/0", "mediawiki/0"},
-	)
-	c.Check(tableName, gc.Equals, "secret_revision")
-	c.Check(q, gc.DeepEquals, `
-SELECT sr.uuid
-FROM secret_revision sr
-LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-LEFT JOIN application ON application.uuid = sao.application_uuid
-LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-LEFT JOIN unit ON unit.uuid = suo.unit_uuid
-WHERE sr.obsolete = true
-AND (
-    sao.application_uuid IS NOT NULL AND application.name IN ('mysql','mediawiki')
-    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('mysql/0','mediawiki/0')
-)`[1:])
-
-	assertRevUUIDsForSuppliedQuery(c, s.DB(), q, []string{
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri2, 1),
-		getRevUUID(c, s.DB(), uri3, 1),
-		getRevUUID(c, s.DB(), uri4, 1),
-	})
-}
-
-func (s *stateSuite) TestInitialWatchStatementForObsoleteRevisionWithAppOwners(c *gc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	uri1, _, uri3, _ := s.prepareSecretObsoleteRevisions(c, st)
-	tableName, q := st.InitialWatchStatementForObsoleteRevision(context.Background(),
-		[]string{"mysql", "mediawiki"},
-		nil,
-	)
-	c.Check(tableName, gc.Equals, "secret_revision")
-	c.Check(q, gc.DeepEquals, `
-SELECT sr.uuid
-FROM secret_revision sr
-LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
-LEFT JOIN application ON application.uuid = sao.application_uuid
-WHERE sr.obsolete = true
-AND (sao.application_uuid IS NOT NULL AND application.name IN ('mysql','mediawiki'))`[1:])
-	assertRevUUIDsForSuppliedQuery(c, s.DB(), q, []string{
-		getRevUUID(c, s.DB(), uri1, 1),
-		getRevUUID(c, s.DB(), uri3, 1),
-	})
-}
-
-func (s *stateSuite) TestInitialWatchStatementForObsoleteRevisionWithUnitOwners(c *gc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	_, uri2, _, uri4 := s.prepareSecretObsoleteRevisions(c, st)
-	tableName, q := st.InitialWatchStatementForObsoleteRevision(context.Background(),
-		nil,
-		[]string{"mysql/0", "mediawiki/0"},
-	)
-	c.Check(tableName, gc.Equals, "secret_revision")
-	c.Logf("q: \n%q", q)
-	c.Check(q, gc.DeepEquals, `
-SELECT sr.uuid
-FROM secret_revision sr
-LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
-LEFT JOIN unit ON unit.uuid = suo.unit_uuid
-WHERE sr.obsolete = true
-AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ('mysql/0','mediawiki/0')`[1:])
-	assertRevUUIDsForSuppliedQuery(c, s.DB(), q, []string{
-		getRevUUID(c, s.DB(), uri2, 1),
-		getRevUUID(c, s.DB(), uri4, 1),
-	})
-}
-
-func (s *stateSuite) TestInitialWatchStatementForObsoleteRevisionWithNoOwners(c *gc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-	uri1, uri2, uri3, uri4 := s.prepareSecretObsoleteRevisions(c, st)
-	tableName, q := st.InitialWatchStatementForObsoleteRevision(context.Background(), nil, nil)
-	c.Check(tableName, gc.Equals, "secret_revision")
-	c.Check(q, gc.DeepEquals, `
-SELECT uuid
-FROM secret_revision
-WHERE obsolete = true`[1:])
-	assertRevUUIDsForSuppliedQuery(c, s.DB(), q, []string{
+	c.Assert(revisionUUIDs, jc.SameContents, []string{
 		getRevUUID(c, s.DB(), uri1, 1),
 		getRevUUID(c, s.DB(), uri2, 1),
 		getRevUUID(c, s.DB(), uri3, 1),

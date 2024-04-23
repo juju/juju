@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	secrets "github.com/juju/juju/core/secrets"
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	secret "github.com/juju/juju/domain/secret"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -286,11 +287,11 @@ func (mr *MockStateMockRecorder) GrantAccess(arg0, arg1, arg2 any) *gomock.Call 
 }
 
 // InitialWatchStatementForObsoleteRevision mocks base method.
-func (m *MockState) InitialWatchStatementForObsoleteRevision(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners) (string, string) {
+func (m *MockState) InitialWatchStatementForObsoleteRevision(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementForObsoleteRevision", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
 	return ret0, ret1
 }
 

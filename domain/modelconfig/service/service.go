@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/modelconfig/validators"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
@@ -48,7 +49,7 @@ type State interface {
 type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
 }
 
 // Service defines the service for interacting with ModelConfig.
@@ -325,5 +326,8 @@ func NewWatchableService(
 // Watch returns a watcher that returns keys for any changes to model
 // config.
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewNamespaceWatcher("model_config", changestream.All, s.st.AllKeysQuery())
+	return s.watcherFactory.NewNamespaceWatcher(
+		"model_config", changestream.All,
+		InitialNamespaceChanges(s.st.AllKeysQuery()),
+	)
 }

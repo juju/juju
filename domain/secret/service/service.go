@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -52,7 +53,7 @@ type State interface {
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantParams, error)
 	InitialWatchStatementForObsoleteRevision(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) (tableName string, statement string)
+	) (tableName string, statement eventsource.NamespaceQuery)
 	GetRevisionIDsForObsolete(
 		ctx context.Context,
 		appOwners domainsecret.ApplicationOwners,
@@ -65,7 +66,7 @@ type State interface {
 type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
 }
 
 // Logger facilitates emitting log messages.

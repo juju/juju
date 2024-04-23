@@ -19,6 +19,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
@@ -604,10 +605,13 @@ func newWatchableService(
 	}
 }
 
+// It's for testing.
+var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
+
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
 func (s *WatchableService) WatchSecretBackendRotationChanges() (watcher.SecretBackendRotateWatcher, error) {
 	tableName, initialQ := s.st.InitialWatchStatement()
-	w, err := s.watcherFactory.NewNamespaceWatcher(tableName, changestream.All, initialQ)
+	w, err := s.watcherFactory.NewNamespaceWatcher(tableName, changestream.All, InitialNamespaceChanges(initialQ))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
