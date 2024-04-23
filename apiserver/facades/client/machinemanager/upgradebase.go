@@ -310,7 +310,7 @@ func makeUpgradeSeriesValidator(client CharmhubClient) upgradeSeriesValidator {
 }
 
 func baseFromParams(machineTag string, base state.Base, channel string) (corebase.Base, error) {
-	if base.OS != "ubuntu" {
+	if base.OS != corebase.UbuntuOS {
 		return corebase.Base{}, errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
 			machineTag, base.OS)
 	}
@@ -327,7 +327,7 @@ func (s upgradeSeriesValidator) ValidateBase(requestedBase, machineBase corebase
 		return errors.BadRequestf("base missing from args")
 	}
 
-	if requestedBase.OS != "ubuntu" {
+	if requestedBase.OS != corebase.UbuntuOS {
 		return errors.Errorf("base %q is not a valid upgrade target", requestedBase)
 	}
 
