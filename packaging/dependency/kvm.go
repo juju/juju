@@ -22,7 +22,7 @@ type kvmDependency struct {
 
 // PackageList implements packaging.Dependency.
 func (dep kvmDependency) PackageList(b base.Base) ([]packaging.Package, error) {
-	if b.OS != ubuntu {
+	if b.OS != base.UbuntuOS {
 		return nil, errors.NotSupportedf("installing kvm on base %q", b)
 	}
 

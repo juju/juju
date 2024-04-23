@@ -386,7 +386,7 @@ func bootstrapIAAS(
 	if !args.Force && err != nil {
 		// If the base isn't valid (i.e. non-ubuntu) then don't prompt users to use
 		// the --force flag.
-		if requestedBootstrapBase.OS != "ubuntu" {
+		if requestedBootstrapBase.OS != corebase.UbuntuOS {
 			return errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
 		}
 		return errors.Annotatef(err, "use --force to override")
