@@ -64,25 +64,3 @@ func seriesToBase(requestedBase Base, fn func(string) (set.Strings, error)) ([]B
 	})
 	return results, nil
 }
-
-// BaseSeriesVersion returns the series version for the given base.
-// TODO(stickupkid): The underlying series version should be a base, until that
-// logic has changes, just convert between base and series.
-func BaseSeriesVersion(base Base) (string, error) {
-	s, err := GetSeriesFromBase(base)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return SeriesVersion(s)
-}
-
-// UbuntuBaseVersion returns the series version for the given base.
-// TODO(stickupkid): The underlying series version should be a base, until that
-// logic has changes, just convert between base and series.
-func UbuntuBaseVersion(base Base) (string, error) {
-	s, err := GetSeriesFromBase(base)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return UbuntuSeriesVersion(s)
-}
