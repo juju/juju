@@ -539,7 +539,7 @@ func (a *MachineAgent) makeEngineCreator(
 
 		// Create a single HTTP client so we can reuse HTTP connections, for
 		// example across the various Charmhub API requests required for deploy.
-		charmhubLogger := loggo.GetLoggerWithTags("juju.charmhub", corelogger.CHARMHUB).WithLabels(loggo.Labels{"foo": "bar"})
+		charmhubLogger := loggo.GetLoggerWithTags("juju.charmhub", corelogger.CHARMHUB)
 		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhub.LoggoLoggerFactory(charmhubLogger))
 
 		s3Logger := loggo.GetLoggerWithTags("juju.objectstore.s3", corelogger.OBJECTSTORE)
