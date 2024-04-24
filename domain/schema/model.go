@@ -25,6 +25,7 @@ const (
 	tableSecretRevisionExpire
 	tableSubnet
 	tableSubnetAssociation
+	tableSecretUnitConsumer
 )
 
 // ModelDDL is used to create model databases.
@@ -61,6 +62,7 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTable("secret_rotation", "secret_id", tableSecretRotation),
 		changeLogTriggersForTable("secret_revision", "uuid", tableSecretRevisionObsolete),
 		changeLogTriggersForTable("secret_revision_expire", "revision_uuid", tableSecretRevisionExpire),
+		changeLogTriggersForTableOnColumn("secret_unit_consumer", "secret_id", "current_revision", tableSecretUnitConsumer),
 		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretAutoPrune),
 		changeLogTriggersForTable(
 			"subnet", "uuid", tableSubnet),
