@@ -113,10 +113,10 @@ func BootstrapInstance(
 		config.PreferredBase(env.Config()),
 	)
 	if !args.Force && err != nil {
-		// If the base isn't valid at all, then don't prompt users to use
+		// If the base isn't valid (i.e. non-ubuntu) then don't prompt users to use
 		// the --force flag.
-		if _, err := corebase.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
-			return nil, nil, nil, errors.NotValidf("base %q", requestedBootstrapBase.String())
+		if requestedBootstrapBase.OS != corebase.UbuntuOS {
+			return nil, nil, nil, errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
 		}
 		return nil, nil, nil, errors.Annotatef(err, "use --force to override")
 	}
@@ -133,14 +133,10 @@ func BootstrapInstance(
 		return nil, nil, nil, err
 	}
 
-	// Filter image metadata to the selected series.
+	// Filter image metadata to the selected base.
 	var imageMetadata []*imagemetadata.ImageMetadata
-	seriesVersion, err := corebase.BaseSeriesVersion(requestedBootstrapBase)
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
 	for _, m := range args.ImageMetadata {
-		if m.Version != seriesVersion {
+		if m.Version != requestedBootstrapBase.Channel.Track {
 			continue
 		}
 		imageMetadata = append(imageMetadata, m)
