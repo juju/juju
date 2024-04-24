@@ -12,7 +12,7 @@ package migrations
 import (
 	reflect "reflect"
 
-	description "github.com/juju/description/v5"
+	description "github.com/juju/description/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

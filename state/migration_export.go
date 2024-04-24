@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo/v2"
@@ -21,7 +21,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
@@ -188,12 +187,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		return nil, errors.Trace(err)
 	}
 	if err := export.relationNetworks(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := export.spaces(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := export.subnets(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.ipAddresses(); err != nil {
@@ -1413,30 +1406,6 @@ func (s relationNetworksShim) AllRelationNetworks() ([]migrations.MigrationRelat
 	return result, nil
 }
 
-func (e *exporter) spaces() error {
-	spaces, err := e.st.AllSpaces()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf("read %d spaces", len(spaces))
-
-	for _, space := range spaces {
-		// We do not export the alpha space because it is created by default
-		// with the new model. This is OK, because it is immutable.
-		// Any subnets added to the space will still be exported.
-		if space.Id() == network.AlphaSpaceId {
-			continue
-		}
-
-		e.model.AddSpace(description.SpaceArgs{
-			Id:         space.Id(),
-			Name:       space.Name(),
-			ProviderID: string(space.ProviderId()),
-		})
-	}
-	return nil
-}
-
 func (e *exporter) linklayerdevices() error {
 	if e.cfg.SkipLinkLayerDevices {
 		return nil
@@ -1459,30 +1428,6 @@ func (e *exporter) linklayerdevices() error {
 			ParentName:      device.ParentName(),
 			VirtualPortType: string(device.VirtualPortType()),
 		})
-	}
-	return nil
-}
-
-func (e *exporter) subnets() error {
-	subnets, err := e.st.AllSubnets()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf("read %d subnets", len(subnets))
-
-	for _, subnet := range subnets {
-		args := description.SubnetArgs{
-			ID:                subnet.ID(),
-			CIDR:              subnet.CIDR(),
-			ProviderId:        string(subnet.ProviderId()),
-			ProviderNetworkId: string(subnet.ProviderNetworkId()),
-			VLANTag:           subnet.VLANTag(),
-			SpaceID:           subnet.SpaceID(),
-			AvailabilityZones: subnet.AvailabilityZones(),
-			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
-			FanOverlay:        subnet.FanOverlay(),
-		}
-		e.model.AddSubnet(args)
 	}
 	return nil
 }

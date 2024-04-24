@@ -13,7 +13,7 @@ import (
 	"os"
 
 	"github.com/juju/charm/v13"
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
@@ -104,7 +104,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 		return nil, errors.Trace(err)
 	}
 	coordinator := modelmigration.NewCoordinator()
-	migrations.ExportOperations(coordinator, registry)
+	migrations.ExportOperations(coordinator, registry, logger)
 	if err := coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}

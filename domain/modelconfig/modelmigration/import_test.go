@@ -6,7 +6,7 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

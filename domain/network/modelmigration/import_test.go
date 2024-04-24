@@ -1,0 +1,151 @@
+// Copyright 2024 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package modelmigration
+
+import (
+	"context"
+
+	"github.com/juju/description/v6"
+	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/network"
+)
+
+type importSuite struct {
+	coordinator   *MockCoordinator
+	importService *MockImportService
+}
+
+var _ = gc.Suite(&importSuite{})
+
+func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.coordinator = NewMockCoordinator(ctrl)
+	s.importService = NewMockImportService(ctrl)
+
+	return ctrl
+}
+
+func (s *importSuite) newImportOperation() *importOperation {
+	return &importOperation{
+		importService: s.importService,
+	}
+}
+
+func (s *importSuite) TestImportSubnetWithoutSpaces(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddSubnet(description.SubnetArgs{
+		ID:                "previousID",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "subnet-provider-id",
+		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+		FanLocalUnderlay:  "192.168.0.0/12",
+		FanOverlay:        "10.0.0.0/8",
+	})
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "subnet-provider-id",
+		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+		FanInfo: &network.FanCIDRs{
+			FanLocalUnderlay: "192.168.0.0/12",
+			FanOverlay:       "10.0.0.0/8",
+		},
+	})
+
+	op := s.newImportOperation()
+	err := op.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddSubnet(description.SubnetArgs{
+		ID:                "previous-subnet-id",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "subnet-provider-id",
+		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+	})
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "subnet-provider-id",
+		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+	})
+	model.AddSpace(description.SpaceArgs{
+		Id:         "previous-space-id",
+		Name:       "space-name",
+		ProviderID: "space-provider-id",
+	})
+	spaceInfo := network.SpaceInfo{
+		Name:       "space-name",
+		ProviderId: "space-provider-id",
+	}
+	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo)
+
+	op := s.newImportOperation()
+	err := op.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportSpaceWithSubnet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddSpace(description.SpaceArgs{
+		Id:         "previous-space-id",
+		Name:       "space-name",
+		ProviderID: "space-provider-id",
+	})
+	spaceInfo := network.SpaceInfo{
+		Name:       "space-name",
+		ProviderId: "space-provider-id",
+	}
+	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
+		Return(network.Id("new-space-id"), nil)
+	s.importService.EXPECT().Space(gomock.Any(), "new-space-id").
+		Return(&network.SpaceInfo{
+			ID:         "new-space-id",
+			Name:       "space-name",
+			ProviderId: network.Id("space-provider-id"),
+		}, nil)
+	model.AddSubnet(description.SubnetArgs{
+		ID:                "previous-subnet-id",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "subnet-provider-id",
+		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+		SpaceID:           "previous-space-id",
+		SpaceName:         "space-name",
+		ProviderSpaceId:   "space-provider-id",
+	})
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "subnet-provider-id",
+		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+		SpaceID:           "new-space-id",
+		SpaceName:         "space-name",
+		ProviderSpaceId:   "space-provider-id",
+	})
+
+	op := s.newImportOperation()
+	err := op.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}

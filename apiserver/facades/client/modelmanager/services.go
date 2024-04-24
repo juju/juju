@@ -6,7 +6,7 @@ package modelmanager
 import (
 	"context"
 
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

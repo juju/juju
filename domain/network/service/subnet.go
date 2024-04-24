@@ -6,16 +6,16 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // AddSubnet creates and returns a new subnet.
 func (s *Service) AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error) {
 	if args.ID == "" {
-		uuid, err := uuid.NewUUID()
+		uuid, err := uuid.NewV7()
 		if err != nil {
 			return "", errors.Annotatef(err, "creating uuid for new subnet with CIDR %q", args.CIDR)
 		}

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/description/v5"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"

@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	description "github.com/juju/description/v5"
+	description "github.com/juju/description/v6"
 	objectstore "github.com/juju/juju/core/objectstore"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
