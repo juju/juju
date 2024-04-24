@@ -147,6 +147,7 @@ func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSec
 	return result, nil
 }
 
+// OwnerTagFromOwner returns the tag for a given secret owner.
 func OwnerTagFromOwner(owner coresecrets.Owner) (names.Tag, error) {
 	switch owner.Kind {
 	case coresecrets.UnitOwner:
@@ -159,9 +160,25 @@ func OwnerTagFromOwner(owner coresecrets.Owner) (names.Tag, error) {
 	return nil, errors.NotValidf("owner kind %q", owner.Kind)
 }
 
+func secretAccessorFromTag(authTag names.Tag) (secretservice.SecretAccessor, error) {
+	switch authTag.(type) {
+	case names.UnitTag:
+		return secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor, ID: authTag.Id(),
+		}, nil
+	case names.ModelTag:
+		return secretservice.SecretAccessor{
+			Kind: secretservice.ModelAccessor, ID: authTag.Id(),
+		}, nil
+	}
+	return secretservice.SecretAccessor{}, errors.NotValidf("auth tag kind %q", authTag.Kind())
+}
+
 // isLeaderUnit returns true if the authenticated caller is the unit leader of its application.
 func isLeaderUnit(authTag names.Tag, leadershipChecker leadership.Checker) (bool, error) {
-	_, err := LeadershipToken(authTag, leadershipChecker)
+	appName, _ := names.UnitApplication(authTag.Id())
+	token := leadershipChecker.LeadershipCheck(appName, authTag.Id())
+	err := token.Check()
 	if err != nil && !leadership.IsNotLeaderError(err) {
 		return false, errors.Trace(err)
 	}
@@ -179,7 +196,7 @@ func (s *SecretsDrainAPI) getCharmSecrets(ctx context.Context) ([]*coresecrets.S
 		return nil, nil, errors.Trace(err)
 	}
 	if isLeader {
-		appName := AuthTagApp(s.authTag)
+		appName, _ := names.UnitApplication(s.authTag.Id())
 		owners = append(owners, secretservice.CharmSecretOwner{
 			Kind: secretservice.ApplicationOwner,
 			ID:   appName,
@@ -205,16 +222,21 @@ func (s *SecretsDrainAPI) changeSecretBackendForOne(ctx context.Context, arg par
 	if err != nil {
 		return errors.Trace(err)
 	}
-	token, err := CanManage(ctx, s.secretService, s.leadershipChecker, s.authTag, uri)
+	accessor, err := secretAccessorFromTag(s.authTag)
+	if err != nil {
+		return
+	}
+	token, err := LeadershipToken(s.authTag, s.leadershipChecker)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return s.secretService.ChangeSecretBackend(ctx, uri, arg.Revision, toChangeSecretBackendParams(token, arg))
+	return s.secretService.ChangeSecretBackend(ctx, uri, arg.Revision, toChangeSecretBackendParams(accessor, token, arg))
 }
 
-func toChangeSecretBackendParams(token leadership.Token, arg params.ChangeSecretBackendArg) secretservice.ChangeSecretBackendParams {
+func toChangeSecretBackendParams(accessor secretservice.SecretAccessor, token leadership.Token, arg params.ChangeSecretBackendArg) secretservice.ChangeSecretBackendParams {
 	params := secretservice.ChangeSecretBackendParams{
 		LeaderToken: token,
+		Accessor:    accessor,
 		Data:        arg.Content.Data,
 	}
 	if arg.Content.ValueRef != nil {

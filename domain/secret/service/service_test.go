@@ -28,12 +28,18 @@ type serviceSuite struct {
 	testing.IsolationSuite
 
 	state *MockState
+
+	backendConfigGetter BackendAdminConfigGetter
 }
 
 var _ = gc.Suite(&serviceSuite{})
 
+func (s *serviceSuite) SetUpTest(c *gc.C) {
+	s.backendConfigGetter = NotImplementedBackendConfigGetter
+}
+
 func (s *serviceSuite) service() *SecretService {
-	return NewSecretService(s.state, loggo.GetLogger("test"), NotImplementedBackendConfigGetter)
+	return NewSecretService(s.state, loggo.GetLogger("test"), s.backendConfigGetter)
 }
 
 type successfulToken struct{}
@@ -104,10 +110,18 @@ func (s *serviceSuite) TestUpdateSecretNoRotate(c *gc.C) {
 	}
 
 	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
 
 	err := s.service().UpdateSecret(context.Background(), uri, UpdateSecretParams{
 		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
 		Description: ptr("a secret"),
 		Label:       ptr("my secret"),
 		Data:        map[string]string{"foo": "bar"},
@@ -131,10 +145,18 @@ func (s *serviceSuite) TestUpdateSecret(c *gc.C) {
 	}
 
 	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
 
 	err := s.service().UpdateSecret(context.Background(), uri, UpdateSecretParams{
-		LeaderToken:  successfulToken{},
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
 		Description:  ptr("a secret"),
 		Label:        ptr("my secret"),
 		Data:         map[string]string{"foo": "bar"},
@@ -169,9 +191,16 @@ func (s *serviceSuite) TestGetSecretValue(c *gc.C) {
 	uri := coresecrets.NewURI()
 
 	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(coresecrets.SecretData{"foo": "bar"}, nil, nil)
 
-	data, ref, err := s.service().GetSecretValue(context.Background(), uri, 666)
+	data, ref, err := s.service().GetSecretValue(context.Background(), uri, 666, SecretAccessor{
+		Kind: UnitAccessor,
+		ID:   "mariadb/0",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ref, gc.IsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.NewSecretValue(map[string]string{"foo": "bar"}))
@@ -408,6 +437,10 @@ func (s *serviceSuite) TestGrantSecretUnitAccess(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "another/0",
+	}).Return("manage", nil)
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeApplication,
 		ScopeID:       "mysql",
@@ -418,6 +451,10 @@ func (s *serviceSuite) TestGrantSecretUnitAccess(c *gc.C) {
 
 	err := s.service().GrantSecretAccess(context.Background(), uri, SecretAccessParams{
 		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "another/0",
+		},
 		Scope: SecretAccessScope{
 			Kind: ApplicationAccessScope,
 			ID:   "mysql",
@@ -437,6 +474,10 @@ func (s *serviceSuite) TestGrantSecretApplicationAccess(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "another/0",
+	}).Return("manage", nil)
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeApplication,
 		ScopeID:       "mysql",
@@ -447,6 +488,10 @@ func (s *serviceSuite) TestGrantSecretApplicationAccess(c *gc.C) {
 
 	err := s.service().GrantSecretAccess(context.Background(), uri, SecretAccessParams{
 		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "another/0",
+		},
 		Scope: SecretAccessScope{
 			Kind: ApplicationAccessScope,
 			ID:   "mysql",
@@ -466,6 +511,10 @@ func (s *serviceSuite) TestGrantSecretModelAccess(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectModel,
+		SubjectID:     "model-uuid",
+	}).Return("manage", nil)
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeModel,
 		SubjectTypeID: domainsecret.SubjectModel,
@@ -474,6 +523,10 @@ func (s *serviceSuite) TestGrantSecretModelAccess(c *gc.C) {
 
 	err := s.service().GrantSecretAccess(context.Background(), uri, SecretAccessParams{
 		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: ModelAccessor,
+			ID:   "model-uuid",
+		},
 		Scope: SecretAccessScope{
 			Kind: ModelAccessScope,
 		},
@@ -491,6 +544,10 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "another/0",
+	}).Return("manage", nil)
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   domainsecret.ScopeRelation,
 		ScopeID:       "mysql:db mediawiki:db",
@@ -501,6 +558,10 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *gc.C) {
 
 	err := s.service().GrantSecretAccess(context.Background(), uri, SecretAccessParams{
 		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "another/0",
+		},
 		Scope: SecretAccessScope{
 			Kind: RelationAccessScope,
 			ID:   "mysql:db mediawiki:db",
@@ -520,16 +581,24 @@ func (s *serviceSuite) TestRevokeSecretUnitAccess(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.state = NewMockState(ctrl)
-	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "another/0",
 	}).Return(nil)
 
 	err := s.service().RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
 		LeaderToken: successfulToken{},
-		Subject: SecretAccessor{
+		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mysql/0",
+		},
+		Subject: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "another/0",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -541,16 +610,24 @@ func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+	}).Return("manage", nil)
 	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectApplication,
-		SubjectID:     "mysql",
+		SubjectID:     "another",
 	}).Return(nil)
 
 	err := s.service().RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
 		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mysql/0",
+		},
 		Subject: SecretAccessor{
 			Kind: ApplicationAccessor,
-			ID:   "mysql",
+			ID:   "another",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -562,14 +639,24 @@ func (s *serviceSuite) TestRevokeSecretModelAccess(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.state = NewMockState(ctrl)
-	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectModel,
+		SubjectID:     "model-uuid",
+	}).Return("manage", nil)
+	s.state.EXPECT().RevokeAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
 	}).Return(nil)
 
 	err := s.service().RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
 		LeaderToken: successfulToken{},
-		Subject: SecretAccessor{
+		Accessor: SecretAccessor{
 			Kind: ModelAccessor,
+			ID:   "model-uuid",
+		},
+		Subject: SecretAccessor{
+			Kind: ApplicationAccessor,
+			ID:   "mysql",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -586,7 +673,7 @@ func (s *serviceSuite) TestGetSecretAccess(c *gc.C) {
 		SubjectID:     "mysql",
 	}).Return("manage", nil)
 
-	role, err := s.service().GetSecretAccess(context.Background(), uri, SecretAccessor{
+	role, err := s.service().getSecretAccess(context.Background(), uri, SecretAccessor{
 		Kind: ApplicationAccessor,
 		ID:   "mysql",
 	})
@@ -605,7 +692,7 @@ func (s *serviceSuite) TestGetSecretAccessNone(c *gc.C) {
 		SubjectID:     "mysql",
 	}).Return("", nil)
 
-	role, err := s.service().GetSecretAccess(context.Background(), uri, SecretAccessor{
+	role, err := s.service().getSecretAccess(context.Background(), uri, SecretAccessor{
 		Kind: ApplicationAccessor,
 		ID:   "mysql",
 	})

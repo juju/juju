@@ -17,7 +17,7 @@ type SecretTriggers interface {
 	WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.SecretTriggerWatcher, error)
 	WatchSecretsRotationChanges(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.SecretTriggerWatcher, error)
 	WatchObsolete(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.StringsWatcher, error)
-	SecretRotated(ctx context.Context, uri *secrets.URI, originalRev int, skip bool) error
+	SecretRotated(ctx context.Context, uri *secrets.URI, originalRev int, skip bool, accessor secretservice.SecretAccessor, token leadership.Token) error
 }
 
 // SecretsConsumer instances provide secret consumer apis.
@@ -32,7 +32,6 @@ type SecretsConsumer interface {
 	WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error)
 	GrantSecretAccess(context.Context, *secrets.URI, secretservice.SecretAccessParams) error
 	RevokeSecretAccess(context.Context, *secrets.URI, secretservice.SecretAccessParams) error
-	GetSecretAccess(ctx context.Context, uri *secrets.URI, consumer secretservice.SecretAccessor) (secrets.SecretRole, error)
 }
 
 // SecretService provides core secrets operations.
@@ -40,12 +39,11 @@ type SecretService interface {
 	CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error)
 	CreateSecret(context.Context, *secrets.URI, secretservice.CreateSecretParams) error
 	UpdateSecret(context.Context, *secrets.URI, secretservice.UpdateSecretParams) error
-	DeleteCharmSecret(ctx context.Context, uri *secrets.URI, revisions []int, canDelete func(uri *secrets.URI) error) error
-	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
-	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
+	DeleteSecret(context.Context, *secrets.URI, secretservice.DeleteSecretParams) error
+	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListCharmSecrets(context.Context, ...secretservice.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	ProcessSecretConsumerLabel(
-		ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner secrets.Owner) (bool, leadership.Token, error),
+		ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
 	) (*secrets.URI, *string, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secretservice.SecretAccess, error)

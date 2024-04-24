@@ -84,6 +84,20 @@ func (mr *MockStateMockRecorder) CreateUserSecret(arg0, arg1, arg2, arg3 any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUserSecret", reflect.TypeOf((*MockState)(nil).CreateUserSecret), arg0, arg1, arg2, arg3)
 }
 
+// DeleteSecret mocks base method.
+func (m *MockState) DeleteSecret(arg0 context.Context, arg1 *secrets.URI, arg2 []int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSecret", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSecret indicates an expected call of DeleteSecret.
+func (mr *MockStateMockRecorder) DeleteSecret(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockState)(nil).DeleteSecret), arg0, arg1, arg2)
+}
+
 // GetModelUUID mocks base method.
 func (m *MockState) GetModelUUID(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()

@@ -199,7 +199,10 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 			Data: map[string]string{"foo": "bar"},
 		}
 		if withBackend {
-			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 2).Return(
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 2, secretservice.SecretAccessor{
+				Kind: secretservice.ModelAccessor,
+				ID:   coretesting.ModelTag.Id(),
+			}).Return(
 				nil, &coresecrets.ValueRef{
 					BackendID:  "backend-id",
 					RevisionID: "rev-id",
@@ -209,7 +212,10 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 				coresecrets.NewSecretValue(valueResult.Data), nil,
 			)
 		} else {
-			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 2).Return(
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 2, secretservice.SecretAccessor{
+				Kind: secretservice.ModelAccessor,
+				ID:   coretesting.ModelTag.Id(),
+			}).Return(
 				coresecrets.NewSecretValue(valueResult.Data), nil, nil,
 			)
 		}
@@ -512,7 +518,10 @@ func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}).Return(nil)
+	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
+		Accessor:  secretservice.SecretAccessor{Kind: secretservice.ModelAccessor, ID: coretesting.ModelTag.Id()},
+		Revisions: []int{666},
+	}).Return(nil)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService,
 		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),
@@ -564,7 +573,10 @@ func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}).Return(nil)
+	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
+		Accessor:  secretservice.SecretAccessor{Kind: secretservice.ModelAccessor, ID: coretesting.ModelTag.Id()},
+		Revisions: []int{666},
+	}).Return(nil)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService,
 		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),
@@ -592,7 +604,10 @@ func (s *SecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretService.EXPECT().DeleteUserSecret(gomock.Any(), &expectURI, []int{666}).Return(secreterrors.SecretNotFound)
+	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
+		Accessor:  secretservice.SecretAccessor{Kind: secretservice.ModelAccessor, ID: coretesting.ModelTag.Id()},
+		Revisions: []int{666},
+	}).Return(secreterrors.SecretNotFound)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService,
 		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),

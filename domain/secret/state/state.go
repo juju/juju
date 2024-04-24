@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1378,7 +1379,8 @@ func (st State) GetURIByConsumerLabel(ctx context.Context, label string, unitNam
 	}
 
 	query := `
-SELECT secret_id AS &secretUnitConsumer.secret_id
+SELECT secret_id AS &secretUnitConsumer.secret_id,
+       source_model_uuid AS &secretUnitConsumer.source_model_uuid
 FROM   secret_unit_consumer suc
 WHERE  suc.label = $secretUnitConsumer.label
 AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
@@ -1420,7 +1422,11 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 	if len(dbConsumers) == 0 {
 		return nil, fmt.Errorf("secret with label %q for unit %q not found%w", label, unitName, errors.Hide(secreterrors.SecretNotFound))
 	}
-	return coresecrets.ParseURI(dbConsumers[0].SecretID)
+	uri, err := coresecrets.ParseURI(dbConsumers[0].SecretID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return uri.WithSource(dbConsumers[0].SourceModelUUID), nil
 }
 
 // GetSecretRevision returns the secret revision with the given URI and revision number,
@@ -1744,6 +1750,7 @@ ON CONFLICT DO NOTHING
 
 	consumer := secretUnitConsumer{
 		SecretID:        uri.ID,
+		SourceModelUUID: uri.SourceUUID,
 		Label:           md.Label,
 		CurrentRevision: md.CurrentRevision,
 	}
@@ -2458,4 +2465,166 @@ FROM secret_revision sr`, selectStmt)
 		return errors.Trace(err)
 	})
 	return errors.Trace(err)
+}
+
+type (
+	revisions     []int
+	revisionUUIDs []string
+)
+
+// DeleteSecret deletes the specified secret revisions.
+// If revisions is nil or the last remaining revisions are removed.
+func (st State) DeleteSecret(ctx context.Context, uri *coresecrets.URI, revs []int) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// First delete the specified revisions.
+
+	selectRevisionParams := []any{secretID{
+		ID: uri.ID,
+	}}
+
+	var revFilter string
+	if len(revs) > 0 {
+		revFilter = "\nAND revision IN ($revisions[:])"
+		selectRevisionParams = append(selectRevisionParams, revisions(revs))
+	}
+
+	selectRevsToDelete := fmt.Sprintf(`
+SELECT uuid AS &revisionUUID.uuid
+FROM   secret_revision
+WHERE  secret_id = $secretID.id%s
+`, revFilter)
+	selectRevisionStmt, err := st.Prepare(selectRevsToDelete, secretID{}, revisionUUID{}, revisions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	countRevisions := `SELECT count(*) AS &M.count FROM secret_revision WHERE secret_id = $secretID.id`
+	countRevisionsStmt, err := st.Prepare(countRevisions, secretID{}, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteRevisionExpire := `
+DELETE FROM secret_revision_expire WHERE revision_uuid IN ($revisionUUIDs[:])`
+
+	deleteRevisionContent := `
+DELETE FROM secret_content WHERE revision_uuid IN ($revisionUUIDs[:])`
+
+	deleteRevisionValueRef := `
+DELETE FROM secret_value_ref WHERE revision_uuid IN ($revisionUUIDs[:])`
+
+	deleteRevision := `
+DELETE FROM secret_revision WHERE uuid IN ($revisionUUIDs[:])`
+
+	deleteRevisionQueries := []string{
+		deleteRevisionExpire,
+		deleteRevisionContent,
+		deleteRevisionValueRef,
+		deleteRevision,
+	}
+
+	deleteRevisionStmts := make([]*sqlair.Statement, len(deleteRevisionQueries))
+	for i, q := range deleteRevisionQueries {
+		deleteRevisionStmts[i], err = st.Prepare(q, revisionUUIDs{})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
+			return errors.Trace(err)
+		} else if !isLocal {
+			// Should never happen.
+			return secreterrors.SecretIsNotLocal
+		}
+
+		result := []revisionUUID{}
+		err := tx.Query(ctx, selectRevisionStmt, selectRevisionParams...).GetAll(&result)
+		if err != nil {
+			return errors.Annotatef(err, "selecting revision UUIDs to delete for secret %q", uri)
+		}
+
+		toDelete := make(revisionUUIDs, len(result))
+		for i, r := range result {
+			toDelete[i] = r.UUID
+		}
+		for _, stmt := range deleteRevisionStmts {
+			err = tx.Query(ctx, stmt, toDelete).Run()
+			if err != nil {
+				return errors.Annotatef(err, "deleting revision info for secret %q", uri)
+			}
+		}
+
+		countResult := sqlair.M{}
+		err = tx.Query(ctx, countRevisionsStmt, selectRevisionParams[0]).Get(&countResult)
+		if err != nil {
+			return errors.Annotatef(err, "counting remaining revisions for secret %q", uri)
+		}
+		count, _ := strconv.Atoi(fmt.Sprint(countResult["count"]))
+		if count > 0 {
+			return nil
+		}
+		// No revisions left so delete the secret.
+		return st.deleteSecret(ctx, tx, uri)
+	})
+	return errors.Trace(domain.CoerceError(err))
+}
+
+func (st State) deleteSecret(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
+	deleteSecretRotation := `
+DELETE FROM secret_rotation WHERE secret_id = $secretID.id`
+	deleteSecretUnitOwner := `
+DELETE FROM secret_unit_owner WHERE secret_id = $secretID.id`
+	deleteSecretApplicationOwner := `
+DELETE FROM secret_application_owner WHERE secret_id = $secretID.id`
+	deleteSecretModelOwner := `
+DELETE FROM secret_model_owner WHERE secret_id = $secretID.id`
+	deleteSecretUnitConsumer := `
+DELETE FROM secret_unit_consumer WHERE secret_id = $secretID.id`
+	deleteSecretRemoteUnitConsumer := `
+DELETE FROM secret_remote_unit_consumer WHERE secret_id = $secretID.id`
+	deleteSecretRef := `
+DELETE FROM secret_reference WHERE secret_id = $secretID.id`
+	deleteSecretPermission := `
+DELETE FROM secret_permission WHERE secret_id = $secretID.id`
+	deleteSecretMetadata := `
+DELETE FROM secret_metadata WHERE secret_id = $secretID.id`
+
+	deleteSecretQueries := []string{
+		deleteSecretRotation,
+		deleteSecretUnitOwner,
+		deleteSecretApplicationOwner,
+		deleteSecretModelOwner,
+		deleteSecretUnitConsumer,
+		deleteSecretRemoteUnitConsumer,
+		deleteSecretRef,
+		deleteSecretPermission,
+		deleteSecretMetadata,
+	}
+
+	secretIDParamParam := secretID{
+		ID: uri.ID,
+	}
+
+	var err error
+	deleteSecretStmts := make([]*sqlair.Statement, len(deleteSecretQueries))
+	for i, q := range deleteSecretQueries {
+		deleteSecretStmts[i], err = st.Prepare(q, secretIDParamParam)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	for _, stmt := range deleteSecretStmts {
+		err = tx.Query(ctx, stmt, secretIDParamParam).Run()
+		if err != nil {
+			return errors.Annotatef(err, "deleting info for secret %q", uri)
+		}
+	}
+	return nil
 }

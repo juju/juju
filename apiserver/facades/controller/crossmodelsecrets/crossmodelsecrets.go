@@ -196,10 +196,6 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 
 	secretService := s.secretServiceGetter(uri.SourceUUID)
 
-	if !s.canRead(ctx, secretService, uri, consumer) {
-		return nil, nil, 0, apiservererrors.ErrPerm
-	}
-
 	var (
 		wantRevision   int
 		latestRevision int
@@ -216,7 +212,10 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 		wantRevision = *arg.Revision
 	}
 
-	val, valueRef, err := secretService.GetSecretValue(ctx, uri, wantRevision)
+	val, valueRef, err := secretService.GetSecretValue(ctx, uri, wantRevision, secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   consumer.Id(),
+	})
 	content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
 	if err != nil || content.ValueRef == nil {
 		return content, nil, latestRevision, errors.Trace(err)
@@ -251,30 +250,6 @@ func (s *CrossModelSecretsAPI) getBackend(ctx stdcontext.Context, modelUUID stri
 		}
 	}
 	return nil, errors.NotFoundf("secret backend %q", backendID)
-}
-
-// canRead returns true if the specified entity can read the secret.
-func (s *CrossModelSecretsAPI) canRead(ctx stdcontext.Context, secretService SecretService, uri *coresecrets.URI, unit names.UnitTag) bool {
-	s.logger.Debugf("check %s can read secret %s", unit, uri.ID)
-	hasRole, _ := secretService.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
-		Kind: secretservice.UnitAccessor,
-		ID:   unit.Id(),
-	})
-	if hasRole.Allowed(coresecrets.RoleView) {
-		return true
-	}
-
-	appName, _ := names.UnitApplication(unit.Id())
-	kind := secretservice.ApplicationAccessor
-	// Remote apps need a different accessor kind.
-	if strings.HasPrefix(appName, "remote-") {
-		kind = secretservice.RemoteApplicationAccessor
-	}
-	hasRole, _ = secretService.GetSecretAccess(ctx, uri, secretservice.SecretAccessor{
-		Kind: kind,
-		ID:   appName,
-	})
-	return hasRole.Allowed(coresecrets.RoleView)
 }
 
 func tagFromAccessScope(scope secretservice.SecretAccessScope) names.Tag {

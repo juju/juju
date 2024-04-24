@@ -15,6 +15,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -245,7 +246,13 @@ func (s *WatchableService) WatchObsoleteUserSecrets(ctx context.Context) (watche
 	return watchertest.NewMockNotifyWatcher(ch), nil
 }
 
-func (s *WatchableService) SecretRotated(ctx context.Context, uri *secrets.URI, originalRev int, skip bool) error {
+func (s *WatchableService) SecretRotated(
+	ctx context.Context, uri *secrets.URI, originalRev int, skip bool, accessor SecretAccessor, token leadership.Token,
+) error {
+	if err := s.canManage(ctx, uri, accessor, token); err != nil {
+		return errors.Trace(err)
+	}
+
 	md, err := s.GetSecret(ctx, uri)
 	if err != nil {
 		return errors.Trace(err)

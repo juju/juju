@@ -22,7 +22,7 @@ type SecretService interface {
 
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
-	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
+	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int,
 		labels domainsecret.Labels,
@@ -31,7 +31,7 @@ type SecretService interface {
 
 	// Delete secrets.
 
-	DeleteUserSecret(ctx context.Context, uri *secrets.URI, revisions []int) error
+	DeleteSecret(ctx context.Context, uri *secrets.URI, params secretservice.DeleteSecretParams) error
 
 	// Grant/revoke secret access.
 

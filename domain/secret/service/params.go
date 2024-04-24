@@ -22,7 +22,9 @@ type CreateSecretParams struct {
 
 // UpdateSecretParams are used to update a secret.
 type UpdateSecretParams struct {
-	LeaderToken  leadership.Token
+	LeaderToken leadership.Token
+	Accessor    SecretAccessor
+
 	RotatePolicy *secrets.RotatePolicy
 	ExpireTime   *time.Time
 	Description  *string
@@ -33,19 +35,31 @@ type UpdateSecretParams struct {
 	AutoPrune    *bool
 }
 
+// DeleteSecretParams are used to delete a secret.
+type DeleteSecretParams struct {
+	LeaderToken leadership.Token
+	Accessor    SecretAccessor
+
+	Revisions []int
+}
+
 // SecretAccessParams are used to define access to a secret.
 type SecretAccessParams struct {
 	LeaderToken leadership.Token
-	Scope       SecretAccessScope
-	Subject     SecretAccessor
-	Role        secrets.SecretRole
+	Accessor    SecretAccessor
+
+	Scope   SecretAccessScope
+	Subject SecretAccessor
+	Role    secrets.SecretRole
 }
 
 // ChangeSecretBackendParams are used to change the backend of a secret.
 type ChangeSecretBackendParams struct {
 	LeaderToken leadership.Token
-	ValueRef    *secrets.ValueRef
-	Data        secrets.SecretData
+	Accessor    SecretAccessor
+
+	ValueRef *secrets.ValueRef
+	Data     secrets.SecretData
 }
 
 // SecretAccessorKind represents the kind of an entity which can access a secret.

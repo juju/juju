@@ -251,13 +251,16 @@ CREATE UNIQUE INDEX idx_secret_model_owner_label ON secret_model_owner (label) W
 
 CREATE TABLE secret_unit_consumer (
     secret_id TEXT NOT NULL,
+    -- source model uuid may be this model or a different model
+    -- possibly on another controller
+    source_model_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
     label TEXT,
     current_revision INT NOT NULL,
     CONSTRAINT fk_secret_unit_consumer_unit_uuid
         FOREIGN KEY (unit_uuid)
         REFERENCES unit (uuid),
-    CONSTRAINT fk_secret_model_owner_secret_id
+    CONSTRAINT fk_secret_unit_consumer_secret_id
         FOREIGN KEY (secret_id)
         REFERENCES secret (id)
 );

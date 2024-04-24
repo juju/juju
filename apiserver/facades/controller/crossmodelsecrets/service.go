@@ -14,8 +14,7 @@ import (
 
 type SecretService interface {
 	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
-	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
+	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
 	UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh bool) (int, error)
-	GetSecretAccess(ctx context.Context, uri *secrets.URI, consumer secretservice.SecretAccessor) (secrets.SecretRole, error)
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor secretservice.SecretAccessor) (secretservice.SecretAccessScope, error)
 }

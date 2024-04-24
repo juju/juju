@@ -174,8 +174,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 		ID:   "remote-app/666",
 	}
 	s.secretService.EXPECT().UpdateRemoteConsumedRevision(gomock.Any(), uri, "remote-app/666", true).Return(667, nil)
-	s.secretService.EXPECT().GetSecretAccess(gomock.Any(), uri, consumer).Return(coresecrets.RoleView, nil)
-	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 667).Return(
+	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 667, consumer).Return(
 		nil,
 		&coresecrets.ValueRef{
 			BackendID:  "backend-id",

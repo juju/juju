@@ -228,7 +228,7 @@ func backendConfigInfo(
 			Kind: secretservice.UnitOwner,
 			ID:   unitName,
 		}}
-		appName := AuthTagApp(t)
+		appName, _ := names.UnitApplication(t.Id())
 		token := leadershipChecker.LeadershipCheck(appName, t.Id())
 		err := token.Check()
 		if err != nil && !leadership.IsNotLeaderError(err) {
