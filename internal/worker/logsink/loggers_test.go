@@ -22,7 +22,7 @@ type LoggersSuite struct {
 var _ = gc.Suite(&LoggersSuite{})
 
 type stubLogger struct {
-	corelogger.LoggerCloser
+	corelogger.LogWriterCloser
 	records []corelogger.LogRecord
 	closed  bool
 }
@@ -40,12 +40,12 @@ func (s *stubLogger) Close() error {
 func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 	logger1 := &stubLogger{}
 	logger2 := &stubLogger{}
-	loggers := map[string]corelogger.LoggerCloser{
+	loggers := map[string]corelogger.LogWriterCloser{
 		"uuid1": logger1,
 		"uuid2": logger2,
 	}
 	ml := NewModelLogger(
-		func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
+		func(modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
 			if l, ok := loggers[modelUUID]; ok {
 				return l, nil
 			}
@@ -53,11 +53,11 @@ func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 		},
 		1, time.Millisecond, testclock.NewDilatedWallClock(time.Millisecond),
 	)
-	_, err := ml.GetLogger("uuid1", "l1", "fred")
+	_, err := ml.GetLogWriter("uuid1", "l1", "fred")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = ml.GetLogger("uuid2", "l2", "fred")
+	_, err = ml.GetLogWriter("uuid2", "l2", "fred")
 	c.Assert(err, jc.ErrorIsNil)
-	err = ml.RemoveLogger("uuid2")
+	err = ml.RemoveLogWriter("uuid2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ml.Close(), jc.ErrorIsNil)
 

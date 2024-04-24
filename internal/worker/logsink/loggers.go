@@ -15,13 +15,13 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 )
 
-type bufferedLoggerCloser struct {
-	*corelogger.BufferedLogger
+type bufferedLogWriterCloser struct {
+	*corelogger.BufferedLogWriter
 	closer io.Closer
 }
 
-func (b *bufferedLoggerCloser) Close() error {
-	err := errors.Trace(b.BufferedLogger.Flush())
+func (b *bufferedLogWriterCloser) Close() error {
+	err := errors.Trace(b.BufferedLogWriter.Flush())
 	_ = b.closer.Close()
 	return err
 }
@@ -30,7 +30,7 @@ func (b *bufferedLoggerCloser) Close() error {
 // The actual loggers returned for each model are created
 // by the supplied loggerForModelFunc.
 func NewModelLogger(
-	loggerForModelFunc corelogger.LoggerForModelFunc,
+	loggerForModelFunc corelogger.LogWriterForModelFunc,
 	bufferSize int,
 	flushInterval time.Duration,
 	clock clock.Clock,
@@ -40,7 +40,7 @@ func NewModelLogger(
 		loggerBufferSize:    bufferSize,
 		loggerFlushInterval: flushInterval,
 		loggerForModel:      loggerForModelFunc,
-		modelLoggers:        make(map[string]corelogger.LoggerCloser),
+		modelLoggers:        make(map[string]corelogger.LogWriterCloser),
 	}
 }
 
@@ -51,12 +51,12 @@ type modelLogger struct {
 	loggerBufferSize    int
 	loggerFlushInterval time.Duration
 
-	modelLoggers   map[string]corelogger.LoggerCloser
-	loggerForModel corelogger.LoggerForModelFunc
+	modelLoggers   map[string]corelogger.LogWriterCloser
+	loggerForModel corelogger.LogWriterForModelFunc
 }
 
-// GetLogger implements ModelLogger.
-func (d *modelLogger) GetLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
+// GetLogWriter creates a new log writer for the given model UUID.
+func (d *modelLogger) GetLogWriter(modelUUID, modelName, modelOwner string) (corelogger.LogWriterCloser, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.modelLoggers[modelUUID]; ok {
@@ -69,8 +69,8 @@ func (d *modelLogger) GetLogger(modelUUID, modelName, modelOwner string) (corelo
 		return nil, errors.Annotatef(err, "getting logger for model %q (%s)", modelPrefix, modelUUID)
 	}
 
-	bufferedLogger := &bufferedLoggerCloser{
-		BufferedLogger: corelogger.NewBufferedLogger(
+	bufferedLogWriter := &bufferedLogWriterCloser{
+		BufferedLogWriter: corelogger.NewBufferedLogWriter(
 			l,
 			d.loggerBufferSize,
 			d.loggerFlushInterval,
@@ -78,12 +78,13 @@ func (d *modelLogger) GetLogger(modelUUID, modelName, modelOwner string) (corelo
 		),
 		closer: l,
 	}
-	d.modelLoggers[modelUUID] = bufferedLogger
-	return bufferedLogger, nil
+	d.modelLoggers[modelUUID] = bufferedLogWriter
+	return bufferedLogWriter, nil
 }
 
-// RemoveLogger implements ModelLogger.
-func (d *modelLogger) RemoveLogger(modelUUID string) error {
+// RemoveLogWriter closes then removes a log writer by model UUID.
+// Returns an error if there was a problem closing the logger.
+func (d *modelLogger) RemoveLogWriter(modelUUID string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.modelLoggers[modelUUID]; ok {

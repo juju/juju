@@ -12,12 +12,12 @@ import (
 	"github.com/juju/errors"
 )
 
-// BufferedLogger wraps a Logger, providing a buffer that
+// BufferedLogWriter wraps a LogWriter, providing a buffer that
 // accumulates log messages, flushing them to the underlying logger
 // when enough messages have been accumulated.
 // The emitted records are sorted by timestamp.
-type BufferedLogger struct {
-	l             Logger
+type BufferedLogWriter struct {
+	l             LogWriter
 	clock         clock.Clock
 	flushInterval time.Duration
 
@@ -26,15 +26,15 @@ type BufferedLogger struct {
 	flushTimer clock.Timer
 }
 
-// NewBufferedLogger returns a new BufferedLogger, wrapping the given
+// NewBufferedLogWriter returns a new BufferedLogWriter, wrapping the given
 // Logger with a buffer of the specified size and flush interval.
-func NewBufferedLogger(
-	l Logger,
+func NewBufferedLogWriter(
+	l LogWriter,
 	bufferSize int,
 	flushInterval time.Duration,
 	clock clock.Clock,
-) *BufferedLogger {
-	return &BufferedLogger{
+) *BufferedLogWriter {
+	return &BufferedLogWriter{
 		l:             l,
 		buf:           make([]LogRecord, 0, bufferSize),
 		clock:         clock,
@@ -57,10 +57,10 @@ func insertSorted(recs []LogRecord, in []LogRecord) []LogRecord {
 
 // Log is part of the Logger interface.
 //
-// BufferedLogger's Log implementation will buffer log records up to
+// BufferedLogWriter's Log implementation will buffer log records up to
 // the specified capacity and duration; after either of which is exceeded,
 // the records will be flushed to the underlying logger.
-func (b *BufferedLogger) Log(in []LogRecord) error {
+func (b *BufferedLogWriter) Log(in []LogRecord) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -92,13 +92,13 @@ func (b *BufferedLogger) Log(in []LogRecord) error {
 }
 
 // Flush flushes any buffered log records to the underlying Logger.
-func (b *BufferedLogger) Flush() error {
+func (b *BufferedLogWriter) Flush() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.flush()
 }
 
-func (b *BufferedLogger) flushOnTimer() {
+func (b *BufferedLogWriter) flushOnTimer() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	// Can't do anything about errors here, except to
@@ -109,7 +109,7 @@ func (b *BufferedLogger) flushOnTimer() {
 
 // flush flushes any buffered log records to the underlying Logger, and stops
 // the flush timer if there is one. The caller must be holding b.mu.
-func (b *BufferedLogger) flush() error {
+func (b *BufferedLogWriter) flush() error {
 	if b.flushTimer != nil {
 		b.flushTimer.Stop()
 		b.flushTimer = nil

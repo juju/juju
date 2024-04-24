@@ -52,17 +52,17 @@ func (lw *logWriter) Log(records []corelogger.LogRecord) error {
 
 // Config defines the attributes used to create a log sink worker.
 type Config struct {
-	Logger             Logger
-	Clock              clock.Clock
-	LogSinkConfig      LogSinkConfig
-	LoggerForModelFunc corelogger.LoggerForModelFunc
+	Logger                Logger
+	Clock                 clock.Clock
+	LogSinkConfig         LogSinkConfig
+	LogWriterForModelFunc corelogger.LogWriterForModelFunc
 }
 
 // NewWorker returns a new worker which provides access to a log sink
 // which allows log entries to be stored for specified models.
 func NewWorker(cfg Config) (worker.Worker, error) {
 	modelLogger := NewModelLogger(
-		cfg.LoggerForModelFunc,
+		cfg.LogWriterForModelFunc,
 		cfg.LogSinkConfig.LoggerBufferSize,
 		cfg.LogSinkConfig.LoggerFlushInterval,
 		cfg.Clock,

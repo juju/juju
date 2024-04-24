@@ -19,8 +19,8 @@ import (
 type migrationLoggingStrategy struct {
 	modelLogger corelogger.ModelLogger
 
-	recordLogger corelogger.Logger
-	releaser     func() error
+	recordLogWriter corelogger.LogWriter
+	releaser        func() error
 }
 
 // newMigrationLogWriteCloserFunc returns a function that will create a
@@ -61,12 +61,12 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		st.Release()
 		return errors.Trace(err)
 	}
-	if s.recordLogger, err = s.modelLogger.GetLogger(st.State.ModelUUID(), m.Name(), m.Owner().Id()); err != nil {
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(st.State.ModelUUID(), m.Name(), m.Owner().Id()); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			return s.modelLogger.RemoveLogger(st.State.ModelUUID())
+			return s.modelLogger.RemoveLogWriter(st.State.ModelUUID())
 		}
 		return nil
 	}
@@ -81,7 +81,7 @@ func (s *migrationLoggingStrategy) Close() error {
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	err := s.recordLogger.Log([]corelogger.LogRecord{{
+	err := s.recordLogWriter.Log([]corelogger.LogRecord{{
 		Time:     m.Time,
 		Entity:   m.Entity,
 		Module:   m.Module,

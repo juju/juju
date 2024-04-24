@@ -22,10 +22,10 @@ type agentLoggingStrategy struct {
 	modelLogger corelogger.ModelLogger
 	fileLogger  io.Writer
 
-	recordLogger corelogger.Logger
-	releaser     func() error
-	entity       string
-	modelUUID    string
+	recordLogWriter corelogger.LogWriter
+	releaser        func() error
+	entity          string
+	modelUUID       string
 }
 
 // newAgentLogWriteCloserFunc returns a function that will create a
@@ -60,12 +60,12 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if s.recordLogger, err = s.modelLogger.GetLogger(s.modelUUID, m.Name(), m.Owner().Id()); err != nil {
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(s.modelUUID, m.Name(), m.Owner().Id()); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			return s.modelLogger.RemoveLogger(s.modelUUID)
+			return s.modelLogger.RemoveLogWriter(s.modelUUID)
 		}
 		return nil
 	}
@@ -88,7 +88,7 @@ func (s *agentLoggingStrategy) Close() error {
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	dbErr := errors.Annotate(s.recordLogger.Log([]corelogger.LogRecord{{
+	dbErr := errors.Annotate(s.recordLogWriter.Log([]corelogger.LogRecord{{
 		Time:      m.Time,
 		Entity:    s.entity,
 		Module:    m.Module,

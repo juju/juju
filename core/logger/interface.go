@@ -11,35 +11,36 @@ import (
 	"github.com/juju/names/v5"
 )
 
-// Logger provides an interface for writing log records.
-type Logger interface {
+// LogWriter provides an interface for writing log records.
+type LogWriter interface {
 	// Log writes the given log records to the logger's storage.
 	Log([]LogRecord) error
 }
 
-// LoggerCloser is a Logger that can be closed.
-type LoggerCloser interface {
-	Logger
+// LogWriterCloser is a Logger that can be closed.
+type LogWriterCloser interface {
+	LogWriter
 	io.Closer
 }
 
-// ModelLogger keeps track of loggers tied to a given model.
+// ModelLogger keeps track of all the log writers, which can be accessed
+// by a given model uuid.
 type ModelLogger interface {
 	// Closer provides a Close() method which calls Close() on
-	// each of the tracked loggers.
+	// each of the tracked log writers.
 	io.Closer
 
-	// GetLogger returns a logger for the given model and keeps
+	// GetLogWriter returns a log writer for the given model and keeps
 	// track of it, returning the same one if called again.
-	GetLogger(modelUUID, modelName, modelOwner string) (LoggerCloser, error)
+	GetLogWriter(modelUUID, modelName, modelOwner string) (LogWriterCloser, error)
 
-	// RemoveLogger stops tracking the given's model's logger and
-	// calls Close() on the logger.
-	RemoveLogger(modelUUID string) error
+	// RemoveLogWriter stops tracking the given's model's log writer and
+	// calls Close() on the log writer.
+	RemoveLogWriter(modelUUID string) error
 }
 
-// LoggerForModelFunc is a function which returns a logger for a given model.
-type LoggerForModelFunc func(modelUUID, modelName string) (LoggerCloser, error)
+// LogWriterForModelFunc is a function which returns a log writer for a given model.
+type LogWriterForModelFunc func(modelUUID, modelName string) (LogWriterCloser, error)
 
 // ModelFilePrefix makes a log file prefix from the model owner and name.
 func ModelFilePrefix(owner, name string) string {
