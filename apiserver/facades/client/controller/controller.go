@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
@@ -58,6 +58,15 @@ type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
 }
 
+// ControllerAccessService provides a subset of the Access domain for use.
+type ControllerAccessService interface {
+	// ReadUserAccessLevelForTarget returns the access level for the provided
+	// subject (user) for controller.
+	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
+	// UpdatePermission updates the access level for a user for the controller.
+	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
+}
+
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
@@ -75,9 +84,12 @@ type ControllerAPI struct {
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
+	accessService           ControllerAccessService
 
 	multiwatcherFactory multiwatcher.Factory
 	logger              loggo.Logger
+
+	controllerTag names.ControllerTag
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -101,6 +113,7 @@ func NewControllerAPI(
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
+	accessService ControllerAccessService,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -146,11 +159,13 @@ func NewControllerAPI(
 		credentialService:       credentialService,
 		upgradeService:          upgradeService,
 		cloudService:            cloudService,
+		accessService:           accessService,
+		controllerTag:           st.ControllerTag(),
 	}, nil
 }
 
 func (c *ControllerAPI) checkIsSuperUser() error {
-	return c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
+	return c.authorizer.HasPermission(permission.SuperuserAccess, c.controllerTag)
 }
 
 // ControllerVersion returns the version information associated with this
@@ -590,7 +605,7 @@ func (c *ControllerAPI) WatchModelSummaries(ctx context.Context) (params.Summary
 // have on the controller.
 func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}
-	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
+	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
 	}
@@ -608,13 +623,14 @@ func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Enti
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		access, err := c.state.UserPermission(userTag, c.state.ControllerTag())
+		spec := permission.ControllerForAccess(permission.SuperuserAccess)
+		accessLevel, err := c.accessService.ReadUserAccessLevelForTarget(ctx, userTag.Id(), spec.Target)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = &params.UserAccess{
-			Access:  string(access),
+			Access:  string(accessLevel),
 			UserTag: userTag.String()}
 	}
 	return results, nil
@@ -727,7 +743,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 		return result, nil
 	}
 
-	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
+	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -739,20 +755,21 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 			continue
 		}
 
-		controllerAccess := permission.Access(arg.Access)
-		if err := permission.ValidateControllerAccess(controllerAccess); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify controller access"))
 			continue
 		}
 
-		result.Results[i].Error = apiservererrors.ServerError(
-			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
+		updateArgs := access.UpdatePermissionArgs{
+			AccessSpec: permission.ControllerForAccess(permission.Access(arg.Access)),
+			AddUser:    true,
+			ApiUser:    c.apiUser.Id(),
+			Change:     permission.AccessChange(string(arg.Action)),
+			Subject:    targetUserTag.Id(),
+		}
+		err = c.accessService.UpdatePermission(ctx, updateArgs)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1045,73 +1062,6 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 		info.Tag = ti.AuthTag
 	}
 	return info
-}
-
-func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
-	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
-	if errors.Is(err, errors.AlreadyExists) {
-		controllerTag := accessor.ControllerTag()
-		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
-		if errors.Is(err, errors.NotFound) {
-			// Conflicts with prior check, must be inconsistent state.
-			err = jujutxn.ErrExcessiveContention
-		}
-		if err != nil {
-			return errors.Annotate(err, "could not look up controller access for user")
-		}
-
-		// Only set access if greater access is being granted.
-		if controllerUser.Access.EqualOrGreaterControllerAccessThan(access) {
-			return errors.Errorf("user already has %q access or greater", access)
-		}
-		if _, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, access); err != nil {
-			return errors.Annotate(err, "could not set controller access for user")
-		}
-		return nil
-
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func revokeControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
-	controllerTag := accessor.ControllerTag()
-	switch access {
-	case permission.LoginAccess:
-		// Revoking login access removes all access.
-		err := accessor.RemoveUserAccess(targetUserTag, controllerTag)
-		return errors.Annotate(err, "could not revoke controller access")
-	case permission.SuperuserAccess:
-		// Revoking superuser sets login.
-		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
-		if err != nil {
-			return errors.Annotate(err, "could not look up controller access for user")
-		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.LoginAccess)
-		return errors.Annotate(err, "could not set controller access to login")
-
-	default:
-		return errors.Errorf("don't know how to revoke %q access", access)
-	}
-}
-
-// ChangeControllerAccess performs the requested access grant or revoke action for the
-// specified user on the controller.
-func ChangeControllerAccess(accessor ControllerAccess, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
-	switch action {
-	case params.GrantControllerAccess:
-		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)
-		if err != nil {
-			return errors.Annotate(err, "could not grant controller access")
-		}
-		return nil
-	case params.RevokeControllerAccess:
-		return revokeControllerAccess(accessor, targetUserTag, apiUser, access)
-	default:
-		return errors.Errorf("unknown action %q", action)
-	}
 }
 
 type orderedBlockInfo []params.ModelBlockInfo

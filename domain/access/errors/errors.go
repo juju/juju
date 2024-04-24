@@ -57,6 +57,10 @@ const (
 	// permission is invalid for the given target.
 	PermissionAccessInvalid = errors.ConstError("permission access invalid")
 
+	// PermissionAccessGreater describes an error that occurs when current access of
+	// the user is greater or equal to the access being granted.
+	PermissionAccessGreater = errors.ConstError("access or greater")
+
 	// ActivationKeyNotFound describes an error that occurs when the
 	// activation key is not found.
 	ActivationKeyNotFound = errors.ConstError("activation key not found")

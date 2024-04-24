@@ -11,12 +11,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // DestroyController destroys the controller.
@@ -26,28 +23,16 @@ import (
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
 func (c *ControllerAPI) DestroyController(ctx context.Context, args params.DestroyControllerArgs) error {
-	return destroyController(ctx, c.state, c.statePool, c.authorizer, c.cloudService, args, c.logger)
-}
-
-func destroyController(
-	ctx context.Context,
-	st Backend,
-	pool *state.StatePool,
-	authorizer facade.Authorizer,
-	cloudService stateenvirons.CloudService,
-	args params.DestroyControllerArgs,
-	logger loggo.Logger,
-) error {
-	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.controllerTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := ensureNotBlocked(st, logger); err != nil {
+	if err := ensureNotBlocked(c.state, c.logger); err != nil {
 		return errors.Trace(err)
 	}
 
-	model, err := st.Model()
+	model, err := c.state.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -56,7 +41,7 @@ func destroyController(
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	backend := common.NewModelManagerBackend(environs.ProviderConfigSchemaSource(cloudService), model, pool)
+	backend := common.NewModelManagerBackend(environs.ProviderConfigSchemaSource(c.cloudService), model, c.statePool)
 	return errors.Trace(common.DestroyController(
 		ctx,
 		backend, args.DestroyModels, args.DestroyStorage,

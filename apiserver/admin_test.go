@@ -27,7 +27,6 @@ import (
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/client/controller"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/migration"
@@ -968,10 +967,16 @@ func assertPermissionDenied(c *gc.C, err error) {
 }
 
 func setEveryoneAccess(c *gc.C, st *state.State, adminUser names.UserTag, access permission.Access) {
-	err := controller.ChangeControllerAccess(
-		st, adminUser, names.NewUserTag(common.EveryoneTagName),
-		params.GrantControllerAccess, access)
-	c.Assert(err, jc.ErrorIsNil)
+	targetUserTag := names.NewUserTag(common.EveryoneTagName)
+	_, err := st.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: adminUser, Access: access})
+	if errors.Is(err, errors.AlreadyExists) {
+		controllerTag := st.ControllerTag()
+		controllerUser, err := st.UserAccess(targetUserTag, controllerTag)
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = st.SetUserAccess(targetUserTag, controllerUser.Object, access)
+		c.Assert(err, jc.ErrorIsNil)
+		return
+	}
 }
 
 var _ = gc.Suite(&migrationSuite{})
