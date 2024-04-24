@@ -61,14 +61,14 @@ type State interface {
 	) ([]*secrets.SecretMetadataForDrain, error)
 	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
 	InitialWatchStatementForObsoleteRevision(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (tableName string, statement eventsource.NamespaceQuery)
 	GetRevisionIDsForObsolete(
-		ctx context.Context,
-		appOwners domainsecret.ApplicationOwners,
-		unitOwners domainsecret.UnitOwners,
-		revisionUUID ...string,
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUID ...string,
 	) ([]string, error)
+
+	InitialWatchStatementForConsumedSecrets(unitName string) (string, eventsource.NamespaceQuery)
+	GetConsumedSecretURIs(ctx context.Context, unitName string, consumerIDs ...string) ([]string, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

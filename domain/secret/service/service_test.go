@@ -1326,7 +1326,7 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
 		return []string{"revision-uuid-1", "revision-uuid-2"}, nil
 	}
-	s.state.EXPECT().InitialWatchStatementForObsoleteRevision(gomock.Any(),
+	s.state.EXPECT().InitialWatchStatementForObsoleteRevision(
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("table", namespaceQuery)
@@ -1369,6 +1369,54 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 	wC.AssertChange(
 		"yyy/1",
 		"yyy/2",
+	)
+	wC.AssertNoChange()
+}
+
+func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.state = NewMockState(ctrl)
+	mockWatcherFactory := NewMockWatcherFactory(ctrl)
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+
+	ch := make(chan []string)
+	mockStringWatcher := NewMockStringsWatcher(ctrl)
+	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockStringWatcher.EXPECT().Kill().AnyTimes()
+
+	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
+		return []string{uri1.ID, uri2.ID}, nil
+	}
+	s.state.EXPECT().InitialWatchStatementForConsumedSecrets("mysql/0").Return("table", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Update, gomock.Any()).Return(mockStringWatcher, nil)
+
+	gomock.InOrder(
+		s.state.EXPECT().GetConsumedSecretURIs(gomock.Any(),
+			"mysql/0", uri1.ID, uri2.ID,
+		).Return([]string{uri1.String(), uri2.String()}, nil),
+	)
+
+	svc := NewWatchableService(s.state, coretesting.NewCheckLogger(c), mockWatcherFactory, nil)
+	w, err := svc.WatchConsumedSecretsChanges(context.Background(), "mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+	wC := watchertest.NewStringsWatcherC(c, w)
+
+	select {
+	case ch <- []string{uri1.ID, uri2.ID}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+
+	wC.AssertChange(
+		uri1.String(),
+		uri2.String(),
 	)
 	wC.AssertNoChange()
 }

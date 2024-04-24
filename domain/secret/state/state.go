@@ -2451,10 +2451,6 @@ type (
 func (st State) ListGrantedSecretsForBackend(
 	ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role coresecrets.SecretRole,
 ) ([]*coresecrets.SecretRevisionRef, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	query := `
 SELECT
@@ -2534,9 +2530,80 @@ AND  (
 	return revisionResult, nil
 }
 
-// InitialWatchStatementForObsoleteRevision returns the initial watch statement and the table name for watching obsolete revisions.
+// InitialWatchStatementForConsumedSecrets returns the initial watch statement and the table name for watching consumed secrets.
+func (st State) InitialWatchStatementForConsumedSecrets(unitName string) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		return st.getConsumedSecretURIs(ctx, runner, unitName)
+	}
+	return "secret_unit_consumer", queryFunc
+}
+
+// GetConsumedSecretURIs returns the URIs of the secrets consumed by the specified unit.
+func (st State) GetConsumedSecretURIs(ctx context.Context, unitName string, consumerIDs ...string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// InitialWatchStatementForObsoleteRevision returns the initial watch statement and the table name for watching obsolete revisions.
+	return st.getConsumedSecretURIs(ctx, db, unitName, consumerIDs...)
+}
+
+type secretUnitConsumerIDs []string
+
+func (st State) getConsumedSecretURIs(
+	ctx context.Context, runner coredatabase.TxnRunner, unitName string,
+	consumerIDs ...string,
+) ([]string, error) {
+	q := `
+SELECT suc.secret_id AS &secretUnitConsumer.secret_id
+FROM secret_unit_consumer suc
+LEFT JOIN unit u ON u.uuid = suc.unit_uuid
+WHERE u.unit_id = $unit.unit_id
+-- Actually, since we are only watching changes to the current_revision field,
+-- the current_revision should be greater than 1 when we receive the change event.
+-- However, we are adding this condition here as a precaution.
+AND suc.current_revision > 1`
+
+	queryParams := []any{
+		unit{UnitName: unitName},
+	}
+
+	if len(consumerIDs) > 0 {
+		queryParams = append(queryParams,
+			secretUnitConsumerIDs(consumerIDs),
+		)
+		q += " AND suc.secret_id IN ($secretUnitConsumerIDs[:])"
+	}
+	stmt, err := st.Prepare(q, append([]any{secretUnitConsumer{}}, queryParams...)...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var dbConsumers []secretUnitConsumer
+	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryParams...).GetAll(&dbConsumers)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No consumed secrets found.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	secretURIs := make([]string, len(dbConsumers))
+	for i, consumer := range dbConsumers {
+		uri, err := coresecrets.ParseURI(consumer.SecretID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		secretURIs[i] = uri.String()
+	}
+	return secretURIs, nil
+}
+
+// InitialWatchStatementForObsolete returns the initial watch statement and the table name for watching obsolete revisions.
 func (st State) InitialWatchStatementForObsoleteRevision(
-	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		var revisions []secretRevision

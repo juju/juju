@@ -47,6 +47,14 @@ func revID(uri *coresecrets.URI, rev int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, rev)
 }
 
+func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo-new": "bar-new"},
+	}
+	err := st.UpdateSecret(context.Background(), uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService, *state.State) {
 	logger := coretesting.NewCheckLogger(c)
 	st := state.NewState(s.TxnRunnerFactory(), logger)
@@ -66,14 +74,6 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 
 	ctx := context.Background()
 	svc, st := s.setupServiceAndState(c)
-
-	createNewRevision := func(c *gc.C, uri *coresecrets.URI) {
-		sp := secret.UpsertSecretParams{
-			Data: coresecrets.SecretData{"foo-new": "bar-new"},
-		}
-		err := st.UpdateSecret(ctx, uri, sp)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 
 	sp := secret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -123,10 +123,10 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 	wCAll.AssertChange([]string(nil)...)
 
 	// create revision 2, and obsolete revision 1.
-	createNewRevision(c, uri1)
-	createNewRevision(c, uri2)
-	createNewRevision(c, uri3)
-	createNewRevision(c, uri4)
+	createNewRevision(c, st, uri1)
+	createNewRevision(c, st, uri2)
+	createNewRevision(c, st, uri3)
+	createNewRevision(c, st, uri4)
 
 	wCAll.AssertChange(
 		revID(uri1, 1),
@@ -136,9 +136,9 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 	)
 
 	// create revision 3, and obsolete revision 2.
-	createNewRevision(c, uri1)
-	createNewRevision(c, uri2)
-	createNewRevision(c, uri3)
+	createNewRevision(c, st, uri1)
+	createNewRevision(c, st, uri2)
+	createNewRevision(c, st, uri3)
 
 	wCAll.AssertChange(
 		revID(uri1, 2),
@@ -154,14 +154,6 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 
 	ctx := context.Background()
 	svc, st := s.setupServiceAndState(c)
-
-	createNewRevision := func(c *gc.C, uri *coresecrets.URI) {
-		sp := secret.UpsertSecretParams{
-			Data: coresecrets.SecretData{"foo-new": "bar-new"},
-		}
-		err := st.UpdateSecret(ctx, uri, sp)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 
 	sp := secret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -190,16 +182,16 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 	wCSingleApplication.AssertChange([]string(nil)...)
 
 	// create revision 2, and obsolete revision 1.
-	createNewRevision(c, uri1)
-	createNewRevision(c, uri2)
+	createNewRevision(c, st, uri1)
+	createNewRevision(c, st, uri2)
 
 	wCSingleApplication.AssertChange(
 		revID(uri1, 1),
 	)
 
 	// create revision 3, and obsolete revision 2.
-	createNewRevision(c, uri1)
-	createNewRevision(c, uri2)
+	createNewRevision(c, st, uri1)
+	createNewRevision(c, st, uri2)
 
 	wCSingleApplication.AssertChange(
 		revID(uri1, 2),
@@ -213,14 +205,6 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 
 	ctx := context.Background()
 	svc, st := s.setupServiceAndState(c)
-
-	createNewRevision := func(c *gc.C, uri *coresecrets.URI) {
-		sp := secret.UpsertSecretParams{
-			Data: coresecrets.SecretData{"foo-new": "bar-new"},
-		}
-		err := st.UpdateSecret(ctx, uri, sp)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 
 	sp := secret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -249,20 +233,74 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 	wCSingleUnit.AssertChange([]string(nil)...)
 
 	// create revision 2, and obsolete revision 1.
-	createNewRevision(c, uri1)
-	createNewRevision(c, uri2)
+	createNewRevision(c, st, uri1)
+	createNewRevision(c, st, uri2)
 
 	wCSingleUnit.AssertChange(
 		revID(uri2, 1),
 	)
 
 	// create revision 3, and obsolete revision 2.
-	createNewRevision(c, uri1)
-	createNewRevision(c, uri2)
+	createNewRevision(c, st, uri1)
+	createNewRevision(c, st, uri2)
 
 	wCSingleUnit.AssertChange(
 		revID(uri2, 2),
 	)
 
 	wCSingleUnit.AssertNoChange()
+}
+
+func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
+
+	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
+		consumer := &coresecrets.SecretConsumerMetadata{
+			CurrentRevision: revision,
+		}
+		err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	// create revision 2.
+	createNewRevision(c, st, uri1)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	// create revision 2.
+	createNewRevision(c, st, uri2)
+
+	watcher, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher, gc.NotNil)
+	defer workertest.CleanKill(c, watcher)
+
+	wC := watchertest.NewStringsWatcherC(c, watcher)
+
+	// The consumed revision 1 is the initial revision - will be ignored.
+	saveConsumer(uri1, 1, "mediawiki/0")
+	// The consumed revision 1 is the initial revision - will be ignored.
+	saveConsumer(uri2, 1, "mediawiki/0")
+	// The consumed revision 2 is the updated current_revision.
+	saveConsumer(uri2, 2, "mediawiki/0")
+
+	// Wait for the initial changes.
+	wC.AssertChange([]string(nil)...)
+
+	wC.AssertChange(
+		uri2.String(),
+	)
+
+	wC.AssertNoChange()
 }

@@ -2667,7 +2667,7 @@ func (s *stateSuite) TestInitialWatchStatementForObsoleteRevision(c *gc.C) {
 	uri1, uri2, uri3, uri4 := s.prepareSecretObsoleteRevisions(c, st)
 	ctx := context.Background()
 
-	tableName, f := st.InitialWatchStatementForObsoleteRevision(ctx,
+	tableName, f := st.InitialWatchStatementForObsoleteRevision(
 		[]string{"mysql", "mediawiki"},
 		[]string{"mysql/0", "mediawiki/0"},
 	)
@@ -2960,4 +2960,69 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 	data, _, err := st.GetSecretValue(ctx, uri2, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+}
+
+func (s *stateSuite) prepareWatchForConsumedSecrets(c *gc.C, ctx context.Context, st *State) (*coresecrets.URI, *coresecrets.URI) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
+		consumer := &coresecrets.SecretConsumerMetadata{
+			CurrentRevision: revision,
+		}
+		err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	// create revision 2.
+	updateSecretContent(c, st, uri1)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	// create revision 2.
+	updateSecretContent(c, st, uri2)
+
+	// The consumed revision 1 is the initial revision - will be ignored.
+	saveConsumer(uri1, 1, "mediawiki/0")
+	// The consumed revision 1 is the initial revision - will be ignored.
+	saveConsumer(uri2, 1, "mediawiki/0")
+	// The consumed revision 2 is the updated current_revision.
+	saveConsumer(uri2, 2, "mediawiki/0")
+	return uri1, uri2
+}
+
+func (s *stateSuite) TestInitialWatchStatementForConsumedSecrets(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	_, uri2 := s.prepareWatchForConsumedSecrets(c, ctx, st)
+	tableName, f := st.InitialWatchStatementForConsumedSecrets("mediawiki/0")
+
+	c.Assert(tableName, gc.Equals, "secret_unit_consumer")
+	consumerIDs, err := f(ctx, s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(consumerIDs, jc.SameContents, []string{
+		uri2.String(),
+	})
+}
+
+func (s *stateSuite) TestGetConsumedSecretURIs(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	uri1, uri2 := s.prepareWatchForConsumedSecrets(c, ctx, st)
+
+	result, err := st.GetConsumedSecretURIs(ctx, "mediawiki/0",
+		uri1.ID,
+		uri2.ID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.SameContents, []string{
+		uri2.String(),
+	})
 }

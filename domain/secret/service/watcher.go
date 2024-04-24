@@ -46,9 +46,17 @@ func NewWatchableService(
 // WatchConsumedSecretsChanges watches secrets consumed by the specified unit
 // and returns a watcher which notifies of secret URIs that have had a new revision added.
 func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error) {
-	ch := make(chan []string, 1)
-	ch <- []string{}
-	return watchertest.NewMockStringsWatcher(ch), nil
+	table, query := s.st.InitialWatchStatementForConsumedSecrets(unitName)
+	w, err := s.watcherFactory.NewNamespaceWatcher(
+		table, changestream.Update, query,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	processChanges := func(ctx context.Context, consumerIDs ...string) ([]string, error) {
+		return s.st.GetConsumedSecretURIs(ctx, unitName, consumerIDs...)
+	}
+	return newStringsWatcher(w, s.logger, processChanges)
 }
 
 // WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any unit
@@ -73,7 +81,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	}
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	table, query := s.st.InitialWatchStatementForObsoleteRevision(ctx, appOwners, unitOwners)
+	table, query := s.st.InitialWatchStatementForObsoleteRevision(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		table, changestream.Update, query,
 	)
@@ -83,34 +91,29 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.st.GetRevisionIDsForObsolete(ctx, appOwners, unitOwners, revisionUUIDs...)
 	}
-	return newObsoleteRevisionWatcher(w, s.logger, processChanges)
+	return newStringsWatcher(w, s.logger, processChanges)
 }
 
-// obsoleteRevisionWatcher watches for obsolete changes to secret revisions.
-// It receives a stream of revision UUIDs and processes them to determine which
-// are obsolete. It then sends the slice of `<uri>/<version>` to its output channel.
-type obsoleteRevisionWatcher struct {
+// stringsWatcher is a watcher that watches for changes to a set of strings.
+type stringsWatcher struct {
 	catacomb catacomb.Catacomb
 	logger   Logger
 
-	sourceWatcher  watcher.StringsWatcher
-	processChanges func(
-		ctx context.Context,
-		revisionUUID ...string,
-	) ([]string, error)
+	sourceWatcher watcher.StringsWatcher
+	handle        func(ctx context.Context, events ...string) ([]string, error)
 
 	out chan []string
 }
 
-func newObsoleteRevisionWatcher(
+func newStringsWatcher(
 	sourceWatcher watcher.StringsWatcher, logger Logger,
-	processChanges func(ctx context.Context, revisionUUID ...string) ([]string, error),
-) (*obsoleteRevisionWatcher, error) {
-	w := &obsoleteRevisionWatcher{
-		sourceWatcher:  sourceWatcher,
-		logger:         logger,
-		processChanges: processChanges,
-		out:            make(chan []string),
+	handle func(ctx context.Context, events ...string) ([]string, error),
+) (*stringsWatcher, error) {
+	w := &stringsWatcher{
+		sourceWatcher: sourceWatcher,
+		logger:        logger,
+		handle:        handle,
+		out:           make(chan []string),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -120,13 +123,13 @@ func newObsoleteRevisionWatcher(
 	return w, errors.Trace(err)
 }
 
-func (w *obsoleteRevisionWatcher) getRevisionIDs(revisionUUIDs ...string) ([]string, error) {
+func (w *stringsWatcher) processChanges(events ...string) ([]string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return w.processChanges(w.catacomb.Context(ctx), revisionUUIDs...)
+	return w.handle(w.catacomb.Context(ctx), events...)
 }
 
-func (w *obsoleteRevisionWatcher) loop() error {
+func (w *stringsWatcher) loop() error {
 	defer close(w.out)
 
 	var changes set.Strings
@@ -150,14 +153,14 @@ func (w *obsoleteRevisionWatcher) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case revisionUUIDs, ok := <-w.sourceWatcher.Changes():
+		case events, ok := <-w.sourceWatcher.Changes():
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
-			if len(revisionUUIDs) == 0 {
+			if len(events) == 0 {
 				continue
 			}
-			processed, err := w.getRevisionIDs(revisionUUIDs...)
+			processed, err := w.processChanges(events...)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -170,24 +173,24 @@ func (w *obsoleteRevisionWatcher) loop() error {
 }
 
 // Changes returns the channel of obsolete secret changes.
-func (w *obsoleteRevisionWatcher) Changes() <-chan []string {
+func (w *stringsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
 // Stop stops the watcher.
-func (w *obsoleteRevisionWatcher) Stop() error {
+func (w *stringsWatcher) Stop() error {
 	w.Kill()
 	return w.Wait()
 }
 
 // Kill kills the watcher via its tomb.
-func (w *obsoleteRevisionWatcher) Kill() {
+func (w *stringsWatcher) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait waits for the watcher's tomb to die,
 // and returns the error with which it was killed.
-func (w *obsoleteRevisionWatcher) Wait() error {
+func (w *stringsWatcher) Wait() error {
 	return w.catacomb.Wait()
 }
 
