@@ -208,26 +208,6 @@ func SeriesVersion(series string) (string, error) {
 	return "", errors.Trace(unknownSeriesVersionError(series))
 }
 
-// UbuntuSeriesVersion returns the ubuntu version for the specified series.
-func UbuntuSeriesVersion(series string) (string, error) {
-	if series == "" {
-		return "", errors.Trace(unknownSeriesVersionError(""))
-	}
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-
-	seriesName := SeriesName(series)
-	if vers, ok := ubuntuSeries[seriesName]; ok {
-		return vers.Version, nil
-	}
-	updateSeriesVersionsOnce()
-	if vers, ok := ubuntuSeries[seriesName]; ok {
-		return vers.Version, nil
-	}
-
-	return "", errors.Trace(unknownSeriesVersionError(series))
-}
-
 // UbuntuVersions returns the ubuntu versions as a map.
 func UbuntuVersions(supported, esmSupported *bool) map[string]string {
 	return ubuntuVersions(supported, esmSupported, ubuntuSeries)
