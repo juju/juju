@@ -43,6 +43,15 @@ jobs:
       run: |
         make install-mongo-dependencies
 
+    - name: "Install Mongo Dependencies: macOS-latest"
+      if: (matrix.os == 'macOS-latest')
+      run: |
+        brew tap mongodb/brew
+        brew update
+        brew install mongodb-community@4.4
+        brew link mongodb-community@4.4
+        brew services start mongodb/brew/mongodb-community@4.4
+
     - name: "Remove Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
       uses: crazy-max/ghaction-chocolatey@90deb87d9fbf0bb2f022b91e3bf11b4441cddda5 # v1
