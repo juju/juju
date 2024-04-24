@@ -17,7 +17,6 @@ permissions:
   contents: read
 
 jobs:
-
   test-client-ubuntu:
     name: "Client Tests"
     runs-on: ${{ matrix.os }}

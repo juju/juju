@@ -4,10 +4,6 @@ on:
     branches: [2.9, 3.*]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - '.github/workflows/terraform-smoke.yml'
   workflow_dispatch:
 
 permissions:
