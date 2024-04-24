@@ -17,7 +17,7 @@ type SecretTriggers interface {
 	WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.SecretTriggerWatcher, error)
 	WatchSecretsRotationChanges(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.SecretTriggerWatcher, error)
 	WatchObsolete(ctx context.Context, owners ...secretservice.CharmSecretOwner) (watcher.StringsWatcher, error)
-	SecretRotated(ctx context.Context, uri *secrets.URI, originalRev int, skip bool, accessor secretservice.SecretAccessor, token leadership.Token) error
+	SecretRotated(ctx context.Context, uri *secrets.URI, params secretservice.SecretRotatedParams) error
 }
 
 // SecretsConsumer instances provide secret consumer apis.

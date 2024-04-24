@@ -918,7 +918,12 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 			Kind: secretservice.UnitAccessor,
 			ID:   unitName,
 		}
-		return s.secretsTriggers.SecretRotated(ctx, uri, arg.OriginalRevision, arg.Skip, accessor, token)
+		return s.secretsTriggers.SecretRotated(ctx, uri, secretservice.SecretRotatedParams{
+			LeaderToken:      token,
+			Accessor:         accessor,
+			OriginalRevision: arg.OriginalRevision,
+			Skip:             arg.Skip,
+		})
 	}
 	for i, arg := range args.Args {
 		var result params.ErrorResult

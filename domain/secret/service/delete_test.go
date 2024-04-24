@@ -26,7 +26,6 @@ func (s *serviceSuite) TestDeleteSecret(c *gc.C) {
 	uri := coresecrets.NewURI()
 
 	s.state = NewMockState(ctrl)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",

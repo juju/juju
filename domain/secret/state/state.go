@@ -2497,7 +2497,7 @@ SELECT uuid AS &revisionUUID.uuid
 FROM   secret_revision
 WHERE  secret_id = $secretID.id%s
 `, revFilter)
-	selectRevisionStmt, err := st.Prepare(selectRevsToDelete, secretID{}, revisionUUID{}, revisions{})
+	selectRevisionStmt, err := st.Prepare(selectRevsToDelete, append([]any{revisionUUID{}}, selectRevisionParams...)...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2555,7 +2555,7 @@ DELETE FROM secret_revision WHERE uuid IN ($revisionUUIDs[:])`
 		}
 		for _, stmt := range deleteRevisionStmts {
 			err = tx.Query(ctx, stmt, toDelete).Run()
-			if err != nil {
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Annotatef(err, "deleting revision info for secret %q", uri)
 			}
 		}

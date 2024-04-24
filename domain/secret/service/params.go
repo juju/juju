@@ -43,6 +43,15 @@ type DeleteSecretParams struct {
 	Revisions []int
 }
 
+// SecretRotatedParams are used to mark a secret as rotated.
+type SecretRotatedParams struct {
+	LeaderToken leadership.Token
+	Accessor    SecretAccessor
+
+	OriginalRevision int
+	Skip             bool
+}
+
 // SecretAccessParams are used to define access to a secret.
 type SecretAccessParams struct {
 	LeaderToken leadership.Token

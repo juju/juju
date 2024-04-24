@@ -1316,10 +1316,15 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, 666, false, secretservice.SecretAccessor{
-		Kind: secretservice.UnitAccessor,
-		ID:   "mariadb/0",
-	}, s.token).Return(errors.New("boom"))
+	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, secretservice.SecretRotatedParams{
+		LeaderToken: s.token,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		OriginalRevision: 666,
+		Skip:             false,
+	}).Return(errors.New("boom"))
 
 	result, err := s.facade.SecretsRotated(context.Background(), params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
@@ -1347,10 +1352,15 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, 666, false, secretservice.SecretAccessor{
-		Kind: secretservice.UnitAccessor,
-		ID:   "mariadb/0",
-	}, s.token).Return(errors.New("boom"))
+	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, secretservice.SecretRotatedParams{
+		LeaderToken: s.token,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		OriginalRevision: 666,
+		Skip:             false,
+	}).Return(errors.New("boom"))
 
 	result, err := s.facade.SecretsRotated(context.Background(), params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
@@ -1373,10 +1383,15 @@ func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, 666, false, secretservice.SecretAccessor{
-		Kind: secretservice.UnitAccessor,
-		ID:   "mariadb/0",
-	}, s.token).Return(errors.New("boom"))
+	s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, secretservice.SecretRotatedParams{
+		LeaderToken: s.token,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		OriginalRevision: 666,
+		Skip:             false,
+	}).Return(errors.New("boom"))
 
 	result, err := s.facade.SecretsRotated(context.Background(), params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{

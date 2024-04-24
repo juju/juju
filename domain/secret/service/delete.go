@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -23,11 +22,6 @@ func (s *SecretService) DeleteObsoleteUserSecrets(ctx context.Context) error {
 // If revisions is nil or the last remaining revisions are removed.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, params DeleteSecretParams) error {
-	modelUUID, err := s.st.GetModelUUID(ctx)
-	if err != nil {
-		return errors.Annotate(err, "getting model uuid")
-	}
-
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
 		return errors.Trace(err)
 	}
@@ -45,11 +39,16 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 					return errors.Trace(err)
 				}
 			}
+			// TODO(secrets) - support backends properly
 			// Ideally we'd not use tags but secret API uses them.
-			ownerTag := names.NewModelTag(modelUUID)
-			if err := p.CleanupSecrets(ctx, &cfg, ownerTag, revs); err != nil {
-				return errors.Trace(err)
-			}
+			//modelUUID, err := s.st.GetModelUUID(ctx)
+			//if err != nil {
+			//	return errors.Annotate(err, "getting model uuid")
+			//}
+			//ownerTag := names.NewModelTag(modelUUID)
+			//if err := p.CleanupSecrets(ctx, &cfg, ownerTag, revs); err != nil {
+			//	return errors.Trace(err)
+			//}
 			return nil
 		},
 	)

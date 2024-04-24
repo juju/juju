@@ -44,17 +44,17 @@ func (m *MockSecretTriggers) EXPECT() *MockSecretTriggersMockRecorder {
 }
 
 // SecretRotated mocks base method.
-func (m *MockSecretTriggers) SecretRotated(ctx context.Context, uri *secrets.URI, originalRev int, skip bool, accessor service.SecretAccessor, token leadership.Token) error {
+func (m *MockSecretTriggers) SecretRotated(ctx context.Context, uri *secrets.URI, params service.SecretRotatedParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretRotated", ctx, uri, originalRev, skip, accessor, token)
+	ret := m.ctrl.Call(m, "SecretRotated", ctx, uri, params)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SecretRotated indicates an expected call of SecretRotated.
-func (mr *MockSecretTriggersMockRecorder) SecretRotated(ctx, uri, originalRev, skip, accessor, token any) *gomock.Call {
+func (mr *MockSecretTriggersMockRecorder) SecretRotated(ctx, uri, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretRotated", reflect.TypeOf((*MockSecretTriggers)(nil).SecretRotated), ctx, uri, originalRev, skip, accessor, token)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretRotated", reflect.TypeOf((*MockSecretTriggers)(nil).SecretRotated), ctx, uri, params)
 }
 
 // WatchObsolete mocks base method.
