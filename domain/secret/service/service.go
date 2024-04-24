@@ -29,6 +29,7 @@ type State interface {
 	CreateCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams) error
 	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error
 	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
+	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
@@ -131,11 +132,6 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 	if params.UserSecret && params.CharmOwner != nil {
 		return errors.New("cannot specify both a charm secret owner and a user secret")
 	}
-	if params.LeaderToken != nil {
-		if err := params.LeaderToken.Check(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 
 	p := domainsecret.UpsertSecretParams{
 		Description: params.Description,
@@ -162,6 +158,16 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 	p.ExpireTime = params.ExpireTime
 	var err error
 	if params.CharmOwner.Kind == ApplicationOwner {
+		// Only unit leaders can create application secrets.
+		if params.LeaderToken == nil {
+			return secreterrors.PermissionDenied
+		}
+		if err := params.LeaderToken.Check(); err != nil {
+			if leadership.IsNotLeaderError(err) {
+				return secreterrors.PermissionDenied
+			}
+			return errors.Trace(err)
+		}
 		err = s.st.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
 	} else {
 		err = s.st.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
@@ -176,15 +182,14 @@ func (s *SecretService) CreateSecret(ctx context.Context, uri *secrets.URI, para
 // satisfying [secreterrors.SecretNotFound] if the secret does not exist.
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
 // the secret owner already has a secret with the same label.
+// It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) UpdateSecret(ctx context.Context, uri *secrets.URI, params UpdateSecretParams) error {
 	if len(params.Data) > 0 && params.ValueRef != nil {
 		return errors.New("must specify either content or a value reference but not both")
 	}
 
-	if params.LeaderToken != nil {
-		if err := params.LeaderToken.Check(); err != nil {
-			return errors.Trace(err)
-		}
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
 	}
 
 	p := domainsecret.UpsertSecretParams{
@@ -262,7 +267,10 @@ func (s *SecretService) ListUserSecrets(ctx context.Context) ([]*secrets.SecretM
 
 // GetSecretValue returns the value of the specified secret revision.
 // If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
-func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int) (secrets.SecretValue, *secrets.ValueRef, error) {
+func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int, accessor SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error) {
+	if err := s.canRead(ctx, uri, accessor); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	data, ref, err := s.st.GetSecretValue(ctx, uri, rev)
 	return secrets.NewSecretValue(data), ref, errors.Trace(err)
 }
@@ -271,7 +279,7 @@ func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, re
 // If the uri is empty, the label and consumer are used to lookup the consumed secret uri.
 // This method returns the resulting uri, and optionally the label to update for the consumer.
 func (s *SecretService) ProcessSecretConsumerLabel(
-	ctx context.Context, unitName string, uri *secrets.URI, label string, checkCallerOwner func(secretOwner secrets.Owner) (bool, leadership.Token, error),
+	ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
 ) (*secrets.URI, *string, error) {
 	modelUUID, err := s.st.GetModelUUID(ctx)
 	if err != nil {
@@ -295,11 +303,8 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
 			isOwner := true
 			if labelToUpdate != nil && *labelToUpdate != md.Label {
-				var (
-					token leadership.Token
-					err   error
-				)
-				if isOwner, token, err = checkCallerOwner(md.Owner); err != nil {
+				var err error
+				if isOwner, err = checkUnitOwner(unitName, md.Owner, token); err != nil {
 					return nil, nil, errors.Trace(err)
 				}
 				if isOwner {
@@ -311,6 +316,10 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 					err := s.UpdateSecret(ctx, uri, UpdateSecretParams{
 						LeaderToken: token,
 						Label:       &label,
+						Accessor: SecretAccessor{
+							Kind: UnitAccessor,
+							ID:   unitName,
+						},
 					})
 					if err != nil {
 						return nil, nil, errors.Trace(err)
@@ -339,6 +348,23 @@ func (s *SecretService) ProcessSecretConsumerLabel(
 		}
 	}
 	return uri, labelToUpdate, nil
+}
+
+func checkUnitOwner(unitName string, owner secrets.Owner, token leadership.Token) (bool, error) {
+	if owner.Kind == secrets.UnitOwner && owner.ID == unitName {
+		return true, nil
+	}
+	// Only unit leaders can "own" application secrets.
+	if token == nil {
+		return false, secreterrors.PermissionDenied
+	}
+	if err := token.Check(); err != nil {
+		if leadership.IsNotLeaderError(err) {
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+	return true, nil
 }
 
 func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context, uri *secrets.URI, unitName, label string) (*secrets.SecretMetadata, error) {
@@ -376,7 +402,13 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 }
 
 // ChangeSecretBackend sets the secret backend where the specified secret revision is stored.
-// If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
+// It returns [secreterrors.SecretNotFound] is there's no such secret.
+// It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) error {
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(secrets)
 	return nil
 }

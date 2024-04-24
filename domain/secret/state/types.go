@@ -123,6 +123,7 @@ type secretValueRef struct {
 type secretUnitConsumer struct {
 	UnitUUID        string `db:"unit_uuid"`
 	SecretID        string `db:"secret_id"`
+	SourceModelUUID string `db:"source_model_uuid"`
 	Label           string `db:"label"`
 	CurrentRevision int    `db:"current_revision"`
 }

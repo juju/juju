@@ -7,15 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 )
-
-func (s *SecretService) DeleteCharmSecret(ctx context.Context, uri *secrets.URI, revisions []int, canDelete func(uri *secrets.URI) error) error {
-	return nil
-}
 
 // DeleteObsoleteUserSecrets deletes any obsolete user secret revisions that are marked as auto-prune.
 func (s *SecretService) DeleteObsoleteUserSecrets(ctx context.Context) error {
@@ -23,15 +18,17 @@ func (s *SecretService) DeleteObsoleteUserSecrets(ctx context.Context) error {
 	return nil
 }
 
-// DeleteUserSecret removes the specified user supplied secret.
-// The secret is removed from state and backend.
-func (s *SecretService) DeleteUserSecret(ctx context.Context, uri *secrets.URI, revisions []int) error {
-	// TODO(secrets) - get model uuid from state
-	var modelUUID string
+// DeleteSecret removes the specified secret.
+// If revisions is nil or the last remaining revisions are removed.
+// It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
+func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, params DeleteSecretParams) error {
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
+	}
 
 	return s.deleteSecret(
 		ctx,
-		uri, revisions,
+		uri, params.Revisions,
 		func(ctx context.Context, p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
 			backend, err := p.NewBackend(&cfg)
 			if err != nil {
@@ -42,11 +39,16 @@ func (s *SecretService) DeleteUserSecret(ctx context.Context, uri *secrets.URI, 
 					return errors.Trace(err)
 				}
 			}
+			// TODO(secrets) - support backends properly
 			// Ideally we'd not use tags but secret API uses them.
-			ownerTag := names.NewModelTag(modelUUID)
-			if err := p.CleanupSecrets(ctx, &cfg, ownerTag, revs); err != nil {
-				return errors.Trace(err)
-			}
+			//modelUUID, err := s.st.GetModelUUID(ctx)
+			//if err != nil {
+			//	return errors.Annotate(err, "getting model uuid")
+			//}
+			//ownerTag := names.NewModelTag(modelUUID)
+			//if err := p.CleanupSecrets(ctx, &cfg, ownerTag, revs); err != nil {
+			//	return errors.Trace(err)
+			//}
 			return nil
 		},
 	)
@@ -115,7 +117,7 @@ func (s *SecretService) deleteSecret(
 		return errors.Trace(err)
 	}
 
-	panic("implement me")
+	return s.st.DeleteSecret(ctx, uri, revisions)
 }
 
 func (s *SecretService) listSecretRevisions(ctx context.Context, uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error) {

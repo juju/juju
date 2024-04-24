@@ -56,21 +56,6 @@ func (mr *MockSecretServiceMockRecorder) GetSecret(arg0, arg1 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockSecretService)(nil).GetSecret), arg0, arg1)
 }
 
-// GetSecretAccess mocks base method.
-func (m *MockSecretService) GetSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 service.SecretAccessor) (secrets.SecretRole, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretAccess", arg0, arg1, arg2)
-	ret0, _ := ret[0].(secrets.SecretRole)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretAccess indicates an expected call of GetSecretAccess.
-func (mr *MockSecretServiceMockRecorder) GetSecretAccess(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccess", reflect.TypeOf((*MockSecretService)(nil).GetSecretAccess), arg0, arg1, arg2)
-}
-
 // GetSecretAccessScope mocks base method.
 func (m *MockSecretService) GetSecretAccessScope(arg0 context.Context, arg1 *secrets.URI, arg2 service.SecretAccessor) (service.SecretAccessScope, error) {
 	m.ctrl.T.Helper()
@@ -87,9 +72,9 @@ func (mr *MockSecretServiceMockRecorder) GetSecretAccessScope(arg0, arg1, arg2 a
 }
 
 // GetSecretValue mocks base method.
-func (m *MockSecretService) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int) (secrets.SecretValue, *secrets.ValueRef, error) {
+func (m *MockSecretService) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int, arg3 service.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretValue", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetSecretValue", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(secrets.SecretValue)
 	ret1, _ := ret[1].(*secrets.ValueRef)
 	ret2, _ := ret[2].(error)
@@ -97,9 +82,9 @@ func (m *MockSecretService) GetSecretValue(arg0 context.Context, arg1 *secrets.U
 }
 
 // GetSecretValue indicates an expected call of GetSecretValue.
-func (mr *MockSecretServiceMockRecorder) GetSecretValue(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretServiceMockRecorder) GetSecretValue(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretService)(nil).GetSecretValue), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretService)(nil).GetSecretValue), arg0, arg1, arg2, arg3)
 }
 
 // UpdateRemoteConsumedRevision mocks base method.

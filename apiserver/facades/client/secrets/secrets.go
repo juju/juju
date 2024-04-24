@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -261,8 +263,15 @@ func (s *SecretsAPI) secretContentFromBackend(ctx context.Context, uri *coresecr
 	}
 	lastBackendID := ""
 	for {
-		val, ref, err := s.secretService.GetSecretValue(ctx, uri, rev)
+		val, ref, err := s.secretService.GetSecretValue(ctx, uri, rev, secretservice.SecretAccessor{
+			Kind: secretservice.ModelAccessor,
+			ID:   s.modelUUID,
+		})
 		if err != nil {
+			notFound := errors.Is(err, secreterrors.SecretNotFound) || errors.Is(err, secreterrors.SecretRevisionNotFound)
+			if notFound {
+				return nil, fmt.Errorf("secret %s revision %d not found%w", uri.ID, rev, errors.Hide(secreterrors.SecretRevisionNotFound))
+			}
 			return nil, errors.Trace(err)
 		}
 		if ref == nil {
@@ -275,7 +284,11 @@ func (s *SecretsAPI) secretContentFromBackend(ctx context.Context, uri *coresecr
 			return nil, errors.NotFoundf("external secret backend %q, have %q", backendID, s.backends)
 		}
 		val, err = backend.GetContent(ctx, ref.RevisionID)
-		if err == nil || !errors.Is(err, errors.NotFound) || lastBackendID == backendID {
+		notFound := errors.Is(err, secreterrors.SecretNotFound) || errors.Is(err, secreterrors.SecretRevisionNotFound)
+		if err == nil || !notFound || lastBackendID == backendID {
+			if notFound {
+				return nil, fmt.Errorf("secret %s revision %d not found%w", uri.ID, rev, errors.Hide(secreterrors.SecretRevisionNotFound))
+			}
 			return val, errors.Trace(err)
 		}
 		lastBackendID = backendID
@@ -381,7 +394,7 @@ func (s *SecretsAPI) createSecret(ctx context.Context, backend provider.SecretsB
 	err = s.secretService.CreateSecret(ctx, uri, secretservice.CreateSecretParams{
 		Version:            secrets.Version,
 		UserSecret:         true,
-		UpdateSecretParams: fromUpsertParams(nil, arg.UpsertSecretArg),
+		UpdateSecretParams: fromUpsertParams(s.modelUUID, nil, arg.UpsertSecretArg),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -389,7 +402,7 @@ func (s *SecretsAPI) createSecret(ctx context.Context, backend provider.SecretsB
 	return uri.String(), nil
 }
 
-func fromUpsertParams(autoPrune *bool, p params.UpsertSecretArg) secretservice.UpdateSecretParams {
+func fromUpsertParams(modelUUID string, autoPrune *bool, p params.UpsertSecretArg) secretservice.UpdateSecretParams {
 	var valueRef *coresecrets.ValueRef
 	if p.Content.ValueRef != nil {
 		valueRef = &coresecrets.ValueRef{
@@ -398,6 +411,7 @@ func fromUpsertParams(autoPrune *bool, p params.UpsertSecretArg) secretservice.U
 		}
 	}
 	return secretservice.UpdateSecretParams{
+		Accessor:    secretservice.SecretAccessor{Kind: secretservice.ModelAccessor, ID: modelUUID},
 		AutoPrune:   autoPrune,
 		Description: p.Description,
 		Label:       p.Label,
@@ -470,7 +484,7 @@ func (s *SecretsAPI) updateSecret(ctx context.Context, backend provider.SecretsB
 			}
 		}
 	}
-	err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(arg.AutoPrune, arg.UpsertSecretArg))
+	err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(s.modelUUID, arg.AutoPrune, arg.UpsertSecretArg))
 	return errors.Trace(err)
 }
 
@@ -511,7 +525,10 @@ func (s *SecretsAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecret
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = s.secretService.DeleteUserSecret(ctx, uri, arg.Revisions)
+		err = s.secretService.DeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
+			Accessor:  secretservice.SecretAccessor{Kind: secretservice.ModelAccessor, ID: s.modelUUID},
+			Revisions: arg.Revisions,
+		})
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -558,9 +575,10 @@ func (s *SecretsAPI) secretsGrantRevoke(ctx context.Context, arg params.GrantRev
 
 	one := func(appName string) error {
 		if err := op(ctx, uri, secretservice.SecretAccessParams{
-			Scope:   secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: s.modelUUID},
-			Subject: secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: appName},
-			Role:    coresecrets.RoleView,
+			Accessor: secretservice.SecretAccessor{Kind: secretservice.ModelAccessor, ID: s.modelUUID},
+			Scope:    secretservice.SecretAccessScope{Kind: secretservice.ModelAccessScope, ID: s.modelUUID},
+			Subject:  secretservice.SecretAccessor{Kind: secretservice.ApplicationAccessor, ID: appName},
+			Role:     coresecrets.RoleView,
 		}); err != nil {
 			return errors.Annotatef(err, "cannot change access to %q for %q", uri, appName)
 		}

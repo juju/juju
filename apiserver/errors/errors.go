@@ -229,6 +229,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeSecretBackendNotValid
 	case errors.Is(err, IncompatibleBaseError), errors.Is(err, stateerrors.IncompatibleBaseError):
 		code = params.CodeIncompatibleBase
+	case errors.Is(err, secreterrors.PermissionDenied):
+		code = params.CodeUnauthorized
 	case errors.As(err, &dischargeRequiredError):
 		code = params.CodeDischargeRequired
 		info = params.DischargeRequiredErrorInfo{

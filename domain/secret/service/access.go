@@ -5,11 +5,16 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
 // GetSecretGrants returns the subjects which have the specified access to the secret.
@@ -91,9 +96,9 @@ func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.U
 	return result, nil
 }
 
-// GetSecretAccess returns the access to the secret for the specified accessor.
+// getSecretAccess returns the access to the secret for the specified accessor.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
-func (s *SecretService) GetSecretAccess(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (secrets.SecretRole, error) {
+func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (secrets.SecretRole, error) {
 	ap := domainsecret.AccessParams{
 		SubjectID: accessor.ID,
 	}
@@ -122,11 +127,10 @@ func (s *SecretService) GetSecretAccess(ctx context.Context, uri *secrets.URI, a
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 // If an attempt is made to change an existing permission's scope or subject type, an error
 // satisfying [secreterrors.InvalidSecretPermissionChange] is returned.
+// It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
-	if params.LeaderToken != nil {
-		if err := params.LeaderToken.Check(); err != nil {
-			return errors.Trace(err)
-		}
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
 	}
 
 	p := domainsecret.GrantParams{
@@ -162,10 +166,8 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 // RevokeSecretAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
-	if params.LeaderToken != nil {
-		if err := params.LeaderToken.Check(); err != nil {
-			return errors.Trace(err)
-		}
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
 	}
 
 	p := domainsecret.AccessParams{
@@ -183,4 +185,81 @@ func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI
 	}
 
 	return s.st.RevokeAccess(ctx, uri, p)
+}
+
+// canManage checks that the accessor can manage the secret.
+// If the request is for a secret owned by an application, the unit must be the leader.
+func (s *SecretService) canManage(
+	ctx context.Context,
+	uri *secrets.URI, assessor SecretAccessor,
+	leaderToken leadership.Token,
+) error {
+	hasRole, err := s.getSecretAccess(ctx, uri, assessor)
+	if err != nil {
+		// Typically not found error.
+		return errors.Trace(err)
+	}
+	if hasRole.Allowed(secrets.RoleManage) {
+		return nil
+	}
+	// Units can manage app owned secrets if they are the leader.
+	if assessor.Kind == UnitAccessor {
+		if leaderToken == nil {
+			return secreterrors.PermissionDenied
+		}
+		if err := leaderToken.Check(); err == nil {
+			appName, _ := names.UnitApplication(assessor.ID)
+			hasRole, err = s.getSecretAccess(ctx, uri, SecretAccessor{
+				Kind: ApplicationAccessor,
+				ID:   appName,
+			})
+			if err != nil {
+				// Typically not found error.
+				return errors.Trace(err)
+			}
+			if hasRole.Allowed(secrets.RoleManage) {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("%q is not allowed to manage this secret%w", assessor.ID, errors.Hide(secreterrors.PermissionDenied))
+}
+
+// canRead checks that the accessor can read the secret.
+func (s *SecretService) canRead(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) error {
+	// First try looking up unit access.
+	hasRole, err := s.getSecretAccess(ctx, uri, accessor)
+	if err != nil {
+		// Typically not found error.
+		return errors.Trace(err)
+	}
+	if hasRole.Allowed(secrets.RoleView) {
+		return nil
+	}
+
+	notAllowedErr := fmt.Errorf("%q is not allowed to read this secret%w", accessor.ID, errors.Hide(secreterrors.PermissionDenied))
+
+	if accessor.Kind != UnitAccessor {
+		return notAllowedErr
+	}
+	// All units can read secrets owned by application.
+	appName, _ := names.UnitApplication(accessor.ID)
+	kind := ApplicationAccessor
+	// Remote apps need a different accessor kind.
+	if strings.HasPrefix(appName, "remote-") {
+		kind = RemoteApplicationAccessor
+	}
+
+	hasRole, err = s.getSecretAccess(ctx, uri, SecretAccessor{
+		Kind: kind,
+		ID:   appName,
+	})
+	if err != nil {
+		// Typically not found error.
+		return errors.Trace(err)
+	}
+	if hasRole.Allowed(secrets.RoleView) {
+		return nil
+	}
+	return notAllowedErr
 }

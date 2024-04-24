@@ -910,7 +910,7 @@ func (s *stateSuite) TestSaveSecretConsumer(c *gc.C) {
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:   ptr(true),
 	}
-	uri := coresecrets.NewURI()
+	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := context.Background()
 	err := st.CreateUserSecret(ctx, 1, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
@@ -940,7 +940,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *gc.C) {
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:   ptr(true),
 	}
-	uri := coresecrets.NewURI()
+	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := context.Background()
 	err := st.CreateUserSecret(ctx, 1, uri, sp)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1024,7 +1024,7 @@ func (s *stateSuite) TestSaveSecretConsumerUnitNotExists(c *gc.C) {
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:   ptr(true),
 	}
-	uri := coresecrets.NewURI()
+	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := context.Background()
 
 	err := st.CreateUserSecret(ctx, 1, uri, sp)
@@ -1203,6 +1203,7 @@ func (s *stateSuite) TestGetURIByConsumerLabel(c *gc.C) {
 	got, err := st.GetURIByConsumerLabel(ctx, "my label", "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.ID, gc.Equals, uri.ID)
+	c.Assert(got.SourceUUID, gc.Equals, uri.SourceUUID)
 
 	_, err = st.GetURIByConsumerLabel(ctx, "another label", "mysql/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
@@ -2642,4 +2643,112 @@ func (s *stateSuite) TestGetRevisionIDsForObsolete(c *gc.C) {
 
 func revID(uri *coresecrets.URI, rev int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, rev)
+}
+
+func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	expireTime := time.Now().Add(2 * time.Hour)
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Label:       ptr("my label"),
+		Data:        coresecrets.SecretData{"foo": "bar"},
+		ExpireTime:  ptr(expireTime),
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	data, ref, err := st.GetSecretValue(ctx, uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ref, gc.IsNil)
+	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
+
+	sp2 := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar2"},
+	}
+	err = st.UpdateSecret(ctx, uri, sp2)
+	c.Assert(err, jc.ErrorIsNil)
+	sp3 := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar3"},
+	}
+	err = st.UpdateSecret(ctx, uri, sp3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.DeleteSecret(ctx, uri, []int{2})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetSecretRevision(ctx, uri, 2)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
+
+	_, err = st.GetSecretRevision(ctx, uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = st.GetSecretRevision(ctx, uri, 3)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestDeleteAllRevisionsFromNil(c *gc.C) {
+	s.assertDeleteAllRevisions(c, nil)
+}
+
+func (s *stateSuite) TestDeleteAllRevisions(c *gc.C) {
+	s.assertDeleteAllRevisions(c, []int{1, 2, 3})
+}
+
+func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	expireTime := time.Now().Add(2 * time.Hour)
+	sp := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		ExpireTime: ptr(expireTime),
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp2 := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar2"},
+	}
+	err = st.UpdateSecret(ctx, uri, sp2)
+	c.Assert(err, jc.ErrorIsNil)
+	sp3 := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar3"},
+	}
+	err = st.UpdateSecret(ctx, uri, sp3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := &coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 666,
+	}
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.DeleteSecret(ctx, uri, revs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for r := 1; r <= 3; r++ {
+		_, err = st.GetSecretRevision(ctx, uri, r)
+		c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
+	}
+	_, err = st.GetSecret(ctx, uri)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+
+	_, err = st.GetSecret(ctx, uri2)
+	c.Assert(err, jc.ErrorIsNil)
+	data, _, err := st.GetSecretValue(ctx, uri2, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, jc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
 }

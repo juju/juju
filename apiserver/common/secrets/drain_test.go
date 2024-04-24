@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -85,21 +84,6 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 
 func (s *secretsDrainSuite) expectAuthUnitAgent() {
 	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
-}
-
-func (s *secretsDrainSuite) expectSecretAccessQuery(n int) {
-	s.secretService.EXPECT().GetSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, uri *coresecrets.URI, accessor secretservice.SecretAccessor) (coresecrets.SecretRole, error) {
-			if accessor.Kind == secretservice.UnitAccessor && accessor.ID == s.authTag.Id() {
-				return coresecrets.RoleView, nil
-			}
-			appName, _ := names.UnitApplication(s.authTag.Id())
-			if accessor.Kind == secretservice.ApplicationAccessor && accessor.ID == appName {
-				return coresecrets.RoleManage, nil
-			}
-			return coresecrets.RoleNone, errors.NotFoundf("role")
-		},
-	).Times(n)
 }
 
 func (s *secretsDrainSuite) assertGetSecretsToDrain(
@@ -277,13 +261,16 @@ func (s *secretsDrainSuite) TestGetSecretsToDrainExternalCAAS(c *gc.C) {
 func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectSecretAccessQuery(4)
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	s.secretService.EXPECT().ChangeSecretBackend(
 		gomock.Any(),
 		uri1, 666,
 		secretservice.ChangeSecretBackendParams{
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   s.authTag.Id(),
+			},
 			LeaderToken: s.token,
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
@@ -295,12 +282,15 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 		gomock.Any(),
 		uri2, 888,
 		secretservice.ChangeSecretBackendParams{
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   s.authTag.Id(),
+			},
 			LeaderToken: s.token,
 			Data:        map[string]string{"foo": "bar"},
 		},
 	).Return(nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
-	s.token.EXPECT().Check().Return(nil).Times(2)
 
 	result, err := s.facade.ChangeSecretBackend(context.Background(), params.ChangeSecretBackendArgs{
 		Args: []params.ChangeSecretBackendArg{

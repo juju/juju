@@ -8,6 +8,10 @@ import (
 )
 
 const (
+	// PermissionDenied describes an error that occurs when the secret being operated on
+	// does not have the required authorisation set for the caller.
+	PermissionDenied = errors.ConstError("permission denied")
+
 	// SecretNotFound describes an error that occurs when the secret being operated on
 	// does not exist.
 	SecretNotFound = errors.ConstError("secret not found")
