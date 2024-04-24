@@ -2598,13 +2598,12 @@ func (a *Application) addUnitStorageOps(
 		machineAssignable = pu
 	}
 	platform := a.CharmOrigin().Platform
-	sSeries, _ := corebase.GetSeriesFromChannel(platform.OS, platform.Channel)
 	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
 		sb,
 		unitTag,
 		charm.Meta(),
 		args.storageCons,
-		sSeries,
+		platform.OS,
 		machineAssignable,
 	)
 	if err != nil {
@@ -2621,7 +2620,7 @@ func (a *Application) addUnitStorageOps(
 		ops, err := sb.attachStorageOps(
 			si,
 			unitTag,
-			sSeries,
+			platform.OS,
 			charm,
 			machineAssignable,
 		)
