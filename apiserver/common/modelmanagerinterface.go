@@ -5,7 +5,6 @@ package common
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v6"
@@ -115,7 +114,6 @@ type Model interface {
 	Name() string
 	UUID() string
 	ControllerUUID() string
-	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AutoConfigureContainerNetworking(environs.BootstrapEnviron, config.ConfigSchemaSourceGetter) error
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)

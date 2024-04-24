@@ -12,6 +12,7 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	credential "github.com/juju/juju/core/credential"
 	model "github.com/juju/juju/core/model"
@@ -58,6 +59,21 @@ func (m *MockAccessService) GetUserByName(arg0 context.Context, arg1 string) (us
 func (mr *MockAccessServiceMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockAccessService)(nil).GetUserByName), arg0, arg1)
+}
+
+// LastModelConnection mocks base method.
+func (m *MockAccessService) LastModelConnection(arg0 context.Context, arg1 model.UUID, arg2 string) (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastModelConnection", arg0, arg1, arg2)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LastModelConnection indicates an expected call of LastModelConnection.
+func (mr *MockAccessServiceMockRecorder) LastModelConnection(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelConnection", reflect.TypeOf((*MockAccessService)(nil).LastModelConnection), arg0, arg1, arg2)
 }
 
 // ReadUserAccessLevelForTarget mocks base method.

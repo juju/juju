@@ -6,6 +6,7 @@ package usermanager
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access/service"
@@ -33,6 +35,7 @@ type UserService interface {
 	SetPassword(ctx context.Context, name string, password auth.Password) error
 	ResetPassword(ctx context.Context, name string) ([]byte, error)
 	RemoveUser(ctx context.Context, name string) error
+	LastModelConnection(ctx context.Context, modelUUID coremodel.UUID, name string) (time.Time, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -382,7 +385,7 @@ func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entiti
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		infos, err := api.modelUserInfo(modelTag)
+		infos, err := api.modelUserInfo(ctx, modelTag)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
@@ -391,7 +394,7 @@ func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entiti
 	return result, nil
 }
 
-func (api *UserManagerAPI) modelUserInfo(modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
+func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
 	var results []params.ModelUserInfoResult
 	model, closer, err := api.pool.GetModel(modelTag.Id())
 	if err != nil {
@@ -409,7 +412,7 @@ func (api *UserManagerAPI) modelUserInfo(modelTag names.ModelTag) ([]params.Mode
 
 	for _, user := range users {
 		var result params.ModelUserInfoResult
-		userInfo, err := common.ModelUserInfo(user, model)
+		userInfo, err := common.ModelUserInfo(ctx, api.userService, model.UUID(), user)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 		} else {

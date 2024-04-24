@@ -248,7 +248,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(&caasCred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -312,6 +312,7 @@ func getModelArgsFor(c *gc.C, mockState *mockState) state.ModelArgs {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -337,16 +338,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"HAPrimaryMachine",
 		"LatestMigration",
 	)
-
-	// Check that Model.LastModelConnection is called three times
-	// without making the test depend on other calls to Model
-	n := 0
-	for _, call := range s.st.model.Calls() {
-		if call.FuncName == "LastModelConnection" {
-			n = n + 1
-		}
-	}
-	c.Assert(n, gc.Equals, 3)
 
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
@@ -481,6 +472,8 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil)
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil)
 	args := params.ModelCreateArgs{
 		Name:               "foo",
 		OwnerTag:           "user-admin",
@@ -505,16 +498,6 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"LatestMigration",
 	)
 	s.caasBroker.CheckCallNames(c, "Create")
-
-	// Check that Model.LastModelConnection is called just twice
-	// without making the test depend on other calls to Model
-	n := 0
-	for _, call := range s.caasSt.model.Calls() {
-		if call.FuncName == "LastModelConnection" {
-			n = n + 1
-		}
-	}
-	c.Assert(n, gc.Equals, 2)
 
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
@@ -751,7 +734,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(nil),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -887,6 +870,7 @@ func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 	s.accessService = mocks.NewMockAccessService(ctrl)
 	as := s.accessService.EXPECT()
 	as.ReadUserAccessLevelForTarget(gomock.Any(), addModelUser.Id(), gomock.AssignableToTypeOf(permission.ID{})).Return(permission.AddModelAccess, nil)
+	as.LastModelConnection(gomock.Any(), gomock.Any(), addModelUser.Id()).Return(time.Time{}, nil)
 
 	s.setAPIUser(c, addModelUser)
 	_, err := s.api.CreateModel(stdcontext.Background(), createArgs(addModelUser))
@@ -1011,7 +995,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1039,7 +1023,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1057,6 +1041,7 @@ func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserT
 
 func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), "admin").Return(time.Time{}, nil)
 
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
@@ -1069,6 +1054,7 @@ func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), "external@remote").Return(time.Time{}, nil).AnyTimes()
 
 	s.setAPIUser(c, jujutesting.AdminUser)
 	owner := names.NewUserTag("external@remote")
@@ -1163,6 +1149,7 @@ func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
 
 	admin := jujutesting.AdminUser
 	s.setAPIUser(c, admin)
@@ -1173,6 +1160,7 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
 
 	err := s.ControllerModel(c).State().SetModelAgentVersion(coretesting.FakeVersionNumber, nil, false, stubUpgrader{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1270,6 +1258,7 @@ func (s *modelManagerStateSuite) TestNonAdminModelManager(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
 
 	// TODO(perrito666) this test is not valid until we have
 	// proper controller permission since the only users that
@@ -1299,7 +1288,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1338,6 +1327,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	// usefulness until proper controller permissions are in place.
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
 	m, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1363,7 +1353,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1389,6 +1379,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
 
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
@@ -1415,7 +1406,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1888,7 +1879,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -2081,9 +2072,9 @@ func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser permission.Use
 }
 
 func (s *modelManagerStateSuite) assertModelAccess(c *gc.C, st *state.State) {
+	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-
 	result, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{Entities: []params.Entity{{Tag: m.ModelTag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)

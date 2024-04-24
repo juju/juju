@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -15,7 +16,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	domainuser "github.com/juju/juju/domain/access"
-	usererrors "github.com/juju/juju/domain/access/errors"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/auth"
 )
 
@@ -44,14 +45,14 @@ func (s *UserService) GetAllUsers(ctx context.Context) ([]user.User, error) {
 }
 
 // GetUser will find and return the user with UUID. If there is no
-// user for the UUID then an error that satisfies usererrors.NotFound will
+// user for the UUID then an error that satisfies accesserrors.NotFound will
 // be returned.
 func (s *UserService) GetUser(
 	ctx context.Context,
 	uuid user.UUID,
 ) (user.User, error) {
 	if err := uuid.Validate(); err != nil {
-		return user.User{}, errors.Annotatef(usererrors.UserUUIDNotValid, "validating uuid %q", uuid)
+		return user.User{}, errors.Annotatef(accesserrors.UserUUIDNotValid, "validating uuid %q", uuid)
 	}
 
 	usr, err := s.st.GetUser(ctx, uuid)
@@ -63,9 +64,9 @@ func (s *UserService) GetUser(
 }
 
 // GetUserByName will find and return the user associated with name. If there is no
-// user for the user name then an error that satisfies usererrors.NotFound will
+// user for the user name then an error that satisfies accesserrors.NotFound will
 // be returned. If supplied with an invalid user name then an error that satisfies
-// usererrors.UserNameNotValid will be returned.
+// accesserrors.UserNameNotValid will be returned.
 //
 // GetUserByName will not return users that have been previously removed.
 func (s *UserService) GetUserByName(
@@ -86,8 +87,8 @@ func (s *UserService) GetUserByName(
 
 // GetUserByAuth will find and return the user with UUID. If there is no
 // user for the name and password, then an error that satisfies
-// usererrors.NotFound will be returned. If supplied with an invalid user name
-// then an error that satisfies usererrors.UserNameNotValid will be returned.
+// accesserrors.NotFound will be returned. If supplied with an invalid user name
+// then an error that satisfies accesserrors.UserNameNotValid will be returned.
 // It will not return users that have been previously removed.
 func (s *UserService) GetUserByAuth(
 	ctx context.Context,
@@ -117,9 +118,9 @@ func (s *UserService) GetUserByAuth(
 // user if successful. If no password is set in the incoming argument,
 // the user will be added with an activation key.
 // The following error types are possible from this function:
-//   - usererrors.UserNameNotValid: When the username supplied is not valid.
-//   - usererrors.AlreadyExists: If a user with the supplied name already exists.
-//   - usererrors.CreatorUUIDNotFound: If a creator has been supplied for the user
+//   - accesserrors.UserNameNotValid: When the username supplied is not valid.
+//   - accesserrors.AlreadyExists: If a user with the supplied name already exists.
+//   - accesserrors.CreatorUUIDNotFound: If a creator has been supplied for the user
 //     and the creator does not exist.
 //   - auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, []byte, error) {
@@ -132,7 +133,7 @@ func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, [
 	}
 
 	if err := arg.Permission.Validate(); err != nil {
-		return "", nil, fmt.Errorf("validating permission %q: %w: %w", arg.Permission, err, usererrors.PermissionNotValid)
+		return "", nil, fmt.Errorf("validating permission %q: %w: %w", arg.Permission, err, accesserrors.PermissionNotValid)
 	}
 
 	if arg.UUID.String() == "" {
@@ -193,11 +194,11 @@ func (s *UserService) addUserWithActivationKey(ctx context.Context, arg AddUserA
 // activation codes for the current users. Once a user is removed they are no
 // longer usable in Juju and should never be un removed.
 // The following error types are possible from this function:
-// - usererrors.UserNameNotValid: When the username supplied is not valid.
-// - usererrors.NotFound: If no user by the given UUID exists.
+// - accesserrors.UserNameNotValid: When the username supplied is not valid.
+// - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) RemoveUser(ctx context.Context, name string) error {
 	if err := domainuser.ValidateUserName(name); err != nil {
-		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
+		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := s.st.RemoveUser(ctx, name); err != nil {
@@ -209,12 +210,12 @@ func (s *UserService) RemoveUser(ctx context.Context, name string) error {
 // SetPassword changes the users password to the new value and removes any
 // active activation keys for the users.
 // The following error types are possible from this function:
-//   - usererrors.UserNameNotValid: When the username supplied is not valid.
-//   - usererrors.NotFound: If no user by the given name exists.
+//   - accesserrors.UserNameNotValid: When the username supplied is not valid.
+//   - accesserrors.NotFound: If no user by the given name exists.
 //   - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *UserService) SetPassword(ctx context.Context, name string, pass auth.Password) error {
 	if err := domainuser.ValidateUserName(name); err != nil {
-		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
+		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := pass.Validate(); err != nil {
@@ -228,11 +229,11 @@ func (s *UserService) SetPassword(ctx context.Context, name string, pass auth.Pa
 // ResetPassword will remove any active passwords for a user and generate a new
 // activation key for the user to use to set a new password.
 // The following error types are possible from this function:
-// - usererrors.UserNameNotValid: When the username supplied is not valid.
-// - usererrors.NotFound: If no user by the given UUID exists.
+// - accesserrors.UserNameNotValid: When the username supplied is not valid.
+// - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) ResetPassword(ctx context.Context, name string) ([]byte, error) {
 	if err := domainuser.ValidateUserName(name); err != nil {
-		return nil, errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
+		return nil, errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
 	activationKey, err := generateActivationKey()
@@ -248,11 +249,11 @@ func (s *UserService) ResetPassword(ctx context.Context, name string) ([]byte, e
 
 // EnableUserAuthentication will enable the user for authentication.
 // The following error types are possible from this function:
-// - usererrors.UserNameNotValid: When the username supplied is not valid.
-// - usererrors.NotFound: If no user by the given UUID exists.
+// - accesserrors.UserNameNotValid: When the username supplied is not valid.
+// - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) EnableUserAuthentication(ctx context.Context, name string) error {
 	if err := domainuser.ValidateUserName(name); err != nil {
-		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
+		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := s.st.EnableUserAuthentication(ctx, name); err != nil {
@@ -263,11 +264,11 @@ func (s *UserService) EnableUserAuthentication(ctx context.Context, name string)
 
 // DisableUserAuthentication will disable the user for authentication.
 // The following error types are possible from this function:
-// - usererrors.UserNameNotValid: When the username supplied is not valid.
-// - usererrors.NotFound: If no user by the given UUID exists.
+// - accesserrors.UserNameNotValid: When the username supplied is not valid.
+// - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) DisableUserAuthentication(ctx context.Context, name string) error {
 	if err := domainuser.ValidateUserName(name); err != nil {
-		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
+		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := s.st.DisableUserAuthentication(ctx, name); err != nil {
@@ -278,17 +279,36 @@ func (s *UserService) DisableUserAuthentication(ctx context.Context, name string
 
 // UpdateLastLogin will update the last login time for the user.
 // The following error types are possible from this function:
-// - usererrors.UUIDNotValid: When the UUID supplied is not valid.
-// - usererrors.NotFound: If no user by the given UUID exists.
+// - accesserrors.UserNameNotValid: When the username is not valid.
+// - accesserrors.UserNotFound: When the user cannot be found.
+// - modelerrors.NotFound: If no model by the given modelUUID exists.
 func (s *UserService) UpdateLastLogin(ctx context.Context, modelUUID coremodel.UUID, name string) error {
 	if err := domainuser.ValidateUserName(name); err != nil {
-		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
+		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := s.st.UpdateLastLogin(ctx, modelUUID, name); err != nil {
 		return errors.Annotatef(err, "updating last login for user %q", name)
 	}
 	return nil
+}
+
+// LastModelConnection will return the last login time of the specified user.
+// The following error types are possible from this function:
+// - accesserrors.UserNameNotValid: When the username is not valid.
+// - accesserrors.UserNotFound: When the user cannot be found.
+// - accesserrors.UserNeverConnectedToModel: If there is no record of the user
+// connecting to the model.
+func (s *UserService) LastModelConnection(ctx context.Context, modelUUID coremodel.UUID, name string) (time.Time, error) {
+	if err := domainuser.ValidateUserName(name); err != nil {
+		return time.Time{}, errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
+	}
+
+	lastConnection, err := s.st.LastModelConnection(ctx, modelUUID, name)
+	if err != nil {
+		return time.Time{}, errors.Annotatef(err, "updating last login for user %q", name)
+	}
+	return lastConnection, nil
 }
 
 // activationKeyLength is the number of bytes in an activation key.
@@ -317,7 +337,7 @@ type Sealer interface {
 
 // SetPasswordWithActivationKey will use the activation key from the user. To
 // then apply the payload password. If the user does not exist an error that
-// satisfies usererrors.NotFound will be return. If the nonce is not the
+// satisfies accesserrors.NotFound will be return. If the nonce is not the
 // correct length an error that satisfies errors.NotValid will be returned.
 //
 // This will use the NaCl secretbox to open the box and then unmarshal the
@@ -346,7 +366,7 @@ func (s *UserService) SetPasswordWithActivationKey(ctx context.Context, name str
 	// let's open it.
 	boxPayloadBytes, ok := secretbox.Open(nil, box, &sbNonce, &sbKey)
 	if !ok {
-		return nil, usererrors.ActivationKeyNotValid
+		return nil, accesserrors.ActivationKeyNotValid
 	}
 
 	// We expect the payload to be a JSON object with a password field.

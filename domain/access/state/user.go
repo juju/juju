@@ -639,9 +639,6 @@ INSERT INTO model_last_login (model_uuid, user_uuid, time)
 -- The strftime formatter below inserts the time with millisecond precision.
 -- This is useful for testing.
 VALUES ($modelAccess.model_uuid, $modelAccess.user_uuid, strftime('%Y-%m-%d %H:%M:%f', 'now'))`, modelAccess{})
-	if err != nil {
-		return errors.Annotate(err, "preparing insertModelLogin query")
-	}
 
 	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		userUUID, err := st.uuidForName(ctx, tx, uuidStmt, name)
@@ -670,52 +667,63 @@ VALUES ($modelAccess.model_uuid, $modelAccess.user_uuid, strftime('%Y-%m-%d %H:%
 	}))
 }
 
-// LastModelLogin gets the last user to log in to the specified model.
-func (st *UserState) LastModelLogin(ctx context.Context, modelUUID coremodel.UUID) (user.User, error) {
+// LastModelConnection returns when the specified user last connected to the
+// specified model in UTC. A UserNeverConnectedToModel error will be returned if
+// the user has never connected to the model before.
+func (st *UserState) LastModelConnection(ctx context.Context, modelUUID coremodel.UUID, name string) (time.Time, error) {
 	db, err := st.DB()
 	if err != nil {
-		return user.User{}, errors.Annotate(err, "getting DB access")
+		return time.Time{}, errors.Annotate(err, "getting DB access")
 	}
 
-	var usr user.User
+	uuidStmt, err := st.getActiveUUIDStmt()
+	if err != nil {
+		return time.Time{}, errors.Trace(err)
+	}
+
+	getLastModelLoginTime := `
+		 SELECT MAX(time) AS &loginTime.time
+		 FROM model_last_login
+		 WHERE model_uuid = $modelAccess.model_uuid
+		 AND user_uuid = $modelAccess.user_uuid
+	`
+	getLastModelLoginTimeStmt, err := st.Prepare(getLastModelLoginTime, loginTime{}, modelAccess{})
+	if err != nil {
+		return time.Time{}, errors.Annotate(err, "preparing select getLastModelLoginTime query")
+	}
+
+	var lastConnection time.Time
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getLastUserModelLogin := `
-WITH last_login AS (
-     SELECT user_uuid, MAX(time)
-     FROM model_last_login
-     WHERE model_uuid = $modelAccess.model_uuid
-)
-SELECT (uuid, name, display_name, created_by_uuid, created_at, last_login, disabled) AS (&dbUser.*)
-FROM   v_user_auth vua
-JOIN   last_login lu
-ON     vua.uuid = lu.user_uuid
-WHERE  vua.removed = false`
-
-		selectGetUserByNameStmt, err := st.Prepare(getLastUserModelLogin, dbUser{}, modelAccess{})
+		userUUID, err := st.uuidForName(ctx, tx, uuidStmt, name)
 		if err != nil {
-			return errors.Annotate(err, "preparing select getLastUserModelLogin query")
+			return errors.Trace(err)
 		}
 
-		var result dbUser
-		modelAccess := modelAccess{
+		var result loginTime
+		ma := modelAccess{
 			ModelUUID: string(modelUUID),
+			UserUUID:  string(userUUID),
 		}
-		err = tx.Query(ctx, selectGetUserByNameStmt, modelAccess).Get(&result)
+		err = tx.Query(ctx, getLastModelLoginTimeStmt, ma).Get(&result)
 		if errors.Is(err, sql.ErrNoRows) {
-			return accesserrors.AccessNotFound
+			return accesserrors.UserNeverConnectedToModel
 		} else if err != nil {
 			return domain.CoerceError(errors.Trace(err))
 		}
 
-		usr = result.toCoreUser()
+		// Retrieve the timestamp with millisecond presision layed out according
+		// to ISO8601.
+		lastConnection, err = time.Parse("2006-01-02 15:04:05.000", result.Time)
+		if err != nil {
+			return errors.Annotate(err, "parsing time:")
+		}
 
 		return nil
 	})
 	if err != nil {
-		return user.User{}, errors.Annotatef(err, "getting last login in on model %q", modelUUID)
+		return time.Time{}, errors.Annotatef(err, "getting last login for %q in on model %q", name, modelUUID)
 	}
-
-	return usr, nil
+	return lastConnection.UTC(), nil
 }
 
 // AddUser adds a new user to the database, enables the user and adds the

@@ -12,7 +12,9 @@ package usermanager_test
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
+	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
 	service "github.com/juju/juju/domain/access/service"
 	auth "github.com/juju/juju/internal/auth"
@@ -114,6 +116,21 @@ func (m *MockUserService) GetUserByName(arg0 context.Context, arg1 string) (user
 func (mr *MockUserServiceMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockUserService)(nil).GetUserByName), arg0, arg1)
+}
+
+// LastModelConnection mocks base method.
+func (m *MockUserService) LastModelConnection(arg0 context.Context, arg1 model.UUID, arg2 string) (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastModelConnection", arg0, arg1, arg2)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LastModelConnection indicates an expected call of LastModelConnection.
+func (mr *MockUserServiceMockRecorder) LastModelConnection(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelConnection", reflect.TypeOf((*MockUserService)(nil).LastModelConnection), arg0, arg1, arg2)
 }
 
 // RemoveUser mocks base method.

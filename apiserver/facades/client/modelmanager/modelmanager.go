@@ -1182,7 +1182,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 				continue
 			}
 
-			userInfo, err := common.ModelUserInfo(user, model)
+			userInfo, err := common.ModelUserInfo(ctx, m.accessService, model.UUID(), user)
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}

@@ -491,9 +491,9 @@ func (s *userManagerSuite) makeLocalModelUser(c *gc.C, username, displayname str
 }
 
 func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
+	defer s.setUpAPI(c).Finish()
 	testAdmin := jujutesting.AdminUser
 	model := s.ControllerModel(c)
-	st := model.State()
 	owner, err := s.ControllerModel(c).State().UserAccess(testAdmin, model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -505,6 +505,7 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 	remoteUser1 := f.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
 	remoteUser2 := f.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
 
+	s.userService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
 	results, err := s.api.ModelUserInfo(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: model.ModelTag().String(),
 	}}})
@@ -556,29 +557,13 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 			},
 		},
 	} {
-		r.info.LastConnection = lastConnPointer(c, r.user, st)
+		r.info.LastConnection = &time.Time{}
 		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
 	}
 
 	sort.Sort(ByUserName(expected.Results))
 	sort.Sort(ByUserName(results.Results))
 	c.Assert(results, jc.DeepEquals, expected)
-}
-
-func lastConnPointer(c *gc.C, modelUser permission.UserAccess, st *state.State) *time.Time {
-	model, err := st.Model()
-	if err != nil {
-		c.Fatal(err)
-	}
-
-	lastConn, err := model.LastModelConnection(modelUser.UserTag)
-	if err != nil {
-		if state.IsNeverConnectedError(err) {
-			return nil
-		}
-		c.Fatal(err)
-	}
-	return &lastConn
 }
 
 // ByUserName implements sort.Interface for []params.ModelUserInfoResult based on

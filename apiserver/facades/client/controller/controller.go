@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -65,6 +66,9 @@ type ControllerAccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 	// UpdatePermission updates the access level for a user for the controller.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
+	// LastModelConnection gets the time the specified user last connected to the
+	// model.
+	LastModelConnection(context.Context, model.UUID, string) (time.Time, error)
 }
 
 // ControllerAPI provides the Controller API.

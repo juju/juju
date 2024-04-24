@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -122,7 +123,14 @@ type UserState interface {
 	// UpdateLastLogin will update the last login time for the user.
 	// If no user is found for the supplied user name an error is returned that
 	// satisfies accesserrors.UserNotFound.
+	// If the modelUUID cannot be found then an error satisfying
+	// modelerrors.NotFound will be returned
 	UpdateLastLogin(context.Context, coremodel.UUID, string) error
+
+	// LastModelConnection will return the last login time of the specified user.
+	// A UserNeverConnectedToModel error will be returned if there is no record
+	// of the user logging in to this model.
+	LastModelConnection(context.Context, coremodel.UUID, string) (time.Time, error)
 }
 
 // PermissionState describes retrieval and persistence methods for user

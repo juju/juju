@@ -163,3 +163,11 @@ type modelAccess struct {
 	UserUUID  string `db:"user_uuid"`
 	ModelUUID string `db:"model_uuid"`
 }
+
+// loginTime is used to record the last time a user logged in when reading from
+// model_last_login.
+// TODO(aflynn): Change this to a time.Time type once SQLair support scanning
+// into time values.
+type loginTime struct {
+	Time string `db:"time"`
+}

@@ -102,11 +102,11 @@ func (s *userModelStateSuite) TestUpdateLastLoginModelNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*model not found.*")
 }
 
-func (s *userModelStateSuite) TestLastModelLogin(c *gc.C) {
+func (s *userModelStateSuite) TestLastModelConnection(c *gc.C) {
 	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login")
 	st := state.NewUserState(s.TxnRunnerFactory())
-	username1, user1UUID := s.addTestUser(c, st, "user1")
-	username2, user2UUID := s.addTestUser(c, st, "user2")
+	username1, _ := s.addTestUser(c, st, "user1")
+	username2, _ := s.addTestUser(c, st, "user2")
 
 	// Simulate two logins to the model.
 	err := st.UpdateLastLogin(context.Background(), modelUUID, username1)
@@ -115,56 +115,19 @@ func (s *userModelStateSuite) TestLastModelLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check user2 was the last to login.
-	lastuser, err := st.LastModelLogin(context.Background(), modelUUID)
+	time1, err := st.LastModelConnection(context.Background(), modelUUID, username1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lastuser.UUID, gc.Equals, user2UUID)
-
+	time2, err := st.LastModelConnection(context.Background(), modelUUID, username2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(time1.Before(time2), jc.IsTrue, gc.Commentf("time1 is after time2 (%s is after %s)", time1, time2))
 	// Simluate a new login from user1
 	err = st.UpdateLastLogin(context.Background(), modelUUID, username1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check user1 was the last to login.
-	lastuser, err = st.LastModelLogin(context.Background(), modelUUID)
+	// Check the time for user1 was updated.
+	time1, err = st.LastModelConnection(context.Background(), modelUUID, username1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lastuser.UUID, gc.Equals, user1UUID)
-}
-
-func (s *userModelStateSuite) TestLastModelLoginMultipleModels(c *gc.C) {
-	modelUUID1 := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login1")
-	modelUUID2 := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login2")
-	st := state.NewUserState(s.TxnRunnerFactory())
-	username1, user1UUID := s.addTestUser(c, st, "user1")
-	username2, user2UUID := s.addTestUser(c, st, "user2")
-
-	// Simulate logins on both models.
-	err := st.UpdateLastLogin(context.Background(), modelUUID1, username1)
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateLastLogin(context.Background(), modelUUID2, username2)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check the two users were recorded logging into the expected models
-	lastuser, err := st.LastModelLogin(context.Background(), modelUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lastuser.UUID, gc.Equals, user1UUID)
-
-	lastuser, err = st.LastModelLogin(context.Background(), modelUUID2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lastuser.UUID, gc.Equals, user2UUID)
-
-	// Log each user into the other model.
-	err = st.UpdateLastLogin(context.Background(), modelUUID1, username2)
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateLastLogin(context.Background(), modelUUID2, username1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check the new logins have been recorded
-	lastuser, err = st.LastModelLogin(context.Background(), modelUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lastuser.UUID, gc.Equals, user2UUID)
-
-	lastuser, err = st.LastModelLogin(context.Background(), modelUUID2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lastuser.UUID, gc.Equals, user1UUID)
+	c.Check(time2.Before(time1), jc.IsTrue)
 }
 
 func (s *userModelStateSuite) addTestUser(c *gc.C, st *state.UserState, name string) (string, user.UUID) {
