@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/caasbroker"
 	coretesting "github.com/juju/juju/testing"
@@ -27,18 +27,18 @@ type TrackerSuite struct {
 
 var _ = gc.Suite(&TrackerSuite{})
 
-func (s *TrackerSuite) validConfig() caasbroker.Config {
+func (s *TrackerSuite) validConfig(c *gc.C) caasbroker.Config {
 	return caasbroker.Config{
 		ConfigAPI: &runContext{},
 		NewContainerBrokerFunc: func(context.Context, environs.OpenParams) (caas.Broker, error) {
 			return nil, errors.NotImplementedf("test func")
 		},
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 }
 
 func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.ConfigAPI = nil
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.ErrorIs, errors.NotValid)
@@ -47,7 +47,7 @@ func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestValidateNewBrokerFunc(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.NewContainerBrokerFunc = nil
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.ErrorIs, errors.NotValid)
@@ -56,7 +56,7 @@ func (s *TrackerSuite) TestValidateNewBrokerFunc(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestValidateLogger(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.Logger = nil
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.ErrorIs, errors.NotValid)
@@ -83,7 +83,7 @@ func (s *TrackerSuite) TestCloudSpecFails(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, gc.ErrorMatches, "cannot get cloud information: no you")
 		c.Check(tracker, gc.IsNil)
@@ -109,7 +109,7 @@ func (s *TrackerSuite) TestSuccess(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
@@ -129,7 +129,7 @@ func (s *TrackerSuite) TestInitialise(c *gc.C) {
 				c.Assert(args.Config.Name(), jc.DeepEquals, "testmodel")
 				return nil, errors.NotValidf("cloud spec")
 			},
-			Logger: loggo.GetLogger("test"),
+			Logger: loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
@@ -148,7 +148,7 @@ func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, gc.ErrorMatches, "no you")
 		c.Check(tracker, gc.IsNil)
@@ -164,7 +164,7 @@ func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 			NewContainerBrokerFunc: func(context.Context, environs.OpenParams) (caas.Broker, error) {
 				return nil, errors.NotValidf("config")
 			},
-			Logger: loggo.GetLogger("test"),
+			Logger: loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: config not valid`)
 		c.Check(tracker, gc.IsNil)
@@ -182,7 +182,7 @@ func (s *TrackerSuite) TestModelConfigValid(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
@@ -207,7 +207,7 @@ func (s *TrackerSuite) TestCloudSpecInvalid(c *gc.C) {
 				c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
 				return nil, errors.NotValidf("cloud spec")
 			},
-			Logger: loggo.GetLogger("test"),
+			Logger: loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
@@ -225,7 +225,7 @@ func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
@@ -242,7 +242,7 @@ func (s *TrackerSuite) TestModelConfigWatchCloses(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
@@ -260,7 +260,7 @@ func (s *TrackerSuite) TestCloudSpecWatchCloses(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
@@ -282,7 +282,7 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
@@ -304,7 +304,7 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 				broker.SetErrors(errors.New("SetConfig is broken"))
 				return broker, nil
 			},
-			Logger: loggo.GetLogger("test"),
+			Logger: loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
@@ -326,7 +326,7 @@ func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
@@ -365,7 +365,7 @@ func (s *TrackerSuite) TestWatchedCloudSpecUpdates(c *gc.C) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
-			Logger:                 loggo.GetLogger("test"),
+			Logger:                 loggertesting.WrapCheckLog(c),
 		})
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)

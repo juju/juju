@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/internal/database/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type migrationSuite struct {
@@ -27,7 +28,7 @@ func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
 	)
 
 	db := s.DB()
-	m := NewDBMigration(&txnRunner{db: db}, stubLogger{}, patches)
+	m := NewDBMigration(&txnRunner{db: db}, loggertesting.WrapCheckLog(c), patches)
 	c.Assert(m.Apply(context.Background()), jc.ErrorIsNil)
 
 	rows, err := db.Query("SELECT * from band;")

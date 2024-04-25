@@ -7,7 +7,6 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -76,7 +76,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		s.leadership,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)

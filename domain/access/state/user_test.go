@@ -21,7 +21,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/database"
-	jujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type userStateSuite struct {
@@ -169,7 +169,7 @@ func (s *userStateSuite) TestAddUser(c *gc.C) {
 	c.Check(newUser.Disabled, jc.IsFalse)
 	c.Check(newUser.CreatorUUID, gc.Equals, adminUUID)
 
-	pSt := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	pSt := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	newUserAccess, err := pSt.ReadUserAccessForTarget(context.Background(), "admin", loginAccess.Target)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(newUserAccess.Access, gc.Equals, loginAccess.Access)

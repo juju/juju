@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -20,20 +19,13 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	pkitls "github.com/juju/juju/internal/pki/tls"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
 )
-
-type Logger interface {
-	Debugf(string, ...interface{})
-	Errorf(string, ...interface{})
-	Infof(string, ...interface{})
-	Logf(loggo.Level, string, ...interface{})
-	Warningf(string, ...interface{})
-}
 
 // ManifoldConfig holds the information necessary to run an HTTP server
 // in a dependency.Engine.
@@ -55,10 +47,10 @@ type ManifoldConfig struct {
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 
-	Logger Logger
+	Logger logger.Logger
 
 	GetControllerConfig func(stdcontext.Context, ControllerConfigGetter) (controller.Config, error)
-	NewTLSConfig        func(string, string, autocert.Cache, SNIGetterFunc, Logger) *tls.Config
+	NewTLSConfig        func(string, string, autocert.Cache, SNIGetterFunc, logger.Logger) *tls.Config
 	NewWorker           func(Config) (worker.Worker, error)
 }
 

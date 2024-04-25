@@ -47,7 +47,3 @@ type CharmHub interface {
 	DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error)
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
-
-type Logger interface {
-	Tracef(string, ...interface{})
-}

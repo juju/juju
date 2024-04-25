@@ -182,7 +182,7 @@ func (s *BaseHookContextSuite) getHookContext(c *gc.C, ctrl *gomock.Controller, 
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
 		relctxs[relId] = runnercontext.NewContextRelation(relUnit, cache)
 	}
-	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
+	context, err := runnercontext.NewHookContext(c, runnercontext.HookContextParams{
 		Unit:                s.unit,
 		Uniter:              s.uniter,
 		ID:                  "TestCtx",

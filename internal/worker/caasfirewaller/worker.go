@@ -10,13 +10,8 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // Config holds configuration for the CAAS unit firewaller worker.
 type Config struct {
@@ -25,7 +20,7 @@ type Config struct {
 	FirewallerAPI  CAASFirewallerAPI
 	LifeGetter     LifeGetter
 	Broker         CAASBroker
-	Logger         Logger
+	Logger         logger.Logger
 }
 
 // Validate validates the worker configuration.
@@ -79,7 +74,7 @@ type applicationWorkerCreator func(
 	firewallerAPI CAASFirewallerAPI,
 	broker CAASBroker,
 	lifeGetter LifeGetter,
-	logger Logger,
+	logger logger.Logger,
 ) (worker.Worker, error)
 
 func newFirewaller(config Config, f applicationWorkerCreator) *firewaller {

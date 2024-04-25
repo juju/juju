@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,6 +16,7 @@ import (
 
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/charm/downloader"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -149,7 +149,7 @@ func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.storage = NewCharmStorage(CharmStorageConfig{
-		Logger:       loggo.GetLogger("test"),
+		Logger:       loggertesting.WrapCheckLog(c),
 		StateBackend: s.stateBackend,
 		ObjectStore:  s.storageBackend,
 	})

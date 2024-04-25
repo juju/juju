@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 )
 
@@ -30,10 +30,10 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = s.validConfig()
+	s.config = s.validConfig(c)
 }
 
-func (s *ManifoldSuite) validConfig() caasapplicationprovisioner.ManifoldConfig {
+func (s *ManifoldSuite) validConfig(c *gc.C) caasapplicationprovisioner.ManifoldConfig {
 	return caasapplicationprovisioner.ManifoldConfig{
 		APICallerName: "api-caller",
 		BrokerName:    "broker",
@@ -41,7 +41,7 @@ func (s *ManifoldSuite) validConfig() caasapplicationprovisioner.ManifoldConfig 
 		NewWorker: func(config caasapplicationprovisioner.Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 }
 

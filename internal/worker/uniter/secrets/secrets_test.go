@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/charm/v13/hooks"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -15,6 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	coresecrets "github.com/juju/juju/core/secrets"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	operationmocks "github.com/juju/juju/internal/worker/uniter/operation/mocks"
 	"github.com/juju/juju/internal/worker/uniter/secrets"
@@ -78,7 +78,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
+	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -120,7 +120,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
+	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -170,7 +170,7 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
+	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = tracker.SecretsRemoved([]string{"secret:666e2mr0ui3e8a215n4g"})

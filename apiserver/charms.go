@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
@@ -82,19 +83,13 @@ func (h *charmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Logger is an interface for logging for the apiserver.
-type Logger interface {
-	Tracef(string, ...interface{})
-	IsTraceEnabled() bool
-}
-
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
 	ctxt              httpContext
 	dataDir           string
 	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
 	objectStoreGetter ObjectStoreGetter
-	logger            Logger
+	logger            corelogger.Logger
 }
 
 // bundleContentSenderFunc functions are responsible for sending a

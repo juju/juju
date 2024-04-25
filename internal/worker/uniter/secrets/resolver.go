@@ -13,23 +13,18 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead pass a Logger in to the required functions.
-type logger interface{}
-
-var _ logger = struct{}{}
-
 // secretsResolver is a Resolver that returns operations to rotate secrets.
 // When a rotation is completed, the "rotatedSecrets" callback
 // is invoked to update the rotate time in the remote state.
 type secretsResolver struct {
-	logger           Logger
+	logger           logger.Logger
 	secretsTracker   SecretStateTracker
 	rotatedSecrets   func(url string)
 	expiredRevisions func(rev string)
@@ -38,7 +33,7 @@ type secretsResolver struct {
 
 // NewSecretsResolver returns a new Resolver that returns operations
 // to rotate, expire, or run other secret related hooks.
-func NewSecretsResolver(logger Logger, secretsTracker SecretStateTracker,
+func NewSecretsResolver(logger logger.Logger, secretsTracker SecretStateTracker,
 	rotatedSecrets func(string), expiredRevisions func(string), deletedSecrets func([]string),
 ) resolver.Resolver {
 	return &secretsResolver{logger: logger, secretsTracker: secretsTracker,

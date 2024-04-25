@@ -11,14 +11,9 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // ErrValidityChanged indicates that a Worker has bounced because its
 // credential validity has changed: either a valid credential became invalid
@@ -47,7 +42,7 @@ type Facade interface {
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
 	Facade Facade
-	Logger Logger
+	Logger logger.Logger
 }
 
 // Validate returns an error if the config cannot be expected to
@@ -124,7 +119,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 type validator struct {
 	catacomb        catacomb.Catacomb
 	validatorFacade Facade
-	logger          Logger
+	logger          logger.Logger
 
 	modelCredentialWatcher watcher.NotifyWatcher
 

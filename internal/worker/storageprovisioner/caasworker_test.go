@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/testing"
@@ -18,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/envcontext"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/rpc/params"
@@ -52,7 +52,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		Life:         s.lifeGetter,
 		Status:       &mockStatusSetter{},
 		Clock:        &mockClock{},
-		Logger:       loggo.GetLogger("test"),
+		Logger:       loggertesting.WrapCheckLog(c),
 		Registry:     storage.StaticProviderRegistry{},
 		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)

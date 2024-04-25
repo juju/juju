@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/core/logger"
 )
 
 // Mapper describes an interface for mapping k8s service account UID's to juju
@@ -41,7 +42,7 @@ type MapperWorker interface {
 type DefaultMapper struct {
 	catacomb     catacomb.Catacomb
 	lock         *sync.RWMutex
-	logger       Logger
+	logger       logger.Logger
 	saInformer   core.ServiceAccountInformer
 	saNameUIDMap map[string]types.UID
 	saUIDAppMap  map[types.UID]string
@@ -100,7 +101,7 @@ func (d *DefaultMapper) loop() error {
 
 // NewMapper constructs a new DefaultMapper for the supplied logger and
 // ServiceAccountInformer
-func NewMapper(logger Logger, informer core.ServiceAccountInformer) (*DefaultMapper, error) {
+func NewMapper(logger logger.Logger, informer core.ServiceAccountInformer) (*DefaultMapper, error) {
 	dm := &DefaultMapper{
 		lock:         new(sync.RWMutex),
 		logger:       logger,

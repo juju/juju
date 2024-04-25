@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/charmrevision"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ValidateSuite struct {
@@ -29,7 +29,7 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 		RevisionUpdater: struct{ charmrevision.RevisionUpdater }{},
 		Clock:           struct{ clock.Clock }{},
 		Period:          time.Hour,
-		Logger:          coretesting.NoopLogger{},
+		Logger:          loggertesting.WrapCheckLog(c),
 	}
 }
 

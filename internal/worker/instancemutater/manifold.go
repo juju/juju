@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 )
 
@@ -22,7 +23,7 @@ type ModelManifoldConfig struct {
 	EnvironName   string
 	AgentName     string
 
-	Logger    Logger
+	Logger    logger.Logger
 	NewWorker func(context.Context, Config) (worker.Worker, error)
 	NewClient func(base.APICaller) InstanceMutaterAPI
 }
@@ -136,7 +137,7 @@ type MachineManifoldConfig struct {
 	BrokerName    string
 	AgentName     string
 
-	Logger    Logger
+	Logger    logger.Logger
 	NewWorker func(context.Context, Config) (worker.Worker, error)
 	NewClient func(base.APICaller) InstanceMutaterAPI
 }

@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -52,7 +52,7 @@ type UnitStateAPI struct {
 	backend                 UnitStateBackend
 	resources               facade.Resources
 
-	logger loggo.Logger
+	logger corelogger.Logger
 
 	AccessMachine GetAuthFunc
 	accessUnit    GetAuthFunc
@@ -65,7 +65,7 @@ func NewExternalUnitStateAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) *UnitStateAPI {
 	return NewUnitStateAPI(controllerConfigService, UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
 }
@@ -78,7 +78,7 @@ func NewUnitStateAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) *UnitStateAPI {
 	return &UnitStateAPI{
 		controllerConfigService: controllerConfigService,

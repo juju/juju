@@ -6,7 +6,6 @@ package services
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -15,6 +14,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm/repository"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 var _ = gc.Suite(&repoFactoryTestSuite{})
@@ -74,9 +74,9 @@ func (s *repoFactoryTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelBackend = NewMockModelBackend(ctrl)
 
 	s.repoFactory = NewCharmRepoFactory(CharmRepoFactoryConfig{
-		LoggerFactory: LoggoLoggerFactory(loggo.GetLogger("test")),
-		StateBackend:  s.stateBackend,
-		ModelBackend:  s.modelBackend,
+		Logger:       loggertesting.WrapCheckLog(c),
+		StateBackend: s.stateBackend,
+		ModelBackend: s.modelBackend,
 	})
 	return ctrl
 }

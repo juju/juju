@@ -10,7 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 )
@@ -20,22 +21,16 @@ const (
 	DefaultNamespace = "w"
 )
 
-// Logger is the interface we need to log when a worker finishes.
-type Logger interface {
-	Tracef(string, ...any)
-	IsTraceEnabled() bool
-}
-
 // Option defines a function for setting options on a Registry.
 type Option func(*option)
 
 type option struct {
-	logger Logger
+	logger logger.Logger
 }
 
 // WithLogger returns an Option that sets the logger to use for logging when
 // workers finish.
-func WithLogger(logger Logger) Option {
+func WithLogger(logger logger.Logger) Option {
 	return func(o *option) {
 		o.logger = logger
 	}
@@ -43,7 +38,7 @@ func WithLogger(logger Logger) Option {
 
 func newOptions() *option {
 	return &option{
-		logger: loggo.GetLogger("juju.core.watcher.registry"),
+		logger: internallogger.GetLogger("juju.core.watcher.registry"),
 	}
 }
 
@@ -178,7 +173,7 @@ func (r *Registry) loop() error {
 
 // watcherLogDecorator returns a function that wraps a worker.Worker with a
 // LoggingWatcher.
-func watcherLogDecorator(logger Logger) func(worker.Worker) (worker.Worker, error) {
+func watcherLogDecorator(logger logger.Logger) func(worker.Worker) (worker.Worker, error) {
 	return func(w worker.Worker) (worker.Worker, error) {
 		if logger == nil {
 			return w, nil
@@ -193,12 +188,12 @@ func watcherLogDecorator(logger Logger) func(worker.Worker) (worker.Worker, erro
 // LoggingWatcher is a wrapper around a worker.Worker that logs when it finishes.
 type LoggingWatcher struct {
 	worker worker.Worker
-	logger Logger
+	logger logger.Logger
 }
 
 // NewLoggingWatcher returns a new LoggingWatcher that wraps the given worker,
 // so we can log when it starts and finishes.
-func NewLoggingWatcher(w worker.Worker, logger Logger) *LoggingWatcher {
+func NewLoggingWatcher(w worker.Worker, logger logger.Logger) *LoggingWatcher {
 	return &LoggingWatcher{
 		worker: w,
 		logger: logger,

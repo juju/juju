@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -24,7 +25,7 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service reference wrapping the
 // input state and provider.
-func NewWatchableService(st State, provider providertracker.ProviderGetter[Provider], watcherFactory WatcherFactory, logger Logger) *WatchableService {
+func NewWatchableService(st State, provider providertracker.ProviderGetter[Provider], watcherFactory WatcherFactory, logger logger.Logger) *WatchableService {
 	return &WatchableService{
 		ProviderService: ProviderService{
 			Service: Service{

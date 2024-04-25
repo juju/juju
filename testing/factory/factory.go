@@ -30,6 +30,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/password"
@@ -867,7 +868,7 @@ func NewObjectStore(c *gc.C, modelUUID string, metadataService internalobjectsto
 		internalobjectstore.WithRootDir(c.MkDir()),
 		internalobjectstore.WithMetadataService(metadataService),
 		internalobjectstore.WithClaimer(claimer),
-		internalobjectstore.WithLogger(testing.NewCheckLogger(c)),
+		internalobjectstore.WithLogger(loggertesting.WrapCheckLog(c)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return store

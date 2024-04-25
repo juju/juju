@@ -12,15 +12,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// Logger represents the logging methods used by the upgrade steps.
-type Logger interface {
-	Criticalf(string, ...any)
-	Warningf(string, ...any)
-}
 
 // UpgradeStepsAPI implements version 3 of the Upgrade Steps API,
 // which adds WriteUniterState.
@@ -31,7 +26,7 @@ type UpgradeStepsAPI struct {
 	authorizer         facade.Authorizer
 	getMachineAuthFunc common.GetAuthFunc
 	getUnitAuthFunc    common.GetAuthFunc
-	logger             Logger
+	logger             logger.Logger
 }
 
 // UpgradeStepsAPIV2 implements version 2 of the Uppgrade Steps API.
@@ -51,7 +46,7 @@ func NewUpgradeStepsAPI(
 	ctrlConfigGetter ControllerConfigGetter,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	logger Logger,
+	logger logger.Logger,
 ) (*UpgradeStepsAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm

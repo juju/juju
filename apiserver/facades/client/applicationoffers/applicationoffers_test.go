@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -66,7 +66,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
-		c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
+		c.MkDir(), loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -1084,7 +1084,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
 		apiservertesting.NoopModelCredentialInvalidatorGetter, c.MkDir(),
-		loggo.GetLogger("juju.apiserver.applicationoffers"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

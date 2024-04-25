@@ -11,17 +11,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 )
-
-// Logger represents the logging methods we use from a loggo.Logger.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // ManagerConfig contains the resources and information required to create a
 // Manager.
@@ -40,7 +32,7 @@ type ManagerConfig struct {
 
 	// Logger is used to report debugging/status information as the
 	// manager runs.
-	Logger Logger
+	Logger logger.Logger
 
 	// Clock is responsible for reporting the passage of time.
 	Clock clock.Clock

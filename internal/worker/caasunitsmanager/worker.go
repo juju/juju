@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	message "github.com/juju/juju/internal/pubsub/agent"
 )
 
@@ -21,7 +22,7 @@ type Hub interface {
 type manager struct {
 	catacomb catacomb.Catacomb
 
-	logger Logger
+	logger logger.Logger
 	clock  clock.Clock
 
 	hub   Hub
@@ -29,10 +30,10 @@ type manager struct {
 }
 
 type Config struct {
-	Logger
-	Clock clock.Clock
+	Logger logger.Logger
+	Clock  clock.Clock
 
-	Hub
+	Hub Hub
 }
 
 // NewWorker returns a worker that runs on CAAS agent and subscribes and handles unit topics.

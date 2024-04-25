@@ -15,7 +15,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4/ssh"
@@ -25,11 +24,12 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	"github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.ssh")
+var logger = internallogger.GetLogger("juju.cmd.juju.ssh")
 
 // sshMachine implements functionality shared by sshCommand, SCPCommand
 // and DebugHooksCommand.

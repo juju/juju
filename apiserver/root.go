@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -895,6 +894,7 @@ func (ctx *facadeContext) ModelExporter(backend facade.LegacyStateExporter) faca
 		backend,
 		ctx.migrationScope(ctx.State().ModelUUID()),
 		storageRegistryGetter(ctx),
+		ctx.Logger(),
 	)
 }
 
@@ -908,6 +908,7 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		ctx.r.serviceFactoryGetter,
 		environs.ProviderConfigSchemaSource,
 		storageRegistryGetter(ctx),
+		ctx.Logger(),
 	)
 }
 
@@ -948,7 +949,7 @@ func (ctx *facadeContext) LogDir() string {
 }
 
 // Logger returns the apiserver logger instance.
-func (ctx *facadeContext) Logger() loggo.Logger {
+func (ctx *facadeContext) Logger() corelogger.Logger {
 	return ctx.r.shared.logger
 }
 

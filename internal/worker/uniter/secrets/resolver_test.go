@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/charm/v13/hooks"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	operationmocks "github.com/juju/juju/internal/worker/uniter/operation/mocks"
@@ -41,13 +41,13 @@ type triggerSecretsSuite struct {
 
 var _ = gc.Suite(&triggerSecretsSuite{})
 
-func (s *triggerSecretsSuite) SetUpTest(_ *gc.C) {
+func (s *triggerSecretsSuite) SetUpTest(c *gc.C) {
 	s.remoteState = remotestate.Snapshot{
 		Life: life.Alive,
 	}
 
 	s.rotatedSecret = nil
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, func(url string) {
 		if s.rotatedSecret != nil {
 			s.rotatedSecret(url)
@@ -74,7 +74,7 @@ func (s *triggerSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
 		Callbacks:     s.mockCallbacks,
 		RunnerFactory: s.mockFactory,
-		Logger:        loggo.GetLogger("test"),
+		Logger:        loggertesting.WrapCheckLog(c),
 	})
 	return ctlr
 }
@@ -245,7 +245,7 @@ func (s *changeSecretsSuite) SetUpTest(_ *gc.C) {
 
 func (s *changeSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
 		Logger: logger,
 	})
@@ -343,7 +343,7 @@ func (s *removeSecretSuite) SetUpTest(_ *gc.C) {
 
 func (s *removeSecretSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
 		Logger: logger,
 	})
@@ -444,7 +444,7 @@ func (s *secretDeletedSuite) SetUpTest(_ *gc.C) {
 
 func (s *secretDeletedSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, nil, nil, func(uris []string) {
 		s.deleted = uris
 	})
@@ -452,7 +452,7 @@ func (s *secretDeletedSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockTracker = mocks.NewMockSecretStateTracker(ctlr)
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
 		Callbacks: s.mockCallbacks,
-		Logger:    loggo.GetLogger("test"),
+		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	return ctlr
 }

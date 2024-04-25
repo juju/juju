@@ -18,6 +18,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/feature"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
@@ -42,8 +43,7 @@ func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
-	logger := loggo.GetLogger("HubWatcherSuite")
-	logger.SetLogLevel(loggo.TRACE)
+	logger := loggertesting.WrapCheckLog(c)
 
 	s.clock = testclock.NewClock(time.Now())
 

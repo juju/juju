@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/unit/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type exportSuite struct {
@@ -31,9 +32,10 @@ func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *exportSuite) newExportOperation() *exportOperation {
+func (s *exportSuite) newExportOperation(c *gc.C) *exportOperation {
 	return &exportOperation{
 		exportService: s.exportService,
+		logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 func (s *exportSuite) TestExport(c *gc.C) {
@@ -70,7 +72,7 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	s.exportService.EXPECT().GetAllSubnets(gomock.Any()).
 		Return(subnets, nil)
 
-	op := s.newExportOperation()
+	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -101,7 +103,7 @@ func (s *exportSuite) TestExportSpacesNotFound(c *gc.C) {
 	s.exportService.EXPECT().GetAllSpaces(gomock.Any()).
 		Return(nil, errors.NotFound)
 
-	op := s.newExportOperation()
+	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
 	c.Assert(err, gc.ErrorMatches, ".*not found")
 }
@@ -116,7 +118,7 @@ func (s *exportSuite) TestExportSubnetsNotFound(c *gc.C) {
 	s.exportService.EXPECT().GetAllSubnets(gomock.Any()).
 		Return(nil, errors.NotFound)
 
-	op := s.newExportOperation()
+	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
 	c.Assert(err, gc.ErrorMatches, ".*not found")
 }

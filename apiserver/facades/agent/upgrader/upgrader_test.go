@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -22,6 +21,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/objectstore"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -86,7 +86,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 	s.upgrader, err = upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, s.authorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)
@@ -151,7 +151,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)
@@ -198,7 +198,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)
@@ -240,7 +240,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)
@@ -281,7 +281,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)
@@ -316,7 +316,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)
@@ -400,7 +400,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)
@@ -469,7 +469,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)
@@ -557,7 +557,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 
 	upgraderAPI, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
-		loggo.GetLogger("juju.apiserver.upgrader"),
+		loggertesting.WrapCheckLog(c),
 		serviceFactory.Cloud(), serviceFactory.Credential(),
 		s.store,
 	)

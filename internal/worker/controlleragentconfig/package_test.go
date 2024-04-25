@@ -10,7 +10,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	jujujujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -20,13 +21,13 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	logger Logger
+	logger logger.Logger
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = jujujujutesting.NewCheckLogger(c)
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
 }

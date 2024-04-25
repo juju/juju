@@ -8,26 +8,15 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed into the NewResolver as needed.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger represents the logging methods used by the actions resolver.
-type Logger interface {
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-}
-
 type actionsResolver struct {
-	logger Logger
+	logger logger.Logger
 }
 
 // NewResolver returns a new resolver with determines which action related operation
@@ -37,7 +26,7 @@ type actionsResolver struct {
 // Use the same method as in the runcommands resolver
 // for updating the remote state snapshot when an
 // action is completed.
-func NewResolver(logger Logger) resolver.Resolver {
+func NewResolver(logger logger.Logger) resolver.Resolver {
 	return &actionsResolver{logger: logger}
 }
 

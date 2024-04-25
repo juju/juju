@@ -10,7 +10,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/remoterelations"
 	"github.com/juju/juju/juju/testing"
@@ -65,7 +65,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 			return s.remoteRelationsFacade, nil
 		},
 		Clock:  clk,
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 		Runner: worker.NewRunner(worker.RunnerParams{
 			Clock:        clk,
 			IsFatal:      func(error) bool { return false },

@@ -8,19 +8,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
-	IsTraceEnabled() bool
-}
 
 // NewWorkerFn is an alias function that allows the creation of
 // EventQueueWorker.
@@ -32,7 +23,7 @@ type ManifoldConfig struct {
 	DBAccessor string
 
 	Clock     clock.Clock
-	Logger    Logger
+	Logger    logger.Logger
 	NewWorker NewWorkerFn
 }
 

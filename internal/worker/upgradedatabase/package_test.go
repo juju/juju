@@ -10,7 +10,8 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	jujujujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
@@ -37,7 +38,7 @@ type baseSuite struct {
 	upgradeService *MockUpgradeService
 	modelService   *MockModelService
 
-	logger Logger
+	logger logger.Logger
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -53,7 +54,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.modelService = NewMockModelService(ctrl)
 
-	s.logger = jujujujutesting.NewCheckLogger(c)
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
 }

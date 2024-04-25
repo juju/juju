@@ -12,13 +12,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Criticalf(string, ...interface{})
-}
-
 // Machiner represents necessary methods for this worker from the
 // machiner api.
 type Machiner interface {

@@ -18,13 +18,14 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {
@@ -38,7 +39,7 @@ type ManifoldSuite struct {
 	addressWatcher         fakeAddressWatcher
 	serviceFactory         servicefactory.ServiceFactory
 	controllerConfigGetter *controllerconfigservice.WatchableService
-	logger                 certupdater.Logger
+	logger                 logger.Logger
 
 	stub testing.Stub
 }
@@ -54,7 +55,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.serviceFactory = stubServiceFactory{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
-	s.logger = jujutesting.NewCheckLogger(c)
+	s.logger = loggertesting.WrapCheckLog(c)
 	s.stub.ResetCalls()
 
 	authority, err := pkitest.NewTestAuthority()

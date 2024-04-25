@@ -19,7 +19,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination change_mock_test.go github.com/juju/juju/core/changestream Term
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination stream_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer Stream
-//go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination logger_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer Logger
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination metrics_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer MetricsCollector
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
@@ -33,7 +32,6 @@ type baseSuite struct {
 	domaintesting.ControllerSuite
 
 	clock   *MockClock
-	logger  *MockLogger
 	stream  *MockStream
 	metrics *MockMetricsCollector
 	term    *MockTerm
@@ -43,22 +41,11 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)
-	s.logger = NewMockLogger(ctrl)
 	s.stream = NewMockStream(ctrl)
 	s.metrics = NewMockMetricsCollector(ctrl)
 	s.term = NewMockTerm(ctrl)
 
 	return ctrl
-}
-
-func (s *baseSuite) expectAnyLogs(c *gc.C) {
-	s.logger.EXPECT().Errorf(gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Infof(gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().IsTraceEnabled().Return(true).AnyTimes()
 }
 
 func (s *baseSuite) expectStreamDying(ch <-chan struct{}) {

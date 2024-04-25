@@ -15,7 +15,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	jujujujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination clock_mock_test.go github.com/juju/clock Clock,Timer
@@ -30,7 +31,7 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	logger Logger
+	logger logger.Logger
 
 	clock                *MockClock
 	agent                *MockAgent
@@ -53,11 +54,9 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.clientTracerProvider = NewMockClientTracerProvider(ctrl)
 	s.span = NewMockSpan(ctrl)
 
-	s.logger = jujujujutesting.CheckLogger{
-		Log: c,
-	}
+	s.logger = loggertesting.WrapCheckLog(c)
 
-	otel.SetLogger(logr.New(&loggoSink{Logger: s.logger}))
+	otel.SetLogger(logr.New(&loggerSink{Logger: s.logger}))
 
 	return ctrl
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/version"
 )
 
@@ -18,12 +19,6 @@ const (
 	msgLatestLTSBase     = "with the latest LTS base %q"
 )
 
-// SelectorLogger defines the logging methods needed
-type SelectorLogger interface {
-	Infof(string, ...interface{})
-	Tracef(string, ...interface{})
-}
-
 // BaseSelector is a helper type that determines what base the charm should
 // be deployed to.
 type BaseSelector struct {
@@ -31,7 +26,7 @@ type BaseSelector struct {
 	defaultBase         base.Base
 	explicitDefaultBase bool
 	force               bool
-	logger              SelectorLogger
+	logger              logger.Logger
 	// supportedBases is the union of SupportedCharmBases and
 	// SupportedJujuBases.
 	supportedBases     []base.Base
@@ -42,7 +37,7 @@ type BaseSelector struct {
 type SelectorConfig struct {
 	Config              SelectorModelConfig
 	Force               bool
-	Logger              SelectorLogger
+	Logger              logger.Logger
 	RequestedBase       base.Base
 	SupportedCharmBases []base.Base
 	WorkloadBases       []base.Base

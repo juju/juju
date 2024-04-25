@@ -10,14 +10,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 )
-
-// Logger defines the methods used by the pruner worker for logging.
-type Logger interface {
-	Infof(string, ...interface{})
-}
 
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
@@ -34,7 +30,7 @@ type Config struct {
 	ModelConfigService ModelConfigService
 	PruneInterval      time.Duration
 	Clock              clock.Clock
-	Logger             Logger
+	Logger             logger.Logger
 }
 
 // Validate will err unless basic requirements for a valid

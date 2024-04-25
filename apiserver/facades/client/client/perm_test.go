@@ -21,11 +21,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type permSuite struct {
@@ -191,7 +191,7 @@ func opClientDestroyRelation(c *gc.C, st api.Connection, _ *state.State) (func()
 }
 
 func opClientStatus(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	status, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
+	status, err := apiclient.NewClient(st, loggertesting.WrapCheckLog(c)).Status(nil)
 	if err != nil {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
@@ -382,7 +382,7 @@ func opClientModelSet(c *gc.C, st api.Connection, _ *state.State) (func(), error
 }
 
 func opClientWatchAll(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	watcher, err := apiclient.NewClient(st, coretesting.NoopLogger{}).WatchAll()
+	watcher, err := apiclient.NewClient(st, loggertesting.WrapCheckLog(c)).WatchAll()
 	if err == nil {
 		watcher.Stop()
 	}

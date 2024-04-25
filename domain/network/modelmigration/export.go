@@ -9,6 +9,7 @@ import (
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/service"
@@ -16,7 +17,7 @@ import (
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator, logger Logger) {
+func RegisterExport(coordinator Coordinator, logger logger.Logger) {
 	coordinator.Add(&exportOperation{
 		logger: logger,
 	})
@@ -35,7 +36,7 @@ type exportOperation struct {
 	modelmigration.BaseOperation
 
 	exportService ExportService
-	logger        Logger
+	logger        logger.Logger
 }
 
 // Setup implements Operation.

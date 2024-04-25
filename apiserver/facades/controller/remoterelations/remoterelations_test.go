@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -66,7 +66,7 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretService = mocks.NewMockSecretService(ctrl)
 	api, err := remoterelations.NewRemoteRelationsAPI(
 		s.st, s.ecService, s.secretService, s.cc, s.resources, s.authorizer,
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

@@ -21,21 +21,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/interface_mock.go github.com/juju/juju/internal/worker/uniter/operation Operation,Factory,Callbacks
 
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, pass one in to the needed functions.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger determines the logging methods used by the operations package.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
-
 // Operation encapsulates the stages of the various things the uniter can do,
 // and the state changes that need to be recorded as they happen. Operations
 // are designed to be Run (or Skipped) by an Executor, which supplies starting

@@ -15,7 +15,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
-	jujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type stateSuite struct {
@@ -29,7 +29,7 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
 func ptr[T any](v T) *T {

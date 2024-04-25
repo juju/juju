@@ -30,6 +30,7 @@ import (
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
@@ -199,7 +200,7 @@ func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetter
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID)),
 			stubDBDeleter{DB: s.DB()},
 			s.ProviderTracker,
-			NewCheckLogger(c),
+			loggertesting.WrapCheckLog(c),
 		)
 	}
 }

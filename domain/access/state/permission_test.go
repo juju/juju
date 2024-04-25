@@ -20,8 +20,8 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type permissionStateSuite struct {
@@ -49,7 +49,7 @@ func (s *permissionStateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spec := corepermission.UserAccessSpec{
 		User: "bob",
@@ -76,7 +76,7 @@ func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spec := corepermission.UserAccessSpec{
 		User: "bob",
@@ -103,7 +103,7 @@ func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spec := corepermission.UserAccessSpec{
 		User: "bob",
@@ -130,7 +130,7 @@ func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// model "foo-bar" is not created in this test suite, thus invalid.
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
@@ -147,7 +147,7 @@ func (s *permissionStateSuite) TestCreatePermissionForModelWithBadInfo(c *gc.C) 
 }
 
 func (s *permissionStateSuite) TestCreatePermissionForControllerWithBadInfo(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// The only valid key for an object type of Controller is
 	// 'controller'
@@ -190,7 +190,7 @@ AND    grant_on = ?
 }
 
 func (s *permissionStateSuite) TestCreatePermissionErrorNoUser(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "testme",
 		AccessSpec: corepermission.AccessSpec{
@@ -205,7 +205,7 @@ func (s *permissionStateSuite) TestCreatePermissionErrorNoUser(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionErrorDuplicate(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spec := corepermission.UserAccessSpec{
 		User: "bob",
@@ -251,7 +251,7 @@ WHERE access_type_id = 1 AND object_type_id = 2
 }
 
 func (s *permissionStateSuite) TestDeletePermission(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	target := corepermission.ID{
 		Key:        s.modelUUID.String(),
@@ -283,7 +283,7 @@ func (s *permissionStateSuite) TestDeletePermission(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestDeletePermissionDoesNotExist(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	target := corepermission.ID{
 		Key:        s.modelUUID.String(),
@@ -296,7 +296,7 @@ func (s *permissionStateSuite) TestDeletePermissionDoesNotExist(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestReadUserAccessForTarget(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	target := corepermission.ID{
 		Key:        "controller",
@@ -333,7 +333,7 @@ WHERE grant_to = 123
 }
 
 func (s *permissionStateSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	target := corepermission.ID{
 		Key:        "test-cloud",
@@ -355,7 +355,7 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 
@@ -372,7 +372,7 @@ func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 	targetCloud := corepermission.ID{
@@ -394,7 +394,7 @@ func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeCloud(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 
@@ -420,7 +420,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeCloud(c *gc.
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeModel(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 
@@ -447,7 +447,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeModel(c *gc.
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeController(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 
@@ -463,14 +463,14 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeController(c
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.ReadAllAccessForUserAndObjectType(context.Background(), "bob", corepermission.Cloud)
 	c.Assert(err, jc.ErrorIs, accesserrors.PermissionNotFound)
 }
 
 func (s *permissionStateSuite) TestUpsertPermissionGrantNewUser(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "admin",
 		AccessSpec: corepermission.AccessSpec{
@@ -522,7 +522,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantNewUser(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestUpsertPermissionGrantExistingUser(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	// Bob starts with Write access on "default-model"
 	s.setupForRead(c, st)
 
@@ -550,7 +550,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantExistingUser(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestUpsertPermissionGrantLessAccess(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	// Bob starts with Write access on "default-model"
 	s.setupForRead(c, st)
 
@@ -573,7 +573,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantLessAccess(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestUpsertPermissionNotAuthorized(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
@@ -592,7 +592,7 @@ func (s *permissionStateSuite) TestUpsertPermissionNotAuthorized(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestUpsertPermissionRevokeRemovePerm(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	s.setupForRead(c, st)
 	// Bob starts with Admin access on "default-model".
 	// Revoke of Read yields permission removed on the model.
@@ -618,7 +618,7 @@ func (s *permissionStateSuite) TestUpsertPermissionRevokeRemovePerm(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestUpsertPermissionRevoke(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	// Sue starts with Admin access on "test-cloud".
 	// Revoke of Admin yields AddModel on clouds.
 	s.setupForRead(c, st)
@@ -647,7 +647,7 @@ func (s *permissionStateSuite) TestUpsertPermissionRevoke(c *gc.C) {
 }
 
 func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *gc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	ctx := context.Background()
 
 	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access")

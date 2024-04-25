@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
@@ -307,7 +308,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		WorkerFunc:         introspection.NewWorker,
 		Clock:              c.clk,
 		LocalHub:           localHub,
-		Logger:             logger.Child("introspection"),
+		Logger:             internallogger.WrapLoggo(logger.Child("introspection")),
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world
@@ -333,7 +334,7 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 	machineLock, err := machinelock.New(machinelock.Config{
 		AgentName:   c.Tag().String(),
 		Clock:       c.clk,
-		Logger:      loggo.GetLogger("juju.machinelock"),
+		Logger:      internallogger.GetLogger("juju.machinelock"),
 		LogFilename: agent.MachineLockLogFilename(agentConfig),
 	})
 	// There will only be an error if the required configuration

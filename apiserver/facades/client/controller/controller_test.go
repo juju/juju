@@ -42,6 +42,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/multiwatcher"
@@ -96,7 +97,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
-		Logger:               loggo.GetLogger("test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
@@ -1120,7 +1121,7 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.controller"),
+		loggertesting.WrapCheckLog(c),
 		nil,
 		nil,
 		nil,
@@ -1130,7 +1131,6 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 	return api
 }
 

@@ -8,23 +8,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	internallogger "github.com/juju/juju/internal/logger"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...any)
-	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
-	Debugf(message string, args ...any)
-	Tracef(message string, args ...any)
-
-	IsTraceEnabled() bool
-}
 
 // MetadataService is the interface that is used to get a object store.
 type MetadataService interface {
@@ -71,7 +61,7 @@ func WithMetadataService(metadataService MetadataService) Option {
 }
 
 // WithLogger is the option to set the logger to use.
-func WithLogger(logger Logger) Option {
+func WithLogger(logger logger.Logger) Option {
 	return func(o *options) {
 		o.logger = logger
 	}
@@ -104,14 +94,14 @@ type options struct {
 	s3Client        objectstore.Client
 	metadataService MetadataService
 	claimer         Claimer
-	logger          Logger
+	logger          logger.Logger
 	clock           clock.Clock
 	allowDraining   bool
 }
 
 func newOptions() *options {
 	return &options{
-		logger: loggo.GetLogger("juju.objectstore"),
+		logger: internallogger.GetLogger("juju.objectstore", logger.OBJECTSTORE),
 		clock:  clock.WallClock,
 	}
 }

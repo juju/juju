@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/provisioner/mocks"
@@ -50,7 +51,7 @@ func (s *containerManifoldSuite) TestConfigValidateMachineLock(c *gc.C) {
 	cfg := provisioner.ContainerManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
-		Logger:        &noOpLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 	}
 	err := cfg.Validate()
 	c.Assert(err, gc.ErrorMatches, "missing MachineLock not valid")
@@ -60,7 +61,7 @@ func (s *containerManifoldSuite) TestConfigValidateCredentialValidatorFacade(c *
 	cfg := provisioner.ContainerManifoldConfig{
 		AgentName:     "testing",
 		APICallerName: "another string",
-		Logger:        &noOpLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 		MachineLock:   &fakeMachineLock{},
 	}
 	err := cfg.Validate()
@@ -71,7 +72,7 @@ func (s *containerManifoldSuite) TestConfigValidateContainerType(c *gc.C) {
 	cfg := provisioner.ContainerManifoldConfig{
 		AgentName:                    "testing",
 		APICallerName:                "another string",
-		Logger:                       &noOpLogger{},
+		Logger:                       loggertesting.WrapCheckLog(c),
 		MachineLock:                  &fakeMachineLock{},
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	}
@@ -83,7 +84,7 @@ func (s *containerManifoldSuite) TestConfigValidateSuccess(c *gc.C) {
 	cfg := provisioner.ContainerManifoldConfig{
 		AgentName:                    "testing",
 		APICallerName:                "another string",
-		Logger:                       &noOpLogger{},
+		Logger:                       loggertesting.WrapCheckLog(c),
 		MachineLock:                  &fakeMachineLock{},
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 		ContainerType:                instance.LXD,
@@ -103,7 +104,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *gc.C) {
 	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{instance.LXD}, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
-		Logger:        &noOpLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
 	m, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)
@@ -122,7 +123,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 	s.machine.EXPECT().SupportedContainers().Return(nil, false, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
-		Logger:        &noOpLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
 	_, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)
@@ -140,7 +141,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSup
 	s.machine.EXPECT().SupportedContainers().Return(nil, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
-		Logger:        &noOpLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
 	_, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)
@@ -157,7 +158,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c 
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().Life().Return(life.Dead)
 	cfg := provisioner.ContainerManifoldConfig{
-		Logger:        &noOpLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
 	_, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)

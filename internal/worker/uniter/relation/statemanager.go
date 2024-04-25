@@ -14,11 +14,12 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
 // NewStateManager creates a new StateManager instance.
-func NewStateManager(rw UnitStateReadWriter, logger Logger) (StateManager, error) {
+func NewStateManager(rw UnitStateReadWriter, logger logger.Logger) (StateManager, error) {
 	mgr := &stateManager{unitStateRW: rw, logger: logger}
 	return mgr, mgr.initialize()
 }
@@ -26,7 +27,7 @@ func NewStateManager(rw UnitStateReadWriter, logger Logger) (StateManager, error
 type stateManager struct {
 	unitStateRW   UnitStateReadWriter
 	relationState map[int]State
-	logger        Logger
+	logger        logger.Logger
 	mu            sync.Mutex
 }
 

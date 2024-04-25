@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -91,7 +90,7 @@ type ManifoldsConfig struct {
 	// LoggingContext holds the model writers so that the loggers
 	// for the workers running on behalf of other models get their logs
 	// written into the model's logging collection rather than the controller's.
-	LoggingContext *loggo.Context
+	LoggingContext corelogger.LoggerContext
 
 	// RunFlagDuration defines for how long this controller will ask
 	// for model administration rights; most of the workers controlled
@@ -177,10 +176,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The logging config updater listens for logging config updates
 		// for the model and configures the logging context appropriately.
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
-			AgentName:      agentName,
-			APICallerName:  apiCallerName,
-			LoggingContext: config.LoggingContext,
-			Logger:         config.LoggingContext.GetLogger("juju.worker.logger"),
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			LoggerContext: config.LoggingContext,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.logger"),
 		})),
 
 		// All other manifolds should depend on at least one of these

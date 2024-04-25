@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/kr/pretty"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -39,11 +39,11 @@ func newInfoOptions() *infoOptions {
 type infoClient struct {
 	path   path.Path
 	client RESTClient
-	logger Logger
+	logger corelogger.Logger
 }
 
 // newInfoClient creates a infoClient for requesting
-func newInfoClient(path path.Path, client RESTClient, logger Logger) *infoClient {
+func newInfoClient(path path.Path, client RESTClient, logger corelogger.Logger) *infoClient {
 	return &infoClient{
 		path:   path,
 		client: client,
@@ -109,7 +109,7 @@ func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOptio
 	}
 
 	if isTraceEnabled {
-		c.logger.Tracef("Info() unmarshalled: %s", pretty.Sprint(resp))
+		c.logger.Tracef("Info() unmarshalled: %+v", resp)
 	}
 	return resp, nil
 }

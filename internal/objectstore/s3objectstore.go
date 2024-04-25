@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 )
 
@@ -70,7 +71,7 @@ type S3ObjectStoreConfig struct {
 	// object store to the s3 object store.
 	AllowDraining bool
 
-	Logger Logger
+	Logger logger.Logger
 	Clock  clock.Clock
 }
 

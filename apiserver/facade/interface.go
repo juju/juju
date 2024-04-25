@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/juju/description/v6"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
@@ -222,7 +222,7 @@ type ObjectStoreFactory interface {
 // Logger defines an interface for getting the apiserver logger instance.
 type Logger interface {
 	// Logger returns the apiserver logger instance.
-	Logger() loggo.Logger
+	Logger() corelogger.Logger
 }
 
 // RequestRecorder is implemented by types that can record information about

@@ -31,6 +31,5 @@ func NewSecretBackendsManagerAPI(ctx facade.ModelContext) (*SecretBackendsManage
 		watcherRegistry: ctx.WatcherRegistry(),
 		backendService:  backendService,
 		clock:           clock.WallClock,
-		logger:          ctx.Logger().Child("secretbackendmanager"),
 	}, nil
 }

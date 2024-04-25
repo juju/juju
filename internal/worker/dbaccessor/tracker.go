@@ -16,6 +16,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/pragma"
@@ -62,7 +63,7 @@ func WithClock(clock clock.Clock) TrackedDBWorkerOption {
 }
 
 // WithLogger sets the logger used by the worker.
-func WithLogger(logger Logger) TrackedDBWorkerOption {
+func WithLogger(logger logger.Logger) TrackedDBWorkerOption {
 	return func(w *trackedDBWorker) {
 		w.logger = logger
 	}
@@ -87,7 +88,7 @@ type trackedDBWorker struct {
 	err   error
 
 	clock   clock.Clock
-	logger  Logger
+	logger  logger.Logger
 	metrics *Collector
 
 	pingDBFunc func(context.Context, *sql.DB) error

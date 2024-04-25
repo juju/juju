@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/storage"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/tools"
@@ -31,22 +32,17 @@ type Option = base.Option
 // supplied tracer.
 var WithTracer = base.WithTracer
 
-// Logger is the interface used by the client to log errors.
-type Logger interface {
-	Errorf(string, ...interface{})
-}
-
 // Client represents the client-accessible part of the state.
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
 	conn   api.Connection
-	logger Logger
+	logger logger.Logger
 }
 
 // NewClient returns an object that can be used to access client-specific
 // functionality.
-func NewClient(c api.Connection, logger Logger, options ...Option) *Client {
+func NewClient(c api.Connection, logger logger.Logger, options ...Option) *Client {
 	frontend, backend := base.NewClientFacade(c, "Client", options...)
 	return &Client{
 		ClientFacade: frontend,

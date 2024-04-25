@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/charmdownloader/mocks"
 )
 
 type charmDownloaderSuite struct {
-	logger  *mocks.MockLogger
 	api     *mocks.MockCharmDownloaderAPI
 	watcher *mocks.MockStringsWatcher
 }
@@ -41,7 +41,7 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 	}).Return(nil)
 
 	worker, err := NewCharmDownloader(Config{
-		Logger:             s.logger,
+		Logger:             loggertesting.WrapCheckLog(c),
 		CharmDownloaderAPI: s.api,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,9 +53,6 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 
 func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.logger = mocks.NewMockLogger(ctrl)
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.api = mocks.NewMockCharmDownloaderAPI(ctrl)
 	s.watcher = mocks.NewMockStringsWatcher(ctrl)
 	s.watcher.EXPECT().Wait().Return(nil).AnyTimes()

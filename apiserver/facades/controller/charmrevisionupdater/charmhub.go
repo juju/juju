@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/charm/metrics"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 )
@@ -55,7 +55,7 @@ type CharmhubRefreshClient interface {
 
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
-func charmhubLatestCharmInfo(parentCtx context.Context, client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID, now time.Time, logger loggo.Logger) ([]charmhubResult, error) {
+func charmhubLatestCharmInfo(parentCtx context.Context, client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID, now time.Time, logger corelogger.Logger) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
 		base := charmhub.RefreshBase{
@@ -91,7 +91,7 @@ func charmhubLatestCharmInfo(parentCtx context.Context, client CharmhubRefreshCl
 
 // refreshResponseToCharmhubResult converts a raw RefreshResponse from the
 // charmhub API into a charmhubResult.
-func refreshResponseToCharmhubResult(response transport.RefreshResponse, now time.Time, logger loggo.Logger) charmhubResult {
+func refreshResponseToCharmhubResult(response transport.RefreshResponse, now time.Time, logger corelogger.Logger) charmhubResult {
 	if response.Error != nil {
 		return charmhubResult{
 			error: errors.Errorf("charmhub API error %s: %s", response.Error.Code, response.Error.Message),

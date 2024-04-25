@@ -15,6 +15,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/logger"
 )
 
 const Kubernetes = "kubernetes"
@@ -23,7 +24,7 @@ type resolver struct {
 	bundle           *charm.BundleData
 	model            *Model
 	bundleURL        string
-	logger           Logger
+	logger           logger.Logger
 	constraintGetter ConstraintGetter
 	charmResolver    CharmResolver
 	changes          *changeset
@@ -591,7 +592,7 @@ type unitProcessor struct {
 	existing    *Model
 	bundle      *charm.BundleData
 	defaultBase corebase.Base
-	logger      Logger
+	logger      logger.Logger
 
 	// The added applications and machines are maps from names to
 	// change IDs.

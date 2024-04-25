@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
@@ -21,10 +20,12 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/controller/migrationtarget"
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -124,7 +125,7 @@ type Config struct {
 	Facade          Facade
 	Guard           fortress.Guard
 	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
-	UploadBinaries  func(context.Context, migration.UploadBinariesConfig) error
+	UploadBinaries  func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
 	CharmDownloader migration.CharmDownloader
 	ToolsDownloader migration.ToolsDownloader
 	Clock           clock.Clock
@@ -170,7 +171,7 @@ func New(config Config) (*Worker, error) {
 	// the logs from different migrationmaster insteads using the short
 	// model UUID suffix.
 	loggerName := "juju.worker.migrationmaster." + names.NewModelTag(config.ModelUUID).ShortId()
-	logger := loggo.GetLoggerWithTags(loggerName, corelogger.MIGRATION)
+	logger := internallogger.GetLogger(loggerName, corelogger.MIGRATION)
 
 	w := &Worker{
 		config: config,
@@ -191,7 +192,7 @@ func New(config Config) (*Worker, error) {
 type Worker struct {
 	catacomb            catacomb.Catacomb
 	config              Config
-	logger              loggo.Logger
+	logger              logger.Logger
 	lastFailure         string
 	minionReportTimeout time.Duration
 }
@@ -460,7 +461,7 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 		Resources:          serialized.Resources,
 		ResourceDownloader: w.config.Facade,
 		ResourceUploader:   wrapper,
-	})
+	}, w.logger)
 	return errors.Annotate(err, "failed to migrate binaries")
 }
 

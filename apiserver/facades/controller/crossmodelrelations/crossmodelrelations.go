@@ -12,7 +12,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/kr/pretty"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -56,7 +56,7 @@ type CrossModelRelationsAPIv3 struct {
 	relationStatusWatcher  relationStatusWatcherFunc
 	offerStatusWatcher     offerStatusWatcherFunc
 	consumedSecretsWatcher consumedSecretsWatcherFunc
-	logger                 loggo.Logger
+	logger                 corelogger.Logger
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -72,7 +72,7 @@ func NewCrossModelRelationsAPI(
 	relationStatusWatcher relationStatusWatcherFunc,
 	offerStatusWatcher offerStatusWatcherFunc,
 	consumedSecretsWatcher consumedSecretsWatcherFunc,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		st:                     st,

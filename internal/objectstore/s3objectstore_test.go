@@ -20,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -510,7 +511,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectAlreadyExists(c *gc.C) {
 
 	store := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
-			logger: testing.NewCheckLogger(c),
+			logger: loggertesting.WrapCheckLog(c),
 		},
 		rootBucket:         defaultBucketName,
 		namespace:          "inferi",
@@ -535,7 +536,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectGetHashReturnsError(c *gc.C) {
 
 	store := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
-			logger: testing.NewCheckLogger(c),
+			logger: loggertesting.WrapCheckLog(c),
 		},
 		rootBucket:         defaultBucketName,
 		namespace:          "inferi",
@@ -562,7 +563,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileSizeDoNotMatch(c *gc.C) {
 
 	store := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
-			logger: testing.NewCheckLogger(c),
+			logger: loggertesting.WrapCheckLog(c),
 		},
 		rootBucket:         defaultBucketName,
 		namespace:          "inferi",
@@ -588,7 +589,7 @@ func (s *s3ObjectStoreSuite) TestDrainFilePut(c *gc.C) {
 
 	store := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
-			logger: testing.NewCheckLogger(c),
+			logger: loggertesting.WrapCheckLog(c),
 		},
 		rootBucket:         defaultBucketName,
 		namespace:          "inferi",
@@ -621,7 +622,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileDeleteError(c *gc.C) {
 
 	store := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
-			logger: testing.NewCheckLogger(c),
+			logger: loggertesting.WrapCheckLog(c),
 		},
 		rootBucket:         defaultBucketName,
 		namespace:          "inferi",
@@ -794,7 +795,7 @@ func (s *s3ObjectStoreSuite) newS3ObjectStoreConfig(c *gc.C, allowDraining bool)
 		Client:                 s.client,
 		MetadataService:        s.service,
 		Claimer:                s.claimer,
-		Logger:                 testing.NewCheckLogger(c),
+		Logger:                 loggertesting.WrapCheckLog(c),
 		Clock:                  clock.WallClock,
 		HashFileSystemAccessor: s.hashFileSystemAccessor,
 		AllowDraining:          allowDraining,

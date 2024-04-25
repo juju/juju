@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
@@ -163,7 +164,7 @@ func almostValidConfig() storageprovisioner.Config {
 			clock.Clock
 		}{},
 		Logger: struct {
-			storageprovisioner.Logger
+			logger.Logger
 		}{},
 	}
 }

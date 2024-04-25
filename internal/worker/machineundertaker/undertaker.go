@@ -10,18 +10,13 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/worker/common"
 )
-
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // Facade defines the interface we require from the machine undertaker
 // facade.
@@ -44,13 +39,13 @@ type Undertaker struct {
 	API             Facade
 	Releaser        AddressReleaser
 	CallContextFunc common.CloudCallContextFunc
-	Logger          Logger
+	Logger          logger.Logger
 }
 
 // NewWorker returns a machine undertaker worker that will watch for
 // machines that need to be removed and remove them, cleaning up any
 // necessary provider-level resources first.
-func NewWorker(api Facade, env environs.Environ, credentialAPI common.CredentialAPI, logger Logger) (worker.Worker, error) {
+func NewWorker(api Facade, env environs.Environ, credentialAPI common.CredentialAPI, logger logger.Logger) (worker.Worker, error) {
 	envNetworking, _ := environs.SupportsNetworking(env)
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &Undertaker{

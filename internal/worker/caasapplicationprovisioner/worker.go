@@ -26,17 +26,12 @@ import (
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
-
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 type CAASUnitProvisionerFacade interface {
 	ApplicationScale(string) (int, error)
@@ -90,7 +85,7 @@ type Config struct {
 	Broker       CAASBroker
 	ModelTag     names.ModelTag
 	Clock        clock.Clock
-	Logger       Logger
+	Logger       logger.Logger
 	NewAppWorker NewAppWorkerFunc
 	UnitFacade   CAASUnitProvisionerFacade
 }
@@ -101,7 +96,7 @@ type provisioner struct {
 	facade       CAASProvisionerFacade
 	broker       CAASBroker
 	clock        clock.Clock
-	logger       Logger
+	logger       logger.Logger
 	newAppWorker NewAppWorkerFunc
 	modelTag     names.ModelTag
 	unitFacade   CAASUnitProvisionerFacade

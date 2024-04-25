@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database/app"
 )
 
@@ -89,7 +90,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewMetricsCollector: func() *Collector {
 			return &Collector{}
 		},
-		NewNodeManager: func(agent.Config, Logger, coredatabase.SlowQueryLogger) NodeManager {
+		NewNodeManager: func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager {
 			return s.nodeManager
 		},
 	}

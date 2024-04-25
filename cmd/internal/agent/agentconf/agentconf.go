@@ -7,11 +7,11 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/config"
 	agenterrors "github.com/juju/juju/agent/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state/mgo"
 )
 
@@ -59,7 +59,7 @@ func (c *agentConf) CheckArgs(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func SetupAgentLogging(context *loggo.Context, config agent.Config) {
+func SetupAgentLogging(context corelogger.LoggerContext, config agent.Config) {
 	logger := context.GetLogger("juju.agent.setup")
 	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
 		logger.Infof("logging override set for this agent: %q", loggingOverride)

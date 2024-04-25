@@ -13,12 +13,13 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	client "github.com/juju/juju/api/controller/charmdownloader"
+	"github.com/juju/juju/core/logger"
 )
 
 // ManifoldConfig describes the resources used by the charmdownloader worker.
 type ManifoldConfig struct {
 	APICallerName string
-	Logger        Logger
+	Logger        logger.Logger
 
 	// A constructor for the charmdownloader API which can be overridden
 	// during testing. If omitted, the default client for the charmdownloader

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/charm/v13"
 	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiresources "github.com/juju/juju/api/client/resources"
@@ -42,7 +41,7 @@ type API struct {
 	backend Backend
 
 	factory func(*charm.URL) (NewCharmRepository, error)
-	logger  loggo.Logger
+	logger  corelogger.Logger
 }
 
 // NewFacade creates a public API facade for resources. It is
@@ -72,9 +71,9 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 		case charm.CharmHub.Matches(schema):
 			chURL, _ := modelCfg.CharmHubURL()
 			chClient, err := charmhub.NewClient(charmhub.Config{
-				URL:           chURL,
-				HTTPClient:    ctx.HTTPClient(facade.CharmhubHTTPClient),
-				LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+				URL:        chURL,
+				HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
+				Logger:     logger,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -97,7 +96,7 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 }
 
 // NewResourcesAPI returns a new resources API facade.
-func NewResourcesAPI(backend Backend, factory func(*charm.URL) (NewCharmRepository, error), logger loggo.Logger) (*API, error) {
+func NewResourcesAPI(backend Backend, factory func(*charm.URL) (NewCharmRepository, error), logger corelogger.Logger) (*API, error) {
 	if backend == nil {
 		return nil, errors.Errorf("missing data backend")
 	}

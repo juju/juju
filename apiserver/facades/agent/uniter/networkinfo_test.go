@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/network"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -369,7 +369,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, u.UnitTag(), nil, lookup, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, u.UnitTag(), nil, lookup, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
@@ -638,7 +638,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
@@ -658,7 +658,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -690,7 +690,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 	prr := newProReqRelationForApps(c, st, mySql, gitLab)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel)
@@ -762,7 +762,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 		}
 	}
 
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// At this point we only have a container (local-machine) address.
@@ -783,7 +783,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.ru0.UnitTag(), retryFactory, nil, loggo.GetLogger("juju.apiserver.uniter"))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1007,7 +1007,7 @@ func (s *networkInfoSuite) newNetworkInfo(
 		}
 	}
 
-	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), s.networkService, tag, retryFactory, lookupHost, loggo.GetLogger("juju.apiserver.uniter"))
+	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), s.networkService, tag, retryFactory, lookupHost, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }

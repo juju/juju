@@ -12,13 +12,14 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	"golang.org/x/crypto/acme/autocert"
 	gc "gopkg.in/check.v1"
+
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type serviceSuite struct {
 	testing.IsolationSuite
 
-	state  *MockState
-	logger *MockLogger
+	state *MockState
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -27,7 +28,6 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
-	s.logger = NewMockLogger(ctrl)
 
 	return ctrl
 }
@@ -37,9 +37,8 @@ func (s *serviceSuite) TestCheckCacheMiss(c *gc.C) {
 
 	certName := "test-cert-name"
 	s.state.EXPECT().Get(gomock.Any(), certName).Return(nil, errors.Annotatef(errors.NotFound, "autocert %s", certName))
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any())
 
-	svc := NewService(s.state, s.logger)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	certbytes, err := svc.Get(context.Background(), certName)
 	c.Assert(certbytes, gc.IsNil)
@@ -51,9 +50,8 @@ func (s *serviceSuite) TestCheckAnyError(c *gc.C) {
 
 	certName := "test-cert-name"
 	s.state.EXPECT().Get(gomock.Any(), certName).Return(nil, errors.New("state error"))
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any())
 
-	svc := NewService(s.state, s.logger)
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	certbytes, err := svc.Get(context.Background(), certName)
 	c.Assert(certbytes, gc.IsNil)

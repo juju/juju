@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -16,18 +15,8 @@ import (
 	apicaasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	caasunitprovisionerapi "github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Tracef(string, ...interface{})
-
-	Child(string) loggo.Logger
-}
 
 // ManifoldConfig defines a CAAS operator provisioner's dependencies.
 type ManifoldConfig struct {
@@ -35,7 +24,7 @@ type ManifoldConfig struct {
 	BrokerName    string
 	ClockName     string
 	NewWorker     func(Config) (worker.Worker, error)
-	Logger        Logger
+	Logger        logger.Logger
 }
 
 // Validate is called by start to check for bad configuration.

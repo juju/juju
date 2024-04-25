@@ -20,12 +20,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
@@ -43,7 +43,7 @@ type Config struct {
 	Mux                  *apiserverhttp.Mux
 	MuxShutdownWait      time.Duration
 	LogDir               string
-	Logger               Logger
+	Logger               logger.Logger
 	PrometheusRegisterer prometheus.Registerer
 	Hub                  *pubsub.StructuredHub
 	APIPort              int
@@ -114,7 +114,7 @@ type Worker struct {
 	config   Config
 	url      chan string
 	holdable *heldListener
-	logger   Logger
+	logger   logger.Logger
 
 	// mu controls access to both status and reporter.
 	mu     sync.Mutex
@@ -161,8 +161,8 @@ func (w *Worker) URL() string {
 }
 
 func (w *Worker) loop() error {
-	serverLog := log.New(&loggoWrapper{
-		level:  loggo.WARNING,
+	serverLog := log.New(&loggerWrapper{
+		level:  logger.WARNING,
 		logger: w.logger,
 	}, "", 0) // no prefix and no flags so log.Logger doesn't add extra prefixes
 	server := &http.Server{
@@ -385,7 +385,7 @@ type dualListener struct {
 	errors      chan error
 	connections chan net.Conn
 
-	logger Logger
+	logger logger.Logger
 
 	unsub func()
 }

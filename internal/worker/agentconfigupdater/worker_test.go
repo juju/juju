@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
@@ -23,7 +24,7 @@ import (
 
 type WorkerSuite struct {
 	testing.IsolationSuite
-	logger loggo.Logger
+	logger logger.Logger
 	agent  *mockAgent
 	hub    *pubsub.StructuredHub
 	config agentconfigupdater.WorkerConfig
@@ -35,7 +36,7 @@ var _ = gc.Suite(&WorkerSuite{})
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.logger = loggo.GetLogger("test")
+	s.logger = loggertesting.WrapCheckLog(c)
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
 		Logger: s.logger,
 	})

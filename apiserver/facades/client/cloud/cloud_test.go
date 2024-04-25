@@ -10,7 +10,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
 	credentialservice "github.com/juju/juju/domain/credential/service"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -58,7 +58,7 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 	api, err := cloud.NewCloudAPI(
 		coretesting.ControllerTag, "dummy",
 		s.cloudService, s.cloudAccessService, s.credService,
-		s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
+		s.authorizer, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/database"
-	jujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type typesSuite struct {
@@ -168,7 +168,7 @@ func (s *typesSuite) TestToChanges(c *gc.C) {
 			NextRotationTime: sql.NullTime{Valid: false},
 		},
 	}
-	result := rows.toChanges(jujutesting.NewCheckLogger(c))
+	result := rows.toChanges(loggertesting.WrapCheckLog(c))
 	c.Assert(result, gc.DeepEquals, []watcher.SecretBackendRotateChange{
 		{
 			ID:              "uuid1",

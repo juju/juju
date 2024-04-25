@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )
@@ -42,7 +43,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, provider.CommonStorageProviders())
+	RegisterImport(s.coordinator, provider.CommonStorageProviders(), loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestNoStoragePools(c *gc.C) {

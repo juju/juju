@@ -69,7 +69,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	w := NewNamespaceWatcher(
-		s.newBaseWatcher(), "random_namespace", changestream.All, InitialNamespaceChanges("SELECT key_name FROM random_namespace"))
+		s.newBaseWatcher(c), "random_namespace", changestream.All, InitialNamespaceChanges("SELECT key_name FROM random_namespace"))
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -122,7 +122,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	w := NewNamespaceMapperWatcher(
-		s.newBaseWatcher(), "random_namespace", changestream.All, InitialNamespaceChanges("SELECT key_name FROM random_namespace"),
+		s.newBaseWatcher(c), "random_namespace", changestream.All, InitialNamespaceChanges("SELECT key_name FROM random_namespace"),
 		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return nil, nil
 		},
@@ -169,7 +169,7 @@ func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
 	).Return(s.sub, nil)
 
 	w := NewNamespaceWatcher(
-		s.newBaseWatcher(), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"))
+		s.newBaseWatcher(c), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"))
 	defer workertest.CleanKill(c, w)
 
 	// No initial data.
@@ -231,7 +231,7 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *gc.C) {
 	).Return(s.sub, nil)
 
 	w := NewNamespaceMapperWatcher(
-		s.newBaseWatcher(), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"),
+		s.newBaseWatcher(c), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"),
 		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			if e[0].Changed() == "some-ec-uuid" {
 				return e, nil
@@ -310,7 +310,7 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *gc.C) {
 	).Return(s.sub, nil)
 
 	w := NewNamespaceMapperWatcher(
-		s.newBaseWatcher(), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"),
+		s.newBaseWatcher(c), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"),
 		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return nil, errors.New("boom")
 		},
@@ -368,7 +368,7 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	).Return(s.sub, nil)
 
 	w := NewNamespaceWatcher(
-		s.newBaseWatcher(), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"))
+		s.newBaseWatcher(c), "external_controller", changestream.All, InitialNamespaceChanges("SELECT uuid FROM external_controller"))
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
@@ -376,7 +376,7 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 }
 
 func (s *namespaceSuite) TestInvalidChangeMask(c *gc.C) {
-	w := NewNamespaceWatcher(s.newBaseWatcher(), "external_controller", 0, InitialNamespaceChanges("SELECT uuid FROM external_controller"))
+	w := NewNamespaceWatcher(s.newBaseWatcher(c), "external_controller", 0, InitialNamespaceChanges("SELECT uuid FROM external_controller"))
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)

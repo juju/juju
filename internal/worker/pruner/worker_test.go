@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/pruner"
 	"github.com/juju/juju/internal/worker/pruner/mocks"
 	"github.com/juju/juju/internal/worker/statushistorypruner"
@@ -131,7 +131,7 @@ func (s *PrunerSuite) newPruner(c *gc.C, newPruner newPrunerFunc) (worker.Worker
 		ModelConfigService: s.modelConfigService,
 		PruneInterval:      coretesting.ShortWait,
 		Clock:              testClock,
-		Logger:             loggo.GetLogger("test"),
+		Logger:             loggertesting.WrapCheckLog(c),
 	}
 
 	pruner, err := newPruner(conf)

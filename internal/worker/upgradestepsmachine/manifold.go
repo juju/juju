@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
@@ -30,14 +31,6 @@ type (
 	UpgradeStepsFunc    = upgrades.UpgradeStepsFunc
 )
 
-// Logger defines the logging methods used by the worker.
-type Logger interface {
-	Errorf(string, ...any)
-	Warningf(string, ...any)
-	Infof(string, ...any)
-	Debugf(string, ...any)
-}
-
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
@@ -47,7 +40,7 @@ type ManifoldConfig struct {
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	UpgradeSteps         upgrades.UpgradeStepsFunc
 	NewAgentStatusSetter func(context.Context, base.APICaller) (upgradesteps.StatusSetter, error)
-	Logger               Logger
+	Logger               logger.Logger
 	Clock                clock.Clock
 }
 

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/testing"
@@ -45,6 +44,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	providermocks "github.com/juju/juju/internal/provider/common/mocks"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
@@ -1441,7 +1441,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	w, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
 		ControllerUUID:             coretesting.ControllerTag.Id(),
 		HostTag:                    names.NewMachineTag("0"),
-		Logger:                     loggo.GetLogger("test"),
+		Logger:                     loggertesting.WrapCheckLog(c),
 		HarvestMode:                harvestingMethod,
 		ControllerAPI:              s.controllerAPI,
 		MachinesAPI:                s.machinesAPI,
@@ -1480,7 +1480,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 	task, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
 		ControllerUUID:             coretesting.ControllerTag.Id(),
 		HostTag:                    names.NewMachineTag("0"),
-		Logger:                     loggo.GetLogger("test"),
+		Logger:                     loggertesting.WrapCheckLog(c),
 		HarvestMode:                harvestingMethod,
 		ControllerAPI:              s.controllerAPI,
 		MachinesAPI:                s.machinesAPI,

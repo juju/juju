@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -49,7 +49,7 @@ type Facade struct {
 	model                   Model
 	clock                   clock.Clock
 	broker                  Broker
-	logger                  loggo.Logger
+	logger                  logger.Logger
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -62,7 +62,7 @@ func NewFacade(
 	applicationSaver ApplicationService,
 	broker Broker,
 	clock clock.Clock,
-	logger loggo.Logger,
+	logger logger.Logger,
 ) (*Facade, error) {
 	if !authorizer.AuthApplicationAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm

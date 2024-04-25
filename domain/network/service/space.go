@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs/envcontext"
@@ -25,11 +26,11 @@ type Service struct {
 	// The space service needs the full state because we make use of the
 	// UpsertSubnets method from the SubnetState.
 	st     State
-	logger Logger
+	logger logger.Logger
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, logger Logger) *Service {
+func NewService(st State, logger logger.Logger) *Service {
 	return &Service{
 		st:     st,
 		logger: logger,
@@ -112,7 +113,7 @@ type ProviderService struct {
 func NewProviderService(
 	st State,
 	provider providertracker.ProviderGetter[Provider],
-	logger Logger,
+	logger logger.Logger,
 ) *ProviderService {
 	return &ProviderService{
 		Service: Service{
@@ -286,12 +287,12 @@ type ProviderSpaces struct {
 	modelSpaceMap map[network.Id]network.SpaceInfo
 	updatedSpaces network.IDSet
 	spaceService  *ProviderService
-	logger        Logger
+	logger        logger.Logger
 }
 
 // NewProviderSpaces creates a new ProviderSpaces to perform a series of
 // operations.
-func NewProviderSpaces(spaceService *ProviderService, logger Logger) *ProviderSpaces {
+func NewProviderSpaces(spaceService *ProviderService, logger logger.Logger) *ProviderSpaces {
 	return &ProviderSpaces{
 		spaceService: spaceService,
 		logger:       logger,

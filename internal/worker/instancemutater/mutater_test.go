@@ -5,7 +5,6 @@ package instancemutater_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
 )
@@ -217,7 +217,7 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesError(c *gc.C) {
 func (s *mutaterSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	logger := loggo.GetLogger("mutaterSuite")
+	logger := loggertesting.WrapCheckLog(c)
 
 	s.machine = mocks.NewMockMutaterMachine(ctrl)
 	s.machine.EXPECT().Tag().Return(s.tag).AnyTimes()

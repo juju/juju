@@ -6,12 +6,12 @@ package lease
 import (
 	"testing"
 
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-
-	jujujujutesting "github.com/juju/juju/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package lease -destination database_mock_test.go github.com/juju/juju/core/database TxnRunner
@@ -25,7 +25,7 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	logger               Logger
+	logger               logger.Logger
 	prometheusRegisterer prometheus.Registerer
 
 	clock *MockClock
@@ -37,9 +37,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.clock = NewMockClock(ctrl)
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
 
-	s.logger = jujujujutesting.CheckLogger{
-		Log: c,
-	}
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
 }

@@ -82,11 +82,11 @@ func (p RefreshBase) String() string {
 type refreshClient struct {
 	path   path.Path
 	client RESTClient
-	logger Logger
+	logger corelogger.Logger
 }
 
 // newRefreshClient creates a refreshClient for requesting
-func newRefreshClient(path path.Path, client RESTClient, logger Logger) *refreshClient {
+func newRefreshClient(path path.Path, client RESTClient, logger corelogger.Logger) *refreshClient {
 	return &refreshClient{
 		path:   path,
 		client: client,

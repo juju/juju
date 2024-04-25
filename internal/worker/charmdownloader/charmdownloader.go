@@ -11,12 +11,13 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
 // Config defines the operation of a Worker.
 type Config struct {
-	Logger             Logger
+	Logger             logger.Logger
 	CharmDownloaderAPI CharmDownloaderAPI
 }
 
@@ -36,7 +37,7 @@ func (cfg Config) Validate() error {
 // one.
 type CharmDownloader struct {
 	charmDownloaderAPI CharmDownloaderAPI
-	logger             Logger
+	logger             logger.Logger
 
 	catacomb   catacomb.Catacomb
 	appWatcher watcher.StringsWatcher

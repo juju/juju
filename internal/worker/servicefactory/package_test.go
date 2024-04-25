@@ -9,11 +9,12 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ControllerServiceFactory,ModelServiceFactory,ServiceFactory,ServiceFactoryGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination servicefactory_logger_mock_test.go github.com/juju/juju/internal/worker/servicefactory Logger
 //go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination database_mock_test.go github.com/juju/juju/core/database DBDeleter
 //go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package servicefactory -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
@@ -25,7 +26,7 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	domaintesting.ControllerSuite
 
-	logger    *MockLogger
+	logger    logger.Logger
 	dbDeleter *MockDBDeleter
 	dbGetter  *MockWatchableDBGetter
 
@@ -40,7 +41,7 @@ type baseSuite struct {
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = NewMockLogger(ctrl)
+	s.logger = loggertesting.WrapCheckLog(c)
 	s.dbDeleter = NewMockDBDeleter(ctrl)
 	s.dbGetter = NewMockWatchableDBGetter(ctrl)
 

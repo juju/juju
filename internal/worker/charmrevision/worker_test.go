@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/charmrevision"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -89,7 +90,7 @@ func (fix workerFixture) runTest(c *gc.C, test testFunc, checkWaitErr bool) {
 		RevisionUpdater: fix.revisionUpdater,
 		Clock:           fix.clock,
 		Period:          fix.period,
-		Logger:          coretesting.NoopLogger{},
+		Logger:          loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

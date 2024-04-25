@@ -30,8 +30,8 @@ import (
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type credentialSuite struct {
@@ -58,7 +58,7 @@ func (s *credentialSuite) SetUpTest(c *gc.C) {
 func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userState := userstate.NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUser(
 		context.Background(),
 		userUUID,
@@ -497,7 +497,7 @@ func (s *credentialSuite) watcherFunc(c *gc.C, expectedChangeValue string) watch
 		db, err := s.GetWatchableDB(namespace)
 		c.Assert(err, jc.ErrorIsNil)
 
-		base := eventsource.NewBaseWatcher(db, jujutesting.NewCheckLogger(c))
+		base := eventsource.NewBaseWatcher(db, loggertesting.WrapCheckLog(c))
 		return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
 	}
 }

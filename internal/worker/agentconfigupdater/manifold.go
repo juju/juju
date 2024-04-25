@@ -15,20 +15,12 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	coreagent "github.com/juju/juju/core/agent"
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/trace"
 )
-
-// Logger defines the logging methods used by the worker.
-type Logger interface {
-	Criticalf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
 
 // ManifoldConfig provides the dependencies for the
 // agent config updater manifold.
@@ -37,7 +29,7 @@ type ManifoldConfig struct {
 	APICallerName  string
 	CentralHubName string
 	TraceName      string
-	Logger         Logger
+	Logger         logger.Logger
 }
 
 // Manifold defines a simple start function which

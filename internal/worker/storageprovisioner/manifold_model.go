@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/agent/storageprovisioner"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common"
 )
@@ -28,7 +29,7 @@ type ModelManifoldConfig struct {
 	StorageDir                   string
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 	NewWorker                    func(config Config) (worker.Worker, error)
-	Logger                       Logger
+	Logger                       logger.Logger
 }
 
 // ModelManifold returns a dependency.Manifold that runs a storage provisioner.

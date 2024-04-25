@@ -11,12 +11,13 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/instancemutater"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 )
 
 func NewMachineContext(
-	logger Logger,
+	logger logger.Logger,
 	broker environs.LXDProfiler,
 	machine instancemutater.MutaterMachine,
 	fn RequiredLXDProfilesFunc,

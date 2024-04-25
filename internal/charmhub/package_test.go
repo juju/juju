@@ -13,7 +13,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charmhub/path"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package charmhub -destination client_mock_test.go github.com/juju/juju/internal/charmhub HTTPClient,RESTClient,FileSystem,Logger
@@ -25,13 +27,11 @@ func Test(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	loggerFactory *CheckLoggerFactory
-	logger        CheckLogger
+	logger corelogger.Logger
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
-	s.loggerFactory = NewCheckLoggerFactory(c)
-	s.logger = s.loggerFactory.Logger()
+	s.logger = loggertesting.WrapCheckLog(c)
 }
 
 func MustParseURL(c *gc.C, path string) *url.URL {

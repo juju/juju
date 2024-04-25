@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -16,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretsdrainworker/mocks"
@@ -30,13 +30,13 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = s.validConfig()
+	s.config = s.validConfig(c)
 }
 
-func (s *ManifoldSuite) validConfig() secretsdrainworker.ManifoldConfig {
+func (s *ManifoldSuite) validConfig(c *gc.C) secretsdrainworker.ManifoldConfig {
 	return secretsdrainworker.ManifoldConfig{
 		APICallerName: "api-caller",
-		Logger:        loggo.GetLogger("test"),
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(config secretsdrainworker.Config) (worker.Worker, error) {
 			return nil, nil
 		},

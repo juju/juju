@@ -15,6 +15,7 @@ import (
 	clock "github.com/juju/clock"
 	caas "github.com/juju/juju/caas"
 	life "github.com/juju/juju/core/life"
+	logger "github.com/juju/juju/core/logger"
 	status "github.com/juju/juju/core/status"
 	caasapplicationprovisioner "github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	gomock "go.uber.org/mock/gomock"
@@ -44,7 +45,7 @@ func (m *MockApplicationOps) EXPECT() *MockApplicationOpsMockRecorder {
 }
 
 // AppAlive mocks base method.
-func (m *MockApplicationOps) AppAlive(arg0 string, arg1 caas.Application, arg2 string, arg3 *caas.ApplicationConfig, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 clock.Clock, arg6 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) AppAlive(arg0 string, arg1 caas.Application, arg2 string, arg3 *caas.ApplicationConfig, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 clock.Clock, arg6 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppAlive", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
@@ -82,7 +83,7 @@ func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(string, caas.Applica
 }
 
 // AppDead mocks base method.
-func (m *MockApplicationOps) AppDead(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASBroker, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg5 clock.Clock, arg6 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) AppDead(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASBroker, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg5 clock.Clock, arg6 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppDead", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
@@ -120,7 +121,7 @@ func (c *MockApplicationOpsAppDeadCall) DoAndReturn(f func(string, caas.Applicat
 }
 
 // AppDying mocks base method.
-func (m *MockApplicationOps) AppDying(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg5 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) AppDying(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg5 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppDying", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
@@ -158,7 +159,7 @@ func (c *MockApplicationOpsAppDyingCall) DoAndReturn(f func(string, caas.Applica
 }
 
 // CheckCharmFormat mocks base method.
-func (m *MockApplicationOps) CheckCharmFormat(arg0 string, arg1 caasapplicationprovisioner.CAASProvisionerFacade, arg2 caasapplicationprovisioner.Logger) (bool, error) {
+func (m *MockApplicationOps) CheckCharmFormat(arg0 string, arg1 caasapplicationprovisioner.CAASProvisionerFacade, arg2 logger.Logger) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckCharmFormat", arg0, arg1, arg2)
 	ret0, _ := ret[0].(bool)
@@ -197,7 +198,7 @@ func (c *MockApplicationOpsCheckCharmFormatCall) DoAndReturn(f func(string, caas
 }
 
 // EnsureScale mocks base method.
-func (m *MockApplicationOps) EnsureScale(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg5 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) EnsureScale(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg5 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureScale", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
@@ -235,7 +236,7 @@ func (c *MockApplicationOpsEnsureScaleCall) DoAndReturn(f func(string, caas.Appl
 }
 
 // EnsureTrust mocks base method.
-func (m *MockApplicationOps) EnsureTrust(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg3 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) EnsureTrust(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg3 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureTrust", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -273,7 +274,7 @@ func (c *MockApplicationOpsEnsureTrustCall) DoAndReturn(f func(string, caas.Appl
 }
 
 // ReconcileDeadUnitScale mocks base method.
-func (m *MockApplicationOps) ReconcileDeadUnitScale(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASProvisionerFacade, arg3 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) ReconcileDeadUnitScale(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASProvisionerFacade, arg3 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReconcileDeadUnitScale", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -311,7 +312,7 @@ func (c *MockApplicationOpsReconcileDeadUnitScaleCall) DoAndReturn(f func(string
 }
 
 // RefreshApplicationStatus mocks base method.
-func (m *MockApplicationOps) RefreshApplicationStatus(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) RefreshApplicationStatus(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefreshApplicationStatus", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -349,7 +350,7 @@ func (c *MockApplicationOpsRefreshApplicationStatusCall) DoAndReturn(f func(stri
 }
 
 // UpdateState mocks base method.
-func (m *MockApplicationOps) UpdateState(arg0 string, arg1 caas.Application, arg2 map[string]status.StatusInfo, arg3 caasapplicationprovisioner.CAASBroker, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg6 caasapplicationprovisioner.Logger) (map[string]status.StatusInfo, error) {
+func (m *MockApplicationOps) UpdateState(arg0 string, arg1 caas.Application, arg2 map[string]status.StatusInfo, arg3 caasapplicationprovisioner.CAASBroker, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg6 logger.Logger) (map[string]status.StatusInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateState", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(map[string]status.StatusInfo)

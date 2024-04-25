@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/migrationminion"
 )
 
@@ -28,10 +28,10 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = s.validConfig()
+	s.config = s.validConfig(c)
 }
 
-func (s *ManifoldSuite) validConfig() migrationminion.ManifoldConfig {
+func (s *ManifoldSuite) validConfig(c *gc.C) migrationminion.ManifoldConfig {
 	return migrationminion.ManifoldConfig{
 		AgentName:         "agent",
 		APICallerName:     "api-caller",
@@ -41,7 +41,7 @@ func (s *ManifoldSuite) validConfig() migrationminion.ManifoldConfig {
 		ValidateMigration: func(context.Context, base.APICaller) error { return nil },
 		NewFacade:         func(base.APICaller) (migrationminion.Facade, error) { return nil, nil },
 		NewWorker:         func(migrationminion.Config) (worker.Worker, error) { return nil, nil },
-		Logger:            loggo.GetLogger("test"),
+		Logger:            loggertesting.WrapCheckLog(c),
 	}
 }
 

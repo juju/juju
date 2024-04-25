@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/charm/v13/hooks"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/relation"
 )
@@ -288,7 +288,7 @@ func (s *stateSuite) setupTestState() *relation.State {
 func runWriteHookTest(c *gc.C, st, expectedState *relation.State, hi hook.Info) {
 	err := st.Validate(hi)
 	c.Assert(err, jc.ErrorIsNil)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 	st.UpdateStateForHook(hi, logger)
 	c.Assert(*expectedState, jc.DeepEquals, *st)
 	// Check that writing the same change again is OK.

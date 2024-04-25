@@ -5,9 +5,9 @@ package util
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	agenterrors "github.com/juju/juju/agent/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/internal/worker"
 )
@@ -16,7 +16,7 @@ import (
 var EnsureMongoServerInstalled = mongo.EnsureServerInstalled
 
 // AgentDone processes the error returned by an exiting agent.
-func AgentDone(logger loggo.Logger, err error) error {
+func AgentDone(logger logger.Logger, err error) error {
 	err = errors.Cause(err)
 	switch err {
 	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine:

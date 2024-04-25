@@ -5,12 +5,12 @@ package caasunitsmanager_test
 
 import (
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	message "github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasunitsmanager/mocks"
@@ -22,7 +22,7 @@ type workerSuite struct{}
 
 func (s *workerSuite) newWorker(c *gc.C, hub caasunitsmanager.Hub) worker.Worker {
 	config := caasunitsmanager.Config{
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 		Clock:  clock.WallClock,
 		Hub:    hub,
 	}

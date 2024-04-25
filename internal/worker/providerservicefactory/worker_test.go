@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/servicefactory"
 )
@@ -48,10 +49,10 @@ func (s *workerSuite) getConfig() Config {
 	return Config{
 		DBGetter: s.dbGetter,
 		Logger:   s.logger,
-		NewProviderServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, Logger) servicefactory.ProviderServiceFactory {
+		NewProviderServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, logger.Logger) servicefactory.ProviderServiceFactory {
 			return s.providerServiceFactory
 		},
-		NewProviderServiceFactoryGetter: func(ProviderServiceFactoryFn, changestream.WatchableDBGetter, Logger) servicefactory.ProviderServiceFactoryGetter {
+		NewProviderServiceFactoryGetter: func(ProviderServiceFactoryFn, changestream.WatchableDBGetter, logger.Logger) servicefactory.ProviderServiceFactoryGetter {
 			return s.providerServiceFactoryGetter
 		},
 	}

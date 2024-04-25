@@ -37,9 +37,3 @@ type SecretStateTracker interface {
 	// Report provides information for the engine report.
 	Report() map[string]interface{}
 }
-
-// Logger represents the logging methods used in this package.
-type Logger interface {
-	Warningf(string, ...interface{})
-	Debugf(string, ...interface{})
-}

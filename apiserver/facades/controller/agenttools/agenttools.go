@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -32,7 +32,7 @@ type AgentToolsAPI struct {
 	// tools lookup
 	findTools        toolsFinder
 	envVersionUpdate envVersionUpdater
-	logger           loggo.Logger
+	logger           corelogger.Logger
 }
 
 // NewAgentToolsAPI creates a new instance of the Model API.
@@ -42,7 +42,7 @@ func NewAgentToolsAPI(
 	findTools toolsFinder,
 	envVersionUpdate func(*state.Model, version.Number) error,
 	authorizer facade.Authorizer,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*AgentToolsAPI, error) {
 	return &AgentToolsAPI{
 		modelGetter:      modelGetter,
@@ -103,7 +103,7 @@ func envVersionUpdate(env *state.Model, ver version.Number) error {
 	return env.UpdateLatestToolsVersion(ver)
 }
 
-func updateToolsAvailability(ctx context.Context, modelGetter ModelGetter, newEnviron newEnvironFunc, finder toolsFinder, update envVersionUpdater, logger loggo.Logger) error {
+func updateToolsAvailability(ctx context.Context, modelGetter ModelGetter, newEnviron newEnvironFunc, finder toolsFinder, update envVersionUpdater, logger corelogger.Logger) error {
 	model, err := modelGetter.Model()
 	if err != nil {
 		return errors.Annotate(err, "cannot get model")

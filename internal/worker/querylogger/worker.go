@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 	"gopkg.in/tomb.v2"
 )
 
@@ -25,7 +26,7 @@ const (
 type WorkerConfig struct {
 	LogDir        string
 	Clock         clock.Clock
-	Logger        Logger
+	Logger        logger.Logger
 	StackGatherer func() []byte
 }
 
@@ -52,7 +53,7 @@ type loggerWorker struct {
 	tomb tomb.Tomb
 
 	clock         clock.Clock
-	logger        Logger
+	logger        logger.Logger
 	stackGatherer func() []byte
 
 	logDir string

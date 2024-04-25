@@ -14,10 +14,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -38,7 +38,7 @@ type CharmRevisionUpdaterAPI struct {
 	clock clock.Clock
 
 	newCharmhubClient newCharmhubClientFunc
-	logger            loggo.Logger
+	logger            corelogger.Logger
 }
 
 type newCharmhubClientFunc func(st State) (CharmhubRefreshClient, error)
@@ -52,7 +52,7 @@ func NewCharmRevisionUpdaterAPIState(
 	store objectstore.ObjectStore,
 	clock clock.Clock,
 	newCharmhubClient newCharmhubClientFunc,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*CharmRevisionUpdaterAPI, error) {
 	return &CharmRevisionUpdaterAPI{
 		state:             state,

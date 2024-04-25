@@ -17,7 +17,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/ssh"
 
@@ -49,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
@@ -403,7 +403,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			),
 			BootstrapDqlite: c.DqliteInitializer,
 			Provider:        environs.Provider,
-			Logger:          loggo.GetLogger("juju.agent.bootstrap"),
+			Logger:          internallogger.GetLogger("juju.agent.bootstrap"),
 			InstancePrecheckerGetter: func(st *state.State) (environs.InstancePrechecker, error) {
 				return stateenvirons.NewInstancePrechecker(
 					st,

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
@@ -33,6 +34,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -128,7 +130,7 @@ type serviceSuite struct {
 	mockStringWatcher                             *MockStringsWatcher
 
 	clock  testclock.AdvanceableClock
-	logger Logger
+	logger logger.Logger
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -144,7 +146,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockStringWatcher = NewMockStringsWatcher(ctrl)
 
 	s.clock = testclock.NewDilatedWallClock(0)
-	s.logger = jujutesting.NewCheckLogger(c)
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
 }

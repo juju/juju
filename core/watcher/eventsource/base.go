@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 )
 
 // BaseWatcher encapsulates members common to all EventQueue-based watchers.
@@ -19,11 +20,11 @@ type BaseWatcher struct {
 	tomb tomb.Tomb
 
 	watchableDB changestream.WatchableDB
-	logger      Logger
+	logger      logger.Logger
 }
 
 // NewBaseWatcher returns a BaseWatcher constructed from the arguments.
-func NewBaseWatcher(watchableDB changestream.WatchableDB, logger Logger) *BaseWatcher {
+func NewBaseWatcher(watchableDB changestream.WatchableDB, logger logger.Logger) *BaseWatcher {
 	return &BaseWatcher{
 		watchableDB: watchableDB,
 		logger:      logger,

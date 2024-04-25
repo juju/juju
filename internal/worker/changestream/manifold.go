@@ -15,18 +15,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/common"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
-	IsTraceEnabled() bool
-}
 
 // MetricsCollectorFn is an alias function that allows the creation of
 // a metrics collector.
@@ -34,7 +25,7 @@ type MetricsCollectorFn = func() *Collector
 
 // WatchableDBFn is an alias function that allows the creation of
 // EventQueueWorker.
-type WatchableDBFn = func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, Logger) (WatchableDBWorker, error)
+type WatchableDBFn = func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, logger.Logger) (WatchableDBWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -44,7 +35,7 @@ type ManifoldConfig struct {
 	FileNotifyWatcher string
 
 	Clock                clock.Clock
-	Logger               Logger
+	Logger               logger.Logger
 	NewMetricsCollector  MetricsCollectorFn
 	PrometheusRegisterer prometheus.Registerer
 	NewWatchableDB       WatchableDBFn

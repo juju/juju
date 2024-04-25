@@ -13,26 +13,19 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/machineundertaker"
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/worker/common"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // ManifoldConfig defines the machine undertaker's configuration and
 // dependencies.
 type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
-	Logger        Logger
+	Logger        logger.Logger
 
-	NewWorker                    func(Facade, environs.Environ, common.CredentialAPI, Logger) (worker.Worker, error)
+	NewWorker                    func(Facade, environs.Environ, common.CredentialAPI, logger.Logger) (worker.Worker, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 

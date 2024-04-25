@@ -12,6 +12,7 @@ import (
 
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/agent/machiner"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 )
@@ -19,7 +20,7 @@ import (
 type config struct {
 	machineTag names.MachineTag
 	machiner   Machiner
-	logger     Logger
+	logger     logger.Logger
 }
 
 // NewConverter returns a new notify watch handler that will convert the given machine &
@@ -38,7 +39,7 @@ type converter struct {
 	machineTag names.MachineTag
 	machiner   Machiner
 	machine    Machine
-	logger     Logger
+	logger     logger.Logger
 }
 
 // wrapper is a wrapper around api/machiner.State to match the (local) machiner

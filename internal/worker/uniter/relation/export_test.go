@@ -6,8 +6,10 @@ package relation
 import (
 	stdcontext "context"
 
-	"github.com/juju/loggo/v2"
+	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 )
@@ -20,12 +22,12 @@ type StateTrackerForTestConfig struct {
 	PrincipalName     string
 	CharmDir          string
 	StateManager      StateManager
-	NewRelationerFunc func(api.RelationUnit, StateManager, UnitGetter, Logger) Relationer
+	NewRelationerFunc func(api.RelationUnit, StateManager, UnitGetter, logger.Logger) Relationer
 	Relationers       map[int]Relationer
 	RemoteAppName     map[int]string
 }
 
-func NewStateTrackerForTest(cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
+func NewStateTrackerForTest(c *gc.C, cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
 	rst := &relationStateTracker{
 		client:          cfg.Client,
 		unit:            cfg.Unit,
@@ -39,14 +41,14 @@ func NewStateTrackerForTest(cfg StateTrackerForTestConfig) (RelationStateTracker
 		relationCreated: make(map[int]bool),
 		isPeerRelation:  make(map[int]bool),
 		stateMgr:        cfg.StateManager,
-		logger:          loggo.GetLogger("test"),
+		logger:          loggertesting.WrapCheckLog(c),
 		newRelationer:   cfg.NewRelationerFunc,
 	}
 
 	return rst, rst.loadInitialState(stdcontext.Background())
 }
 
-func NewStateTrackerForSyncScopesTest(cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
+func NewStateTrackerForSyncScopesTest(c *gc.C, cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
 	return &relationStateTracker{
 		client:          cfg.Client,
 		unit:            cfg.Unit,
@@ -57,7 +59,7 @@ func NewStateTrackerForSyncScopesTest(cfg StateTrackerForTestConfig) (RelationSt
 		relationCreated: make(map[int]bool),
 		isPeerRelation:  make(map[int]bool),
 		stateMgr:        cfg.StateManager,
-		logger:          loggo.GetLogger("test"),
+		logger:          loggertesting.WrapCheckLog(c),
 		newRelationer:   cfg.NewRelationerFunc,
 		charmDir:        cfg.CharmDir,
 	}, nil

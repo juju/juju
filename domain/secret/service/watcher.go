@@ -15,6 +15,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -30,7 +31,7 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service wrapping the specified state.
 func NewWatchableService(
-	st State, logger Logger, watcherFactory WatcherFactory, adminConfigGetter BackendAdminConfigGetter,
+	st State, logger logger.Logger, watcherFactory WatcherFactory, adminConfigGetter BackendAdminConfigGetter,
 ) *WatchableService {
 	return &WatchableService{
 		SecretService: SecretService{
@@ -128,7 +129,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 // stringsWatcher is a watcher that watches for changes to a set of strings.
 type stringsWatcher struct {
 	catacomb catacomb.Catacomb
-	logger   Logger
+	logger   logger.Logger
 
 	sourceWatcher watcher.StringsWatcher
 	handle        func(ctx context.Context, events ...string) ([]string, error)
@@ -137,7 +138,7 @@ type stringsWatcher struct {
 }
 
 func newStringsWatcher(
-	sourceWatcher watcher.StringsWatcher, logger Logger,
+	sourceWatcher watcher.StringsWatcher, logger logger.Logger,
 	handle func(ctx context.Context, events ...string) ([]string, error),
 ) (*stringsWatcher, error) {
 	w := &stringsWatcher{

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machinelock"
@@ -162,7 +163,7 @@ type Uniter struct {
 	// rebootQuerier allows the uniter to detect when the machine has
 	// rebooted so we can notify the charms accordingly.
 	rebootQuerier RebootQuerier
-	logger        Logger
+	logger        logger.Logger
 
 	// shutdownChannel is passed to the remote state watcher. When true is
 	// sent on the channel, it causes the uniter to start the shutdown process.
@@ -204,7 +205,7 @@ type UniterParams struct {
 	// that write to files, and have the tests watch the output to know that hooks have finished.
 	Observer                     UniterExecutionObserver
 	RebootQuerier                RebootQuerier
-	Logger                       Logger
+	Logger                       logger.Logger
 	Sidecar                      bool
 	EnforcedCharmModifiedVersion int
 	ContainerNames               []string

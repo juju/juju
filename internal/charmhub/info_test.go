@@ -254,7 +254,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	infoPath, err := basePath.Join("info")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := newAPIRequester(DefaultHTTPClient(s.loggerFactory), s.logger)
+	apiRequester := newAPIRequester(DefaultHTTPClient(s.logger), s.logger)
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newInfoClient(infoPath, restClient, s.logger)

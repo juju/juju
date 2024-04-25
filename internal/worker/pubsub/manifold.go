@@ -13,15 +13,8 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
-}
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -30,7 +23,7 @@ type ManifoldConfig struct {
 	CentralHubName string
 	Clock          clock.Clock
 	Reporter       Reporter
-	Logger         Logger
+	Logger         logger.Logger
 
 	NewWorker func(WorkerConfig) (worker.Worker, error)
 }

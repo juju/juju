@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -25,12 +26,12 @@ type relationer struct {
 	unitGetter UnitGetter
 	dying      bool
 
-	logger Logger
+	logger logger.Logger
 }
 
 // NewRelationer creates a new relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru api.RelationUnit, stateMgr StateManager, unitGetter UnitGetter, logger Logger) Relationer {
+func NewRelationer(ru api.RelationUnit, stateMgr StateManager, unitGetter UnitGetter, logger logger.Logger) Relationer {
 	return &relationer{
 		relationId: ru.Relation().Id(),
 		ru:         ru,

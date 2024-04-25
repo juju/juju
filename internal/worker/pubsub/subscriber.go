@@ -19,6 +19,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/rpc/params"
 )
@@ -29,7 +30,7 @@ type WorkerConfig struct {
 	Origin string
 	Clock  clock.Clock
 	Hub    *pubsub.StructuredHub
-	Logger Logger
+	Logger logger.Logger
 
 	APIInfo   *api.Info
 	NewWriter func(context.Context, *api.Info) (MessageWriter, error)

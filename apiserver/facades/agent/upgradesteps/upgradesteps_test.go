@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
@@ -119,7 +120,7 @@ func (s *upgradeStepsSuite) setupFacadeAPI(c *gc.C) {
 		s.ctrlConfigGetter,
 		s.resources,
 		s.authorizer,
-		jujutesting.NewCheckLogger(c),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, gc.IsNil)
 	s.api = api

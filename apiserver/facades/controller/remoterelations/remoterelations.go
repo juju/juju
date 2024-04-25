@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -38,7 +38,7 @@ type API struct {
 	secretSerivce SecretService
 	resources     facade.Resources
 	authorizer    facade.Authorizer
-	logger        loggo.Logger
+	logger        corelogger.Logger
 }
 
 // NewRemoteRelationsAPI returns a new server-side API facade.
@@ -49,7 +49,7 @@ func NewRemoteRelationsAPI(
 	controllerCfgAPI ControllerConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm

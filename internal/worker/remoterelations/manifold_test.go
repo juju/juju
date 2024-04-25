@@ -5,7 +5,6 @@ package remoterelations_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/remoterelations"
 )
 
@@ -25,17 +25,17 @@ var _ = gc.Suite(&ManifoldConfigSuite{})
 
 func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = s.validConfig()
+	s.config = s.validConfig(c)
 }
 
-func (s *ManifoldConfigSuite) validConfig() remoterelations.ManifoldConfig {
+func (s *ManifoldConfigSuite) validConfig(c *gc.C) remoterelations.ManifoldConfig {
 	return remoterelations.ManifoldConfig{
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
 		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
 		NewRemoteRelationsFacade: func(base.APICaller) remoterelations.RemoteRelationsFacade { return nil },
 		NewWorker:                func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
-		Logger:                   loggo.GetLogger("test"),
+		Logger:                   loggertesting.WrapCheckLog(c),
 	}
 }
 

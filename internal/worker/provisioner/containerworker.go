@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -46,7 +47,7 @@ type ContainerSetupAndProvisioner struct {
 	cs *ContainerSetup
 
 	containerWatcher watcher.StringsWatcher
-	logger           Logger
+	logger           logger.Logger
 	provisioner      Provisioner
 
 	// For introspection Report

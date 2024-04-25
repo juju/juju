@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v13/hooks"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -15,16 +16,10 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-// Logger represents the logging methods used by this package.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
-
-type upgradeSeriesResolver struct{ logger Logger }
+type upgradeSeriesResolver struct{ logger logger.Logger }
 
 // NewResolver returns a new upgrade-series resolver.
-func NewResolver(logger Logger) resolver.Resolver {
+func NewResolver(logger logger.Logger) resolver.Resolver {
 	return &upgradeSeriesResolver{logger}
 }
 

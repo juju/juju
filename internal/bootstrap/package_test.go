@@ -14,12 +14,13 @@ import (
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm/services"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujujujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,LoggerFactory,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Charm,Unit,Model,CharmUploader,ApplicationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Charm,Unit,Model,CharmUploader,ApplicationService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination downloader_mock_test.go github.com/juju/juju/apiserver/facades/client/charms/interfaces Downloader
@@ -34,7 +35,6 @@ type baseSuite struct {
 	storage            *MockAgentBinaryStorage
 	deployer           *MockControllerCharmDeployer
 	httpClient         *MockHTTPClient
-	loggerFactory      *MockLoggerFactory
 	objectStore        *MockObjectStore
 	unit               *MockUnit
 	model              *MockModel
@@ -46,7 +46,7 @@ type baseSuite struct {
 	charmRepo          *MockRepository
 	charm              *MockCharm
 
-	logger Logger
+	logger logger.Logger
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -56,7 +56,6 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.deployer = NewMockControllerCharmDeployer(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
 	s.objectStore = NewMockObjectStore(ctrl)
-	s.loggerFactory = NewMockLoggerFactory(ctrl)
 
 	s.unit = NewMockUnit(ctrl)
 	s.model = NewMockModel(ctrl)
@@ -68,10 +67,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.charmRepo = NewMockRepository(ctrl)
 	s.charm = NewMockCharm(ctrl)
 
-	s.logger = jujujujutesting.NewCheckLogger(c)
-
-	s.loggerFactory = NewMockLoggerFactory(ctrl)
-	s.loggerFactory.EXPECT().Child(gomock.Any()).Return(s.logger).AnyTimes()
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
 }
@@ -100,7 +96,7 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		},
 		CharmhubHTTPClient: s.httpClient,
 		Channel:            charm.Channel{},
-		LoggerFactory:      s.loggerFactory,
+		Logger:             s.logger,
 	}
 }
 

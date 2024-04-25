@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
@@ -37,7 +38,7 @@ type applicationWorker struct {
 
 	currentPorts network.GroupedPortRanges
 
-	logger Logger
+	logger logger.Logger
 }
 
 func newApplicationWorker(
@@ -47,7 +48,7 @@ func newApplicationWorker(
 	firewallerAPI CAASFirewallerAPI,
 	broker CAASBroker,
 	lifeGetter LifeGetter,
-	logger Logger,
+	logger logger.Logger,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
 		controllerUUID: controllerUUID,

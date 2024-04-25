@@ -10,18 +10,17 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm/services"
-	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -93,7 +92,7 @@ type BinaryAgentStorage interface {
 }
 
 // AgentBinaryBootstrapFunc is the function that is used to populate the tools.
-type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error)
+type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error)
 
 // ControllerCharmDeployerConfig holds the configuration for the
 // ControllerCharmDeployer.
@@ -108,7 +107,7 @@ type ControllerCharmDeployerConfig struct {
 	ControllerCharmChannel      charm.Channel
 	CharmhubHTTPClient          HTTPClient
 	UnitPassword                string
-	LoggerFactory               LoggerFactory
+	Logger                      logger.Logger
 }
 
 // CAASControllerUnitPassword is the function that is used to get the unit
@@ -127,14 +126,14 @@ func IAASControllerUnitPassword(context.Context) (string, error) {
 
 // CAASAgentBinaryUploader is the function that is used to populate the tools
 // for CAAS.
-func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
+func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
 	// CAAS doesn't need to populate the tools.
 	return func() {}, nil
 }
 
 // IAASAgentBinaryUploader is the function that is used to populate the tools
 // for IAAS.
-func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, logger Logger) (func(), error) {
+func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, logger logger.Logger) (func(), error) {
 	storage, err := storageService.AgentBinaryStorage(objectStore)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -183,49 +182,7 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		NewCharmDownloader: func(cfg services.CharmDownloaderConfig) (bootstrap.Downloader, error) {
 			return services.NewCharmDownloader(cfg)
 		},
-		LoggerFactory: bootstrapLoggerFactory{loggerFactory: cfg.LoggerFactory},
-	}
-}
-
-type bootstrapLoggerFactory struct {
-	loggerFactory LoggerFactory
-}
-
-func (l bootstrapLoggerFactory) Child(name string) charmhub.Logger {
-	return l.loggerFactory.Child(name)
-}
-
-func (l bootstrapLoggerFactory) ChildWithTags(name string, labels ...string) charmhub.Logger {
-	return l.loggerFactory.ChildWithTags(name, labels...)
-}
-
-func (l bootstrapLoggerFactory) ForNamespace(namespace string) services.LoggerFactory {
-	return bootstrapLoggerFactory{
-		loggerFactory: l.loggerFactory.Namespace(namespace),
-	}
-}
-
-type loggoLoggerFactory struct {
-	logger loggo.Logger
-}
-
-// LoggoLoggerFactory returns a LoggerFactory that uses loggo.Logger to create
-// new loggers.
-func LoggoLoggerFactory(logger loggo.Logger) LoggerFactory {
-	return loggoLoggerFactory{logger: logger}
-}
-
-func (f loggoLoggerFactory) Child(name string) Logger {
-	return f.logger.Child(name)
-}
-
-func (f loggoLoggerFactory) ChildWithTags(name string, labels ...string) Logger {
-	return f.logger.ChildWithTags(name, labels...)
-}
-
-func (f loggoLoggerFactory) Namespace(name string) LoggerFactory {
-	return loggoLoggerFactory{
-		logger: f.logger.Child(name),
+		Logger: cfg.Logger,
 	}
 }
 

@@ -12,11 +12,11 @@ import (
 	pebbleclient "github.com/canonical/pebble/client"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/uniter/container"
@@ -67,7 +67,7 @@ func (s *pebblePollerSuite) TestStart(c *gc.C) {
 	}
 	workloadEventChan := make(chan string)
 	workloadEvents := container.NewWorkloadEvents()
-	worker := uniter.NewPebblePoller(loggo.GetLogger("test"), clock, containerNames, workloadEventChan, workloadEvents, newClient)
+	worker := uniter.NewPebblePoller(loggertesting.WrapCheckLog(c), clock, containerNames, workloadEventChan, workloadEvents, newClient)
 
 	doRestart := func(containerName string) {
 		client := clients[containerName]

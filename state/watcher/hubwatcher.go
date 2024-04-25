@@ -13,7 +13,9 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 var (
@@ -47,7 +49,7 @@ type HubWatcher struct {
 	clock     Clock
 	modelUUID string
 	idleFunc  func(string)
-	logger    Logger
+	logger    logger.Logger
 
 	tomb tomb.Tomb
 
@@ -100,7 +102,7 @@ type HubWatcherConfig struct {
 	// started for.
 	ModelUUID string
 	// Logger is used to control where the log messages for this watcher go.
-	Logger Logger
+	Logger logger.Logger
 }
 
 // Validate ensures that all the values that have to be set are set.
@@ -131,15 +133,15 @@ func NewHubWatcher(config HubWatcherConfig) (*HubWatcher, error) {
 // and always returns the given error from its Err method.
 func NewDead(err error) *HubWatcher {
 	w := &HubWatcher{
-		logger: noOpLogger{},
+		logger: internallogger.Noop(),
 	}
 	w.tomb.Kill(errors.Trace(err))
 	return w
 }
 
-func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) (*HubWatcher, <-chan struct{}) {
+func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger logger.Logger) (*HubWatcher, <-chan struct{}) {
 	if logger == nil {
-		logger = noOpLogger{}
+		logger = internallogger.Noop()
 	}
 	started := make(chan struct{})
 	w := &HubWatcher{

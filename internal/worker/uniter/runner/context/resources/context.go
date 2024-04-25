@@ -11,13 +11,14 @@ import (
 
 	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 )
 
 // ResourcesHookContext is the implementation of runner.ContextResources.
 type ResourcesHookContext struct {
 	Client       OpenedResourceClient
 	ResourcesDir string
-	Logger       Logger
+	Logger       logger.Logger
 }
 
 // DownloadResource downloads the named resource and returns the path

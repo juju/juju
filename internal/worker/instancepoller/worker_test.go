@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/instancepoller/mocks"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -74,7 +74,7 @@ func (s *configSuite) TestConfigValidation(c *gc.C) {
 		Clock:         testclock.NewClock(time.Now()),
 		Facade:        newMockFacadeAPI(ctrl, nil),
 		Environ:       mocks.NewMockEnviron(ctrl),
-		Logger:        loggo.GetLogger("juju.worker.instancepoller"),
+		Logger:        loggertesting.WrapCheckLog(c),
 		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
 	}
 	c.Assert(origCfg.Validate(), jc.ErrorIsNil)
@@ -621,7 +621,7 @@ func (s *workerSuite) startWorker(c *gc.C, ctrl *gomock.Controller) (worker.Work
 		Facade:        mocked.facadeAPI,
 		Environ:       mocked.environ,
 		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
-		Logger:        loggo.GetLogger("juju.worker.instancepoller"),
+		Logger:        loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

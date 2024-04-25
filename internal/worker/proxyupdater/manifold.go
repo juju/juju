@@ -14,22 +14,14 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used for logging messages.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName           string
 	APICallerName       string
-	Logger              Logger
+	Logger              logger.Logger
 	WorkerFunc          func(Config) (worker.Worker, error)
 	SupportLegacyValues bool
 	ExternalUpdate      func(proxy.Settings) error

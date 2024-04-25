@@ -26,6 +26,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -34,11 +35,6 @@ import (
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
-
-// LoggerFactory is the interface that is used to create loggers.
-type LoggerFactory interface {
-	services.LoggerFactory
-}
 
 // ControllerCharmDeployer is the interface that is used to deploy the
 // controller charm.
@@ -178,7 +174,7 @@ type BaseDeployerConfig struct {
 	CharmhubHTTPClient  HTTPClient
 	ControllerCharmName string
 	Channel             charm.Channel
-	LoggerFactory       LoggerFactory
+	Logger              logger.Logger
 }
 
 // Validate validates the configuration.
@@ -210,8 +206,8 @@ func (c BaseDeployerConfig) Validate() error {
 	if c.CharmhubHTTPClient == nil {
 		return errors.NotValidf("CharmhubHTTPClient")
 	}
-	if c.LoggerFactory == nil {
-		return errors.NotValidf("LoggerFactory")
+	if c.Logger == nil {
+		return errors.NotValidf("Logger")
 	}
 	return nil
 }
@@ -229,8 +225,7 @@ type baseDeployer struct {
 	charmhubHTTPClient  HTTPClient
 	controllerCharmName string
 	channel             charm.Channel
-	loggerFactory       LoggerFactory
-	logger              Logger
+	logger              logger.Logger
 }
 
 func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
@@ -247,8 +242,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		charmhubHTTPClient:  config.CharmhubHTTPClient,
 		controllerCharmName: config.ControllerCharmName,
 		channel:             config.Channel,
-		loggerFactory:       config.LoggerFactory,
-		logger:              config.LoggerFactory.Child("deployer"),
+		logger:              config.Logger,
 	}
 }
 
@@ -299,7 +293,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	}
 
 	charmRepo, err := b.newCharmRepo(services.CharmRepoFactoryConfig{
-		LoggerFactory:      b.loggerFactory,
+		Logger:             b.logger,
 		CharmhubHTTPClient: b.charmhubHTTPClient,
 		StateBackend:       b.charmUploader,
 		ModelBackend:       model,
@@ -344,7 +338,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	}
 
 	charmDownloader, err := b.newCharmDownloader(services.CharmDownloaderConfig{
-		LoggerFactory:      b.loggerFactory,
+		Logger:             b.logger,
 		CharmhubHTTPClient: b.charmhubHTTPClient,
 		ObjectStore:        b.objectStore,
 		StateBackend:       b.charmUploader,

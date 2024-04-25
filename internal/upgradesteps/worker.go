@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/gate"
@@ -49,14 +50,6 @@ type (
 	UpgradeStepsFunc    = upgrades.UpgradeStepsFunc
 )
 
-// Logger defines the logging methods used by the worker.
-type Logger interface {
-	Errorf(string, ...any)
-	Warningf(string, ...any)
-	Infof(string, ...any)
-	Debugf(string, ...any)
-}
-
 // StatusSetter defines the single method required to set an agent's
 // status.
 type StatusSetter interface {
@@ -79,7 +72,7 @@ type BaseWorker struct {
 	Tag         names.Tag
 
 	Clock  clock.Clock
-	Logger Logger
+	Logger logger.Logger
 }
 
 func (w *BaseWorker) AlreadyUpgraded() bool {

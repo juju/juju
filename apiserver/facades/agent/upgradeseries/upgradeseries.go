@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -27,7 +27,7 @@ type API struct {
 	auth       facade.Authorizer
 	resources  facade.Resources
 	leadership *common.LeadershipPinning
-	logger     loggo.Logger
+	logger     corelogger.Logger
 }
 
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
@@ -37,7 +37,7 @@ func NewUpgradeSeriesAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	leadership *common.LeadershipPinning,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm

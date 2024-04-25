@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/caasapplication"
+	"github.com/juju/juju/core/logger"
 )
 
 // TerminationSignal is SIGTERM which is sent by most container runtimes when
@@ -29,7 +30,7 @@ type terminationWorker struct {
 	agent          agent.Agent
 	state          State
 	unitTerminator UnitTerminator
-	logger         Logger
+	logger         logger.Logger
 	clock          clock.Clock
 }
 
@@ -37,7 +38,7 @@ type Config struct {
 	Agent          agent.Agent
 	State          State
 	UnitTerminator UnitTerminator
-	Logger         Logger
+	Logger         logger.Logger
 	Clock          clock.Clock
 }
 

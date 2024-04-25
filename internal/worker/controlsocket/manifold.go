@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/servicefactory"
@@ -23,7 +24,7 @@ import (
 // ManifoldConfig describes the dependencies required by the controlsocket worker.
 type ManifoldConfig struct {
 	ServiceFactoryName string
-	Logger             Logger
+	Logger             logger.Logger
 	NewWorker          func(Config) (worker.Worker, error)
 	NewSocketListener  func(socketlistener.Config) (SocketListener, error)
 	SocketName         string

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -29,7 +30,7 @@ type SecretsClient interface {
 type Secrets struct {
 	client  SecretsClient
 	unitTag names.UnitTag
-	logger  Logger
+	logger  logger.Logger
 
 	secretsState *State
 	stateOps     *stateOps
@@ -42,7 +43,7 @@ func NewSecrets(
 	client SecretsClient,
 	tag names.UnitTag,
 	rw UnitStateReadWriter,
-	logger Logger,
+	logger logger.Logger,
 ) (SecretStateTracker, error) {
 	s := &Secrets{
 		client:   client,

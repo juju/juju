@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationmaster"
@@ -84,7 +85,7 @@ func validConfig() migrationmaster.Config {
 		Guard:           struct{ fortress.Guard }{},
 		Facade:          struct{ migrationmaster.Facade }{},
 		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
-		UploadBinaries:  func(context.Context, migration.UploadBinariesConfig) error { return nil },
+		UploadBinaries:  func(context.Context, migration.UploadBinariesConfig, logger.Logger) error { return nil },
 		CharmDownloader: struct{ migration.CharmDownloader }{},
 		ToolsDownloader: struct{ migration.ToolsDownloader }{},
 		Clock:           struct{ clock.Clock }{},

@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
@@ -25,7 +26,7 @@ func (s *verifySuite) TestNextOpNotInstallNorUpgrade(c *gc.C) {
 		State: operation.State{Kind: operation.RunAction},
 	}
 	remote := remotestate.Snapshot{}
-	res := newVerifyCharmProfileResolver()
+	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
@@ -39,7 +40,7 @@ func (s *verifySuite) TestNextOpInstallProfileNotRequired(c *gc.C) {
 	remote := remotestate.Snapshot{
 		CharmProfileRequired: false,
 	}
-	res := newVerifyCharmProfileResolver()
+	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
@@ -53,7 +54,7 @@ func (s *verifySuite) TestNextOpInstallProfileRequiredEmptyName(c *gc.C) {
 	remote := remotestate.Snapshot{
 		CharmProfileRequired: true,
 	}
-	res := newVerifyCharmProfileResolver()
+	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
@@ -69,7 +70,7 @@ func (s *verifySuite) TestNextOpMisMatchCharmRevisions(c *gc.C) {
 		LXDProfileName:       "juju-wordpress-74",
 		CharmURL:             "ch:wordpress-75",
 	}
-	res := newVerifyCharmProfileResolver()
+	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
@@ -85,7 +86,7 @@ func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *gc.C) {
 		LXDProfileName:       "juju-wordpress-75",
 		CharmURL:             "ch:wordpress-75",
 	}
-	res := newVerifyCharmProfileResolver()
+	res := newVerifyCharmProfileResolver(c)
 
 	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
@@ -93,18 +94,12 @@ func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *gc.C) {
 }
 
 func (s *verifySuite) TestNewResolverCAAS(c *gc.C) {
-	r := verifycharmprofile.NewResolver(&fakelogger{}, model.CAAS)
+	r := verifycharmprofile.NewResolver(loggertesting.WrapCheckLog(c), model.CAAS)
 	op, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, nil)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, jc.ErrorIsNil)
 }
 
-func newVerifyCharmProfileResolver() resolver.Resolver {
-	return verifycharmprofile.NewResolver(&fakelogger{}, model.IAAS)
+func newVerifyCharmProfileResolver(c *gc.C) resolver.Resolver {
+	return verifycharmprofile.NewResolver(loggertesting.WrapCheckLog(c), model.IAAS)
 }
-
-type fakelogger struct{}
-
-func (*fakelogger) Debugf(string, ...interface{}) {}
-
-func (*fakelogger) Tracef(string, ...interface{}) {}

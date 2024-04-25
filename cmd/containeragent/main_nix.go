@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/internal/dumplogs"
 	"github.com/juju/juju/cmd/internal/run"
 	"github.com/juju/juju/core/machinelock"
+	internallogger "github.com/juju/juju/internal/logger"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/worker/logsender"
@@ -169,7 +170,7 @@ func main() {
 			lock, err := machinelock.New(machinelock.Config{
 				AgentName: "juju-exec",
 				Clock:     clock.WallClock,
-				Logger:    loggo.GetLogger("juju.machinelock"),
+				Logger:    internallogger.GetLogger("juju.machinelock"),
 				// TODO(ycliuhw): consider to rename machinelock package to something more generic for k8s pod lock.
 				LogFilename: filepath.Join(config.LogDir, "juju", machinelock.Filename),
 			})

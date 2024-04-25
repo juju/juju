@@ -14,14 +14,17 @@ import (
 	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/logger"
 )
 
 type LoggerSuite struct {
 	testing.IsolationSuite
 
-	context   *loggo.Context
+	context   corelogger.LoggerContext
 	agent     names.Tag
 	loggerAPI *mockAPI
 	config    logger.WorkerConfig
@@ -33,7 +36,7 @@ var _ = gc.Suite(&LoggerSuite{})
 
 func (s *LoggerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.context = loggo.NewContext(loggo.DEBUG)
+	s.context = internallogger.WrapLoggoContext(loggo.NewContext(loggo.DEBUG))
 	s.agent = names.NewMachineTag("42")
 	s.loggerAPI = &mockAPI{
 		config:  s.context.Config().String(),
@@ -43,7 +46,7 @@ func (s *LoggerSuite) SetUpTest(c *gc.C) {
 		Context: s.context,
 		API:     s.loggerAPI,
 		Tag:     s.agent,
-		Logger:  loggo.GetLogger("test"),
+		Logger:  loggertesting.WrapCheckLog(c),
 		Callback: func(v string) error {
 			s.value = v
 			return nil

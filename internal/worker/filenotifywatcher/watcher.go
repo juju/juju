@@ -9,10 +9,12 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 const (
@@ -45,7 +47,7 @@ type INotifyWatcher interface {
 
 type option struct {
 	path      string
-	logger    Logger
+	logger    logger.Logger
 	watcherFn func() (INotifyWatcher, error)
 }
 
@@ -59,7 +61,7 @@ func WithPath(path string) Option {
 }
 
 // WithLogger is an option for NewWatcher that specifies the logger to use.
-func WithLogger(logger Logger) Option {
+func WithLogger(logger logger.Logger) Option {
 	return func(o *option) {
 		o.logger = logger
 	}
@@ -76,7 +78,7 @@ func WithINotifyWatcherFn(watcherFn func() (INotifyWatcher, error)) Option {
 func newOption() *option {
 	return &option{
 		path:      defaultWatcherPath,
-		logger:    loggo.GetLogger("juju.worker.filenotifywatcher"),
+		logger:    internallogger.GetLogger("juju.worker.filenotifywatcher"),
 		watcherFn: newWatcher,
 	}
 }
@@ -93,7 +95,7 @@ type Watcher struct {
 	watchPath string
 	watcher   INotifyWatcher
 
-	logger Logger
+	logger logger.Logger
 }
 
 // NewWatcher returns a new FileWatcher that watches the given fileName in the

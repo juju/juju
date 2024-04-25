@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/charm/v13/hooks"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/operation/mocks"
@@ -27,9 +27,8 @@ type ResolverSuite struct {
 
 var _ = gc.Suite(&ResolverSuite{})
 
-func (ResolverSuite) NewResolver() resolver.Resolver {
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.TRACE)
+func (ResolverSuite) NewResolver(c *gc.C) resolver.Resolver {
+	logger := loggertesting.WrapCheckLog(c)
 	return upgradeseries.NewResolver(logger)
 }
 
@@ -38,7 +37,7 @@ func (s ResolverSuite) TestNextOpWithValidationStatus(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockFactory := mocks.NewMockFactory(ctrl)
-	res := s.NewResolver()
+	res := s.NewResolver(c)
 	_, err := res.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesValidate,
 	}, mockFactory)
@@ -50,7 +49,7 @@ func (s ResolverSuite) TestNextOpWithRemoveStateCompleted(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockFactory := mocks.NewMockFactory(ctrl)
-	res := s.NewResolver()
+	res := s.NewResolver(c)
 	_, err := res.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesPrepareCompleted,
 	}, mockFactory)
@@ -66,7 +65,7 @@ func (s ResolverSuite) TestNextOpWithPreSeriesUpgrade(c *gc.C) {
 	mockFactory := mocks.NewMockFactory(ctrl)
 	mockFactory.EXPECT().NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade}).Return(mockOp, nil)
 
-	res := s.NewResolver()
+	res := s.NewResolver(c)
 	op, err := res.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -88,7 +87,7 @@ func (s ResolverSuite) TestNextOpWithPostSeriesUpgrade(c *gc.C) {
 	mockFactory := mocks.NewMockFactory(ctrl)
 	mockFactory.EXPECT().NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade}).Return(mockOp, nil)
 
-	res := s.NewResolver()
+	res := s.NewResolver(c)
 	op, err := res.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -110,7 +109,7 @@ func (s ResolverSuite) TestNextOpWithFinishUpgradeSeries(c *gc.C) {
 	mockFactory := mocks.NewMockFactory(ctrl)
 	mockFactory.EXPECT().NewNoOpFinishUpgradeSeries().Return(mockOp, nil)
 
-	res := s.NewResolver()
+	res := s.NewResolver(c)
 	op, err := res.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -129,7 +128,7 @@ func (s ResolverSuite) TestNextOpWithNoState(c *gc.C) {
 
 	mockFactory := mocks.NewMockFactory(ctrl)
 
-	res := s.NewResolver()
+	res := s.NewResolver(c)
 	_, err := res.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, mockFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }

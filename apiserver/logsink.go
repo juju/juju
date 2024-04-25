@@ -130,7 +130,7 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
 	level, ok := loggo.ParseLevel(m.Level)
 	if !ok {
-		return fmt.Errorf("lovel level %q %w", m.Level, errors.NotValid)
+		return fmt.Errorf("level level %q %w", m.Level, errors.NotValid)
 	}
 	rec := &corelogger.LogRecord{
 		Time:      m.Time,

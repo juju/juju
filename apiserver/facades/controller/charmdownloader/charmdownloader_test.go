@@ -11,7 +11,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/internal/charm/services"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -261,7 +261,7 @@ func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 		func(services.CharmDownloaderConfig) (charmdownloader.Downloader, error) {
 			return s.downloader, nil
 		},
-		loggo.GetLogger("juju.apiserver.charmdownloader"),
+		loggertesting.WrapCheckLog(c),
 	)
 
 	return ctrl

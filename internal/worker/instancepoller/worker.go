@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -75,7 +76,7 @@ type Config struct {
 	Clock   clock.Clock
 	Facade  FacadeAPI
 	Environ Environ
-	Logger  Logger
+	Logger  logger.Logger
 
 	CredentialAPI common.CredentialAPI
 }

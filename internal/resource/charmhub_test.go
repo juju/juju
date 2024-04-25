@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charmhub/transport"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/resource/mocks"
 	"github.com/juju/juju/state"
@@ -32,7 +33,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	s.expectRefresh()
 	s.expectDownloadResource()
 
-	cl := s.newCharmHubClient()
+	cl := s.newCharmHubClient(c)
 	curl, _ := charm.ParseURL("ch:postgresql")
 	rev := 42
 	result, err := cl.GetResource(resource.ResourceRequest{
@@ -67,8 +68,8 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	})
 }
 
-func (s *CharmHubSuite) newCharmHubClient() *resource.CharmHubClient {
-	return resource.NewCharmHubClientForTest(s.client, &noopLogger{})
+func (s *CharmHubSuite) newCharmHubClient(c *gc.C) *resource.CharmHubClient {
+	return resource.NewCharmHubClientForTest(s.client, loggertesting.WrapCheckLog(c))
 }
 
 func (s *CharmHubSuite) expectDownloadResource() {
@@ -107,7 +108,3 @@ func (s *CharmHubSuite) expectRefresh() {
 	}
 	s.client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return(resp, nil)
 }
-
-type noopLogger struct{}
-
-func (noopLogger) Tracef(string, ...interface{}) {}

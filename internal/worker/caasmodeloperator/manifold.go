@@ -14,12 +14,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger is the interface this work requires for logging.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
 
 // ManifoldConfig describes the resources used by the CAASModelOperatorWorker
 type ManifoldConfig struct {
@@ -30,7 +26,7 @@ type ManifoldConfig struct {
 	// BrokerName is the name of the api caller dependency to fetch
 	BrokerName string
 	// Logger to use in this worker
-	Logger Logger
+	Logger logger.Logger
 	// ModelUUID is the id of the model this worker is operating on
 
 	ModelUUID string

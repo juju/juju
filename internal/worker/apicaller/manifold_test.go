@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,6 +18,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/apicaller"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -45,7 +46,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		APIOpen: func(*api.Info, api.DialOpts) (api.Connection, error) {
 			panic("just a fake")
 		},
-		NewConnection: func(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger apicaller.Logger) (api.Connection, error) {
+		NewConnection: func(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger logger.Logger) (api.Connection, error) {
 			c.Check(apiOpen, gc.NotNil) // uncomparable
 			c.Check(logger, gc.NotNil)  // uncomparable
 			s.AddCall("NewConnection", a)
@@ -57,7 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Filter: func(err error) error {
 			panic(err)
 		},
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 	s.manifold = apicaller.Manifold(s.manifoldConfig)
 	checkFilter := func() {

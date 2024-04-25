@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/ratelimit"
@@ -54,6 +53,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
+	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/servicefactory"
@@ -63,7 +63,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver")
+var logger = internallogger.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
@@ -353,7 +353,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		presence:             cfg.Presence,
 		leaseManager:         cfg.LeaseManager,
 		controllerConfig:     controllerConfig,
-		logger:               loggo.GetLogger("juju.apiserver"),
+		logger:               internallogger.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:   cfg.CharmhubHTTPClient,
 		dbGetter:             cfg.DBGetter,
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,

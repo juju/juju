@@ -8,16 +8,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 )
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead pass one in.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // RevisionUpdater exposes the "single" capability required by the worker.
 // As the worker gains more responsibilities, it will likely need more; see
@@ -48,12 +43,7 @@ type Config struct {
 	Period time.Duration
 
 	// Logger is the logger used for debug logging in this worker.
-	Logger Logger
-}
-
-// Logger is a debug-only logger interface.
-type Logger interface {
-	Debugf(message string, args ...interface{})
+	Logger logger.Logger
 }
 
 // Validate returns an error if the configuration cannot be expected

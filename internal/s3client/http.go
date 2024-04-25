@@ -5,11 +5,12 @@ package s3client
 
 import (
 	jujuhttp "github.com/juju/http/v2"
+	"github.com/juju/juju/core/logger"
 )
 
 // DefaultHTTPClient returns the default http client used to access the object
 // store.
-func DefaultHTTPClient(logger Logger) HTTPClient {
+func DefaultHTTPClient(logger logger.Logger) HTTPClient {
 	return jujuhttp.NewClient(
 		jujuhttp.WithLogger(logger),
 	)

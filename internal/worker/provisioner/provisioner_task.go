@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -111,7 +112,7 @@ type ContainerProvisionerAPI interface {
 type TaskConfig struct {
 	ControllerUUID             string
 	HostTag                    names.Tag
-	Logger                     Logger
+	Logger                     logger.Logger
 	HarvestMode                config.HarvestMode
 	ControllerAPI              ControllerAPI
 	MachinesAPI                MachinesAPI
@@ -183,7 +184,7 @@ const (
 type provisionerTask struct {
 	controllerUUID             string
 	hostTag                    names.Tag
-	logger                     Logger
+	logger                     logger.Logger
 	controllerAPI              ControllerAPI
 	machinesAPI                MachinesAPI
 	distributionGroupFinder    DistributionGroupFinder
@@ -500,7 +501,7 @@ const (
 	Dead    MachineClassification = "Dead"
 )
 
-func classifyMachine(logger Logger, machine ClassifiableMachine) (
+func classifyMachine(logger logger.Logger, machine ClassifiableMachine) (
 	MachineClassification, error) {
 	switch machine.Life() {
 	case life.Dying:

@@ -14,6 +14,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -26,7 +28,7 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.getConfig()
+	cfg := s.getConfig(c)
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg.AgentTag = ""
@@ -35,36 +37,36 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.DBGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.FileNotifyWatcher = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.Metrics = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewWatchableDB = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *workerSuite) getConfig() WorkerConfig {
+func (s *workerSuite) getConfig(c *gc.C) WorkerConfig {
 	return WorkerConfig{
 		AgentTag:          "tag",
 		DBGetter:          s.dbGetter,
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
-		Logger:            s.logger,
+		Logger:            loggertesting.WrapCheckLog(c),
 		Metrics:           NewMetricsCollector(),
-		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, Logger) (WatchableDBWorker, error) {
+		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, logger.Logger) (WatchableDBWorker, error) {
 			return nil, nil
 		},
 	}
@@ -73,7 +75,6 @@ func (s *workerSuite) getConfig() WorkerConfig {
 func (s *workerSuite) TestKillGetWatchableDBError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectClock()
 
 	done := make(chan struct{})
@@ -106,7 +107,6 @@ func (s *workerSuite) TestKillGetWatchableDBError(c *gc.C) {
 func (s *workerSuite) TestEventSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectClock()
 
 	done := make(chan struct{})
@@ -138,7 +138,6 @@ func (s *workerSuite) TestEventSource(c *gc.C) {
 func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectClock()
 
 	done := make(chan struct{})
@@ -176,9 +175,9 @@ func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 		DBGetter:          s.dbGetter,
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
-		Logger:            s.logger,
+		Logger:            loggertesting.WrapCheckLog(c),
 		Metrics:           NewMetricsCollector(),
-		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, Logger) (WatchableDBWorker, error) {
+		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, logger.Logger) (WatchableDBWorker, error) {
 			attempts--
 			if attempts < 0 {
 				c.Fatal("NewWatchableDB called too many times")

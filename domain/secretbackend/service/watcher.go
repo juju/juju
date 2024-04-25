@@ -10,13 +10,14 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
 type secretBackendRotateWatcher struct {
 	catacomb      catacomb.Catacomb
 	sourceWatcher watcher.StringsWatcher
-	logger        Logger
+	logger        logger.Logger
 
 	processChanges func(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error)
 
@@ -24,7 +25,7 @@ type secretBackendRotateWatcher struct {
 }
 
 func newSecretBackendRotateWatcher(
-	sourceWatcher watcher.StringsWatcher, logger Logger,
+	sourceWatcher watcher.StringsWatcher, logger logger.Logger,
 	processChanges func(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error),
 ) (*secretBackendRotateWatcher, error) {
 	w := &secretBackendRotateWatcher{

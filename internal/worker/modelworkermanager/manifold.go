@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	coredependency "github.com/juju/juju/core/dependency"
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
@@ -20,14 +21,6 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
 )
-
-// Logger defines the logging methods used by the worker.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-	Infof(string, ...interface{})
-}
 
 // GetProviderServiceFactoryGetterFunc returns a ProviderServiceFactoryGetter
 // from the given dependency.Getter.
@@ -70,7 +63,7 @@ type ManifoldConfig struct {
 	// ModelMetrics is the metrics for the model worker.
 	ModelMetrics ModelMetrics
 	// Logger is the logger for the worker.
-	Logger Logger
+	Logger logger.Logger
 }
 
 // Validate validates the manifold configuration.

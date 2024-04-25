@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
@@ -31,7 +32,7 @@ func NewMachineWorker(
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	performUpgradeSteps upgrades.UpgradeStepsFunc,
 	statusSetter upgradesteps.StatusSetter,
-	logger upgradesteps.Logger,
+	logger logger.Logger,
 	clock clock.Clock,
 ) worker.Worker {
 	return newMachineWorker(&upgradesteps.BaseWorker{
@@ -63,7 +64,7 @@ type machineWorker struct {
 
 	tomb tomb.Tomb
 
-	logger Logger
+	logger logger.Logger
 }
 
 // Kill is part of the worker.Worker interface.

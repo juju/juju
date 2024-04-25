@@ -6,11 +6,11 @@ package uniter_test
 import (
 	"path/filepath"
 
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/uniter/runcommands"
 	"github.com/juju/juju/juju/sockets"
@@ -36,7 +36,7 @@ func (s *ListenerSuite) SetUpTest(c *gc.C) {
 
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
 func (s *ListenerSuite) NewRunListener(c *gc.C, operator bool) *uniter.RunListener {
-	listener, err := uniter.NewRunListener(s.socketPath, loggo.GetLogger("test"))
+	listener, err := uniter.NewRunListener(s.socketPath, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	listener.RegisterRunner("test/0", &mockCommandRunner{
 		c:        c,

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/socketlistener"
 )
 
@@ -36,7 +37,7 @@ type WorkerConfig struct {
 	// ControllerID is the ID of this controller.
 	ControllerID string
 	// Logger writes log messages.
-	Logger Logger
+	Logger logger.Logger
 	// Clock is needed for worker.NewRunner.
 	Clock clock.Clock
 	// SocketName is the socket file descriptor.

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -60,7 +60,7 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 			return m.mockSharedIndexInformer, nil
 		})
 
-	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
+	mapper, err := caasrbacmapper.NewMapper(loggertesting.WrapCheckLog(c), m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
 	waitGroup.Wait()
 
@@ -116,7 +116,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 			return m.mockSharedIndexInformer, nil
 		})
 
-	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
+	mapper, err := caasrbacmapper.NewMapper(loggertesting.WrapCheckLog(c), m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
 	waitGroup.Wait()
 
@@ -198,7 +198,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 			return m.mockSharedIndexInformer, nil
 		})
 
-	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
+	mapper, err := caasrbacmapper.NewMapper(loggertesting.WrapCheckLog(c), m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
 	waitGroup.Wait()
 
@@ -257,7 +257,7 @@ func (m *MapperSuite) TestRBACMapperNotFound(c *gc.C) {
 	defer m.ctrl.Finish()
 	m.mockSharedIndexInformer.EXPECT().AddEventHandler(gomock.Any())
 
-	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
+	mapper, err := caasrbacmapper.NewMapper(loggertesting.WrapCheckLog(c), m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = mapper.AppNameForServiceAccount("testing")

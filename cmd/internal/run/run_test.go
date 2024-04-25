@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/core/machinelock"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
@@ -375,7 +376,7 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	socket := sockets.Socket{}
 	socket.Network = "unix"
 	socket.Address = path.Join(agentDir, "run.socket")
-	listener, err := uniter.NewRunListener(socket, loggo.GetLogger("test"))
+	listener, err := uniter.NewRunListener(socket, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	listener.RegisterRunner("foo/1", &mockRunner{c})
 	s.AddCleanup(func(c *gc.C) {

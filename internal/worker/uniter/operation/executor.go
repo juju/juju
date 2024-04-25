@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 )
@@ -33,7 +34,7 @@ type executor struct {
 	stateOps           *StateOps
 	state              *State
 	acquireMachineLock func(string, string) (func(), error)
-	logger             Logger
+	logger             logger.Logger
 }
 
 // ExecutorConfig defines configuration for an Executor.
@@ -41,7 +42,7 @@ type ExecutorConfig struct {
 	StateReadWriter UnitStateReadWriter
 	InitialState    State
 	AcquireLock     func(string, string) (func(), error)
-	Logger          Logger
+	Logger          logger.Logger
 }
 
 func (e ExecutorConfig) validate() error {

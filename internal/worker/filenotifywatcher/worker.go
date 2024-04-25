@@ -6,6 +6,7 @@ package filenotifywatcher
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 )
@@ -25,7 +26,7 @@ type FileNotifyWatcher interface {
 // changestream worker.
 type WorkerConfig struct {
 	Clock             clock.Clock
-	Logger            Logger
+	Logger            logger.Logger
 	NewWatcher        WatcherFn
 	NewINotifyWatcher func() (INotifyWatcher, error)
 }

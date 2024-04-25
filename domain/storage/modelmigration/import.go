@@ -9,6 +9,7 @@ import (
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/domain/storage/state"
@@ -22,8 +23,11 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, registry storage.ProviderRegistry) {
-	coordinator.Add(&importOperation{registry: registry})
+func RegisterImport(coordinator Coordinator, registry storage.ProviderRegistry, logger logger.Logger) {
+	coordinator.Add(&importOperation{
+		registry: registry,
+		logger:   logger,
+	})
 }
 
 // ImportService provides a subset of the storage domain
@@ -37,12 +41,13 @@ type importOperation struct {
 
 	registry storage.ProviderRegistry
 	service  ImportService
+	logger   logger.Logger
 }
 
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
-		state.NewState(scope.ModelDB()), logger, i.registry)
+		state.NewState(scope.ModelDB()), i.logger, i.registry)
 	return nil
 }
 

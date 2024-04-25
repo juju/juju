@@ -10,9 +10,9 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // JujuLogContext is the Context for the JujuLogCommand
@@ -21,7 +21,7 @@ import (
 type JujuLogContext interface {
 	UnitName() string
 	HookRelation() (ContextRelation, error)
-	GetLogger(module string) loggo.Logger
+	GetLoggerByName(module string) corelogger.Logger
 }
 
 // JujuLogCommand implements the juju-log command.
@@ -65,17 +65,17 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	if c.formatFlag != "" {
 		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
-	logger := c.ctx.GetLogger(fmt.Sprintf("unit.%s.juju-log", c.ctx.UnitName()))
+	logger := c.ctx.GetLoggerByName(fmt.Sprintf("unit.%s.juju-log", c.ctx.UnitName()))
 
-	logLevel := loggo.INFO
+	logLevel := corelogger.INFO
 	if c.Debug {
-		logLevel = loggo.DEBUG
+		logLevel = corelogger.DEBUG
 	} else if c.Level != "" {
 		var ok bool
-		logLevel, ok = loggo.ParseLevel(c.Level)
+		logLevel, ok = corelogger.ParseLevelFromString(c.Level)
 		if !ok {
 			logger.Warningf("Specified log level of %q is not valid", c.Level)
-			logLevel = loggo.INFO
+			logLevel = corelogger.INFO
 		}
 	}
 

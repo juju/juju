@@ -11,6 +11,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/state/watcher"
 )
@@ -48,7 +49,7 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 			Hub:       hub,
 			Clock:     st.clock(),
 			ModelUUID: st.ModelUUID(),
-			Logger:    loggo.GetLogger("juju.state.watcher"),
+			Logger:    internallogger.GetLogger("juju.state.watcher"),
 		})
 	})
 	return ws, nil

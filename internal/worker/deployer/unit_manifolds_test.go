@@ -7,13 +7,14 @@ import (
 	"sort"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
+	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/deployer"
 )
 
@@ -28,8 +29,8 @@ var _ = gc.Suite(&ManifoldsSuite{})
 func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = deployer.UnitManifoldsConfig{
-		Agent:          struct{ agent.Agent }{},
-		LoggingContext: loggo.NewContext(loggo.DEBUG),
+		Agent:         struct{ agent.Agent }{},
+		LoggerContext: internallogger.LoggerContext(logger.DEBUG),
 	}
 }
 

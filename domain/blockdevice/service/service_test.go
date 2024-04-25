@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type serviceSuite struct {
@@ -34,8 +34,8 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) service() *WatchableService {
-	return NewWatchableService(s.state, s.watcherFactory, loggo.GetLogger("test"))
+func (s *serviceSuite) service(c *gc.C) *WatchableService {
+	return NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 }
 
 func (s *serviceSuite) TestBlockDevices(c *gc.C) {
@@ -57,7 +57,7 @@ func (s *serviceSuite) TestBlockDevices(c *gc.C) {
 	}}
 	s.state.EXPECT().BlockDevices(gomock.Any(), "666").Return(bd, nil)
 
-	result, err := s.service().BlockDevices(context.Background(), "666")
+	result, err := s.service(c).BlockDevices(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, bd)
 }
@@ -89,7 +89,7 @@ func (s *serviceSuite) TestAllBlockDevices(c *gc.C) {
 	}}
 	s.state.EXPECT().MachineBlockDevices(gomock.Any()).Return(mbd, nil)
 
-	result, err := s.service().AllBlockDevices(context.Background())
+	result, err := s.service(c).AllBlockDevices(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, map[string]blockdevice.BlockDevice{
 		"666": mbd[0].BlockDevice,
@@ -116,7 +116,7 @@ func (s *serviceSuite) TestUpdateDevices(c *gc.C) {
 	}}
 	s.state.EXPECT().SetMachineBlockDevices(gomock.Any(), "666", bd)
 
-	err := s.service().UpdateBlockDevices(context.Background(), "666", bd...)
+	err := s.service(c).UpdateBlockDevices(context.Background(), "666", bd...)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -141,7 +141,7 @@ func (s *serviceSuite) TestUpdateDevicesNoFilesystemType(c *gc.C) {
 
 	in := bd[0]
 	in.FilesystemType = ""
-	err := s.service().UpdateBlockDevices(context.Background(), "666", in)
+	err := s.service(c).UpdateBlockDevices(context.Background(), "666", in)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -152,7 +152,7 @@ func (s *serviceSuite) TestWatchBlockDevice(c *gc.C) {
 
 	s.state.EXPECT().WatchBlockDevices(gomock.Any(), gomock.Any(), "666").Return(nw, nil)
 
-	w, err := s.service().WatchBlockDevices(context.Background(), "666")
+	w, err := s.service(c).WatchBlockDevices(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 }

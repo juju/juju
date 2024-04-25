@@ -6,13 +6,13 @@ package pruner_test
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/pruner"
 )
 
@@ -31,17 +31,17 @@ var _ = gc.Suite(&ManifoldConfigSuite{})
 
 func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = s.validConfig()
+	s.config = s.validConfig(c)
 }
 
-func (s *ManifoldConfigSuite) validConfig() pruner.ManifoldConfig {
+func (s *ManifoldConfigSuite) validConfig(c *gc.C) pruner.ManifoldConfig {
 	return pruner.ManifoldConfig{
 		APICallerName:      "api-caller",
 		ServiceFactoryName: "service-factory",
 		Clock:              clock.WallClock,
 		NewWorker:          func(pruner.Config) (worker.Worker, error) { return nil, nil },
 		NewClient:          func(caller base.APICaller) pruner.Facade { return nil },
-		Logger:             loggo.GetLogger("test"),
+		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
 

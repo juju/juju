@@ -6,7 +6,6 @@ package secrets_test
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	backendservice "github.com/juju/juju/domain/secretbackend/service"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -65,7 +65,7 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 	s.facade, err = secrets.NewSecretsDrainAPI(
 		s.authTag,
 		s.authorizer,
-		loggo.GetLogger("juju.apiserver.secretsdrain"),
+		loggertesting.WrapCheckLog(c),
 		s.leadership,
 		model.UUID(coretesting.ModelTag.Id()),
 		s.secretService,

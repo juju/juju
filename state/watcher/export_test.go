@@ -3,12 +3,16 @@
 
 package watcher
 
-import "time"
+import (
+	"time"
+
+	"github.com/juju/juju/core/logger"
+)
 
 const (
 	TxnWatcherErrorWait = time.Duration(1.1 * float64(txnWatcherErrorWait))
 )
 
-func NewTestHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) (*HubWatcher, <-chan struct{}) {
+func NewTestHubWatcher(hub HubSource, clock Clock, modelUUID string, logger logger.Logger) (*HubWatcher, <-chan struct{}) {
 	return newHubWatcher(hub, clock, modelUUID, logger)
 }

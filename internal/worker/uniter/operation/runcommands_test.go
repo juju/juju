@@ -27,7 +27,7 @@ func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewCommandRunner: &MockNewCommandRunner{err: errors.New("blooey")},
 	}
-	factory := newOpFactory(runnerFactory, nil)
+	factory := newOpFactory(c, runnerFactory, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) bool { panic("not expected") }
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,7 +51,7 @@ func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 			},
 		},
 	}
-	factory := newOpFactory(runnerFactory, nil)
+	factory := newOpFactory(c, runnerFactory, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) bool { panic("not expected") }
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,7 +77,7 @@ func (s *RunCommandsSuite) TestPrepareCtxError(c *gc.C) {
 			},
 		},
 	}
-	factory := newOpFactory(runnerFactory, nil)
+	factory := newOpFactory(c, runnerFactory, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) bool { panic("not expected") }
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +94,7 @@ func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
 			&utilexec.ExecResponse{Code: 101}, sendErr,
 		)
 		callbacks := &RunCommandsCallbacks{}
-		factory := newOpFactory(runnerFactory, callbacks)
+		factory := newOpFactory(c, runnerFactory, callbacks)
 		sendResponse := &MockSendResponse{}
 		op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 		c.Assert(err, jc.ErrorIsNil)
@@ -116,7 +116,7 @@ func (s *RunCommandsSuite) TestExecuteOtherError(c *gc.C) {
 		nil, errors.New("sneh"),
 	)
 	callbacks := &RunCommandsCallbacks{}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 	sendResponse := &MockSendResponse{}
 	op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,7 +137,7 @@ func (s *RunCommandsSuite) TestExecuteConsumeOtherError(c *gc.C) {
 		nil, errors.New("sneh"),
 	)
 	callbacks := &RunCommandsCallbacks{}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 	sendResponse := &MockSendResponse{
 		eatError: true,
 	}
@@ -160,7 +160,7 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 		&utilexec.ExecResponse{Code: 222}, nil,
 	)
 	callbacks := &RunCommandsCallbacks{}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 	sendResponse := &MockSendResponse{}
 	op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,7 +181,7 @@ func (s *RunCommandsSuite) TestExecuteSuccessOperator(c *gc.C) {
 		&utilexec.ExecResponse{Code: 222}, nil,
 	)
 	callbacks := &RunCommandsCallbacks{}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 	sendResponse := &MockSendResponse{}
 	commandArgs := someCommandArgs
 	commandArgs.RunLocation = runner.Operator
@@ -200,7 +200,7 @@ func (s *RunCommandsSuite) TestExecuteSuccessOperator(c *gc.C) {
 }
 
 func (s *RunCommandsSuite) TestCommit(c *gc.C) {
-	factory := newOpFactory(nil, nil)
+	factory := newOpFactory(c, nil, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) bool { panic("not expected") }
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
@@ -210,7 +210,7 @@ func (s *RunCommandsSuite) TestCommit(c *gc.C) {
 }
 
 func (s *RunCommandsSuite) TestNeedsGlobalMachineLock(c *gc.C) {
-	factory := newOpFactory(nil, nil)
+	factory := newOpFactory(c, nil, nil)
 	sendResponse := &MockSendResponse{}
 	op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)

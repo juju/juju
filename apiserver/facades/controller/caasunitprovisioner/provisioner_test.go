@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -68,7 +68,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.OfficialBuild, 0)
 
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, nil, s.st, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"))
+		s.resources, s.authorizer, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -78,7 +78,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, nil, s.st, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"))
+		s.resources, s.authorizer, nil, s.st, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

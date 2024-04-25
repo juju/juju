@@ -17,6 +17,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -35,7 +36,7 @@ type RelationStateTrackerConfig struct {
 	CharmDir          string
 	LeadershipContext context.LeadershipContext
 	Abort             <-chan struct{}
-	Logger            Logger
+	Logger            logger.Logger
 }
 
 // relationStateTracker implements RelationStateTracker.
@@ -52,8 +53,8 @@ type relationStateTracker struct {
 	relationCreated map[int]bool
 	isPeerRelation  map[int]bool
 	stateMgr        StateManager
-	logger          Logger
-	newRelationer   func(api.RelationUnit, StateManager, UnitGetter, Logger) Relationer
+	logger          logger.Logger
+	newRelationer   func(api.RelationUnit, StateManager, UnitGetter, logger.Logger) Relationer
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.

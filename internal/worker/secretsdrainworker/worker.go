@@ -11,23 +11,11 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api/common/secretsdrain"
+	"github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	jujusecrets "github.com/juju/juju/internal/secrets"
 )
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger represents the methods used by the worker to log information.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-}
 
 // SecretsDrainFacade instances provide a set of API for the worker to deal with secret drain process.
 type SecretsDrainFacade interface {
@@ -39,7 +27,7 @@ type SecretsDrainFacade interface {
 // Config defines the operation of the Worker.
 type Config struct {
 	SecretsDrainFacade
-	Logger Logger
+	Logger logger.Logger
 
 	SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
 }

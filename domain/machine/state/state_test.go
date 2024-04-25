@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type stateSuite struct {
@@ -28,7 +28,7 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
 func (s *stateSuite) TestCreateMachine(c *gc.C) {

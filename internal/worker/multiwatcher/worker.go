@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -21,7 +22,7 @@ import (
 // Config is an argument struct used to create a Worker.
 type Config struct {
 	Clock                Clock
-	Logger               Logger
+	Logger               logger.Logger
 	Backing              state.AllWatcherBacking
 	PrometheusRegisterer prometheus.Registerer
 	Cleanup              func()

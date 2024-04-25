@@ -11,13 +11,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"go.opentelemetry.io/otel"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 )
 
@@ -37,7 +37,7 @@ type TrackedTracer interface {
 // tracer worker.
 type WorkerConfig struct {
 	Clock           clock.Clock
-	Logger          Logger
+	Logger          logger.Logger
 	NewTracerWorker TracerWorkerFunc
 
 	Tag  names.Tag
@@ -134,7 +134,7 @@ func (w *tracerWorker) loop() (err error) {
 	// For some reason, unbeknownst to me, the otel sdk has a global logger
 	// that is registered on init. Considering this is a new package, I'm not
 	// sure why they decided to do it like this.
-	otel.SetLogger(logr.New(&loggoSink{Logger: w.cfg.Logger}))
+	otel.SetLogger(logr.New(&loggerSink{Logger: w.cfg.Logger}))
 
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
@@ -330,41 +330,41 @@ func (w *noopWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-type loggoSink struct {
-	Logger        Logger
+type loggerSink struct {
+	Logger        logger.Logger
 	name          string
 	keysAndValues []any
 }
 
 // Init receives optional information about the logr library for LogSink
 // implementations that need it.
-func (s *loggoSink) Init(info logr.RuntimeInfo) {}
+func (s *loggerSink) Init(info logr.RuntimeInfo) {}
 
 // Enabled tests whether this LogSink is enabled at the specified V-level.
 // For example, commandline flags might be used to set the logging
 // verbosity and disable some info logs.
-func (s *loggoSink) Enabled(level int) bool {
+func (s *loggerSink) Enabled(level int) bool {
 	// From the logr docs:
 	//
 	//     ...levels are additive. A higher verbosity level means a log message
 	//     is less important. Negative V-levels are treated as 0.
 	//
-	// This is the inverse of loggo levels, so we need to invert the level
+	// This is the inverse of logger levels, so we need to invert the level
 	// here.
-	var lvl loggo.Level
+	var lvl logger.Level
 	switch {
 	case level <= 0:
-		lvl = loggo.CRITICAL
+		lvl = logger.CRITICAL
 	case level == 1:
-		lvl = loggo.ERROR
+		lvl = logger.ERROR
 	case level == 2:
-		lvl = loggo.WARNING
+		lvl = logger.WARNING
 	case level == 3:
-		lvl = loggo.INFO
+		lvl = logger.INFO
 	case level == 4:
-		lvl = loggo.DEBUG
+		lvl = logger.DEBUG
 	case level >= 5:
-		lvl = loggo.TRACE
+		lvl = logger.TRACE
 	}
 	return s.Logger.IsLevelEnabled(lvl)
 }
@@ -373,22 +373,22 @@ func (s *loggoSink) Enabled(level int) bool {
 // The level argument is provided for optional logging.  This method will
 // only be called when Enabled(level) is true. See Logger.Info for more
 // details.
-func (s *loggoSink) Info(level int, msg string, keysAndValues ...any) {
+func (s *loggerSink) Info(level int, msg string, keysAndValues ...any) {
 	format, args := s.formatKeysAndValues([]any{level, msg}, keysAndValues)
 	s.Logger.Infof("%d: %s"+format, args...)
 }
 
 // Error logs an error, with the given message and key/value pairs as
 // context.  See Logger.Error for more details.
-func (s *loggoSink) Error(err error, msg string, keysAndValues ...any) {
+func (s *loggerSink) Error(err error, msg string, keysAndValues ...any) {
 	format, args := s.formatKeysAndValues([]any{msg, err}, keysAndValues)
 	s.Logger.Errorf("%s: %v"+format, args...)
 }
 
 // WithValues returns a new LogSink with additional key/value pairs.  See
 // Logger.WithValues for more details.
-func (s *loggoSink) WithValues(keysAndValues ...any) logr.LogSink {
-	return &loggoSink{
+func (s *loggerSink) WithValues(keysAndValues ...any) logr.LogSink {
+	return &loggerSink{
 		Logger:        s.Logger,
 		name:          s.name,
 		keysAndValues: append(s.keysAndValues, keysAndValues...),
@@ -397,15 +397,15 @@ func (s *loggoSink) WithValues(keysAndValues ...any) logr.LogSink {
 
 // WithName returns a new LogSink with the specified name appended.  See
 // Logger.WithName for more details.
-func (s *loggoSink) WithName(name string) logr.LogSink {
-	return &loggoSink{
+func (s *loggerSink) WithName(name string) logr.LogSink {
+	return &loggerSink{
 		Logger:        s.Logger,
 		name:          name,
 		keysAndValues: s.keysAndValues,
 	}
 }
 
-func (s *loggoSink) formatKeysAndValues(init []any, keysAndValues []any) (string, []any) {
+func (s *loggerSink) formatKeysAndValues(init []any, keysAndValues []any) (string, []any) {
 	var exprs []string
 
 	kv := append(s.keysAndValues, keysAndValues...)

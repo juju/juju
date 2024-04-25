@@ -7,7 +7,6 @@ import (
 	"context"
 	"sort"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -80,7 +80,7 @@ func (s *firewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigAPI,
 		s.controllerConfigService,
 		s.modelConfigService,
-		loggo.GetLogger("juju.apiserver.firewaller"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI

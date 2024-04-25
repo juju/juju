@@ -9,13 +9,13 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
@@ -30,7 +30,7 @@ type BaseAPI struct {
 	getEnviron                  environFromModelFunc
 	getControllerInfo           func(context.Context) (apiAddrs []string, caCert string, _ error)
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	logger                      loggo.Logger
+	logger                      corelogger.Logger
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.

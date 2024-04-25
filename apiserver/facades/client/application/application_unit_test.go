@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -41,6 +42,7 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
@@ -216,7 +218,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams, _ corelogger.Logger) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -225,6 +227,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		s.caasBroker,
 		s.store,
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

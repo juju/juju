@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
@@ -32,11 +32,12 @@ type mergeMachineLinkLayerOp struct {
 	// used for multiple NICs.
 	providerIDs map[network.Id]string
 
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 func newMergeMachineLinkLayerOp(
-	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos, logger loggo.Logger,
+	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos,
+	logger corelogger.Logger,
 ) *mergeMachineLinkLayerOp {
 	return &mergeMachineLinkLayerOp{
 		MachineLinkLayerOp: networkingcommon.NewMachineLinkLayerOp("provider", machine, incoming),

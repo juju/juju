@@ -31,7 +31,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, _, _ := validManifoldConfig(ctrl)
+	cfg, _, _ := validManifoldConfig(c, ctrl)
 	cfg.NewFacade = nil
 
 	c.Check(upgradeseries.Manifold(cfg).Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
@@ -41,7 +41,7 @@ func (*ManifoldSuite) TestStartMissingNewFacade(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, _, _ := validManifoldConfig(ctrl)
+	cfg, _, _ := validManifoldConfig(c, ctrl)
 	cfg.NewFacade = nil
 
 	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
@@ -53,7 +53,7 @@ func (*ManifoldSuite) TestStartMissingNewWorker(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, _, _ := validManifoldConfig(ctrl)
+	cfg, _, _ := validManifoldConfig(c, ctrl)
 	cfg.NewWorker = nil
 
 	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
@@ -65,7 +65,7 @@ func (*ManifoldSuite) TestStartMissingLogger(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, _, _ := validManifoldConfig(ctrl)
+	cfg, _, _ := validManifoldConfig(c, ctrl)
 	cfg.Logger = nil
 
 	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
@@ -77,7 +77,7 @@ func (s *ManifoldSuite) TestStartMissingAgentName(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, _, _ := validManifoldConfig(ctrl)
+	cfg, _, _ := validManifoldConfig(c, ctrl)
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      dependency.ErrMissing,
 		"api-caller-name": &dummyAPICaller{},
@@ -92,7 +92,7 @@ func (s *ManifoldSuite) TestStartMissingAPICallerName(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, _, _ := validManifoldConfig(ctrl)
+	cfg, _, _ := validManifoldConfig(c, ctrl)
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
@@ -107,7 +107,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, _, _ := validManifoldConfig(ctrl)
+	cfg, _, _ := validManifoldConfig(c, ctrl)
 
 	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
 	c.Check(work, gc.NotNil)
@@ -118,7 +118,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, _, _ := validManifoldConfig(ctrl)
+	cfg, _, _ := validManifoldConfig(c, ctrl)
 	cfg.NewWorker = func(_ upgradeseries.Config) (worker.Worker, error) { return nil, errors.New("WHACK!") }
 
 	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())

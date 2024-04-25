@@ -17,10 +17,11 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	workertrace "github.com/juju/juju/internal/worker/trace"
-	jujujujutesting "github.com/juju/juju/testing"
 )
 
 type manifoldSuite struct {
@@ -98,9 +99,9 @@ func (s *manifoldSuite) newManifoldConfig(c *gc.C) leaseexpiry.ManifoldConfig {
 		ClockName:      "clock-name",
 		DBAccessorName: "db-accessor-name",
 		TraceName:      "trace-name",
-		Logger:         jujujujutesting.CheckLogger{Log: c},
+		Logger:         loggertesting.WrapCheckLog(c),
 		NewWorker:      func(config leaseexpiry.Config) (worker.Worker, error) { return nil, nil },
-		NewStore: func(db coredatabase.DBGetter, logger leaseexpiry.Logger) lease.ExpiryStore {
+		NewStore: func(db coredatabase.DBGetter, logger logger.Logger) lease.ExpiryStore {
 			return s.store
 		},
 	}

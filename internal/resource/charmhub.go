@@ -51,8 +51,8 @@ func newCharmHubClient(st chClientState) (ResourceGetter, error) {
 
 	chURL, _ := modelCfg.CharmHubURL()
 	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:           chURL,
-		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+		URL:    chURL,
+		Logger: logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -62,7 +62,7 @@ func newCharmHubClient(st chClientState) (ResourceGetter, error) {
 
 type CharmHubClient struct {
 	client CharmHub
-	logger Logger
+	logger corelogger.Logger
 }
 
 // GetResource returns data about the resource including an io.ReadCloser

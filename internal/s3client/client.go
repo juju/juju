@@ -20,18 +20,9 @@ import (
 	"github.com/aws/smithy-go/logging"
 	transporthttp "github.com/aws/smithy-go/transport/http"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...any)
-	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
-	Debugf(message string, args ...any)
-	Tracef(message string, args ...any)
-
-	IsTraceEnabled() bool
-}
 
 // HTTPClient represents the http client used to access the object store.
 type HTTPClient interface {
@@ -81,12 +72,12 @@ func (StaticCredentials) Kind() CredentialsKind {
 // objectsClient is a Juju shim around the AWS S3 client,
 // which Juju uses to drive it's object store requirents
 type S3Client struct {
-	logger Logger
+	logger logger.Logger
 	client *s3.Client
 }
 
 // NewS3Client returns a new s3Caller client for accessing the object store.
-func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials, logger Logger) (*S3Client, error) {
+func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials, logger logger.Logger) (*S3Client, error) {
 	credentialsProvider, err := getCredentialsProvider(credentials)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get credentials provider")
@@ -349,7 +340,7 @@ func (a *awsEndpointResolver) ResolveEndpoint(_, _ string, options ...any) (aws.
 }
 
 type awsLogger struct {
-	logger Logger
+	logger logger.Logger
 }
 
 func (l *awsLogger) Logf(classification logging.Classification, format string, v ...any) {

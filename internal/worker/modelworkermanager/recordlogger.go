@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/loggo/v2"
 
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 )
 
@@ -19,7 +20,7 @@ func newModelLogger(
 	name string,
 	modelUUID string,
 	reclogger RecordLogger,
-	logger Logger,
+	logger logger.Logger,
 ) *recordLogger {
 	return &recordLogger{
 		recordLogger: reclogger,
@@ -36,7 +37,7 @@ type recordLogger struct {
 	// "controller-0" for machine-0 in the controller model.
 	name      string
 	modelUUID string
-	logger    Logger
+	logger    logger.Logger
 }
 
 func (l *recordLogger) Write(entry loggo.Entry) {

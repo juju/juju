@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/domain/secretbackend/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/testing"
 )
 
 type watcherSuite struct {
@@ -33,7 +33,7 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secretbackend_rotation_changes")
 
-	logger := testing.NewCheckLogger(c)
+	logger := loggertesting.WrapCheckLog(c)
 	state := state.NewState(func() (database.TxnRunner, error) { return factory() }, logger)
 
 	svc := service.NewWatchableService(

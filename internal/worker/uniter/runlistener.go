@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/agent"
 	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/runcommands"
 	"github.com/juju/juju/internal/worker/uniter/runner"
@@ -65,7 +66,7 @@ type CommandRunner interface {
 // setting up the rpc server on that net connection. Also starts the go routine
 // that listens and hands off the work.
 type RunListener struct {
-	logger Logger
+	logger logger.Logger
 
 	mu sync.Mutex
 
@@ -86,7 +87,7 @@ type RunListener struct {
 // socket or named pipe passed in. If a valid RunListener is returned, is
 // has the go routine running, and should be closed by the creator
 // when they are done with it.
-func NewRunListener(socket sockets.Socket, logger Logger) (*RunListener, error) {
+func NewRunListener(socket sockets.Socket, logger logger.Logger) (*RunListener, error) {
 	listener, err := sockets.Listen(socket)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -204,7 +205,7 @@ func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecRespo
 // listener when the worker is killed. The Wait() method will never return
 // an error -- NewRunListener just drops the Run error on the floor and that's
 // not what I'm fixing here.
-func NewRunListenerWrapper(rl *RunListener, logger Logger) worker.Worker {
+func NewRunListenerWrapper(rl *RunListener, logger logger.Logger) worker.Worker {
 	rlw := &runListenerWrapper{logger: logger, rl: rl}
 	rlw.tomb.Go(func() error {
 		defer rlw.tearDown()
@@ -215,7 +216,7 @@ func NewRunListenerWrapper(rl *RunListener, logger Logger) worker.Worker {
 }
 
 type runListenerWrapper struct {
-	logger Logger
+	logger logger.Logger
 	tomb   tomb.Tomb
 	rl     *RunListener
 }
@@ -240,7 +241,7 @@ func (rlw *runListenerWrapper) Wait() error {
 // the rpc connection.
 type JujuExecServer struct {
 	runner CommandRunner
-	logger Logger
+	logger logger.Logger
 }
 
 // RunCommands delegates the actual running to the runner and populates the

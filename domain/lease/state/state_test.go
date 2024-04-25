@@ -13,8 +13,8 @@ import (
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/domain/lease/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type stateSuite struct {
@@ -28,7 +28,7 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	s.store = state.NewState(s.TxnRunnerFactory(), jujutesting.CheckLogger{Log: c})
+	s.store = state.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
 func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {

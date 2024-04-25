@@ -11,17 +11,13 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Tracef(string, ...interface{})
-}
 
 // ManifoldConfig describes the resources used by a unitassigner worker.
 type ManifoldConfig struct {
 	APICallerName string
-	Logger        Logger
+	Logger        logger.Logger
 }
 
 // Manifold returns a Manifold that runs a unitassigner worker.

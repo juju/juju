@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/socketlistener"
 )
 
@@ -25,19 +26,11 @@ func NewSocketListener(config socketlistener.Config) (SocketListener, error) {
 	return socketlistener.NewSocketListener(config)
 }
 
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...any)
-	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
-	Debugf(message string, args ...any)
-}
-
 // ManifoldConfig defines the configuration for the agent controller config
 // manifold.
 type ManifoldConfig struct {
 	AgentName string
-	Logger    Logger
+	Logger    logger.Logger
 	Clock     clock.Clock
 	// SocketName is the socket file descriptor.
 	SocketName string

@@ -13,15 +13,9 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/common"
 )
-
-// Logger is the interface that is used to log issues with the slow query
-// logger.
-type Logger interface {
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.
@@ -29,7 +23,7 @@ type Logger interface {
 type ManifoldConfig struct {
 	LogDir string
 	Clock  clock.Clock
-	Logger Logger
+	Logger logger.Logger
 }
 
 func (cfg ManifoldConfig) Validate() error {

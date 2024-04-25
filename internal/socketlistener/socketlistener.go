@@ -17,18 +17,13 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/juju/sockets"
 )
 
-// Logger represents the methods used by the worker to log information.
-type Logger interface {
-	Warningf(string, ...any)
-	Debugf(string, ...any)
-}
-
 // Config represents configuration for the socketlistener worker.
 type Config struct {
-	Logger Logger
+	Logger logger.Logger
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// RegisterHandlers should register handlers on the router with

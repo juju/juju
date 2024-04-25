@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -61,7 +62,7 @@ type provisioner struct {
 	controllerAPI           ControllerAPI
 	machinesAPI             MachinesAPI
 	agentConfig             agent.Config
-	logger                  Logger
+	logger                  logger.Logger
 	broker                  environs.InstanceBroker
 	distributionGroupFinder DistributionGroupFinder
 	toolsFinder             ToolsFinder
@@ -179,7 +180,7 @@ func NewEnvironProvisioner(
 	toolsFinder ToolsFinder,
 	distributionGroupFinder DistributionGroupFinder,
 	agentConfig agent.Config,
-	logger Logger,
+	logger logger.Logger,
 	environ Environ,
 	credentialAPI common.CredentialAPI,
 ) (Provisioner, error) {
@@ -289,7 +290,7 @@ func NewContainerProvisioner(
 	containerType instance.ContainerType,
 	controllerAPI ControllerAPI,
 	machinesAPI MachinesAPI,
-	logger Logger,
+	logger logger.Logger,
 	agentConfig agent.Config,
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,

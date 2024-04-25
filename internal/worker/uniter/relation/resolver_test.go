@@ -12,7 +12,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -129,9 +129,9 @@ func (s *relationResolverSuite) newRelationStateTracer(c *gc.C, apiCaller base.A
 	c.Assert(err, jc.ErrorIsNil)
 	r, err := relation.NewRelationStateTracker(stdcontext.Background(),
 		relation.RelationStateTrackerConfig{
-			Client:            uniterapi.UniterClientShim{client},
-			Unit:              uniterapi.UnitShim{u},
-			Logger:            loggo.GetLogger("test"),
+			Client:            uniterapi.UniterClientShim{Client: client},
+			Unit:              uniterapi.UnitShim{Unit: u},
+			Logger:            loggertesting.WrapCheckLog(c),
 			CharmDir:          s.charmDir,
 			LeadershipContext: s.leadershipContext,
 			Abort:             abort,
@@ -236,8 +236,8 @@ func (s *relationResolverSuite) TestNewRelationsWithExistingRelationsNotLeader(c
 	s.assertNewRelationsWithExistingRelations(c, false)
 }
 
-func (s *relationResolverSuite) newRelationResolver(stateTracker relation.RelationStateTracker, subordinateDestroyer relation.SubordinateDestroyer) resolver.Resolver {
-	return relation.NewRelationResolver(stateTracker, subordinateDestroyer, loggo.GetLogger("test"))
+func (s *relationResolverSuite) newRelationResolver(c *gc.C, stateTracker relation.RelationStateTracker, subordinateDestroyer relation.SubordinateDestroyer) resolver.Resolver {
+	return relation.NewRelationResolver(stateTracker, subordinateDestroyer, loggertesting.WrapCheckLog(c))
 }
 
 func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
@@ -261,7 +261,7 @@ func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
 		},
 	}
 	remoteState := remotestate.Snapshot{}
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	_, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
@@ -399,7 +399,7 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int3
 			},
 		},
 	}
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, 11)
@@ -433,7 +433,7 @@ func (s *relationResolverSuite) assertHookRelationChanged(
 			1: remoteRelationSnapshot,
 		},
 	}
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, numCallsBefore)
@@ -535,7 +535,7 @@ func (s *relationResolverSuite) TestHookRelationChangedApplication(c *gc.C) {
 			},
 		},
 	}
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	// No new calls
@@ -573,7 +573,7 @@ func (s *relationResolverSuite) TestHookRelationChangedSuspended(c *gc.C) {
 		},
 	}
 
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, numCallsBefore+2) // Refresh/Life calls made by the resolver prior to emitting a RelationDeparted hook
@@ -603,7 +603,7 @@ func (s *relationResolverSuite) assertHookRelationDeparted(c *gc.C, numCalls *in
 			},
 		},
 	}
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, numCallsBefore+2) // Refresh/Life calls made by the resolver prior to emitting a RelationDeparted hook
@@ -642,7 +642,7 @@ func (s *relationResolverSuite) TestHookRelationBroken(c *gc.C) {
 			},
 		},
 	}
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 16)
@@ -668,7 +668,7 @@ func (s *relationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 			},
 		},
 	}
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 16)
@@ -711,7 +711,7 @@ func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 		},
 	}
 	// Get RelationBroken once.
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -840,7 +840,7 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 			},
 		},
 	}
-	relationsResolver := s.newRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(c, r, nil)
 	_, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
@@ -993,7 +993,7 @@ func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *
 		},
 	}
 
-	relationResolver := s.newRelationResolver(r, nil)
+	relationResolver := s.newRelationResolver(c, r, nil)
 	_, err := relationResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1054,7 +1054,7 @@ func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C
 		},
 	}
 
-	relationResolver := s.newRelationResolver(r, nil)
+	relationResolver := s.newRelationResolver(c, r, nil)
 	_, err := relationResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1164,7 +1164,7 @@ func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) 
 
 	destroyer := mocks.NewMockSubordinateDestroyer(ctrl)
 	destroyer.EXPECT().DestroyAllSubordinates().Return(nil)
-	relationResolver := s.newRelationResolver(r, destroyer)
+	relationResolver := s.newRelationResolver(c, r, destroyer)
 	_, err := relationResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1213,7 +1213,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverForRelationInS
 		r.EXPECT().RelationCreated(1).Return(true),
 	)
 
-	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggo.GetLogger("test"))
+	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggertesting.WrapCheckLog(c))
 	_, err := createdRelationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation, gc.Commentf("unexpected hook from created relations resolver for already joined relation"))
 }
@@ -1257,7 +1257,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverFordRelationNo
 		r.EXPECT().RemoteApplication(1).Return("mysql"),
 	)
 
-	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggo.GetLogger("test"))
+	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggertesting.WrapCheckLog(c))
 	op, err := createdRelationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, gc.DeepEquals, &mockOperation{
@@ -1287,7 +1287,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationsResolverWithPendingHo
 		Life: life.Alive,
 	}
 
-	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggo.GetLogger("test"))
+	createdRelationsResolver := relation.NewCreatedRelationResolver(r, loggertesting.WrapCheckLog(c))
 	_, err := createdRelationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation, gc.Commentf("expected to get ErrNoOperation when a RunHook operation is pending"))
 }
@@ -1297,8 +1297,8 @@ type mockRelationResolverSuite struct {
 	mockSupDestroyer *mocks.MockSubordinateDestroyer
 }
 
-func (s *mockRelationResolverSuite) newRelationResolver(stateTracker relation.RelationStateTracker, subordinateDestroyer relation.SubordinateDestroyer) resolver.Resolver {
-	return relation.NewRelationResolver(stateTracker, subordinateDestroyer, loggo.GetLogger("test"))
+func (s *mockRelationResolverSuite) newRelationResolver(c *gc.C, stateTracker relation.RelationStateTracker, subordinateDestroyer relation.SubordinateDestroyer) resolver.Resolver {
+	return relation.NewRelationResolver(stateTracker, subordinateDestroyer, loggertesting.WrapCheckLog(c))
 }
 
 func (s *mockRelationResolverSuite) TestNextOpNothing(c *gc.C) {
@@ -1312,7 +1312,7 @@ func (s *mockRelationResolverSuite) TestNextOpNothing(c *gc.C) {
 	}
 	remoteState := remotestate.Snapshot{}
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	_, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
@@ -1345,7 +1345,7 @@ func (s *mockRelationResolverSuite) TestHookRelationJoined(c *gc.C) {
 	s.expectStateUnknown(1)
 	s.expectIsPeerRelationFalse(1)
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook relation-joined on unit wordpress/0 with relation 1")
@@ -1388,7 +1388,7 @@ func (s *mockRelationResolverSuite) TestHookRelationChangedApplication(c *gc.C) 
 	s.expectState(relationState)
 	s.expectIsPeerRelationFalse(1)
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook relation-changed on app wordpress with relation 1")
@@ -1425,7 +1425,7 @@ func (s *mockRelationResolverSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	s.expectState(relationState)
 	s.expectLocalUnitAndApplicationLife()
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
@@ -1462,7 +1462,7 @@ func (s *mockRelationResolverSuite) TestHookRelationDeparted(c *gc.C) {
 	s.expectState(relationState)
 	s.expectLocalUnitAndApplicationLife()
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
@@ -1496,7 +1496,7 @@ func (s *mockRelationResolverSuite) TestHookRelationBroken(c *gc.C) {
 	s.expectStateFound(1)
 	s.expectRemoteApplication(1, "")
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")
@@ -1531,7 +1531,7 @@ func (s *mockRelationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C)
 	s.expectStateFound(1)
 	s.expectRemoteApplication(1, "")
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")
@@ -1564,7 +1564,7 @@ func (s *mockRelationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	s.expectIsPeerRelationFalse(1)
 	s.expectStateFoundFalse(1)
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	_, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
@@ -1590,7 +1590,7 @@ func (s *mockRelationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	s.expectIsKnown(1)
 	s.expectIsImplicit(1)
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, s.mockSupDestroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, s.mockSupDestroyer)
 	_, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
@@ -1634,7 +1634,7 @@ func (s *mockRelationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc
 	destroyer := mocks.NewMockSubordinateDestroyer(ctrl)
 	destroyer.EXPECT().DestroyAllSubordinates().Return(nil)
 
-	relationsResolver := s.newRelationResolver(s.mockRelStTracker, destroyer)
+	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, destroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")

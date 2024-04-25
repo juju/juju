@@ -11,13 +11,13 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -42,7 +42,7 @@ type CrossModelSecretsAPI struct {
 	secretBackendService SecretBackendService
 	crossModelState      CrossModelState
 	stateBackend         StateBackend
-	logger               loggo.Logger
+	logger               corelogger.Logger
 }
 
 // NewCrossModelSecretsAPI returns a new server-side CrossModelSecretsAPI facade.
@@ -55,7 +55,7 @@ func NewCrossModelSecretsAPI(
 	secretBackendService SecretBackendService,
 	crossModelState CrossModelState,
 	stateBackend StateBackend,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*CrossModelSecretsAPI, error) {
 	return &CrossModelSecretsAPI{
 		resources:            resources,

@@ -22,8 +22,6 @@ import (
 	"github.com/juju/juju/internal/mongo/utils"
 )
 
-var status_logger = loggo.GetLogger("juju.status")
-
 type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
 
 // ModelStatus holds all the current status values for a given model
@@ -410,25 +408,6 @@ type recordedHistoricalStatusDoc struct {
 	StatusData map[string]interface{} `bson:"statusdata"`
 }
 
-// logStatusUpdate sends the status update to the status logger.
-//
-// The "idle" status for the machine-lxd-profile is omitted from the status log,
-// since only the applied or error statuses are useful in that case.
-//
-// TODO (cderici): Once the statusesHistoryC collection goes away we'll lose
-// access to the doc parameter, so we'll replace it with a couple more
-// parameters for the status info and the status value.
-func logStatusUpdate(statusKind string, statusId string, doc statusDoc) {
-	if statusKind != "machine-lxd-profile" || doc.Status != status.Idle {
-		status_logger.InfoWithLabelsf(doc.StatusInfo, map[string]string{
-			"domain": "status",
-			"kind":   statusKind,
-			"id":     statusId,
-			"value":  doc.Status.String(),
-		})
-	}
-}
-
 // probablyUpdateStatusHistory inspects existing status-history
 // and determines if this status is new or the same as the last recorded.
 // If this is a new status, a new status history record will be added.
@@ -445,8 +424,6 @@ func probablyUpdateStatusHistory(db Database,
 		Updated:    doc.Updated,
 		GlobalKey:  globalKey,
 	}
-
-	logStatusUpdate(statusKind, statusId, doc)
 
 	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()

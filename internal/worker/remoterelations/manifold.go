@@ -14,18 +14,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Criticalf(string, ...interface{})
-	Infof(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
@@ -36,7 +27,7 @@ type ManifoldConfig struct {
 	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade func(base.APICaller) RemoteRelationsFacade
 	NewWorker                func(Config) (worker.Worker, error)
-	Logger                   Logger
+	Logger                   logger.Logger
 }
 
 // Validate is called by start to check for bad configuration.

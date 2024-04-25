@@ -15,6 +15,7 @@ import (
 	"github.com/kr/pretty"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/logger"
 )
 
 // Model represents the existing deployment if any.
@@ -41,7 +42,7 @@ type Model struct {
 	// This is a mapping of existing machines to machines in the bundle.
 	MachineMap map[string]string
 
-	logger Logger
+	logger logger.Logger
 }
 
 // Relation holds the information between two releations.
@@ -439,7 +440,7 @@ type inferenceEngine struct {
 	appPlacements map[string][]string
 
 	initialMachines set.Strings
-	logger          Logger
+	logger          logger.Logger
 }
 
 func newInference(m *Model, data *charm.BundleData) *inferenceEngine {

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,6 +16,7 @@ import (
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/trace"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
@@ -37,7 +37,7 @@ func (s *ValidationSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		}),
 		MaxSleep:             time.Minute,
-		Logger:               loggo.GetLogger("lease_test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 		PrometheusRegisterer: struct{ prometheus.Registerer }{},
 		Tracer:               trace.NoopTracer{},
 	}

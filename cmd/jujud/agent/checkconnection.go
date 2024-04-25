@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/api"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
 
@@ -27,7 +27,7 @@ type ConnectFunc func(context.Context, agent.Agent) (io.Closer, error)
 // ConnectAsAgent really connects to the API specified in the agent
 // config. It's extracted so tests can pass something else in.
 func ConnectAsAgent(ctx context.Context, a agent.Agent) (io.Closer, error) {
-	return apicaller.ScaryConnect(ctx, a, api.Open, loggo.GetLogger("juju.agent"))
+	return apicaller.ScaryConnect(ctx, a, api.Open, internallogger.GetLogger("juju.agent"))
 }
 
 type checkConnectionCommand struct {

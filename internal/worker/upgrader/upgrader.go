@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v5"
@@ -20,6 +21,7 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
 	coretools "github.com/juju/juju/internal/tools"
@@ -42,12 +44,6 @@ const (
 	notEnoughSpaceDelay = time.Minute
 )
 
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead pass one through as config to the worker.
-type logger interface{}
-
-var _ logger = struct{}{}
-
 // UpgraderClient provides the facade methods used by the worker.
 type UpgraderClient interface {
 	DesiredVersion(tag string) (version.Number, error)
@@ -68,8 +64,8 @@ type Upgrader struct {
 
 // Config contains the items the worker needs to start.
 type Config struct {
-	Clock                       Clock
-	Logger                      Logger
+	Clock                       clock.Clock
+	Logger                      logger.Logger
 	Client                      UpgraderClient
 	AgentConfig                 agent.Config
 	OrigAgentVersion            version.Number

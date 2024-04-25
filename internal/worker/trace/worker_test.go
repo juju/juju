@@ -17,6 +17,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/testing"
 )
@@ -170,7 +171,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Clock:    s.clock,
 		Logger:   s.logger,
 		Endpoint: "https://meshuggah.com",
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},

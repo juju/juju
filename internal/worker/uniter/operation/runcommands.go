@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -22,7 +23,7 @@ type runCommands struct {
 	runnerFactory runner.Factory
 
 	runner runner.Runner
-	logger Logger
+	logger logger.Logger
 
 	RequiresMachineLock
 }

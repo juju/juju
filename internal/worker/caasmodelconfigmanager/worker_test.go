@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,11 +17,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 	coretesting "github.com/juju/juju/testing"
@@ -34,7 +35,7 @@ type workerSuite struct {
 	testing.IsolationSuite
 
 	modelTag names.ModelTag
-	logger   loggo.Logger
+	logger   logger.Logger
 
 	facade           *mocks.MockFacade
 	broker           *mocks.MockCAASBroker
@@ -46,7 +47,7 @@ type workerSuite struct {
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
-	s.logger = loggo.GetLogger("test")
+	s.logger = loggertesting.WrapCheckLog(c)
 	s.controllerConfig = coretesting.FakeControllerConfig()
 	s.clock = testclock.NewDilatedWallClock(testing.ShortWait)
 }

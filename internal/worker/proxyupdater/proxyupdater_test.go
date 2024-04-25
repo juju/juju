@@ -26,6 +26,7 @@ import (
 
 	proxyupdaterapi "github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -88,8 +89,6 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	directory := c.MkDir()
 	s.proxySystemdFile = filepath.Join(directory, "systemd.file")
 	s.proxyEnvFile = filepath.Join(directory, "env.file")
-	logger := loggo.GetLogger("test.proxyupdater")
-	logger.SetLogLevel(loggo.TRACE)
 	s.config = proxyupdater.Config{
 		SupportLegacyValues: true,
 		SystemdFiles:        []string{s.proxySystemdFile},
@@ -103,7 +102,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 			}
 			return nil
 		},
-		Logger: logger,
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(directory, "juju-apt-proxy"))
 }

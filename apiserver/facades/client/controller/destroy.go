@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
@@ -49,7 +49,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	))
 }
 
-func ensureNotBlocked(st Backend, logger loggo.Logger) error {
+func ensureNotBlocked(st Backend, logger corelogger.Logger) error {
 	// If there are blocks let the user know.
 	blocks, err := st.AllBlocksForController()
 	if err != nil {

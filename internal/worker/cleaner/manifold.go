@@ -13,18 +13,14 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/cleaner"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used by the worker to log information.
-type Logger interface {
-	Errorf(string, ...interface{})
-}
 
 // ManifoldConfig describes the resources used by the cleanup worker.
 type ManifoldConfig struct {
 	APICallerName string
 	Clock         clock.Clock
-	Logger        Logger
+	Logger        logger.Logger
 }
 
 // Validate is called by start to check for bad configuration.

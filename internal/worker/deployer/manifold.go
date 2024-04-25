@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/agent/engine"
 	apideployer "github.com/juju/juju/api/agent/deployer"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 )
 
 // Hub is a pubsub hub used for internal messaging.
@@ -31,10 +31,10 @@ type ManifoldConfig struct {
 	APICallerName string
 	Clock         clock.Clock
 	Hub           Hub
-	Logger        Logger
+	Logger        logger.Logger
 
 	UnitEngineConfig func() dependency.EngineConfig
-	SetupLogging     func(*loggo.Context, agent.Config)
+	SetupLogging     func(logger.LoggerContext, agent.Config)
 	NewDeployContext func(ContextConfig) (Context, error)
 }
 

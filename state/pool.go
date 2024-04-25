@@ -20,6 +20,7 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/watcher"
 )
@@ -192,7 +193,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 				JujuDBName:        jujuDB,
 				Hub:               pool.hub,
 				Clock:             args.Clock,
-				Logger:            loggo.GetLogger("juju.state.pool.txnwatcher"),
+				Logger:            internallogger.GetLogger("juju.state.pool.txnwatcher"),
 				IgnoreCollections: append([]string(nil), watcherIgnoreList...),
 				PollInterval:      args.WatcherPollInterval,
 			})

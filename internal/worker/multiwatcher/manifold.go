@@ -12,18 +12,11 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state"
 )
-
-// Logger describes the logging methods used in this package by the worker.
-type Logger interface {
-	IsTraceEnabled() bool
-	Tracef(string, ...interface{})
-	Errorf(string, ...interface{})
-	Criticalf(string, ...interface{})
-}
 
 // Clock describes the time methods used in this package by the worker.
 type Clock interface {
@@ -35,7 +28,7 @@ type Clock interface {
 type ManifoldConfig struct {
 	StateName string
 	Clock     Clock
-	Logger    Logger
+	Logger    logger.Logger
 
 	// NOTE: what metrics do we want to expose here?
 	// loop restart count for one.

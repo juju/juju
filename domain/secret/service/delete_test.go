@@ -33,7 +33,7 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 	s.state.EXPECT().ListExternalSecretRevisions(gomock.Any(), uri, 666).Return([]coresecrets.ValueRef{}, nil)
 	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return(nil)
 
-	err := s.service().DeleteSecret(context.Background(), uri, DeleteSecretParams{
+	err := s.service(c).DeleteSecret(context.Background(), uri, DeleteSecretParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,

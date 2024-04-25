@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -146,7 +146,7 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 	s.uniterClient.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
 	s.uniterClient.unit.instanceDataWatcher = newMockNotifyWatcher()
 
-	w, err := remotestate.NewWatcher(s.setupWatcherConfig())
+	w, err := remotestate.NewWatcher(s.setupWatcherConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.watcher = w
@@ -158,7 +158,7 @@ func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 	s.uniterClient.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
 
-	cfg := s.setupWatcherConfig()
+	cfg := s.setupWatcherConfig(c)
 	cfg.ContainerRunningStatusChannel = s.runningStatusWatcher.Changes()
 	cfg.ContainerRunningStatusFunc = func(providerID string) (*remotestate.ContainerRunningStatus, error) {
 		return s.running, nil
@@ -176,18 +176,18 @@ func (s *WatcherSuiteSidecar) SetUpTest(c *gc.C) {
 	s.uniterClient.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
 
-	w, err := remotestate.NewWatcher(s.setupWatcherConfig())
+	w, err := remotestate.NewWatcher(s.setupWatcherConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.watcher = w
 }
 
-func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
+func (s *WatcherSuite) setupWatcherConfig(c *gc.C) remotestate.WatcherConfig {
 	statusTicker := func(wait time.Duration) remotestate.Waiter {
 		return dummyWaiter{s.clock.After(wait)}
 	}
 	return remotestate.WatcherConfig{
-		Logger:                       loggo.GetLogger("test"),
+		Logger:                       loggertesting.WrapCheckLog(c),
 		UniterClient:                 s.uniterClient,
 		ModelType:                    s.modelType,
 		Sidecar:                      s.sidecar,
@@ -1042,14 +1042,14 @@ func (s *WatcherSuiteSidecar) TestWatcherConfig(c *gc.C) {
 	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		ModelType: model.IAAS,
 		Sidecar:   true,
-		Logger:    loggo.GetLogger("test"),
+		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, gc.ErrorMatches, `sidecar mode is only for "caas" model`)
 
 	_, err = remotestate.NewWatcher(remotestate.WatcherConfig{
 		ModelType: model.CAAS,
 		Sidecar:   true,
-		Logger:    loggo.GetLogger("test"),
+		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1211,7 +1211,7 @@ func (s *WatcherSuite) TestWorkloadSignal(c *gc.C) {
 func (s *WatcherSuite) TestInitialWorkloadEventIDs(c *gc.C) {
 	config := remotestate.WatcherConfig{
 		InitialWorkloadEventIDs: []string{"a", "b", "c"},
-		Logger:                  loggo.GetLogger("test"),
+		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := remotestate.NewWatcher(config)
 	c.Assert(err, jc.ErrorIsNil)

@@ -5,11 +5,11 @@ package resolver_test
 
 import (
 	"github.com/juju/charm/v13/hooks"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -27,7 +27,7 @@ func (s *GuardSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *GuardSuite) checkCall(c *gc.C, state operation.State, call string) {
-	err := resolver.UpdateCharmDir(state, s.guard, nil, loggo.GetLogger("test"))
+	err := resolver.UpdateCharmDir(state, s.guard, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.guard.CheckCallNames(c, call)
 }
@@ -88,7 +88,7 @@ func (s *GuardSuite) TestUnlockConfigChanged(c *gc.C) {
 
 func (s *GuardSuite) TestLockdownAbortArg(c *gc.C) {
 	abort := make(fortress.Abort)
-	err := resolver.UpdateCharmDir(operation.State{}, s.guard, abort, loggo.GetLogger("test"))
+	err := resolver.UpdateCharmDir(operation.State{}, s.guard, abort, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.guard.CheckCalls(c, []testing.StubCall{{FuncName: "Lockdown", Args: []interface{}{abort}}})
 }

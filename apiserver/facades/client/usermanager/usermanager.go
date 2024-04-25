@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access/service"
@@ -46,7 +46,7 @@ type UserManagerAPI struct {
 	apiUserTag  names.UserTag
 	apiUser     coreuser.User
 	isAdmin     bool
-	logger      loggo.Logger
+	logger      corelogger.Logger
 }
 
 // NewAPI creates a new API endpoint for calling user manager functions.
@@ -59,7 +59,7 @@ func NewAPI(
 	apiUserTag names.UserTag,
 	apiUser coreuser.User,
 	isAdmin bool,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*UserManagerAPI, error) {
 	return &UserManagerAPI{
 		state:       state,

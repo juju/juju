@@ -9,6 +9,7 @@ import (
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 )
@@ -71,7 +72,7 @@ func (al *acceptLeadership) checkState(state State) error {
 
 type resignLeadership struct {
 	DoesNotRequireMachineLock
-	logger Logger
+	logger logger.Logger
 }
 
 // String is part of the Operation interface.

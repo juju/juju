@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -70,7 +70,7 @@ type HighAvailabilityAPI struct {
 	controllerConfigService ControllerConfigService
 	networkService          NetworkService
 	authorizer              facade.Authorizer
-	logger                  loggo.Logger
+	logger                  corelogger.Logger
 }
 
 // HighAvailabilityAPIV2 implements v2 of the high availability facade.
@@ -194,7 +194,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 }
 
 // getReferenceController looks up the ideal controller to use as a reference for Constraints and Release
-func getReferenceController(st *state.State, controllerIds []string, logger loggo.Logger) (*state.Machine, error) {
+func getReferenceController(st *state.State, controllerIds []string, logger corelogger.Logger) (*state.Machine, error) {
 	// Sort the controller IDs from low to high and take the first.
 	// This will typically give the initial bootstrap machine.
 	var controllerNumbers []int

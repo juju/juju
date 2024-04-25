@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/worker/common"
 )
@@ -21,7 +22,7 @@ import (
 type ManifoldConfig struct {
 	APICallerName string
 
-	Logger                       Logger
+	Logger                       logger.Logger
 	Clock                        clock.Clock
 	NewFacade                    func(base.APICaller) (Facade, error)
 	NewWorker                    func(Config) (worker.Worker, error)

@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
-	jujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type objectStoreFactorySuite struct {
@@ -32,7 +32,7 @@ func (s *objectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
 		context.Background(),
 		DefaultBackendType(),
 		"inferi",
-		WithLogger(jujutesting.NewCheckLogger(c)),
+		WithLogger(loggertesting.WrapCheckLog(c)),
 		WithMetadataService(stubMetadataService{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -48,7 +48,7 @@ func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {
 		context.Background(),
 		objectstore.BackendType("blah"),
 		"inferi",
-		WithLogger(jujutesting.NewCheckLogger(c)),
+		WithLogger(loggertesting.WrapCheckLog(c)),
 		WithMetadataService(stubMetadataService{}),
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)

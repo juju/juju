@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -63,7 +63,7 @@ type API struct {
 	resources                   facade.Resources
 	authorizer                  facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	logger                      loggo.Logger
+	logger                      corelogger.Logger
 	networkService              NetworkService
 }
 
@@ -78,7 +78,7 @@ func newAPIWithBacking(
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 	networkService NetworkService,
 ) (*API, error) {
 	// Only clients can access the Subnets facade.

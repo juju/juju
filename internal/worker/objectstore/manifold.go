@@ -17,23 +17,13 @@ import (
 	"github.com/juju/juju/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/trace"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...any)
-	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
-	Debugf(message string, args ...any)
-	Tracef(message string, args ...any)
-
-	IsTraceEnabled() bool
-}
 
 // MetadataServiceGetter is the interface that is used to get the
 // MetadataService for a given model UUID.
@@ -80,7 +70,7 @@ type ManifoldConfig struct {
 	S3ClientName       string
 
 	Clock                      clock.Clock
-	Logger                     Logger
+	Logger                     logger.Logger
 	NewObjectStoreWorker       objectstore.ObjectStoreWorkerFunc
 	GetControllerConfigService GetControllerConfigServiceFunc
 	GetMetadataService         GetMetadataServiceFunc

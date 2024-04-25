@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coredependency "github.com/juju/juju/core/dependency"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -41,14 +42,6 @@ type IAASProviderFunc func(ctx context.Context, args environs.OpenParams) (envir
 
 // CAASProviderFunc is a function that returns a IAAS provider.
 type CAASProviderFunc func(ctx context.Context, args environs.OpenParams) (caas.Broker, error)
-
-// Logger defines the methods used by the pruner worker for logging.
-type Logger interface {
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // GetProviderFunc is a helper function that gets a provider from the manifold.
 type GetProviderFunc func(context.Context, ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error)
@@ -82,7 +75,7 @@ type ManifoldConfig struct {
 	// factory getter from the dependency engine.
 	GetProviderServiceFactoryGetter GetProviderServiceFactoryGetterFunc
 	// Logger represents the methods used by the worker to log details.
-	Logger Logger
+	Logger logger.Logger
 	// Clock is used by the runner.
 	Clock clock.Clock
 }

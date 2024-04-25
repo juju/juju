@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 )
 
@@ -53,7 +54,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentName: "agent",
 		Clock:     s.clock,
 		Logger:    s.logger,
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			return nil, nil
 		},
 		Kind: coretrace.KindController,

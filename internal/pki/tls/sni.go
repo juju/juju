@@ -9,17 +9,14 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 )
 
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // AuthoritySNITLSGetter is responsible for performing the crypto/tls get
 // function. It allows support for SNI by selecting a certificate from a
-// supplied  authority that best matches the client hellow message.
-func AuthoritySNITLSGetter(authority pki.Authority, logger Logger) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+// supplied  authority that best matches the client hello message.
+func AuthoritySNITLSGetter(authority pki.Authority, logger logger.Logger) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		var cert *tls.Certificate
 

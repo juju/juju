@@ -12,13 +12,13 @@ import (
 
 	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/downloader"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/testcharms"
 )
@@ -79,7 +79,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 			return io.NopCloser(&buf), err
 		},
 	}
-	d := charm.NewBundlesDir(bunsDir, dlr, loggo.GetLogger(""))
+	d := charm.NewBundlesDir(bunsDir, dlr, loggertesting.WrapCheckLog(c))
 
 	checkDownloadsEmpty := func() {
 		files, err := os.ReadDir(filepath.Join(bunsDir, "downloads"))

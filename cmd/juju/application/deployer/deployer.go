@@ -17,7 +17,6 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/api/client/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -32,10 +31,11 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
+var logger = internallogger.GetLogger("juju.cmd.juju.application.deployer")
 
 // DeployerKind is an interface that provides CreateDeployer function to
 // attempt creation of the related deployer.

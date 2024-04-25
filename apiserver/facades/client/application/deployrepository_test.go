@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -71,7 +72,7 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
 	}
-	dt, errs := s.getValidator().validate(context.Background(), arg)
+	dt, errs := s.getValidator(c).validate(context.Background(), arg)
 	c.Assert(errs, gc.HasLen, 0, gc.Commentf("%s", pretty.Sprint(errs)))
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
@@ -126,7 +127,7 @@ func (s *validatorSuite) testValidateIAASAttachStorage(c *gc.C, argStorage []str
 		CharmName:     "testcharm",
 		AttachStorage: argStorage,
 	}
-	dt, errs := s.iaasDeployFromRepositoryValidator().ValidateArg(context.Background(), arg)
+	dt, errs := s.iaasDeployFromRepositoryValidator(c).ValidateArg(context.Background(), arg)
 	if expectedErr == "" {
 		c.Assert(errs, gc.HasLen, 0)
 		c.Assert(dt, gc.DeepEquals, deployTemplate{
@@ -185,7 +186,7 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 		CharmName: "testcharm",
 		Placement: []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
 	}
-	dt, errs := s.getValidator().validate(context.Background(), arg)
+	dt, errs := s.getValidator(c).validate(context.Background(), arg)
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
@@ -232,7 +233,7 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 		CharmName:        "testcharm",
 		EndpointBindings: endpointMap,
 	}
-	dt, errs := s.getValidator().validate(context.Background(), arg)
+	dt, errs := s.getValidator(c).validate(context.Background(), arg)
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
@@ -282,6 +283,7 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return nil, errors.NotFoundf("space")
 		},
+		logger: loggertesting.WrapCheckLog(c),
 	}
 
 	arg := params.DeployFromRepositoryArg{
@@ -323,7 +325,7 @@ func (s *validatorSuite) TestResolveCharm(c *gc.C) {
 		Arch: strptr("arm64"),
 	}, nil)
 
-	obtained, err := s.getValidator().resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
+	obtained, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.URL, gc.DeepEquals, resultURL)
 	c.Assert(obtained.EssentialMetadata.ResolvedOrigin, gc.DeepEquals, resolvedOrigin)
@@ -351,7 +353,7 @@ func (s *validatorSuite) TestResolveCharmArchAll(c *gc.C) {
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
-	obtained, err := s.getValidator().resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
+	obtained, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.URL, gc.DeepEquals, resultURL)
 	expectedOrigin := resolvedOrigin
@@ -383,7 +385,7 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *gc.C) {
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
-	obtained, err := s.getValidator().resolveCharm(context.Background(), curl, origin, true, false, constraints.Value{})
+	obtained, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, true, false, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.URL, gc.DeepEquals, resultURL)
 	c.Assert(obtained.EssentialMetadata.ResolvedOrigin, gc.DeepEquals, resolvedOrigin)
@@ -402,7 +404,7 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesError(c *gc.C) {
 	newErr := charm.NewUnsupportedSeriesError("jammy", supportedSeries)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(corecharm.ResolvedDataForDeploy{}, newErr)
 
-	_, err := s.getValidator().resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
+	_, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, `series "jammy" not supported by charm, supported series are: focal. Use --force to deploy the charm anyway.`)
 }
 
@@ -428,7 +430,7 @@ func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenUserImageID(c *gc.
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
-	_, err := s.getValidator().resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{ImageID: strptr("ubuntu-bf2")})
+	_, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{ImageID: strptr("ubuntu-bf2")})
 	c.Assert(err, gc.ErrorMatches, `base must be explicitly provided when image-id constraint is used`)
 }
 
@@ -457,7 +459,7 @@ func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenModelImageID(c *gc
 		ImageID: strptr("ubuntu-bf2"),
 	}, nil)
 
-	_, err := s.getValidator().resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
+	_, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, `base must be explicitly provided when image-id constraint is used`)
 }
 
@@ -470,7 +472,7 @@ func (s *validatorSuite) TestCreateOrigin(c *gc.C) {
 		CharmName: "testcharm",
 		Revision:  intptr(7),
 	}
-	curl, origin, defaultBase, err := s.getValidator().createOrigin(arg)
+	curl, origin, defaultBase, err := s.getValidator(c).createOrigin(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:testcharm-7"))
 	c.Assert(origin, gc.DeepEquals, corecharm.Origin{
@@ -492,7 +494,7 @@ func (s *validatorSuite) TestCreateOriginChannel(c *gc.C) {
 		Revision:  intptr(7),
 		Channel:   strptr("yoga/candidate"),
 	}
-	curl, origin, defaultBase, err := s.getValidator().createOrigin(arg)
+	curl, origin, defaultBase, err := s.getValidator(c).createOrigin(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:testcharm-7"))
 	expectedChannel := corecharm.MustParseChannel("yoga/candidate")
@@ -533,7 +535,7 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
 	}
-	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator().getCharm(context.Background(), arg)
+	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator(c).getCharm(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Assert(obtainedCharm, gc.DeepEquals, corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata))
@@ -569,7 +571,7 @@ func (s *validatorSuite) TestGetCharmAlreadyDeployed(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
 	}
-	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator().getCharm(context.Background(), arg)
+	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator(c).getCharm(context.Background(), arg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
@@ -602,7 +604,7 @@ func (s *validatorSuite) TestGetCharmFindsBundle(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
 	}
-	_, _, _, err := s.getValidator().getCharm(context.Background(), arg)
+	_, _, _, err := s.getValidator(c).getCharm(context.Background(), arg)
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
@@ -633,7 +635,7 @@ func (s *validatorSuite) TestGetCharmNoJujuControllerCharm(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
 	}
-	_, _, _, err := s.getValidator().getCharm(context.Background(), arg)
+	_, _, _, err := s.getValidator(c).getCharm(context.Background(), arg)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported, gc.Commentf("%+v", err))
 }
 
@@ -644,7 +646,7 @@ func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
 	arg := params.DeployFromRepositoryArg{CharmName: "testme"}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
@@ -662,7 +664,7 @@ func (s *validatorSuite) TestDeducePlatformRiskInChannel(c *gc.C) {
 			Channel: "22.10/stable",
 		},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -683,7 +685,7 @@ func (s *validatorSuite) TestDeducePlatformArgArchBase(c *gc.C) {
 			Channel: "22.10",
 		},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -708,7 +710,7 @@ func (s *validatorSuite) TestDeducePlatformModelDefaultBase(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
 	}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsTrue)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -735,7 +737,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *gc.C) {
 			Directive: "0",
 		}},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -758,7 +760,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleNotFound(c *gc.C) {
 			Directive: "0/lxd/0",
 		}},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
@@ -777,7 +779,7 @@ func (s *validatorSuite) TestResolvedCharmValidationSubordinate(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		NumUnits: intptr(1),
 	}
-	dt, err := s.getValidator().resolvedCharmValidation(context.Background(), ch, arg)
+	dt, err := s.getValidator(c).resolvedCharmValidation(context.Background(), ch, arg)
 	c.Assert(err, gc.HasLen, 0)
 	c.Assert(dt.numUnits, gc.Equals, 0)
 }
@@ -801,7 +803,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
 			{Directive: "3"},
 		},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
+	plat, usedModelDefaultBase, err := s.getValidator(c).deducePlatform(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
@@ -836,7 +838,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
 			{Directive: "1"},
 		},
 	}
-	_, _, err := s.getValidator().deducePlatform(arg)
+	_, _, err := s.getValidator(c).deducePlatform(arg)
 	c.Assert(err, jc.ErrorIs, errors.BadRequest, gc.Commentf("%+v", err))
 }
 
@@ -867,7 +869,7 @@ func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
 	expectedAppConfig, err := coreconfig.NewConfig(map[string]interface{}{"trust": true}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appConfig, charmConfig, err := s.getValidator().appCharmSettings("testme", true, cfg, configYaml)
+	appConfig, charmConfig, err := s.getValidator(c).appCharmSettings("testme", true, cfg, configYaml)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(appConfig, gc.DeepEquals, expectedAppConfig)
 	c.Assert(charmConfig["optionOne"], gc.DeepEquals, "one")
@@ -967,7 +969,7 @@ func (s *validatorSuite) TestResolveResourcesSuccess(c *gc.C) {
 	deployResArg := map[string]string{"foo-file": "bar", "foo-file2": "3"}
 
 	s.repo.EXPECT().ResolveResources(gomock.Any(), resolveResourcesArgsMatcher{c: c, expected: &resArgs}, corecharm.CharmID{URL: curl, Origin: origin}).Return(resResult, nil)
-	resources, pendingResourceUploads, resolveResErr := s.getValidator().resolveResources(context.Background(), curl, origin, deployResArg, resMeta)
+	resources, pendingResourceUploads, resolveResErr := s.getValidator(c).resolveResources(context.Background(), curl, origin, deployResArg, resMeta)
 	pendUp := &params.PendingResourceUpload{
 		Name:     "foo-resource",
 		Type:     "file",
@@ -1031,7 +1033,7 @@ func (s *validatorSuite) TestIaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
 		CharmName: "testcharm",
 	}
 
-	_, errs := s.iaasDeployFromRepositoryValidator().ValidateArg(context.Background(), arg)
+	_, errs := s.iaasDeployFromRepositoryValidator(c).ValidateArg(context.Background(), arg)
 	c.Assert(errs, gc.HasLen, 1)
 }
 
@@ -1082,7 +1084,7 @@ func (s *validatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *validatorSuite) getValidator() *deployFromRepositoryValidator {
+func (s *validatorSuite) getValidator(c *gc.C) *deployFromRepositoryValidator {
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repo, nil).AnyTimes()
 	return &deployFromRepositoryValidator{
 		model:       s.model,
@@ -1091,12 +1093,13 @@ func (s *validatorSuite) getValidator() *deployFromRepositoryValidator {
 		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return s.bindings, nil
 		},
+		logger: loggertesting.WrapCheckLog(c),
 	}
 }
 
 func (s *validatorSuite) caasDeployFromRepositoryValidator(c *gc.C) caasDeployFromRepositoryValidator {
 	return caasDeployFromRepositoryValidator{
-		validator: s.getValidator(),
+		validator: s.getValidator(c),
 		caasPrecheckFunc: func(dt deployTemplate) error {
 			// Do a quick check to ensure the expected deployTemplate
 			// has been passed.
@@ -1106,9 +1109,9 @@ func (s *validatorSuite) caasDeployFromRepositoryValidator(c *gc.C) caasDeployFr
 	}
 }
 
-func (s *validatorSuite) iaasDeployFromRepositoryValidator() iaasDeployFromRepositoryValidator {
+func (s *validatorSuite) iaasDeployFromRepositoryValidator(c *gc.C) iaasDeployFromRepositoryValidator {
 	return iaasDeployFromRepositoryValidator{
-		validator: s.getValidator(),
+		validator: s.getValidator(c),
 	}
 }
 

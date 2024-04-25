@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/safemode"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage/looputil"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
@@ -280,7 +281,7 @@ func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
 	agentConfig := a.CurrentConfig()
 	agentName := a.Tag().String()
 
-	agentconf.SetupAgentLogging(loggo.DefaultContext(), agentConfig)
+	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
 	_ = a.runner.StartWorker("engine", createEngine)

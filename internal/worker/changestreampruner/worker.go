@@ -15,6 +15,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 )
 
 const (
@@ -46,7 +47,7 @@ type DBGetter = coredatabase.DBGetter
 type WorkerConfig struct {
 	DBGetter DBGetter
 	Clock    clock.Clock
-	Logger   Logger
+	Logger   logger.Logger
 }
 
 // Validate ensures that the config values are valid.

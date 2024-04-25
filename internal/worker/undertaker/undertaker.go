@@ -14,6 +14,7 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -35,21 +36,12 @@ type Facade interface {
 	SetStatus(status status.Status, message string, data map[string]interface{}) error
 }
 
-// Logger defines a way to report non-fatal errors.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-	Warningf(string, ...interface{})
-}
-
 // Config holds the resources and configuration necessary to run an
 // undertaker worker.
 type Config struct {
 	Facade                Facade
 	CredentialAPI         common.CredentialAPI
-	Logger                Logger
+	Logger                logger.Logger
 	Clock                 clock.Clock
 	NewCloudDestroyerFunc func(context.Context, environs.OpenParams) (environs.CloudDestroyer, error)
 }

@@ -17,18 +17,19 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	auth "github.com/juju/juju/internal/auth"
-	"github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type workerSuite struct {
 	jujutesting.IsolationSuite
 
-	logger            Logger
+	logger            logger.Logger
 	userService       *MockUserService
 	permissionService *MockPermissionService
 }
@@ -325,7 +326,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.userService = NewMockUserService(ctrl)
 	s.permissionService = NewMockPermissionService(ctrl)
 
-	s.logger = testing.NewCheckLogger(c)
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
 }

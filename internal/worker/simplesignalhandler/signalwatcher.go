@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/worker/v4/catacomb"
 )
 
@@ -20,7 +21,7 @@ type SignalHandlerFunc func(os.Signal) error
 type SignalWatcher struct {
 	catacomb catacomb.Catacomb
 	handler  SignalHandlerFunc
-	logger   Logger
+	logger   logger.Logger
 	sigCh    <-chan os.Signal
 }
 
@@ -32,7 +33,7 @@ func (s *SignalWatcher) Kill() {
 // NewSignalWatcher constructs a new signal watcher worker with the specified
 // signal channel and handler func.
 func NewSignalWatcher(
-	logger Logger,
+	logger logger.Logger,
 	sig <-chan os.Signal,
 	handler SignalHandlerFunc,
 ) (*SignalWatcher, error) {

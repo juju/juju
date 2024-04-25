@@ -32,8 +32,8 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -57,7 +57,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	m.userUUID = userUUID
 	m.userName = "test-user"
 	c.Assert(err, jc.ErrorIsNil)
-	userState := accessstate.NewState(m.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUser(
 		context.Background(),
 		m.userUUID,
@@ -196,7 +196,7 @@ func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
 func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userState := accessstate.NewState(m.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUser(
 		context.Background(),
 		userUUID,
@@ -546,7 +546,7 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 // new model with an owner that has been removed from the Juju user base that
 // the operation fails with a [usererrors.NotFound] error.
 func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
-	userState := accessstate.NewState(m.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := userState.RemoveUser(context.Background(), m.userName)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -591,7 +591,7 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	accessSt := accessstate.NewState(m.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	access, err := accessSt.ReadUserAccessLevelForTarget(ctx, m.userName, permission.ID{
 		ObjectType: permission.Model,
 		Key:        testUUID.String(),

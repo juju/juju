@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -62,7 +62,7 @@ type FirewallerAPI struct {
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
 	accessModel       common.GetAuthFunc
-	logger            loggo.Logger
+	logger            corelogger.Logger
 
 	// Fetched on demand and memoized
 	appEndpointBindings map[string]map[string]string
@@ -82,7 +82,7 @@ func NewStateFirewallerAPI(
 	controllerConfigAPI ControllerConfigAPI,
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.

@@ -18,6 +18,7 @@ import (
 	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
@@ -101,7 +102,7 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // a model worker manager.
 type Config struct {
 	Authority                    pki.Authority
-	Logger                       Logger
+	Logger                       logger.Logger
 	MachineID                    string
 	ModelWatcher                 ModelWatcher
 	ModelMetrics                 ModelMetrics

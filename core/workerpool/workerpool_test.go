@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -24,7 +24,7 @@ type ProvisionerWorkerPoolSuite struct {
 
 func (s *ProvisionerWorkerPoolSuite) TestProcessMoreTasksThanWorkers(c *gc.C) {
 	doneCh := make(chan struct{}, 10)
-	wp := NewWorkerPool(loggo.GetLogger("test"), 5)
+	wp := NewWorkerPool(loggertesting.WrapCheckLog(c), 5)
 	c.Assert(wp.Size(), gc.Equals, 5)
 
 	for i := 0; i < 10; i++ {
@@ -59,7 +59,7 @@ func (s *ProvisionerWorkerPoolSuite) TestConsolidateErrors(c *gc.C) {
 	var (
 		wg      sync.WaitGroup
 		barrier = make(chan struct{})
-		wp      = NewWorkerPool(loggo.GetLogger("test"), 3)
+		wp      = NewWorkerPool(loggertesting.WrapCheckLog(c), 3)
 	)
 
 	wg.Add(3)

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/firewaller/mocks"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -361,7 +361,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 			return s.crossmodelFirewaller, nil
 		},
 		Clock:              s.clock,
-		Logger:             loggo.GetLogger("test"),
+		Logger:             loggertesting.WrapCheckLog(c),
 		CredentialAPI:      s.credentialsFacade,
 		WatchMachineNotify: watchMachineNotify,
 		FlushModelNotify:   flushModelNotify,
@@ -2287,7 +2287,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 			return s.crossmodelFirewaller, nil
 		},
 		Clock:         s.clock,
-		Logger:        loggo.GetLogger("test"),
+		Logger:        loggertesting.WrapCheckLog(c),
 		CredentialAPI: s.credentialsFacade,
 	}
 

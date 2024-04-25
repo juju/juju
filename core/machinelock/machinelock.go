@@ -16,6 +16,7 @@ import (
 	"github.com/juju/mutex/v2"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 )
 
@@ -38,18 +39,12 @@ type Clock interface {
 	Now() time.Time
 }
 
-// Logger defines the logging methods used by the machine lock.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-}
-
 // Config defines the attributes needed to correctly construct
 // a machine lock.
 type Config struct {
 	AgentName   string
 	Clock       Clock
-	Logger      Logger
+	Logger      logger.Logger
 	LogFilename string
 }
 
@@ -237,7 +232,7 @@ type info struct {
 type lock struct {
 	agent        string
 	clock        Clock
-	logger       Logger
+	logger       logger.Logger
 	logFilename  string
 	startMessage string
 

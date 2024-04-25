@@ -14,29 +14,18 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"golang.org/x/sync/semaphore"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // txn represents a transaction interface that can be used for committing
 // a transaction.
 type txn interface {
 	Commit() error
-}
-
-// Logger describes methods for emitting log output.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-	IsTraceEnabled() bool
-
-	// Logf is used to proxy Dqlite logs via this logger.
-	Logf(level loggo.Level, msg string, args ...interface{})
 }
 
 const (
@@ -59,7 +48,7 @@ func WithTimeout(timeout time.Duration) Option {
 }
 
 // WithLogger defines a logger for the transaction.
-func WithLogger(logger Logger) Option {
+func WithLogger(logger logger.Logger) Option {
 	return func(o *option) {
 		o.logger = logger
 	}
@@ -88,13 +77,13 @@ func WithSemaphore(sem Semaphore) Option {
 
 type option struct {
 	timeout       time.Duration
-	logger        Logger
+	logger        logger.Logger
 	retryStrategy RetryStrategy
 	semaphore     Semaphore
 }
 
 func newOptions() *option {
-	logger := loggo.GetLogger("juju.database")
+	logger := internallogger.GetLogger("juju.database")
 	return &option{
 		timeout:       DefaultTimeout,
 		logger:        logger,
@@ -116,7 +105,7 @@ type Semaphore interface {
 // Transient errors are retried based on the defined retry strategy.
 type RetryingTxnRunner struct {
 	timeout       time.Duration
-	logger        Logger
+	logger        logger.Logger
 	retryStrategy RetryStrategy
 	semaphore     Semaphore
 	tracePool     sync.Pool
@@ -274,7 +263,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 // defaultRetryStrategy returns a function that can be used to apply a default
 // retry strategy to its input operation. It will retry in cases of transient
 // known database errors.
-func defaultRetryStrategy(clock clock.Clock, logger Logger) func(context.Context, func() error) error {
+func defaultRetryStrategy(clock clock.Clock, logger logger.Logger) func(context.Context, func() error) error {
 	return func(ctx context.Context, fn func() error) error {
 		err := retry.Call(retry.CallArgs{
 			Func: fn,

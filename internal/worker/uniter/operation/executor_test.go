@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/operation/mocks"
@@ -67,7 +67,7 @@ func (s *NewExecutorSuite) TestNewExecutorInvalidStateRead(c *gc.C) {
 		StateReadWriter: s.mockStateRW,
 		InitialState:    initialState,
 		AcquireLock:     failAcquireLock,
-		Logger:          loggo.GetLogger("test"),
+		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor("test", cfg)
 	c.Assert(executor, gc.IsNil)
@@ -82,7 +82,7 @@ func (s *NewExecutorSuite) TestNewExecutorNoInitialState(c *gc.C) {
 		StateReadWriter: s.mockStateRW,
 		InitialState:    initialState,
 		AcquireLock:     failAcquireLock,
-		Logger:          loggo.GetLogger("test"),
+		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor("test", cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +100,7 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *gc.C) {
 		StateReadWriter: s.mockStateRW,
 		InitialState:    operation.State{Step: operation.Queued},
 		AcquireLock:     failAcquireLock,
-		Logger:          loggo.GetLogger("test"),
+		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor("test", cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +191,7 @@ func (s *ExecutorSuite) newExecutor(c *gc.C, st *operation.State) operation.Exec
 		StateReadWriter: s.mockStateRW,
 		InitialState:    operation.State{Step: operation.Queued},
 		AcquireLock:     failAcquireLock,
-		Logger:          loggo.GetLogger("test"),
+		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor("test", cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -475,7 +475,7 @@ func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string, string) (fun
 		StateReadWriter: s.mockStateRW,
 		InitialState:    operation.State{Step: operation.Queued},
 		AcquireLock:     lockFunc,
-		Logger:          loggo.GetLogger("test"),
+		Logger:          loggertesting.WrapCheckLog(c),
 	}
 	executor, err := operation.NewExecutor("test", cfg)
 	c.Assert(err, jc.ErrorIsNil)

@@ -16,24 +16,18 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 )
 
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Infof(string, ...any)
-	Errorf(string, ...any)
-	Debugf(string, ...any)
-}
-
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
 	// DebugLogger is used to emit debug messages.
-	DebugLogger Logger
+	DebugLogger logger.Logger
 
 	// NewWorker creates a log sink worker.
 	NewWorker func(cfg Config) (worker.Worker, error)
@@ -150,7 +144,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
-func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger Logger, logDir string) corelogger.LogWriterForModelFunc {
+func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, logDir string) corelogger.LogWriterForModelFunc {
 	return func(modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
 		if !names.IsValidModel(modelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)

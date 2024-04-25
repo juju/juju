@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
-	jujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type fileObjectStoreSuite struct {
@@ -499,7 +499,7 @@ func (s *fileObjectStoreSuite) newFileObjectStore(c *gc.C, path string) TrackedO
 		RootDir:         path,
 		MetadataService: s.service,
 		Claimer:         s.claimer,
-		Logger:          jujutesting.NewCheckLogger(c),
+		Logger:          loggertesting.WrapCheckLog(c),
 		Clock:           clock.WallClock,
 	})
 	c.Assert(err, gc.IsNil)

@@ -65,6 +65,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
@@ -103,7 +104,7 @@ type (
 )
 
 var (
-	logger            = loggo.GetLogger("juju.cmd.jujud")
+	logger            = internallogger.GetLogger("juju.cmd.jujud")
 	jujuExec          = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
@@ -517,7 +518,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 
-	agentconf.SetupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
+	agentconf.SetupAgentLogging(internallogger.DefaultContext(), a.CurrentConfig())
 
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
@@ -548,7 +549,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	machineLock, err := machinelock.New(machinelock.Config{
 		AgentName:   agentName,
 		Clock:       clock.WallClock,
-		Logger:      loggo.GetLogger("juju.machinelock"),
+		Logger:      internallogger.GetLogger("juju.machinelock"),
 		LogFilename: agent.MachineLockLogFilename(agentConfig),
 	})
 	// There will only be an error if the required configuration
@@ -617,10 +618,10 @@ func (a *MachineAgent) makeEngineCreator(
 
 		// Create a single HTTP client so we can reuse HTTP connections, for
 		// example across the various Charmhub API requests required for deploy.
-		charmhubLogger := loggo.GetLoggerWithTags("juju.charmhub", corelogger.CHARMHUB)
-		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhub.LoggoLoggerFactory(charmhubLogger))
+		charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
+		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhubLogger)
 
-		s3Logger := loggo.GetLoggerWithTags("juju.objectstore.s3", corelogger.OBJECTSTORE)
+		s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
 		s3HTTPClient := s3client.DefaultHTTPClient(s3Logger)
 
 		manifoldsCfg := machine.ManifoldsConfig{
@@ -978,7 +979,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 
 	config := agentengine.DependencyEngineConfig(
 		cfg.ModelMetrics,
-		loggo.GetLogger("juju.worker.dependency"),
+		internallogger.GetLogger("juju.worker.dependency"),
 	)
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError
@@ -988,7 +989,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		return nil, errors.Trace(err)
 	}
 
-	loggingContext := loggo.NewContext(loggo.INFO)
+	loggingContext := internallogger.LoggerContext(corelogger.INFO)
 	if err := loggingContext.AddWriter("logsink", cfg.ModelLogger); err != nil {
 		logger.Errorf("unable to configure logging for model: %v", err)
 	}

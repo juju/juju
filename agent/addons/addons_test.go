@@ -20,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/addons"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/introspection"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -41,7 +42,7 @@ func (s *introspectionSuite) TestStartNonLinux(c *gc.C) {
 			started = true
 			return nil, errors.New("shouldn't call start")
 		},
-		Logger: coretesting.CheckLogger{Log: c},
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 
 	err := addons.StartIntrospection(cfg)
@@ -60,7 +61,7 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
 			return nil, errors.New("boom")
 		},
-		Logger: coretesting.CheckLogger{Log: c},
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 
 	err := addons.StartIntrospection(cfg)
@@ -93,7 +94,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 			fake.config = cfg
 			return fake, nil
 		},
-		Logger: coretesting.CheckLogger{Log: c},
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 
 	err = addons.StartIntrospection(cfg)

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -17,6 +16,7 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apiaddressupdater/mocks"
@@ -59,7 +59,7 @@ func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 		apiaddressupdater.Config{
 			Addresser: client,
 			Setter:    &apiAddressSetter{},
-			Logger:    loggo.GetLogger("test"),
+			Logger:    loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, worker)
@@ -83,7 +83,7 @@ func (s *APIAddressUpdaterSuite) assertInitialUpdate(c *gc.C, ctrl *gomock.Contr
 		apiaddressupdater.Config{
 			Addresser: client,
 			Setter:    setter,
-			Logger:    loggo.GetLogger("test"),
+			Logger:    loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -262,35 +262,35 @@ type ValidateSuite struct {
 var _ = gc.Suite(&ValidateSuite{})
 
 func (*ValidateSuite) TestValid(c *gc.C) {
-	err := validConfig().Validate()
+	err := validConfig(c).Validate()
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (*ValidateSuite) TestMissingAddresser(c *gc.C) {
-	config := validConfig()
+	config := validConfig(c)
 	config.Addresser = nil
 	checkNotValid(c, config, "nil Addresser not valid")
 }
 
 func (*ValidateSuite) TestMissingSetter(c *gc.C) {
-	config := validConfig()
+	config := validConfig(c)
 	config.Setter = nil
 	checkNotValid(c, config, "nil Setter not valid")
 }
 
 func (*ValidateSuite) TestMissingLogger(c *gc.C) {
-	config := validConfig()
+	config := validConfig(c)
 	config.Logger = nil
 	checkNotValid(c, config, "nil Logger not valid")
 }
 
-func validConfig() apiaddressupdater.Config {
+func validConfig(c *gc.C) apiaddressupdater.Config {
 	return apiaddressupdater.Config{
 		Addresser: struct{ apiaddressupdater.APIAddresser }{},
 		Setter: struct {
 			apiaddressupdater.APIAddressSetter
 		}{},
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/instancemutater"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 )
@@ -24,22 +25,13 @@ type InstanceMutaterAPI interface {
 	Machine(ctx context.Context, tag names.MachineTag) (instancemutater.MutaterMachine, error)
 }
 
-// Logger represents the logging methods called.
-type Logger interface {
-	Warningf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Errorf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
-}
-
 // Config represents the configuration required to run a new instance machineApi
 // worker.
 type Config struct {
 	Facade InstanceMutaterAPI
 
 	// Logger is the Logger for this worker.
-	Logger Logger
+	Logger logger.Logger
 
 	Broker environs.LXDProfiler
 
@@ -173,7 +165,7 @@ func newWorker(ctx context.Context, config Config) (*mutaterWorker, error) {
 type mutaterWorker struct {
 	catacomb catacomb.Catacomb
 
-	logger                     Logger
+	logger                     logger.Logger
 	broker                     environs.LXDProfiler
 	facade                     InstanceMutaterAPI
 	machineWatcher             watcher.StringsWatcher

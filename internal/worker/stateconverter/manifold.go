@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -23,7 +24,7 @@ import (
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
-	Logger        Logger
+	Logger        logger.Logger
 
 	// A constructor for the machiner API which can be overridden
 	// during testing. If omitted, the default client for the machiner

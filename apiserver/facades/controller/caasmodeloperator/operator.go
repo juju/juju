@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -40,7 +40,7 @@ type API struct {
 	ctrlState               CAASControllerState
 	state                   CAASModelOperatorState
 	controllerConfigService ControllerConfigService
-	logger                  loggo.Logger
+	logger                  corelogger.Logger
 
 	resources facade.Resources
 }
@@ -52,7 +52,7 @@ func NewAPI(
 	ctrlSt CAASControllerState,
 	st CAASModelOperatorState,
 	controllerConfigService ControllerConfigService,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*API, error) {
 
 	if !authorizer.AuthController() {

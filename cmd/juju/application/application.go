@@ -4,8 +4,8 @@
 package application
 
 import (
-	"github.com/juju/loggo/v2"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // Logger for all commands in the application package
-var logger = loggo.GetLogger("juju.cmd.juju.application")
+var logger = internallogger.GetLogger("juju.cmd.juju.application")

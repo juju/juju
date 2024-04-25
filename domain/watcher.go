@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 )
@@ -20,10 +21,10 @@ type WatcherFactory struct {
 
 	getDB       WatchableDBFactory
 	watchableDB changestream.WatchableDB
-	logger      eventsource.Logger
+	logger      logger.Logger
 }
 
-func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger eventsource.Logger) *WatcherFactory {
+func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger logger.Logger) *WatcherFactory {
 	return &WatcherFactory{
 		getDB:  watchableDBFactory,
 		logger: logger,

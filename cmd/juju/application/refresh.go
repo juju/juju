@@ -66,8 +66,8 @@ func newRefreshCommand() *refreshCommand {
 		},
 		NewCharmHubClient: func(url string) (store.DownloadBundleClient, error) {
 			return charmhub.NewClient(charmhub.Config{
-				URL:           url,
-				LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+				URL:    url,
+				Logger: logger,
 			})
 		},
 		NewCharmResolver: func(apiRoot base.APICallCloser, downloadClient store.DownloadBundleClient) CharmResolver {

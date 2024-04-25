@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type hashFileSystemAccessorSuite struct {
@@ -30,7 +30,7 @@ func (s *hashFileSystemAccessorSuite) TestHashExistsNotFound(c *gc.C) {
 	err := os.MkdirAll(s.namespaceFilePath(dir), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
-	accessor := newHashFileSystemAccessor("namespace", dir, jujutesting.NewCheckLogger(c))
+	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
 	err = accessor.HashExists(context.Background(), "hash")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -45,7 +45,7 @@ func (s *hashFileSystemAccessorSuite) TestHashExists(c *gc.C) {
 	_, err = os.Create(filepath.Join(s.namespaceFilePath(dir), "foo"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	accessor := newHashFileSystemAccessor("namespace", dir, jujutesting.NewCheckLogger(c))
+	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
 	err = accessor.HashExists(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -66,7 +66,7 @@ func (s *hashFileSystemAccessorSuite) TestGetByHash(c *gc.C) {
 	// Note this will include the new line character. This is on purpose and
 	// is baked into the implementation.
 
-	accessor := newHashFileSystemAccessor("namespace", dir, jujutesting.NewCheckLogger(c))
+	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
 	reader, size, err := accessor.GetByHash(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(size, gc.Equals, int64(7))
@@ -83,7 +83,7 @@ func (s *hashFileSystemAccessorSuite) TestGetByHashNotFound(c *gc.C) {
 	err := os.MkdirAll(s.namespaceFilePath(dir), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
-	accessor := newHashFileSystemAccessor("namespace", dir, jujutesting.NewCheckLogger(c))
+	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
 	_, _, err = accessor.GetByHash(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -98,7 +98,7 @@ func (s *hashFileSystemAccessorSuite) TestDeleteByHash(c *gc.C) {
 	_, err = os.Create(filepath.Join(s.namespaceFilePath(dir), "foo"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	accessor := newHashFileSystemAccessor("namespace", dir, jujutesting.NewCheckLogger(c))
+	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
 
 	err = accessor.DeleteByHash(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,7 +114,7 @@ func (s *hashFileSystemAccessorSuite) TestDeleteByHashNotFound(c *gc.C) {
 	err := os.MkdirAll(s.namespaceFilePath(dir), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
-	accessor := newHashFileSystemAccessor("namespace", dir, jujutesting.NewCheckLogger(c))
+	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
 
 	err = accessor.DeleteByHash(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)

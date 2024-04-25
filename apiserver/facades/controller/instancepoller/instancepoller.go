@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -49,7 +49,7 @@ type InstancePollerAPI struct {
 	accessMachine           common.GetAuthFunc
 	controllerConfigService ControllerConfigService
 	clock                   clock.Clock
-	logger                  loggo.Logger
+	logger                  corelogger.Logger
 }
 
 // NewInstancePollerAPI creates a new server-side InstancePoller API
@@ -62,7 +62,7 @@ func NewInstancePollerAPI(
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	clock clock.Clock,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*InstancePollerAPI, error) {
 
 	if !authorizer.AuthController() {

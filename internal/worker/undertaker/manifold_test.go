@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/undertaker"
 )
@@ -24,7 +25,6 @@ import (
 type manifoldSuite struct {
 	testing.IsolationSuite
 	modelType string
-	logger    fakeLogger
 }
 
 type CAASManifoldSuite struct {
@@ -48,10 +48,10 @@ func (s *IAASManifoldSuite) SetUpTest(c *gc.C) {
 	s.modelType = "iaas"
 }
 
-func (s *manifoldSuite) namesConfig() undertaker.ManifoldConfig {
+func (s *manifoldSuite) namesConfig(c *gc.C) undertaker.ManifoldConfig {
 	return undertaker.ManifoldConfig{
 		APICallerName: "api-caller",
-		Logger:        &s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {
 			return &fakeCredentialAPI{}, nil
 		},
@@ -62,20 +62,20 @@ func (s *manifoldSuite) namesConfig() undertaker.ManifoldConfig {
 }
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
-	manifold := undertaker.Manifold(s.namesConfig())
+	manifold := undertaker.Manifold(s.namesConfig(c))
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{
 		"api-caller",
 	})
 }
 
 func (s *manifoldSuite) TestOutput(c *gc.C) {
-	manifold := undertaker.Manifold(s.namesConfig())
+	manifold := undertaker.Manifold(s.namesConfig(c))
 	c.Check(manifold.Output, gc.IsNil)
 }
 
 func (s *manifoldSuite) TestAPICallerMissing(c *gc.C) {
 	resources := resourcesMissing("api-caller")
-	manifold := undertaker.Manifold(s.namesConfig())
+	manifold := undertaker.Manifold(s.namesConfig(c))
 
 	worker, err := manifold.Start(context.Background(), resources.Getter())
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
@@ -84,7 +84,7 @@ func (s *manifoldSuite) TestAPICallerMissing(c *gc.C) {
 
 func (s *manifoldSuite) TestNewFacadeError(c *gc.C) {
 	resources := resourcesMissing()
-	config := s.namesConfig()
+	config := s.namesConfig(c)
 	config.NewFacade = func(apiCaller base.APICaller) (undertaker.Facade, error) {
 		checkResource(c, apiCaller, resources, "api-caller")
 		return nil, errors.New("blort")
@@ -97,7 +97,7 @@ func (s *manifoldSuite) TestNewFacadeError(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestNewCredentialAPIError(c *gc.C) {
-	config := s.namesConfig()
+	config := s.namesConfig(c)
 	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
 		return &fakeFacade{}, nil
 	}
@@ -115,7 +115,7 @@ func (s *manifoldSuite) TestNewCredentialAPIError(c *gc.C) {
 func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 	resources := resourcesMissing()
 	expectFacade := &fakeFacade{}
-	config := s.namesConfig()
+	config := s.namesConfig(c)
 	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
 		return expectFacade, nil
 	}
@@ -132,7 +132,7 @@ func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 
 func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	expectWorker := &fakeWorker{}
-	config := s.namesConfig()
+	config := s.namesConfig(c)
 	var gotConfig undertaker.Config
 	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
 		return &fakeFacade{}, nil
@@ -147,7 +147,7 @@ func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	worker, err := manifold.Start(context.Background(), resources.Getter())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expectWorker)
-	c.Assert(gotConfig.Logger, gc.Equals, &s.logger)
+	c.Assert(gotConfig.Logger, gc.Equals, loggertesting.WrapCheckLog(c))
 }
 
 func resourcesMissing(missing ...string) dt.StubResources {
@@ -190,25 +190,4 @@ type fakeCredentialAPI struct{}
 
 func (*fakeCredentialAPI) InvalidateModelCredential(_ context.Context, reason string) error {
 	return nil
-}
-
-type fakeLogger struct {
-	stub testing.Stub
-}
-
-func (l *fakeLogger) Errorf(format string, args ...interface{}) {
-	l.stub.AddCall("Errorf", format, args)
-}
-
-func (l *fakeLogger) Debugf(format string, args ...interface{}) {
-}
-
-func (l *fakeLogger) Tracef(format string, args ...interface{}) {
-}
-
-func (l *fakeLogger) Infof(format string, args ...interface{}) {
-}
-
-func (l *fakeLogger) Warningf(format string, args ...interface{}) {
-	l.stub.AddCall("Warningf", format, args)
 }

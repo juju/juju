@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 )
 
 // DiffSide represents one side of a bundle-model diff.
@@ -36,7 +37,7 @@ type DiffConfig struct {
 	Model  *Model
 
 	IncludeAnnotations bool
-	Logger             Logger
+	Logger             logger.Logger
 }
 
 // Validate returns whether this is a valid configuration for diffing.

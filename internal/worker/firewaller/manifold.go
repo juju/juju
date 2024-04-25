@@ -5,7 +5,6 @@ package firewaller
 
 import (
 	"context"
-	stdcontext "context"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/remoterelations"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/models"
@@ -22,27 +22,12 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 )
 
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-}
-
 // ManifoldConfig describes the resources used by the firewaller worker.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	EnvironName   string
-	Logger        Logger
+	Logger        logger.Logger
 
 	NewControllerConnection      apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade     func(base.APICaller) *remoterelations.Client
@@ -96,7 +81,7 @@ func (cfg ManifoldConfig) Validate() error {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (cfg ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -147,7 +132,7 @@ func (cfg ManifoldConfig) start(context context.Context, getter dependency.Gette
 	var envIPV6CIDRSupport bool
 	if featQuerier, ok := environ.(environs.FirewallFeatureQuerier); ok {
 		var err error
-		cloudCtx := common.NewCloudCallContextFunc(credentialAPI)(stdcontext.Background())
+		cloudCtx := common.NewCloudCallContextFunc(credentialAPI)(ctx)
 		if envIPV6CIDRSupport, err = featQuerier.SupportsRulesWithIPV6CIDRs(cloudCtx); err != nil {
 			return nil, errors.Trace(err)
 		}

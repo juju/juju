@@ -22,6 +22,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	uniterrors "github.com/juju/juju/domain/unit/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -38,7 +39,7 @@ var _ = gc.Suite(&stateSuite{})
 func newSecretState(c *gc.C, factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
-		logger:    coretesting.NewCheckLogger(c),
+		logger:    loggertesting.WrapCheckLog(c),
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -20,9 +19,11 @@ import (
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
 	"github.com/juju/juju/rpc/params"
@@ -35,14 +36,14 @@ type ApplicationWorkerSuite struct {
 	coretesting.BaseSuite
 
 	modelTag names.ModelTag
-	logger   loggo.Logger
+	logger   logger.Logger
 }
 
 func (s *ApplicationWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
-	s.logger = loggo.GetLogger("test")
+	s.logger = loggertesting.WrapCheckLog(c)
 }
 
 func (s *ApplicationWorkerSuite) waitDone(c *gc.C, done chan struct{}) {

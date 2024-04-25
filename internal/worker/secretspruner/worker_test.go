@@ -7,22 +7,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/secretspruner/mocks"
 )
 
 type workerSuite struct {
 	testing.IsolationSuite
-	logger loggo.Logger
+	logger logger.Logger
 
 	facade *mocks.MockSecretsFacade
 
@@ -34,7 +35,7 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(string), *gomock.Controller) {
 	ctrl := gomock.NewController(c)
-	s.logger = loggo.GetLogger("test")
+	s.logger = loggertesting.WrapCheckLog(c)
 	s.facade = mocks.NewMockSecretsFacade(ctrl)
 
 	s.changedCh = make(chan struct{}, 1)

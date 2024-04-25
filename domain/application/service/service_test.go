@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -40,7 +40,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
-	s.service = NewService(s.state, loggo.GetLogger("test"), registry)
+	s.service = NewService(s.state, loggertesting.WrapCheckLog(c), registry)
 
 	return ctrl
 }

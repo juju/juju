@@ -15,29 +15,10 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 )
 
-// LoggerFactory is the interface that is used to create loggers.
-type LoggerFactory interface {
-	charmhub.LoggerFactory
-
-	// ForNamespace returns a new logger with the provided namespace. This
-	// provides a child logger factory that can be used to create loggers
-	// with a common namespace prefix.
-	ForNamespace(string) LoggerFactory
-}
-
-// Logger is the interface that is used to log messages.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
-
 // CharmRepoFactoryConfig encapsulates the information required for creating a
 // new CharmRepoFactory instance.
 type CharmRepoFactoryConfig struct {
-	// LoggerFactory is the logger factory to use when creating new loggers.
-	LoggerFactory LoggerFactory
+	Logger corelogger.Logger
 
 	// An HTTP client that is injected when making Charmhub API calls.
 	CharmhubHTTPClient charmhub.HTTPClient
@@ -50,7 +31,7 @@ type CharmRepoFactoryConfig struct {
 // repositories allowing them to be reused by subsequent GetCharmRepository
 // calls.
 type CharmRepoFactory struct {
-	loggerFactory      LoggerFactory
+	logger             corelogger.Logger
 	charmhubHTTPClient charmhub.HTTPClient
 	stateBackend       StateBackend
 	modelBackend       ModelBackend
@@ -62,7 +43,7 @@ type CharmRepoFactory struct {
 // NewCharmRepoFactory returns a new factory instance with the provided configuration.
 func NewCharmRepoFactory(cfg CharmRepoFactoryConfig) *CharmRepoFactory {
 	return &CharmRepoFactory{
-		loggerFactory:      cfg.LoggerFactory,
+		logger:             cfg.Logger,
 		charmhubHTTPClient: cfg.CharmhubHTTPClient,
 		stateBackend:       cfg.StateBackend,
 		modelBackend:       cfg.ModelBackend,
@@ -90,16 +71,16 @@ func (f *CharmRepoFactory) GetCharmRepository(ctx context.Context, src corecharm
 		}
 		chURL, _ := cfg.CharmHubURL()
 		chClient, err := charmhub.NewClient(charmhub.Config{
-			URL:           chURL,
-			HTTPClient:    f.charmhubHTTPClient,
-			LoggerFactory: f.loggerFactory.ForNamespace("charmhub"),
+			URL:        chURL,
+			HTTPClient: f.charmhubHTTPClient,
+			Logger:     f.logger.Child("charmhub"),
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		repo = charmrepo.NewCharmHubRepository(
-			f.loggerFactory.ChildWithTags("charmhubrepo", corelogger.CHARMHUB),
+			f.logger.ChildWithTags("charmhubrepo", corelogger.CHARMHUB),
 			chClient,
 		)
 	default:

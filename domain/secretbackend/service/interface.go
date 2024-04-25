@@ -35,11 +35,6 @@ type State interface {
 	GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error)
 }
 
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher

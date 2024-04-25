@@ -99,7 +99,7 @@ func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *gc.C) {
 	resourcesPath, err := basePath.Join("resources")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := newAPIRequester(DefaultHTTPClient(s.loggerFactory), s.logger)
+	apiRequester := newAPIRequester(DefaultHTTPClient(s.logger), s.logger)
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newResourcesClient(resourcesPath, restClient, s.logger)

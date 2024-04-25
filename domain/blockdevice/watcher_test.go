@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/domain/blockdevice/service"
 	"github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/internal/changestream/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type watcherSuite struct {
@@ -62,8 +62,8 @@ func (s *watcherSuite) TestWatchBlockDevicesMissingMachine(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "uuid"),
-		jujutesting.NewCheckLogger(c))
-	service := service.NewWatchableService(st, factory, jujutesting.NewCheckLogger(c))
+		loggertesting.WrapCheckLog(c))
+	service := service.NewWatchableService(st, factory, loggertesting.WrapCheckLog(c))
 
 	_, err := service.WatchBlockDevices(context.Background(), "666")
 	c.Assert(err, gc.ErrorMatches, `machine "666" not found`)
@@ -75,8 +75,8 @@ func (s *watcherSuite) TestStops(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "uuid"),
-		jujutesting.NewCheckLogger(c))
-	service := service.NewWatchableService(st, factory, jujutesting.NewCheckLogger(c))
+		loggertesting.WrapCheckLog(c))
+	service := service.NewWatchableService(st, factory, loggertesting.WrapCheckLog(c))
 
 	w, err := service.WatchBlockDevices(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,8 +96,8 @@ func (s *watcherSuite) TestWatchBlockDevices(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "uuid"),
-		jujutesting.NewCheckLogger(c))
-	service := service.NewWatchableService(st, factory, jujutesting.NewCheckLogger(c))
+		loggertesting.WrapCheckLog(c))
+	service := service.NewWatchableService(st, factory, loggertesting.WrapCheckLog(c))
 
 	w, err := service.WatchBlockDevices(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
@@ -141,8 +141,8 @@ func (s *watcherSuite) TestWatchBlockDevicesIgnoresWrongMachine(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "uuid"),
-		jujutesting.NewCheckLogger(c))
-	service := service.NewWatchableService(st, factory, jujutesting.NewCheckLogger(c))
+		loggertesting.WrapCheckLog(c))
+	service := service.NewWatchableService(st, factory, loggertesting.WrapCheckLog(c))
 
 	w, err := service.WatchBlockDevices(context.Background(), "667")
 	c.Assert(err, jc.ErrorIsNil)

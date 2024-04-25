@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/logger"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -39,7 +39,7 @@ type CredentialService interface {
 type CredentialValidatorAPI struct {
 	*credentialcommon.CredentialManagerAPI
 
-	logger            loggo.Logger
+	logger            logger.Logger
 	backend           StateAccessor
 	cloudService      common.CloudService
 	credentialService CredentialService
@@ -52,7 +52,7 @@ var (
 
 func internalNewCredentialValidatorAPI(
 	backend StateAccessor, cloudService common.CloudService, credentialService CredentialService, resources facade.Resources,
-	authorizer facade.Authorizer, logger loggo.Logger,
+	authorizer facade.Authorizer, logger logger.Logger,
 ) (*CredentialValidatorAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, apiservererrors.ErrPerm

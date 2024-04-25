@@ -9,14 +9,10 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 )
-
-type Logger interface {
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-}
 
 // ManifoldConfig is responsible for configuring this worker.
 type ManifoldConfig struct {
@@ -32,7 +28,7 @@ type ManifoldConfig struct {
 	HandlerErrors map[os.Signal]error
 
 	// Logger to use for this worker
-	Logger Logger
+	Logger logger.Logger
 }
 
 // Manifold returns the dependency manifold for this worker based on the config

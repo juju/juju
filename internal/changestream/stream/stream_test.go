@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 )
@@ -39,14 +40,13 @@ var _ = gc.Suite(&streamSuite{})
 func (s *streamSuite) TestWithNoNamespace(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfter()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -61,7 +61,6 @@ func (s *streamSuite) TestWithNoNamespace(c *gc.C) {
 func (s *streamSuite) TestNoData(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfter()
 	s.expectTimer()
@@ -70,7 +69,7 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -85,7 +84,6 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 func (s *streamSuite) TestOneChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
 	s.expectTimer()
@@ -100,7 +98,7 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -124,7 +122,6 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
@@ -140,7 +137,7 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -181,7 +178,6 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
@@ -197,7 +193,7 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -218,7 +214,6 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
 	s.expectTimer()
@@ -233,7 +228,7 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -258,7 +253,6 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
 	s.expectTimer()
@@ -273,7 +267,7 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	var (
@@ -298,7 +292,6 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
 	s.expectTimer()
@@ -313,7 +306,7 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	var (
@@ -341,7 +334,6 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
 	s.expectClock()
@@ -363,7 +355,7 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -386,7 +378,6 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
@@ -396,7 +387,7 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
@@ -429,7 +420,6 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
 	s.expectClock()
@@ -458,7 +448,7 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
@@ -493,7 +483,6 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
 	s.expectTimer()
@@ -502,7 +491,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	// Insert a change and wait for it to be streamed.
@@ -570,7 +559,6 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
@@ -604,7 +592,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -631,7 +619,6 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
@@ -651,7 +638,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -682,7 +669,6 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
@@ -717,7 +703,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -748,7 +734,6 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
@@ -791,7 +776,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -824,7 +809,6 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectTimer()
 	s.expectClock()
@@ -834,7 +818,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	expectNotifyBlock := func(block bool) {
@@ -898,7 +882,6 @@ func (s *streamSuite) TestReport(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
@@ -922,7 +905,7 @@ func (s *streamSuite) TestReport(c *gc.C) {
 	})
 
 	id := uuid.MustNewUUID().String()
-	stream := New(id, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(id, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
@@ -998,7 +981,6 @@ func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
@@ -1021,7 +1003,7 @@ func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 	})
 
 	tag := uuid.MustNewUUID().String()
-	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
@@ -1063,7 +1045,6 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
@@ -1086,7 +1067,7 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 	})
 
 	tag := uuid.MustNewUUID().String()
-	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks-1; i++ {
@@ -1128,7 +1109,6 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
@@ -1151,7 +1131,7 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 	})
 
 	tag := uuid.MustNewUUID().String()
-	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
 	// Insert the first change, which will be the first watermark.

@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 )
 
@@ -67,7 +67,7 @@ type affectedNetworks struct {
 	// When true, violations of constraints/bindings integrity are logged as
 	// warnings instead of being returned as errors.
 	force  bool
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 // newAffectedNetworks returns a new affectedNetworks reference for
@@ -75,7 +75,7 @@ type affectedNetworks struct {
 // The input space topology is manipulated to represent the topology that
 // would result from the move.
 func newAffectedNetworks(
-	movingSubnets network.IDSet, spaceName string, currentTopology network.SpaceInfos, force bool, logger loggo.Logger,
+	movingSubnets network.IDSet, spaceName string, currentTopology network.SpaceInfos, force bool, logger corelogger.Logger,
 ) (*affectedNetworks, error) {
 
 	// We need to indicate that any moving fan underlays include

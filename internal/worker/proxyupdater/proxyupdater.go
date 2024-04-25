@@ -17,6 +17,7 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/proxyupdater"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/snap"
@@ -34,7 +35,7 @@ type Config struct {
 	ExternalUpdate      func(proxy.Settings) error
 	InProcessUpdate     func(proxy.Settings) error
 	RunFunc             func(string, string, ...string) (string, error)
-	Logger              Logger
+	Logger              logger.Logger
 }
 
 // Validate ensures that all the required fields have values.

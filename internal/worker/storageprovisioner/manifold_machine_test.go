@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/agent/engine/enginetest"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/model"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/rpc/params"
@@ -49,7 +49,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:                    config.AgentName,
 		APICallerName:                config.APICallerName,
 		Clock:                        testclock.NewClock(defaultClockStart),
-		Logger:                       loggo.GetLogger("test"),
+		Logger:                       loggertesting.WrapCheckLog(c),
 		NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 	}
 }

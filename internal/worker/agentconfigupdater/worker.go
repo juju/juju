@@ -13,6 +13,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
@@ -34,7 +35,7 @@ type WorkerConfig struct {
 	OpenTelemetryStackTraces bool
 	OpenTelemetrySampleRatio float64
 	ObjectStoreType          objectstore.BackendType
-	Logger                   Logger
+	Logger                   logger.Logger
 }
 
 // Validate ensures that the required values are set in the structure.

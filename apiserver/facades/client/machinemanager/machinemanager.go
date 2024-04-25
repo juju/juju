@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -108,7 +108,7 @@ type MachineManagerAPI struct {
 	networkService NetworkService
 
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
-	logger                      loggo.Logger
+	logger                      corelogger.Logger
 }
 
 type MachineManagerV9 struct {
@@ -166,9 +166,9 @@ func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 	logger := ctx.Logger().Child("machinemanager")
 	chURL, _ := modelCfg.CharmHubURL()
 	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:           chURL,
-		HTTPClient:    ctx.HTTPClient(facade.CharmhubHTTPClient),
-		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+		URL:        chURL,
+		HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
+		Logger:     logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -214,7 +214,7 @@ func NewMachineManagerAPI(
 	resources facade.Resources,
 	leadership Leadership,
 	charmhubClient CharmhubClient,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 	networkService NetworkService,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {

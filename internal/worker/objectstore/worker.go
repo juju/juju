@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -39,7 +40,7 @@ type WorkerConfig struct {
 	RootDir                    string
 	RootBucket                 string
 	Clock                      clock.Clock
-	Logger                     Logger
+	Logger                     logger.Logger
 	S3Client                   coreobjectstore.Client
 	NewObjectStoreWorker       internalobjectstore.ObjectStoreWorkerFunc
 	ObjectStoreType            coreobjectstore.BackendType

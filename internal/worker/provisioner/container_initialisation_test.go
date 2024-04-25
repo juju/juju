@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/factory"
 	"github.com/juju/juju/internal/container/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -113,7 +114,7 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := ContainerSetupParams{
-		Logger:        &noOpLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: containerType,
 		MachineZone:   s.machine,
 		MTag:          s.machine.MachineTag(),

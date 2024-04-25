@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/environs"
@@ -33,7 +34,7 @@ type TrackerConfig struct {
 	ConfigService      ConfigService
 	CredentialService  CredentialService
 	GetProviderForType func(coremodel.ModelType) (GetProviderFunc, error)
-	Logger             Logger
+	Logger             logger.Logger
 }
 
 // Validate returns an error if the config cannot be used to start a Worker.

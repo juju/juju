@@ -11,16 +11,17 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 )
 
 type hashFileSystemAccessor struct {
 	fs        fs.FS
 	namespace string
 	path      string
-	logger    Logger
+	logger    logger.Logger
 }
 
-func newHashFileSystemAccessor(namespace, rootDir string, logger Logger) *hashFileSystemAccessor {
+func newHashFileSystemAccessor(namespace, rootDir string, logger logger.Logger) *hashFileSystemAccessor {
 	path := basePath(rootDir, namespace)
 	return &hashFileSystemAccessor{
 		fs:        os.DirFS(path),

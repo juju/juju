@@ -32,7 +32,6 @@ type baseSuite struct {
 
 	clock        *MockClock
 	timer        *MockTimer
-	logger       *MockLogger
 	metrics      *MockMetricsCollector
 	FileNotifier *MockFileNotifier
 }
@@ -52,19 +51,10 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
-	s.logger = NewMockLogger(ctrl)
 	s.metrics = NewMockMetricsCollector(ctrl)
 	s.FileNotifier = NewMockFileNotifier(ctrl)
 
 	return ctrl
-}
-
-func (s *baseSuite) expectAnyLogs() {
-	s.logger.EXPECT().Errorf(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().IsTraceEnabled().Return(false).AnyTimes()
 }
 
 func (s *baseSuite) expectTimer() chan<- time.Time {

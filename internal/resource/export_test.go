@@ -9,6 +9,7 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/names/v5"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state"
 )
 
@@ -19,7 +20,7 @@ func NewCSRetryClientForTest(client ResourceGetter) *ResourceRetryClient {
 	return retryClient
 }
 
-func NewCharmHubClientForTest(cl CharmHub, logger Logger) *CharmHubClient {
+func NewCharmHubClientForTest(cl CharmHub, logger corelogger.Logger) *CharmHubClient {
 	return &CharmHubClient{
 		client: cl,
 		logger: logger,

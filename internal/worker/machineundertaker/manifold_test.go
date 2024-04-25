@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,7 +17,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/machineundertaker"
 )
@@ -30,7 +31,7 @@ type manifoldSuite struct {
 var _ = gc.Suite(&manifoldSuite{})
 
 func (*manifoldSuite) TestMissingCaller(c *gc.C) {
-	manifold := makeManifold(nil, nil)
+	manifold := makeManifold(c, nil, nil)
 	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  dependency.ErrMissing,
 		"the-environ": &fakeEnviron{},
@@ -40,7 +41,7 @@ func (*manifoldSuite) TestMissingCaller(c *gc.C) {
 }
 
 func (*manifoldSuite) TestMissingEnviron(c *gc.C) {
-	manifold := makeManifold(nil, nil)
+	manifold := makeManifold(c, nil, nil)
 	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  &fakeAPICaller{},
 		"the-environ": dependency.ErrMissing,
@@ -50,7 +51,7 @@ func (*manifoldSuite) TestMissingEnviron(c *gc.C) {
 }
 
 func (*manifoldSuite) TestAPIError(c *gc.C) {
-	manifold := makeManifold(nil, nil)
+	manifold := makeManifold(c, nil, nil)
 	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  &fakeAPICaller{},
 		"the-environ": &fakeEnviron{},
@@ -60,7 +61,7 @@ func (*manifoldSuite) TestAPIError(c *gc.C) {
 }
 
 func (*manifoldSuite) TestWorkerError(c *gc.C) {
-	manifold := makeManifold(nil, errors.New("boglodite"))
+	manifold := makeManifold(c, nil, errors.New("boglodite"))
 	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  apitesting.APICallerFunc(nil),
 		"the-environ": &fakeEnviron{},
@@ -71,7 +72,7 @@ func (*manifoldSuite) TestWorkerError(c *gc.C) {
 
 func (*manifoldSuite) TestSuccess(c *gc.C) {
 	w := fakeWorker{name: "Boris"}
-	manifold := makeManifold(&w, nil)
+	manifold := makeManifold(c, &w, nil)
 	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  apitesting.APICallerFunc(nil),
 		"the-environ": &fakeEnviron{},
@@ -80,12 +81,12 @@ func (*manifoldSuite) TestSuccess(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, &w)
 }
 
-func makeManifold(workerResult worker.Worker, workerError error) dependency.Manifold {
+func makeManifold(c *gc.C, workerResult worker.Worker, workerError error) dependency.Manifold {
 	return machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 		APICallerName: "the-caller",
 		EnvironName:   "the-environ",
-		Logger:        loggo.GetLogger("test"),
-		NewWorker: func(machineundertaker.Facade, environs.Environ, common.CredentialAPI, machineundertaker.Logger) (worker.Worker, error) {
+		Logger:        loggertesting.WrapCheckLog(c),
+		NewWorker: func(machineundertaker.Facade, environs.Environ, common.CredentialAPI, logger.Logger) (worker.Worker, error) {
 			return workerResult, workerError
 		},
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {

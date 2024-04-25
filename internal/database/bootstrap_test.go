@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type bootstrapSuite struct {
@@ -77,7 +78,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, modeltesting.GenModelUUID(c), stubLogger{}, check)
+	err := BootstrapDqlite(context.Background(), mgr, modeltesting.GenModelUUID(c), loggertesting.WrapCheckLog(c), check)
 	c.Assert(err, jc.ErrorIsNil)
 
 }

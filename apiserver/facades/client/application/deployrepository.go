@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
@@ -35,8 +36,6 @@ import (
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
 )
-
-var deployRepoLogger = logger.Child("deployfromrepository")
 
 // DeployFromRepositoryValidator defines an deploy config validator.
 type DeployFromRepositoryValidator interface {
@@ -74,12 +73,14 @@ type DeployFromRepositoryAPI struct {
 	validator          DeployFromRepositoryValidator
 	stateCharm         func(Charm) *state.Charm
 	applicationService ApplicationService
+	logger             corelogger.Logger
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(
 	state DeployFromRepositoryState, applicationService ApplicationService,
 	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
+	logger corelogger.Logger,
 ) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
 		state:              state,
@@ -87,11 +88,12 @@ func NewDeployFromRepositoryAPI(
 		validator:          validator,
 		stateCharm:         CharmToStateCharm,
 		applicationService: applicationService,
+		logger:             logger,
 	}
 }
 
 func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
-	deployRepoLogger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))
+	api.logger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
 	dt, addPendingResourceErrs := api.validator.ValidateArg(ctx, arg)
 
@@ -173,7 +175,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			// Remove if there's any pending resources before raising addApplicationErr
 			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs, api.store)
 			if removeResourcesErr != nil {
-				deployRepoLogger.Errorf("unable to remove pending resources for %q", dt.applicationName)
+				api.logger.Errorf("unable to remove pending resources for %q", dt.applicationName)
 			}
 		}
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(addApplicationErr)}
@@ -244,7 +246,7 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resource
 	for _, r := range resources {
 		pID, err := api.state.AddPendingResource(appName, r, api.store)
 		if err != nil {
-			deployRepoLogger.Errorf("Unable to add pending resource %v for application %v: %v", r.Name, appName, err)
+			api.logger.Errorf("Unable to add pending resource %v for application %v: %v", r.Name, appName, err)
 			errs = append(errs, err)
 			continue
 		}
@@ -283,6 +285,7 @@ type validatorConfig struct {
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
 	storagePoolGetter  StoragePoolGetter
+	logger             corelogger.Logger
 }
 
 func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig) DeployFromRepositoryValidator {
@@ -298,6 +301,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return state.NewBindings(st, givenMap)
 		},
+		logger: cfg.logger,
 	}
 	if cfg.model.Type() == state.ModelTypeCAAS {
 		return &caasDeployFromRepositoryValidator{
@@ -341,6 +345,8 @@ type deployFromRepositoryValidator struct {
 
 	// For testing using mocks.
 	newStateBindings func(st any, givenMap map[string]string) (Bindings, error)
+
+	logger corelogger.Logger
 }
 
 // Validating arguments to deploy a charm.
@@ -417,8 +423,8 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.pendingResourceUploads = pendingResourceUploads
 	dt.resolvedResources = resources
 
-	if deployRepoLogger.IsTraceEnabled() {
-		deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
+	if v.logger.IsTraceEnabled() {
+		v.logger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
 	}
 	return dt, errs
 }
@@ -497,7 +503,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}
-		deployRepoLogger.Warningf("proceeding with deployment of application even though the charm feature requirements could not be met as --force was specified")
+		v.logger.Warningf("proceeding with deployment of application even though the charm feature requirements could not be met as --force was specified")
 	}
 
 	dt := deployTemplate{
@@ -798,7 +804,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 	bsCfg := corecharm.SelectorConfig{
 		Config:              modelCfg,
 		Force:               force,
-		Logger:              deployRepoLogger,
+		Logger:              v.logger,
 		RequestedBase:       requestedBase,
 		SupportedCharmBases: supportedBases,
 		WorkloadBases:       workloadBases,
@@ -819,7 +825,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 	} else if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
-	deployRepoLogger.Tracef("Using base %q from %v to deploy %v", base, supportedBases, curl)
+	v.logger.Tracef("Using base %q from %v to deploy %v", base, supportedBases, curl)
 
 	resolvedOrigin.Platform.OS = base.OS
 	// Avoid using Channel.String() here instead of Channel.Track for the Platform.Channel,
@@ -836,7 +842,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
-	deployRepoLogger.Tracef("from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
+	v.logger.Tracef("from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
 
 	// Fetch the essential metadata that we require to deploy the charm
 	// without downloading the full archive. The remaining metadata will
@@ -846,7 +852,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		return nil, corecharm.Origin{}, nil, err
 	}
 	resolvedOrigin := resolvedData.EssentialMetadata.ResolvedOrigin
-	deployRepoLogger.Tracef("from resolveCharm: %s, %s", resolvedData.URL, pretty.Sprint(resolvedOrigin))
+	v.logger.Tracef("from resolveCharm: %s, %s", resolvedData.URL, pretty.Sprint(resolvedOrigin))
 	if resolvedOrigin.Type != "charm" {
 		return nil, corecharm.Origin{}, nil, errors.BadRequestf("%q is not a charm", arg.CharmName)
 	}
@@ -904,7 +910,7 @@ func (v *deployFromRepositoryValidator) getCharmRepository(ctx context.Context, 
 	v.mu.Unlock()
 
 	repoFactory := v.newRepoFactory(services.CharmRepoFactoryConfig{
-		LoggerFactory:      services.LoggoLoggerFactory(deployRepoLogger),
+		Logger:             v.logger,
 		CharmhubHTTPClient: v.charmhubHTTPClient,
 		StateBackend:       v.state,
 		ModelBackend:       v.model,

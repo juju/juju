@@ -6,25 +6,26 @@ package provisioner
 import (
 	"errors"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/feature"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
 type logSuite struct {
 	testing.LoggingSuite
 	jujutesting.JujuOSEnvSuite
-	logger loggo.Logger
+	logger logger.Logger
 }
 
 func (l *logSuite) SetUpTest(c *gc.C) {
 	l.LoggingSuite.SetUpTest(c)
 	l.JujuOSEnvSuite.SetUpTest(c)
-	l.logger = loggo.GetLogger("juju.provisioner")
+	l.logger = loggertesting.WrapCheckLog(c)
 }
 
 var _ = gc.Suite(&logSuite{})

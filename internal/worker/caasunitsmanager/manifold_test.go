@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasunitsmanager/mocks"
 )
@@ -26,7 +26,7 @@ var _ = gc.Suite(&manifoldSuite{})
 func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.config = caasunitsmanager.ManifoldConfig{
 		Clock:  testclock.NewClock(time.Now()),
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 		Hub:    mocks.NewMockHub(gomock.NewController(c)),
 	}
 }

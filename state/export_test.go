@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testcharms/repo"
-	"github.com/juju/juju/testing"
 )
 
 const (
@@ -1128,7 +1128,7 @@ func NewObjectStore(c *gc.C, namespace string) objectstore.ObjectStore {
 		RootDir:         c.MkDir(),
 		MetadataService: objectstoretesting.MemoryObjectStore(),
 		Claimer:         objectstoretesting.MemoryClaimer(),
-		Logger:          testing.NewCheckLogger(c),
+		Logger:          loggertesting.WrapCheckLog(c),
 		Clock:           clock.WallClock,
 	})
 	c.Assert(err, jc.ErrorIsNil)

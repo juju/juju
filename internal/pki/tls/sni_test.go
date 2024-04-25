@@ -7,10 +7,10 @@ import (
 	"crypto/tls"
 	"net"
 
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	pkitls "github.com/juju/juju/internal/pki/tls"
@@ -29,7 +29,7 @@ func (s *SNISuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authority = authority
-	s.sniGetter = pkitls.AuthoritySNITLSGetter(authority, loggo.Logger{})
+	s.sniGetter = pkitls.AuthoritySNITLSGetter(authority, loggertesting.WrapCheckLog(c))
 }
 
 func TLSCertificatesEqual(c *gc.C, cert1, cert2 *tls.Certificate) {

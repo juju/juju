@@ -66,7 +66,7 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 }
 
 func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
-	facade, err := instancemutater.NewTestAPI(s.state, s.mutatorWatcher, s.resources, s.authorizer)
+	facade, err := instancemutater.NewTestAPI(c, s.state, s.mutatorWatcher, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	return facade
 }

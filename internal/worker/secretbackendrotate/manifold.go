@@ -13,12 +13,13 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/secretsbackendmanager"
+	"github.com/juju/juju/core/logger"
 )
 
 // ManifoldConfig holds dependencies and configuration for a
 // secretbackendrotate worker.
 type ManifoldConfig struct {
-	Logger        Logger
+	Logger        logger.Logger
 	APICallerName string
 }
 

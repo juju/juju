@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
@@ -19,23 +20,13 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 )
 
-// Logger represents the logging methods called.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(message string, args ...any)
-	Infof(message string, args ...any)
-	Warningf(message string, args ...any)
-	Errorf(message string, args ...any)
-	Child(string) Logger
-}
-
 // ManifoldConfig holds the information necessary to run a service factory
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
 	DBAccessorName              string
 	ChangeStreamName            string
 	ProviderFactoryName         string
-	Logger                      Logger
+	Logger                      logger.Logger
 	NewWorker                   func(Config) (worker.Worker, error)
 	NewServiceFactoryGetter     ServiceFactoryGetterFn
 	NewControllerServiceFactory ControllerServiceFactoryFn
@@ -46,7 +37,7 @@ type ManifoldConfig struct {
 type ServiceFactoryGetterFn func(
 	servicefactory.ControllerServiceFactory,
 	changestream.WatchableDBGetter,
-	Logger,
+	logger.Logger,
 	ModelServiceFactoryFn,
 	providertracker.ProviderFactory,
 ) servicefactory.ServiceFactoryGetter
@@ -56,7 +47,7 @@ type ServiceFactoryGetterFn func(
 type ControllerServiceFactoryFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
-	Logger,
+	logger.Logger,
 ) servicefactory.ControllerServiceFactory
 
 // ModelServiceFactoryFn is a function that returns a model service factory.
@@ -64,7 +55,7 @@ type ModelServiceFactoryFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
-	Logger,
+	logger.Logger,
 ) servicefactory.ModelServiceFactory
 
 // Validate validates the manifold configuration.
@@ -168,14 +159,12 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewControllerServiceFactory(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
-	logger Logger,
+	logger logger.Logger,
 ) servicefactory.ControllerServiceFactory {
 	return domainservicefactory.NewControllerFactory(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
-		serviceFactoryLogger{
-			Logger: logger,
-		},
+		logger,
 	)
 }
 
@@ -185,16 +174,14 @@ func NewProviderTrackerModelServiceFactory(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
-	logger Logger,
+	logger logger.Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
-		serviceFactoryLogger{
-			Logger: logger,
-		},
+		logger,
 	)
 }
 
@@ -204,16 +191,14 @@ func NewProviderTrackerModelServiceFactory(
 func NewModelServiceFactory(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
-	logger Logger,
+	logger logger.Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
-		serviceFactoryLogger{
-			Logger: logger,
-		},
+		logger,
 	)
 }
 
@@ -221,7 +206,7 @@ func NewModelServiceFactory(
 func NewServiceFactoryGetter(
 	ctrlFactory servicefactory.ControllerServiceFactory,
 	dbGetter changestream.WatchableDBGetter,
-	logger Logger,
+	logger logger.Logger,
 	newModelServiceFactory ModelServiceFactoryFn,
 	providerFactory providertracker.ProviderFactory,
 ) servicefactory.ServiceFactoryGetter {

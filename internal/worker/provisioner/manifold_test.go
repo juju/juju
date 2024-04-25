@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
@@ -17,7 +16,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/provisioner"
 )
@@ -29,9 +30,9 @@ type ManifoldSuite struct {
 
 var _ = gc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) makeManifold() dependency.Manifold {
+func (s *ManifoldSuite) makeManifold(c *gc.C) dependency.Manifold {
 	fakeNewProvFunc := func(provisioner.ControllerAPI, provisioner.MachinesAPI, provisioner.ToolsFinder,
-		provisioner.DistributionGroupFinder, agent.Config, provisioner.Logger, provisioner.Environ, common.CredentialAPI,
+		provisioner.DistributionGroupFinder, agent.Config, logger.Logger, provisioner.Environ, common.CredentialAPI,
 	) (provisioner.Provisioner, error) {
 		s.stub.AddCall("NewProvisionerFunc")
 		return struct{ provisioner.Provisioner }{}, nil
@@ -39,7 +40,7 @@ func (s *ManifoldSuite) makeManifold() dependency.Manifold {
 	return provisioner.Manifold(provisioner.ManifoldConfig{
 		AgentName:                    "agent",
 		APICallerName:                "api-caller",
-		Logger:                       loggo.GetLogger("test"),
+		Logger:                       loggertesting.WrapCheckLog(c),
 		EnvironName:                  "environ",
 		NewProvisionerFunc:           fakeNewProvFunc,
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
@@ -51,14 +52,14 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestManifold(c *gc.C) {
-	manifold := s.makeManifold()
+	manifold := s.makeManifold(c)
 	c.Check(manifold.Inputs, jc.SameContents, []string{"agent", "api-caller", "environ"})
 	c.Check(manifold.Output, gc.IsNil)
 	c.Check(manifold.Start, gc.NotNil)
 }
 
 func (s *ManifoldSuite) TestMissingAgent(c *gc.C) {
-	manifold := s.makeManifold()
+	manifold := s.makeManifold(c)
 	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":      dependency.ErrMissing,
 		"api-caller": struct{ base.APICaller }{},
@@ -69,7 +70,7 @@ func (s *ManifoldSuite) TestMissingAgent(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
-	manifold := s.makeManifold()
+	manifold := s.makeManifold(c)
 	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": dependency.ErrMissing,
@@ -80,7 +81,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
-	manifold := s.makeManifold()
+	manifold := s.makeManifold(c)
 	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": struct{ base.APICaller }{},
@@ -91,7 +92,7 @@ func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStarts(c *gc.C) {
-	manifold := s.makeManifold()
+	manifold := s.makeManifold(c)
 	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":      new(fakeAgent),
 		"api-caller": apitesting.APICallerFunc(nil),

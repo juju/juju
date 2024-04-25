@@ -6,7 +6,6 @@ package common_test
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -61,7 +61,7 @@ func (s *upgradeSeriesSuite) assertBackendApi(
 	}
 
 	api := common.NewUpgradeSeriesAPI(
-		mockBackend, resources, authorizer, machineAuthFunc, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
+		mockBackend, resources, authorizer, machineAuthFunc, unitAuthFunc, loggertesting.WrapCheckLog(c))
 	return api, ctrl, mockBackend
 }
 

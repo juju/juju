@@ -19,18 +19,20 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/core/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/socketlistener"
 )
 
 type socketListenerSuite struct {
-	logger *fakeLogger
+	logger logger.Logger
 }
 
 var _ = gc.Suite(&socketListenerSuite{})
 
 func (s *socketListenerSuite) SetUpTest(c *gc.C) {
-	s.logger = &fakeLogger{}
+	s.logger = loggertesting.WrapCheckLog(c)
 }
 
 func handleTestEndpoint1(resp http.ResponseWriter, req *http.Request) {
@@ -76,15 +78,8 @@ func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check server has stopped.
-	resp, err = cl.Get("http://localhost:8080/foo")
+	_, err = cl.Get("http://localhost:8080/foo")
 	c.Assert(err, gc.ErrorMatches, ".*connection refused")
-
-	// No warnings/errors should have been logged.
-	for _, entry := range s.logger.entries {
-		if entry.level == "ERROR" || entry.level == "WARNING" {
-			c.Errorf("%s: %s", entry.level, entry.msg)
-		}
-	}
 }
 
 // TestEnsureShutdown checks that a slow handler will not prevent a clean
@@ -150,22 +145,4 @@ func client(socketPath string) *http.Client {
 			},
 		},
 	}
-}
-
-type fakeLogger struct {
-	entries []logEntry
-}
-
-type logEntry struct{ level, msg string }
-
-func (f *fakeLogger) write(level string, format string, args ...any) {
-	f.entries = append(f.entries, logEntry{level, fmt.Sprintf(format, args...)})
-}
-
-func (f *fakeLogger) Warningf(format string, args ...any) {
-	f.write("WARNING", format, args...)
-}
-
-func (f *fakeLogger) Debugf(format string, args ...any) {
-	f.write("DEBUG", format, args...)
 }

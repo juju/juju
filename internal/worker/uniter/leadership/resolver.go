@@ -9,29 +9,19 @@ import (
 	"github.com/juju/charm/v13/hooks"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed into the NewResolver as needed.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger defines the logging methods used by the leadership package.
-type Logger interface {
-	Tracef(string, ...interface{})
-}
-
 type leadershipResolver struct {
-	logger Logger
+	logger logger.Logger
 }
 
 // NewResolver returns a new leadership resolver.
-func NewResolver(logger Logger) resolver.Resolver {
+func NewResolver(logger logger.Logger) resolver.Resolver {
 	return &leadershipResolver{logger: logger}
 }
 

@@ -11,19 +11,12 @@ import (
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
-
-// Logger defines the logging methods that the package uses.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-}
 
 // WorkloadEventType is used to distinguish between each event type triggered
 // by the workload.
@@ -133,14 +126,14 @@ func (c *workloadEvents) EventIDs() []string {
 }
 
 type workloadHookResolver struct {
-	logger         Logger
+	logger         logger.Logger
 	events         WorkloadEvents
 	eventCompleted func(id string)
 }
 
 // NewWorkloadHookResolver returns a new resolver with determines which workload related operation
 // should be run based on local and remote uniter states.
-func NewWorkloadHookResolver(logger Logger, events WorkloadEvents, eventCompleted func(string)) resolver.Resolver {
+func NewWorkloadHookResolver(logger logger.Logger, events WorkloadEvents, eventCompleted func(string)) resolver.Resolver {
 	return &workloadHookResolver{
 		logger:         logger,
 		events:         events,

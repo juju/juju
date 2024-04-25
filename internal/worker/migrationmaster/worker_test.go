@@ -28,6 +28,7 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/watcher"
@@ -1497,8 +1498,8 @@ func (c *stubConnection) ConnectControllerStream(_ context.Context, path string,
 	return c.logStream, nil
 }
 
-func makeStubUploadBinaries(stub *jujutesting.Stub) func(context.Context, migration.UploadBinariesConfig) error {
-	return func(_ context.Context, config migration.UploadBinariesConfig) error {
+func makeStubUploadBinaries(stub *jujutesting.Stub) func(context.Context, migration.UploadBinariesConfig, logger.Logger) error {
+	return func(_ context.Context, config migration.UploadBinariesConfig, _ logger.Logger) error {
 		stub.AddCall(
 			"UploadBinaries",
 			config.Charms,
@@ -1514,7 +1515,7 @@ func makeStubUploadBinaries(stub *jujutesting.Stub) func(context.Context, migrat
 
 // nullUploadBinaries is a UploadBinaries variant which is intended to
 // not get called.
-func nullUploadBinaries(context.Context, migration.UploadBinariesConfig) error {
+func nullUploadBinaries(context.Context, migration.UploadBinariesConfig, logger.Logger) error {
 	panic("should not get called")
 }
 

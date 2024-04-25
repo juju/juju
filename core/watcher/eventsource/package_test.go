@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	dbtesting "github.com/juju/juju/internal/database/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination package_mock_test.go github.com/juju/juju/core/watcher/eventsource Logger
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,WatchableDB,EventSource
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination watcher_mock_test.go -source=./consume.go
 
@@ -57,7 +57,6 @@ type baseSuite struct {
 
 	watchableDB watchableDBShim
 	eventsource *MockEventSource
-	logger      *MockLogger
 	sub         *MockSubscription
 }
 
@@ -69,14 +68,13 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 		TxnRunner:   s.TxnRunner(),
 		EventSource: s.eventsource,
 	}
-	s.logger = NewMockLogger(ctrl)
 	s.sub = NewMockSubscription(ctrl)
 
 	return ctrl
 }
 
-func (s *baseSuite) newBaseWatcher() *BaseWatcher {
-	return NewBaseWatcher(s.watchableDB, s.logger)
+func (s *baseSuite) newBaseWatcher(c *gc.C) *BaseWatcher {
+	return NewBaseWatcher(s.watchableDB, loggertesting.WrapCheckLog(c))
 }
 
 // subscriptionOptionMatcher is a gomock.Matcher that can be used to check

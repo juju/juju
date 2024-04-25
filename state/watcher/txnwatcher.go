@@ -12,6 +12,8 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/wrench"
 )
 
@@ -48,7 +50,7 @@ type RunCmdFunc func(db *mgo.Database, cmd any, resp any) error
 type TxnWatcher struct {
 	hub    Hub
 	clock  Clock
-	logger Logger
+	logger logger.Logger
 
 	tomb       tomb.Tomb
 	session    *mgo.Session
@@ -107,7 +109,7 @@ type TxnWatcherConfig struct {
 	// Clock allows tests to control the advancing of time.
 	Clock Clock
 	// Logger is used to control where the log messages for this watcher go.
-	Logger Logger
+	Logger logger.Logger
 	// PollInterval is used to set how long mongo will wait before returning an
 	// empty result. It defaults to 1s.
 	PollInterval time.Duration
@@ -158,7 +160,7 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 		ignoreCollections: config.IgnoreCollections,
 	}
 	if w.logger == nil {
-		w.logger = noOpLogger{}
+		w.logger = internallogger.Noop()
 	}
 	if w.pollInterval == 0 {
 		w.pollInterval = 1 * time.Second

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -77,7 +77,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.clock = testclock.NewClock(time.Now())
 	controllerConfigService := controllerConfigService{}
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.networkService, nil, s.resources, s.authoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.networkService, nil, s.resources, s.authoriser, controllerConfigService, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -123,7 +123,7 @@ func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C
 
 	controllerConfigService := controllerConfigService{}
 
-	api, err := instancepoller.NewInstancePollerAPI(nil, nil, nil, s.resources, anAuthoriser, controllerConfigService, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+	api, err := instancepoller.NewInstancePollerAPI(nil, nil, nil, s.resources, anAuthoriser, controllerConfigService, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

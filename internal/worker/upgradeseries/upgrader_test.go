@@ -4,12 +4,13 @@
 package upgradeseries_test
 
 import (
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/upgradeseries"
 	. "github.com/juju/juju/internal/worker/upgradeseries/mocks"
 	"github.com/juju/juju/testing"
@@ -20,7 +21,7 @@ type upgraderSuite struct {
 
 	machineService string
 
-	logger  upgradeseries.Logger
+	logger  logger.Logger
 	manager *MockSystemdServiceManager
 }
 
@@ -28,7 +29,7 @@ var _ = gc.Suite(&upgraderSuite{})
 
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.logger = loggo.GetLogger("test.upgrader")
+	s.logger = loggertesting.WrapCheckLog(c)
 	s.machineService = "jujud-machine-0"
 }
 

@@ -7,10 +7,10 @@ import (
 	"container/list"
 	"fmt"
 
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -227,7 +227,7 @@ var StoreChangeMethodTests = []struct {
 
 func (s *storeSuite) TestStoreChangeMethods(c *gc.C) {
 	for i, test := range StoreChangeMethodTests {
-		all := newStore(loggo.GetLogger("test"))
+		all := newStore(loggertesting.WrapCheckLog(c))
 		c.Logf("test %d. %s", i, test.about)
 		test.change(all)
 		assertStoreContents(c, all, test.expectRevno, test.expectContents)
@@ -235,7 +235,7 @@ func (s *storeSuite) TestStoreChangeMethods(c *gc.C) {
 }
 
 func (s *storeSuite) TestChangesSince(c *gc.C) {
-	a := newStore(loggo.GetLogger("test"))
+	a := newStore(loggertesting.WrapCheckLog(c))
 	// Add three entries.
 	var deltas []Delta
 	for i := 0; i < 3; i++ {
@@ -305,7 +305,7 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 }
 
 func (s *storeSuite) TestGet(c *gc.C) {
-	a := newStore(loggo.GetLogger("test"))
+	a := newStore(loggertesting.WrapCheckLog(c))
 	m := &MachineInfo{ModelUUID: "uuid", ID: "0"}
 	a.Update(m)
 
@@ -316,7 +316,7 @@ func (s *storeSuite) TestGet(c *gc.C) {
 func (s *storeSuite) TestDecReferenceWithZero(c *gc.C) {
 	// If a watcher is stopped before it had looked at any items, then we shouldn't
 	// decrement its ref count when it is stopped.
-	store := newStore(loggo.GetLogger("test"))
+	store := newStore(loggertesting.WrapCheckLog(c))
 	m := &MachineInfo{ModelUUID: "uuid", ID: "0"}
 	store.Update(m)
 
@@ -335,7 +335,7 @@ func (s *storeSuite) TestDecReferenceIfAlreadySeenRemoved(c *gc.C) {
 	// If the Multiwatcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
 
-	store := newStore(loggo.GetLogger("test"))
+	store := newStore(loggertesting.WrapCheckLog(c))
 	m := &MachineInfo{ModelUUID: "uuid", ID: "0"}
 	store.Update(m)
 
@@ -356,7 +356,7 @@ func (s *storeSuite) TestDecReferenceIfAlreadySeenRemoved(c *gc.C) {
 func (s *storeSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *gc.C) {
 	// If the Multiwatcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
-	store := newStore(loggo.GetLogger("test"))
+	store := newStore(loggertesting.WrapCheckLog(c))
 	info := &MachineInfo{ModelUUID: "uuid", ID: "0"}
 	store.Update(info)
 

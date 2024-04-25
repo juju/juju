@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -16,8 +15,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	workermocks "github.com/juju/juju/internal/worker/mocks"
 	"github.com/juju/juju/internal/worker/upgradeseries"
 	. "github.com/juju/juju/internal/worker/upgradeseries/mocks"
@@ -36,7 +37,7 @@ func (w *fakeWatcher) Changes() watcher.NotifyChannel {
 type workerSuite struct {
 	testing.BaseSuite
 
-	logger        upgradeseries.Logger
+	logger        logger.Logger
 	facade        *MockFacade
 	unitDiscovery *MockUnitDiscovery
 	upgrader      *MockUpgrader
@@ -51,7 +52,7 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.logger = loggo.GetLogger("test.upgradeseries")
+	s.logger = loggertesting.WrapCheckLog(c)
 	s.done = make(chan struct{})
 }
 

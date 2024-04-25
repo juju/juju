@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/machineundertaker"
 )
 
@@ -36,7 +36,7 @@ func (s *undertakerSuite) TestErrorWatching(c *gc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(errors.New("blam"))
 	w, err := machineundertaker.NewWorker(
-		api, &fakeEnviron{}, &fakeCredentialAPI{}, loggo.GetLogger("test"))
+		api, &fakeEnviron{}, &fakeCredentialAPI{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "blam")
@@ -47,7 +47,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(nil, errors.New("explodo"))
 	w, err := machineundertaker.NewWorker(
-		api, &fakeEnviron{}, &fakeCredentialAPI{}, loggo.GetLogger("test"))
+		api, &fakeEnviron{}, &fakeCredentialAPI{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "explodo")
@@ -63,7 +63,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *gc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}
-	u := machineundertaker.Undertaker{API: &api, Logger: loggo.GetLogger("test")}
+	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("3"))
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c)
@@ -75,7 +75,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,7 +89,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/2"))
 	c.Assert(err, gc.ErrorMatches, "a funny thing happened on the way")
@@ -101,7 +101,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
@@ -125,7 +125,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
@@ -151,7 +151,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
@@ -176,7 +176,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
@@ -202,7 +202,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
@@ -233,7 +233,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
@@ -255,7 +255,7 @@ func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *gc.C) {
 		removals: []string{"3", "4/lxd/4"},
 	}
 	api.SetErrors(nil, errors.New("couldn't remove machine 3"))
-	u := machineundertaker.Undertaker{API: &api, Logger: loggo.GetLogger("test")}
+	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
 	err := u.Handle(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	checkRemovalsMatch(c, api.Stub, "3", "4/lxd/4")

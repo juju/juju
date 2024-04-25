@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 )
 
@@ -145,7 +145,8 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 		},
 	}
 
-	worker, err := caasmodeloperator.NewModelOperatorManager(loggo.Logger{},
+	worker, err := caasmodeloperator.NewModelOperatorManager(
+		loggertesting.WrapCheckLog(c),
 		api, broker, modelUUID, &mockAgentConfig{})
 	c.Assert(err, jc.ErrorIsNil)
 

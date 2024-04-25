@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/pki"
@@ -29,7 +30,7 @@ type ManifoldConfig struct {
 	ServiceFactoryName       string
 	NewWorker                func(Config) (worker.Worker, error)
 	NewMachineAddressWatcher func(st *state.State, machineId string) (AddressWatcher, error)
-	Logger                   Logger
+	Logger                   logger.Logger
 }
 
 // Validate validates the manifold configuration.

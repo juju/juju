@@ -142,8 +142,8 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 	}
 
 	cfg := charmhub.Config{
-		URL:           c.charmHubURL,
-		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+		URL:    c.charmHubURL,
+		Logger: logger,
 	}
 
 	client, err := c.CharmHubClientFunc(cfg)

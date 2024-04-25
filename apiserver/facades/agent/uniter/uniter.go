@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -113,7 +113,7 @@ type UniterAPI struct {
 	accessCloudSpec func() (func() bool, error)
 	cloudSpecer     cloudspec.CloudSpecer
 
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each

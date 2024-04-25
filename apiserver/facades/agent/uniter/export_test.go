@@ -5,13 +5,14 @@ package uniter
 
 import (
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -32,6 +33,7 @@ type (
 )
 
 func NewTestAPI(
+	c *gc.C,
 	authorizer facade.Authorizer,
 	leadership leadership.Checker,
 	secretService SecretService,
@@ -46,7 +48,7 @@ func NewTestAPI(
 		secretService:     secretService,
 		leadershipChecker: leadership,
 		clock:             clock,
-		logger:            loggo.GetLogger("test"),
+		logger:            loggertesting.WrapCheckLog(c),
 	}, nil
 }
 

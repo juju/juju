@@ -15,7 +15,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
-	jujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type baseObjectStoreSuite struct {
@@ -231,7 +231,7 @@ func (s *baseObjectStoreSuite) TestPruneWithNoData(c *gc.C) {
 	// Ensure that we don't panic if we have no data to prune.
 
 	w := &baseObjectStore{
-		logger:  jujutesting.NewCheckLogger(c),
+		logger:  loggertesting.WrapCheckLog(c),
 		claimer: s.claimer,
 		clock:   clock.WallClock,
 	}
@@ -254,7 +254,7 @@ func (s *baseObjectStoreSuite) TestPruneWithJustMetadata(c *gc.C) {
 	// If we only have metadata and no objects, we expect no pruning to occur.
 
 	w := &baseObjectStore{
-		logger:  jujutesting.NewCheckLogger(c),
+		logger:  loggertesting.WrapCheckLog(c),
 		claimer: s.claimer,
 		clock:   clock.WallClock,
 	}
@@ -282,7 +282,7 @@ func (s *baseObjectStoreSuite) TestPruneWithJustObjects(c *gc.C) {
 	s.expectExtendDuration(time.Second)
 
 	w := &baseObjectStore{
-		logger:  jujutesting.NewCheckLogger(c),
+		logger:  loggertesting.WrapCheckLog(c),
 		claimer: s.claimer,
 		clock:   clock.WallClock,
 	}
@@ -309,7 +309,7 @@ func (s *baseObjectStoreSuite) TestPruneWithMatches(c *gc.C) {
 	s.expectExtendDuration(time.Second)
 
 	w := &baseObjectStore{
-		logger:  jujutesting.NewCheckLogger(c),
+		logger:  loggertesting.WrapCheckLog(c),
 		claimer: s.claimer,
 		clock:   clock.WallClock,
 	}

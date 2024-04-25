@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
@@ -27,17 +27,6 @@ const (
 	retryDuration   = 1 * time.Second
 	refreshDuration = 30 * time.Second
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Tracef(string, ...interface{})
-
-	Child(string) loggo.Logger
-}
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/facade_mock.go github.com/juju/juju/internal/worker/caasmodelconfigmanager Facade
 type Facade interface {
@@ -56,7 +45,7 @@ type Config struct {
 
 	Facade       Facade
 	Broker       CAASBroker
-	Logger       Logger
+	Logger       logger.Logger
 	Clock        clock.Clock
 	RegistryFunc func(docker.ImageRepoDetails) (registry.Registry, error)
 }
@@ -90,7 +79,7 @@ type manager struct {
 
 	name   string
 	config Config
-	logger Logger
+	logger logger.Logger
 	clock  clock.Clock
 
 	registryFunc func(docker.ImageRepoDetails) (registry.Registry, error)

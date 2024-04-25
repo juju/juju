@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
@@ -48,7 +49,7 @@ var (
 )
 
 // OnlyConnect logs into the API using the supplied agent's credentials.
-func OnlyConnect(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger Logger) (api.Connection, error) {
+func OnlyConnect(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger logger.Logger) (api.Connection, error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {
@@ -81,7 +82,9 @@ func OnlyConnect(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger 
 // until it's managed to log in, and any suicide-cutoff point we pick here
 // will be objectively bad in some circumstances.)
 func connectFallback(
-	apiOpen api.OpenFunc, info *api.Info, fallbackPassword string, logger Logger,
+	apiOpen api.OpenFunc, info *api.Info,
+	fallbackPassword string,
+	logger logger.Logger,
 ) (
 	conn api.Connection, didFallback bool, err error,
 ) {
@@ -189,7 +192,7 @@ func shortModelUUID(model names.ModelTag) string {
 // This is clearly a mess but at least now it's a documented and localized
 // mess; it should be used only when making the primary API connection for
 // a machine or unit agent running in its own process.
-func ScaryConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logger Logger) (_ api.Connection, err error) {
+func ScaryConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logger logger.Logger) (_ api.Connection, err error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {

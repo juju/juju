@@ -16,21 +16,14 @@ import (
 	"github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used for logging messages.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-}
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
-	Logger        Logger
+	Logger        logger.Logger
 }
 
 // Manifold returns a dependency manifold that runs an API address updater worker,

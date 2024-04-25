@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/ssh"
 
@@ -26,6 +25,7 @@ import (
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -95,7 +95,7 @@ type ProvisionerAPI struct {
 	getCanModify                common.GetAuthFunc
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	toolsFinder                 common.ToolsFinder
-	logger                      loggo.Logger
+	logger                      logger.Logger
 
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
@@ -880,7 +880,7 @@ type perContainerHandler interface {
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
 		env environs.Environ, callContext envcontext.ProviderCallContext,
-		policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
+		policy BridgePolicy, idx int, host, guest Machine, logger logger.Logger,
 		allSubnets network.SubnetInfos,
 	) error
 
@@ -974,7 +974,7 @@ func (ctx *prepareOrGetContext) ConfigType() string {
 
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger, _ network.SubnetInfos,
+	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger logger.Logger, _ network.SubnetInfos,
 ) error {
 	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
@@ -1086,7 +1086,7 @@ type hostChangesContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger, allSubnets network.SubnetInfos,
+	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger logger.Logger, allSubnets network.SubnetInfos,
 ) error {
 	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
@@ -1138,7 +1138,7 @@ type containerProfileContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *containerProfileContext) ProcessOneContainer(
-	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger loggo.Logger, _ network.SubnetInfos,
+	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger logger.Logger, _ network.SubnetInfos,
 ) error {
 	units, err := guest.Units()
 	if err != nil {

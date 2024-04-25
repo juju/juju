@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coreapplication "github.com/juju/juju/core/application"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -31,7 +31,7 @@ type Facade struct {
 	resources      facade.Resources
 	state          CAASUnitProvisionerState
 	clock          clock.Clock
-	logger         loggo.Logger
+	logger         corelogger.Logger
 }
 
 // NewFacade returns a new CAAS unit provisioner Facade facade.
@@ -41,7 +41,7 @@ func NewFacade(
 	networkService NetworkService,
 	st CAASUnitProvisionerState,
 	clock clock.Clock,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm

@@ -14,19 +14,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 )
-
-// Logger represents the methods used by the worker to log information.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
@@ -34,7 +24,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	NewFacade     func(base.APICaller) Facade
 	NewWorker     func(WorkerConfig) (worker.Worker, error)
-	Logger        Logger
+	Logger        logger.Logger
 }
 
 // Manifold returns a dependency manifold that runs a hook retry strategy worker,

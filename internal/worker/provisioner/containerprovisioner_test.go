@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -64,7 +64,7 @@ func (s *lxdProvisionerSuite) newLXDProvisioner(c *gc.C, ctrl *gomock.Controller
 
 	toolsFinder := &mockToolsFinder{}
 	w, err := provisioner.NewContainerProvisioner(
-		instance.LXD, s.controllerAPI, s.machinesAPI, loggo.GetLogger("test"),
+		instance.LXD, s.controllerAPI, s.machinesAPI, loggertesting.WrapCheckLog(c),
 		cfg, s.broker,
 		toolsFinder, &mockDistributionGroupFinder{}, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)

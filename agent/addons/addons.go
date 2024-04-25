@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/worker/introspection"
@@ -23,11 +24,6 @@ import (
 type MetricSink interface {
 	dependency.Metrics
 	Unregister() bool
-}
-
-// Logger is the interface that the introspection worker uses to log details.
-type Logger interface {
-	Debugf(string, ...any)
 }
 
 // DefaultIntrospectionSocketName returns the socket name to use for the
@@ -50,7 +46,7 @@ type IntrospectionConfig struct {
 	Clock              clock.Clock
 	LocalHub           introspection.SimpleHub
 	CentralHub         introspection.StructuredHub
-	Logger             Logger
+	Logger             logger.Logger
 
 	NewSocketName func(names.Tag) string
 	WorkerFunc    func(config introspection.Config) (worker.Worker, error)

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -17,6 +16,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/credential/service"
@@ -54,7 +54,7 @@ type CloudAPI struct {
 	controllerTag   names.ControllerTag
 	controllerCloud string
 
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 var (
@@ -69,7 +69,7 @@ func NewCloudAPI(
 	cloudService CloudService,
 	cloudAccessService CloudAccessService,
 	credentialService CredentialService,
-	authorizer facade.Authorizer, logger loggo.Logger,
+	authorizer facade.Authorizer, logger corelogger.Logger,
 ) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

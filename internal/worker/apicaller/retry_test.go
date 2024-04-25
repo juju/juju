@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/testing"
@@ -17,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
 
@@ -54,7 +54,7 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
 		nil,               // success on second strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
+		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new")
 	c.Check(conn, gc.NotNil)
@@ -70,7 +70,7 @@ func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *gc.C) {
 		nil,               // second strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
+		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "old", "old", "old")
 	c.Check(err, jc.ErrorIsNil)
@@ -98,7 +98,7 @@ func checkWaitProvisionedError(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 		errors.New("splat pow"), // third strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return connect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
+		return connect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new", "new")
 	return conn, err
@@ -125,7 +125,7 @@ func checkWaitNeverProvisioned(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 		errNotProvisioned, // third strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return connect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
+		return connect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new", "new")
 	return conn, err

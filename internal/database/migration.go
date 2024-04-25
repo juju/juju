@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/database/schema"
+	"github.com/juju/juju/core/logger"
 )
 
 // Schema is used to apply a schema to a database.
@@ -22,14 +23,14 @@ type Schema interface {
 // DBMigration is used to apply a series of deltas to a database.
 type DBMigration struct {
 	db     database.TxnRunner
-	logger Logger
+	logger logger.Logger
 	schema Schema
 }
 
 // NewDBMigration returns a reference to a new migration that
 // is used to apply the input deltas to the input database.
 // The deltas are applied in the order supplied.
-func NewDBMigration(db database.TxnRunner, logger Logger, schema Schema) *DBMigration {
+func NewDBMigration(db database.TxnRunner, logger logger.Logger, schema Schema) *DBMigration {
 	return &DBMigration{
 		db:     db,
 		logger: logger,

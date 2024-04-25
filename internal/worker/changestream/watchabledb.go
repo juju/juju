@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/changestream/eventmultiplexer"
 	"github.com/juju/juju/internal/changestream/stream"
 )
@@ -42,7 +43,7 @@ func NewWatchableDB(
 	fileNotifier FileNotifier,
 	clock clock.Clock,
 	metrics NamespaceMetrics,
-	logger Logger,
+	logger logger.Logger,
 ) (WatchableDBWorker, error) {
 	stream := stream.New(tag, db, fileNotifier, clock, metrics, logger)
 

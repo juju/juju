@@ -12,17 +12,12 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
-
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // ConfigAPI exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
@@ -41,7 +36,7 @@ type ConfigAPI interface {
 type Config struct {
 	ConfigAPI              ConfigAPI
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
-	Logger                 Logger
+	Logger                 logger.Logger
 }
 
 // Validate returns an error if the config cannot be used to start a Tracker.

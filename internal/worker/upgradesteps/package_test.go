@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock
@@ -58,7 +58,7 @@ func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *upgradestep
 		PerformUpgradeSteps: func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
 			return nil
 		},
-		Logger: jujutesting.NewCheckLogger(c),
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 }
 

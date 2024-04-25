@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -48,7 +49,7 @@ type MachineContext interface {
 
 type MutaterMachine struct {
 	context    MachineContext
-	logger     Logger
+	logger     logger.Logger
 	machineApi instancemutater.MutaterMachine
 	id         string
 }
@@ -61,7 +62,7 @@ type MutaterContext interface {
 
 type mutater struct {
 	context     MutaterContext
-	logger      Logger
+	logger      logger.Logger
 	wg          *sync.WaitGroup
 	machines    map[names.MachineTag]chan struct{}
 	machineDead chan instancemutater.MutaterMachine

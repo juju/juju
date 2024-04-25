@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/internal/pubsub/forwarder"
@@ -22,7 +23,7 @@ type WorkerConfig struct {
 	Origin   string
 	Hub      *pubsub.StructuredHub
 	Recorder presence.Recorder
-	Logger   Logger
+	Logger   logger.Logger
 }
 
 // Validate ensures that the required values are set in the structure.
@@ -73,7 +74,7 @@ type wrapper struct {
 	origin   string
 	hub      *pubsub.StructuredHub
 	recorder presence.Recorder
-	logger   Logger
+	logger   logger.Logger
 }
 
 // Report implements worker.Report.

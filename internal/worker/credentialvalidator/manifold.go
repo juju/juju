@@ -12,13 +12,8 @@ import (
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-}
 
 // ManifoldConfig holds the dependencies and configuration for a
 // Worker manifold.
@@ -27,7 +22,7 @@ type ManifoldConfig struct {
 
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(context.Context, Config) (worker.Worker, error)
-	Logger    Logger
+	Logger    logger.Logger
 }
 
 // Validate is called by start to check for bad configuration.

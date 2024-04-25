@@ -15,16 +15,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
-	IsTraceEnabled() bool
-}
 
 // ChangeSet represents a set of changes.
 type ChangeSet = []changestream.ChangeEvent
@@ -72,7 +64,7 @@ type reportRequest struct {
 type EventMultiplexer struct {
 	catacomb catacomb.Catacomb
 	stream   Stream
-	logger   Logger
+	logger   logger.Logger
 	clock    clock.Clock
 	metrics  MetricsCollector
 
@@ -91,7 +83,7 @@ type EventMultiplexer struct {
 }
 
 // New creates a new EventMultiplexer that will use the Stream for events.
-func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger Logger) (*EventMultiplexer, error) {
+func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger logger.Logger) (*EventMultiplexer, error) {
 	queue := &EventMultiplexer{
 		stream:             stream,
 		logger:             logger,

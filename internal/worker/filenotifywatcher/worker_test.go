@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,7 +24,6 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestChanges(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
 	s.expectAnyClock()
 
 	done := make(chan struct{})
@@ -79,7 +79,7 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	cfg := WorkerConfig{
 		Clock:  s.clock,
-		Logger: s.logger,
+		Logger: loggertesting.WrapCheckLog(c),
 		NewWatcher: func(string, ...Option) (FileWatcher, error) {
 			return s.watcher, nil
 		},

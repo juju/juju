@@ -8,12 +8,12 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type benchSuite struct {
@@ -97,7 +97,7 @@ func benchmarkSubscriptions(c *gc.C, numSubs, numEvents int, ns string) {
 
 	em, err := New(stream{
 		terms: terms,
-	}, clock.WallClock, &mockMetrics{}, loggo.GetLogger("bench"))
+	}, clock.WallClock, &mockMetrics{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, gc.IsNil)
 	defer workertest.CleanKill(c, em)
 

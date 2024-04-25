@@ -15,6 +15,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -44,7 +45,7 @@ type relationUnitsWorker struct {
 	macaroon    *macaroon.Macaroon
 	mode        string // mode is local or remote.
 
-	logger Logger
+	logger logger.Logger
 }
 
 func newRelationUnitsWorker(
@@ -52,7 +53,7 @@ func newRelationUnitsWorker(
 	macaroon *macaroon.Macaroon,
 	rrw watcher.RemoteRelationWatcher,
 	changes chan<- RelationUnitChangeEvent,
-	logger Logger,
+	logger logger.Logger,
 	mode string,
 ) (*relationUnitsWorker, error) {
 	w := &relationUnitsWorker{

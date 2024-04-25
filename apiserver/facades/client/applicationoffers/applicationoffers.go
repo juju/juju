@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
@@ -18,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -45,7 +45,7 @@ func createOffersAPI(
 	authContext *commoncrossmodel.AuthContext,
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	dataDir string,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*OffersAPIv5, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

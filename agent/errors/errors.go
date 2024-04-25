@@ -11,15 +11,9 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/core/logger"
 	jworker "github.com/juju/juju/internal/worker"
 )
-
-// Logger represents the logging methods used by this package.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // UpgradeReadyError is returned by an Upgrader to report that
 // an upgrade is ready to be performed and a restart is due.
@@ -42,7 +36,7 @@ func (e *UpgradeReadyError) Error() string {
 // ChangeAgentTools does the actual agent upgrade.
 // It should be called just before an agent exits, so that
 // it will restart running the new tools.
-func (e *UpgradeReadyError) ChangeAgentTools(logger Logger) error {
+func (e *UpgradeReadyError) ChangeAgentTools(logger logger.Logger) error {
 	agentTools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools)
 	if err != nil {
 		return err
@@ -116,7 +110,7 @@ type Breakable interface {
 // isFatal argument to worker.NewRunner, that diagnoses an error as
 // fatal if the connection has failed or if the error is otherwise
 // fatal.
-func ConnectionIsFatal(ctx context.Context, logger Logger, conns ...Breakable) func(err error) bool {
+func ConnectionIsFatal(ctx context.Context, logger logger.Logger, conns ...Breakable) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
@@ -131,7 +125,7 @@ func ConnectionIsFatal(ctx context.Context, logger Logger, conns ...Breakable) f
 }
 
 // ConnectionIsDead returns true if the given Breakable is broken.
-var ConnectionIsDead = func(ctx context.Context, logger Logger, conn Breakable) bool {
+var ConnectionIsDead = func(ctx context.Context, logger logger.Logger, conn Breakable) bool {
 	return conn.IsBroken(ctx)
 }
 
@@ -150,7 +144,7 @@ type Pinger interface {
 //     actually quite a nice idea).
 //  2. The dependency engine conversion is completed for the machine
 //     agent.
-func PingerIsFatal(logger Logger, conns ...Pinger) func(err error) bool {
+func PingerIsFatal(logger logger.Logger, conns ...Pinger) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
@@ -165,7 +159,7 @@ func PingerIsFatal(logger Logger, conns ...Pinger) func(err error) bool {
 }
 
 // PingerIsDead returns true if the given pinger fails to ping.
-var PingerIsDead = func(logger Logger, conn Pinger) bool {
+var PingerIsDead = func(logger logger.Logger, conn Pinger) bool {
 	if err := conn.Ping(); err != nil {
 		logger.Infof("error pinging %T: %v", conn, err)
 		return true

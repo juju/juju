@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +17,7 @@ import (
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/presence"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/multiwatcher"
@@ -42,7 +42,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
-		Logger:               loggo.GetLogger("test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
@@ -61,7 +61,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		presence:             presence.New(clock.WallClock),
 		leaseManager:         &lease.Manager{},
 		controllerConfig:     controllerConfig,
-		logger:               loggo.GetLogger("test"),
+		logger:               loggertesting.WrapCheckLog(c),
 		dbGetter:             StubDBGetter{},
 		serviceFactoryGetter: &StubServiceFactoryGetter{},
 		tracerGetter:         &StubTracerGetter{},

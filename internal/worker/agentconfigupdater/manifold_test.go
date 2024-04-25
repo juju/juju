@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
@@ -40,7 +40,7 @@ type AgentConfigUpdaterSuite struct {
 var _ = gc.Suite(&AgentConfigUpdaterSuite{})
 
 func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 	s.manifold = agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 		AgentName:      "agent",
 		APICallerName:  "api-caller",

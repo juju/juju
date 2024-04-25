@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
@@ -56,7 +57,7 @@ func NewControllerWorker(
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	performUpgradeSteps upgrades.UpgradeStepsFunc,
 	entity upgradesteps.StatusSetter,
-	logger Logger,
+	logger logger.Logger,
 	clock clock.Clock,
 ) (worker.Worker, error) {
 	return newControllerWorker(
@@ -97,7 +98,7 @@ type controllerWorker struct {
 
 	catacomb       catacomb.Catacomb
 	upgradeService UpgradeService
-	logger         Logger
+	logger         logger.Logger
 }
 
 // Kill is part of the worker.Worker interface.
@@ -274,7 +275,7 @@ type controllerStepsWorker struct {
 	tomb tomb.Tomb
 
 	status chan error
-	logger Logger
+	logger logger.Logger
 }
 
 func newControllerStepsWorker(base *upgradesteps.BaseWorker) *controllerStepsWorker {

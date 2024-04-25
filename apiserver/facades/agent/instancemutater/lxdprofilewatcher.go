@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 )
@@ -30,7 +30,7 @@ type machineLXDProfileWatcher struct {
 
 	catacomb catacomb.Catacomb
 
-	logger loggo.Logger
+	logger logger.Logger
 }
 
 // Kill is part of the worker.Worker interface.
@@ -97,7 +97,7 @@ type appInfo struct {
 type MachineLXDProfileWatcherConfig struct {
 	machine Machine
 	backend InstanceMutaterState
-	logger  loggo.Logger
+	logger  logger.Logger
 }
 
 func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*machineLXDProfileWatcher, error) {

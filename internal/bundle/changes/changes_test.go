@@ -21,6 +21,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type changesSuite struct {
@@ -195,7 +196,7 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *gc.C) {
 	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
 		Bundle:    data,
 		BundleURL: "ch:bundle/blog",
-		Logger:    loggo.GetLogger("bundlechanges"),
+		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	records := make([]record, len(changes))
@@ -2684,7 +2685,7 @@ func (s *changesSuite) assertParseDataWithModel(c *gc.C, model *bundlechanges.Mo
 	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
 		Model:  model,
 		Bundle: data,
-		Logger: loggo.GetLogger("bundlechanges"),
+		Logger: loggertesting.WrapCheckLog(c),
 		CharmResolver: func(charm string, _ corebase.Base, channel, _ string, rev int) (string, int, error) {
 			if charm == "ch:apache2" {
 				return "stable", 26, nil
@@ -2729,7 +2730,7 @@ func (s *changesSuite) assertParseDataWithDevices(c *gc.C, content string, expec
 	// Retrieve the changes, and convert them to a sequence of records.
 	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
 		Bundle: data,
-		Logger: loggo.GetLogger("bundlechanges"),
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	records := make([]record, len(changes))
@@ -5123,7 +5124,7 @@ func (s *changesSuite) checkBundleImpl(c *gc.C,
 	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
 		Bundle:           data,
 		Model:            existingModel,
-		Logger:           loggo.GetLogger("bundlechanges"),
+		Logger:           loggertesting.WrapCheckLog(c),
 		ConstraintGetter: parserFn,
 		CharmResolver:    charmResolverFn,
 	})

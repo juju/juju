@@ -16,7 +16,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
@@ -1665,11 +1664,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc
 }
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachinesDebug(c *gc.C) {
-	level := logger.EffectiveLogLevel()
-	logger.SetLogLevel(loggo.DEBUG)
 	s.testDeployBundleUnitPlacedToMachines(c)
-	logger.SetLogLevel(level)
-	loggo.ResetLogging()
 }
 
 func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc.C) {

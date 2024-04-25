@@ -16,7 +16,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
@@ -28,6 +27,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
@@ -61,6 +61,7 @@ type BundleAPI struct {
 	authorizer     facade.Authorizer
 	modelTag       names.ModelTag
 	networkService NetworkService
+	logger         corelogger.Logger
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -74,6 +75,7 @@ func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 		authorizer,
 		names.NewModelTag(st.ModelUUID()),
 		ctx.ServiceFactory().Network(),
+		ctx.Logger().Child("bundlechanges"),
 	)
 }
 
@@ -84,6 +86,7 @@ func NewBundleAPI(
 	auth facade.Authorizer,
 	tag names.ModelTag,
 	networkService NetworkService,
+	logger corelogger.Logger,
 ) (*BundleAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -95,6 +98,7 @@ func NewBundleAPI(
 		authorizer:     auth,
 		modelTag:       tag,
 		networkService: networkService,
+		logger:         logger,
 	}, nil
 }
 
@@ -132,7 +136,7 @@ func (b *BundleAPI) doGetBundleChanges(
 		bundlechanges.ChangesConfig{
 			Bundle:    data,
 			BundleURL: args.BundleURL,
-			Logger:    loggo.GetLogger("juju.apiserver.bundlechanges"),
+			Logger:    b.logger,
 		})
 	if err != nil {
 		return nil, nil, errors.Trace(err)

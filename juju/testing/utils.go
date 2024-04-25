@@ -18,10 +18,10 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -108,7 +108,7 @@ func NewObjectStoreWithMetadataService(c *gc.C, modelUUID string, metadataServic
 		objectstore.DefaultBackendType(),
 		modelUUID,
 		objectstore.WithRootDir(c.MkDir()),
-		objectstore.WithLogger(testing.NewCheckLogger(c)),
+		objectstore.WithLogger(loggertesting.WrapCheckLog(c)),
 
 		// TODO (stickupkid): Swap this over to the real metadata service
 		// when all facades are moved across.

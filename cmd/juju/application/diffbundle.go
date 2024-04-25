@@ -356,8 +356,8 @@ func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm
 			return nil, errors.Trace(err)
 		}
 		return charmhub.NewClient(charmhub.Config{
-			URL:           url,
-			LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+			URL:    url,
+			Logger: logger,
 		})
 	}
 

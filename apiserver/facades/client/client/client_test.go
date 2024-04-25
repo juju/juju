@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/image"
 	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/tools"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -143,7 +144,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
-	status, err := apiclient.NewClient(conn, coretesting.NoopLogger{}).Status(nil)
+	status, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).Status(nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,7 +154,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	s.setUpScenario(c)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
-	status, err := apiclient.NewClient(conn, coretesting.NoopLogger{}).Status(nil)
+	status, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).Status(nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)
@@ -199,7 +200,7 @@ func (s *clientWatchSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), user.UserTag(), "ro-password", "")
-	roClient := apiclient.NewClient(conn, coretesting.NoopLogger{})
+	roClient := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	defer roClient.Close()
 
 	watcher, err := roClient.WatchAll()
@@ -300,7 +301,7 @@ func (s *clientWatchSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	conn := s.OpenControllerModelAPI(c)
-	watcher, err := apiclient.NewClient(conn, coretesting.NoopLogger{}).WatchAll()
+	watcher, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()

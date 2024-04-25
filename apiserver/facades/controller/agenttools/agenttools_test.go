@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -131,7 +131,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	err = updateToolsAvailability(context.Background(), &mockState{configGetter{cfg}}, getDummyEnviron, fakeToolFinder, fakeUpdate, loggo.GetLogger("juju.apiserver.model"))
+	err = updateToolsAvailability(context.Background(), &mockState{configGetter{cfg}}, getDummyEnviron, fakeToolFinder, fakeUpdate, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)
@@ -161,7 +161,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	err = updateToolsAvailability(context.Background(), &mockState{configGetter{cfg}}, getDummyEnviron, fakeToolFinder, fakeUpdate, loggo.GetLogger("juju.apiserver.model"))
+	err = updateToolsAvailability(context.Background(), &mockState{configGetter{cfg}}, getDummyEnviron, fakeToolFinder, fakeUpdate, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

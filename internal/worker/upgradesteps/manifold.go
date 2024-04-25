@@ -14,23 +14,25 @@ import (
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
-// Logger defines the logging methods used by the worker.
-type Logger interface {
-	Errorf(string, ...any)
-	Warningf(string, ...any)
-	Infof(string, ...any)
-	Debugf(string, ...any)
-}
-
 // MachineWorkerFunc defines a function that returns a worker.Worker
 // which runs the upgrade steps for a machine.
-type MachineWorkerFunc func(gate.Lock, agent.Agent, base.APICaller, upgrades.PreUpgradeStepsFunc, upgrades.UpgradeStepsFunc, upgradesteps.StatusSetter, upgradesteps.Logger, clock.Clock) worker.Worker
+type MachineWorkerFunc func(
+	gate.Lock,
+	agent.Agent,
+	base.APICaller,
+	upgrades.PreUpgradeStepsFunc,
+	upgrades.UpgradeStepsFunc,
+	upgradesteps.StatusSetter,
+	logger.Logger,
+	clock.Clock,
+) worker.Worker
 
 // ControllerWorkerFunc defines a function that returns a worker.Worker
 // which runs the upgrade steps for a controller.
@@ -41,7 +43,7 @@ type ControllerWorkerFunc func(
 	upgrades.PreUpgradeStepsFunc,
 	upgrades.UpgradeStepsFunc,
 	upgradesteps.StatusSetter,
-	Logger,
+	logger.Logger,
 	clock.Clock,
 ) (worker.Worker, error)
 
@@ -57,7 +59,7 @@ type ManifoldConfig struct {
 	NewAgentStatusSetter func(context.Context, base.APICaller) (upgradesteps.StatusSetter, error)
 	NewMachineWorker     MachineWorkerFunc
 	NewControllerWorker  ControllerWorkerFunc
-	Logger               Logger
+	Logger               logger.Logger
 	Clock                clock.Clock
 }
 

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
@@ -34,8 +33,6 @@ import (
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLoggerWithTags("juju.migration", corelogger.MIGRATION)
 
 // LegacyStateExporter describes interface on state required to export a
 // model.
@@ -57,7 +54,8 @@ type ModelExporter struct {
 	legacyStateExporter   LegacyStateExporter
 	storageRegistryGetter storageRegistryGetter
 
-	scope modelmigration.Scope
+	scope  modelmigration.Scope
+	logger corelogger.Logger
 }
 
 // NewModelExporter returns a new ModelExporter that encapsulates the
@@ -67,10 +65,12 @@ func NewModelExporter(
 	legacyStateExporter LegacyStateExporter,
 	scope modelmigration.Scope,
 	storageRegistryGetter storageRegistryGetter,
+	logger corelogger.Logger,
 ) *ModelExporter {
 	return &ModelExporter{
 		legacyStateExporter: legacyStateExporter, scope: scope,
 		storageRegistryGetter: storageRegistryGetter,
+		logger:                logger,
 	}
 }
 
@@ -104,7 +104,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 		return nil, errors.Trace(err)
 	}
 	coordinator := modelmigration.NewCoordinator()
-	migrations.ExportOperations(coordinator, registry, logger)
+	migrations.ExportOperations(coordinator, registry, e.logger)
 	if err := coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -133,7 +133,8 @@ type ModelImporter struct {
 	configSchemaSourceProvider ConfigSchemaSourceProvider
 	storageRegistryGetter      storageRegistryGetter
 
-	scope modelmigration.ScopeForModel
+	scope  modelmigration.ScopeForModel
+	logger corelogger.Logger
 }
 
 // NewModelImporter returns a new ModelImporter that encapsulates the
@@ -146,6 +147,7 @@ func NewModelImporter(
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 	configSchemaSourceProvider ConfigSchemaSourceProvider,
 	storageRegistryGetter storageRegistryGetter,
+	logger corelogger.Logger,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:        stateImporter,
@@ -154,6 +156,7 @@ func NewModelImporter(
 		serviceFactoryGetter:       serviceFactoryGetter,
 		configSchemaSourceProvider: configSchemaSourceProvider,
 		storageRegistryGetter:      storageRegistryGetter,
+		logger:                     logger,
 	}
 }
 
@@ -188,7 +191,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Trace(err)
 	}
 	coordinator := modelmigration.NewCoordinator()
-	migrations.ImportOperations(coordinator, logger, modelDefaultsProvider, registry)
+	migrations.ImportOperations(coordinator, i.logger, modelDefaultsProvider, registry)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID.String()), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -276,17 +279,17 @@ func (c *UploadBinariesConfig) Validate() error {
 
 // UploadBinaries will send binaries stored in the source blobstore to
 // the target controller.
-func UploadBinaries(ctx context.Context, config UploadBinariesConfig) error {
+func UploadBinaries(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	if err := config.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := uploadCharms(ctx, config); err != nil {
+	if err := uploadCharms(ctx, config, logger); err != nil {
 		return errors.Annotatef(err, "cannot upload charms")
 	}
-	if err := uploadTools(ctx, config); err != nil {
+	if err := uploadTools(ctx, config, logger); err != nil {
 		return errors.Annotatef(err, "cannot upload agent binaries")
 	}
-	if err := uploadResources(ctx, config); err != nil {
+	if err := uploadResources(ctx, config, logger); err != nil {
 		return errors.Annotatef(err, "cannot upload resources")
 	}
 	return nil
@@ -333,7 +336,7 @@ func hashArchive(archive io.ReadSeeker) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil))[0:7], nil
 }
 
-func uploadCharms(ctx context.Context, config UploadBinariesConfig) error {
+func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	// It is critical that charms are uploaded in ascending charm URL
 	// order so that charm revisions end up the same in the target as
 	// they were in the source.
@@ -373,7 +376,7 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig) error {
 	return nil
 }
 
-func uploadTools(ctx context.Context, config UploadBinariesConfig) error {
+func uploadTools(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	for v, uri := range config.Tools {
 		logger.Debugf("sending agent binaries to target: %s", v)
 
@@ -396,13 +399,13 @@ func uploadTools(ctx context.Context, config UploadBinariesConfig) error {
 	return nil
 }
 
-func uploadResources(ctx context.Context, config UploadBinariesConfig) error {
+func uploadResources(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	for _, res := range config.Resources {
 		if res.ApplicationRevision.IsPlaceholder() {
 			// Resource placeholders created in the migration import rather
 			// than attempting to post empty resources.
 		} else {
-			err := uploadAppResource(ctx, config, res.ApplicationRevision)
+			err := uploadAppResource(ctx, config, res.ApplicationRevision, logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -419,7 +422,7 @@ func uploadResources(ctx context.Context, config UploadBinariesConfig) error {
 	return nil
 }
 
-func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev resources.Resource) error {
+func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev resources.Resource, logger corelogger.Logger) error {
 	logger.Debugf("opening application resource for %s: %s", rev.ApplicationID, rev.Name)
 	reader, err := config.ResourceDownloader.OpenResource(ctx, rev.ApplicationID, rev.Name)
 	if err != nil {

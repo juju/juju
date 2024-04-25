@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/charm/v13/hooks"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/leadership"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -33,7 +33,7 @@ func (s *resolverSuite) TestNextOpNotInstalled(c *gc.C) {
 	defer ctrl.Finish()
 
 	f := mocks.NewMockFactory(ctrl)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 
 	r := leadership.NewResolver(logger)
 	_, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, f)
@@ -46,7 +46,7 @@ func (s *resolverSuite) TestNextOpAcceptLeader(c *gc.C) {
 
 	f := mocks.NewMockFactory(ctrl)
 	op := mocks.NewMockOperation(ctrl)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 
 	f.EXPECT().NewAcceptLeadership().Return(op, nil)
 
@@ -66,7 +66,7 @@ func (s *resolverSuite) TestNextOpResignLeader(c *gc.C) {
 
 	f := mocks.NewMockFactory(ctrl)
 	op := mocks.NewMockOperation(ctrl)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 
 	f.EXPECT().NewResignLeadership().Return(op, nil)
 
@@ -84,7 +84,7 @@ func (s *resolverSuite) TestNextOpResignLeaderDying(c *gc.C) {
 
 	f := mocks.NewMockFactory(ctrl)
 	op := mocks.NewMockOperation(ctrl)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 
 	f.EXPECT().NewResignLeadership().Return(op, nil)
 
@@ -104,7 +104,7 @@ func (s *resolverSuite) TestNextOpLeaderSettings(c *gc.C) {
 
 	f := mocks.NewMockFactory(ctrl)
 	op := mocks.NewMockOperation(ctrl)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 
 	f.EXPECT().NewRunHook(hook.Info{Kind: hooks.LeaderSettingsChanged}).Return(op, nil)
 
@@ -122,7 +122,7 @@ func (s *resolverSuite) TestNextOpNoLeaderSettingsWhenDying(c *gc.C) {
 	defer ctrl.Finish()
 
 	f := mocks.NewMockFactory(ctrl)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 
 	r := leadership.NewResolver(logger)
 	_, err := r.NextOp(context.Background(), resolver.LocalState{

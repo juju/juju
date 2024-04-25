@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -27,7 +28,7 @@ type WorkerConfig struct {
 	Facade        Facade
 	AgentTag      names.Tag
 	RetryStrategy params.RetryStrategy
-	Logger        Logger
+	Logger        logger.Logger
 }
 
 // Validate returns an error if the configuration is not complete.

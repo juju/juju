@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/charm/v13/hooks"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -163,7 +163,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
+	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	// First make sure we create a storage-attached hook operation for
 	// data/0. We do this to show that until the hook is *committed*,
@@ -228,7 +228,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
+	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
 
@@ -263,7 +263,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
+	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
 
@@ -309,7 +309,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
+	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	// Inform the resolver of an attachment.
 	localState := resolver.LocalState{State: operation.State{
@@ -390,7 +390,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(att.Pending(), gc.Equals, 1)
-	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
+	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	// Inform the resolver that the unit is Dying. The storage is still
 	// Alive, and is now provisioned, but will be destroyed and removed
@@ -430,7 +430,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
+	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
 	nextOp := func(installed bool) error {
 		localState := resolver.LocalState{State: operation.State{

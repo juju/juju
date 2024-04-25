@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mutex/v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -27,20 +28,6 @@ var ErrLoopAborted = errors.New("resolver loop aborted")
 // this resolver has no operations to run.
 var ErrDoNotProceed = errors.New("do not proceed")
 
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed into the LoopConfig.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger represents the logging methods used in this package.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-	Warningf(string, ...interface{})
-}
-
 // LoopConfig contains configuration parameters for the resolver loop.
 type LoopConfig struct {
 	Resolver      Resolver
@@ -51,7 +38,7 @@ type LoopConfig struct {
 	OnIdle        func() error
 	CharmDirGuard fortress.Guard
 	CharmDir      string
-	Logger        Logger
+	Logger        logger.Logger
 }
 
 // Loop repeatedly waits for remote state changes, feeding the local and
@@ -229,7 +216,7 @@ func maybeAgentShutdown(cfg LoopConfig) bool {
 
 // updateCharmDir sets charm directory availability for sharing among
 // concurrent workers according to local operation state.
-func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortress.Abort, logger Logger) error {
+func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortress.Abort, logger logger.Logger) error {
 	var changing bool
 
 	// Determine if the charm content is changing.
@@ -249,7 +236,7 @@ func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortres
 	}
 }
 
-func checkCharmInstallUpgrade(ctx context.Context, logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
+func checkCharmInstallUpgrade(ctx context.Context, logger logger.Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
 	// If we restarted due to error with a pending charm upgrade available,
 	// do the upgrade now.  There are cases (lp:1895040) where the error was
 	// caused because not all units were upgraded before relation-created
