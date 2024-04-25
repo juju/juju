@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/credential"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/internal/uuid"
@@ -133,4 +134,11 @@ func (s *PermissionService) UpdatePermission(ctx context.Context, args access.Up
 		return errors.Trace(err)
 	}
 	return errors.Trace(s.st.UpsertPermission(ctx, args))
+}
+
+// AllModelAccessForCloudCredential for a given (cloud) credential key, return all
+// model name and model access level combinations.
+func (s *PermissionService) AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error) {
+	results, err := s.st.AllModelAccessForCloudCredential(ctx, key)
+	return results, errors.Trace(err)
 }

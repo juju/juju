@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -37,6 +38,7 @@ func (s *permissionStateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	// Setup to add permissions for user bob on the model
+
 	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 	s.defaultModelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "default-model")
 	s.ensureUser(c, "42", "admin", "42") // model owner
@@ -638,6 +640,33 @@ func (s *permissionStateSuite) TestUpsertPermissionRevoke(c *gc.C) {
 	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.AddModelAccess)
 }
 
+func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	ctx := context.Background()
+	pUUID := uuid.MustNewUUID()
+	_, err := st.CreatePermission(ctx, pUUID, corepermission.UserAccessSpec{
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				ObjectType: corepermission.Model,
+				Key:        s.modelUUID.String(),
+			},
+			Access: corepermission.WriteAccess,
+		},
+		User: "test-model",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	key := credential.Key{
+		Cloud: "test-model",
+		Owner: "test-model",
+		Name:  "foobar",
+	}
+	obtained, err := st.AllModelAccessForCloudCredential(ctx, key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.HasLen, 1)
+	c.Check(obtained[0].ModelName, gc.DeepEquals, "test-model")
+	c.Check(obtained[0].OwnerAccess, gc.DeepEquals, corepermission.WriteAccess)
+}
+
 func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
 	targetCloud := corepermission.ID{
 		Key:        "test-cloud",
@@ -835,5 +864,24 @@ FROM cloud
 		err := rows.Scan(&rowUUID, &name)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("%q, %q", rowUUID, name)
+	}
+}
+
+func (s *permissionStateSuite) printModels(c *gc.C) {
+	rows, _ := s.DB().Query(`
+SELECT uuid, name, cloud_name, cloud_credential_cloud_name, cloud_credential_name, cloud_credential_owner_name
+FROM v_model
+`)
+	defer func() { _ = rows.Close() }()
+	var (
+		muuid, mname, cname, cccname, ccname, cconame string
+	)
+
+	c.Logf("MODELS")
+	for rows.Next() {
+		err := rows.Scan(&muuid, &mname, &cname, &cccname, &ccname, &cconame)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("LINE model-uuid: %q, model-name: %q, cloud-name: %q, cloud-cred-cloud-name: %q, cloud-cred-name: %q, cloud-cred-owner-name: %q",
+			muuid, mname, cname, cccname, ccname, cconame)
 	}
 }
