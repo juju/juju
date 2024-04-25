@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -37,13 +38,14 @@ func (s *permissionStateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	// Setup to add permissions for user bob on the model
+
 	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 	s.defaultModelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "default-model")
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 	s.ensureUser(c, "456", "sue", "42")
-	s.ensureCloud(c, "987", "test-cloud")
-	s.ensureCloud(c, "654", "another-cloud")
+	s.ensureCloud(c, "987", "test-cloud", "34574", "42")
+	s.ensureCloud(c, "654", "another-cloud", "987208634", "42")
 }
 
 func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
@@ -644,6 +646,24 @@ func (s *permissionStateSuite) TestUpsertPermissionRevoke(c *gc.C) {
 	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.AddModelAccess)
 }
 
+func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	ctx := context.Background()
+
+	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access")
+	key := credential.Key{
+		Cloud: "model-access",
+		Owner: "model-access",
+		Name:  "foobar",
+	}
+
+	obtained, err := st.AllModelAccessForCloudCredential(ctx, key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.HasLen, 1)
+	c.Check(obtained[0].ModelName, gc.DeepEquals, "model-access")
+	c.Check(obtained[0].OwnerAccess, gc.DeepEquals, corepermission.AdminAccess)
+}
+
 func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
 	targetCloud := corepermission.ID{
 		Key:        "test-cloud",
@@ -738,14 +758,30 @@ func (s *permissionStateSuite) ensureUser(c *gc.C, userUUID, name, createdByUUID
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *permissionStateSuite) ensureCloud(c *gc.C, uuid, name string) {
+func (s *permissionStateSuite) ensureCloud(c *gc.C, cloudUUID, cloudName, credUUID, ownerUUID string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
 			VALUES (?, ?, 7, "test-endpoint", true)
-		`, uuid, name)
+		`, cloudUUID, cloudName)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cloud_auth_type (cloud_uuid, auth_type_id)
+			VALUES (?, 0), (?, 2)
+		`, cloudUUID, cloudUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cloud_credential (uuid, cloud_uuid, auth_type_id, owner_uuid, name, revoked, invalid)
+			VALUES (?, ?, ?, ?, "foobar", false, false)
+		`, credUUID, cloudUUID, 0, ownerUUID)
 		return err
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 }
 

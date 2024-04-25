@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	credential "github.com/juju/juju/core/credential"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
@@ -84,6 +85,21 @@ func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID
 func (mr *MockStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+}
+
+// AllModelAccessForCloudCredential mocks base method.
+func (m *MockState) AllModelAccessForCloudCredential(arg0 context.Context, arg1 credential.Key) ([]access.CredentialOwnerModelAccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllModelAccessForCloudCredential", arg0, arg1)
+	ret0, _ := ret[0].([]access.CredentialOwnerModelAccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllModelAccessForCloudCredential indicates an expected call of AllModelAccessForCloudCredential.
+func (mr *MockStateMockRecorder) AllModelAccessForCloudCredential(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelAccessForCloudCredential", reflect.TypeOf((*MockState)(nil).AllModelAccessForCloudCredential), arg0, arg1)
 }
 
 // CreatePermission mocks base method.
@@ -608,6 +624,21 @@ func NewMockPermissionState(ctrl *gomock.Controller) *MockPermissionState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPermissionState) EXPECT() *MockPermissionStateMockRecorder {
 	return m.recorder
+}
+
+// AllModelAccessForCloudCredential mocks base method.
+func (m *MockPermissionState) AllModelAccessForCloudCredential(arg0 context.Context, arg1 credential.Key) ([]access.CredentialOwnerModelAccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllModelAccessForCloudCredential", arg0, arg1)
+	ret0, _ := ret[0].([]access.CredentialOwnerModelAccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllModelAccessForCloudCredential indicates an expected call of AllModelAccessForCloudCredential.
+func (mr *MockPermissionStateMockRecorder) AllModelAccessForCloudCredential(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelAccessForCloudCredential", reflect.TypeOf((*MockPermissionState)(nil).AllModelAccessForCloudCredential), arg0, arg1)
 }
 
 // CreatePermission mocks base method.

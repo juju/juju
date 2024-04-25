@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
@@ -162,6 +163,10 @@ type PermissionState interface {
 	// (user) specified and of the given object type.
 	// E.G. All clouds the user has access to.
 	ReadAllAccessForUserAndObjectType(ctx context.Context, subject string, objectType permission.ObjectType) ([]permission.UserAccess, error)
+
+	// AllModelAccessForCloudCredential for a given (cloud) credential key, return all
+	// model name and model access levels.
+	AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error)
 }
 
 // Service provides the API for working with users.
