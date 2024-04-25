@@ -32,7 +32,7 @@ func (s *ModelLoggerSuite) TestGetLogger(c *gc.C) {
 			LoggerFlushInterval: time.Second,
 			LoggerBufferSize:    10,
 		},
-		LoggerForModelFunc: func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
+		LogWriterForModelFunc: func(modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
 			c.Assert(modelUUID, gc.Equals, coretesting.ModelTag.Id())
 			c.Assert(modelName, gc.Equals, "fred-foo")
 			return &testLogger, nil
@@ -41,7 +41,7 @@ func (s *ModelLoggerSuite) TestGetLogger(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, ml)
 
-	logger, err := ml.(*LogSink).logSink.GetLogger(coretesting.ModelTag.Id(), "foo", "fred")
+	logger, err := ml.(*LogSink).logSink.GetLogWriter(coretesting.ModelTag.Id(), "foo", "fred")
 	c.Assert(err, jc.ErrorIsNil)
 	rec := []corelogger.LogRecord{{Message: "message1"}, {Message: "message1"}}
 	err = logger.Log(rec)

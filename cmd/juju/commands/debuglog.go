@@ -408,7 +408,7 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	buf := corelogger.NewBufferedLogger(logFunc(func(recs []corelogger.LogRecord) error {
+	buf := corelogger.NewBufferedLogWriter(logFunc(func(recs []corelogger.LogRecord) error {
 		for _, r := range recs {
 			_ = c.out.Write(ctx, &r)
 		}
@@ -463,7 +463,7 @@ loop:
 
 // streamLogs watches debug logs from the specified controller and logs any results
 // into the supplied buffered logger. Any error is reported to the errors channel.
-func (c *debugLogCommand) streamLogs(ctx context.Context, controllerAddr []string, buf *corelogger.BufferedLogger, errs chan error) {
+func (c *debugLogCommand) streamLogs(ctx context.Context, controllerAddr []string, buf *corelogger.BufferedLogWriter, errs chan error) {
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
 			client, err := getDebugLogAPI(c, controllerAddr)

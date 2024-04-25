@@ -743,19 +743,19 @@ func (stubWatchableDB) Subscribe(...changestream.SubscriptionOption) (changestre
 
 // These mocks are used in place of real components when creating server config.
 
-type noopLogger struct{}
+type noopLogWriter struct{}
 
-func (noopLogger) Log([]corelogger.LogRecord) error { return nil }
+func (noopLogWriter) Log([]corelogger.LogRecord) error { return nil }
 
-func (noopLogger) Close() error { return nil }
+func (noopLogWriter) Close() error { return nil }
 
 type noopLogSink struct{}
 
-func (s noopLogSink) GetLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
-	return &noopLogger{}, nil
+func (s noopLogSink) GetLogWriter(modelUUID, modelName, modelOwner string) (corelogger.LogWriterCloser, error) {
+	return &noopLogWriter{}, nil
 }
 
-func (s noopLogSink) RemoveLogger(modelUUID string) error {
+func (s noopLogSink) RemoveLogWriter(modelUUID string) error {
 	return nil
 }
 

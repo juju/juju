@@ -24,9 +24,9 @@ import (
 
 // Logger represents the methods used by the worker to log details.
 type Logger interface {
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-	Debugf(string, ...interface{})
+	Infof(string, ...any)
+	Errorf(string, ...any)
+	Debugf(string, ...any)
 }
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -95,13 +95,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
 			}
-			currentCfg := agent.CurrentConfig()
-			logSinkConfig, err := getLogSinkConfig(currentCfg)
+			currentConfig := agent.CurrentConfig()
+			logSinkConfig, err := getLogSinkConfig(currentConfig)
 			if err != nil {
 				return nil, errors.Annotate(err, "getting log sink config")
 			}
 
-			modelsDir := filepath.Join(currentCfg.LogDir(), "models")
+			modelsDir := filepath.Join(currentConfig.LogDir(), "models")
 			if err := os.MkdirAll(modelsDir, 0755); err != nil {
 				return nil, errors.Annotate(err, "unable to create models log directory")
 			}
@@ -114,11 +114,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Logger:        config.DebugLogger,
 				Clock:         clock,
 				LogSinkConfig: logSinkConfig,
-				LoggerForModelFunc: getLoggerForModelFunc(
+				LogWriterForModelFunc: getLoggerForModelFunc(
 					controllerCfg.ModelLogfileMaxSizeMB(),
 					controllerCfg.ModelLogfileMaxBackups(),
 					config.DebugLogger,
-					currentCfg.LogDir(),
+					currentConfig.LogDir(),
 				),
 			})
 			if err != nil {
@@ -150,8 +150,8 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
-func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger Logger, logDir string) corelogger.LoggerForModelFunc {
-	return func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
+func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger Logger, logDir string) corelogger.LogWriterForModelFunc {
+	return func(modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
 		if !names.IsValidModel(modelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)
 		}
@@ -168,7 +168,7 @@ func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger Logger, logDir s
 		}
 		debugLogger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
-		modelFileLogger := &logWriter{ljLogger}
+		modelFileLogger := &logWriter{WriteCloser: ljLogger}
 		return modelFileLogger, nil
 	}
 }

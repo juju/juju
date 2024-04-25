@@ -230,7 +230,7 @@ func (f *fakeAgent) Tag() names.Tag {
 }
 
 type stubLogger struct {
-	corelogger.LoggerCloser
+	corelogger.LogWriterCloser
 }
 
 type stubServiceFactory struct {

@@ -113,8 +113,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, logsink.Config{})
 	config := args[0].(logsink.Config)
-	c.Assert(config.LoggerForModelFunc, gc.NotNil)
-	config.LoggerForModelFunc = nil
+	c.Assert(config.LogWriterForModelFunc, gc.NotNil)
+	config.LogWriterForModelFunc = nil
 
 	expectedConfig := logsink.Config{
 		Logger: loggo.GetLogger("test"),
