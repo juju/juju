@@ -847,18 +847,19 @@ FROM cloud
 
 func (s *permissionStateSuite) printModels(c *gc.C) {
 	rows, _ := s.DB().Query(`
-SELECT uuid, name, owner_uuid
-FROM model
+SELECT uuid, name, cloud_name, cloud_credential_cloud_name, cloud_credential_name, cloud_credential_owner_name
+FROM v_model
 `)
 	defer func() { _ = rows.Close() }()
 	var (
-		rowUUID, name, ownerUUID string
+		muuid, mname, cname, cccname, ccname, cconame string
 	)
 
 	c.Logf("MODELS")
 	for rows.Next() {
-		err := rows.Scan(&rowUUID, &name, &ownerUUID)
+		err := rows.Scan(&muuid, &mname, &cname, &cccname, &ccname, &cconame)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("LINE: uuid %q, name %q, owner uuid %q", rowUUID, name, ownerUUID)
+		c.Logf("LINE model-uuid: %q, model-name: %q, cloud-name: %q, cloud-cred-cloud-name: %q, cloud-cred-name: %q, cloud-cred-owner-name: %q",
+			muuid, mname, cname, cccname, ccname, cconame)
 	}
 }

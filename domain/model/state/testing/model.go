@@ -97,6 +97,14 @@ func CreateTestModel(
 		}
 
 		_, err = tx.ExecContext(ctx, `
+			INSERT INTO user_authentication (user_uuid, disabled)
+			VALUES (?, ?)
+		`, userUUID.String(), false)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
 			VALUES (?, ?, ?, "", true)
 		`, cloudUUID.String(), name, 5)
