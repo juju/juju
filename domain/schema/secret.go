@@ -23,20 +23,20 @@ CREATE TABLE secret_backend_type (
 );
 
 INSERT INTO secret_backend_type VALUES
-    (0, 'internal', 'the juju internal secret backend'),
-    (1, 'vault', 'the vault secret backend'),
-    (2, 'kubernetes', 'the kubernetes secret backend');
+    (0, 'controller', 'the juju controller secret backend'),
+    (1, 'kubernetes', 'the kubernetes secret backend'),
+    (2, 'vault', 'the vault secret backend');
 
 CREATE TABLE secret_backend (
     uuid TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    backend_type TEXT NOT NULL,
+    backend_type_id INT NOT NULL,
     token_rotate_interval INT,
     CONSTRAINT chk_empty_name
         CHECK(name != ''),
-    CONSTRAINT fk_secret_backend_type
-        FOREIGN KEY (backend_type)
-        REFERENCES secret_backend_type (type)
+    CONSTRAINT fk_secret_backend_type_id
+        FOREIGN KEY (backend_type_id)
+        REFERENCES secret_backend_type (id)
 );
 
 CREATE UNIQUE INDEX idx_secret_backend_name ON secret_backend (name);
@@ -66,9 +66,7 @@ CREATE TABLE secret_backend_rotation (
 
 CREATE TABLE model_secret_backend (
     model_uuid TEXT PRIMARY KEY,
-    -- TODO: change the secret_backend_uuid to NOT NULL once we start to insert the
-    -- internal and kubernetes secret backends into the secret_backend table.
-    secret_backend_uuid TEXT,
+    secret_backend_uuid TEXT NOT NULL,
     CONSTRAINT fk_model_secret_backend_model_uuid
         FOREIGN KEY (model_uuid)
         REFERENCES model (uuid),
@@ -81,10 +79,11 @@ CREATE VIEW v_model_secret_backend AS
 SELECT
     m.uuid,
     m.name,
-    m.model_type,
+    mt.type AS model_type,
     msb.secret_backend_uuid
 FROM model_secret_backend msb
-INNER JOIN v_model m ON msb.model_uuid = m.uuid
+JOIN model m ON msb.model_uuid = m.uuid
+JOIN model_type mt ON m.model_type_id = mt.id
 `)
 }
 

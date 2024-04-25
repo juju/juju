@@ -34,6 +34,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	environsContext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -1214,18 +1215,22 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 	if withSecrets && canSeeMachinesAndSecrets {
-		backends, err := m.secretBackendService.BackendSummaryInfo(ctx, false, false)
+		backends, err := m.secretBackendService.BackendSummaryInfoForModel(ctx, coremodel.UUID(model.UUID()))
 		if shouldErr(err) {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
 		for _, backend := range backends {
+			name := backend.Name
+			if name == kubernetes.BackendName {
+				name = kubernetes.BuiltInName(model.Name())
+			}
 			info.SecretBackends = append(info.SecretBackends, params.SecretBackendResult{
 				// Don't expose the id.
 				NumSecrets: backend.NumSecrets,
 				Status:     backend.Status,
 				Message:    backend.Message,
 				Result: params.SecretBackend{
-					Name:                backend.Name,
+					Name:                name,
 					BackendType:         backend.BackendType,
 					TokenRotateInterval: backend.TokenRotateInterval,
 					Config:              backend.Config,

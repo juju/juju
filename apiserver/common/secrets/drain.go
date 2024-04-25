@@ -14,11 +14,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secretservice "github.com/juju/juju/domain/secret/service"
-	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // SecretsDrainAPI is the implementation for the SecretsDrain facade.
@@ -28,8 +27,9 @@ type SecretsDrainAPI struct {
 	leadershipChecker leadership.Checker
 	watcherRegistry   facade.WatcherRegistry
 
-	model         Model
-	secretService SecretService
+	model                Model
+	secretService        SecretService
+	secretBackendService SecretBackendService
 }
 
 // NewSecretsDrainAPI returns a new SecretsDrainAPI.
@@ -40,58 +40,29 @@ func NewSecretsDrainAPI(
 	leadershipChecker leadership.Checker,
 	model Model,
 	secretService SecretService,
+	secretBackendService SecretBackendService,
 	watcherRegistry facade.WatcherRegistry,
 ) (*SecretsDrainAPI, error) {
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &SecretsDrainAPI{
-		authTag:           authTag,
-		logger:            logger,
-		leadershipChecker: leadershipChecker,
-		model:             model,
-		secretService:     secretService,
-		watcherRegistry:   watcherRegistry,
+		authTag:              authTag,
+		logger:               logger,
+		leadershipChecker:    leadershipChecker,
+		model:                model,
+		secretService:        secretService,
+		secretBackendService: secretBackendService,
+		watcherRegistry:      watcherRegistry,
 	}, nil
-}
-
-// shouldDrainRevision returns true if the specified secret revision should be drained.
-func shouldDrainRevision(controllerUUID, activeBackend string, rev *coresecrets.SecretRevisionMetadata) bool {
-	if rev.ValueRef == nil {
-		// Only internal backend secrets have nil ValueRef.
-		// TODO(secrets) - this needs to be fixed when internal backend is in state.
-		if activeBackend == secretsprovider.Internal {
-			return false
-		}
-		if activeBackend == controllerUUID {
-			return false
-		}
-		return true
-	}
-	return rev.ValueRef.BackendID != activeBackend
 }
 
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
 func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSecretResults, error) {
-	modelConfig, err := s.model.ModelConfig(ctx)
-	if err != nil {
-		return params.ListSecretResults{}, errors.Trace(err)
-	}
-	modelType := s.model.Type()
-	modelUUID := s.model.UUID()
-	controllerUUID := s.model.ControllerUUID()
-
-	activeBackend := modelConfig.SecretBackend()
-	if activeBackend == secretsprovider.Auto {
-		activeBackend = controllerUUID
-		if modelType == state.ModelTypeCAAS {
-			activeBackend = modelUUID
-		}
-	}
-
 	var (
 		metadata         []*coresecrets.SecretMetadata
 		revisionMetadata [][]*coresecrets.SecretRevisionMetadata
+		err              error
 	)
 	if s.authTag.Kind() == names.ModelTagKind {
 		metadata, revisionMetadata, err = s.secretService.ListUserSecrets(ctx)
@@ -122,11 +93,11 @@ func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSec
 			CreateTime:       md.CreateTime,
 			UpdateTime:       md.UpdateTime,
 		}
-
-		for _, r := range revisionMetadata[i] {
-			if !shouldDrainRevision(controllerUUID, activeBackend, r) {
-				continue
-			}
+		toDrain, err := s.secretBackendService.GetRevisionsToDrain(ctx, model.UUID(s.model.UUID()), revisionMetadata[i])
+		if err != nil {
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
+		for _, r := range toDrain {
 			var valueRef *params.SecretValueRef
 			if r.ValueRef != nil {
 				valueRef = &params.SecretValueRef{

@@ -23,9 +23,11 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
+	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // Logger is the interface used by the state to log messages.
@@ -48,53 +50,42 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
 	}
 }
 
-// GetModel is responsible for returning the model for the provided uuid. If no
-// model is found the given uuid then an error of
-// [github.com/juju/juju/domain/model/errors.NotFound] is returned.
-func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
-	// TODO(secrets) - fix me(JUJU-5708)
+// GetModelSecretBackendDetails is responsible for returning the backend
+// details for a given model uuid.
+func (s *State) GetModelSecretBackendDetails(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
+	db, err := s.DB()
+	if err != nil {
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
+	}
+
+	stmt, err := s.Prepare(`
+	SELECT &ModelSecretBackend.*
+	FROM v_model_secret_backend
+	WHERE uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
+	if err != nil {
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
+	}
+	var m ModelSecretBackend
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
+	}
+	if !m.Type.IsValid() {
+		// This should never happen.
+		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.Name)
+	}
 	return secretbackend.ModelSecretBackend{
-		ID:   uuid,
-		Name: "fix me",
-		Type: coremodel.IAAS,
+		ID:              m.ID,
+		Name:            m.Name,
+		Type:            m.Type,
+		SecretBackendID: m.SecretBackendID,
 	}, nil
-	//	db, err := s.DB()
-	//	if err != nil {
-	//		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
-	//	}
-	//
-	//	stmt, err := s.Prepare(`
-	//SELECT &ModelSecretBackend.*
-	//FROM v_model_secret_backend
-	//WHERE uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
-	//	if err != nil {
-	//		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
-	//	}
-	//	var m ModelSecretBackend
-	//	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-	//		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
-	//		if errors.Is(err, sql.ErrNoRows) {
-	//			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
-	//		}
-	//		return errors.Trace(err)
-	//	})
-	//	if err != nil {
-	//		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
-	//	}
-	//	if !m.Type.IsValid() {
-	//		// This should never happen.
-	//		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.Name)
-	//	}
-	//	// If the backend ID is NULL, it means that the model does not have a secret backend configured.
-	//	// We return an empty string in this case.
-	//	// TODO: we should return the `default` backend once we start to include the
-	//	// `internal` and `k8s` backends in the database. And obviously, this field will become non-nullable.
-	//	return secretbackend.ModelSecretBackend{
-	//		ID:              m.ID,
-	//		Name:            m.Name,
-	//		Type:            m.Type,
-	//		SecretBackendID: m.SecretBackendID.String,
-	//	}, nil
 }
 
 // CreateSecretBackend creates a new secret backend.
@@ -166,10 +157,14 @@ func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params u
 		return "", errors.Trace(err)
 	}
 
+	backendTypeID, err := domainsecretbackend.MarshallBackendType(params.BackendType)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	sb := SecretBackend{
-		ID:          params.ID,
-		Name:        params.Name,
-		BackendType: params.BackendType,
+		ID:            params.ID,
+		Name:          params.Name,
+		BackendTypeID: backendTypeID,
 	}
 	if params.TokenRotateInterval != nil {
 		sb.TokenRotateInterval = database.NewNullDuration(*params.TokenRotateInterval)
@@ -214,12 +209,20 @@ DELETE FROM secret_backend_rotation WHERE backend_uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO: we should set it to the `default` backend once we start to include the
-	// `internal` and `k8s` backends in the database.
-	// For now, we reset it to NULL. JUJU-5708
+
+	// TODO(secrets) - use a struct not string literals
 	modelSecretBackendStmt, err := s.Prepare(`
 UPDATE model_secret_backend
-SET secret_backend_uuid = NULL
+SET secret_backend_uuid = (
+    SELECT sb.uuid FROM secret_backend sb
+    JOIN model m ON m.uuid = model_secret_backend.model_uuid
+    JOIN model_type mt ON mt.id = m.model_type_id
+    WHERE sb.name =
+    CASE mt.type
+    WHEN 'iaas' THEN 'internal'
+    WHEN 'caas' THEN 'kubernetes'
+    END
+)
 WHERE secret_backend_uuid = $M.uuid`, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
@@ -260,23 +263,23 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 	return domain.CoerceError(err)
 }
 
-// ListSecretBackends returns a list of all secret backends.
-// If all is true, it returns all secret backends, otherwise it returns only the ones in use.
-func (s *State) ListSecretBackends(ctx context.Context, all bool) ([]*secretbackend.SecretBackend, error) {
+// ListSecretBackends returns a list of all secret backends which contain secrets.
+func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// TODO: implement for inUse. JUJU-5707
 	stmt, err := s.Prepare(`
-SELECT 
+SELECT
     b.uuid                  AS &SecretBackendRow.uuid,
     b.name                  AS &SecretBackendRow.name,
-    b.backend_type          AS &SecretBackendRow.backend_type,
+    bt.type                 AS &SecretBackendRow.backend_type,
     b.token_rotate_interval AS &SecretBackendRow.token_rotate_interval,
     c.name                  AS &SecretBackendRow.config_name,
     c.content               AS &SecretBackendRow.config_content
 FROM secret_backend b
+    JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
 ORDER BY b.name`, SecretBackendRow{})
 	if err != nil {
@@ -300,7 +303,101 @@ ORDER BY b.name`, SecretBackendRow{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot list secret backends: %w", err)
 	}
-	return rows.toSecretBackends(), errors.Trace(err)
+	backends := rows.toSecretBackends()
+
+	var result []*secretbackend.SecretBackend
+	for _, b := range backends {
+		if b.Name == kubernetes.BackendName {
+			// TODO(secrets) - count the secrets
+			//if numSecrets == 0 {
+			//	continue
+			//}
+		}
+		result = append(result, b)
+	}
+	return result, errors.Trace(err)
+}
+
+// ListSecretBackendsForModel returns a list of all secret backends
+// which contain secrets for the specified model, unless includeEmpty is true
+// in which case all backends are returned.
+func (s *State) ListSecretBackendsForModel(ctx context.Context, modelUUID coremodel.UUID, includeEmpty bool) ([]*secretbackend.SecretBackend, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO: implement for inUse. JUJU-5707
+	stmt, err := s.Prepare(`
+SELECT
+    b.uuid                  AS &SecretBackendRow.uuid,
+    b.name                  AS &SecretBackendRow.name,
+    bt.type                 AS &SecretBackendRow.backend_type,
+    b.token_rotate_interval AS &SecretBackendRow.token_rotate_interval,
+    c.name                  AS &SecretBackendRow.config_name,
+    c.content               AS &SecretBackendRow.config_content
+FROM secret_backend b
+    JOIN secret_backend_type bt ON b.backend_type_id = bt.id
+    LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
+ORDER BY b.name`, SecretBackendRow{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	getModelStmt, err := s.Prepare(`
+SELECT mt.type AS &modelDetails.model_type
+FROM   model m
+JOIN   model_type mt ON mt.id = model_type_id
+WHERE  m.uuid = $M.uuid
+`, modelDetails{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		rows      SecretBackendRows
+		modelType coremodel.ModelType
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var modelDetails modelDetails
+		err := tx.Query(ctx, getModelStmt, sqlair.M{"uuid": modelUUID}).Get(&modelDetails)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Should never happen.
+			return fmt.Errorf("%w: %s", modelerrors.NotFound, modelUUID)
+		}
+		if err != nil {
+			return fmt.Errorf("querying model: %w", err)
+		}
+		modelType = modelDetails.Type
+
+		err = tx.Query(ctx, stmt).GetAll(&rows)
+		if errors.Is(err, sql.ErrNoRows) {
+			// We do not want to return an error if there are no secret backends.
+			// We just return an empty list.
+			s.logger.Debugf("no secret backends found")
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("querying secret backends: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot list secret backends: %w", err)
+	}
+	backends := rows.toSecretBackends()
+
+	var result []*secretbackend.SecretBackend
+	for _, b := range backends {
+		if modelType == coremodel.CAAS && b.Name == juju.BackendName {
+			continue
+		}
+		// TODO(secrets) - count the secrets
+		//if numSecrets == 0 && !includeEmpty {
+		//	continue
+		//}
+		result = append(result, b)
+	}
+	return result, errors.Trace(err)
 }
 
 func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, identifier secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
@@ -321,11 +418,12 @@ func (s *State) getSecretBackend(ctx context.Context, tx *sqlair.TX, identifier 
 SELECT
     b.uuid                  AS &SecretBackendRow.uuid,
     b.name                  AS &SecretBackendRow.name,
-    b.backend_type          AS &SecretBackendRow.backend_type,
+    bt.type                 AS &SecretBackendRow.backend_type,
     b.token_rotate_interval AS &SecretBackendRow.token_rotate_interval,
     c.name                  AS &SecretBackendRow.config_name,
     c.content               AS &SecretBackendRow.config_content
 FROM secret_backend b
+    JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
 WHERE b.%s = $M.identifier`, columName)
 	stmt, err := s.Prepare(q, sqlair.M{}, SecretBackendRow{})
@@ -347,9 +445,7 @@ WHERE b.%s = $M.identifier`, columName)
 // GetSecretBackend returns the secret backend for the given backend ID or Name.
 func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error) {
 	if params.ID == "" && params.Name == "" {
-		// TODO(secrets) - fix me(JUJU-5708)
-		return &secretbackend.SecretBackend{Name: provider.Internal}, nil
-		// return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
+		return nil, fmt.Errorf("%w: both ID and name are missing", backenderrors.NotValid)
 	}
 	if params.ID != "" && params.Name != "" {
 		return nil, fmt.Errorf("%w: both ID and name are provided", backenderrors.NotValid)
@@ -421,29 +517,41 @@ func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.U
 		return errors.Trace(err)
 	}
 
-	// TODO(aflynn): Convert this query back to SQLair once we support nested
-	// select statements in INSERT statements. See SQLair issue #146.
-	modelBackendUpsertStmt := `
+	modelBackendUpsert := `
 INSERT INTO model_secret_backend
 	(model_uuid, secret_backend_uuid)
-VALUES (
-	?,
-	(SELECT uuid FROM secret_backend WHERE name = ?)
-)
+VALUES ($M.model_uuid, $SecretBackendRow.uuid)
 ON CONFLICT (model_uuid) DO UPDATE SET
 	secret_backend_uuid = EXCLUDED.secret_backend_uuid`
+	modelBackendUpsertStmt, err := s.Prepare(modelBackendUpsert, sqlair.M{}, SecretBackendRow{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err = tx.ExecContext(ctx,
-			modelBackendUpsertStmt,
-			modelUUID,
-			backendName,
-		)
+	q := `
+SELECT b.uuid AS &SecretBackendRow.uuid
+FROM secret_backend b
+WHERE b.name = $SecretBackendRow.name`
+	stmt, err := s.Prepare(q, SecretBackendRow{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		backend := SecretBackendRow{Name: backendName}
+
+		var rows SecretBackendRows
+		err = tx.Query(ctx, stmt, backend).GetAll(&rows)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", backenderrors.NotFound, backendName)
+		}
+		if err != nil {
+			return fmt.Errorf("querying secret backends: %w", err)
+		}
+		backend.ID = rows[0].ID
+		err = tx.Query(ctx, modelBackendUpsertStmt, backend, sqlair.M{"model_uuid": modelUUID}).Run()
 		if database.IsErrConstraintForeignKey(err) {
-			return fmt.Errorf("%w: either model %q or secret backend %q", errors.NotFound, modelUUID, backendName)
+			return fmt.Errorf("%w: model %q", modelerrors.NotFound, modelUUID)
 		}
 		if err != nil {
 			return fmt.Errorf("setting secret backend %q for model %q: %w", backendName, modelUUID, err)
@@ -453,10 +561,47 @@ ON CONFLICT (model_uuid) DO UPDATE SET
 	return domain.CoerceError(err)
 }
 
-// GetModelSecretBackend returns the configured secret backend for the given model.
-func (s *State) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
-	m, err := s.GetModel(ctx, modelUUID)
-	return m.SecretBackendID, errors.Trace(err)
+// GetControllerModelCloudAndCredential returns the cloud and cloud credential for the
+// controller model.
+func (s *State) GetControllerModelCloudAndCredential(
+	ctx context.Context,
+) (cloud.Cloud, cloud.Credential, error) {
+	db, err := s.DB()
+	if err != nil {
+		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
+	}
+
+	modelQuery := `
+SELECT uuid AS &M.uuid FROM MODEL
+WHERE  name = 'controller'
+`
+	modelStmt, err := s.Prepare(modelQuery, sqlair.M{})
+	if err != nil {
+		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
+	}
+
+	var (
+		cld  cloud.Cloud
+		cred cloud.Credential
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result := sqlair.M{}
+		err := tx.Query(ctx, modelStmt).Get(&result)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Should never happen.
+			return fmt.Errorf("controller model not found%w", errors.Hide(modelerrors.NotFound))
+		}
+		if err != nil {
+			return fmt.Errorf("querying controller model: %w", err)
+		}
+		modelID, _ := result["uuid"].(string)
+		cld, cred, err = s.getModelCloudAndCredential(ctx, tx, coremodel.UUID(modelID))
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return cloud.Cloud{}, cloud.Credential{}, domain.CoerceError(err)
+	}
+	return cld, cred, nil
 }
 
 // GetModelCloudAndCredential returns the cloud and cloud credential for the
@@ -470,6 +615,26 @@ func (s *State) GetModelCloudAndCredential(
 	if err != nil {
 		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
 	}
+	var (
+		cld  cloud.Cloud
+		cred cloud.Credential
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		cld, cred, err = s.getModelCloudAndCredential(ctx, tx, modelID)
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
+	}
+	return cld, cred, nil
+}
+
+func (s *State) getModelCloudAndCredential(
+	ctx context.Context,
+	tx *sqlair.TX,
+	modelID coremodel.UUID,
+) (cloud.Cloud, cloud.Credential, error) {
 
 	q := `
     SELECT (cloud_uuid, cloud_credential_uuid) AS (&modelCloudAndCredentialID.*)
@@ -491,30 +656,22 @@ func (s *State) GetModelCloudAndCredential(
 		cld        cloud.Cloud
 		credResult credential.CloudCredentialResult
 	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, args).Get(&ids)
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
-		} else if err != nil {
-			return err
-		}
-
-		cld, err = cloudstate.GetCloudForID(ctx, s, tx, ids.CloudID)
-		if err != nil {
-			return fmt.Errorf("getting model %q cloud for id %q: %w", modelID, ids.CloudID, err)
-		}
-
-		credResult, err = credentialstate.GetCloudCredential(ctx, s, tx, ids.CredentialID)
-		if err != nil {
-			return fmt.Errorf("getting model %q cloud credential for id %q: %w", modelID, ids.CredentialID, err)
-		}
-		return nil
-	})
-
-	if err != nil {
+	err = tx.Query(ctx, stmt, args).Get(&ids)
+	if errors.Is(err, sql.ErrNoRows) {
+		return cloud.Cloud{}, cloud.Credential{}, fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
+	} else if err != nil {
 		return cloud.Cloud{}, cloud.Credential{}, errors.Trace(err)
 	}
 
+	cld, err = cloudstate.GetCloudForID(ctx, s, tx, ids.CloudID)
+	if err != nil {
+		return cloud.Cloud{}, cloud.Credential{}, fmt.Errorf("getting model %q cloud for id %q: %w", modelID, ids.CloudID, err)
+	}
+
+	credResult, err = credentialstate.GetCloudCredential(ctx, s, tx, ids.CredentialID)
+	if err != nil {
+		return cloud.Cloud{}, cloud.Credential{}, fmt.Errorf("getting model %q cloud credential for id %q: %w", modelID, ids.CredentialID, err)
+	}
 	return cld, cloud.NewNamedCredential(credResult.Label, cloud.AuthType(credResult.AuthType), credResult.Attributes, credResult.Revoked), nil
 }
 
@@ -532,7 +689,7 @@ func (s *State) GetSecretBackendRotateChanges(ctx context.Context, backendIDs ..
 	}
 
 	stmt, err := s.Prepare(`
-SELECT 
+SELECT
     b.uuid               AS &SecretBackendRotationRow.uuid,
     b.name               AS &SecretBackendRotationRow.name,
     r.next_rotation_time AS &SecretBackendRotationRow.next_rotation_time

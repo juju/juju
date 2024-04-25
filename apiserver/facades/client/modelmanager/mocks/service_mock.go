@@ -98,24 +98,19 @@ func (m *MockSecretBackendService) EXPECT() *MockSecretBackendServiceMockRecorde
 	return m.recorder
 }
 
-// BackendSummaryInfo mocks base method.
-func (m *MockSecretBackendService) BackendSummaryInfo(arg0 context.Context, arg1, arg2 bool, arg3 ...string) ([]*service.SecretBackendInfo, error) {
+// BackendSummaryInfoForModel mocks base method.
+func (m *MockSecretBackendService) BackendSummaryInfoForModel(arg0 context.Context, arg1 model.UUID) ([]*service.SecretBackendInfo, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "BackendSummaryInfo", varargs...)
+	ret := m.ctrl.Call(m, "BackendSummaryInfoForModel", arg0, arg1)
 	ret0, _ := ret[0].([]*service.SecretBackendInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// BackendSummaryInfo indicates an expected call of BackendSummaryInfo.
-func (mr *MockSecretBackendServiceMockRecorder) BackendSummaryInfo(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
+// BackendSummaryInfoForModel indicates an expected call of BackendSummaryInfoForModel.
+func (mr *MockSecretBackendServiceMockRecorder) BackendSummaryInfoForModel(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackendSummaryInfo", reflect.TypeOf((*MockSecretBackendService)(nil).BackendSummaryInfo), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackendSummaryInfoForModel", reflect.TypeOf((*MockSecretBackendService)(nil).BackendSummaryInfoForModel), arg0, arg1)
 }
 
 // MockModelService is a mock of ModelService interface.

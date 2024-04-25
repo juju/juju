@@ -65,9 +65,10 @@ func ControllerDDL() *schema.Schema {
 
 		// We need to ensure that the internal and kubernetes backends are immutable after
 		// they are created by the controller during bootstrap time.
+		// 0 is 'controller', 1 is 'kubernetes'.
 		triggersForImmutableTable("secret_backend",
-			"OLD.backend_type IN ('internal', 'kubernetes')",
-			"secret backends with type internal or kubernetes are immutable"),
+			"OLD.backend_type_id IN (0, 1)",
+			"secret backends with type controller or kubernetes are immutable"),
 	)
 
 	ctrlSchema := schema.New()

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -102,6 +103,9 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		},
 		cred,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bootstrap.CreateDefaultBackends(coremodel.IAAS)(context.Background(), m.ControllerTxnRunner(), m.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	m.uuid = modeltesting.GenModelUUID(c)

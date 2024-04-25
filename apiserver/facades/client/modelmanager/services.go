@@ -128,8 +128,8 @@ type NetworkService interface {
 
 // SecretBackendService is an interface for interacting with secret backend service.
 type SecretBackendService interface {
-	// BackendSummaryInfo returns a summary of the secret backends.
-	BackendSummaryInfo(ctx context.Context, reveal, all bool, names ...string) ([]*secretbackendservice.SecretBackendInfo, error)
+	// BackendSummaryInfoForModel returns a summary of the secret backends for a model.
+	BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) ([]*secretbackendservice.SecretBackendInfo, error)
 }
 
 // Services holds the services needed by the model manager api.

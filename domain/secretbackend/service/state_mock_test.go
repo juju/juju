@@ -73,19 +73,20 @@ func (mr *MockStateMockRecorder) DeleteSecretBackend(arg0, arg1, arg2 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecretBackend", reflect.TypeOf((*MockState)(nil).DeleteSecretBackend), arg0, arg1, arg2)
 }
 
-// GetModel mocks base method.
-func (m *MockState) GetModel(arg0 context.Context, arg1 model.UUID) (secretbackend.ModelSecretBackend, error) {
+// GetControllerModelCloudAndCredential mocks base method.
+func (m *MockState) GetControllerModelCloudAndCredential(arg0 context.Context) (cloud.Cloud, cloud.Credential, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModel", arg0, arg1)
-	ret0, _ := ret[0].(secretbackend.ModelSecretBackend)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "GetControllerModelCloudAndCredential", arg0)
+	ret0, _ := ret[0].(cloud.Cloud)
+	ret1, _ := ret[1].(cloud.Credential)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// GetModel indicates an expected call of GetModel.
-func (mr *MockStateMockRecorder) GetModel(arg0, arg1 any) *gomock.Call {
+// GetControllerModelCloudAndCredential indicates an expected call of GetControllerModelCloudAndCredential.
+func (mr *MockStateMockRecorder) GetControllerModelCloudAndCredential(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModel", reflect.TypeOf((*MockState)(nil).GetModel), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerModelCloudAndCredential", reflect.TypeOf((*MockState)(nil).GetControllerModelCloudAndCredential), arg0)
 }
 
 // GetModelCloudAndCredential mocks base method.
@@ -104,19 +105,19 @@ func (mr *MockStateMockRecorder) GetModelCloudAndCredential(arg0, arg1 any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudAndCredential", reflect.TypeOf((*MockState)(nil).GetModelCloudAndCredential), arg0, arg1)
 }
 
-// GetModelSecretBackend mocks base method.
-func (m *MockState) GetModelSecretBackend(arg0 context.Context, arg1 model.UUID) (string, error) {
+// GetModelSecretBackendDetails mocks base method.
+func (m *MockState) GetModelSecretBackendDetails(arg0 context.Context, arg1 model.UUID) (secretbackend.ModelSecretBackend, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelSecretBackend", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "GetModelSecretBackendDetails", arg0, arg1)
+	ret0, _ := ret[0].(secretbackend.ModelSecretBackend)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetModelSecretBackend indicates an expected call of GetModelSecretBackend.
-func (mr *MockStateMockRecorder) GetModelSecretBackend(arg0, arg1 any) *gomock.Call {
+// GetModelSecretBackendDetails indicates an expected call of GetModelSecretBackendDetails.
+func (mr *MockStateMockRecorder) GetModelSecretBackendDetails(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSecretBackend", reflect.TypeOf((*MockState)(nil).GetModelSecretBackend), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSecretBackendDetails", reflect.TypeOf((*MockState)(nil).GetModelSecretBackendDetails), arg0, arg1)
 }
 
 // GetSecretBackend mocks base method.
@@ -170,18 +171,33 @@ func (mr *MockStateMockRecorder) InitialWatchStatement() *gomock.Call {
 }
 
 // ListSecretBackends mocks base method.
-func (m *MockState) ListSecretBackends(arg0 context.Context, arg1 bool) ([]*secretbackend.SecretBackend, error) {
+func (m *MockState) ListSecretBackends(arg0 context.Context) ([]*secretbackend.SecretBackend, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSecretBackends", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListSecretBackends", arg0)
 	ret0, _ := ret[0].([]*secretbackend.SecretBackend)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListSecretBackends indicates an expected call of ListSecretBackends.
-func (mr *MockStateMockRecorder) ListSecretBackends(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateMockRecorder) ListSecretBackends(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockState)(nil).ListSecretBackends), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockState)(nil).ListSecretBackends), arg0)
+}
+
+// ListSecretBackendsForModel mocks base method.
+func (m *MockState) ListSecretBackendsForModel(arg0 context.Context, arg1 model.UUID, arg2 bool) ([]*secretbackend.SecretBackend, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecretBackendsForModel", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*secretbackend.SecretBackend)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSecretBackendsForModel indicates an expected call of ListSecretBackendsForModel.
+func (mr *MockStateMockRecorder) ListSecretBackendsForModel(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackendsForModel", reflect.TypeOf((*MockState)(nil).ListSecretBackendsForModel), arg0, arg1, arg2)
 }
 
 // SecretBackendRotated mocks base method.

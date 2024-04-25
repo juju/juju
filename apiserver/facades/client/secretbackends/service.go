@@ -17,5 +17,5 @@ type SecretBackendService interface {
 	DeleteSecretBackend(context.Context, secretbackendservice.DeleteSecretBackendParams) error
 	GetSecretBackendByName(context.Context, string) (*coresecrets.SecretBackend, error)
 
-	BackendSummaryInfo(ctx context.Context, reveal, all bool, names ...string) ([]*secretbackendservice.SecretBackendInfo, error)
+	BackendSummaryInfo(ctx context.Context, reveal bool, names ...string) ([]*secretbackendservice.SecretBackendInfo, error)
 }
