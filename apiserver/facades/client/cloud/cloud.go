@@ -5,7 +5,6 @@ package cloud
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -43,8 +42,6 @@ type CloudV7 interface {
 // CloudAPI implements the cloud interface and is the concrete implementation
 // of the api end point.
 type CloudAPI struct {
-	modelCredentialService ModelCredentialService
-
 	cloudService       CloudService
 	cloudAccessService CloudAccessService
 	credentialService  CredentialService
@@ -69,7 +66,6 @@ var (
 func NewCloudAPI(
 	controllerTag names.ControllerTag,
 	controllerCloud string,
-	modelCredentialService ModelCredentialService,
 	cloudService CloudService,
 	cloudAccessService CloudAccessService,
 	credentialService CredentialService,
@@ -97,7 +93,6 @@ func NewCloudAPI(
 	return &CloudAPI{
 		controllerTag:          controllerTag,
 		controllerCloud:        controllerCloud,
-		modelCredentialService: modelCredentialService,
 		cloudService:           cloudService,
 		cloudAccessService:     cloudAccessService,
 		credentialService:      credentialService,
@@ -730,15 +725,14 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 			info.Content.Valid = &valid
 		}
 
-		// get models
-		credTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", key.Cloud, key.Owner, key.Name))
-		models, err := api.modelCredentialService.CredentialModelsAndOwnerAccess(credTag)
+		// get model access
+		models, err := api.cloudAccessService.AllModelAccessForCloudCredential(ctx, key)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
 		}
 		info.Models = make([]params.ModelAccess, len(models))
 		for i, m := range models {
-			info.Models[i] = params.ModelAccess{Model: m.ModelName, Access: string(m.OwnerAccess)}
+			info.Models[i] = params.ModelAccess{Model: m.ModelName, Access: m.OwnerAccess.String()}
 		}
 
 		return params.CredentialContentResult{Result: &info}
