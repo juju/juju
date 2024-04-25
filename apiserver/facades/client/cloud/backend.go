@@ -6,8 +6,6 @@ package cloud
 import (
 	stdcontext "context"
 
-	"github.com/juju/names/v5"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	corepermission "github.com/juju/juju/core/permission"
@@ -46,11 +44,9 @@ type CloudAccessService interface {
 	// ReadAllAccessForUserAndObjectType returns UserAccess for the given
 	// subject (user) for all clouds based on objectType.
 	ReadAllAccessForUserAndObjectType(ctx stdcontext.Context, subject string, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error)
-}
-
-// ModelCredentialService provides access to model credential info.
-type ModelCredentialService interface {
-	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]cloud.CredentialOwnerModelAccess, error)
+	// AllModelAccessForCloudCredential for a given (cloud) credential key, return all
+	// model name and model access levels.
+	AllModelAccessForCloudCredential(ctx stdcontext.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error)
 }
 
 // CredentialService provides access to the credential domain service.
