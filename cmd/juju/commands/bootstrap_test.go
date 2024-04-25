@@ -1320,7 +1320,6 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
-	corebase.SetLatestLtsForTesting("focal")
 	resetJujuXDGDataHome(c)
 
 	// Bootstrap the controller with the valid source.

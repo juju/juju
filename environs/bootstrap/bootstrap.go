@@ -384,10 +384,10 @@ func bootstrapIAAS(
 		config.PreferredBase(cfg),
 	)
 	if !args.Force && err != nil {
-		// If the series isn't valid at all, then don't prompt users to use
+		// If the base isn't valid (i.e. non-ubuntu) then don't prompt users to use
 		// the --force flag.
-		if _, err := corebase.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
-			return errors.NotValidf("base %q", requestedBootstrapBase.String())
+		if requestedBootstrapBase.OS != corebase.UbuntuOS {
+			return errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
 		}
 		return errors.Annotatef(err, "use --force to override")
 	}
@@ -931,17 +931,13 @@ func bootstrapImageMetadata(
 		if bootstrapBase == nil {
 			return nil, errors.NotValidf("no base specified with bootstrap image")
 		}
-		seriesVersion, err := corebase.BaseSeriesVersion(*bootstrapBase)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		// The returned metadata does not have information about the
 		// storage or virtualisation type. Any provider that wants to
 		// filter on those properties should allow for empty values.
 		meta := &imagemetadata.ImageMetadata{
 			Id:         bootstrapImageId,
 			Arch:       bootstrapArch,
-			Version:    seriesVersion,
+			Version:    bootstrapBase.Channel.Track,
 			RegionName: region.Region,
 			Endpoint:   region.Endpoint,
 			Stream:     environ.Config().ImageStream(),

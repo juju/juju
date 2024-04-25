@@ -26,7 +26,7 @@ func Mongo(snapChannel string) packaging.Dependency {
 
 // PackageList implements packaging.Dependency.
 func (dep mongoDependency) PackageList(b base.Base) ([]packaging.Package, error) {
-	if b.OS != ubuntu {
+	if b.OS != base.UbuntuOS {
 		return nil, errors.NotSupportedf("installing mongo on base %q", b)
 	}
 
