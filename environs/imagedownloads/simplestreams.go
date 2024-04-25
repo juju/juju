@@ -120,7 +120,7 @@ func validateArgs(arch, release, stream, ftype string) error {
 	}
 
 	validVersion := false
-	workloadVersions, err := corebase.AllWorkloadVersions(release, stream)
+	workloadVersions, err := corebase.AllWorkloadVersions(corebase.Base{}, stream)
 	if err != nil {
 		return errors.Trace(err)
 	}

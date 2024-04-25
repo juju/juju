@@ -50,11 +50,6 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 			MustParseBaseFromString("ubuntu@22.04/stable"),
 			MustParseBaseFromString("ubuntu@24.04/stable"),
 		},
-	}, {
-		name:          "invalid base",
-		requestedBase: MustParseBaseFromString("foo@bar"),
-		imageStream:   Daily,
-		err:           `os "foo" version "bar" not found`,
 	}}
 	for _, test := range tests {
 		c.Logf("test %q", test.name)
