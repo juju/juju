@@ -159,9 +159,5 @@ func (c *setApplicationBase) parseBase(ctx *cmd.Context, arg string) (corebase.B
 	}
 
 	ctx.Warningf("series argument is deprecated, use base instead")
-	_, err := corebase.GetOSFromSeries(arg)
-	if err != nil {
-		return corebase.Base{}, errors.Trace(err)
-	}
 	return corebase.GetBaseFromSeries(arg)
 }
