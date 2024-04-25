@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/base"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -36,7 +37,7 @@ const (
 )
 
 // For testing.
-var SupportedJujuSeries = corebase.WorkloadSeries
+var SupportedJujuBases = corebase.WorkloadBases
 
 var upgradeMachineConfirmationMsg = `
 WARNING: This command will mark machine %q as being upgraded to %q.
@@ -238,20 +239,29 @@ func (c *upgradeMachineCommand) Run(ctx *cmd.Context) error {
 
 func (c *upgradeMachineCommand) parseBase(ctx *cmd.Context, arg string) (corebase.Base, error) {
 	// If this doesn't contain an @ then it's a series and not a base.
+	var (
+		base corebase.Base
+		err  error
+	)
 	if strings.Contains(arg, "@") {
-		return corebase.ParseBaseFromString(arg)
+		base, err = corebase.ParseBaseFromString(arg)
+	} else {
+		ctx.Warningf("series argument is deprecated, use base instead")
+		base, err = corebase.GetBaseFromSeries(strings.ToLower(arg))
 	}
-
-	ctx.Warningf("series argument is deprecated, use base instead")
-	workloadSeries, err := SupportedJujuSeries(time.Now(), arg, "")
 	if err != nil {
 		return corebase.Base{}, errors.Trace(err)
 	}
-	s, err := checkSeries(workloadSeries.Values(), arg)
+
+	workloadBases, err := SupportedJujuBases(time.Now(), base, "")
+	if err != nil {
+		return corebase.Base{}, errors.Trace(err)
+	}
+	err = checkBase(workloadBases, base)
 	if err != nil {
 		return corebase.Base{}, err
 	}
-	return corebase.GetBaseFromSeries(s)
+	return base, nil
 }
 
 func (c *upgradeMachineCommand) trapInterrupt(ctx *cmd.Context) func() {
@@ -559,12 +569,12 @@ func checkSubCommands(validCommands []string, argCommand string) (string, error)
 		argCommand, strings.Join(validCommands, ", "))
 }
 
-func checkSeries(supportedSeries []string, seriesArgument string) (string, error) {
-	for _, s := range supportedSeries {
-		if strings.EqualFold(s, seriesArgument) {
-			return s, nil
+func checkBase(supportedBases []corebase.Base, baseArgument base.Base) error {
+	for _, b := range supportedBases {
+		if baseArgument.IsCompatible(b) {
+			return nil
 		}
 	}
 
-	return "", errors.Errorf("%q is an unsupported series", seriesArgument)
+	return errors.Errorf("%q is an unsupported base", baseArgument)
 }
