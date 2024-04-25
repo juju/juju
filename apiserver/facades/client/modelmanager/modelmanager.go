@@ -278,7 +278,6 @@ func (m *ModelManagerAPI) createModelNew(
 		if err != nil {
 			return errors.Trace(err)
 		}
-
 	} else {
 		cloudTag = names.NewCloudTag(defaultCloudName)
 	}
@@ -558,6 +557,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// mode and don't make the calls so test can keep passing.
 	// THIS IS VERY TEMPORARY.
 	if m.modelService != nil {
+		args.CloudRegion = cloudRegionName
+
 		return modelInfo, m.createModelNew(ctx, modelInfo.UUID, args)
 	}
 	return modelInfo, nil

@@ -120,11 +120,11 @@ func Create(
 	input model.ModelCreationArgs,
 ) error {
 	if err := createModel(ctx, tx, uuid, modelType, input); err != nil {
-		return err
+		return fmt.Errorf("creating model %q: %w", uuid, err)
 	}
 
 	if err := createModelAgent(ctx, tx, uuid, input.AgentVersion); err != nil {
-		return err
+		return fmt.Errorf("creating model %q agent: %w", uuid, err)
 	}
 
 	if _, err := registerModelNamespace(ctx, tx, uuid); err != nil {
@@ -391,17 +391,14 @@ WHERE model_type.type = ?
 		return fmt.Errorf("creating model metadata, expected 1 row to be inserted, got %d", num)
 	}
 
-	if input.CloudRegion != "" {
-		err := setCloudRegion(ctx, uuid, input.CloudRegion, tx)
-		if err != nil {
-			return err
-		}
+	if err := setCloudRegion(ctx, uuid, input.Cloud, input.CloudRegion, tx); err != nil {
+		return fmt.Errorf("setting cloud region for model %q: %w", uuid, err)
 	}
 
 	if !input.Credential.IsZero() {
 		err := updateCredential(ctx, tx, uuid, input.Credential)
 		if err != nil {
-			return err
+			return fmt.Errorf("setting cloud credential for model %q: %w", uuid, err)
 		}
 	}
 
@@ -704,10 +701,41 @@ func registerModelNamespace(
 func setCloudRegion(
 	ctx context.Context,
 	uuid coremodel.UUID,
-	region string,
+	name, region string,
 	tx *sql.Tx,
 ) error {
-	cloudRegionStmt := `
+	// If the cloud region is not provided we will attempt to set the default
+	// cloud region for the model from the controller model.
+	var cloudRegionUUID string
+	if region == "" {
+		// Ensure that the controller cloud name is the same as the model cloud
+		// name.
+		stmt := `
+SELECT m.cloud_region_uuid, c.name
+FROM
+model m
+JOIN cloud c
+ON m.cloud_uuid = c.uuid
+WHERE m.name = 'controller'
+AND c.name = ?`
+
+		var controllerRegionUUID *string
+		var n string
+		if err := tx.QueryRowContext(ctx, stmt, name).Scan(&controllerRegionUUID, &n); errors.Is(err, sql.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("getting controller cloud region uuid: %w", err)
+		}
+
+		// If the region is empty, we will not set a cloud region for the model
+		// and will skip it.
+		if controllerRegionUUID == nil || *controllerRegionUUID == "" {
+			return nil
+		}
+		cloudRegionUUID = *controllerRegionUUID
+
+	} else {
+		stmt := `
 SELECT cr.uuid
 FROM cloud_region cr
 INNER JOIN cloud c
@@ -718,23 +746,11 @@ WHERE m.uuid = ?
 AND cr.name = ?
 `
 
-	var cloudRegionUUID string
-	err := tx.QueryRowContext(ctx, cloudRegionStmt, uuid, region).
-		Scan(&cloudRegionUUID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf(
-			"%w cloud region %q for model uuid %q",
-			errors.NotFound,
-			region,
-			uuid,
-		)
-	} else if err != nil {
-		return fmt.Errorf(
-			"getting cloud region %q uuid for model %q: %w",
-			region,
-			uuid,
-			err,
-		)
+		if err := tx.QueryRowContext(ctx, stmt, uuid, region).Scan(&cloudRegionUUID); errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w cloud region %q for model uuid %q", errors.NotFound, region, uuid)
+		} else if err != nil {
+			return fmt.Errorf("getting cloud region %q uuid for model %q: %w", region, uuid, err)
+		}
 	}
 
 	modelMetadataStmt := `
