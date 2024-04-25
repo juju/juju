@@ -307,7 +307,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *gc.C) {
 			BootstrapBase:           corebase.MustParseBaseFromString("spock@1"),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, gc.ErrorMatches, `base "spock@1/stable" not valid`)
+	c.Assert(err, gc.ErrorMatches, `non-ubuntu bootstrap base "spock@1/stable" not valid`)
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {

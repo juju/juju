@@ -171,7 +171,7 @@ func checkForDeprecatedUbuntuSeriesForModel(
 	supported := false
 	var deprecatedBases []state.Base
 	for _, vers := range corebase.UbuntuVersions(&supported, nil) {
-		deprecatedBases = append(deprecatedBases, state.Base{OS: "ubuntu", Channel: vers})
+		deprecatedBases = append(deprecatedBases, state.Base{OS: corebase.UbuntuOS, Channel: vers})
 	}
 
 	// sort for tests.

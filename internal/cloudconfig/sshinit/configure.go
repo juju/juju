@@ -36,9 +36,6 @@ type ConfigureParams struct {
 	// ProgressWriter is an io.Writer to which progress will be written,
 	// for realtime feedback.
 	ProgressWriter io.Writer
-
-	// OS is the os of the machine on which the script will be carried out
-	OS string
 }
 
 // RunConfigureScript connects to the specified host over

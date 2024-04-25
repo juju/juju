@@ -37,12 +37,7 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
-    - name: "Install Mongo Dependencies (Ubuntu)"
-      if: (matrix.os == 'ubuntu-latest')
-      run: |
-        make install-mongo-dependencies
-
-    - name: "Install musl & dqlite  (Ubuntu)"
+    - name: "Install musl & dqlite (Ubuntu)"
       if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |

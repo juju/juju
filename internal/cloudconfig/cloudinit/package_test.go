@@ -9,6 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package cloudinit_test -destination filetransporter_mock_test.go github.com/juju/juju/internal/cloudconfig/cloudinit FileTransporter
+
 func Test(t *testing.T) {
 	gc.TestingT(t)
 }

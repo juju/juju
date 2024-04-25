@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/internal/packaging"
 )
 
-var ubuntu = "ubuntu"
-
 // LXD returns a dependency instance for installing lxd support using the
 // specified channel preferences (applies to cosmic or later).
 func LXD(snapChannel string) packaging.Dependency {
@@ -28,7 +26,7 @@ type lxdDependency struct {
 
 // PackageList implements packaging.Dependency.
 func (dep lxdDependency) PackageList(b base.Base) ([]packaging.Package, error) {
-	if b.OS != ubuntu {
+	if b.OS != base.UbuntuOS {
 		return nil, errors.NotSupportedf("LXD containers on base %q", b)
 	}
 

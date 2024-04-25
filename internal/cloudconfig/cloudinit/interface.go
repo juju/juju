@@ -316,6 +316,10 @@ type WrittenFilesConfig interface {
 	// of a given file with the specified file permissions on *first* boot.
 	// NOTE: if the file already exists, it will be truncated.
 	AddRunBinaryFile(string, []byte, uint)
+
+	// SetFileTransporter sets an alternative transporter for files added with
+	// AddRunBinaryFile.
+	SetFileTransporter(FileTransporter)
 }
 
 // RenderConfig provides various ways to render a CloudConfig.
@@ -410,6 +414,16 @@ type NetworkingConfig interface {
 
 func WithDisableNetplanMACMatch(cfg *cloudConfig) {
 	cfg.omitNetplanHWAddrMatch = true
+}
+
+// FileTransporter is the interface set on CloudConfig when it wants to optionally
+// deliver files by its own means.
+type FileTransporter interface {
+	// SendBytes will ensure the payload is written to the target machine
+	// using the given hint in the file name (for debugging purposes).
+	// SendBytes returns the path on the target machine where the payload is
+	// stored.
+	SendBytes(hint string, payload []byte) string
 }
 
 // New returns a new Config with no options set.

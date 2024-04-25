@@ -21,6 +21,16 @@ type Base struct {
 	Channel Channel
 }
 
+const (
+	// UbuntuOS is the special value to be places in OS field of a base to
+	// indicate an operating system is an Ubuntu distro
+	UbuntuOS = "ubuntu"
+
+	// CentosOS is the special value to be places in OS field of a base to
+	// indicate an operating system is a CentOS distro
+	CentosOS = "centos"
+)
+
 // ParseBase constructs a Base from the os and channel string.
 func ParseBase(os string, channel string) (Base, error) {
 	if os == "" && channel == "" {
@@ -152,9 +162,9 @@ func GetSeriesFromChannel(name string, channel string) (string, error) {
 func GetSeriesFromBase(v Base) (string, error) {
 	var osSeries map[SeriesName]seriesVersion
 	switch strings.ToLower(v.OS) {
-	case "ubuntu":
+	case UbuntuOS:
 		osSeries = ubuntuSeries
-	case "centos":
+	case CentosOS:
 		osSeries = centosSeries
 	}
 	for s, vers := range osSeries {

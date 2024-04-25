@@ -7,16 +7,6 @@ import "sort"
 
 // These methods are used only in various tests.
 
-// SetLatestLtsForTesting is provided to allow tests to override the lts series
-// used and decouple the tests from the host by avoiding calling out to
-// distro-info.  It returns the previous setting so that it may be set back to
-// the original value by the caller.
-func SetLatestLtsForTesting(series string) string {
-	old := latestLtsSeries
-	latestLtsSeries = series
-	return old
-}
-
 // SupportedLts are the current supported LTS series in ascending order.
 func SupportedLts() []string {
 	seriesVersionsMutex.Lock()
