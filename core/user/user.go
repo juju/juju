@@ -54,10 +54,10 @@ func NewUUID() (UUID, error) {
 // Validate returns an error if the UUID is invalid.
 func (u UUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("empty uuid")
+		return fmt.Errorf("empty uuid%w", errors.Hide(errors.NotValid))
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("invalid uuid: %q", u)
+		return fmt.Errorf("invalid uuid: %q%w", u, errors.Hide(errors.NotValid))
 	}
 	return nil
 }

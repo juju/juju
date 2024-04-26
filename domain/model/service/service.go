@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	jujuversion "github.com/juju/juju/version"
@@ -59,8 +60,17 @@ type State interface {
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
 
-	// List returns a list of all model UUIDs.
-	List(context.Context) ([]coremodel.UUID, error)
+	// ListAllModels returns all models registered in the controller. If no
+	// models exist a zero value slice will be returned.
+	ListAllModels(context.Context) ([]coremodel.Model, error)
+
+	// ListModelIDs returns a list of all model UUIDs.
+	ListModelIDs(context.Context) ([]coremodel.UUID, error)
+
+	// ListModelsOwnedByUser returns a slice of models owned by the user
+	// specified by user id. If no user or models are found an empty slice is
+	// returned.
+	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
 
 	// ModelCloudNameAndCredential returns the cloud name and credential id for a
 	// model identified by the model name and the owner. If no model exists for
@@ -248,15 +258,32 @@ func (s *Service) DeleteModel(
 	return s.st.Delete(ctx, uuid)
 }
 
-// ModelList returns a list of all model UUIDs in the system that have not been
+// ListModelIDs returns a list of all model UUIDs in the system that have not been
 // deleted. This list does not represent one or more lifecycle states for
 // models.
-func (s *Service) ModelList(ctx context.Context) ([]coremodel.UUID, error) {
-	uuids, err := s.st.List(ctx)
+func (s *Service) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
+	uuids, err := s.st.ListModelIDs(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving model list")
 	}
 	return uuids, nil
+}
+
+// ListAllModels  lists all models in the controller. If no models exist then
+// an empty slice is returned.
+func (s *Service) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
+	return s.st.ListAllModels(ctx)
+}
+
+// ListModelsForUser lists the models that are either owned by the user or
+// accessible  by the user specified by the user id. If no user or models exists
+// an empty slice of models will be returned.
+func (s *Service) ListModelsForUser(ctx context.Context, userID coreuser.UUID) ([]coremodel.Model, error) {
+	if err := userID.Validate(); err != nil {
+		return nil, fmt.Errorf("listing models owned by user: %w", err)
+	}
+
+	return s.st.ListModelsForUser(ctx, userID)
 }
 
 // ModelTypeForCloud is responsible returning the model type based on the cloud

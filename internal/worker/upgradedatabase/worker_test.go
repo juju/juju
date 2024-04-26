@@ -439,7 +439,7 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade (there are no models).
-	s.expectModelList([]coremodel.UUID{})
+	s.expectListModelIDs([]coremodel.UUID{})
 
 	s.expectDBCompleted()
 	done := s.expectUnlock()
@@ -498,7 +498,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade (there are no models).
-	s.expectModelList([]coremodel.UUID{})
+	s.expectListModelIDs([]coremodel.UUID{})
 
 	s.expectDBCompleted()
 	done := s.expectUnlock()
@@ -552,7 +552,7 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 
 	// Model upgrade.
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.expectModelList([]coremodel.UUID{modelUUID})
+	s.expectListModelIDs([]coremodel.UUID{modelUUID})
 	s.expectModelDBUpgrade(c, modelUUID)
 
 	s.expectDBCompleted()
@@ -607,7 +607,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
 
 	// Model upgrade.
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.expectModelList([]coremodel.UUID{modelUUID})
+	s.expectListModelIDs([]coremodel.UUID{modelUUID})
 	txnRunner := s.expectModelDBUpgrade(c, modelUUID)
 
 	// Run the upgrade steps on the existing model, to ensure it doesn't break
@@ -738,8 +738,9 @@ func (s *workerSuite) expectControllerDBUpgrade() {
 	s.dbGetter.EXPECT().GetDB(coredatabase.ControllerNS).Return(s.TxnRunner(), nil)
 }
 
-func (s *workerSuite) expectModelList(models []coremodel.UUID) {
-	s.modelService.EXPECT().ModelList(gomock.Any()).Return(models, nil)
+func (s *workerSuite) expectListModelIDs(models []coremodel.UUID) {
+	s.modelService.EXPECT().ListModelIDs(gomock.Any()).Return(models, nil)
+
 }
 
 func (s *workerSuite) expectModelDBUpgrade(c *gc.C, modelUUID coremodel.UUID) coredatabase.TxnRunner {

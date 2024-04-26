@@ -5,7 +5,8 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -14,27 +15,16 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
-	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	jujuversion "github.com/juju/juju/version"
 )
-
-type dummyStateCloud struct {
-	Credentials map[string]credential.Key
-	Regions     []string
-}
-
-type dummyState struct {
-	clouds             map[string]dummyStateCloud
-	models             map[coremodel.UUID]coremodel.Model
-	nonFinalisedModels map[coremodel.UUID]coremodel.Model
-	users              map[user.UUID]string
-}
 
 type serviceSuite struct {
 	testing.IsolationSuite
@@ -46,183 +36,10 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-func (d *dummyState) CloudType(
-	_ context.Context,
-	name string,
-) (string, error) {
-	_, exists := d.clouds[name]
-	if !exists {
-		return "", clouderrors.NotFound
-	}
-
-	return "aws", nil
-}
-
-func (d *dummyState) Create(
-	_ context.Context,
-	uuid coremodel.UUID,
-	modelType coremodel.ModelType,
-	args model.ModelCreationArgs,
-) error {
-	if _, exists := d.models[uuid]; exists {
-		return fmt.Errorf("%w %q", modelerrors.AlreadyExists, uuid)
-	}
-
-	for _, v := range d.models {
-		if v.Name == args.Name && v.Owner == args.Owner {
-			return fmt.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, v.Name, v.Owner)
-		}
-	}
-
-	cloud, exists := d.clouds[args.Cloud]
-	if !exists {
-		return fmt.Errorf("%w cloud %q", errors.NotFound, args.Cloud)
-	}
-
-	_, exists = d.users[user.UUID(args.Owner.String())]
-	if !exists {
-		return fmt.Errorf("%w for owner %q", usererrors.UserNotFound, args.Owner)
-	}
-
-	hasRegion := false
-	for _, region := range cloud.Regions {
-		if region == args.CloudRegion {
-			hasRegion = true
-		}
-	}
-	if !hasRegion {
-		return fmt.Errorf("%w cloud %q region %q", errors.NotFound, args.Cloud, args.CloudRegion)
-	}
-
-	if !args.Credential.IsZero() {
-		if _, exists := cloud.Credentials[args.Credential.String()]; !exists {
-			return fmt.Errorf("%w credential %q", errors.NotFound, args.Credential.String())
-		}
-	}
-
-	d.nonFinalisedModels[uuid] = coremodel.Model{
-		AgentVersion: args.AgentVersion,
-		Name:         args.Name,
-		UUID:         uuid,
-		ModelType:    modelType,
-		Cloud:        args.Cloud,
-		CloudRegion:  args.CloudRegion,
-		Credential:   args.Credential,
-		Owner:        args.Owner,
-	}
-	return nil
-}
-
-func (d *dummyState) Finalise(
-	_ context.Context,
-	uuid coremodel.UUID,
-) error {
-	if model, exists := d.nonFinalisedModels[uuid]; exists {
-		d.models[uuid] = model
-		delete(d.nonFinalisedModels, uuid)
-		return nil
-	}
-
-	if _, exists := d.models[uuid]; exists {
-		return modelerrors.AlreadyFinalised
-	}
-	return modelerrors.NotFound
-}
-
-func (d *dummyState) Get(
-	_ context.Context,
-	uuid coremodel.UUID,
-) (coremodel.Model, error) {
-	info, exists := d.models[uuid]
-	if !exists {
-		return coremodel.Model{}, fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
-	}
-	return info, nil
-}
-
-func (d *dummyState) GetModelType(
-	_ context.Context,
-	uuid coremodel.UUID,
-) (coremodel.ModelType, error) {
-	info, exists := d.models[uuid]
-	if !exists {
-		return "", fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
-	}
-	return info.ModelType, nil
-}
-
-func (d *dummyState) Delete(
-	_ context.Context,
-	uuid coremodel.UUID,
-) error {
-	if _, exists := d.models[uuid]; !exists {
-		return fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
-	}
-	delete(d.models, uuid)
-	return nil
-}
-
-func (d *dummyState) List(
-	_ context.Context,
-) ([]coremodel.UUID, error) {
-	rval := make([]coremodel.UUID, 0, len(d.models))
-	for k := range d.models {
-		rval = append(rval, k)
-	}
-
-	return rval, nil
-}
-
-func (d *dummyState) ModelCloudNameAndCredential(
-	_ context.Context,
-	modelName string,
-	ownerName string,
-) (string, credential.Key, error) {
-	var ownerUUID user.UUID
-	for k, v := range d.users {
-		if v == ownerName {
-			ownerUUID = k
-		}
-	}
-
-	for _, model := range d.models {
-		if model.Owner == ownerUUID && model.Name == modelName {
-			return model.Cloud, model.Credential, nil
-		}
-	}
-	return "", credential.Key{}, modelerrors.NotFound
-}
-
-func (d *dummyState) UpdateCredential(
-	_ context.Context,
-	uuid coremodel.UUID,
-	credentialKey credential.Key,
-) error {
-	info, exists := d.models[uuid]
-	if !exists {
-		return fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
-	}
-
-	cloud, exists := d.clouds[credentialKey.Cloud]
-	if !exists {
-		return fmt.Errorf("%w cloud %q", errors.NotFound, credentialKey.Cloud)
-	}
-
-	if _, exists := cloud.Credentials[credentialKey.String()]; !exists {
-		return fmt.Errorf("%w credential %q", errors.NotFound, credentialKey.String())
-	}
-
-	if info.Cloud != credentialKey.Cloud {
-		return fmt.Errorf("%w credential cloud is different to that of the model", errors.NotValid)
-	}
-
-	return nil
-}
-
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.modelUUID = modeltesting.GenModelUUID(c)
 	var err error
-	s.userUUID, err = user.NewUUID()
+	s.userUUID = usertesting.GenUserUUID(c)
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = &dummyState{
 		clouds:             map[string]dummyStateCloud{},
@@ -271,7 +88,7 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	// controller version is chosen.
 	c.Check(args.AgentVersion, gc.Equals, jujuversion.Current)
 
-	modelList, err := svc.ModelList(context.Background())
+	modelList, err := svc.ListModelIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelList, gc.DeepEquals, []coremodel.UUID{
 		id,
@@ -661,4 +478,171 @@ func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 
 	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsFalse)
+}
+
+// TestListAllModelsNoResults is asserting that when no models exist the return
+// value of ListAllModels is an empty slice.
+func (s *serviceSuite) TestListAllModelsNoResults(c *gc.C) {
+	svc := NewService(s.state, DefaultAgentBinaryFinder())
+	models, err := svc.ListAllModels(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(len(models), gc.Equals, 0)
+}
+
+func (s *serviceSuite) TestListAllModels(c *gc.C) {
+	cred := credential.Key{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: s.userUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.Key{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	usr1 := usertesting.GenUserUUID(c)
+	s.state.users[usr1] = "tlm"
+
+	svc := NewService(s.state, DefaultAgentBinaryFinder())
+	id1, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
+		Credential:   cred,
+		Owner:        s.userUUID,
+		Name:         "my-awesome-model",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+
+	id2, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
+		Credential:   cred,
+		Owner:        usr1,
+		Name:         "my-awesome-model1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+
+	models, err := svc.ListAllModels(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	slices.SortFunc(models, func(a, b coremodel.Model) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	c.Check(models, gc.DeepEquals, []coremodel.Model{
+		{
+			Name:         "my-awesome-model",
+			AgentVersion: jujuversion.Current,
+			UUID:         id1,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			Owner:        s.userUUID,
+			OwnerName:    "admin",
+			Credential:   cred,
+			Life:         life.Alive,
+		},
+		{
+			Name:         "my-awesome-model1",
+			AgentVersion: jujuversion.Current,
+			UUID:         id2,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			Owner:        usr1,
+			OwnerName:    "tlm",
+			Credential:   cred,
+			Life:         life.Alive,
+		},
+	})
+}
+
+// TestListModelsForUser is asserting that for a non existent user we return
+// an empty model result.
+func (s *serviceSuite) TestListModelsForNonExistentUser(c *gc.C) {
+	fakeUserID := usertesting.GenUserUUID(c)
+	svc := NewService(s.state, DefaultAgentBinaryFinder())
+	models, err := svc.ListModelsForUser(context.Background(), fakeUserID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(models), gc.Equals, 0)
+}
+
+func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
+	cred := credential.Key{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: s.userUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.Key{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	usr1 := usertesting.GenUserUUID(c)
+	s.state.users[usr1] = "tlm"
+
+	svc := NewService(s.state, DefaultAgentBinaryFinder())
+	id1, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
+		Credential:   cred,
+		Owner:        usr1,
+		Name:         "my-awesome-model",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+
+	id2, finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
+		Credential:   cred,
+		Owner:        usr1,
+		Name:         "my-awesome-model1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+
+	models, err := svc.ListModelsForUser(context.Background(), usr1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	slices.SortFunc(models, func(a, b coremodel.Model) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	c.Check(models, gc.DeepEquals, []coremodel.Model{
+		{
+			Name:         "my-awesome-model",
+			AgentVersion: jujuversion.Current,
+			UUID:         id1,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			Owner:        usr1,
+			OwnerName:    "tlm",
+			Credential:   cred,
+			Life:         life.Alive,
+		},
+		{
+			Name:         "my-awesome-model1",
+			AgentVersion: jujuversion.Current,
+			UUID:         id2,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			Owner:        usr1,
+			OwnerName:    "tlm",
+			Credential:   cred,
+			Life:         life.Alive,
+		},
+	})
 }

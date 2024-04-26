@@ -956,28 +956,41 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 		return result, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelBasicInfoForUser(userTag, m.isAdmin)
+	ctrlUser, err := m.accessService.GetUserByName(ctx, userTag.Name())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, mi := range modelInfos {
+	var models []coremodel.Model
+	// If the currently logged in user is an admin we list all models in the
+	// controller.
+	if m.isAdmin {
+		models, err = m.modelService.ListAllModels(ctx)
+	} else {
+		models, err = m.modelService.ListModelsForUser(ctx, ctrlUser.UUID)
+	}
+
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for _, mi := range models {
 		var ownerTag names.UserTag
-		if names.IsValidUser(mi.Owner) {
-			ownerTag = names.NewUserTag(mi.Owner)
+		if names.IsValidUser(mi.OwnerName) {
+			ownerTag = names.NewUserTag(mi.OwnerName)
 		} else {
-			// no reason to fail the request here, as it wasn't the users fault
 			logger.Warningf("for model %v, got an invalid owner: %q", mi.UUID, mi.Owner)
 		}
-		lastConnection := mi.LastConnection
+
+		t := time.Now()
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     mi.Name,
-				UUID:     mi.UUID,
-				Type:     string(mi.Type),
+				UUID:     mi.UUID.String(),
+				Type:     string(mi.ModelType),
 				OwnerTag: ownerTag.String(),
 			},
-			LastConnection: &lastConnection,
+			LastConnection: &t,
 		})
 	}
 
