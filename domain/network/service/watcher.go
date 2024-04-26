@@ -41,31 +41,28 @@ func NewWatchableService(st State, provider providertracker.ProviderGetter[Provi
 // association (fan underlays), filtered based on the provided list of subnets
 // to watch.
 func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error) {
-	if s.watcherFactory != nil {
-		filter := subnetUUIDsFilter(subnetUUIDsToWatch)
+	filter := subnetUUIDsFilter(subnetUUIDsToWatch)
 
-		subnetWatcher, err := s.watcherFactory.NewNamespaceMapperWatcher(
-			"subnet",
-			changestream.All,
-			s.st.AllSubnetsQuery,
-			eventsource.FilterEvents(filter),
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		subnetAssociationWatcher, err := s.watcherFactory.NewNamespaceMapperWatcher(
-			"subnet_association",
-			changestream.All,
-			s.st.AllAssociatedSubnetsQuery,
-			eventsource.FilterEvents(filter),
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return eventsource.NewMultiStringsWatcher(ctx, subnetWatcher, subnetAssociationWatcher)
+	subnetWatcher, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		"subnet",
+		changestream.All,
+		s.st.AllSubnetsQuery,
+		eventsource.FilterEvents(filter),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return nil, errors.NotYetAvailablef("subnet watcher")
+	subnetAssociationWatcher, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		"subnet_association",
+		changestream.All,
+		s.st.AllAssociatedSubnetsQuery,
+		eventsource.FilterEvents(filter),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return eventsource.NewMultiStringsWatcher(ctx, subnetWatcher, subnetAssociationWatcher)
 }
 
 // subnetUUIDsFilter filters the returned subnet UUIDs from the changelog
