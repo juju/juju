@@ -9,8 +9,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-
-	corebase "github.com/juju/juju/core/base"
 )
 
 // Source represents the source of the charm.
@@ -78,16 +76,13 @@ func MustParsePlatform(s string) Platform {
 //  1. Architecture is mandatory.
 //  2. OS is optional and can be dropped. Release is mandatory if OS wants
 //     to be displayed.
-//  3. Release is also optional.
-//
-// To indicate something is missing `unknown` can be used in place.
+//  3. Release is also optional. Release can also optionally include a risk
 //
 // Examples:
 //
 //  1. `<arch>/<os>/<channel>`
-//  2. `<arch>`
-//  3. `<arch>/<series>`
-//  4. `<arch>/unknown/<series>`
+//  2. `<arch>/<os>/<track>/<risk>`
+//  3. `<arch>`
 func ParsePlatform(s string) (Platform, error) {
 	if s == "" {
 		return Platform{}, errors.BadRequestf("platform cannot be empty")
@@ -99,15 +94,12 @@ func ParsePlatform(s string) (Platform, error) {
 	switch len(p) {
 	case 1:
 		arch = &p[0]
-	case 2:
-		arch = &p[0]
-		channel = &p[1]
 	case 3:
 		arch, os, channel = &p[0], &p[1], &p[2]
 	case 4:
 		arch, os, channel = &p[0], &p[1], strptr(fmt.Sprintf("%s/%s", p[2], p[3]))
 	default:
-		return Platform{}, errors.Errorf("platform is malformed and has too many components %q", s)
+		return Platform{}, errors.Errorf("platform is malformed; it has an invalid number of components %q", s)
 	}
 
 	platform := Platform{}
@@ -121,27 +113,11 @@ func ParsePlatform(s string) (Platform, error) {
 		if *os == "" {
 			return Platform{}, errors.NotValidf("os in platform %q", s)
 		}
-		platform.OS = *os
-	}
-	if channel != nil {
-		if *channel == "" {
+		if channel == nil || *channel == "" {
 			return Platform{}, errors.NotValidf("channel in platform %q", s)
 		}
-		if *channel != "unknown" {
-			// Channel might be a series, eg "jammy" or an os version, eg "22.04".
-			// We are transitioning away from series but still need to support it.
-			// If an os version is specified, os is mandatory.
-			series := *channel
-			vers, err := corebase.SeriesVersion(series)
-			if err == nil {
-				osType, _ := corebase.GetOSFromSeries(series)
-				platform.OS = strings.ToLower(osType.String())
-				*channel = vers
-			} else if platform.OS == "" {
-				return Platform{}, errors.NotValidf("channel without os name in platform %q", s)
-			}
-			platform.Channel = *channel
-		}
+		platform.OS = *os
+		platform.Channel = *channel
 	}
 
 	return platform, nil

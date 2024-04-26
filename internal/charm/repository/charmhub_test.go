@@ -971,7 +971,8 @@ var _ = gc.Suite(&refreshConfigSuite{})
 
 func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 	name := "wordpress"
-	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
+	// 'mistakenly' include a risk in the platform
+	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.04/stable")
 	channel := corecharm.MustParseChannel("latest/stable").Normalize()
 	origin := corecharm.Origin{
 		Platform: platform,
@@ -1005,8 +1006,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 
 func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 	name := "wordpress"
-	// 'mistakenly' include a risk in the platform
-	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10/stable")
+	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10")
 	channel := corecharm.MustParseChannel("latest/stable").Normalize()
 	origin := corecharm.Origin{
 		Platform: platform,
@@ -1041,7 +1041,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 	revision := 1
 	name := "wordpress"
-	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
+	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.04")
 	origin := corecharm.Origin{
 		Platform: platform,
 		Revision: &revision,
@@ -1069,7 +1069,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 	id := "aaabbbccc"
 	revision := 1
-	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
+	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.04")
 	channel := corecharm.MustParseChannel("stable")
 	origin := corecharm.Origin{
 		Type:        transport.CharmType.String(),
@@ -1162,31 +1162,6 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *gc.C) {
 func (*selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 	repo := new(CharmHubRepository)
 	platform, err := repo.selectNextBases([]transport.Base{{
-		Architecture: "amd64",
-		Name:         "ubuntu",
-		Channel:      "20.04",
-	}}, corecharm.Origin{
-		Platform: corecharm.Platform{
-			Architecture: "amd64",
-			OS:           "ubuntu",
-			Channel:      "20.04",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
-		Architecture: "amd64",
-		OS:           "ubuntu",
-		Channel:      "20.04",
-	}})
-}
-
-func (*selectNextBaseSuite) TestSelectNextBaseWithValidBasesWithSeries(c *gc.C) {
-	repo := new(CharmHubRepository)
-	platform, err := repo.selectNextBases([]transport.Base{{
-		Architecture: "amd64",
-		Name:         "ubuntu",
-		Channel:      "focal",
-	}, {
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      "20.04",
