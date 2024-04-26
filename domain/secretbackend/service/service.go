@@ -99,7 +99,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 		}
 	}
 	if info.ActiveID == "" {
-		return nil, errors.NotFoundf("secret backend %q", currentBackend.Name)
+		return nil, fmt.Errorf("%w: %q", secretbackenderrors.NotFound, currentBackend.Name)
 	}
 	return &info, nil
 }

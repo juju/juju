@@ -23,18 +23,26 @@ func (s *bootstrapSuite) TestCreateDefaultBackendsIAAS(c *gc.C) {
 	err := CreateDefaultBackends(coremodel.IAAS)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	var name string
-	row := s.DB().QueryRow("SELECT name FROM secret_backend where backend_type_id = ?", 0) // 0 = controller
-	c.Assert(row.Scan(&name), jc.ErrorIsNil)
+	var (
+		name   string
+		typeID int
+	)
+	row := s.DB().QueryRow("SELECT name, backend_type_id FROM secret_backend where backend_type_id = ?", 0) // 0 = controller
+	c.Assert(row.Scan(&name, &typeID), jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "internal")
+	c.Assert(typeID, gc.Equals, 0)
 }
 
 func (s *bootstrapSuite) TestCreateDefaultBackendsCAAS(c *gc.C) {
 	err := CreateDefaultBackends(coremodel.CAAS)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	var name string
-	row := s.DB().QueryRow("SELECT name FROM secret_backend where backend_type_id = ?", 1) // 1 = kubernetes
-	c.Assert(row.Scan(&name), jc.ErrorIsNil)
+	var (
+		name   string
+		typeID int
+	)
+	row := s.DB().QueryRow("SELECT name, backend_type_id FROM secret_backend where backend_type_id = ?", 1) // 1 = kubernetes
+	c.Assert(row.Scan(&name, &typeID), jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "kubernetes")
+	c.Assert(typeID, gc.Equals, 1)
 }

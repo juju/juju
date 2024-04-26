@@ -22,7 +22,7 @@ import (
 // CreateDefaultBackends inserts the initial secret backends during bootstrap.
 func CreateDefaultBackends(modelType coremodel.ModelType) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
-		uuid1, err := uuid.NewUUID()
+		backendUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -41,7 +41,7 @@ VALUES ($SecretBackend.*)`, state.SecretBackend{})
 				backendType = domainsecretbackend.BackendTypeKubernetes
 			}
 			err = tx.Query(ctx, upsertBackendStmt, state.SecretBackend{
-				ID:                  uuid1.String(),
+				ID:                  backendUUID.String(),
 				Name:                backendName,
 				BackendTypeID:       backendType,
 				TokenRotateInterval: internaldatabase.NullDuration{},

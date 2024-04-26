@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/rpc/params"
@@ -124,8 +124,6 @@ func (s *undertakerSuite) TestProcessDyingModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
-	c.Skip("TODO: skip for now due to JUJU-5708")
-
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), coremodel.UUID(otherSt.model.uuid)).Return(&provider.ModelBackendConfigInfo{}, nil)
@@ -137,8 +135,6 @@ func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
-	c.Skip("TODO: skip for now due to JUJU-5708")
-
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), coremodel.UUID(otherSt.model.uuid)).Return(&provider.ModelBackendConfigInfo{}, nil)
@@ -149,8 +145,6 @@ func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
-	c.Skip("TODO: skip for now due to JUJU-5708")
-
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -179,11 +173,9 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *gc.C) {
-	c.Skip("TODO: skip for now due to JUJU-5708")
-
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), coremodel.UUID(otherSt.model.uuid)).Return(nil, errors.NotFound)
+	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), coremodel.UUID(otherSt.model.uuid)).Return(nil, secretbackenderrors.NotFound)
 	// Set model to dead
 	otherSt.model.life = state.Dying
 	err := hostedAPI.ProcessDyingModel(context.Background())

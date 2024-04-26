@@ -59,9 +59,9 @@ func (s *State) GetModelSecretBackendDetails(ctx context.Context, uuid coremodel
 	}
 
 	stmt, err := s.Prepare(`
-	SELECT &ModelSecretBackend.*
-	FROM v_model_secret_backend
-	WHERE uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
+SELECT &ModelSecretBackend.*
+FROM   v_model_secret_backend
+WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
