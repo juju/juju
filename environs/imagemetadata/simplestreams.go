@@ -139,7 +139,7 @@ type ImageConstraint struct {
 
 func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, error) {
 	if len(params.Releases) == 0 {
-		workloadVersions, err := corebase.AllWorkloadVersions(corebase.Base{}, params.Stream)
+		workloadVersions, err := corebase.AllWorkloadVersions()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

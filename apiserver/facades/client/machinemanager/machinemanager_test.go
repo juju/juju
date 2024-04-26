@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/base"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -1461,7 +1460,7 @@ type IsBaseLessThanMachineManagerSuite struct{}
 // but complex enough to warrant being exported from an export test package for
 // testing.
 func (s *IsBaseLessThanMachineManagerSuite) TestIsBaseLessThan(c *gc.C) {
-	workloadVersions, err := corebase.AllWorkloadVersions(base.Base{}, "")
+	workloadVersions, err := corebase.AllWorkloadVersions()
 	c.Assert(err, jc.ErrorIsNil)
 	vers := workloadVersions.Values()
 	s.assertSeriesLessThan(c, "ubuntu", vers)

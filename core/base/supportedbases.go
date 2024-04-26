@@ -35,8 +35,8 @@ func WorkloadBases(now time.Time, requestedBase Base, imageStream string) ([]Bas
 }
 
 // AllWorkloadVersions returns all the workload versions (supported or not).
-func AllWorkloadVersions(requestedBase Base, imageStream string) (set.Strings, error) {
-	supported, err := supportedInfoForType(UbuntuDistroInfo, time.Now(), requestedBase, imageStream)
+func AllWorkloadVersions() (set.Strings, error) {
+	supported, err := supportedInfoForType(UbuntuDistroInfo, time.Now(), Base{}, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -44,8 +44,8 @@ func AllWorkloadVersions(requestedBase Base, imageStream string) (set.Strings, e
 }
 
 // AllWorkloadOSTypes returns all the workload os types (supported or not).
-func AllWorkloadOSTypes(requestedBase Base, imageStream string) (set.Strings, error) {
-	supported, err := supportedInfoForType(UbuntuDistroInfo, time.Now(), requestedBase, imageStream)
+func AllWorkloadOSTypes() (set.Strings, error) {
+	supported, err := supportedInfoForType(UbuntuDistroInfo, time.Now(), Base{}, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
