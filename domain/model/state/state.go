@@ -332,7 +332,7 @@ INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid)
 			modelUUID,
 		)
 	} else if err != nil {
-		return fmt.Errorf("setting model %q secret backend: %w", modelUUID, err)
+		return fmt.Errorf("setting model %q secret backend %q: %w", modelUUID, backendName, err)
 	}
 
 	if num, err := res.RowsAffected(); err != nil {

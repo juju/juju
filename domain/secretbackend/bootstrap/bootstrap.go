@@ -26,10 +26,6 @@ func CreateDefaultBackends(modelType coremodel.ModelType) internaldatabase.Boots
 		if err != nil {
 			return errors.Trace(err)
 		}
-		uuid2, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
 		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			upsertBackendStmt, err := sqlair.Prepare(`
 INSERT INTO secret_backend
@@ -38,26 +34,19 @@ VALUES ($SecretBackend.*)`, state.SecretBackend{})
 			if err != nil {
 				return errors.Trace(err)
 			}
+			backendName := juju.BackendName
+			backendType := domainsecretbackend.BackendTypeController
+			if modelType == coremodel.CAAS {
+				backendName = kubernetes.BackendName
+				backendType = domainsecretbackend.BackendTypeKubernetes
+			}
 			err = tx.Query(ctx, upsertBackendStmt, state.SecretBackend{
 				ID:                  uuid1.String(),
-				Name:                juju.BackendName,
-				BackendTypeID:       domainsecretbackend.BackendTypeController,
+				Name:                backendName,
+				BackendTypeID:       backendType,
 				TokenRotateInterval: internaldatabase.NullDuration{},
 			}).Run()
-			if modelType == coremodel.IAAS {
-				return nil
-			}
-
-			if err != nil {
-				return errors.Annotate(err, "cannot create controller secret backend")
-			}
-			err = tx.Query(ctx, upsertBackendStmt, state.SecretBackend{
-				ID:                  uuid2.String(),
-				Name:                kubernetes.BackendName,
-				BackendTypeID:       domainsecretbackend.BackendTypeKubernetes,
-				TokenRotateInterval: internaldatabase.NullDuration{},
-			}).Run()
-			return errors.Annotate(err, "cannot create kubernetes secret backend")
+			return errors.Annotatef(err, "cannot create secret backend %q", backendName)
 		}))
 	}
 }

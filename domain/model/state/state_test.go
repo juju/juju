@@ -508,6 +508,9 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = bootstrap.CreateDefaultBackends(coremodel.CAAS)(context.Background(), m.ControllerTxnRunner(), m.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
 	m.uuid = modeltesting.GenModelUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err = modelSt.Create(
