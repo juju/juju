@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
 	backend        Backend
 	backendService SecretBackendService
+	configService  ModelConfigService
 	auth           facade.Authorizer
 	check          *common.BlockChecker
 }
@@ -35,7 +35,10 @@ type ModelConfigAPIV3 struct {
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(
-	backend Backend, backendService SecretBackendService, authorizer facade.Authorizer,
+	backend Backend,
+	backendService SecretBackendService,
+	configService ModelConfigService,
+	authorizer facade.Authorizer,
 ) (*ModelConfigAPIV3, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -43,6 +46,7 @@ func NewModelConfigAPI(
 	client := &ModelConfigAPI{
 		backend:        backend,
 		backendService: backendService,
+		configService:  configService,
 		auth:           authorizer,
 		check:          common.NewBlockChecker(backend),
 	}
@@ -104,7 +108,7 @@ func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResult
 		return result, errors.Trace(err)
 	}
 
-	values, err := c.backend.ModelConfigValues()
+	values, err := c.configService.ModelConfigValues(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -157,62 +161,46 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 		}
 	}
 
-	// Make sure we don't allow changing agent-version.
-	checkAgentVersion := c.checkAgentVersion()
-
-	// Make sure we don't allow changing of the charmhub-url.
-	checkCharmhubURL := c.checkCharmhubURL()
-
-	// Only controller admins can set trace level debugging on a model.
-	checkLogTrace := c.checkLogTrace()
-
-	// Make sure DefaultSpace exists.
-	checkDefaultSpace := c.checkDefaultSpace()
-
-	// Make sure the secret backend exists.
-	checkSecretBackend := c.checkSecretBackend(ctx)
-
-	// Make sure the passed config does not set authorized-keys.
-	checkAuthorizedKeys := c.checkAuthorizedKeys()
-
-	// Replace any deprecated attributes with their new values.
-	return c.backend.UpdateModelConfig(args.Config,
-		nil,
-		checkAgentVersion,
-		checkLogTrace,
-		checkDefaultSpace,
-		checkCharmhubURL,
-		checkSecretBackend,
-		checkAuthorizedKeys,
-	)
-}
-
-// checkAuthorizedKeys checks that the passed config attributes does not
-// contain authorized-keys.
-func (c *ModelConfigAPI) checkAuthorizedKeys() state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		if _, found := updateAttrs[config.AuthorizedKeysKey]; found {
-			return errors.New("authorized-keys cannot be set")
-		}
-		return nil
+	isLoggingAdmin := true
+	err = c.isControllerAdmin()
+	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		isLoggingAdmin = false
+	} else if err != nil {
+		return errors.Trace(err)
 	}
+
+	logValidator := LogTracingValidator(isLoggingAdmin)
+
+	var validationError config.ValidationError
+	err = c.configService.UpdateModelConfig(ctx, args.Config, nil, logValidator)
+	if errors.As(err, &validationError) {
+		return fmt.Errorf("config key %q %w: %s",
+			validationError.InvalidAttrs,
+			errors.NotValid,
+			validationError.Reason)
+	}
+
+	return err
 }
 
-func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		spec, ok := updateAttrs["logging-config"]
-		if !ok {
-			return nil
+// LogTracingValidator is a logging config validator that checks if a logging
+// change is being requested. Specifically that of trace and to see if the
+// requesting user has the required permission for the change.
+func LogTracingValidator(isAdmin bool) config.ValidatorFunc {
+	return func(cfg, old *config.Config) (*config.Config, error) {
+		spec := cfg.LoggingConfig()
+		oldSpec := old.LoggingConfig()
+
+		// No change so no need to keep going on with the check.
+		if spec == oldSpec {
+			return cfg, nil
 		}
-		// This prevents a panic when trying to convert a spec which can be nil.
-		logSpec, ok := spec.(string)
-		if !ok {
-			return nil
-		}
-		logCfg, err := loggo.ParseConfigString(logSpec)
+
+		logCfg, err := loggo.ParseConfigString(spec)
 		if err != nil {
-			return errors.Trace(err)
+			return cfg, fmt.Errorf("validating logging configuration for model config: %w", err)
 		}
+
 		// Does at least one package have TRACE level logging requested.
 		haveTrace := false
 		for _, level := range logCfg {
@@ -223,84 +211,20 @@ func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
 		}
 		// No TRACE level requested, so no need to check for admin.
 		if !haveTrace {
-			return nil
+			return cfg, nil
 		}
 
-		err = c.isControllerAdmin()
-		if !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-			return errors.Trace(err)
-		} else if err != nil {
-			return errors.New("only controller admins can set a model's logging level to TRACE")
-		}
-		return nil
-	}
-}
-
-func (c *ModelConfigAPI) checkAgentVersion() state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		if v, found := updateAttrs["agent-version"]; found {
-			oldVersion, _ := oldConfig.AgentVersion()
-			if v != oldVersion.String() {
-				return errors.New("agent-version cannot be changed")
+		if !isAdmin {
+			return cfg, &config.ValidationError{
+				InvalidAttrs: []string{config.LoggingConfigKey},
+				Reason:       "only controller admins can set a model's logging level to TRACE",
 			}
 		}
-		return nil
+		return cfg, nil
 	}
 }
 
-func (c *ModelConfigAPI) checkDefaultSpace() state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		v, ok := updateAttrs["default-space"]
-		if !ok {
-			return nil
-		}
-		spaceName, ok := v.(string)
-		if !ok {
-			return errors.NotValidf("\"default-space\" is not a string")
-		}
-		if spaceName == "" {
-			// No need to verify if a space isn't defined.
-			return nil
-		}
-		return c.backend.SpaceByName(spaceName)
-	}
-}
-
-func (c *ModelConfigAPI) checkCharmhubURL() state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		if v, found := updateAttrs["charmhub-url"]; found {
-			oldURL, _ := oldConfig.CharmHubURL()
-			if v != oldURL {
-				return errors.New("charmhub-url cannot be changed")
-			}
-		}
-		return nil
-	}
-}
-
-func (c *ModelConfigAPI) checkSecretBackend(ctx context.Context) state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		v, ok := updateAttrs[config.SecretBackendKey]
-		if !ok {
-			return nil
-		}
-		backendName, ok := v.(string)
-		if !ok {
-			return errors.NewNotValid(nil, fmt.Sprintf("%q config value is not a string", config.SecretBackendKey))
-		}
-		if backendName == "" {
-			return errors.NotValidf("empty %q config value", config.SecretBackendKey)
-		}
-		if backendName == config.DefaultSecretBackend {
-			return nil
-		}
-		err := c.backendService.PingSecretBackend(ctx, backendName)
-		return errors.Annotatef(err, "cannot ping backend %q", backendName)
-	}
-}
-
-// ModelUnset implements the server-side part of the
-// set-model-config CLI command.
+// ModelUnset implements the server-side part of the set-model-config CLI command.
 func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
@@ -309,7 +233,16 @@ func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset)
 		return errors.Trace(err)
 	}
 
-	return c.backend.UpdateModelConfig(nil, args.Keys)
+	var validationError config.ValidationError
+	err := c.configService.UpdateModelConfig(ctx, nil, args.Keys)
+	if errors.As(err, &validationError) {
+		return fmt.Errorf("removing config key %q %w: %s",
+			validationError.InvalidAttrs,
+			errors.NotValid,
+			validationError.Reason)
+	}
+
+	return err
 }
 
 // GetModelConstraints returns the constraints for the model.

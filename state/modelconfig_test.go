@@ -7,7 +7,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -274,53 +273,6 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	modelCfg, err = m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
-}
-
-func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *config.Config, modelAttributes, controllerAttributes set.Strings) {
-	expectedValues := make(config.ConfigValues)
-	defaultAttributes := set.NewStrings()
-	for defaultAttr := range config.ConfigDefaults() {
-		defaultAttributes.Add(defaultAttr)
-	}
-	for attr, val := range modelCfg.AllAttrs() {
-		source := "model"
-		if defaultAttributes.Contains(attr) {
-			source = "default"
-		}
-		if modelAttributes.Contains(attr) {
-			source = "model"
-		}
-		if controllerAttributes.Contains(attr) {
-			source = "controller"
-		}
-		expectedValues[attr] = config.ConfigValue{
-			Value:  val,
-			Source: source,
-		}
-	}
-	sources, err := s.Model.ModelConfigValues(state.NoopConfigSchemaSource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, jc.DeepEquals, expectedValues)
-}
-
-func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
-	modelCfg, err := s.Model.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	modelAttributes := set.NewStrings("name", "apt-mirror", "logging-config", "authorized-keys", "resource-tags")
-	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("http-proxy"))
-}
-
-func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
-	attrs := map[string]interface{}{
-		"http-proxy": "http://anotherproxy",
-		"apt-mirror": "http://mirror",
-	}
-	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	modelCfg, err := s.Model.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	modelAttributes := set.NewStrings("name", "http-proxy", "logging-config", "authorized-keys", "resource-tags")
-	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("apt-mirror"))
 }
 
 func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsWithValidationError(c *gc.C) {

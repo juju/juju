@@ -29,6 +29,42 @@ func CharmhubURLChange() config.ValidatorFunc {
 	}
 }
 
+// AgentVersionChange returns a config validator that will check to make sure
+// the agent version does not change.
+func AgentVersionChange() config.ValidatorFunc {
+	return func(cfg, old *config.Config) (*config.Config, error) {
+		if v, has := cfg.AgentVersion(); has {
+			oldVersion, has := old.AgentVersion()
+			if !has {
+				return cfg, nil
+			}
+			if v.Compare(oldVersion) != 0 {
+				return cfg, &config.ValidationError{
+					InvalidAttrs: []string{config.AgentVersionKey},
+					Reason:       "agent-version cannot be changed",
+				}
+			}
+		}
+		return cfg, nil
+	}
+}
+
+// AuthorizedKeysChange checks to see if there has been any change to a model
+// config authorized keys.
+func AuthorizedKeysChange() config.ValidatorFunc {
+	return func(cfg, old *config.Config) (*config.Config, error) {
+		if cfg.AuthorizedKeys() == old.AuthorizedKeys() {
+			// No change. Nothing more todo.
+			return cfg, nil
+		}
+
+		return cfg, &config.ValidationError{
+			InvalidAttrs: []string{config.AuthorizedKeysKey},
+			Reason:       "authorized-keys cannot be changed",
+		}
+	}
+}
+
 // SpaceProvider is responsible for checking if a given space exists.
 type SpaceProvider interface {
 	// HasSpace checks if the supplied space exists within the controller. If

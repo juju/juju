@@ -288,15 +288,19 @@ func (*dummySpaceProvider) HasSpace(_ string) (bool, error) {
 	return true, nil
 }
 
+// updateModelConfigValidator returns a config validator to use on model config
+// when it is being updated.
 func (s *Service) updateModelConfigValidator(
 	additional ...config.Validator,
 ) config.Validator {
 	agg := &config.AggregateValidator{
 		Validators: []config.Validator{
 			s.modelValidator,
+			validators.AgentVersionChange(),
 			validators.CharmhubURLChange(),
 			validators.SpaceChecker(&dummySpaceProvider{}),
 			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
+			validators.AuthorizedKeysChange(),
 		},
 	}
 	agg.Validators = append(agg.Validators, additional...)

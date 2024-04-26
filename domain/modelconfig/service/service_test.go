@@ -31,6 +31,10 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 	return f(c)
 }
 
+func (s *serviceSuite) TestSomething(c *gc.C) {
+
+}
+
 func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	ctx, cancel := jujutesting.LongWaitContext()
 	defer cancel()

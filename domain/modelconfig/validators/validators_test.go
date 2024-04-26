@@ -28,7 +28,7 @@ func (d dummySpaceProviderFunc) HasSpace(s string) (bool, error) {
 	return d(s)
 }
 
-func (_ *validatorsSuite) TestCharmhubURLChange(c *gc.C) {
+func (*validatorsSuite) TestCharmhubURLChange(c *gc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
 		"uuid":         testing.ModelTag.Id(),
@@ -51,7 +51,7 @@ func (_ *validatorsSuite) TestCharmhubURLChange(c *gc.C) {
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"charmhub-url"})
 }
 
-func (_ *validatorsSuite) TestCharmhubURLNoChange(c *gc.C) {
+func (*validatorsSuite) TestCharmhubURLNoChange(c *gc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":         "wallyworld",
 		"uuid":         testing.ModelTag.Id(),
@@ -72,7 +72,71 @@ func (_ *validatorsSuite) TestCharmhubURLNoChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (_ *validatorsSuite) TestSpaceCheckerFound(c *gc.C) {
+func (*validatorsSuite) TestAgentVersionChanged(c *gc.C) {
+	oldCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":          "wallyworld",
+		"uuid":          testing.ModelTag.Id(),
+		"type":          "sometype",
+		"agent-version": "1.2.3",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":          "wallyworld",
+		"uuid":          testing.ModelTag.Id(),
+		"type":          "sometype",
+		"agent-version": "1.3.0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var validationError *config.ValidationError
+	_, err = AgentVersionChange()(newCfg, oldCfg)
+	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"agent-version"})
+}
+
+// TestAgentVersionNoChange is testing that if the agent version doesn't change
+// between config changes no validation error is produced.
+func (*validatorsSuite) TestAgentVersionNoChange(c *gc.C) {
+	oldCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":          "wallyworld",
+		"uuid":          testing.ModelTag.Id(),
+		"type":          "sometype",
+		"agent-version": "1.3.0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":          "wallyworld",
+		"uuid":          testing.ModelTag.Id(),
+		"type":          "sometype",
+		"agent-version": "1.3.0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = AgentVersionChange()(newCfg, oldCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	oldCfg, err = config.New(config.NoDefaults, map[string]any{
+		"name": "wallyworld",
+		"uuid": testing.ModelTag.Id(),
+		"type": "sometype",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err = config.New(config.NoDefaults, map[string]any{
+		"name":          "wallyworld",
+		"uuid":          testing.ModelTag.Id(),
+		"type":          "sometype",
+		"agent-version": "1.3.0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = AgentVersionChange()(newCfg, oldCfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (*validatorsSuite) TestSpaceCheckerFound(c *gc.C) {
 	provider := dummySpaceProviderFunc(func(s string) (bool, error) {
 		c.Assert(s, gc.Equals, "foobar")
 		return true, nil
@@ -98,7 +162,7 @@ func (_ *validatorsSuite) TestSpaceCheckerFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (_ *validatorsSuite) TestSpaceCheckerNotFound(c *gc.C) {
+func (*validatorsSuite) TestSpaceCheckerNotFound(c *gc.C) {
 	provider := dummySpaceProviderFunc(func(s string) (bool, error) {
 		c.Assert(s, gc.Equals, "foobar")
 		return false, nil
@@ -126,7 +190,7 @@ func (_ *validatorsSuite) TestSpaceCheckerNotFound(c *gc.C) {
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"default-space"})
 }
 
-func (_ *validatorsSuite) TestSpaceCheckerError(c *gc.C) {
+func (*validatorsSuite) TestSpaceCheckerError(c *gc.C) {
 	providerErr := errors.New("some error")
 	provider := dummySpaceProviderFunc(func(s string) (bool, error) {
 		c.Assert(s, gc.Equals, "foobar")
@@ -153,7 +217,7 @@ func (_ *validatorsSuite) TestSpaceCheckerError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, providerErr)
 }
 
-func (_ *validatorsSuite) TestLoggincTracePermissionNoTrace(c *gc.C) {
+func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *gc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
 		"uuid": testing.ModelTag.Id(),
@@ -173,7 +237,7 @@ func (_ *validatorsSuite) TestLoggincTracePermissionNoTrace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (_ *validatorsSuite) TestLoggincTracePermissionTrace(c *gc.C) {
+func (*validatorsSuite) TestLoggincTracePermissionTrace(c *gc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
 		"uuid": testing.ModelTag.Id(),
@@ -197,7 +261,7 @@ func (_ *validatorsSuite) TestLoggincTracePermissionTrace(c *gc.C) {
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"logging-config"})
 }
 
-func (_ *validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
+func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
 		"uuid": testing.ModelTag.Id(),
@@ -217,7 +281,7 @@ func (_ *validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (_ *validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
+func (*validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
 	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
 		c.Assert(s, gc.Equals, "vault")
 		return true, nil
@@ -243,7 +307,7 @@ func (_ *validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (_ *validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
+func (*validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
 	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
 		c.Assert(s, gc.Equals, "vault")
 		return false, nil
@@ -271,7 +335,7 @@ func (_ *validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"secret-backend"})
 }
 
-func (_ *validatorsSuite) TestSecretsBackendCheckerProviderError(c *gc.C) {
+func (*validatorsSuite) TestSecretsBackendCheckerProviderError(c *gc.C) {
 	providerErr := errors.New("some error")
 	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
 		c.Assert(s, gc.Equals, "vault")

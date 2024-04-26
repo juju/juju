@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -93,78 +92,6 @@ func (st *State) inheritedConfigAttributes(configSchemaGetter config.ConfigSchem
 	return values, nil
 }
 
-// modelConfigValues returns the values and source for the supplied model config
-// when combined with controller and Juju defaults.
-func (model *Model) modelConfigValues(configSchemaGetter config.ConfigSchemaSourceGetter, modelCfg attrValues) (config.ConfigValues, error) {
-	resultValues := make(attrValues)
-	for k, v := range modelCfg {
-		resultValues[k] = v
-	}
-
-	// Read all of the current inherited config values so
-	// we can dynamically reflect the origin of the model config.
-	rspec, err := model.st.regionSpec()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	configSources := modelConfigSources(configSchemaGetter, model.st, rspec)
-	sourceNames := make([]string, 0, len(configSources))
-	sourceAttrs := make([]attrValues, 0, len(configSources))
-	for _, src := range configSources {
-		sourceNames = append(sourceNames, src.name)
-		cfg, err := src.sourceFunc()
-		if errors.Is(err, errors.NotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading %s settings", src.name)
-		}
-		sourceAttrs = append(sourceAttrs, cfg)
-
-		// If no modelCfg was passed in, we'll accumulate data
-		// for the inherited values instead.
-		if len(modelCfg) == 0 {
-			for k, v := range cfg {
-				resultValues[k] = v
-			}
-		}
-	}
-
-	// Figure out the source of each config attribute based
-	// on the current model values and the inherited values.
-	result := make(config.ConfigValues)
-	for attr, val := range resultValues {
-		// Find the source of config for which the model
-		// value matches. If there's a match, the last match
-		// in the search order will be the source of config.
-		// If there's no match, the source is the model.
-		source := config.JujuModelConfigSource
-		n := len(sourceAttrs)
-		for i := range sourceAttrs {
-			// With the introduction of a slice for mode it makes it not
-			// possible to use equality check for slice types. We should fall
-			// back to the reflect.Deep equality to ensure we don't panic at
-			// runtime.
-			var equal bool
-			switch val.(type) {
-			case []interface{}:
-				equal = reflect.DeepEqual(sourceAttrs[n-i-1][attr], val)
-			default:
-				equal = sourceAttrs[n-i-1][attr] == val
-			}
-			if equal {
-				source = sourceNames[n-i-1]
-				break
-			}
-		}
-		result[attr] = config.ConfigValue{
-			Value:  val,
-			Source: source,
-		}
-	}
-	return result, nil
-}
-
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
 func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface{}, removeAttrs []string, regionSpec *environscloudspec.CloudRegionSpec) error {
 	var key string
@@ -231,16 +158,6 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 	}
 	_, err = settings.Write()
 	return err
-}
-
-// ModelConfigValues returns the config values for the model represented
-// by this state.
-func (model *Model) ModelConfigValues(configSchemaGetter config.ConfigSchemaSourceGetter) (config.ConfigValues, error) {
-	cfg, err := model.ModelConfig(context.Background())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return model.modelConfigValues(configSchemaGetter, cfg.AllAttrs())
 }
 
 // ModelConfigDefaultValues returns the default config values to be used
