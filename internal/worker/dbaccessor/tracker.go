@@ -181,8 +181,10 @@ func (w *trackedDBWorker) ensureModelDBInitialised(ctx context.Context) error {
 // should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
 	return w.run(ctx, func(db *sqlair.DB) error {
-		// Tie the worker tomb to the context, so that the worker can be
-		// killed by the context.
+		// Tie the worker tomb to the context, so that if the worker dies, we
+		// can correctly kill the transaction via the context. The context will
+		// now have the correct reason for the death of the transaction. Either
+		// the tomb died or the context was cancelled.
 		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
 		return errors.Trace(database.Txn(ctx, db, fn))
 	})
@@ -195,8 +197,10 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 // should use.
 func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return w.run(ctx, func(db *sqlair.DB) error {
-		// Tie the worker tomb to the context, so that the worker can be
-		// killed by the context.
+		// Tie the worker tomb to the context, so that if the worker dies, we
+		// can correctly kill the transaction via the context. The context will
+		// now have the correct reason for the death of the transaction. Either
+		// the tomb died or the context was cancelled.
 		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
 		return errors.Trace(database.StdTxn(ctx, db.PlainDB(), fn))
 	})
@@ -210,8 +214,7 @@ func (w *trackedDBWorker) Err() error {
 func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) error {
 	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
 
-	// Tie the worker tomb to the context, so that the worker can be
-	// killed by the context.
+	// Tie the tomb to the context for the retry semantics.
 	ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
 
 	// Retry the so long as the tomb and the context are valid.

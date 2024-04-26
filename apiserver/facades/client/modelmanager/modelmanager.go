@@ -1032,15 +1032,16 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		if m.modelService != nil {
 			// We need to get the model service factory from the model
 			// We should be able to directly access the model service factory
-			// because the model manager use the MultiModelContext to access
+			// because the model manager uses the MultiModelContext to access
 			// other models.
 			modelUUID := coremodel.UUID(stModel.UUID())
 
-			// TODO (stickupkid): We need to delete the model info when
-			// destroying the model. This is because the model info is
-			// read-only. Attempting to delete the model causes everything to
-			// lock up. Once we implement tear-down we'll need to ensure we
-			// correctly delete the model info.
+			// TODO (stickupkid): We can't the delete the model info when
+			// destroying the model at the moment. Attempting to delete the
+			// model causes everything to lock up. Once we implement tear-down
+			// we'll need to ensure we correctly delete the model info.
+			// We need to progress the life of the model, atm it goes from
+			// alive to dead, skipping dying.
 			//
 			// modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
 			// modelInfoService := modelServiceFactory.ModelInfo()

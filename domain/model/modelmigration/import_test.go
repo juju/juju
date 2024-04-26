@@ -224,7 +224,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(activator, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coremodel.UUID, options ...model.DeleteModelOption) error {
 		opts := model.DefaultDeleteModelOptions()
@@ -234,7 +234,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		c.Assert(opts.DeleteDB(), jc.IsTrue)
 		return nil
 	})
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -306,10 +306,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(activator, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).Return(modelerrors.NotFound)
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -383,7 +383,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(activator, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).Return(nil)
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(modelerrors.NotFound)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{

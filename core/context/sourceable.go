@@ -48,7 +48,7 @@ func (t *sourceContext) Done() <-chan struct{} {
 	return t.ctx.Done()
 }
 
-// If Done is not yet closed, Err returns nil.
+// Err if Done is not yet closed, Err returns nil.
 // If Done is closed, Err returns a non-nil error explaining why:
 // If the context was canceled or deadline exceeded, Err returns the source
 // error if it exists, otherwise Canceled if the context was canceled

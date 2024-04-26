@@ -225,7 +225,8 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 			// that case we do want to cause the dbaccessor to go down. This
 			// will then bring up a new dqlite app.
 			IsFatal: func(err error) bool {
-				// If a database is dead we should not kill the worker.
+				// If a database is dead we should not kill the worker of the
+				// runner.
 				if errors.Is(err, database.ErrDBDead) {
 					return false
 				}
@@ -719,7 +720,7 @@ func (w *dbWorker) deleteDatabase(namespace string) error {
 		return errors.Annotatef(err, "waiting for worker to die")
 	}
 
-	// Open the database as we don't
+	// Open the database directly as we can't use the worker to do it for us.
 	db, err := w.dbApp.Open(ctx, namespace)
 	if err != nil {
 		return errors.Annotatef(err, "opening database for deletion")

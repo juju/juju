@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/logger"
 )
 
 type sqliteSchema struct {
@@ -20,7 +21,7 @@ type sqliteSchema struct {
 // deleteDBContents deletes all the contents of the database, this is very
 // dynamic. It will drop all tables, views, triggers, and indexes. This can
 // be replaced with DROP DATABASE once it's supported by dqlite.
-func deleteDBContents(ctx context.Context, tx *sql.Tx, logger Logger) error {
+func deleteDBContents(ctx context.Context, tx *sql.Tx, logger logger.Logger) error {
 	// We should ignore any name that starts with sqlite_ as they are internal
 	// tables, indexes and triggers.
 	schemaStmt := `SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%';`

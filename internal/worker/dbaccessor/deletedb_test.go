@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
 	databasetesting "github.com/juju/juju/internal/database/testing"
-	"github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type deleteDBSuite struct {
@@ -26,14 +26,14 @@ func (s *deleteDBSuite) TestDeleteDBContentsOnEmptyDB(c *gc.C) {
 	runner := s.TxnRunner()
 
 	err := runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return deleteDBContents(ctx, tx, testing.NewCheckLogger(c))
+		return deleteDBContents(ctx, tx, loggertesting.WrapCheckLog(c))
 	})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *deleteDBSuite) TestDeleteDBContentsOnControllerDB(c *gc.C) {
 	runner, db := s.OpenDBForNamespace(c, "controller-foo", false)
-	logger := testing.NewCheckLogger(c)
+	logger := loggertesting.WrapCheckLog(c)
 
 	// This test isn't necessarily, as you can't delete the controller database
 	// contents, but adds more validation to the function.
@@ -53,7 +53,7 @@ func (s *deleteDBSuite) TestDeleteDBContentsOnControllerDB(c *gc.C) {
 func (s *deleteDBSuite) TestDeleteDBContentsOnModelDB(c *gc.C) {
 	runner, db := s.OpenDBForNamespace(c, "model-foo", false)
 
-	logger := testing.NewCheckLogger(c)
+	logger := loggertesting.WrapCheckLog(c)
 
 	err := database.NewDBMigration(
 		runner, logger, schema.ModelDDL()).Apply(context.Background())
