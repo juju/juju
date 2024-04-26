@@ -540,15 +540,15 @@ WHERE b.name = $SecretBackendRow.name`
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		backend := SecretBackendRow{Name: backendName}
 
-		var rows SecretBackendRows
-		err = tx.Query(ctx, stmt, backend).GetAll(&rows)
+		var result SecretBackendRow
+		err = tx.Query(ctx, stmt, backend).Get(&result)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w: %q", backenderrors.NotFound, backendName)
 		}
 		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)
 		}
-		backend.ID = rows[0].ID
+		backend.ID = result.ID
 		err = tx.Query(ctx, modelBackendUpsertStmt, backend, sqlair.M{"model_uuid": modelUUID}).Run()
 		if database.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: model %q", modelerrors.NotFound, modelUUID)
