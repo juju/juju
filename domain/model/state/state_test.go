@@ -81,6 +81,18 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
+	err = cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
+		cloud.Cloud{
+			Name:      "other-cloud",
+			Type:      "ec2",
+			AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+			Regions: []cloud.Region{
+				{
+					Name: "other-region",
+				},
+			},
+		})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We need to generate a cloud credential in the database so that we can set
 	// the models cloud credential.
@@ -97,6 +109,15 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
+			Owner: "test-user",
+			Name:  "foobar",
+		},
+		cred,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = credSt.UpsertCloudCredential(
+		context.Background(), corecredential.Key{
+			Cloud: "other-cloud",
 			Owner: "test-user",
 			Name:  "foobar",
 		},
@@ -358,6 +379,141 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	testUUID := modeltesting.GenModelUUID(c)
+	err := modelSt.Create(
+		context.Background(),
+		testUUID,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			Cloud: "my-cloud",
+			Name:  "noregion",
+			Owner: m.userUUID,
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelSt.Finalise(context.Background(), testUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelInfo, err := modelSt.Get(context.Background(), testUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelInfo.CloudRegion, gc.Equals, "")
+}
+
+func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+
+	err := modelSt.Create(
+		context.Background(),
+		modeltesting.GenModelUUID(c),
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Name:        "controller",
+			Owner:       m.userUUID,
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	testUUID := modeltesting.GenModelUUID(c)
+	err = modelSt.Create(
+		context.Background(),
+		testUUID,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			Cloud: "my-cloud",
+			Name:  "noregion",
+			Owner: m.userUUID,
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelSt.Finalise(context.Background(), testUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelInfo, err := modelSt.Get(context.Background(), testUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelInfo.CloudRegion, gc.Equals, "my-region")
+}
+
+func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDifferentCloudNames(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+
+	controllerUUID := modeltesting.GenModelUUID(c)
+
+	err := modelSt.Create(
+		context.Background(),
+		controllerUUID,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Name:        "controller",
+			Owner:       m.userUUID,
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelSt.Finalise(context.Background(), controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelInfo, err := modelSt.Get(context.Background(), controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelInfo.CloudRegion, gc.Equals, "my-region")
+
+	testUUID := modeltesting.GenModelUUID(c)
+	err = modelSt.Create(
+		context.Background(),
+		testUUID,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			Cloud: "other-cloud",
+			Name:  "noregion",
+			Owner: m.userUUID,
+			Credential: corecredential.Key{
+				Cloud: "other-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelSt.Finalise(context.Background(), testUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelInfo, err = modelSt.Get(context.Background(), testUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We should never set the region to the controller region if the cloud
+	// names are different.
+
+	c.Check(modelInfo.CloudRegion, gc.Equals, "")
 }
 
 // TestCreateModelWithNonExistentOwner is here to assert that if we try and make
