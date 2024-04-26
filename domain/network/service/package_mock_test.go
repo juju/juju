@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	database "github.com/juju/juju/core/database"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
@@ -70,6 +71,36 @@ func (m *MockState) AddSubnet(arg0 context.Context, arg1 network.SubnetInfo) err
 func (mr *MockStateMockRecorder) AddSubnet(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubnet", reflect.TypeOf((*MockState)(nil).AddSubnet), arg0, arg1)
+}
+
+// AllAssociatedSubnetsQuery mocks base method.
+func (m *MockState) AllAssociatedSubnetsQuery(arg0 context.Context, arg1 database.TxnRunner) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllAssociatedSubnetsQuery", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllAssociatedSubnetsQuery indicates an expected call of AllAssociatedSubnetsQuery.
+func (mr *MockStateMockRecorder) AllAssociatedSubnetsQuery(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAssociatedSubnetsQuery", reflect.TypeOf((*MockState)(nil).AllAssociatedSubnetsQuery), arg0, arg1)
+}
+
+// AllSubnetsQuery mocks base method.
+func (m *MockState) AllSubnetsQuery(arg0 context.Context, arg1 database.TxnRunner) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllSubnetsQuery", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllSubnetsQuery indicates an expected call of AllSubnetsQuery.
+func (mr *MockStateMockRecorder) AllSubnetsQuery(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSubnetsQuery", reflect.TypeOf((*MockState)(nil).AllSubnetsQuery), arg0, arg1)
 }
 
 // DeleteSpace mocks base method.

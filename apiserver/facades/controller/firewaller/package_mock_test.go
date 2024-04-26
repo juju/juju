@@ -14,9 +14,11 @@ import (
 	reflect "reflect"
 	time "time"
 
+	set "github.com/juju/collections/set"
 	firewall "github.com/juju/juju/apiserver/common/firewall"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
+	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
@@ -252,20 +254,6 @@ func (mr *MockStateMockRecorder) WatchOpenedPorts() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchOpenedPorts", reflect.TypeOf((*MockState)(nil).WatchOpenedPorts))
 }
 
-// WatchSubnets mocks base method.
-func (m *MockState) WatchSubnets(arg0 func(any) bool) state.StringsWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchSubnets", arg0)
-	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
-}
-
-// WatchSubnets indicates an expected call of WatchSubnets.
-func (mr *MockStateMockRecorder) WatchSubnets(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSubnets", reflect.TypeOf((*MockState)(nil).WatchSubnets), arg0)
-}
-
 // MockControllerConfigAPI is a mock of ControllerConfigAPI interface.
 type MockControllerConfigAPI struct {
 	ctrl     *gomock.Controller
@@ -393,4 +381,19 @@ func (m *MockNetworkService) GetAllSpaces(arg0 context.Context) (network.SpaceIn
 func (mr *MockNetworkServiceMockRecorder) GetAllSpaces(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSpaces", reflect.TypeOf((*MockNetworkService)(nil).GetAllSpaces), arg0)
+}
+
+// WatchSubnets mocks base method.
+func (m *MockNetworkService) WatchSubnets(arg0 context.Context, arg1 set.Strings) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchSubnets", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchSubnets indicates an expected call of WatchSubnets.
+func (mr *MockNetworkServiceMockRecorder) WatchSubnets(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSubnets", reflect.TypeOf((*MockNetworkService)(nil).WatchSubnets), arg0, arg1)
 }

@@ -31,6 +31,16 @@ func NewMultiNotifyWatcher(ctx context.Context, watchers ...Watcher[struct{}]) (
 	return NewMultiWatcher[struct{}](ctx, applier, watchers...)
 }
 
+// NewMultiStringsWatcher creates a strings watcher (Watcher[[]string]) that
+// combines each of the (strings) watchers passed in. Each watcher's initial
+// event is consumed, and a single initial event is sent.
+func NewMultiStringsWatcher(ctx context.Context, watchers ...Watcher[[]string]) (*MultiWatcher[[]string], error) {
+	applier := func(staging, in []string) []string {
+		return append(staging, in...)
+	}
+	return NewMultiWatcher[[]string](ctx, applier, watchers...)
+}
+
 // NewMultiWatcher creates a NotifyWatcher that combines
 // each of the NotifyWatchers passed in. Each watcher's initial
 // event is consumed, and a single initial event is sent.
@@ -68,9 +78,7 @@ func NewMultiWatcher[T any](ctx context.Context, applier Applier[T], watchers ..
 	return w, nil
 }
 
-// loop copies events from the input channel to the output channel,
-// coalescing events by waiting a short time between receiving and
-// sending.
+// loop copies events from the input channel to the output channel.
 func (w *MultiWatcher[T]) loop() error {
 	defer close(w.changes)
 
@@ -88,7 +96,7 @@ func (w *MultiWatcher[T]) loop() error {
 	}
 }
 
-// copyEvents copies channel events from "in" to "out", coalescing.
+// copyEvents copies channel events from "in" to "out".
 func (w *MultiWatcher[T]) copyEvents(in <-chan T) {
 	var (
 		outC    chan<- T

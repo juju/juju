@@ -444,6 +444,14 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_storage_volume_delete",
 
 		"trg_secret_permission_immutable_update",
+
+		"trg_log_subnet_association_delete",
+		"trg_log_subnet_association_insert",
+		"trg_log_subnet_association_update",
+
+		"trg_log_subnet_delete",
+		"trg_log_subnet_insert",
+		"trg_log_subnet_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but

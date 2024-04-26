@@ -6,12 +6,14 @@ package firewaller
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -34,6 +36,10 @@ type State interface {
 type NetworkService interface {
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// Watch returns a watcher that observes changes to subnets and their
+	// association (fan underlays), filtered based on the provided list of subnets
+	// to watch.
+	WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error)
 }
 
 // ControllerConfigAPI provides the subset of common.ControllerConfigAPI

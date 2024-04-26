@@ -33,8 +33,9 @@ type firewallerSuite struct {
 	firewallerBaseSuite
 	*commontesting.ModelWatcherTest
 
-	firewaller *firewaller.FirewallerAPI
-	subnet     *state.Subnet
+	firewaller     *firewaller.FirewallerAPI
+	subnet         *state.Subnet
+	networkService *MockNetworkService
 
 	ctrl *gomock.Controller
 }
@@ -63,10 +64,12 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.ctrl = gomock.NewController(c)
 	controllerConfigService := mocks.NewMockControllerConfigService(s.ctrl)
 	controllerConfigAPI := NewMockControllerConfigAPI(s.ctrl)
+	s.networkService = NewMockNetworkService(s.ctrl)
+
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
 		firewaller.StateShim(st, s.ControllerModel(c)),
-		nil,
+		s.networkService,
 		s.resources,
 		s.authorizer,
 		cloudSpecAPI,

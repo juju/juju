@@ -17,8 +17,6 @@ type State interface {
 	state.ModelMachinesWatcher
 	state.ModelAccessor
 
-	WatchSubnets(func(id interface{}) bool) state.StringsWatcher
-
 	KeyRelation(string) (Relation, error)
 
 	Unit(string) (Unit, error)

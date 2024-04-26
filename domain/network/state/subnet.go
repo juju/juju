@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 )
@@ -20,6 +21,56 @@ const (
 	subnetTypeBase              = 0
 	subnetTypeFanOverlaySegment = 1
 )
+
+// AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
+// subnet table, needed for the subnets watcher.
+func (st *State) AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error) {
+	var subnetUUIDs []string
+
+	return subnetUUIDs, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := "SELECT uuid FROM subnet"
+		rows, err := tx.QueryContext(ctx, stmt)
+		if err != nil {
+			return errors.Trace(domain.CoerceError(err))
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var subnetUUID string
+			if err := rows.Scan(&subnetUUID); err != nil {
+				return errors.Trace(domain.CoerceError(err))
+			}
+			subnetUUIDs = append(subnetUUIDs, subnetUUID)
+		}
+
+		return nil
+	})
+}
+
+// AllAssociatedSubnetsQuery returns the SQL query that finds all associated
+// subnet UUIDs from the subnet_association table, needed for the subnets watcher.
+func (st *State) AllAssociatedSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error) {
+	var associatedSubnetUUIDs []string
+
+	return associatedSubnetUUIDs, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := "SELECT associated_subnet_uuid FROM subnet_association"
+		rows, err := tx.QueryContext(ctx, stmt)
+		if err != nil {
+			return errors.Trace(domain.CoerceError(err))
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var associatedSubnetUUID string
+			if err := rows.Scan(&associatedSubnetUUID); err != nil {
+				return errors.Trace(domain.CoerceError(err))
+			}
+			associatedSubnetUUIDs = append(associatedSubnetUUIDs, associatedSubnetUUID)
+		}
+
+		return nil
+	})
+}
 
 // UpsertSubnets updates or adds each one of the provided subnets in one
 // transaction.

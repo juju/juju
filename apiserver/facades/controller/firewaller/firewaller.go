@@ -644,28 +644,23 @@ func (f *FirewallerAPI) WatchSubnets(ctx context.Context, args params.Entities) 
 	}
 
 	var (
-		filterFn  func(id interface{}) bool
-		filterSet set.Strings
-		result    = params.StringsWatchResult{}
+		subnetsToWatch set.Strings
+		result         = params.StringsWatchResult{}
 	)
 
 	if len(args.Entities) != 0 {
-		filterSet = set.NewStrings()
+		subnetsToWatch = set.NewStrings()
 		for _, arg := range args.Entities {
 			subnetTag, err := names.ParseSubnetTag(arg.Tag)
 			if err != nil {
 				return params.StringsWatchResult{}, apiservererrors.ServerError(err)
 			}
 
-			filterSet.Add(subnetTag.Id())
-		}
-
-		filterFn = func(id interface{}) bool {
-			return filterSet.Contains(id.(string))
+			subnetsToWatch.Add(subnetTag.Id())
 		}
 	}
 
-	watcherId, initial, err := f.watchModelSubnets(filterFn)
+	watcherId, initial, err := f.watchModelSubnets(ctx, subnetsToWatch)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -675,14 +670,17 @@ func (f *FirewallerAPI) WatchSubnets(ctx context.Context, args params.Entities) 
 	return result, nil
 }
 
-func (f *FirewallerAPI) watchModelSubnets(filterFn func(interface{}) bool) (string, []string, error) {
-	watch := f.st.WatchSubnets(filterFn)
+func (f *FirewallerAPI) watchModelSubnets(ctx context.Context, subnetsToWatch set.Strings) (string, []string, error) {
+	watch, err := f.networkService.WatchSubnets(ctx, subnetsToWatch)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
 
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		return f.resources.Register(watch), changes, nil
 	}
-	return "", nil, watcher.EnsureErr(watch)
+	return "", nil, nil
 }
 
 func setEquals(a, b set.Strings) bool {
