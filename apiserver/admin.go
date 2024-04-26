@@ -475,6 +475,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 		// admin.
 
 		var err error
+		// TODO (manadart 2024-04-26): Use domain in delegator.
 		modelAccess, err = authInfo.SubjectPermissions(a.root.model.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
 			return nil, errors.Wrap(err, apiservererrors.ErrPerm)

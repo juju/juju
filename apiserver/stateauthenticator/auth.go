@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -255,8 +256,12 @@ func (a *Authenticator) checkCreds(
 		if err != nil {
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
-		modelAccess, err := st.UserAccess(userTag, model.ModelTag())
-		if err != nil && !errors.Is(err, errors.NotFound) {
+
+		modelAccess, err := a.authContext.userService.ReadUserAccessForTarget(ctx, userTag.Name(), permission.ID{
+			ObjectType: permission.Model,
+			Key:        model.UUID(),
+		})
+		if err != nil && !errors.Is(err, accesserrors.PermissionNotFound) {
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
 
@@ -280,37 +285,43 @@ func (a *Authenticator) checkCreds(
 }
 
 func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag) error {
-	// If the user tag is not local, we don't need to check for the model user
-	// permissions. This is generally the case for macaroon-based logins.
-	if !userTag.IsLocal() {
+	if !permission.IsEmptyUserAccess(modelAccess) {
 		return nil
 	}
 
 	// No model user found, so see if the user has been granted
 	// access to the controller.
-	if permission.IsEmptyUserAccess(modelAccess) {
-		st := a.authContext.st
-		controllerAccess, err := state.ControllerAccess(st, userTag)
+	st := a.authContext.st
+	controllerAccess, err := a.authContext.userService.ReadUserAccessForTarget(ctx, userTag.Name(), permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	})
+	if err != nil && !errors.Is(err, accesserrors.PermissionNotFound) {
+		return errors.Trace(err)
+	}
+	if !permission.IsEmptyUserAccess(controllerAccess) {
+		return nil
+	}
+
+	// TODO(perrito666) remove the following section about everyone group
+	// when groups are implemented, this accounts only for the lack of a local
+	// ControllerUser when logging in from an external user that has not been granted
+	// permissions on the controller but there are permissions for the special
+	// everyone group.
+	if !userTag.IsLocal() {
+		everyoneTag := names.NewUserTag(common.EveryoneTagName)
+
+		// TODO (manadart 2024-04-26): Accommodate this permission check.
+		controllerAccess, err = st.UserAccess(everyoneTag, st.ControllerTag())
 		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 		}
-		// TODO(perrito666) remove the following section about everyone group
-		// when groups are implemented, this accounts only for the lack of a local
-		// ControllerUser when logging in from an external user that has not been granted
-		// permissions on the controller but there are permissions for the special
-		// everyone group.
-		if permission.IsEmptyUserAccess(controllerAccess) && !userTag.IsLocal() {
-			everyoneTag := names.NewUserTag(common.EveryoneTagName)
-			controllerAccess, err = st.UserAccess(everyoneTag, st.ControllerTag())
-			if err != nil && !errors.Is(err, errors.NotFound) {
-				return errors.Annotatef(err, "obtaining ControllerUser for everyone group")
-			}
-		}
-		if permission.IsEmptyUserAccess(controllerAccess) {
-			return errors.NotFoundf("model or controller user")
+
+		if !permission.IsEmptyUserAccess(controllerAccess) {
+			return nil
 		}
 	}
-	return nil
+	return errors.NotFoundf("model or controller user")
 }
 
 func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag, model *state.Model) error {
