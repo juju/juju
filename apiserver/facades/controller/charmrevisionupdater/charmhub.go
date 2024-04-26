@@ -20,13 +20,13 @@ import (
 // charmhubID holds identifying information for several charms for a
 // charmhubLatestCharmInfo call.
 type charmhubID struct {
-	id       string
-	revision int
-	channel  string
-	os       string
-	series   string
-	arch     string
-	metrics  map[metrics.MetricKey]string
+	id        string
+	revision  int
+	channel   string
+	osType    string
+	osChannel string
+	arch      string
+	metrics   map[metrics.MetricKey]string
 	// Required for charmhub only.  instanceKey is a unique string associated
 	// with the application. To assist with keeping KPI data in charmhub, it
 	// must be the same for every charmhub Refresh action related to an
@@ -59,8 +59,8 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.M
 	for i, id := range ids {
 		base := charmhub.RefreshBase{
 			Architecture: id.arch,
-			Name:         id.os,
-			Channel:      id.series,
+			Name:         id.osType,
+			Channel:      id.osChannel,
 		}
 		cfg, err := charmhub.RefreshOne(id.instanceKey, id.id, id.revision, id.channel, base)
 		if err != nil {
