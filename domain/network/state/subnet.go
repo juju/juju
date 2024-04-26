@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
+	internaldatabase "github.com/juju/juju/internal/database"
 )
 
 const (
@@ -202,6 +203,11 @@ VALUES ($ProviderNetworkSubnet.provider_network_uuid, $ProviderNetworkSubnet.sub
 		insertSubnetProviderIDStmt,
 		ProviderSubnet{SubnetUUID: subnetUUID, ProviderID: subnetInfo.ProviderId},
 	).Run(); err != nil {
+		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
+			st.logger.Debugf("inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
+			return errors.AlreadyExistsf("provider id %q for subnet %q", subnetInfo.ProviderId, subnetUUID)
+
+		}
 		st.logger.Errorf("inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
 		return errors.Annotatef(domain.CoerceError(err), "inserting provider id %q for subnet %q", subnetInfo.ProviderId, subnetUUID)
 	}

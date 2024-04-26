@@ -21,6 +21,7 @@ import (
 
 // Logger facilitates emitting log messages.
 type Logger interface {
+	Debugf(string, ...interface{})
 	Errorf(string, ...interface{})
 }
 
@@ -313,17 +314,9 @@ func (st *State) DeleteSpace(
 	updateSubnetSpaceUUIDStmt := "UPDATE subnet SET space_uuid = ? WHERE space_uuid = ?;"
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		delProviderSpaceResult, err := tx.ExecContext(ctx, deleteProviderSpaceStmt, uuid)
-		if err != nil {
+		if _, err := tx.ExecContext(ctx, deleteProviderSpaceStmt, uuid); err != nil {
 			st.logger.Errorf("removing space %q from the provider_space table, %v", uuid, err)
 			return errors.Trace(domain.CoerceError(err))
-		}
-		delProviderSpaceAffected, err := delProviderSpaceResult.RowsAffected()
-		if err != nil {
-			return errors.Trace(domain.CoerceError(err))
-		}
-		if delProviderSpaceAffected != 1 {
-			return fmt.Errorf("provider space id for space %s not found", uuid)
 		}
 
 		if _, err := tx.ExecContext(ctx, updateSubnetSpaceUUIDStmt, network.AlphaSpaceId, uuid); err != nil {
