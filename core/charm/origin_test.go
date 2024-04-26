@@ -50,11 +50,11 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 	}, {
 		Name:        "too many components",
 		Value:       "////",
-		ExpectedErr: `platform is malformed and has too many components "////"`,
+		ExpectedErr: `platform is malformed; it has an invalid number of components "////"`,
 	}, {
 		Name:        "architecture and channel, no os name",
 		Value:       "amd64/18.04",
-		ExpectedErr: `channel without os name in platform "amd64/18.04" not valid`,
+		ExpectedErr: `platform is malformed; it has an invalid number of components "amd64/18.04"`,
 	}, {
 		Name:  "architecture",
 		Value: "amd64",
@@ -93,23 +93,15 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 			OS:           "",
 			Channel:      "",
 		},
-	}, {
-		Name:  "architecture and unknown series",
-		Value: "amd64/unknown",
-		Expected: charm.Platform{
-			Architecture: "amd64",
-			OS:           "",
-			Channel:      "",
-		},
 	}}
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)
 		ch, err := charm.ParsePlatformNormalize(test.Value)
 		if test.ExpectedErr != "" {
-			c.Assert(err, gc.ErrorMatches, test.ExpectedErr)
+			c.Check(err, gc.ErrorMatches, test.ExpectedErr)
 		} else {
-			c.Assert(ch, gc.DeepEquals, test.Expected)
-			c.Assert(err, gc.IsNil)
+			c.Check(ch, gc.DeepEquals, test.Expected)
+			c.Check(err, gc.IsNil)
 		}
 	}
 }
@@ -124,9 +116,9 @@ func (s platformSuite) TestString(c *gc.C) {
 		Value:    "amd64",
 		Expected: "amd64",
 	}, {
-		Name:     "architecture, os and series",
-		Value:    "amd64/os/series",
-		Expected: "amd64/os/series",
+		Name:     "architecture, os and version",
+		Value:    "amd64/os/version",
+		Expected: "amd64/os/version",
 	}, {
 		Name:     "architecture, os, version and risk",
 		Value:    "amd64/os/version/risk",
