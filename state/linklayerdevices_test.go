@@ -685,21 +685,6 @@ func (s *linkLayerDevicesStateSuite) TestAddDeviceOpsWithAddresses(c *gc.C) {
 	c.Assert(addrs[0].Value(), gc.Equals, "10.1.1.1")
 }
 
-func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, cidr, providerSubnetID string) {
-	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	spaceInfo, err := space.NetworkSpace()
-	c.Assert(err, gc.IsNil)
-	s.spaces[spaceName] = spaceInfo
-
-	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:       cidr,
-		SpaceID:    space.Id(),
-		ProviderId: corenetwork.Id(providerSubnetID),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *linkLayerDevicesStateSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceName, cidrAddress string) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
@@ -1004,9 +989,6 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAlsoRemoveAllLinkLayerDevi
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetDeviceAddressesWithSubnetID(c *gc.C) {
-	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")
-	s.createSpaceAndSubnetWithProviderID(c, "private", "10.20.0.0/24", "prov-ffff")
-	s.createSpaceAndSubnetWithProviderID(c, "dmz", "10.30.0.0/24", "prov-abcd")
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.11/24")
 	s.createNICWithIP(c, s.machine, "eth1", "10.20.0.42/24")
 	// Create eth2 NIC but don't assign an IP yet. This allows us to

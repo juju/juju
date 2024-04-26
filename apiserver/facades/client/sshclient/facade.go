@@ -97,7 +97,7 @@ func (facade *Facade) AllAddresses(ctx stdcontext.Context, args params.Entities)
 	}
 
 	getter := func(m SSHMachine) ([]network.SpaceAddress, error) {
-		devicesAddresses, err := m.AllDeviceSpaceAddresses()
+		devicesAddresses, err := m.AllDeviceSpaceAddresses(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

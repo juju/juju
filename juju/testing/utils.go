@@ -4,11 +4,9 @@
 package testing
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"text/template"
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
@@ -160,75 +158,4 @@ func AddControllerMachine(c *gc.C, st *state.State, controllerConfig controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	return machine
-}
-
-// AddSubnetsWithTemplate adds numSubnets subnets, using the given
-// infoTemplate. Any string field in the infoTemplate can be specified
-// as a text/template string containing {{.}}, which is the current
-// index of the subnet-to-add (between 0 and numSubnets-1).
-//
-// Example:
-//
-//	AddSubnetsWithTemplate(c, st, 2, state.SubnetInfo{
-//	    CIDR: "10.10.{{.}}.0/24",
-//	    ProviderId: "subnet-{{.}}",
-//	    SpaceName: "space1",
-//	    AvailabilityZone: "zone-{{.}}",
-//	    VLANTag: 42,
-//	})
-//
-// This is equivalent to the following calls:
-//
-//	_, err := st.AddSubnet(state.SubnetInfo{
-//	    CIDR: "10.10.0.0/24",
-//	    ProviderId: "subnet-0",
-//	    SpaceName: "space1",
-//	    AvailabilityZone: "zone-0",
-//	    VLANTag: 42,
-//	})
-//
-// c.Assert(err, jc.ErrorIsNil)
-//
-//	_, err = st.AddSubnet(state.SubnetInfo{
-//	    CIDR: "10.10.1.0/24",
-//	    ProviderId: "subnet-1",
-//	    SpaceName: "space1",
-//	    AvailabilityZone: "zone-1",
-//	    VLANTag: 42,
-//	})
-func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate network.SubnetInfo) {
-	funcMap := template.FuncMap{
-		"add": func(a, b int) int {
-			return a + b
-		},
-	}
-
-	for subnetIndex := 0; subnetIndex < int(numSubnets); subnetIndex++ {
-		info := infoTemplate // make a copy each time.
-
-		// permute replaces the contents of *s with the result of interpreting
-		// *s as a template.
-		permute := func(s string) string {
-			t, err := template.New("").Funcs(funcMap).Parse(s)
-			c.Assert(err, jc.ErrorIsNil)
-
-			var buf bytes.Buffer
-			err = t.Execute(&buf, subnetIndex)
-			c.Assert(err, jc.ErrorIsNil)
-			return buf.String()
-		}
-
-		info.ProviderId = network.Id(permute(string(info.ProviderId)))
-		info.CIDR = permute(info.CIDR)
-		info.SpaceID = permute(info.SpaceID)
-
-		zones := make([]string, len(info.AvailabilityZones))
-		for i, az := range info.AvailabilityZones {
-			zones[i] = permute(az)
-		}
-		info.AvailabilityZones = zones
-
-		_, err := st.AddSubnet(info)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }

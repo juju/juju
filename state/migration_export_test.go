@@ -6,7 +6,6 @@ package state_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"math/rand"
 	"time"
@@ -24,7 +23,6 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
@@ -561,120 +559,6 @@ func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 	c.Assert(applications, gc.HasLen, 3)
 }
 
-func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
-	serverSpace, err := s.State.AddSpace("server", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	app := s.AddTestingApplicationWithBindings(c, "mysql",
-		s.AddTestingCharm(c, "mysql"),
-		map[string]string{
-			"server": serverSpace.Id(),
-		},
-	)
-
-	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
-		"server": {
-			ExposeToSpaceIDs: []string{serverSpace.Id()},
-			ExposeToCIDRs:    []string{"13.37.0.0/16"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	applications := model.Applications()
-	c.Assert(applications, gc.HasLen, 1)
-
-	expEps := applications[0].ExposedEndpoints()
-	c.Assert(expEps, gc.HasLen, 1)
-	c.Assert(expEps["server"], gc.Not(gc.IsNil))
-	c.Assert(expEps["server"].ExposeToSpaceIDs(), gc.DeepEquals, []string{serverSpace.Id()})
-	c.Assert(expEps["server"].ExposeToCIDRs(), gc.DeepEquals, []string{"13.37.0.0/16"})
-}
-
-func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
-	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
-	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
-	serverSpace, err := s.State.AddSpace("server", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	adminSpace, err := s.State.AddSpace("server-admin", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	app := s.AddTestingApplicationWithBindings(c, "mysql",
-		s.AddTestingCharm(c, "mysql"),
-		map[string]string{
-			"server":       serverSpace.Id(),
-			"server-admin": adminSpace.Id(),
-		},
-	)
-
-	stOffers := state.NewApplicationOffers(s.State)
-	stOffer, err := stOffers.AddOffer(
-		crossmodel.AddApplicationOfferArgs{
-			OfferName:              "my-offer",
-			Owner:                  "admin",
-			ApplicationName:        app.Name(),
-			ApplicationDescription: fmt.Sprintf("%s description", app.Name()),
-			Endpoints: map[string]string{
-				"server":       serverSpace.Name(),
-				"server-admin": adminSpace.Name(),
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Allow "foo" to consume offer
-	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(stOffer.OfferUUID),
-		fooUser.UserTag(),
-		permission.ConsumeAccess,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We only care for the offers
-	model, err := s.State.ExportPartial(state.ExportConfig{
-		SkipActions:              true,
-		SkipAnnotations:          true,
-		SkipCloudImageMetadata:   true,
-		SkipCredentials:          true,
-		SkipIPAddresses:          true,
-		SkipSettings:             true,
-		SkipSSHHostKeys:          true,
-		SkipStatusHistory:        true,
-		SkipLinkLayerDevices:     true,
-		SkipUnitAgentBinaries:    true,
-		SkipMachineAgentBinaries: true,
-		SkipRelationData:         true,
-		SkipInstanceData:         true,
-		SkipOfferConnections:     true,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	applications := model.Applications()
-	c.Assert(applications, gc.HasLen, 1)
-
-	appOffers := applications[0].Offers()
-	c.Assert(appOffers, gc.HasLen, 1)
-	appOffer := appOffers[0]
-	c.Assert(appOffer.OfferUUID(), gc.Equals, stOffer.OfferUUID)
-	c.Assert(appOffer.OfferName(), gc.Equals, "my-offer")
-	c.Assert(appOffer.ApplicationName(), gc.Equals, app.Name())
-	c.Assert(appOffer.ApplicationDescription(), gc.Equals, fmt.Sprintf("%s description", app.Name()))
-
-	endpointsMap := appOffer.Endpoints()
-	c.Assert(endpointsMap, gc.DeepEquals, map[string]string{
-		"server":       serverSpace.Name(),
-		"server-admin": adminSpace.Name(),
-	})
-
-	appACL := appOffer.ACL()
-	c.Assert(appACL, gc.DeepEquals, map[string]string{
-		"admin": "admin",
-		"foo":   "consume",
-	})
-}
-
 func (s *MigrationExportSuite) TestOfferConnections(c *gc.C) {
 	stOffer, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		OfferUUID:       "offer-uuid",
@@ -894,26 +778,6 @@ func (s *MigrationExportSuite) TestUnitOpenPortRanges(c *gc.C) {
 	c.Assert(portRange.FromPort(), gc.Equals, 1234)
 	c.Assert(portRange.ToPort(), gc.Equals, 2345)
 	c.Assert(portRange.Protocol(), gc.Equals, "tcp")
-}
-
-func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
-	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider")})
-	state.AddTestingApplicationWithBindings(
-		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
-		map[string]string{"db": oneSpace.Id()})
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	apps := model.Applications()
-	c.Assert(apps, gc.HasLen, 1)
-	wordpress := apps[0]
-
-	bindings := wordpress.EndpointBindings()
-	// There are empty values for every charm endpoint, but we only care about the
-	// db endpoint.
-	c.Assert(bindings["db"], gc.Equals, oneSpace.Id())
 }
 
 func (s *MigrationExportSuite) TestRemoteEntities(c *gc.C) {
@@ -1282,89 +1146,6 @@ func (s *MigrationBaseSuite) TestMissingRelationScopeIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(model.Relations(), gc.HasLen, 1)
-}
-
-func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
-	space, err := s.State.AddSpace("testme", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24", SpaceID: space.Id()})
-	c.Assert(err, jc.ErrorIsNil)
-	deviceArgs := state.LinkLayerDeviceArgs{
-		Name: "foo",
-		Type: network.EthernetDevice,
-	}
-	err = machine.SetLinkLayerDevices(deviceArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	args := state.LinkLayerDeviceAddress{
-		DeviceName:        "foo",
-		ConfigMethod:      network.ConfigStatic,
-		CIDRAddress:       "0.1.2.3/24",
-		ProviderID:        "bar",
-		DNSServers:        []string{"bam", "mam"},
-		DNSSearchDomains:  []string{"weeee"},
-		GatewayAddress:    "0.1.2.1",
-		ProviderNetworkID: "p-net-id",
-		ProviderSubnetID:  "p-sub-id",
-		Origin:            network.OriginProvider,
-	}
-	err = machine.SetDevicesAddresses(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	addresses := model.IPAddresses()
-	c.Assert(addresses, gc.HasLen, 1)
-	addr := addresses[0]
-	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
-	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
-	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, string(network.ConfigStatic))
-	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
-	c.Assert(addr.ProviderID(), gc.Equals, "bar")
-	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
-	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
-	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
-	c.Assert(addr.ProviderNetworkID(), gc.Equals, "p-net-id")
-	c.Assert(addr.ProviderSubnetID(), gc.Equals, "p-sub-id")
-	c.Assert(addr.Origin(), gc.Equals, string(network.OriginProvider))
-
-}
-
-func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
-	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	deviceArgs := state.LinkLayerDeviceArgs{
-		Name: "foo",
-		Type: network.EthernetDevice,
-	}
-	err = machine.SetLinkLayerDevices(deviceArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	args := state.LinkLayerDeviceAddress{
-		DeviceName:       "foo",
-		ConfigMethod:     network.ConfigStatic,
-		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "bar",
-		DNSServers:       []string{"bam", "mam"},
-		DNSSearchDomains: []string{"weeee"},
-		GatewayAddress:   "0.1.2.1",
-	}
-	err = machine.SetDevicesAddresses(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.ExportPartial(state.ExportConfig{
-		SkipIPAddresses: true,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	addresses := model.IPAddresses()
-	c.Assert(addresses, gc.HasLen, 0)
 }
 
 func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {

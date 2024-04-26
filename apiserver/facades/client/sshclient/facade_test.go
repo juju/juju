@@ -259,7 +259,7 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 		network.NewSpaceAddress("0.1.2.3", network.WithScope(network.ScopeCloudLocal)),
 	}
 	machine0 := NewMockSSHMachine(ctrl)
-	machine0.EXPECT().AllDeviceSpaceAddresses().Return(machine0Addresses, nil)
+	machine0.EXPECT().AllDeviceSpaceAddresses(gomock.Any()).Return(machine0Addresses, nil)
 	machine0.EXPECT().Addresses().Return(machine0LegacyAddresses)
 	s.backend.EXPECT().GetMachineForEntity("machine-0").Return(machine0, nil)
 
@@ -272,7 +272,7 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 		network.NewSpaceAddress("0.3.2.1", network.WithScope(network.ScopeCloudLocal)),
 	}
 	machine1 := NewMockSSHMachine(ctrl)
-	machine1.EXPECT().AllDeviceSpaceAddresses().Return(machine1Addresses, nil)
+	machine1.EXPECT().AllDeviceSpaceAddresses(gomock.Any()).Return(machine1Addresses, nil)
 	machine1.EXPECT().Addresses().Return(machine1LegacyAddresses)
 	s.backend.EXPECT().GetMachineForEntity("unit-app-0").Return(machine1, nil)
 

@@ -182,6 +182,12 @@ func (api *APIBase) addUnits(
 ) ([]Unit, error) {
 	units := make([]Unit, n)
 	policy := state.AssignNew
+
+	allSpaces, err := api.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{
@@ -205,7 +211,7 @@ func (api *APIBase) addUnits(
 				return nil, errors.Trace(err)
 			}
 		} else {
-			if err := unit.AssignWithPlacement(placement[i]); err != nil {
+			if err := unit.AssignWithPlacement(placement[i], allSpaces); err != nil {
 				return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
 			}
 		}

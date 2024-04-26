@@ -350,12 +350,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Trace(err)
 	}
 
-	// Verify model config DefaultSpace exists now that
-	// spaces have been loaded.
-	if err := b.verifyModelConfigDefaultSpace(st); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
 		return nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
@@ -415,31 +409,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Annotate(err, "ensuring initial model")
 	}
 	return ctrl, nil
-}
-
-func (b *AgentBootstrap) verifyModelConfigDefaultSpace(st *state.State) error {
-	m, err := st.Model()
-	if err != nil {
-		return err
-	}
-	mCfg, err := m.Config()
-	if err != nil {
-		return err
-	}
-
-	name := mCfg.DefaultSpace()
-	if name == "" {
-		// No need to verify if a space isn't defined.
-		return nil
-	}
-
-	_, err = st.SpaceByName(name)
-	if errors.Is(err, errors.NotFound) {
-		return fmt.Errorf("model %q default space %q %w", m.Name(), name, errors.NotFound)
-	} else if err != nil {
-		return fmt.Errorf("cannot verify default space %q for model %q: %w", name, m.Name(), err)
-	}
-	return nil
 }
 
 func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCredentialTag, error) {

@@ -620,17 +620,6 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				err = wordpress.SetMinUnits(2)
 				c.Assert(err, jc.ErrorIsNil)
 			},
-		}, {
-			about: "subnets",
-			getWatcher: func(st *state.State) interface{} {
-				return st.WatchSubnets(nil)
-			},
-			triggerEvent: func(st *state.State) {
-				_, err := st.AddSubnet(network.SubnetInfo{
-					CIDR: "10.0.0.0/24",
-				})
-				c.Assert(err, jc.ErrorIsNil)
-			},
 		},
 	} {
 		c.Logf("Test %d: %s", i, test.about)
@@ -2137,41 +2126,6 @@ func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	state.AssertEndpointBindingsNotFoundForApplication(c, app)
-}
-
-func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
-	// Add extra spaces to use in bindings.
-	dbSpace, err := s.State.AddSpace("db", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	clientSpace, err := s.State.AddSpace("client", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Specify some bindings, but not all when adding the application.
-	ch := s.AddMetaCharm(c, "mysql", metaBase, 43)
-	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name:  "yoursql",
-		Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "22.04/stable",
-		}},
-		EndpointBindings: map[string]string{
-			"client":  clientSpace.Id(),
-			"cluster": dbSpace.Id(),
-		},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Read them back to verify defaults and given bindings got merged as
-	// expected.
-	bindings, err := app.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings.Map(), jc.DeepEquals, map[string]string{
-		"":        network.AlphaSpaceId,
-		"server":  network.AlphaSpaceId, // inherited from defaults.
-		"client":  clientSpace.Id(),
-		"cluster": dbSpace.Id(),
-	})
 }
 
 func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
@@ -3691,34 +3645,6 @@ func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestWatchSubnets(c *gc.C) {
-	filter := func(id interface{}) bool {
-		return id != "0"
-	}
-	w := s.State.WatchSubnets(filter)
-	defer workertest.CleanKill(c, w)
-	wc := statetesting.NewStringsWatcherC(c, w)
-
-	// Check initial event.
-	wc.AssertChange()
-	wc.AssertNoChange()
-
-	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.0.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("1")
-	wc.AssertNoChange()
-}
-
-func (s *StateSuite) TestWatchSubnetsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
-		w := st.WatchSubnets(nil)
-		<-w.Changes()
-		return w
-	})
-}
-
 func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsWatcherC) (*state.RemoteApplication, *state.Application, *state.Relation) {
 	// Check initial event.
 	wc.AssertChange()
@@ -4346,57 +4272,6 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 	revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Equals, prevAgentsRevno)
-}
-
-func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
-	sp, err := s.State.AddSpace("mgmt01", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg := testing.FakeControllerConfig()
-	cfg[controller.JujuManagementSpace] = "mgmt01"
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.SetJujuManagementSpace(c, "mgmt01")
-
-	addrs, err := s.State.APIHostPortsForClients(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.HasLen, 0)
-
-	hostPort1 := network.SpaceHostPort{
-		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
-		NetPort:      1,
-	}
-	hostPort2 := network.SpaceHostPort{
-		SpaceAddress: network.SpaceAddress{
-			MachineAddress: network.MachineAddress{
-				Value: "0.4.8.16",
-				Type:  network.IPv4Address,
-				Scope: network.ScopePublic,
-			},
-			SpaceID: sp.Id(),
-		},
-		NetPort: 2,
-	}
-	hostPort3 := network.SpaceHostPort{
-		SpaceAddress: network.NewSpaceAddress("0.6.1.2", network.WithScope(network.ScopeCloudLocal)),
-		NetPort:      5,
-	}
-	newHostPorts := []network.SpaceHostPorts{{hostPort1, hostPort2}, {hostPort3}}
-
-	err = s.State.SetAPIHostPorts(cfg, newHostPorts, []network.SpaceHostPorts{{hostPort2}, {hostPort3}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctrlSt, err := s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	gotHostPorts, err := ctrlSt.APIHostPortsForClients(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
-
-	gotHostPorts, err = ctrlSt.APIHostPortsForAgents(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	// First slice filtered down to the address in the management space.
-	// Second filtered to zero elements, so retains the supplied slice.
-	c.Assert(gotHostPorts, jc.DeepEquals, []network.SpaceHostPorts{{hostPort2}, {hostPort3}})
 }
 
 func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {

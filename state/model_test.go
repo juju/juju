@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -319,10 +318,6 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	// Ensure the model is functional by adding a machine
 	_, err = st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the default model was created.
-	_, err = st.SpaceByName(network.AlphaSpaceName)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelSuite) TestNewModelRegionNameEscaped(c *gc.C) {
@@ -479,34 +474,6 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 	}
 
 	c.Assert(obtained, jc.DeepEquals, expected)
-}
-
-func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
-	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider")})
-	app := state.AddTestingApplicationWithBindings(
-		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
-		map[string]string{"db": oneSpace.Id()})
-
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	listBindings, err := model.AllEndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(listBindings, gc.HasLen, 1)
-
-	expected := map[string]string{
-		"":                network.AlphaSpaceId,
-		"cache":           network.AlphaSpaceId,
-		"foo-bar":         network.AlphaSpaceId,
-		"db-client":       network.AlphaSpaceId,
-		"admin-api":       network.AlphaSpaceId,
-		"url":             network.AlphaSpaceId,
-		"logging-dir":     network.AlphaSpaceId,
-		"monitoring-port": network.AlphaSpaceId,
-		"db":              oneSpace.Id(),
-	}
-	c.Assert(listBindings[app.Name()].Map(), gc.DeepEquals, expected)
 }
 
 // createTestModelConfig returns a new model config and its UUID for testing.

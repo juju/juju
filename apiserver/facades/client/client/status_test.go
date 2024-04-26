@@ -175,9 +175,6 @@ func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
 
 func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 	machine := s.addMachine(c)
-	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")
-	s.createSpaceAndSubnetWithProviderID(c, "private", "10.20.0.0/24", "prov-ffff")
-	s.createSpaceAndSubnetWithProviderID(c, "dmz", "10.30.0.0/24", "prov-abcd")
 	st := s.ControllerModel(c).State()
 	tracker := st.TrackQueries("FullStatus")
 
@@ -221,19 +218,6 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
 		gc.Commentf("if the query count is not the same, there has been a regression "+
 			"in the way the addresses are processed"))
-}
-
-func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, cidr, providerSubnetID string) {
-	st := s.ControllerModel(c).State()
-	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = st.AddSubnet(network.SubnetInfo{
-		CIDR:       cidr,
-		SpaceID:    space.Id(),
-		ProviderId: network.Id(providerSubnetID),
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *statusSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceName, cidrAddress string) {

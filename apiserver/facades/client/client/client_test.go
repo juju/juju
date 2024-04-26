@@ -49,22 +49,15 @@ import (
 
 type clientSuite struct {
 	baseSuite
-
-	mgmtSpace *state.Space
 }
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
-	st := s.ControllerModel(c).State()
-	var err error
-	s.mgmtSpace, err = st.AddSpace("mgmt01", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
 	controllerServiceFactory := s.ControllerServiceFactory(c)
 	controllerService := controllerServiceFactory.ControllerConfig()
 
-	err = controllerService.UpdateControllerConfig(context.Background(), map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
+	err := controllerService.UpdateControllerConfig(context.Background(), map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

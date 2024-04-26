@@ -1929,17 +1929,17 @@ func (mr *MockUnitMockRecorder) ApplicationName() *gomock.Call {
 }
 
 // AssignWithPlacement mocks base method.
-func (m *MockUnit) AssignWithPlacement(arg0 *instance.Placement) error {
+func (m *MockUnit) AssignWithPlacement(arg0 *instance.Placement, arg1 network.SpaceInfos) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignWithPlacement", arg0)
+	ret := m.ctrl.Call(m, "AssignWithPlacement", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AssignWithPlacement indicates an expected call of AssignWithPlacement.
-func (mr *MockUnitMockRecorder) AssignWithPlacement(arg0 any) *gomock.Call {
+func (mr *MockUnitMockRecorder) AssignWithPlacement(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignWithPlacement", reflect.TypeOf((*MockUnit)(nil).AssignWithPlacement), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignWithPlacement", reflect.TypeOf((*MockUnit)(nil).AssignWithPlacement), arg0, arg1)
 }
 
 // AssignWithPolicy mocks base method.

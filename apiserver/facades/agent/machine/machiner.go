@@ -31,6 +31,10 @@ type ControllerConfigService interface {
 type NetworkService interface {
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// GetAllSubnets returns all the subnets for the model.
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	// AddSubnet creates and returns a new subnet.
+	AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error)
 }
 
 // MachinerAPI implements the API used by the machiner worker.
@@ -68,7 +72,7 @@ func NewMachinerAPIForState(
 		return authorizer.AuthOwner, nil
 	}
 
-	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(ctx, st, cloudService, getCanAccess)
+	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(ctx, st, cloudService, networkService, getCanAccess)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}

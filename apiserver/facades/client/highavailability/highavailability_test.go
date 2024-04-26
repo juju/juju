@@ -405,57 +405,6 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	sp, err := st.AddSpace("ha-space", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
-	controllerSettings.Set(controller.JujuHASpace, "ha-space")
-	_, err = controllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	m1, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	a1 := network.NewSpaceAddress("192.168.6.6")
-	a1.SpaceID = sp.Id()
-	err = m1.SetProviderAddresses(controllerConfig, a1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m2, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	a2 := network.NewSpaceAddress("192.168.6.7")
-	a2.SpaceID = sp.Id()
-	err = m2.SetProviderAddresses(controllerConfig, a1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	placement := []string{"1", "2"}
-	_, err = s.enableHA(c, 3, emptyCons, placement)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	_, err := st.AddSpace("ha-space", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	attrs := controller.Config{controller.JujuHASpace: "ha-space"}
-	controllerConfigService := s.ControllerServiceFactory(c).ControllerConfig()
-	err = controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	placement := []string{"1", "2"}
-	_, err = s.enableHA(c, 3, emptyCons, placement)
-	c.Assert(err, gc.ErrorMatches, `machine "1" has no addresses in space "ha-space"`)
-}
-
 func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
 	// current HA settings".

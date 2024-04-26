@@ -275,18 +275,18 @@ func (mr *MockSSHMachineMockRecorder) Addresses() *gomock.Call {
 }
 
 // AllDeviceSpaceAddresses mocks base method.
-func (m *MockSSHMachine) AllDeviceSpaceAddresses() (network.SpaceAddresses, error) {
+func (m *MockSSHMachine) AllDeviceSpaceAddresses(arg0 context.Context) (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllDeviceSpaceAddresses")
+	ret := m.ctrl.Call(m, "AllDeviceSpaceAddresses", arg0)
 	ret0, _ := ret[0].(network.SpaceAddresses)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AllDeviceSpaceAddresses indicates an expected call of AllDeviceSpaceAddresses.
-func (mr *MockSSHMachineMockRecorder) AllDeviceSpaceAddresses() *gomock.Call {
+func (mr *MockSSHMachineMockRecorder) AllDeviceSpaceAddresses(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllDeviceSpaceAddresses", reflect.TypeOf((*MockSSHMachine)(nil).AllDeviceSpaceAddresses))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllDeviceSpaceAddresses", reflect.TypeOf((*MockSSHMachine)(nil).AllDeviceSpaceAddresses), arg0)
 }
 
 // MachineTag mocks base method.

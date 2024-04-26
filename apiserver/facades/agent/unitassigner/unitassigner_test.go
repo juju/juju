@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -24,7 +25,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	a := &fakeMachineService{}
-	api := API{st: f, res: common.NewResources(), machineService: a}
+	api := API{st: f, res: common.NewResources(), machineService: a, networkService: &fakeNetworkService{}}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
@@ -70,6 +71,13 @@ func (f *fakeMachineService) CreateMachine(_ context.Context, machineId string) 
 	return nil
 }
 
+type fakeNetworkService struct {
+}
+
+func (f *fakeNetworkService) GetAllSpaces(_ context.Context) (network.SpaceInfos, error) {
+	return nil, nil
+}
+
 type fakeState struct {
 	watchCalled  bool
 	ids          []string
@@ -83,7 +91,7 @@ func (f *fakeState) WatchForUnitAssignment() state.StringsWatcher {
 	return fakeWatcher{f.ids}
 }
 
-func (f *fakeState) AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error) {
+func (f *fakeState) AssignStagedUnits(_ network.SpaceInfos, ids []string) ([]state.UnitAssignmentResult, error) {
 	f.ids = ids
 	return f.results, f.err
 }

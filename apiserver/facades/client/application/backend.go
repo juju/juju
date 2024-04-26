@@ -199,7 +199,7 @@ type Unit interface {
 	AssignedMachineId() (string, error)
 	WorkloadVersion() (string, error)
 	AssignWithPolicy(state.AssignmentPolicy) error
-	AssignWithPlacement(*instance.Placement) error
+	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
 	ContainerInfo() (state.CloudContainer, error)
 }
 
@@ -613,8 +613,8 @@ func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
 	return u.st.AssignUnit(u.prechecker, u.Unit, policy)
 }
 
-func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement) error {
-	return u.st.AssignUnitWithPlacement(u.prechecker, u.Unit, placement)
+func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement, allSpaces network.SpaceInfos) error {
+	return u.st.AssignUnitWithPlacement(u.prechecker, u.Unit, placement, allSpaces)
 }
 
 type Subnet interface {

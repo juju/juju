@@ -2095,6 +2095,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
 	s.applicationService.EXPECT().AddUnits(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
@@ -2134,6 +2135,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
 	s.applicationService.EXPECT().AddUnits(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,AddSubnetsState,LinkLayerAndSubnetsState
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,LinkLayerAndSubnetsState,NetworkService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -25,18 +25,20 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) NewUpdateMachineLinkLayerOp(
-	machine LinkLayerMachine, incoming network.InterfaceInfos, discoverSubnets bool, st AddSubnetsState,
+	machine LinkLayerMachine, networkService NetworkService, incoming network.InterfaceInfos, discoverSubnets bool,
 ) *updateMachineLinkLayerOp {
-	return newUpdateMachineLinkLayerOp(machine, incoming, discoverSubnets, st)
+	return newUpdateMachineLinkLayerOp(machine, networkService, incoming, discoverSubnets)
 }
 
 func (s *BaseSuite) NewNetworkConfigAPI(
 	st LinkLayerAndSubnetsState,
+	networkService NetworkService,
 	getModelOp func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation,
 ) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
-		st:           st,
-		getCanModify: common.AuthAlways(),
-		getModelOp:   getModelOp,
+		st:             st,
+		networkService: networkService,
+		getCanModify:   common.AuthAlways(),
+		getModelOp:     getModelOp,
 	}
 }

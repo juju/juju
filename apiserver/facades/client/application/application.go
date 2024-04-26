@@ -2477,10 +2477,14 @@ func (api *APIBase) mapExposedEndpointsFromState(ctx context.Context, exposedEnd
 	}
 
 	var (
-		spaceInfos network.SpaceInfos
-		err        error
-		res        = make(map[string]params.ExposedEndpoint, len(exposedEndpoints))
+		err error
+		res = make(map[string]params.ExposedEndpoint, len(exposedEndpoints))
 	)
+
+	spaceInfos, err := api.networkService.GetAllSpaces(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	for endpointName, exposeDetails := range exposedEndpoints {
 		mappedParam := params.ExposedEndpoint{
@@ -2488,12 +2492,6 @@ func (api *APIBase) mapExposedEndpointsFromState(ctx context.Context, exposedEnd
 		}
 
 		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
-			// Lazily fetch SpaceInfos
-			if spaceInfos == nil {
-				if spaceInfos, err = api.networkService.GetAllSpaces(ctx); err != nil {
-					return nil, err
-				}
-			}
 
 			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
 			for i, spaceID := range exposeDetails.ExposeToSpaceIDs {

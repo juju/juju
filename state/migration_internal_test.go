@@ -50,9 +50,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// networking
 		endpointBindingsC,
 		ipAddressesC,
-		spacesC,
 		linkLayerDevicesC,
-		subnetsC,
 
 		// cloudimagemetadata
 		cloudimagemetadataC,
@@ -555,20 +553,6 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 		"Updated",
 	)
 	s.AssertExportedFields(c, historicalStatusDoc{}, fields)
-}
-
-func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		"DocId",
-		// Always alive, not explicitly exported.
-		"Life",
-	)
-	migrated := set.NewStrings(
-		"Id",
-		"Name",
-		"ProviderId",
-	)
-	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
