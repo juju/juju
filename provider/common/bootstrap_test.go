@@ -84,7 +84,6 @@ func minimalConfig(c *gc.C) *config.Config {
 }
 
 func minimalConfigWithBase(c *gc.C, base corebase.Base) *config.Config {
-	series, _ := corebase.GetSeriesFromBase(base)
 	attrs := map[string]interface{}{
 		"name":               "whatever",
 		"type":               "anything, really",
@@ -93,7 +92,6 @@ func minimalConfigWithBase(c *gc.C, base corebase.Base) *config.Config {
 		"ca-cert":            coretesting.CACert,
 		"ca-private-key":     coretesting.CAKey,
 		"authorized-keys":    coretesting.FakeAuthKeys,
-		"default-series":     series,
 		"default-base":       base.String(),
 		"cloudinit-userdata": validCloudInitUserData,
 	}
