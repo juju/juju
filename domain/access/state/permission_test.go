@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"sort"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -28,6 +29,9 @@ type permissionStateSuite struct {
 
 	modelUUID        coremodel.UUID
 	defaultModelUUID coremodel.UUID
+	bobUUID          user.UUID
+	adminUUID        user.UUID
+	sueUUID          user.UUID
 	debug            bool
 }
 
@@ -39,9 +43,17 @@ func (s *permissionStateSuite) SetUpTest(c *gc.C) {
 	// Setup to add permissions for user bob on the model
 	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 	s.defaultModelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "default-model")
-	s.ensureUser(c, "42", "admin", "42") // model owner
-	s.ensureUser(c, "123", "bob", "42")
-	s.ensureUser(c, "456", "sue", "42")
+	var err error
+	s.adminUUID, err = user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.bobUUID, err = user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.sueUUID, err = user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.ensureUser(c, s.adminUUID, "admin", s.adminUUID) // model owner
+	s.ensureUser(c, s.bobUUID, "bob", s.adminUUID)
+	s.ensureUser(c, s.sueUUID, "sue", s.adminUUID)
 	s.ensureCloud(c, "987", "test-cloud")
 	s.ensureCloud(c, "654", "another-cloud")
 }
@@ -62,7 +74,7 @@ func (s *permissionStateSuite) TestCreatePermissionModel(c *gc.C) {
 	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(userAccess.UserID, gc.Equals, "123")
+	c.Check(userAccess.UserID, gc.Equals, s.bobUUID.String())
 	c.Check(userAccess.UserTag, gc.Equals, names.NewUserTag("bob"))
 	c.Check(userAccess.Object.Id(), gc.Equals, s.modelUUID.String())
 	c.Check(userAccess.Access, gc.Equals, corepermission.WriteAccess)
@@ -89,7 +101,7 @@ func (s *permissionStateSuite) TestCreatePermissionCloud(c *gc.C) {
 	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(userAccess.UserID, gc.Equals, "123")
+	c.Check(userAccess.UserID, gc.Equals, s.bobUUID.String())
 	c.Check(userAccess.UserTag, gc.Equals, names.NewUserTag("bob"))
 	c.Check(userAccess.Object.Id(), gc.Equals, "test-cloud")
 	c.Check(userAccess.Access, gc.Equals, corepermission.AddModelAccess)
@@ -116,7 +128,7 @@ func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
 	userAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(userAccess.UserID, gc.Equals, "123")
+	c.Check(userAccess.UserID, gc.Equals, s.bobUUID.String())
 	c.Check(userAccess.UserTag, gc.Equals, names.NewUserTag("bob"))
 	c.Check(userAccess.Object.Id(), gc.Equals, "controller")
 	c.Check(userAccess.Access, gc.Equals, corepermission.SuperuserAccess)
@@ -311,8 +323,8 @@ func (s *permissionStateSuite) TestReadUserAccessForTarget(c *gc.C) {
 	row2 := s.DB().QueryRow(`
 SELECT uuid, access_type_id, object_type_id, grant_to, grant_on
 FROM permission
-WHERE grant_to = 123
-`)
+WHERE grant_to = ?
+`, s.bobUUID.String())
 	c.Assert(row2.Err(), jc.ErrorIsNil)
 	err = row2.Scan(&userUuid, &accessTypeID, &objectTypeID, &grantTo, &grantOn)
 	c.Assert(err, jc.ErrorIsNil)
@@ -399,7 +411,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeCloud(c *gc.
 		c.Check(userAccess.UserTag.Id(), gc.Equals, "bob")
 		c.Check(userAccess.UserName, gc.Equals, "bob")
 		c.Check(userAccess.CreatedBy.Id(), gc.Equals, "admin")
-		c.Check(userAccess.UserID, gc.Equals, "123")
+		c.Check(userAccess.UserID, gc.Equals, s.bobUUID.String())
 		c.Check(userAccess.Access, gc.Equals, corepermission.AddModelAccess)
 		if userAccess.Object.Id() == "test-cloud" {
 			foundTestCloud = true
@@ -425,7 +437,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeModel(c *gc.
 		c.Check(userAccess.UserTag.Id(), gc.Equals, "bob")
 		c.Check(userAccess.UserName, gc.Equals, "bob")
 		c.Check(userAccess.CreatedBy.Id(), gc.Equals, "admin")
-		c.Check(userAccess.UserID, gc.Equals, "123")
+		c.Check(userAccess.UserID, gc.Equals, s.bobUUID.String())
 		if userAccess.Access == corepermission.WriteAccess {
 			write = true
 			c.Check(userAccess.Object.Id(), gc.Equals, s.defaultModelUUID.String())
@@ -450,7 +462,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeController(c
 	c.Check(userAccess.UserTag.Id(), gc.Equals, "admin", gc.Commentf("%+v", users))
 	c.Check(userAccess.UserName, gc.Equals, "admin", gc.Commentf("%+v", users))
 	c.Check(userAccess.CreatedBy.Id(), gc.Equals, "admin", gc.Commentf("%+v", users))
-	c.Check(userAccess.UserID, gc.Equals, "42", gc.Commentf("%+v", users))
+	c.Check(userAccess.UserID, gc.Equals, s.adminUUID.String(), gc.Commentf("%+v", users))
 	c.Check(userAccess.Access, gc.Equals, corepermission.SuperuserAccess, gc.Commentf("%+v", users))
 }
 
@@ -638,6 +650,70 @@ func (s *permissionStateSuite) TestUpsertPermissionRevoke(c *gc.C) {
 	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.AddModelAccess)
 }
 
+func (s *permissionStateSuite) TestModelAccessInfo(c *gc.C) {
+	pst := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	ust := NewUserState(s.TxnRunnerFactory())
+
+	// Create access info for bob on the two models.
+	_, err := pst.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "bob",
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        s.defaultModelUUID.String(),
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.WriteAccess,
+		},
+	})
+	err = ust.UpdateLastLogin(context.Background(), s.defaultModelUUID, "bob")
+	_, err = pst.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "bob",
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        s.modelUUID.String(),
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.WriteAccess,
+		},
+	})
+	err = ust.UpdateLastLogin(context.Background(), s.modelUUID, "bob")
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := pst.ModelAccessInfo(context.Background(), "bob")
+	c.Assert(err, jc.ErrorIsNil)
+	// Check we have the right number of models
+	c.Assert(info, gc.HasLen, 2)
+	// Sort the results for consistency in the test.
+	sort.Slice(info, func(i, j int) bool {
+		return info[i].Name < info[j].Name
+	})
+	// Check that the connection times have been found.
+	c.Assert(info[0].LastConnection, gc.NotNil)
+	c.Assert(info[1].LastConnection, gc.NotNil)
+	// Save the LastConnection and set them to nil so the rest of the struct can
+	// be compared to the expected value.
+	time0 := info[0].LastConnection
+	info[0].LastConnection = nil
+	time1 := info[1].LastConnection
+	info[1].LastConnection = nil
+	// Set LastConnection
+	c.Assert(info, jc.DeepEquals, []access.UserModelAccessInfo{
+		{
+			Name:  "default-model",
+			UUID:  s.defaultModelUUID.String(),
+			Owner: "default-model",
+			Type:  "iaas",
+		}, {
+			Name:  "test-model",
+			UUID:  s.modelUUID.String(),
+			Owner: "test-model",
+			Type:  "iaas",
+		},
+	})
+	// Check the connection times are in the expected order.
+	c.Assert(time0.Before(*time1), jc.IsTrue)
+}
+
 func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
 	targetCloud := corepermission.ID{
 		Key:        "test-cloud",
@@ -712,12 +788,12 @@ func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
 	}
 }
 
-func (s *permissionStateSuite) ensureUser(c *gc.C, userUUID, name, createdByUUID string) {
+func (s *permissionStateSuite) ensureUser(c *gc.C, userUUID user.UUID, name string, createdByUUID user.UUID) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?)
-		`, userUUID, name, name, false, createdByUUID, time.Now())
+		`, userUUID.String(), name, name, false, createdByUUID.String(), time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -725,7 +801,7 @@ func (s *permissionStateSuite) ensureUser(c *gc.C, userUUID, name, createdByUUID
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user_authentication (user_uuid, disabled)
 			VALUES (?, ?)
-		`, userUUID, false)
+		`, userUUID.String(), false)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

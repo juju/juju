@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
@@ -430,6 +431,69 @@ AND     u.removed = false
 	}
 
 	return userAccess, nil
+}
+
+// ModelAccessInfo gets info about all the models a particular user has access to.
+func (st *PermissionState) ModelAccessInfo(ctx context.Context, name string) ([]access.UserModelAccessInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	getModelAccessInfo := `
+SELECT (m.name, m.uuid, t.type, mll.time) AS (&dbModelAccessInfo.*),
+       owner.name AS &dbModelAccessInfo.owner_name
+FROM   v_user_auth u
+       JOIN v_permission p ON u.uuid = p.grant_to
+       JOIN model m ON m.uuid = p.grant_on
+       JOIN user owner ON m.owner_uuid = owner.uuid
+       JOIN model_type t ON m.model_type_id = t.id
+       LEFT JOIN model_last_login mll 
+           ON m.uuid = mll.model_uuid AND u.uuid = mll.user_uuid
+WHERE  u.removed = false
+       AND u.name = $userName.name
+       AND u.disabled = false
+       AND p.object_type = 'model'
+       -- We do not need to check the access_type because if there is an entry
+       -- in the permissions table they must have an access type of read or
+       -- above.
+       AND m.finalised = true
+`
+
+	getModelAccessInfoStmt, err := sqlair.Prepare(getModelAccessInfo, dbModelAccessInfo{}, userName{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing select getModelAccessInfo")
+	}
+
+	var dbModelAccessInfos []dbModelAccessInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var result []dbModelAccessInfo
+		err := tx.Query(ctx, getModelAccessInfoStmt, userName{Name: name}).GetAll(&result)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Trace(domain.CoerceError(err))
+		}
+		dbModelAccessInfos = result
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting model access info for user %q", name)
+	}
+	var modelAccessInfos []access.UserModelAccessInfo
+	for _, mia := range dbModelAccessInfos {
+		modelType := coremodel.ModelType(mia.Type)
+		if !modelType.IsValid() {
+			return nil, fmt.Errorf("invalid model type %q", mia.Type)
+		}
+		modelAccessInfos = append(modelAccessInfos, access.UserModelAccessInfo{
+			Name:           mia.Name,
+			UUID:           mia.UUID,
+			Owner:          mia.Owner,
+			Type:           modelType,
+			LastConnection: mia.LastConnection,
+		})
+	}
+
+	return modelAccessInfos, nil
 }
 
 // findUserByName finds the user provided exists, hasn't been removed and is not

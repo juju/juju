@@ -157,9 +157,9 @@ type permInOut struct {
 	Access  string `db:"access"`
 }
 
-// modelAccess is a struct used to record a users logging in to a particular
+// dbModelAccess is a struct used to record a users logging in to a particular
 // model.
-type modelAccess struct {
+type dbModelAccess struct {
 	UserUUID  string `db:"user_uuid"`
 	ModelUUID string `db:"model_uuid"`
 }
@@ -169,5 +169,20 @@ type modelAccess struct {
 // TODO(aflynn): Change this to a time.Time type once SQLair support scanning
 // into time values.
 type loginTime struct {
-	Time string `db:"time"`
+	Time time.Time `db:"time"`
+}
+
+// dbModelAccessInfo is used to get information about a model that user has access to
+// out of the database.
+type dbModelAccessInfo struct {
+	// Name is the name of the model.
+	Name string `db:"name"`
+	// UUID is the UUID of the model.
+	UUID string `db:"uuid"`
+	// Owner is the owner of the model.
+	Owner string `db:"owner_name"`
+	// Type is the model type (e.g. IaaS or CaaS)
+	Type string `db:"type"`
+	// LastConnection is the time the user last connected to the model.
+	LastConnection *time.Time `db:"time"`
 }

@@ -78,7 +78,7 @@ const (
 	// user on a target.
 	AccessNotFound = errors.ConstError("access not found")
 
-	// NeverConnected describes an error that occurs if a user has never
-	// connected to a model.
+	// UserNeverConnectedToModel describes an error that occurs if a user has
+	// never connected to a model.
 	UserNeverConnectedToModel = errors.ConstError("user never connected to model")
 )

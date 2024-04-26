@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/auth"
@@ -122,11 +123,14 @@ func (st *UserState) GetAllUsers(ctx context.Context) ([]user.User, error) {
 	var usrs []user.User
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getAllUsersQuery := `
-SELECT (u.uuid, u.name, u.display_name, u.created_by_uuid, u.created_at, u.last_login, u.disabled) AS (&dbUser.*),
+SELECT (u.uuid, u.name, u.display_name, u.created_by_uuid, u.created_at, u.disabled, ull.last_login) AS (&dbUser.*),
        creator.name AS &dbUser.created_by_name
 FROM   v_user_auth u
        LEFT JOIN user AS creator 
        ON        u.created_by_uuid = creator.uuid
+       LEFT JOIN v_user_last_login AS ull 
+       ON        u.uuid = ull.user_uuid
+       
 WHERE  u.removed = false 
 `
 
@@ -166,9 +170,11 @@ func (st *UserState) GetUser(ctx context.Context, uuid user.UUID) (user.User, er
 	var usr user.User
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getUserQuery := `
-SELECT (uuid, name, display_name, created_by_uuid, created_at, last_login, disabled) AS (&dbUser.*)
-FROM   v_user_auth
-WHERE  uuid = $M.uuid`
+SELECT (u.uuid, u.name, u.display_name, u.created_by_uuid, u.created_at, ull.last_login, u.disabled) AS (&dbUser.*)
+FROM   v_user_auth u
+LEFT JOIN v_user_last_login ull 
+ON     u.uuid = ull.user_uuid
+WHERE  u.uuid = $M.uuid`
 
 		selectGetUserStmt, err := st.Prepare(getUserQuery, dbUser{}, sqlair.M{})
 		if err != nil {
@@ -241,10 +247,12 @@ func (st *UserState) GetUserByName(ctx context.Context, name string) (user.User,
 	var usr user.User
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getUserByNameQuery := `
-SELECT (uuid, name, display_name, created_by_uuid, created_at, last_login, disabled) AS (&dbUser.*)
-FROM   v_user_auth
-WHERE  name = $userName.name
-AND    removed = false`
+SELECT (u.uuid, u.name, u.display_name, u.created_by_uuid, u.created_at, ull.last_login, u.disabled) AS (&dbUser.*)
+FROM   v_user_auth u
+LEFT JOIN v_user_last_login ull 
+ON     u.uuid = ull.user_uuid
+WHERE  u.name = $userName.name
+AND    u.removed = false`
 
 		selectGetUserByNameStmt, err := st.Prepare(getUserByNameQuery, dbUser{}, uName)
 		if err != nil {
@@ -612,120 +620,6 @@ func AddUserWithPassword(
 	return errors.Trace(setPasswordHash(ctx, tx, name, passwordHash, salt))
 }
 
-// UpdateLastLogin updates the last login time for the user with the supplied
-// uuid. If the user does not exist an error that satisfies
-// accesserrors.UserNotFound will be returned.
-func (st *UserState) UpdateLastLogin(ctx context.Context, modelUUID coremodel.UUID, name string) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Annotate(err, "getting DB access")
-	}
-
-	uuidStmt, err := st.getActiveUUIDStmt()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	updateLastLoginStmt, err := st.Prepare(`
-UPDATE user_authentication
-SET    last_login = datetime('now')
-WHERE  user_uuid = $modelAccess.user_uuid`, modelAccess{})
-	if err != nil {
-		return errors.Annotate(err, "preparing updateLastLogin query")
-	}
-
-	insertModelLogin, err := st.Prepare(`
-INSERT INTO model_last_login (model_uuid, user_uuid, time)
--- The strftime formatter below inserts the time with millisecond precision.
--- This is useful for testing.
-VALUES ($modelAccess.model_uuid, $modelAccess.user_uuid, strftime('%Y-%m-%d %H:%M:%f', 'now'))`, modelAccess{})
-
-	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		userUUID, err := st.uuidForName(ctx, tx, uuidStmt, name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		ma := modelAccess{
-			UserUUID:  userUUID.String(),
-			ModelUUID: modelUUID.String(),
-		}
-		if err := tx.Query(ctx, updateLastLoginStmt, ma).Run(); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "updating last login for %q", name)
-		}
-		if err := tx.Query(ctx, insertModelLogin, ma).Run(); err != nil {
-			if internaldatabase.IsErrConstraintForeignKey(err) {
-				// The foreign key constrain may be triggered if the user or the
-				// model does not exist. However, the user must exist or the
-				// uuidForName query would have failed, so it must be the model.
-				return modelerrors.NotFound
-			}
-			return errors.Annotatef(domain.CoerceError(err), "inserting user %q login for model %q", name, modelUUID)
-		}
-
-		return nil
-	}))
-}
-
-// LastModelConnection returns when the specified user last connected to the
-// specified model in UTC. A UserNeverConnectedToModel error will be returned if
-// the user has never connected to the model before.
-func (st *UserState) LastModelConnection(ctx context.Context, modelUUID coremodel.UUID, name string) (time.Time, error) {
-	db, err := st.DB()
-	if err != nil {
-		return time.Time{}, errors.Annotate(err, "getting DB access")
-	}
-
-	uuidStmt, err := st.getActiveUUIDStmt()
-	if err != nil {
-		return time.Time{}, errors.Trace(err)
-	}
-
-	getLastModelLoginTime := `
-		 SELECT MAX(time) AS &loginTime.time
-		 FROM model_last_login
-		 WHERE model_uuid = $modelAccess.model_uuid
-		 AND user_uuid = $modelAccess.user_uuid
-	`
-	getLastModelLoginTimeStmt, err := st.Prepare(getLastModelLoginTime, loginTime{}, modelAccess{})
-	if err != nil {
-		return time.Time{}, errors.Annotate(err, "preparing select getLastModelLoginTime query")
-	}
-
-	var lastConnection time.Time
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		userUUID, err := st.uuidForName(ctx, tx, uuidStmt, name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		var result loginTime
-		ma := modelAccess{
-			ModelUUID: string(modelUUID),
-			UserUUID:  string(userUUID),
-		}
-		err = tx.Query(ctx, getLastModelLoginTimeStmt, ma).Get(&result)
-		if errors.Is(err, sql.ErrNoRows) {
-			return accesserrors.UserNeverConnectedToModel
-		} else if err != nil {
-			return domain.CoerceError(errors.Trace(err))
-		}
-
-		// Retrieve the timestamp with millisecond presision layed out according
-		// to ISO8601.
-		lastConnection, err = time.Parse("2006-01-02 15:04:05.000", result.Time)
-		if err != nil {
-			return errors.Annotate(err, "parsing time:")
-		}
-
-		return nil
-	})
-	if err != nil {
-		return time.Time{}, errors.Annotatef(err, "getting last login for %q in on model %q", name, modelUUID)
-	}
-	return lastConnection.UTC(), nil
-}
-
 // AddUser adds a new user to the database, enables the user and adds the
 // given permission for the user.
 // If the user already exists an error that satisfies
@@ -796,6 +690,183 @@ VALUES ($M.uuid, false)
 	}
 
 	return nil
+}
+
+// UpdateLastLogin updates the last login time for the user with the supplied
+// uuid. If the user does not exist an error that satisfies
+// accesserrors.UserNotFound will be returned.
+func (st *UserState) UpdateLastLogin(ctx context.Context, modelUUID coremodel.UUID, name string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Annotate(err, "getting DB access")
+	}
+
+	uuidStmt, err := st.getActiveUUIDStmt()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	insertModelLoginStmt, err := st.Prepare(`
+INSERT INTO model_last_login (model_uuid, user_uuid, time)
+-- The strftime formatter below inserts the time with millisecond precision.
+-- This is useful for testing.
+VALUES ($dbModelAccess.model_uuid, $dbModelAccess.user_uuid, strftime('%Y-%m-%d %H:%M:%f', 'now'))
+ON CONFLICT(model_uuid, user_uuid) DO
+UPDATE SET time = excluded.time`, dbModelAccess{})
+	if err != nil {
+		return errors.Annotate(err, "preparing insert model login query")
+	}
+
+	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		userUUID, err := st.uuidForName(ctx, tx, uuidStmt, name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		ma := dbModelAccess{
+			UserUUID:  userUUID.String(),
+			ModelUUID: modelUUID.String(),
+		}
+		if err := tx.Query(ctx, insertModelLoginStmt, ma).Run(); err != nil {
+			if internaldatabase.IsErrConstraintForeignKey(err) {
+				// The foreign key constrain may be triggered if the user or the
+				// model does not exist. However, the user must exist or the
+				// uuidForName query would have failed, so it must be the model.
+				return modelerrors.NotFound
+			}
+			return errors.Annotatef(domain.CoerceError(err), "inserting user %q login for model %q", name, modelUUID)
+		}
+		return nil
+	}))
+}
+
+// LastModelConnection returns when the specified user last connected to the
+// specified model in UTC. A UserNeverConnectedToModel error will be returned if
+// the user has never connected to the model before.
+func (st *UserState) LastModelConnection(ctx context.Context, modelUUID coremodel.UUID, name string) (time.Time, error) {
+	db, err := st.DB()
+	if err != nil {
+		return time.Time{}, errors.Annotate(err, "getting DB access")
+	}
+
+	uuidStmt, err := st.getActiveUUIDStmt()
+	if err != nil {
+		return time.Time{}, errors.Trace(err)
+	}
+
+	getLastModelLoginTime := `
+		 SELECT time AS &loginTime.time
+		 FROM model_last_login
+		 WHERE model_uuid = $dbModelAccess.model_uuid
+		 AND user_uuid = $dbModelAccess.user_uuid
+		 ORDER BY time DESC LIMIT 1;
+	`
+	getLastModelLoginTimeStmt, err := st.Prepare(getLastModelLoginTime, loginTime{}, dbModelAccess{})
+	if err != nil {
+		return time.Time{}, errors.Annotate(err, "preparing select getLastModelLoginTime query")
+	}
+
+	var lastConnection time.Time
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		userUUID, err := st.uuidForName(ctx, tx, uuidStmt, name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var result loginTime
+		ma := dbModelAccess{
+			ModelUUID: string(modelUUID),
+			UserUUID:  string(userUUID),
+		}
+		err = tx.Query(ctx, getLastModelLoginTimeStmt, ma).Get(&result)
+		if errors.Is(err, sql.ErrNoRows) {
+			return accesserrors.UserNeverConnectedToModel
+		} else if err != nil {
+			return domain.CoerceError(errors.Trace(err))
+		}
+
+		// Retrieve the timestamp with millisecond presision layed out according
+		// to ISO8601.
+		lastConnection = result.Time
+		if err != nil {
+			return errors.Annotate(err, "parsing time:")
+		}
+
+		return nil
+	})
+	if err != nil {
+		return time.Time{}, errors.Annotatef(err, "getting last login for %q in on model %q", name, modelUUID)
+	}
+	return lastConnection.UTC(), nil
+}
+
+type dbModelUserInfo struct {
+	// The users name.
+	UserName string `db:"name"`
+	// The users display name.
+	DisplayName string `db:"display_name"`
+	// The last time the user connected to the model.
+	LastConnection *time.Time `db:"time"`
+	// The level of access the user has on the model.
+	Access string `db:"access_type"`
+}
+
+// ModelUserInfo gets info about all the users on a particular model that the
+// apiUser is allowed to have knowledge of.
+func (st *UserState) ModelUserInfo(ctx context.Context, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	getModelUserInfo := `
+SELECT (u.name, u.display_name, mll.time, p.access_type) AS (&dbModelUserInfo.*)
+FROM   model m
+       JOIN v_permission p ON m.uuid = p.grant_on
+       JOIN v_user_auth u ON u.uuid = p.grant_to
+       LEFT JOIN model_last_login mll 
+           ON m.uuid = mll.model_uuid AND u.uuid = mll.user_uuid
+WHERE  m.uuid = $dbModelAccess.model_uuid
+       AND u.removed = false
+       AND u.disabled = false
+       AND p.object_type = 'model'
+       AND m.finalised = true
+`
+
+	getModelUserInfoStmt, err := sqlair.Prepare(getModelUserInfo, dbModelUserInfo{}, dbModelAccess{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing select getModelAccessInfo")
+	}
+
+	var dbModelUserInfos []dbModelUserInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var result []dbModelUserInfo
+		ma := dbModelAccess{ModelUUID: modelUUID.String()}
+		err := tx.Query(ctx, getModelUserInfoStmt, ma).GetAll(&result)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			// TODO(aflynn): What error should we return for no rows, if any?
+			return errors.Trace(domain.CoerceError(err))
+		}
+		dbModelUserInfos = result
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting info about model users")
+	}
+	var modelUserInfos []access.ModelUserInfo
+	for _, mui := range dbModelUserInfos {
+		accessLevel := permission.Access(mui.Access)
+		if err := accessLevel.Validate(); err != nil {
+			return nil, errors.Annotatef(err, "getting info about model users")
+		}
+		modelUserInfos = append(modelUserInfos, access.ModelUserInfo{
+			UserName:       mui.UserName,
+			DisplayName:    mui.DisplayName,
+			LastConnection: mui.LastConnection,
+			Access:         accessLevel,
+		})
+	}
+	return modelUserInfos, nil
 }
 
 // ensureUserAuthentication ensures that the user for uuid has their
@@ -918,12 +989,12 @@ func (st *UserState) uuidForName(
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", errors.Annotatef(accesserrors.UserNotFound, "active user %q", name)
 		}
-		return "", errors.Annotatef(err, "getting user %q", name)
+		return "", errors.Annotatef(domain.CoerceError(err), "getting user %q", name)
 	}
 
 	uuid := user.UUID(dbUUID.UUID)
 	if err := uuid.Validate(); err != nil {
-		return "", errors.Annotatef(accesserrors.UserNotFound, "valid UUID for %q", name)
+		return "", errors.Annotatef(accesserrors.UserNotFound, "invalid UUID for %q", name)
 	}
 	return uuid, nil
 }

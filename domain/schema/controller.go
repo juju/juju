@@ -657,13 +657,23 @@ CREATE TABLE model_last_login (
     model_uuid TEXT NOT NULL,
     user_uuid TEXT NOT NULL,
     time TIMESTAMP,
+    PRIMARY KEY (model_uuid, user_uuid),
     CONSTRAINT            fk_model_last_login_model
         FOREIGN KEY           (model_uuid)
         REFERENCES            model(uuid),
     CONSTRAINT            fk_model_last_login_user
         FOREIGN KEY           (user_uuid)
         REFERENCES            user(uuid)
-);`)
+);
+
+CREATE VIEW v_user_last_login AS
+-- We cannot use MAX here because it returns a sqlite string value, not a
+-- timestamp and this stops us scanning into time.Time.
+SELECT time AS last_login, user_uuid
+FROM model_last_login 
+GROUP BY user_uuid
+ORDER BY time DESC LIMIT 1;
+`)
 }
 
 func upgradeInfoSchema() schema.Patch {
@@ -761,7 +771,6 @@ CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FA
 
 CREATE TABLE user_authentication (
     user_uuid      TEXT PRIMARY KEY,
-    last_login     TIMESTAMP,
     disabled       BOOLEAN NOT NULL,
     CONSTRAINT     fk_user_authentication_user
         FOREIGN KEY (user_uuid)
@@ -792,7 +801,6 @@ SELECT u.uuid,
        u.removed,
        u.created_by_uuid, 
        u.created_at,
-       a.last_login, 
        a.disabled
 FROM   user u LEFT JOIN user_authentication a on u.uuid = a.user_uuid;
 `)

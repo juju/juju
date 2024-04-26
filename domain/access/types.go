@@ -4,8 +4,11 @@
 package access
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 )
 
@@ -41,4 +44,33 @@ func (args UpdatePermissionArgs) Validate() error {
 		return errors.Trace(errors.NotValidf("change %q", args.Change))
 	}
 	return nil
+}
+
+// UserModelAccessInfo contains summary information of a model that a particular
+// user has access to.
+type UserModelAccessInfo struct {
+	// Name is the name of the model.
+	Name string
+	// UUID is the UUID of the model.
+	UUID string
+	// Owner is the owner of the model.
+	Owner string
+	// Type is the model type (e.g. IaaS or CaaS)
+	Type coremodel.ModelType
+	// LastConnection is the time the user last connected to the model.
+	LastConnection *time.Time
+}
+
+// ModelUserInfo holds information on a user who has access to a model. Owners
+// of a model can see this information for all users who have access, so it
+// should not include sensitive information.
+type ModelUserInfo struct {
+	// The users name.
+	UserName string
+	// The users display name.
+	DisplayName string
+	// The last time the user connected to the model.
+	LastConnection *time.Time
+	// The level of access the user has on the model.
+	Access permission.Access
 }
