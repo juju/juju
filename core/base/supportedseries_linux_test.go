@@ -6,6 +6,7 @@ package base
 import (
 	"time"
 
+	"github.com/juju/collections/transform"
 	jujuos "github.com/juju/os/v2"
 	jujuseries "github.com/juju/os/v2/series"
 	"github.com/juju/testing"
@@ -28,15 +29,16 @@ func (s *SupportedSeriesLinuxSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *SupportedSeriesLinuxSuite) TestWorkloadSeries(c *gc.C) {
+func (s *SupportedSeriesLinuxSuite) TestWorkloadBases(c *gc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	s.PatchValue(&UbuntuDistroInfo, tmpFile.Name())
 
-	series, err := WorkloadSeries(time.Time{}, "", "")
+	bases, err := WorkloadBases(time.Time{}, Base{}, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series.SortedValues(), gc.DeepEquals, []string{
-		"centos7", "centos9", "focal", "genericlinux", "jammy", "kubernetes", "noble",
-	})
+	c.Assert(bases, gc.DeepEquals, transform.Slice([]string{
+		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
+		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
+	}, MustParseBaseFromString))
 }

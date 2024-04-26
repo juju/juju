@@ -52,7 +52,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.OSType != "" {
 		osToSearch = []string{filter.OSType}
 	} else {
-		workloadOSTypes, err := corebase.AllWorkloadOSTypes("", stream)
+		workloadOSTypes, err := corebase.AllWorkloadOSTypes()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

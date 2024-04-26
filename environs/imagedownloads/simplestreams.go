@@ -112,7 +112,7 @@ func Fetch(
 	return md, resolveInfo, nil
 }
 
-func validateArgs(arch, release, stream, ftype string) error {
+func validateArgs(arch, release, ftype string) error {
 	bad := map[string]string{}
 
 	if !validArches[arch] {
@@ -120,7 +120,7 @@ func validateArgs(arch, release, stream, ftype string) error {
 	}
 
 	validVersion := false
-	workloadVersions, err := corebase.AllWorkloadVersions(release, stream)
+	workloadVersions, err := corebase.AllWorkloadVersions()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -159,7 +159,7 @@ func validateArgs(arch, release, stream, ftype string) error {
 //
 // src exists to pass in a data source for testing.
 func One(fetcher imagemetadata.SimplestreamsFetcher, arch, release, stream, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
-	if err := validateArgs(arch, release, stream, ftype); err != nil {
+	if err := validateArgs(arch, release, ftype); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if src == nil {

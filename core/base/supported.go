@@ -5,7 +5,6 @@ package base
 
 import (
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -80,6 +79,7 @@ func (s *supportedInfo) compile(now time.Time) error {
 
 		s.values[seriesName] = seriesVersion{
 			WorkloadType:             version.WorkloadType,
+			OS:                       version.OS,
 			Version:                  version.Version,
 			LTS:                      version.LTS,
 			Supported:                supported,
@@ -92,85 +92,51 @@ func (s *supportedInfo) compile(now time.Time) error {
 	return nil
 }
 
-type namedSeriesVersion struct {
-	Name          SeriesName
-	SeriesVersion seriesVersion
-	Version       float64
-}
-
-func (s *supportedInfo) namedSeries() []namedSeriesVersion {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	res := make([]namedSeriesVersion, 0, len(s.values))
-	for name, series := range s.values {
-		ver, err := strconv.ParseFloat(series.Version, 10)
-		if err != nil {
-			ver = -1
-		}
-
-		res = append(res, namedSeriesVersion{
-			Name:          name,
-			SeriesVersion: series,
-			Version:       ver,
-		})
-	}
-
-	sort.Slice(res, func(i, j int) bool {
-		if res[i].Version > res[j].Version {
-			return true
-		}
-		if res[i].Version < res[j].Version {
-			return false
-		}
-		return res[i].Name < res[j].Name
-	})
-
-	return res
-}
-
-// controllerSeries returns a slice of series that are supported to run on a
+// controllerBases returns a slice of bases that are supported to run on a
 // controller.
-func (s *supportedInfo) controllerSeries() []string {
-	var result []string
-	for _, namedSeries := range s.namedSeries() {
-		version := namedSeries.SeriesVersion
+func (s *supportedInfo) controllerBases() []Base {
+	var result []Base
+	for _, version := range s.values {
 		if version.WorkloadType != ControllerWorkloadType {
 			continue
 		}
 		if version.ESMSupported || version.Supported {
-			result = append(result, namedSeries.Name.String())
+			result = append(result, MakeDefaultBase(version.OS, version.Version))
 		}
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].String() < result[j].String()
+	})
 	return result
 }
 
-// workloadSeries returns a slice of series that are supported to run on a
+// workloadBases returns a slice of bases that are supported to run on a
 // target workload (charm).
-// Note: workload series will also include controller workload types, as they
+// Note: workload bases will also include controller workload types, as they
 // can also be used for workloads.
-func (s *supportedInfo) workloadSeries(includeUnsupported bool) []string {
-	var result []string
-	for _, namedSeries := range s.namedSeries() {
-		version := namedSeries.SeriesVersion
+func (s *supportedInfo) workloadBases(includeUnsupported bool) []Base {
+	var result []Base
+	for _, version := range s.values {
 		if version.WorkloadType == UnsupportedWorkloadType {
 			continue
 		}
 		if includeUnsupported || version.ESMSupported || version.Supported {
-			result = append(result, namedSeries.Name.String())
+			result = append(result, MakeDefaultBase(version.OS, version.Version))
 		}
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].String() < result[j].String()
+	})
 	return result
 }
 
 // workloadVersions returns a slice of versions that are supported to run on a
 // target workload (charm).
-// Note: workload series will also include controller workload types, as they
+// Note: workload bases will also include controller workload types, as they
 // can also be used for workloads.
 func (s *supportedInfo) workloadVersions(includeUnsupported bool) []string {
 	var result []string
-	for _, namedSeries := range s.namedSeries() {
-		version := namedSeries.SeriesVersion
+	for _, version := range s.values {
 		if version.WorkloadType == UnsupportedWorkloadType {
 			continue
 		}
@@ -178,6 +144,7 @@ func (s *supportedInfo) workloadVersions(includeUnsupported bool) []string {
 			result = append(result, version.Version)
 		}
 	}
+	sort.Strings(result)
 	return result
 }
 
@@ -207,6 +174,9 @@ type seriesVersion struct {
 	// against.
 	WorkloadType WorkloadType
 
+	// OS represents the distro of the series
+	OS string
+
 	// Version represents the version of the series.
 	Version string
 
@@ -232,12 +202,14 @@ type seriesVersion struct {
 }
 
 // setSupported updates a series map based on the series name.
-func setSupported(series map[SeriesName]seriesVersion, name string) bool {
-	if version, ok := series[SeriesName(name)]; ok {
-		version.Supported = true
-		version.IgnoreDistroInfoUpdate = true
-		series[SeriesName(name)] = version
-		return true
+func setSupported(series map[SeriesName]seriesVersion, base Base) bool {
+	for name, version := range series {
+		if version.OS == base.OS && version.Version == base.Channel.Track {
+			version.Supported = true
+			version.IgnoreDistroInfoUpdate = true
+			series[name] = version
+			return true
+		}
 	}
 	return false
 }
@@ -280,73 +252,90 @@ const (
 var ubuntuSeries = map[SeriesName]seriesVersion{
 	Precise: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "12.04",
 	},
 	Quantal: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "12.10",
 	},
 	Raring: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "13.04",
 	},
 	Saucy: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "13.10",
 	},
 	Trusty: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "14.04",
 		LTS:          true,
 	},
 	Utopic: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "14.10",
 	},
 	Vivid: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "15.04",
 	},
 	Wily: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "15.10",
 	},
 	Xenial: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "16.04",
 		LTS:          true,
 	},
 	Yakkety: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "16.10",
 	},
 	Zesty: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "17.04",
 	},
 	Artful: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "17.10",
 	},
 	Bionic: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "18.04",
 		LTS:          true,
 	},
 	Cosmic: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "18.10",
 	},
 	Disco: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "19.04",
 	},
 	Eoan: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "19.10",
 	},
 	Focal: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "20.04",
 		LTS:          true,
 		Supported:    true,
@@ -354,18 +343,22 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 	},
 	Groovy: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "20.10",
 	},
 	Hirsute: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "21.04",
 	},
 	Impish: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "21.10",
 	},
 	Jammy: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "22.04",
 		LTS:          true,
 		Supported:    true,
@@ -373,18 +366,22 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 	},
 	Kinetic: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "22.10",
 	},
 	Lunar: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "23.04",
 	},
 	Mantic: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "23.10",
 	},
 	Noble: {
 		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
 		Version:      "24.04",
 		LTS:          true,
 		ESMSupported: true,
@@ -400,11 +397,13 @@ const (
 var centosSeries = map[SeriesName]seriesVersion{
 	Centos7: {
 		WorkloadType: OtherWorkloadType,
+		OS:           CentosOS,
 		Version:      "7",
 		Supported:    true,
 	},
 	Centos9: {
 		WorkloadType: OtherWorkloadType,
+		OS:           CentosOS,
 		Version:      "9",
 		Supported:    true,
 	},
@@ -413,6 +412,7 @@ var centosSeries = map[SeriesName]seriesVersion{
 var kubernetesSeries = map[SeriesName]seriesVersion{
 	Kubernetes: {
 		WorkloadType: OtherWorkloadType,
+		OS:           "kubernetes",
 		Version:      "kubernetes",
 		Supported:    true,
 	},

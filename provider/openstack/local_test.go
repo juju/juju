@@ -3154,7 +3154,7 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
-	workloadOSList, err := corebase.AllWorkloadOSTypes("", "")
+	workloadOSList, err := corebase.AllWorkloadOSTypes()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, workloadOS := range workloadOSList.Values() {
 		amd64Version.Release = workloadOS

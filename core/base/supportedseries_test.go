@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -26,68 +27,80 @@ type SupportedSeriesSuite struct {
 
 var _ = gc.Suite(&SupportedSeriesSuite{})
 
-func (s *SupportedSeriesSuite) TestSeriesForTypes(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSupportedInfoForType(c *gc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	now := time.Date(2020, 3, 16, 0, 0, 0, 0, time.UTC)
 
-	info, err := seriesForTypes(tmpFile.Name(), now, "", "")
+	info, err := supportedInfoForType(tmpFile.Name(), now, Base{}, "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"noble", "jammy", "focal"})
+	ctrlBases := info.controllerBases()
+	c.Assert(ctrlBases, jc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
 
-	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"noble", "jammy", "focal", "centos9", "centos7", "genericlinux", "kubernetes"})
+	workloadBases := info.workloadBases(false)
+	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
+		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
+		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
+	}, MustParseBaseFromString))
 }
 
-func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingImageStream(c *gc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	now := time.Date(2020, 3, 16, 0, 0, 0, 0, time.UTC)
 
-	info, err := seriesForTypes(tmpFile.Name(), now, "focal", "daily")
+	info, err := supportedInfoForType(tmpFile.Name(), now, MustParseBaseFromString("ubuntu@20.04"), "daily")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"noble", "jammy", "focal"})
+	ctrlBases := info.controllerBases()
+	c.Assert(ctrlBases, jc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
 
-	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"noble", "jammy", "focal", "centos9", "centos7", "genericlinux", "kubernetes"})
+	workloadBases := info.workloadBases(false)
+	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
+		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
+		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
+	}, MustParseBaseFromString))
 }
 
-func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidImageStream(c *gc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	now := time.Date(2020, 3, 16, 0, 0, 0, 0, time.UTC)
 
-	info, err := seriesForTypes(tmpFile.Name(), now, "focal", "turtle")
+	info, err := supportedInfoForType(tmpFile.Name(), now, MustParseBaseFromString("ubuntu@20.04"), "turtle")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"noble", "jammy", "focal"})
+	ctrlBases := info.controllerBases()
+	c.Assert(ctrlBases, jc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
 
-	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"noble", "jammy", "focal", "centos9", "centos7", "genericlinux", "kubernetes"})
+	workloadBases := info.workloadBases(false)
+	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
+		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
+		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
+	}, MustParseBaseFromString))
 }
 
-func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidSeries(c *gc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	now := time.Date(2020, 3, 16, 0, 0, 0, 0, time.UTC)
 
-	info, err := seriesForTypes(tmpFile.Name(), now, "firewolf", "daily")
+	info, err := supportedInfoForType(tmpFile.Name(), now, MustParseBaseFromString("ubuntu@10.04"), "daily")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"noble", "jammy", "focal"})
+	ctrlBases := info.controllerBases()
+	c.Assert(ctrlBases, jc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
 
-	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"noble", "jammy", "focal", "centos9", "centos7", "genericlinux", "kubernetes"})
+	workloadBases := info.workloadBases(false)
+	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
+		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
+		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
+	}, MustParseBaseFromString))
 }
 
 var getOSFromSeriesTests = []struct {
@@ -165,76 +178,93 @@ func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
 	ubuntuSeries := map[SeriesName]seriesVersion{
 		Precise: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "12.04",
 		},
 		Quantal: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "12.10",
 		},
 		Raring: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "13.04",
 		},
 		Saucy: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "13.10",
 		},
 		Trusty: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "14.04",
 			LTS:          true,
 			ESMSupported: true,
 		},
 		Utopic: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "14.10",
 		},
 		Vivid: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "15.04",
 		},
 		Wily: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "15.10",
 		},
 		Xenial: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "16.04",
 			LTS:          true,
 			ESMSupported: true,
 		},
 		Yakkety: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "16.10",
 		},
 		Zesty: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "17.04",
 		},
 		Artful: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "17.10",
 		},
 		Bionic: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "18.04",
 			LTS:          true,
 			ESMSupported: true,
 		},
 		Cosmic: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "18.10",
 		},
 		Disco: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "19.04",
 		},
 		Eoan: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "19.10",
 		},
 		Focal: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "20.04",
 			LTS:          true,
 			Supported:    true,
@@ -242,18 +272,22 @@ func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
 		},
 		Groovy: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "20.10",
 		},
 		Hirsute: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "21.04",
 		},
 		Impish: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "21.10",
 		},
 		Jammy: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "22.04",
 			LTS:          true,
 			Supported:    true,
@@ -261,18 +295,22 @@ func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
 		},
 		Kinetic: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "22.10",
 		},
 		Lunar: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "23.04",
 		},
 		Mantic: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "23.10",
 		},
 		Noble: {
 			WorkloadType: ControllerWorkloadType,
+			OS:           UbuntuOS,
 			Version:      "24.04",
 			LTS:          true,
 			ESMSupported: true,
