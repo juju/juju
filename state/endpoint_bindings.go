@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -232,9 +230,10 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 	// Make sure that all machines which run units of this application
 	// contain addresses in the spaces we are trying to bind to.
 	if !force {
-		if err := b.validateForMachines(); err != nil {
-			return ops, errors.Trace(err)
-		}
+		// TODO(nvinuesa): This check must be reimplemented once we
+		// migrate endpoint bindings to dqlite and check the spaces
+		// a machine has addresses on.
+		// Look for the `validateForMachines()` method on 3.x branch(es).
 	}
 
 	// Ensure that the spaceIDs needed for the bindings exist.
@@ -289,71 +288,6 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 	}
 
 	return append(ops, updateOp), nil
-}
-
-// validateForMachines ensures that the current set of endpoint to space ID
-// bindings (including the default space ID for the app) are feasible given the
-// the network configuration settings of the machines where application units
-// are already running.
-func (b *Bindings) validateForMachines() error {
-	if b.app == nil {
-		return errors.Trace(errors.New("programming error: app is a nil pointer"))
-	}
-	// Get a list of deployed machines and create a map where we track the
-	// count of deployed machines for each space.
-	machineCountInSpace := make(map[string]int)
-	deployedMachines, err := b.app.DeployedMachines()
-	if err != nil {
-		return err
-	}
-
-	for _, m := range deployedMachines {
-		machineSpaces, err := m.AllSpaces()
-		if err != nil {
-			return errors.Annotatef(err, "unable to get space assignments for machine %q", m.Id())
-		}
-		for spID := range machineSpaces {
-			machineCountInSpace[spID]++
-		}
-	}
-
-	// We only need to validate changes to the default space ID for the
-	// application if the operator is trying to change it to something
-	// other than network.DefaultSpaceID
-	if newDefaultSpaceIDForApp, defined := b.bindingsMap[defaultEndpointName]; defined && newDefaultSpaceIDForApp != network.AlphaSpaceId {
-		if machineCountInSpace[newDefaultSpaceIDForApp] != len(deployedMachines) {
-			msg := "changing default space to %q is not feasible: one or more deployed machines lack an address in this space"
-			return errors.Errorf(msg, newDefaultSpaceIDForApp)
-		}
-	}
-
-	for epName, spID := range b.bindingsMap {
-		if epName == "" {
-			continue
-		}
-		// TODO(achilleasa): this check is a temporary workaround
-		// to allow upgrading charms that define new endpoints
-		// which we automatically bind to the default space if
-		// the operator does not explicitly try to bind them
-		// to a space.
-		//
-		// If we deploy a charm with a "spaces=xxx" constraint,
-		// it will not have a provider address in the default
-		// space so the machine-count check below would
-		// otherwise fail.
-		if spID == network.AlphaSpaceId {
-			continue
-		}
-
-		// Ensure that all currently deployed machines have an address
-		// in the requested space for this binding
-		if machineCountInSpace[spID] != len(deployedMachines) {
-			msg := fmt.Sprintf("binding endpoint %q to ", epName)
-			return errors.Errorf(msg+"space %q is not feasible: one or more deployed machines lack an address in this space", spID)
-		}
-	}
-
-	return nil
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
