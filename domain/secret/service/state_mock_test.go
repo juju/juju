@@ -225,21 +225,6 @@ func (mr *MockStateMockRecorder) GetSecretRemoteConsumer(arg0, arg1, arg2 any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRemoteConsumer", reflect.TypeOf((*MockState)(nil).GetSecretRemoteConsumer), arg0, arg1, arg2)
 }
 
-// GetSecretRevision mocks base method.
-func (m *MockState) GetSecretRevision(arg0 context.Context, arg1 *secrets.URI, arg2 int) (*secrets.SecretRevisionMetadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretRevision", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*secrets.SecretRevisionMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretRevision indicates an expected call of GetSecretRevision.
-func (mr *MockStateMockRecorder) GetSecretRevision(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRevision", reflect.TypeOf((*MockState)(nil).GetSecretRevision), arg0, arg1, arg2)
-}
-
 // GetSecretValue mocks base method.
 func (m *MockState) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int) (secrets.SecretData, *secrets.ValueRef, error) {
 	m.ctrl.T.Helper()
@@ -329,6 +314,41 @@ func (m *MockState) ListCharmSecrets(arg0 context.Context, arg1 secret.Applicati
 func (mr *MockStateMockRecorder) ListCharmSecrets(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecrets", reflect.TypeOf((*MockState)(nil).ListCharmSecrets), arg0, arg1, arg2)
+}
+
+// ListExternalSecretRevisions mocks base method.
+func (m *MockState) ListExternalSecretRevisions(arg0 context.Context, arg1 *secrets.URI, arg2 ...int) ([]secrets.ValueRef, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListExternalSecretRevisions", varargs...)
+	ret0, _ := ret[0].([]secrets.ValueRef)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListExternalSecretRevisions indicates an expected call of ListExternalSecretRevisions.
+func (mr *MockStateMockRecorder) ListExternalSecretRevisions(arg0, arg1 any, arg2 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListExternalSecretRevisions", reflect.TypeOf((*MockState)(nil).ListExternalSecretRevisions), varargs...)
+}
+
+// ListGrantedSecretsForBackend mocks base method.
+func (m *MockState) ListGrantedSecretsForBackend(arg0 context.Context, arg1 string, arg2 []secret.AccessParams, arg3 secrets.SecretRole) ([]*secrets.SecretRevisionRef, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListGrantedSecretsForBackend", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]*secrets.SecretRevisionRef)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListGrantedSecretsForBackend indicates an expected call of ListGrantedSecretsForBackend.
+func (mr *MockStateMockRecorder) ListGrantedSecretsForBackend(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGrantedSecretsForBackend", reflect.TypeOf((*MockState)(nil).ListGrantedSecretsForBackend), arg0, arg1, arg2, arg3)
 }
 
 // ListSecrets mocks base method.

@@ -5,13 +5,13 @@ package secrets_test
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/mocks"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -137,7 +137,7 @@ func (s *backendSuite) TestGetContentSecretDrained(c *gc.C) {
 		}, true, nil),
 
 		// First not found - we try again with the active backend.
-		backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(nil, errors.NotFoundf("")),
+		backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(nil, secreterrors.SecretRevisionNotFound),
 		jujuapi.EXPECT().GetContentInfo(uri, "label", true, false).Return(&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id2",
@@ -151,7 +151,7 @@ func (s *backendSuite) TestGetContentSecretDrained(c *gc.C) {
 		}, true, nil),
 
 		// Second not found - refresh backend config.
-		backend.EXPECT().GetContent(gomock.Any(), "rev-id2").Return(nil, errors.NotFoundf("")),
+		backend.EXPECT().GetContent(gomock.Any(), "rev-id2").Return(nil, secreterrors.SecretRevisionNotFound),
 
 		// Third time lucky.
 		jujuapi.EXPECT().GetContentInfo(uri, "label", true, false).Return(&secrets.ContentParams{
@@ -237,7 +237,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *gc.C) {
 			ModelName:      "model1",
 			BackendConfig:  provider.BackendConfig{BackendType: "somebackend1"},
 		}, true, nil),
-		backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(errors.NotFoundf("")),
+		backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(secreterrors.SecretRevisionNotFound),
 
 		// Second not found - refresh backend config.
 		jujuapi.EXPECT().GetRevisionContentInfo(uri, 666, true).Return(&secrets.ContentParams{
@@ -251,7 +251,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *gc.C) {
 			ModelName:      "model2",
 			BackendConfig:  provider.BackendConfig{BackendType: "somebackend2"},
 		}, true, nil),
-		backend.EXPECT().DeleteContent(gomock.Any(), "rev-id2").Return(errors.NotFoundf("")),
+		backend.EXPECT().DeleteContent(gomock.Any(), "rev-id2").Return(secreterrors.SecretRevisionNotFound),
 
 		// Third time lucky.
 		jujuapi.EXPECT().GetRevisionContentInfo(uri, 666, true).Return(&secrets.ContentParams{

@@ -248,25 +248,24 @@ func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0 any, arg1 ...any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecrets", reflect.TypeOf((*MockSecretService)(nil).ListCharmSecrets), varargs...)
 }
 
-// ListGrantedSecrets mocks base method.
-func (m *MockSecretService) ListGrantedSecrets(arg0 context.Context, arg1 ...service.SecretAccessor) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+// ListGrantedSecretsForBackend mocks base method.
+func (m *MockSecretService) ListGrantedSecretsForBackend(arg0 context.Context, arg1 string, arg2 secrets.SecretRole, arg3 ...service.SecretAccessor) ([]*secrets.SecretRevisionRef, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "ListGrantedSecrets", varargs...)
-	ret0, _ := ret[0].([]*secrets.SecretMetadata)
-	ret1, _ := ret[1].([][]*secrets.SecretRevisionMetadata)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "ListGrantedSecretsForBackend", varargs...)
+	ret0, _ := ret[0].([]*secrets.SecretRevisionRef)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ListGrantedSecrets indicates an expected call of ListGrantedSecrets.
-func (mr *MockSecretServiceMockRecorder) ListGrantedSecrets(arg0 any, arg1 ...any) *gomock.Call {
+// ListGrantedSecretsForBackend indicates an expected call of ListGrantedSecretsForBackend.
+func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGrantedSecrets", reflect.TypeOf((*MockSecretService)(nil).ListGrantedSecrets), varargs...)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGrantedSecretsForBackend", reflect.TypeOf((*MockSecretService)(nil).ListGrantedSecretsForBackend), varargs...)
 }
 
 // ListUserSecrets mocks base method.

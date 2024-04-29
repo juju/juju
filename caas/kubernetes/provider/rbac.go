@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/core/secrets"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 )
 
@@ -428,15 +430,12 @@ func (k *kubernetesClient) listClusterRoleBindings(ctx context.Context, selector
 var expiresInSeconds = int64(60 * 10)
 
 // EnsureSecretAccessToken ensures the RBAC resources created and updated for the provided resource name.
-func (k *kubernetesClient) EnsureSecretAccessToken(ctx context.Context, tag names.Tag, owned, read, removed []string) (string, error) {
-	appName := tag.Id()
-	if tag.Kind() == names.UnitTagKind {
-		appName, _ = names.UnitApplication(tag.Id())
-	}
+func (k *kubernetesClient) EnsureSecretAccessToken(ctx context.Context, unitName string, owned, read, removed []string) (string, error) {
+	appName, _ := names.UnitApplication(unitName)
 	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 
 	objMeta := v1.ObjectMeta{
-		Name:      tag.String(),
+		Name:      "unit-" + strings.ReplaceAll(unitName, "/", "-"),
 		Labels:    labels,
 		Namespace: k.namespace,
 	}
@@ -677,17 +676,17 @@ func rulesForSecretAccess(
 	return existing
 }
 
-// RemoveSecretAccessToken removes the RBAC resources for the provided resource name.
-func (k *kubernetesClient) RemoveSecretAccessToken(ctx context.Context, unit names.Tag) error {
-	name := unit.String()
-	if err := k.deleteRoleBinding(ctx, name, ""); err != nil {
-		logger.Warningf("cannot delete service account %q", name)
-	}
-	if err := k.deleteRole(ctx, name, ""); err != nil {
-		logger.Warningf("cannot delete service account %q", name)
-	}
-	if err := k.deleteServiceAccount(ctx, name, ""); err != nil {
-		logger.Warningf("cannot delete service account %q", name)
-	}
+// RemoveSecretAccessToken removes the RBAC resources for the provided secret.
+func (k *kubernetesClient) RemoveSecretAccessToken(ctx context.Context, uri *secrets.URI) error {
+	// TODO(secrets) - this was never called and is wrong anyway and needs to be implemented
+	//if err := k.deleteRoleBinding(ctx, name, ""); err != nil {
+	//	logger.Warningf("cannot delete service account %q", name)
+	//}
+	//if err := k.deleteRole(ctx, name, ""); err != nil {
+	//	logger.Warningf("cannot delete service account %q", name)
+	//}
+	//if err := k.deleteServiceAccount(ctx, name, ""); err != nil {
+	//	logger.Warningf("cannot delete service account %q", name)
+	//}
 	return nil
 }

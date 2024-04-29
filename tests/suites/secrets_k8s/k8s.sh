@@ -1,8 +1,6 @@
 run_secrets() {
 	echo
 
-	microk8s enable ingress
-
 	model_name='model-secrets-k8s'
 	juju --show-log add-model "$model_name" --config secret-backend=auto
 
@@ -81,11 +79,11 @@ run_secrets() {
 
 	echo "Checking: secret-revoke by relation ID"
 	juju exec --unit hello/0 -- secret-revoke "$app_owned_full_uri" --relation "$relation_id"
-	check_contains "$(juju exec --unit nginx/0 -- secret-get "$app_owned_full_uri" 2>&1)" 'permission denied'
+	check_contains "$(juju exec --unit nginx/0 -- secret-get "$app_owned_full_uri" 2>&1)" 'is not allowed to read this secret'
 
 	echo "Checking: secret-revoke by app name"
 	juju exec --unit hello/0 -- secret-revoke "$unit_owned_short_uri" --app nginx
-	check_contains "$(juju exec --unit nginx/0 -- secret-get "$unit_owned_short_uri" 2>&1)" 'permission denied'
+	check_contains "$(juju exec --unit nginx/0 -- secret-get "$unit_owned_short_uri" 2>&1)" 'is not allowed to read this secret'
 
 	echo "Checking: secret-remove"
 	juju exec --unit hello/0 -- secret-remove "$unit_owned_short_uri"
@@ -102,8 +100,6 @@ run_secrets() {
 
 run_user_secrets() {
 	echo
-
-	microk8s enable ingress
 
 	model_name='model-user-secrets-k8s'
 	juju --show-log add-model "$model_name" --config secret-backend=auto
@@ -122,7 +118,7 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'info'
 
 	# grant secret to hello-kubecon app, and now the application can access the revision 2.
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 	juju --show-log grant-secret "$secret_uri" hello-kubecon
 	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
 
@@ -158,7 +154,7 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret $secret_uri hello-kubecon
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 
 	juju --show-log remove-secret $secret_uri
 	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'

@@ -15,7 +15,6 @@ import (
 
 	secrets "github.com/juju/juju/core/secrets"
 	provider "github.com/juju/juju/internal/secrets/provider"
-	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -138,7 +137,7 @@ func (mr *MockSecretBackendProviderMockRecorder) CleanupModel(arg0 any) *gomock.
 }
 
 // CleanupSecrets mocks base method.
-func (m *MockSecretBackendProvider) CleanupSecrets(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 names.Tag, arg3 provider.SecretRevisions) error {
+func (m *MockSecretBackendProvider) CleanupSecrets(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 *secrets.URI, arg3 provider.SecretRevisions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CleanupSecrets", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -181,7 +180,7 @@ func (mr *MockSecretBackendProviderMockRecorder) NewBackend(arg0 any) *gomock.Ca
 }
 
 // RestrictedConfig mocks base method.
-func (m *MockSecretBackendProvider) RestrictedConfig(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2, arg3 bool, arg4 names.Tag, arg5, arg6 provider.SecretRevisions) (*provider.BackendConfig, error) {
+func (m *MockSecretBackendProvider) RestrictedConfig(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2, arg3 bool, arg4 secrets.Accessor, arg5, arg6 provider.SecretRevisions) (*provider.BackendConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RestrictedConfig", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(*provider.BackendConfig)

@@ -53,11 +53,11 @@ check_secrets() {
 
 	echo "Checking: secret-revoke by relation ID"
 	juju exec --unit easyrsa/0 -- secret-revoke "$secret_owned_by_easyrsa" --relation "$relation_id"
-	check_contains "$(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa" 2>&1)" 'permission denied'
+	check_contains "$(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa" 2>&1)" 'is not allowed to read this secret'
 
 	echo "Checking: secret-revoke by app name"
 	juju exec --unit easyrsa/0 -- secret-revoke "$secret_owned_by_easyrsa_0" --app etcd
-	check_contains "$(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1)" 'permission denied'
+	check_contains "$(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1)" 'is not allowed to read this secret'
 
 	echo "Checking: secret-remove"
 	juju exec --unit easyrsa/0 -- secret-remove "$secret_owned_by_easyrsa_0"
@@ -85,7 +85,7 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'info'
 
 	# grant secret to the app, and now the application can access the revision 2.
-	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
+	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 	juju --show-log grant-secret mysecret "$app_name"
 	check_contains "$(juju exec --unit "$app_name/0" -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
 
@@ -121,7 +121,7 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret mysecret "$app_name"
-	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
+	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 
 	juju --show-log remove-secret mysecret
 	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'

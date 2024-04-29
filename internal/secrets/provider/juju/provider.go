@@ -6,8 +6,7 @@ package juju
 import (
 	"context"
 
-	"github.com/juju/names/v5"
-
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -41,20 +40,15 @@ func (p jujuProvider) CleanupModel(*provider.ModelBackendConfig) error {
 }
 
 // CleanupSecrets is not used.
-func (p jujuProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
+func (p jujuProvider) CleanupSecrets(_ context.Context, _ *provider.ModelBackendConfig, _ *secrets.URI, _ provider.SecretRevisions) error {
 	return nil
-}
-
-// BuiltInConfig returns a minimal config for the Juju backend.
-func BuiltInConfig() provider.BackendConfig {
-	return provider.BackendConfig{BackendType: BackendType}
 }
 
 // RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p jujuProvider) RestrictedConfig(
-	ctx context.Context, adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	_ context.Context, _ *provider.ModelBackendConfig, _, _ bool, _ secrets.Accessor, _ provider.SecretRevisions, _ provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	return &provider.BackendConfig{
 		BackendType: BackendType,
@@ -63,6 +57,6 @@ func (p jujuProvider) RestrictedConfig(
 
 // NewBackend returns a nil backend since the Juju backend saves
 // secret content to the Juju database.
-func (jujuProvider) NewBackend(*provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+func (jujuProvider) NewBackend(_ *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 	return &jujuBackend{}, nil
 }

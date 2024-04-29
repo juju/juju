@@ -29,6 +29,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/api"
@@ -1572,7 +1573,7 @@ func (c *HookContext) doFlush(process string) error {
 		c.logger.Debugf("deleting secret %q provider ids: %v", d.URI.ID, toDelete)
 		for _, rev := range toDelete {
 			if err := secretsBackend.DeleteContent(d.URI, rev); err != nil {
-				if errors.Is(err, errors.NotFound) {
+				if errors.Is(err, secreterrors.SecretRevisionNotFound) {
 					continue
 				}
 				return errors.Annotatef(err, "cannot delete secret %q revision %d from backend: %v", d.URI.ID, rev, err)

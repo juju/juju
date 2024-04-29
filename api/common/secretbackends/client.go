@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
@@ -37,7 +38,7 @@ func (c *Client) GetSecretBackendConfig(backendID *string) (*provider.ModelBacke
 		args.BackendIDs = []string{*backendID}
 	}
 	err := c.facade.FacadeCall(context.TODO(), "GetSecretBackendConfigs", args, &results)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	if err != nil && !errors.Is(err, secretbackenderrors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if err != nil || len(results.Results) == 0 {
@@ -45,7 +46,7 @@ func (c *Client) GetSecretBackendConfig(backendID *string) (*provider.ModelBacke
 		if backendID != nil {
 			msg = fmt.Sprintf("external secret backend id %q", *backendID)
 		}
-		return nil, errors.NotFoundf(msg)
+		return nil, fmt.Errorf("%s%w", msg, errors.Hide(secretbackenderrors.NotFound))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -76,7 +77,7 @@ func (c *Client) GetBackendConfigForDrain(backendID *string) (*provider.ModelBac
 		arg.BackendIDs = []string{*backendID}
 	}
 	err := c.facade.FacadeCall(context.TODO(), "GetSecretBackendConfigs", arg, &result)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	if err != nil && !errors.Is(err, secretbackenderrors.NotFound) {
 		return nil, "", errors.Trace(err)
 	}
 	if len(result.Results) == 0 {

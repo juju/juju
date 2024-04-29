@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -36,7 +36,6 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	tag := names.NewUnitTag("gitlab/0")
 	broker := mocks.NewMockBroker(ctrl)
 
 	s.PatchValue(&kubernetes.NewCaas, func(context.Context, environs.OpenParams) (kubernetes.Broker, error) { return broker, nil })
@@ -44,7 +43,7 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 	s.PatchEnvironment("KUBERNETES_SERVICE_PORT", "8888")
 
 	broker.EXPECT().EnsureSecretAccessToken(
-		gomock.Any(), tag, []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, nil,
+		gomock.Any(), "gitlab/0", []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, nil,
 	).Return("token", nil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
@@ -64,7 +63,11 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 		},
 	}
 
-	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, sameController, false, tag,
+	accessor := secrets.Accessor{
+		Kind: secrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, sameController, false, accessor,
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
@@ -103,7 +106,6 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	tag := names.NewUnitTag("gitlab/0")
 	broker := mocks.NewMockBroker(ctrl)
 
 	s.PatchValue(&kubernetes.NewCaas, func(context.Context, environs.OpenParams) (kubernetes.Broker, error) { return broker, nil })
@@ -125,13 +127,14 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 		},
 	}
 
+	uri := secrets.NewURI()
 	gomock.InOrder(
-		broker.EXPECT().EnsureSecretAccessToken(
-			gomock.Any(), tag, nil, nil, []string{"rev-1", "rev-2"},
-		).Return("token", nil),
+		broker.EXPECT().RemoveSecretAccessToken(
+			gomock.Any(), uri,
+		).Return(nil),
 	)
 
-	err = p.CleanupSecrets(context.Background(), adminCfg, tag, provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
+	err = p.CleanupSecrets(context.Background(), adminCfg, uri, provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

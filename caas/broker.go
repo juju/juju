@@ -228,10 +228,10 @@ type ApplicationBroker interface {
 // SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
 type SecretsProvider interface {
 	// EnsureSecretAccessToken ensures the secret related RBAC resources for the provided entity.
-	EnsureSecretAccessToken(ctx context.Context, tag names.Tag, owned, read, removed []string) (string, error)
+	EnsureSecretAccessToken(ctx context.Context, unitName string, owned, read, removed []string) (string, error)
 
-	// RemoveSecretAccessToken removes the secret related RBAC resources for the provided entity.
-	RemoveSecretAccessToken(ctx context.Context, tag names.Tag) error
+	// RemoveSecretAccessToken removes the secret related RBAC resources for the provided secret.
+	RemoveSecretAccessToken(ctx context.Context, uri *secrets.URI) error
 }
 
 // SecretsBackend provides an API for managing Juju secrets.

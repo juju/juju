@@ -76,10 +76,7 @@ func (s *stateSuite) TestGetSecretNotFound(c *gc.C) {
 func (s *stateSuite) TestGetSecretRevisionNotFound(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
-	_, err := st.GetSecretRevision(context.Background(), coresecrets.NewURI(), 666)
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
-
-	_, _, err = st.GetSecretValue(context.Background(), coresecrets.NewURI(), 666)
+	_, _, err := st.GetSecretValue(context.Background(), coresecrets.NewURI(), 666)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
 }
 
@@ -127,37 +124,40 @@ func value[T any](v *T) T {
 
 func (s *stateSuite) assertSecret(c *gc.C, st *State, uri *coresecrets.URI, sp domainsecret.UpsertSecretParams, revision int, owner coresecrets.Owner) {
 	ctx := context.Background()
-	md, err := st.GetSecret(ctx, uri)
+	md, revs, err := st.ListSecrets(ctx, uri, &revision, domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md.Version, gc.Equals, 1)
-	c.Assert(md.Label, gc.Equals, value(sp.Label))
-	c.Assert(md.Description, gc.Equals, value(sp.Description))
-	c.Assert(md.LatestRevision, gc.Equals, 1)
-	c.Assert(md.AutoPrune, gc.Equals, value(sp.AutoPrune))
-	c.Assert(md.Owner, jc.DeepEquals, owner)
+	c.Assert(md, gc.HasLen, 1)
+	c.Assert(md[0].Version, gc.Equals, 1)
+	c.Assert(md[0].Label, gc.Equals, value(sp.Label))
+	c.Assert(md[0].Description, gc.Equals, value(sp.Description))
+	c.Assert(md[0].LatestRevision, gc.Equals, 1)
+	c.Assert(md[0].AutoPrune, gc.Equals, value(sp.AutoPrune))
+	c.Assert(md[0].Owner, jc.DeepEquals, owner)
 	if sp.RotatePolicy == nil {
-		c.Assert(md.RotatePolicy, gc.Equals, coresecrets.RotateNever)
+		c.Assert(md[0].RotatePolicy, gc.Equals, coresecrets.RotateNever)
 	} else {
-		c.Assert(md.RotatePolicy, gc.Equals, fromDbRotatePolicy(*sp.RotatePolicy))
+		c.Assert(md[0].RotatePolicy, gc.Equals, fromDbRotatePolicy(*sp.RotatePolicy))
 	}
 	if sp.NextRotateTime == nil {
-		c.Assert(md.NextRotateTime, gc.IsNil)
+		c.Assert(md[0].NextRotateTime, gc.IsNil)
 	} else {
-		c.Assert(*md.NextRotateTime, gc.Equals, sp.NextRotateTime.UTC())
+		c.Assert(*md[0].NextRotateTime, gc.Equals, sp.NextRotateTime.UTC())
 	}
 	now := time.Now()
-	c.Assert(md.CreateTime, jc.Almost, now)
-	c.Assert(md.UpdateTime, jc.Almost, now)
+	c.Assert(md[0].CreateTime, jc.Almost, now)
+	c.Assert(md[0].UpdateTime, jc.Almost, now)
 
-	rev, err := st.GetSecretRevision(ctx, uri, revision)
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0], gc.HasLen, 1)
+	rev := revs[0][0]
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rev.Revision, gc.Equals, revision)
 	c.Assert(rev.CreateTime, jc.Almost, now)
 	c.Assert(rev.UpdateTime, jc.Almost, now)
 	if rev.ExpireTime == nil {
-		c.Assert(md.LatestExpireTime, gc.IsNil)
+		c.Assert(md[0].LatestExpireTime, gc.IsNil)
 	} else {
-		c.Assert(*md.LatestExpireTime, gc.Equals, rev.ExpireTime.UTC())
+		c.Assert(*md[0].LatestExpireTime, gc.Equals, rev.ExpireTime.UTC())
 	}
 }
 
@@ -240,6 +240,52 @@ func (s *stateSuite) TestCreateUserSecretWithValueReference(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
 	c.Assert(ref, jc.DeepEquals, &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"})
+}
+
+func (s *stateSuite) TestListExternalSecretRevisions(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	ctx := context.Background()
+	sp := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
+	}
+	uri := coresecrets.NewURI()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp2 := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend2", RevisionID: "some-revision2"},
+	}
+	err = st.UpdateSecret(ctx, uri, sp2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp3 := domainsecret.UpsertSecretParams{
+		Description: ptr("my secretMetadata"),
+		Data:        coresecrets.SecretData{"foo": "bar"},
+	}
+	uri3 := coresecrets.NewURI()
+	err = st.CreateUserSecret(ctx, 1, uri3, sp3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	revs, err := st.ListExternalSecretRevisions(ctx, uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revs, jc.SameContents, []coresecrets.ValueRef{{
+		BackendID:  "some-backend",
+		RevisionID: "some-revision",
+	}, {
+		BackendID:  "some-backend2",
+		RevisionID: "some-revision2",
+	}})
+
+	revs, err = st.ListExternalSecretRevisions(ctx, uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revs, jc.SameContents, []coresecrets.ValueRef{{
+		BackendID:  "some-backend2",
+		RevisionID: "some-revision2",
+	}})
+
 }
 
 func (s *stateSuite) TestListSecretsNone(c *gc.C) {
@@ -706,11 +752,13 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 		Description: ptr("my secretMetadata"),
 		Label:       ptr("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		AutoPrune:   ptr(true),
 	}, {
 		Description: ptr("my secretMetadata2"),
 		Label:       ptr("my label2"),
-		Data:        coresecrets.SecretData{"foo": "bar2"},
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id",
+		},
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -744,6 +792,10 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 	revs := revisions[0]
 	c.Assert(revs, gc.HasLen, 1)
 	c.Assert(revs[0].Revision, gc.Equals, 1)
+	c.Assert(revs[0].ValueRef, jc.DeepEquals, &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "revision-id",
+	})
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
 	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
@@ -1443,18 +1495,20 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	err = st.UpdateSecret(context.Background(), uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	md, err := st.GetSecret(ctx, uri)
+	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md.Version, gc.Equals, 1)
-	c.Assert(md.Label, gc.Equals, value(sp.Label))
-	c.Assert(md.Description, gc.Equals, value(sp.Description))
-	c.Assert(md.LatestRevision, gc.Equals, 2)
+	c.Assert(md, gc.HasLen, 1)
+	c.Assert(md[0].Version, gc.Equals, 1)
+	c.Assert(md[0].Label, gc.Equals, value(sp.Label))
+	c.Assert(md[0].Description, gc.Equals, value(sp.Description))
+	c.Assert(md[0].LatestRevision, gc.Equals, 2)
 
 	now := time.Now()
-	c.Assert(md.UpdateTime, jc.Almost, now)
+	c.Assert(md[0].UpdateTime, jc.Almost, now)
 
-	rev, err := st.GetSecretRevision(ctx, uri, 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0], gc.HasLen, 1)
+	rev := revs[0][0]
 	c.Assert(rev.Revision, gc.Equals, 2)
 	c.Assert(rev.ExpireTime, gc.NotNil)
 	c.Assert(*rev.ExpireTime, gc.Equals, expireTime.UTC())
@@ -1526,18 +1580,20 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	err = st.UpdateSecret(context.Background(), uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	md, err := st.GetSecret(ctx, uri)
+	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md.Version, gc.Equals, 1)
-	c.Assert(md.Label, gc.Equals, value(sp.Label))
-	c.Assert(md.Description, gc.Equals, value(sp.Description))
-	c.Assert(md.LatestRevision, gc.Equals, 2)
+	c.Assert(md, gc.HasLen, 1)
+	c.Assert(md[0].Version, gc.Equals, 1)
+	c.Assert(md[0].Label, gc.Equals, value(sp.Label))
+	c.Assert(md[0].Description, gc.Equals, value(sp.Description))
+	c.Assert(md[0].LatestRevision, gc.Equals, 2)
 
 	now := time.Now()
-	c.Assert(md.UpdateTime, jc.Almost, now)
+	c.Assert(md[0].UpdateTime, jc.Almost, now)
 
-	rev, err := st.GetSecretRevision(ctx, uri, 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0], gc.HasLen, 1)
+	rev := revs[0][0]
 	c.Assert(rev.Revision, gc.Equals, 2)
 	c.Assert(rev.ExpireTime, gc.NotNil)
 	c.Assert(*rev.ExpireTime, gc.Equals, expireTime.UTC())
@@ -1559,12 +1615,13 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	c.Assert(valueRef, gc.IsNil)
 	c.Assert(content, jc.DeepEquals, coresecrets.SecretData{"foo3": "bar3", "hello": "world"})
 
-	md, err = st.GetSecret(ctx, uri)
+	md, _, err = st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md.Version, gc.Equals, 1)
-	c.Assert(md.Label, gc.Equals, value(sp.Label))
-	c.Assert(md.Description, gc.Equals, value(sp.Description))
-	c.Assert(md.LatestRevision, gc.Equals, 3)
+	c.Assert(md, gc.HasLen, 1)
+	c.Assert(md[0].Version, gc.Equals, 1)
+	c.Assert(md[0].Label, gc.Equals, value(sp.Label))
+	c.Assert(md[0].Description, gc.Equals, value(sp.Description))
+	c.Assert(md[0].LatestRevision, gc.Equals, 3)
 
 	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		// Revision 1 is NOT obsolete because it's been consumed.
@@ -1620,18 +1677,20 @@ func (s *stateSuite) TestUpdateSecretContentValueRef(c *gc.C) {
 	err = st.UpdateSecret(context.Background(), uri, sp2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	md, err := st.GetSecret(ctx, uri)
+	md, revs, err := st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md.Version, gc.Equals, 1)
-	c.Assert(md.Label, gc.Equals, value(sp.Label))
-	c.Assert(md.Description, gc.Equals, value(sp.Description))
-	c.Assert(md.LatestRevision, gc.Equals, 2)
+	c.Assert(md, gc.HasLen, 1)
+	c.Assert(md[0].Version, gc.Equals, 1)
+	c.Assert(md[0].Label, gc.Equals, value(sp.Label))
+	c.Assert(md[0].Description, gc.Equals, value(sp.Description))
+	c.Assert(md[0].LatestRevision, gc.Equals, 2)
 
 	now := time.Now()
-	c.Assert(md.UpdateTime, jc.Almost, now)
+	c.Assert(md[0].UpdateTime, jc.Almost, now)
 
-	rev, err := st.GetSecretRevision(ctx, uri, 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revs, gc.HasLen, 1)
+	c.Assert(revs[0], gc.HasLen, 1)
+	rev := revs[0][0]
 	c.Assert(rev.Revision, gc.Equals, 2)
 	c.Assert(rev.ExpireTime, gc.IsNil)
 	c.Assert(rev.UpdateTime, jc.Almost, now)
@@ -2421,6 +2480,86 @@ func (s *stateSuite) TestRevokeAccess(c *gc.C) {
 	}})
 }
 
+func (s *stateSuite) TestListGrantedSecrets(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	ctx := context.Background()
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri := coresecrets.NewURI()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp2 := domainsecret.UpsertSecretParams{
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id",
+		},
+	}
+	uri2 := coresecrets.NewURI()
+	err = st.CreateUserSecret(ctx, 1, uri2, sp2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp3 := domainsecret.UpsertSecretParams{
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id2",
+		},
+	}
+	uri3 := coresecrets.NewURI()
+	err = st.CreateUserSecret(ctx, 1, uri3, sp3)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.UpdateSecret(ctx, uri3, domainsecret.UpsertSecretParams{
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id2",
+			RevisionID: "revision-id3",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.GrantAccess(ctx, uri2, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p2 := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri3, p2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	accessors := []domainsecret.AccessParams{{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+	}, {
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}}
+	result, err := st.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, coresecrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.SameContents, []*coresecrets.SecretRevisionRef{{
+		URI:        uri2,
+		RevisionID: "revision-id",
+	}, {
+		URI:        uri3,
+		RevisionID: "revision-id2",
+	}})
+}
+
 func (s *stateSuite) prepareSecretObsoleteRevisions(c *gc.C, st *State) (
 	*coresecrets.URI, *coresecrets.URI, *coresecrets.URI, *coresecrets.URI,
 ) {
@@ -2681,12 +2820,11 @@ func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
 	err = st.DeleteSecret(ctx, uri, []int{2})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.GetSecretRevision(ctx, uri, 2)
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
-
-	_, err = st.GetSecretRevision(ctx, uri, 1)
+	_, _, err = st.ListSecrets(ctx, uri, ptr(1), domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.GetSecretRevision(ctx, uri, 3)
+	_, _, err = st.ListSecrets(ctx, uri, ptr(2), domainsecret.NilLabels)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
+	_, _, err = st.ListSecrets(ctx, uri, ptr(3), domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2740,7 +2878,7 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for r := 1; r <= 3; r++ {
-		_, err = st.GetSecretRevision(ctx, uri, r)
+		_, _, err := st.ListSecrets(ctx, uri, ptr(r), domainsecret.NilLabels)
 		c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
 	}
 	_, err = st.GetSecret(ctx, uri)

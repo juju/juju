@@ -6,7 +6,6 @@ package provider_test
 import (
 	"context"
 
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	coresecrets "github.com/juju/juju/core/secrets"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
@@ -33,10 +33,8 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	tag := names.NewUnitTag("gitlab/0")
-
 	objMeta := v1.ObjectMeta{
-		Name:      tag.String(),
+		Name:      "unit-gitlab-0",
 		Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
 		Namespace: s.namespace,
 	}
@@ -97,7 +95,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenCreate(c *gc.C) {
 		),
 	)
 
-	token, err := s.broker.EnsureSecretAccessToken(context.Background(), tag, nil, nil, nil)
+	token, err := s.broker.EnsureSecretAccessToken(context.Background(), "gitlab/0", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, "token")
 }
@@ -118,10 +116,13 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	tag := names.NewUnitTag("gitlab/0")
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
 
 	objMeta := v1.ObjectMeta{
-		Name:      tag.String(),
+		Name:      accessor.String(),
 		Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
 		Namespace: s.namespace,
 	}
@@ -130,7 +131,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C) {
 		ObjectMeta:                   objMeta,
 		AutomountServiceAccountToken: &automountServiceAccountToken,
 	}
-	objMeta.Name = s.namespace + "-" + tag.String()
+	objMeta.Name = s.namespace + "-" + accessor.String()
 	clusterrole := &rbacv1.ClusterRole{
 		ObjectMeta: objMeta,
 		Rules: []rbacv1.PolicyRule{
@@ -183,7 +184,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C) {
 		),
 	)
 
-	token, err := s.broker.EnsureSecretAccessToken(context.Background(), tag, nil, nil, nil)
+	token, err := s.broker.EnsureSecretAccessToken(context.Background(), "gitlab/0", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, "token")
 }
@@ -192,10 +193,8 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	tag := names.NewUnitTag("gitlab/0")
-
 	objMeta := v1.ObjectMeta{
-		Name:      tag.String(),
+		Name:      "unit-gitlab-0",
 		Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
 		Namespace: s.namespace,
 	}
@@ -260,7 +259,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeUpdate(c *gc.C) {
 		),
 	)
 
-	token, err := s.broker.EnsureSecretAccessToken(context.Background(), tag, nil, nil, nil)
+	token, err := s.broker.EnsureSecretAccessToken(context.Background(), "gitlab/0", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, "token")
 }
@@ -270,10 +269,8 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	tag := names.NewUnitTag("gitlab/0")
-
 	objMeta := v1.ObjectMeta{
-		Name:      tag.String(),
+		Name:      "unit-gitlab-0",
 		Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
 		Namespace: s.namespace,
 	}
@@ -282,7 +279,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C) {
 		ObjectMeta:                   objMeta,
 		AutomountServiceAccountToken: &automountServiceAccountToken,
 	}
-	objMeta.Name = s.namespace + "-" + tag.String()
+	objMeta.Name = s.namespace + "-" + "unit-gitlab-0"
 	clusterrole := &rbacv1.ClusterRole{
 		ObjectMeta: objMeta,
 		Rules: []rbacv1.PolicyRule{
@@ -337,7 +334,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C) {
 		),
 	)
 
-	token, err := s.broker.EnsureSecretAccessToken(context.Background(), tag, nil, nil, nil)
+	token, err := s.broker.EnsureSecretAccessToken(context.Background(), "gitlab/0", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, "token")
 }

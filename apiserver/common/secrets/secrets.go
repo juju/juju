@@ -123,15 +123,22 @@ func backendConfigInfo(
 		return nil, errors.Annotate(err, "initialising secrets provider")
 	}
 
-	ownedRevisions := map[string]provider.SecretRevisions{}
-	readRevisions := map[string]provider.SecretRevisions{}
+	ownedRevisions := provider.SecretRevisions{}
+	readRevisions := provider.SecretRevisions{}
+
+	var accessor coresecrets.Accessor
+
 	switch t := authTag.(type) {
 	case names.UnitTag:
 		unitName := authTag.Id()
+		accessor = coresecrets.Accessor{
+			Kind: coresecrets.UnitAccessor,
+			ID:   unitName,
+		}
 		// Find secrets owned by the agent
 		// (or its app if the agent is a leader).
-		owners := []secretservice.CharmSecretOwner{{
-			Kind: secretservice.UnitOwner,
+		owners := []secretservice.SecretAccessor{{
+			Kind: secretservice.UnitAccessor,
 			ID:   unitName,
 		}}
 		appName, _ := names.UnitApplication(t.Id())
@@ -142,31 +149,31 @@ func backendConfigInfo(
 		}
 		if err == nil {
 			// Leader unit owns application level secrets.
-			owners = append(owners, secretservice.CharmSecretOwner{
-				Kind: secretservice.ApplicationOwner,
+			owners = append(owners, secretservice.SecretAccessor{
+				Kind: secretservice.ApplicationAccessor,
 				ID:   appName,
 			})
 		} else {
 			// Non leader units can read application level secrets.
 			// Find secrets owned by the application.
-			readOnlyOwners := []secretservice.CharmSecretOwner{{
-				Kind: secretservice.ApplicationOwner,
+			readOnlyOwner := secretservice.SecretAccessor{
+				Kind: secretservice.ApplicationAccessor,
 				ID:   appName,
-			}}
-			secrets, revisionMetadata, err := secretService.ListCharmSecrets(ctx, readOnlyOwners...)
+			}
+			revInfo, err := secretService.ListGrantedSecretsForBackend(ctx, backendID, coresecrets.RoleView, readOnlyOwner)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err := composeExternalRevisions(backendID, secrets, revisionMetadata, readRevisions); err != nil {
-				return nil, errors.Trace(err)
+			for _, r := range revInfo {
+				readRevisions.Add(r.URI, r.RevisionID)
 			}
 		}
-		secrets, revisionMetadata, err := secretService.ListCharmSecrets(ctx, owners...)
+		revInfo, err := secretService.ListGrantedSecretsForBackend(ctx, backendID, coresecrets.RoleManage, owners...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := composeExternalRevisions(backendID, secrets, revisionMetadata, ownedRevisions); err != nil {
-			return nil, errors.Trace(err)
+		for _, r := range revInfo {
+			ownedRevisions.Add(r.URI, r.RevisionID)
 		}
 
 		// Granted secrets can be consumed in application level for all units.
@@ -178,28 +185,35 @@ func backendConfigInfo(
 			Kind: secretservice.ApplicationAccessor,
 			ID:   appName,
 		}}
-		secrets, revisionMetadata, err = secretService.ListGrantedSecrets(ctx, consumers...)
+		revInfo, err = secretService.ListGrantedSecretsForBackend(ctx, backendID, coresecrets.RoleView, consumers...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := composeExternalRevisions(backendID, secrets, revisionMetadata, readRevisions); err != nil {
-			return nil, errors.Trace(err)
+		for _, r := range revInfo {
+			readRevisions.Add(r.URI, r.RevisionID)
 		}
 	case names.ModelTag:
+		accessor = coresecrets.Accessor{
+			Kind: coresecrets.ModelAccessor,
+			ID:   authTag.Id(),
+		}
 		// Model Tag is valid for user secrets.
-		secrets, revisionMetadata, err := secretService.ListUserSecrets(ctx)
+		revInfo, err := secretService.ListGrantedSecretsForBackend(ctx, backendID, coresecrets.RoleManage, secretservice.SecretAccessor{
+			Kind: secretservice.ModelAccessor,
+			ID:   authTag.Id(),
+		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := composeExternalRevisions(backendID, secrets, revisionMetadata, ownedRevisions); err != nil {
-			return nil, errors.Trace(err)
+		for _, r := range revInfo {
+			ownedRevisions.Add(r.URI, r.RevisionID)
 		}
 	default:
 		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
 
-	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.RestrictedConfig(ctx, adminCfg, sameController, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
+	logger.Debugf("secrets for %s:\nowned: %v\nconsumed:%v", accessor, ownedRevisions, readRevisions)
+	cfg, err := p.RestrictedConfig(ctx, adminCfg, sameController, forDrain, accessor, ownedRevisions, readRevisions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -210,26 +224,4 @@ func backendConfigInfo(
 		BackendConfig:  *cfg,
 	}
 	return info, nil
-}
-
-func composeExternalRevisions(
-	backendID string,
-	metadata []*coresecrets.SecretMetadata,
-	revisionMetadata [][]*coresecrets.SecretRevisionMetadata,
-	revisions map[string]provider.SecretRevisions,
-) error {
-	for i, md := range metadata {
-		for _, rev := range revisionMetadata[i] {
-			if rev.ValueRef == nil || rev.ValueRef.BackendID != backendID {
-				continue
-			}
-			revs, ok := revisions[rev.ValueRef.BackendID]
-			if !ok {
-				revs = provider.SecretRevisions{}
-			}
-			revs.Add(md.URI, rev.ValueRef.RevisionID)
-			revisions[rev.ValueRef.BackendID] = revs
-		}
-	}
-	return nil
 }

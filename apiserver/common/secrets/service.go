@@ -15,8 +15,7 @@ import (
 
 // SecretService instances provide secret service apis.
 type SecretService interface {
-	ListGrantedSecrets(ctx context.Context, consumers ...secretservice.SecretAccessor) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-
+	ListGrantedSecretsForBackend(ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secretservice.SecretAccessor) ([]*secrets.SecretRevisionRef, error)
 	ListCharmSecrets(context.Context, ...secretservice.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	ListUserSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error

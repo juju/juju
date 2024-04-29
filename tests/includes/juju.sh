@@ -81,6 +81,9 @@ bootstrap() {
 	"azure")
 		cloud="azure"
 		;;
+	"microk8s")
+		cloud="microk8s"
+		;;
 	"localhost" | "lxd")
 		cloud="localhost"
 		;;
@@ -505,7 +508,7 @@ introspect_controller() {
 
 	name=${1}
 
-	if [[ ${BOOTSTRAP_PROVIDER} == "k8s" ]]; then
+	if [[ ${BOOTSTRAP_PROVIDER} == "k8s" || ${BOOTSTRAP_PROVIDER} == "microk8s" ]]; then
 		echo "====> TODO: Implement introspection for k8s"
 		return
 	fi

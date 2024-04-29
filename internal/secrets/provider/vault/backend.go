@@ -11,6 +11,7 @@ import (
 	vault "github.com/mittwald/vaultgo"
 
 	"github.com/juju/juju/core/secrets"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
 type vaultBackend struct {
@@ -26,7 +27,7 @@ func (k vaultBackend) GetContent(ctx context.Context, revisionId string) (_ secr
 
 	s, err := k.client.KVv1(k.mountPath).Get(ctx, revisionId)
 	if isNotFound(err) {
-		return nil, errors.NotFoundf("secret revision %q", revisionId)
+		return nil, fmt.Errorf("secret revision %q not found%w", revisionId, errors.Hide(secreterrors.SecretRevisionNotFound))
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "getting secret %q", revisionId)
 	}
@@ -47,7 +48,7 @@ func (k vaultBackend) DeleteContent(ctx context.Context, revisionId string) (err
 	// if it doesn't exist.
 	_, err = k.client.KVv1(k.mountPath).Get(ctx, revisionId)
 	if isNotFound(err) {
-		return errors.NotFoundf("secret revision %q", revisionId)
+		return fmt.Errorf("secret revision %q not found%w", revisionId, errors.Hide(secreterrors.SecretRevisionNotFound))
 	}
 	return k.client.KVv1(k.mountPath).Delete(ctx, revisionId)
 }

@@ -250,7 +250,7 @@ func (mr *MockBrokerMockRecorder) EnsureModelOperator(arg0, arg1, arg2, arg3 any
 }
 
 // EnsureSecretAccessToken mocks base method.
-func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 names.Tag, arg2, arg3, arg4 []string) (string, error) {
+func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 string, arg2, arg3, arg4 []string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureSecretAccessToken", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(string)
@@ -397,7 +397,7 @@ func (mr *MockBrokerMockRecorder) ProxyToApplication(arg0, arg1, arg2 any) *gomo
 }
 
 // RemoveSecretAccessToken mocks base method.
-func (m *MockBroker) RemoveSecretAccessToken(arg0 context.Context, arg1 names.Tag) error {
+func (m *MockBroker) RemoveSecretAccessToken(arg0 context.Context, arg1 *secrets.URI) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveSecretAccessToken", arg0, arg1)
 	ret0, _ := ret[0].(error)

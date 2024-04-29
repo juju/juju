@@ -13,12 +13,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -79,12 +79,7 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (Broker, clouds
 }
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
-func (p k8sProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
-	if tag == nil {
-		// This should never happen.
-		// Because this method is used for uniter facade only.
-		return errors.New("empty tag")
-	}
+func (p k8sProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, uri *coresecrets.URI, removed provider.SecretRevisions) error {
 	if len(removed) == 0 {
 		return nil
 	}
@@ -92,7 +87,7 @@ func (p k8sProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBack
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = broker.EnsureSecretAccessToken(ctx, tag, nil, nil, removed.RevisionIDs())
+	err = broker.RemoveSecretAccessToken(ctx, uri)
 	return errors.Trace(err)
 }
 
@@ -133,19 +128,21 @@ func IsBuiltInName(backendName string) bool {
 // owned secrets and read shared secrets for the given entity tag.
 func (p k8sProvider) RestrictedConfig(
 	ctx context.Context,
-	adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	adminCfg *provider.ModelBackendConfig, sameController, _ bool, accessor coresecrets.Accessor, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
+	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", accessor, owned, read)
 
-	if consumer == nil {
+	if accessor.Kind == coresecrets.ModelAccessor {
 		return &adminCfg.BackendConfig, nil
+	} else if accessor.Kind != coresecrets.UnitAccessor {
+		return nil, errors.NotValidf("secret accessor %s", accessor)
 	}
 
 	broker, cloudSpec, err := p.getBroker(adminCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	token, err := broker.EnsureSecretAccessToken(ctx, consumer, owned.RevisionIDs(), read.RevisionIDs(), nil)
+	token, err := broker.EnsureSecretAccessToken(ctx, accessor.ID, owned.RevisionIDs(), read.RevisionIDs(), nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -42,6 +42,7 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/watcher"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig"
@@ -378,7 +379,7 @@ func (c *controllerStack) getControllerSecret(ctx context.Context) (secret *core
 	if err == nil {
 		return secret, nil
 	}
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, secreterrors.SecretRevisionNotFound) {
 		_, err = c.broker.createSecret(ctx, &core.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameSecret,

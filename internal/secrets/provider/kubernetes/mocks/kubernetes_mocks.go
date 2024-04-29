@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	secrets "github.com/juju/juju/core/secrets"
-	names "github.com/juju/names/v5"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -57,7 +56,7 @@ func (mr *MockBrokerMockRecorder) DeleteJujuSecret(arg0, arg1 any) *gomock.Call 
 }
 
 // EnsureSecretAccessToken mocks base method.
-func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 names.Tag, arg2, arg3, arg4 []string) (string, error) {
+func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 string, arg2, arg3, arg4 []string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureSecretAccessToken", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(string)
@@ -87,7 +86,7 @@ func (mr *MockBrokerMockRecorder) GetJujuSecret(arg0, arg1 any) *gomock.Call {
 }
 
 // RemoveSecretAccessToken mocks base method.
-func (m *MockBroker) RemoveSecretAccessToken(arg0 context.Context, arg1 names.Tag) error {
+func (m *MockBroker) RemoveSecretAccessToken(arg0 context.Context, arg1 *secrets.URI) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveSecretAccessToken", arg0, arg1)
 	ret0, _ := ret[0].(error)

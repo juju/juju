@@ -19,6 +19,10 @@ type secretID struct {
 	ID string `db:"id"`
 }
 
+type secretBackendID struct {
+	ID string `db:"id"`
+}
+
 type revisionUUID struct {
 	UUID string `db:"uuid"`
 }
@@ -155,6 +159,18 @@ type secretAccessor struct {
 	RoleID        domainsecret.Role             `db:"role_id"`
 }
 
+type secretAccessorType struct {
+	AppSubjectTypeID   domainsecret.GrantSubjectType `db:"app_type_id"`
+	UnitSubjectTypeID  domainsecret.GrantSubjectType `db:"unit_type_id"`
+	ModelSubjectTypeID domainsecret.GrantSubjectType `db:"model_type_id"`
+}
+
+var secretAccessorTypeParam = secretAccessorType{
+	AppSubjectTypeID:   domainsecret.SubjectApplication,
+	UnitSubjectTypeID:  domainsecret.SubjectUnit,
+	ModelSubjectTypeID: domainsecret.SubjectModel,
+}
+
 type secretAccessScope struct {
 	ScopeID     string                      `db:"scope_id"`
 	ScopeTypeID domainsecret.GrantScopeType `db:"scope_type_id"`
@@ -211,11 +227,31 @@ func (rows secrets) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets
 	return result, nil
 }
 
+func (rows secrets) toSecretRevisionRef(refs secretValueRefs) ([]*coresecrets.SecretRevisionRef, error) {
+	if len(rows) != len(refs) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch composing secret results")
+	}
+
+	result := make([]*coresecrets.SecretRevisionRef, len(rows))
+	for i, row := range rows {
+		uri, err := coresecrets.ParseURI(row.ID)
+		if err != nil {
+			return nil, errors.NotValidf("secret URI %q", row.ID)
+		}
+		result[i] = &coresecrets.SecretRevisionRef{
+			URI:        uri,
+			RevisionID: refs[i].RevisionID,
+		}
+	}
+	return result, nil
+}
+
 type secretRevisions []secretRevision
 type secretRevisionsExpire []secretRevisionExpire
 
-func (rows secretRevisions) toSecretRevisions(revExpire secretRevisionsExpire) ([]*coresecrets.SecretRevisionMetadata, error) {
-	if len(rows) != len(revExpire) {
+func (rows secretRevisions) toSecretRevisions(valueRefs secretValueRefs, revExpire secretRevisionsExpire) ([]*coresecrets.SecretRevisionMetadata, error) {
+	if n := len(rows); n != len(revExpire) || n != len(valueRefs) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing secret revision results")
 	}
@@ -223,14 +259,18 @@ func (rows secretRevisions) toSecretRevisions(revExpire secretRevisionsExpire) (
 	result := make([]*coresecrets.SecretRevisionMetadata, len(rows))
 	for i, row := range rows {
 		result[i] = &coresecrets.SecretRevisionMetadata{
-			Revision:    row.Revision,
-			ValueRef:    nil,
-			CreateTime:  row.CreateTime,
-			UpdateTime:  row.UpdateTime,
-			BackendName: nil,
+			Revision:   row.Revision,
+			CreateTime: row.CreateTime,
+			UpdateTime: row.UpdateTime,
 		}
 		if tm := revExpire[i].ExpireTime; !tm.IsZero() {
 			result[i].ExpireTime = &tm
+		}
+		if v := valueRefs[i]; v.BackendUUID != "" {
+			result[i].ValueRef = &coresecrets.ValueRef{
+				BackendID:  v.BackendUUID,
+				RevisionID: v.RevisionID,
+			}
 		}
 	}
 	return result, nil
@@ -242,6 +282,19 @@ func (rows secretValues) toSecretData() coresecrets.SecretData {
 	result := make(coresecrets.SecretData)
 	for _, row := range rows {
 		result[row.Name] = row.Content
+	}
+	return result
+}
+
+type secretValueRefs []secretValueRef
+
+func (rows secretValueRefs) toValueRefs() []coresecrets.ValueRef {
+	result := make([]coresecrets.ValueRef, len(rows))
+	for i, row := range rows {
+		result[i] = coresecrets.ValueRef{
+			BackendID:  row.BackendUUID,
+			RevisionID: row.RevisionID,
+		}
 	}
 	return result
 }

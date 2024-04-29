@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
+	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
@@ -103,11 +104,30 @@ func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.UR
 	return wantRevision, nil
 }
 
-// ListGrantedSecrets returns the secret metadata and revision metadata for any secrets
-// for which the specified consumers have been granted view access.
-// The count of secret and revisions in the result must match.
-func (s *SecretService) ListGrantedSecrets(ctx context.Context, consumers ...SecretAccessor) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	return nil, nil, nil
+// ListGrantedSecretsForBackend returns the secret revision info for any
+// secrets from the specified backend for which the specified consumers
+// have been granted the specified access.
+func (s *SecretService) ListGrantedSecretsForBackend(
+	ctx context.Context, backendID string, role secrets.SecretRole, consumers ...SecretAccessor,
+) ([]*secrets.SecretRevisionRef, error) {
+	accessors := make([]domainsecret.AccessParams, len(consumers))
+	for i, consumer := range consumers {
+		accessor := domainsecret.AccessParams{
+			SubjectID: consumer.ID,
+		}
+		switch consumer.Kind {
+		case UnitAccessor:
+			accessor.SubjectTypeID = domainsecret.SubjectUnit
+		case ApplicationAccessor:
+			accessor.SubjectTypeID = domainsecret.SubjectApplication
+		case ModelAccessor:
+			accessor.SubjectTypeID = domainsecret.SubjectModel
+		default:
+			return nil, errors.NotValidf("consumer kind %q", consumer.Kind)
+		}
+		accessors[i] = accessor
+	}
+	return s.st.ListGrantedSecretsForBackend(ctx, backendID, accessors, role)
 }
 
 // UpdateRemoteConsumedRevision returns the latest revision for the specified secret,

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
-func (s *serviceSuite) TestDeleteSecret(c *gc.C) {
+func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -30,7 +30,7 @@ func (s *serviceSuite) TestDeleteSecret(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevision(gomock.Any(), uri, 666).Return(&coresecrets.SecretRevisionMetadata{}, nil)
+	s.state.EXPECT().ListExternalSecretRevisions(gomock.Any(), uri, 666).Return([]coresecrets.ValueRef{}, nil)
 	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{666}).Return(nil)
 
 	err := s.service().DeleteSecret(context.Background(), uri, DeleteSecretParams{
