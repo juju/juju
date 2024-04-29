@@ -22,7 +22,7 @@ func (s *Service) AddSubnet(ctx context.Context, args network.SubnetInfo) (netwo
 		args.ID = network.Id(uuid.String())
 	}
 
-	if err := s.st.AddSubnet(ctx, args); err != nil {
+	if err := s.st.AddSubnet(ctx, args); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return "", errors.Trace(err)
 	}
 

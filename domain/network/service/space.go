@@ -267,7 +267,10 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 		}
 
 	}
-	return errors.Trace(s.st.UpsertSubnets(ctx, subnetsToUpsert))
+	if err := s.st.UpsertSubnets(ctx, subnetsToUpsert); err != nil && !errors.Is(err, errors.AlreadyExists) {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // generateFanSubnetID generates a correct ID for a subnet of type fan overlay.
