@@ -7,13 +7,13 @@ export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"
 export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
 export BOOTSTRAP_CLOUD="${BOOTSTRAP_CLOUD:-lxd}"
-export BOOTSTRAP_SERIES="${BOOTSTRAP_SERIES:-}"
+export BOOTSTRAP_BASE="${BOOTSTRAP_BASE:-}"
 export BOOTSTRAP_ARCH="${BOOTSTRAP_ARCH:-}"
 export BUILD_ARCH="${BUILD_ARCH:-}"
 export MODEL_ARCH="${MODEL_ARCH:-}"
 export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
-export CURRENT_LTS="jammy"
+export CURRENT_LTS="ubuntu@22.04"
 
 current_pwd=$(pwd)
 export CURRENT_DIR="${current_pwd}"
@@ -125,7 +125,7 @@ show_help() {
 	echo "                                     openstack assumes providing image data directly is not required"
 	echo "    $(green './main.sh -c')        Cloud name to use when bootstrapping, must be one of provider types listed above"
 	echo "    $(green './main.sh -R')        Region to use with cloud"
-	echo "    $(green './main.sh -S')        Bootstrap series to use <default is host>, priority over -l"
+	echo "    $(green './main.sh -B')        Bootstrap base to use <default is host>, priority over -l"
 	echo ""
 	echo "Tests:"
 	echo "¯¯¯¯¯¯"
@@ -160,7 +160,7 @@ show_help() {
 	exit 1
 }
 
-while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
+while getopts "hH?vAs:a:x:rl:p:c:R:B:" opt; do
 	case "${opt}" in
 	h | \?)
 		show_help
@@ -216,8 +216,8 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 	R)
 		export BOOTSTRAP_REGION="${OPTARG}"
 		;;
-	S)
-		export BOOTSTRAP_SERIES="${OPTARG}"
+	B)
+		export BOOTSTRAP_BASE="${OPTARG}"
 		;;
 	*)
 		echo "Unexpected argument ${opt}" >&2

@@ -77,7 +77,7 @@ exec_simplestream_metadata() {
 	${bootstrap_juju_client} bootstrap "lxd" "${name}" \
 		--show-log \
 		--agent-version="${stable_version}" \
-		--bootstrap-series="${BOOTSTRAP_SERIES}" \
+		--bootstrap-base="${BOOTSTRAP_BASE}" \
 		--config agent-metadata-url="http://${server_address}:8666/" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
