@@ -4,8 +4,6 @@
 package base
 
 import (
-	"sort"
-
 	"github.com/juju/clock"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
@@ -45,22 +43,26 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType: ControllerWorkloadType,
+			OS:           "foo",
 			Version:      "1.1.1",
 			Supported:    true,
 		},
 		"deprecated-lts": {
 			WorkloadType: ControllerWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.2",
 			Supported:    false,
 		},
 		"not-updated": {
 			WorkloadType: ControllerWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.3",
 			Supported:    false,
 		},
 		"ignored": {
 			WorkloadType: ControllerWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.4",
 			Supported:    false,
 		},
 	}
@@ -69,10 +71,9 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	sort.Strings(ctrlSeries)
+	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported"})
+	c.Assert(ctrlBases, jc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
 }
 
 func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
@@ -91,6 +92,7 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType:           ControllerWorkloadType,
+			OS:                     "foo",
 			Version:                "1.1.1",
 			Supported:              true,
 			IgnoreDistroInfoUpdate: true,
@@ -101,10 +103,9 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	sort.Strings(ctrlSeries)
+	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported"})
+	c.Assert(ctrlBases, jc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
 }
 
 func (s *SupportedSuite) TestCompileForControllersNoUpdate(c *gc.C) {
@@ -123,6 +124,7 @@ func (s *SupportedSuite) TestCompileForControllersNoUpdate(c *gc.C) {
 	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType:           ControllerWorkloadType,
+			OS:                     "foo",
 			Version:                "1.1.1",
 			Supported:              false,
 			IgnoreDistroInfoUpdate: false,
@@ -133,10 +135,9 @@ func (s *SupportedSuite) TestCompileForControllersNoUpdate(c *gc.C) {
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	sort.Strings(ctrlSeries)
+	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{})
+	c.Assert(ctrlBases, jc.DeepEquals, []Base{})
 }
 
 func (s *SupportedSuite) TestCompileForControllersUpdated(c *gc.C) {
@@ -155,6 +156,7 @@ func (s *SupportedSuite) TestCompileForControllersUpdated(c *gc.C) {
 	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType:           ControllerWorkloadType,
+			OS:                     "foo",
 			Version:                "1.1.1",
 			Supported:              true,
 			IgnoreDistroInfoUpdate: false,
@@ -165,10 +167,9 @@ func (s *SupportedSuite) TestCompileForControllersUpdated(c *gc.C) {
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	sort.Strings(ctrlSeries)
+	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{})
+	c.Assert(ctrlBases, jc.DeepEquals, []Base{})
 }
 
 func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
@@ -187,6 +188,7 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 	preset := map[SeriesName]seriesVersion{
 		"supported": {
 			WorkloadType: ControllerWorkloadType,
+			OS:           "foo",
 			Version:      "1.1.1",
 			Supported:    true,
 		},
@@ -196,10 +198,9 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSeries := info.controllerSeries()
-	sort.Strings(ctrlSeries)
+	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{})
+	c.Assert(ctrlBases, jc.DeepEquals, []Base{})
 }
 
 func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
@@ -240,42 +241,50 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 	preset := map[SeriesName]seriesVersion{
 		"ctrl-supported": {
 			WorkloadType: ControllerWorkloadType,
+			OS:           "foo",
 			Version:      "1.1.1",
 			Supported:    true,
 		},
 		"ctrl-deprecated-lts": {
 			WorkloadType: ControllerWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.2",
 			Supported:    false,
 		},
 		"ctrl-not-updated": {
 			WorkloadType: ControllerWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.3",
 			Supported:    false,
 		},
 		"ctrl-ignored": {
 			WorkloadType: ControllerWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.4",
 			Supported:    false,
 		},
 		"work-supported": {
 			WorkloadType: OtherWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.5",
 			Supported:    true,
 		},
 		"work-deprecated-lts": {
 			WorkloadType: OtherWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.6",
 			Supported:    false,
 		},
 		"work-not-updated": {
 			WorkloadType: OtherWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.7",
 			Supported:    false,
 		},
 		"work-ignored": {
 			WorkloadType: OtherWorkloadType,
-			Version:      "1.1.1",
+			OS:           "foo",
+			Version:      "1.1.8",
 			Supported:    false,
 		},
 	}
@@ -284,15 +293,13 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workSeries := info.workloadSeries(false)
-	sort.Strings(workSeries)
+	workloadBases := info.workloadBases(false)
 
-	c.Assert(workSeries, jc.DeepEquals, []string{"ctrl-supported", "work-supported"})
+	c.Assert(workloadBases, jc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1"), MustParseBaseFromString("foo@1.1.5")})
 
 	// Double check that controller series doesn't change when we have workload
 	// types.
-	ctrlSeries := info.controllerSeries()
-	sort.Strings(ctrlSeries)
+	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"ctrl-supported"})
+	c.Assert(ctrlBases, jc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
 }

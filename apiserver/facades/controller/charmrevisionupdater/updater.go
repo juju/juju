@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	corebase "github.com/juju/juju/core/base"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
@@ -167,16 +166,12 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo(ctx context.Context)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			series, err := corebase.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
 			cid := charmhubID{
 				id:          origin.ID,
 				revision:    *origin.Revision,
 				channel:     channel.String(),
-				os:          strings.ToLower(origin.Platform.OS), // charmhub API requires lowercase OS key
-				series:      series,
+				osType:      strings.ToLower(origin.Platform.OS), // charmhub API requires lowercase OS key
+				osChannel:   origin.Platform.Channel,
 				arch:        origin.Platform.Architecture,
 				instanceKey: charmhub.CreateInstanceKey(application.ApplicationTag(), model.ModelTag()),
 			}

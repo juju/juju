@@ -25,75 +25,9 @@ const (
 	Daily = "daily"
 )
 
-// UbuntuDistroInfo is the path for the Ubuntu distro info file.
-var UbuntuDistroInfo = series.UbuntuDistroInfo
-
 // SupportedSeriesFunc describes a function that has commonality between
 // controller and workload types.
 type SupportedSeriesFunc = func(time.Time, string, string) (set.Strings, error)
-
-// ControllerSeries returns all the controller series available to it at the
-// execution time.
-func ControllerSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
-	supported, err := seriesForTypes(UbuntuDistroInfo, now, requestedSeries, imageStream)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return set.NewStrings(supported.controllerSeries()...), nil
-}
-
-// WorkloadSeries returns the supported workload series available to it at the
-// execution time.
-func WorkloadSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
-	supported, err := seriesForTypes(UbuntuDistroInfo, now, requestedSeries, imageStream)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return set.NewStrings(supported.workloadSeries(false)...), nil
-}
-
-// AllWorkloadVersions returns all the workload versions (supported or not).
-func AllWorkloadVersions(requestedSeries, imageStream string) (set.Strings, error) {
-	supported, err := seriesForTypes(UbuntuDistroInfo, time.Now(), requestedSeries, imageStream)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return set.NewStrings(supported.workloadVersions(true)...), nil
-}
-
-// AllWorkloadOSTypes returns all the workload os types (supported or not).
-func AllWorkloadOSTypes(requestedSeries, imageStream string) (set.Strings, error) {
-	supported, err := seriesForTypes(UbuntuDistroInfo, time.Now(), requestedSeries, imageStream)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := set.NewStrings()
-	for _, wSeries := range supported.workloadSeries(true) {
-		result.Add(DefaultOSTypeNameFromSeries(wSeries))
-	}
-	return result, nil
-}
-
-func seriesForTypes(path string, now time.Time, requestedSeries, imageStream string) (*supportedInfo, error) {
-	// For non-LTS releases; they'll appear in juju/os as default available, but
-	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
-	// the non-LTS should disappear if they're not in the release window for that
-	// series.
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-	updateSeriesVersionsOnce()
-	all := getAllSeriesVersions()
-	if requestedSeries != "" && imageStream == Daily {
-		setSupported(all, requestedSeries)
-	}
-	source := series.NewDistroInfo(path)
-	supported := newSupportedInfo(source, all)
-	if err := supported.compile(now); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return supported, nil
-}
 
 func getAllSeriesVersions() map[SeriesName]seriesVersion {
 	copy := make(map[SeriesName]seriesVersion, len(allSeriesVersions))
@@ -135,6 +69,7 @@ func DefaultOSTypeNameFromSeries(series string) string {
 
 const (
 	genericLinuxSeries  = "genericlinux"
+	genericLinuxOS      = "genericlinux"
 	genericLinuxVersion = "genericlinux"
 )
 
@@ -156,6 +91,7 @@ func updateSeriesVersions() error {
 			}
 			ubuntuSeries[key] = seriesVersion{
 				WorkloadType:             ControllerWorkloadType,
+				OS:                       UbuntuOS,
 				Version:                  s.Version,
 				LTS:                      s.LTS,
 				Supported:                s.Supported,
@@ -180,6 +116,7 @@ func composeSeriesVersions() {
 	}
 	allSeriesVersions[genericLinuxSeries] = seriesVersion{
 		WorkloadType: OtherWorkloadType,
+		OS:           genericLinuxOS,
 		Version:      genericLinuxVersion,
 		Supported:    true,
 	}
