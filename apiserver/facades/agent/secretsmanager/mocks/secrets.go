@@ -17,6 +17,8 @@ import (
 	secrets "github.com/juju/juju/core/secrets"
 	watcher "github.com/juju/juju/core/watcher"
 	service "github.com/juju/juju/domain/secret/service"
+	service0 "github.com/juju/juju/domain/secretbackend/service"
+	provider "github.com/juju/juju/internal/secrets/provider"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -390,6 +392,26 @@ func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0 any, arg1 ...any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecrets", reflect.TypeOf((*MockSecretService)(nil).ListCharmSecrets), varargs...)
 }
 
+// ListGrantedSecretsForBackend mocks base method.
+func (m *MockSecretService) ListGrantedSecretsForBackend(ctx context.Context, backendID string, role secrets.SecretRole, consumers ...service.SecretAccessor) ([]*secrets.SecretRevisionRef, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, backendID, role}
+	for _, a := range consumers {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListGrantedSecretsForBackend", varargs...)
+	ret0, _ := ret[0].([]*secrets.SecretRevisionRef)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListGrantedSecretsForBackend indicates an expected call of ListGrantedSecretsForBackend.
+func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(ctx, backendID, role any, consumers ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, backendID, role}, consumers...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGrantedSecretsForBackend", reflect.TypeOf((*MockSecretService)(nil).ListGrantedSecretsForBackend), varargs...)
+}
+
 // ProcessSecretConsumerLabel mocks base method.
 func (m *MockSecretService) ProcessSecretConsumerLabel(ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token) (*secrets.URI, *string, error) {
 	m.ctrl.T.Helper()
@@ -418,4 +440,57 @@ func (m *MockSecretService) UpdateSecret(arg0 context.Context, arg1 *secrets.URI
 func (mr *MockSecretServiceMockRecorder) UpdateSecret(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockSecretService)(nil).UpdateSecret), arg0, arg1, arg2)
+}
+
+// MockSecretBackendService is a mock of SecretBackendService interface.
+type MockSecretBackendService struct {
+	ctrl     *gomock.Controller
+	recorder *MockSecretBackendServiceMockRecorder
+}
+
+// MockSecretBackendServiceMockRecorder is the mock recorder for MockSecretBackendService.
+type MockSecretBackendServiceMockRecorder struct {
+	mock *MockSecretBackendService
+}
+
+// NewMockSecretBackendService creates a new mock instance.
+func NewMockSecretBackendService(ctrl *gomock.Controller) *MockSecretBackendService {
+	mock := &MockSecretBackendService{ctrl: ctrl}
+	mock.recorder = &MockSecretBackendServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSecretBackendService) EXPECT() *MockSecretBackendServiceMockRecorder {
+	return m.recorder
+}
+
+// BackendConfigInfo mocks base method.
+func (m *MockSecretBackendService) BackendConfigInfo(ctx context.Context, p service0.BackendConfigParams) (*provider.ModelBackendConfigInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BackendConfigInfo", ctx, p)
+	ret0, _ := ret[0].(*provider.ModelBackendConfigInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BackendConfigInfo indicates an expected call of BackendConfigInfo.
+func (mr *MockSecretBackendServiceMockRecorder) BackendConfigInfo(ctx, p any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackendConfigInfo", reflect.TypeOf((*MockSecretBackendService)(nil).BackendConfigInfo), ctx, p)
+}
+
+// DrainBackendConfigInfo mocks base method.
+func (m *MockSecretBackendService) DrainBackendConfigInfo(ctx context.Context, p service0.DrainBackendConfigParams) (*provider.ModelBackendConfigInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DrainBackendConfigInfo", ctx, p)
+	ret0, _ := ret[0].(*provider.ModelBackendConfigInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DrainBackendConfigInfo indicates an expected call of DrainBackendConfigInfo.
+func (mr *MockSecretBackendServiceMockRecorder) DrainBackendConfigInfo(ctx, p any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DrainBackendConfigInfo", reflect.TypeOf((*MockSecretBackendService)(nil).DrainBackendConfigInfo), ctx, p)
 }

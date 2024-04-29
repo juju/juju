@@ -24,11 +24,13 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/leadership"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -147,8 +149,8 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
-	c *gc.C, svc *Service, modelType string, backendName string, expected *provider.ModelBackendConfigInfo,
+func (s *serviceSuite) expectGetSecretBackendConfigForAdminDefault(
+	c *gc.C, modelType string, modelBackend secretbackend.BackendIdentifier, backends ...*secretbackend.SecretBackend,
 ) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -185,24 +187,34 @@ func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
 		}}
 	}
 
-	s.mockState.EXPECT().ListSecretBackendsForModel(gomock.Any(), modelUUID, true).Return(append(builtIn, &secretbackend.SecretBackend{
+	s.mockState.EXPECT().ListSecretBackendsForModel(gomock.Any(), modelUUID, true).Return(append(builtIn, backends...), nil)
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).
+		Return(secretbackend.ModelSecretBackend{
+			ID:              modelUUID,
+			Name:            "fred",
+			Type:            coremodel.ModelType(modelType),
+			SecretBackendID: modelBackend.ID,
+		}, nil)
+	s.mockState.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{ID: modelBackend.ID}).
+		Return(&secretbackend.SecretBackend{Name: modelBackend.Name}, nil)
+}
+
+func (s *serviceSuite) assertGetSecretBackendConfigForAdminDefault(
+	c *gc.C, svc *Service, modelType string, backendName string, expected *provider.ModelBackendConfigInfo,
+) {
+	backend := secretbackend.BackendIdentifier{
+		ID:   vaultBackendID,
+		Name: backendName,
+	}
+	s.expectGetSecretBackendConfigForAdminDefault(c, modelType, backend, &secretbackend.SecretBackend{
 		ID:          vaultBackendID,
 		Name:        "myvault",
 		BackendType: vault.BackendType,
 		Config: map[string]string{
 			"endpoint": "http://vault",
 		},
-	}), nil)
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).
-		Return(secretbackend.ModelSecretBackend{
-			ID:              modelUUID,
-			Name:            "fred",
-			Type:            coremodel.ModelType(modelType),
-			SecretBackendID: vaultBackendID,
-		}, nil)
-	s.mockState.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{ID: vaultBackendID}).
-		Return(&secretbackend.SecretBackend{Name: backendName}, nil)
-
+	})
+	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
 	info, err := svc.GetSecretBackendConfigForAdmin(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
@@ -1094,4 +1106,392 @@ func (s *serviceSuite) TestGetRevisionsToDrainExternal(c *gc.C) {
 			},
 		},
 	)
+}
+
+func (s *serviceSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
+	s.assertBackendConfigInfoLeaderUnit(c, []string{"backend-id"})
+}
+
+func (s *serviceSuite) TestBackendConfigInfoDefaultAdmin(c *gc.C) {
+	s.assertBackendConfigInfoLeaderUnit(c, nil)
+}
+
+func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []string) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			if backendType != vault.BackendType {
+				return s.mockRegistry, nil
+			}
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	token := NewMockToken(ctrl)
+	p := NewMockSecretBackendProvider(ctrl)
+
+	s.PatchValue(&GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
+
+	owned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-2"},
+	}
+	ownedRevs := map[string]set.Strings{
+		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
+	}
+	read := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "read-1"}, RevisionID: "read-rev-1"},
+	}
+	readRevs := map[string]set.Strings{
+		"read-1": set.NewStrings("read-rev-1"),
+	}
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: jujutesting.ControllerTag.Id(),
+		ModelUUID:      jujutesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+		},
+	}
+	backend := secretbackend.BackendIdentifier{
+		ID:   "backend-id",
+		Name: "backend1",
+	}
+	s.expectGetSecretBackendConfigForAdminDefault(c, "iaas", backend, []*secretbackend.SecretBackend{{
+		ID:          "backend-id",
+		Name:        "backend1",
+		BackendType: "some-backend",
+	}, {
+		ID:          "backend-id2",
+		Name:        "backend2",
+		BackendType: "some-backend2",
+	}}...)
+	p.EXPECT().Initialise(gomock.Any()).Return(nil)
+	token.EXPECT().Check().Return(nil)
+
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, false, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+
+	listGranted := func(
+		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,
+	) ([]*coresecrets.SecretRevisionRef, error) {
+		c.Assert(backendID, gc.Equals, "backend-id")
+		if role == coresecrets.RoleManage {
+			c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
+				Kind: secretservice.UnitAccessor,
+				ID:   "gitlab/0",
+			}, {
+				Kind: secretservice.ApplicationAccessor,
+				ID:   "gitlab",
+			}})
+			return owned, nil
+		}
+		c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
+			Kind: secretservice.UnitAccessor,
+			ID:   "gitlab/0",
+		}, {
+			Kind: secretservice.ApplicationAccessor,
+			ID:   "gitlab",
+		}})
+		return read, nil
+	}
+	info, err := svc.BackendConfigInfo(context.Background(), BackendConfigParams{
+		GrantedSecretsGetter: listGranted,
+		LeaderToken:          token,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   accessor.ID,
+		},
+		ModelUUID:      coremodel.UUID(jujutesting.ModelTag.Id()),
+		BackendIDs:     wanted,
+		SameController: false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: jujutesting.ControllerTag.Id(),
+				ModelUUID:      jujutesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+				},
+			},
+		},
+	})
+}
+
+func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			if backendType != vault.BackendType {
+				return s.mockRegistry, nil
+			}
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	token := NewMockToken(ctrl)
+	p := NewMockSecretBackendProvider(ctrl)
+
+	s.PatchValue(&GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
+
+	unitOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-2"},
+	}
+	appOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-2"},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-3"},
+	}
+	ownedRevs := map[string]set.Strings{
+		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
+	}
+	read := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "read-1"}, RevisionID: "read-rev-1"},
+	}
+	readRevs := map[string]set.Strings{
+		"read-1":      set.NewStrings("read-rev-1"),
+		"app-owned-1": set.NewStrings("app-owned-rev-1", "app-owned-rev-2", "app-owned-rev-3"),
+	}
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: jujutesting.ControllerTag.Id(),
+		ModelUUID:      jujutesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+		},
+	}
+	backend := secretbackend.BackendIdentifier{
+		ID:   "backend-id",
+		Name: "backend1",
+	}
+	s.expectGetSecretBackendConfigForAdminDefault(c, "iaas", backend, []*secretbackend.SecretBackend{{
+		ID:          "backend-id",
+		Name:        "backend1",
+		BackendType: "some-backend",
+	}, {
+		ID:          "backend-id2",
+		Name:        "backend2",
+		BackendType: "some-backend2",
+	}}...)
+	p.EXPECT().Initialise(gomock.Any()).Return(nil)
+	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
+
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+
+	listGranted := func(
+		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,
+	) ([]*coresecrets.SecretRevisionRef, error) {
+		c.Assert(backendID, gc.Equals, "backend-id")
+		if role == coresecrets.RoleManage {
+			c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
+				Kind: secretservice.UnitAccessor,
+				ID:   "gitlab/0",
+			}})
+			return unitOwned, nil
+		}
+		if len(consumers) == 1 && consumers[0].Kind == secretservice.ApplicationAccessor && consumers[0].ID == "gitlab" {
+			return appOwned, nil
+		}
+		c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
+			Kind: secretservice.UnitAccessor,
+			ID:   "gitlab/0",
+		}, {
+			Kind: secretservice.ApplicationAccessor,
+			ID:   "gitlab",
+		}})
+		return read, nil
+	}
+	info, err := svc.BackendConfigInfo(context.Background(), BackendConfigParams{
+		GrantedSecretsGetter: listGranted,
+		LeaderToken:          token,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   "gitlab/0",
+		},
+		ModelUUID:      coremodel.UUID(jujutesting.ModelTag.Id()),
+		BackendIDs:     []string{"backend-id"},
+		SameController: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: jujutesting.ControllerTag.Id(),
+				ModelUUID:      jujutesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+				},
+			},
+		},
+	})
+}
+
+func (s *serviceSuite) TestDrainBackendConfigInfo(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			if backendType != vault.BackendType {
+				return s.mockRegistry, nil
+			}
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	token := NewMockToken(ctrl)
+	p := NewMockSecretBackendProvider(ctrl)
+
+	s.PatchValue(&GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
+
+	unitOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-2"},
+	}
+	appOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-2"},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-3"},
+	}
+	ownedRevs := map[string]set.Strings{
+		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
+	}
+	read := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "read-1"}, RevisionID: "read-rev-1"},
+	}
+	readRevs := map[string]set.Strings{
+		"read-1":      set.NewStrings("read-rev-1"),
+		"app-owned-1": set.NewStrings("app-owned-rev-1", "app-owned-rev-2", "app-owned-rev-3"),
+	}
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: jujutesting.ControllerTag.Id(),
+		ModelUUID:      jujutesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+		},
+	}
+	backend := secretbackend.BackendIdentifier{
+		ID:   "backend-id",
+		Name: "backend1",
+	}
+	s.expectGetSecretBackendConfigForAdminDefault(c, "iaas", backend, []*secretbackend.SecretBackend{{
+		ID:          "backend-id",
+		Name:        "backend1",
+		BackendType: "some-backend",
+	}, {
+		ID:          "backend-id2",
+		Name:        "backend2",
+		BackendType: "some-backend2",
+	}}...)
+	p.EXPECT().Initialise(gomock.Any()).Return(nil)
+	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
+
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, true, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+
+	listGranted := func(
+		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,
+	) ([]*coresecrets.SecretRevisionRef, error) {
+		c.Assert(backendID, gc.Equals, "backend-id")
+		if role == coresecrets.RoleManage {
+			c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
+				Kind: secretservice.UnitAccessor,
+				ID:   "gitlab/0",
+			}})
+			return unitOwned, nil
+		}
+		if len(consumers) == 1 && consumers[0].Kind == secretservice.ApplicationAccessor && consumers[0].ID == "gitlab" {
+			return appOwned, nil
+		}
+		c.Assert(consumers, jc.DeepEquals, []secretservice.SecretAccessor{{
+			Kind: secretservice.UnitAccessor,
+			ID:   "gitlab/0",
+		}, {
+			Kind: secretservice.ApplicationAccessor,
+			ID:   "gitlab",
+		}})
+		return read, nil
+	}
+	info, err := svc.DrainBackendConfigInfo(context.Background(), DrainBackendConfigParams{
+		GrantedSecretsGetter: listGranted,
+		LeaderToken:          token,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   "gitlab/0",
+		},
+		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()),
+		BackendID: "backend-id",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: jujutesting.ControllerTag.Id(),
+				ModelUUID:      jujutesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+				},
+			},
+		},
+	})
+}
+
+func (s *serviceSuite) TestBackendConfigInfoFailedInvalidAccessor(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := newService(
+		s.mockState, s.logger, jujutesting.ControllerTag.Id(), s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			if backendType != vault.BackendType {
+				return s.mockRegistry, nil
+			}
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+
+	_, err := svc.BackendConfigInfo(context.Background(), BackendConfigParams{
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.ApplicationAccessor,
+			ID:   "someapp",
+		},
+		ModelUUID:  coremodel.UUID(jujutesting.ModelTag.Id()),
+		BackendIDs: []string{"backend-id"},
+	})
+	c.Assert(err, gc.ErrorMatches, `secret accessor kind "application" not supported`)
 }

@@ -6,7 +6,6 @@ package usersecretsdrain_test
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -15,7 +14,10 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain/mocks"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -24,9 +26,10 @@ import (
 type drainSuite struct {
 	testing.IsolationSuite
 
-	authorizer   *facademocks.MockAuthorizer
-	secretsState *mocks.MockSecretsState
-	facade       *usersecretsdrain.SecretsDrainAPI
+	authorizer           *facademocks.MockAuthorizer
+	secretService        *mocks.MockSecretService
+	secretBackendService *mocks.MockSecretBackendService
+	facade               *usersecretsdrain.SecretsDrainAPI
 }
 
 var _ = gc.Suite(&drainSuite{})
@@ -36,55 +39,67 @@ func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.authorizer.EXPECT().AuthController().Return(true)
-	s.secretsState = mocks.NewMockSecretsState(ctrl)
-
-	backendConfigGetter := func(_ context.Context, backendIds []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		// wantAll is for 3.1 compatibility only.
-		if wantAll {
-			return nil, errors.NotSupportedf("wantAll")
-		}
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "backend-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "bar"},
-					},
-				},
-			},
-		}, nil
-	}
-
-	drainConfigGetter := func(_ context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "backend-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "admin"},
-					},
-				},
-			},
-		}, nil
-	}
+	s.secretService = mocks.NewMockSecretService(ctrl)
+	s.secretBackendService = mocks.NewMockSecretBackendService(ctrl)
 
 	var err error
-	s.facade, err = usersecretsdrain.NewTestAPI(s.authorizer, s.secretsState, backendConfigGetter, drainConfigGetter)
+	s.facade, err = usersecretsdrain.NewTestAPI(s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
 }
 
+type backendConfigParamsMatcher struct {
+	c        *gc.C
+	expected any
+}
+
+func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
+	if obtained, ok := x.(secretbackendservice.BackendConfigParams); ok {
+		m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+		obtained.GrantedSecretsGetter = nil
+		m.c.Assert(obtained, jc.DeepEquals, m.expected)
+		return true
+	}
+	obtained, ok := x.(secretbackendservice.DrainBackendConfigParams)
+	if !ok {
+		return false
+	}
+	m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+	obtained.GrantedSecretsGetter = nil
+	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	return true
+}
+
+func (m backendConfigParamsMatcher) String() string {
+	return "Match the contents of BackendConfigParams"
+}
+
 func (s *drainSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	defer s.setup(c).Finish()
+
+	s.secretBackendService.EXPECT().DrainBackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c,
+		expected: secretbackendservice.DrainBackendConfigParams{
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.ModelAccessor,
+				ID:   coretesting.ModelTag.Id(),
+			},
+			ModelUUID: model.UUID(coretesting.ModelTag.Id()),
+			BackendID: "backend-id",
+		}}).Return(&provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+					Config:      map[string]interface{}{"foo": "admin"},
+				},
+			},
+		},
+	}, nil)
 
 	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
@@ -123,8 +138,11 @@ func (s *drainSuite) TestGetSecretContentInternal(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
-	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{URI: uri, LatestRevision: 668}, nil)
-	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
+	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{URI: uri, LatestRevision: 668}, nil)
+	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, secretservice.SecretAccessor{
+		Kind: secretservice.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}).Return(
 		val, nil, nil,
 	)
 
@@ -145,13 +163,39 @@ func (s *drainSuite) TestGetSecretContentExternal(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{URI: uri, LatestRevision: 668}, nil)
-	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
+	s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{URI: uri, LatestRevision: 668}, nil)
+	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, secretservice.SecretAccessor{
+		Kind: secretservice.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}).Return(
 		nil, &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "rev-id",
 		}, nil,
 	)
+	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c,
+		expected: secretbackendservice.BackendConfigParams{
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.ModelAccessor,
+				ID:   coretesting.ModelTag.Id(),
+			},
+			ModelUUID:      model.UUID(coretesting.ModelTag.Id()),
+			BackendIDs:     []string{"backend-id"},
+			SameController: true,
+		}}).Return(&provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+					Config:      map[string]interface{}{"foo": "bar"},
+				},
+			},
+		},
+	}, nil)
 
 	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
@@ -187,7 +231,10 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *gc.C) {
 	uri := coresecrets.NewURI()
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
-	s.secretsState.EXPECT().GetSecretValue(uri, 666).Return(
+	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, secretservice.SecretAccessor{
+		Kind: secretservice.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}).Return(
 		val, nil, nil,
 	)
 
@@ -207,12 +254,38 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsState.EXPECT().GetSecretValue(uri, 666).Return(
+	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, secretservice.SecretAccessor{
+		Kind: secretservice.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}).Return(
 		nil, &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "rev-id",
 		}, nil,
 	)
+	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c,
+		expected: secretbackendservice.BackendConfigParams{
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.ModelAccessor,
+				ID:   coretesting.ModelTag.Id(),
+			},
+			ModelUUID:      model.UUID(coretesting.ModelTag.Id()),
+			BackendIDs:     []string{"backend-id"},
+			SameController: true,
+		}}).Return(&provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+					Config:      map[string]interface{}{"foo": "bar"},
+				},
+			},
+		},
+	}, nil)
 
 	results, err := s.facade.GetSecretRevisionContentInfo(context.Background(), params.SecretRevisionArg{
 		URI:       uri.String(),

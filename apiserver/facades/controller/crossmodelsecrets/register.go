@@ -8,11 +8,9 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -37,23 +35,9 @@ func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelC
 	}
 	serviceFactory := ctx.ServiceFactory()
 
-	leadershipChecker, err := ctx.LeadershipChecker()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(model.UUID()))
-	}
-	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
-	secretBackendConfigGetter := func(stdCtx context.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
-		model, closer, err := ctx.StatePool().GetModel(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer closer.Release()
-		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), sameController, secretService, backendService, []string{backendID}, false, consumer, leadershipChecker)
 	}
 	secretInfoGetter := func(modelUUID string) SecretService {
 		return ctx.ServiceFactoryForModel(coremodel.UUID(modelUUID)).Secret(secretBackendAdminConfigGetter)
@@ -66,7 +50,7 @@ func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelC
 		st.ControllerUUID(),
 		st.ModelUUID(),
 		secretInfoGetter,
-		secretBackendConfigGetter,
+		backendService,
 		&crossModelShim{st.RemoteEntities()},
 		&stateBackendShim{st},
 		ctx.Logger().ChildWithTags("crossmodelsecrets", corelogger.SECRETS),

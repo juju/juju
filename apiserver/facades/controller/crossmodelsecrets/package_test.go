@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretservice.go github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets SecretService
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretservice.go github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets SecretService,SecretBackendService
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/statebackend.go github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets StateBackend
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/crossmodel.go github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets CrossModelState
 

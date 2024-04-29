@@ -15,6 +15,7 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -41,11 +42,11 @@ type SecretsAPI struct {
 	activeBackendID string
 	backends        map[string]provider.SecretsBackend
 
-	secretService SecretService
+	secretBackendService SecretBackendService
+	secretService        SecretService
 
-	adminBackendConfigGetter               func(ctx context.Context) (*provider.ModelBackendConfigInfo, error)
-	backendConfigGetterForUserSecretsWrite func(ctx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error)
-	backendGetter                          func(context.Context, *provider.ModelBackendConfig) (provider.SecretsBackend, error)
+	//adminBackendConfigGetter               func(ctx context.Context) (*provider.ModelBackendConfigInfo, error)
+	backendGetter func(context.Context, *provider.ModelBackendConfig) (provider.SecretsBackend, error)
 }
 
 // SecretsAPIV1 is the backend for the Secrets facade v1.
@@ -239,7 +240,7 @@ func tagFromAccessScope(access secretservice.SecretAccessScope) (names.Tag, erro
 }
 
 func (s *SecretsAPI) getBackendInfo(ctx context.Context) error {
-	info, err := s.adminBackendConfigGetter(ctx)
+	info, err := s.secretBackendService.GetSecretBackendConfigForAdmin(ctx, model.UUID(s.modelUUID))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -312,16 +313,12 @@ func (s *SecretsAPI) getBackendForUserSecretsWrite(ctx context.Context) (provide
 			return nil, errors.Trace(err)
 		}
 	}
-	cfgInfo, err := s.backendConfigGetterForUserSecretsWrite(ctx, s.activeBackendID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, ok := cfgInfo.Configs[s.activeBackendID]
+	b, ok := s.backends[s.activeBackendID]
 	if !ok {
 		// This should never happen.
 		return nil, errors.NotFoundf("secret backend %q", s.activeBackendID)
 	}
-	return s.backendGetter(ctx, &cfg)
+	return b, nil
 }
 
 // CreateSecrets isn't on the v1 API.

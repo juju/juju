@@ -17,10 +17,8 @@ import (
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -42,7 +40,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -321,9 +318,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		},
 	}, nil)
 
-	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
-		return mockSecretProvider{}, nil
-	})
 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
 	_true := true
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
@@ -1094,35 +1088,6 @@ func (st *mockState) ListSecretBackends() ([]*secrets.SecretBackend, error) {
 
 func (st *mockState) InvalidateModelCredential(reason string) error {
 	st.MethodCall(st, "InvalidateModelCredential", reason)
-	return nil
-}
-
-type mockSecretProvider struct {
-	provider.ProviderConfig
-	provider.SecretBackendProvider
-}
-
-func (mockSecretProvider) Type() string {
-	return "vault"
-}
-
-func (mockSecretProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-	return mockSecretBackend{}, nil
-}
-
-func (mockSecretProvider) ConfigSchema() environschema.Fields {
-	return environschema.Fields{
-		"token": {
-			Secret: true,
-		},
-	}
-}
-
-type mockSecretBackend struct {
-	provider.SecretsBackend
-}
-
-func (mockSecretBackend) Ping() error {
 	return nil
 }
 

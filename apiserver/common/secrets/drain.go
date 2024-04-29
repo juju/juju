@@ -27,7 +27,9 @@ type SecretsDrainAPI struct {
 	leadershipChecker leadership.Checker
 	watcherRegistry   facade.WatcherRegistry
 
-	model                Model
+	modelConfig ModelConfig
+
+	modelUUID            model.UUID
 	secretService        SecretService
 	secretBackendService SecretBackendService
 }
@@ -38,7 +40,8 @@ func NewSecretsDrainAPI(
 	authorizer facade.Authorizer,
 	logger loggo.Logger,
 	leadershipChecker leadership.Checker,
-	model Model,
+	modelUUID model.UUID,
+	modelConfig ModelConfig,
 	secretService SecretService,
 	secretBackendService SecretBackendService,
 	watcherRegistry facade.WatcherRegistry,
@@ -50,7 +53,8 @@ func NewSecretsDrainAPI(
 		authTag:              authTag,
 		logger:               logger,
 		leadershipChecker:    leadershipChecker,
-		model:                model,
+		modelUUID:            modelUUID,
+		modelConfig:          modelConfig,
 		secretService:        secretService,
 		secretBackendService: secretBackendService,
 		watcherRegistry:      watcherRegistry,
@@ -93,7 +97,7 @@ func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSec
 			CreateTime:       md.CreateTime,
 			UpdateTime:       md.UpdateTime,
 		}
-		toDrain, err := s.secretBackendService.GetRevisionsToDrain(ctx, model.UUID(s.model.UUID()), revisionMetadata[i])
+		toDrain, err := s.secretBackendService.GetRevisionsToDrain(ctx, s.modelUUID, revisionMetadata[i])
 		if err != nil {
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
@@ -221,8 +225,8 @@ func toChangeSecretBackendParams(accessor secretservice.SecretAccessor, token le
 
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
 func (s *SecretsDrainAPI) WatchSecretBackendChanged(ctx context.Context) (params.NotifyWatchResult, error) {
-	stateWatcher := s.model.WatchForModelConfigChanges()
-	w, err := newSecretBackendModelConfigWatcher(ctx, s.model, stateWatcher, s.logger)
+	stateWatcher := s.modelConfig.WatchForModelConfigChanges()
+	w, err := newSecretBackendModelConfigWatcher(ctx, s.modelConfig, stateWatcher, s.logger)
 	if err != nil {
 		return params.NotifyWatchResult{
 			Error: apiservererrors.ServerError(err),

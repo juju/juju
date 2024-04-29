@@ -11,7 +11,10 @@ import (
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
@@ -23,10 +26,9 @@ var logger = loggo.GetLogger("juju.apiserver.usersecretsdrain")
 type SecretsDrainAPI struct {
 	*commonsecrets.SecretsDrainAPI
 
-	secretsState SecretsState
-
-	drainConfigGetter   commonsecrets.BackendDrainConfigGetter
-	backendConfigGetter commonsecrets.BackendConfigGetter
+	modelUUID            string
+	secretBackendService SecretBackendService
+	secretService        SecretService
 }
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends for the drain worker.
@@ -41,7 +43,15 @@ func (s *SecretsDrainAPI) GetSecretBackendConfigs(ctx context.Context, arg param
 	results := params.SecretBackendConfigResults{
 		Results: make(map[string]params.SecretBackendConfigResult, 1),
 	}
-	cfgInfo, err := s.drainConfigGetter(ctx, backendID)
+	cfgInfo, err := s.secretBackendService.DrainBackendConfigInfo(ctx, secretbackendservice.DrainBackendConfigParams{
+		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.ModelAccessor,
+			ID:   s.modelUUID,
+		},
+		ModelUUID: model.UUID(s.modelUUID),
+		BackendID: backendID,
+	})
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -115,12 +125,15 @@ func (s *SecretsDrainAPI) getSecretContent(ctx context.Context, arg params.GetSe
 	}
 	logger.Debugf("getting secret content for: %s", uri)
 
-	md, err := s.secretsState.GetSecret(uri)
+	md, err := s.secretService.GetSecret(ctx, uri)
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
 
-	val, valueRef, err := s.secretsState.GetSecretValue(md.URI, md.LatestRevision)
+	val, valueRef, err := s.secretService.GetSecretValue(ctx, md.URI, md.LatestRevision, secretservice.SecretAccessor{
+		Kind: secretservice.ModelAccessor,
+		ID:   s.modelUUID,
+	})
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
@@ -135,7 +148,16 @@ func (s *SecretsDrainAPI) getSecretContent(ctx context.Context, arg params.GetSe
 }
 
 func (s *SecretsDrainAPI) getBackend(ctx context.Context, backendID string) (*provider.ModelBackendConfig, bool, error) {
-	cfgInfo, err := s.backendConfigGetter(ctx, []string{backendID}, false)
+	cfgInfo, err := s.secretBackendService.BackendConfigInfo(ctx, secretbackendservice.BackendConfigParams{
+		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.ModelAccessor,
+			ID:   s.modelUUID,
+		},
+		ModelUUID:      model.UUID(s.modelUUID),
+		BackendIDs:     []string{backendID},
+		SameController: true,
+	})
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -165,7 +187,10 @@ func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(ctx context.Context, arg 
 	}
 
 	for i, rev := range arg.Revisions {
-		val, valueRef, err := s.secretsState.GetSecretValue(uri, rev)
+		val, valueRef, err := s.secretService.GetSecretValue(ctx, uri, rev, secretservice.SecretAccessor{
+			Kind: secretservice.ModelAccessor,
+			ID:   s.modelUUID,
+		})
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

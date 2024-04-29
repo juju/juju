@@ -31,7 +31,7 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 	defer ctrl.Finish()
 
 	modelConfigChangesWatcher := mocks.NewMockNotifyWatcher(ctrl)
-	model := mocks.NewMockModel(ctrl)
+	model := mocks.NewMockModelConfig(ctrl)
 
 	ch := make(chan struct{}, 3)
 	done := make(chan struct{})

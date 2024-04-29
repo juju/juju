@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
 
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
@@ -30,7 +29,6 @@ func TestPackage(t *testing.T) {
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/crossmodel.go github.com/juju/juju/apiserver/facades/agent/secretsmanager CrossModelState,CrossModelSecretsClient
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/core/watcher StringsWatcher
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
@@ -39,8 +37,7 @@ func NewTestAPI(
 	secretService SecretService,
 	consumer SecretsConsumer,
 	secretTriggers SecretTriggers,
-	backendConfigGetter commonsecrets.BackendConfigGetter,
-	drainConfigGetter commonsecrets.BackendDrainConfigGetter,
+	secretBackendService SecretBackendService,
 	remoteClientGetter func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error),
 	crossModelState CrossModelState,
 	authTag names.Tag,
@@ -51,20 +48,19 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
-		authTag:             authTag,
-		watcherRegistry:     watcherRegistry,
-		authorizer:          authorizer,
-		leadershipChecker:   leadership,
-		secretService:       secretService,
-		secretsConsumer:     consumer,
-		secretsTriggers:     secretTriggers,
-		backendConfigGetter: backendConfigGetter,
-		drainConfigGetter:   drainConfigGetter,
-		remoteClientGetter:  remoteClientGetter,
-		crossModelState:     crossModelState,
-		clock:               clock,
-		controllerUUID:      coretesting.ControllerTag.Id(),
-		modelUUID:           coretesting.ModelTag.Id(),
-		logger:              loggo.GetLoggerWithTags("juju.apiserver.secretsmanager", corelogger.SECRETS),
+		authTag:              authTag,
+		watcherRegistry:      watcherRegistry,
+		authorizer:           authorizer,
+		leadershipChecker:    leadership,
+		secretBackendService: secretBackendService,
+		secretService:        secretService,
+		secretsConsumer:      consumer,
+		secretsTriggers:      secretTriggers,
+		remoteClientGetter:   remoteClientGetter,
+		crossModelState:      crossModelState,
+		clock:                clock,
+		controllerUUID:       coretesting.ControllerTag.Id(),
+		modelUUID:            coretesting.ModelTag.Id(),
+		logger:               loggo.GetLoggerWithTags("juju.apiserver.secretsmanager", corelogger.SECRETS),
 	}, nil
 }

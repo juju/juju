@@ -22,7 +22,6 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	backendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -33,12 +32,11 @@ type secretsDrainSuite struct {
 	authorizer      *facademocks.MockAuthorizer
 	watcherRegistry *facademocks.MockWatcherRegistry
 
-	provider                  *mocks.MockSecretBackendProvider
 	leadership                *mocks.MockChecker
 	token                     *mocks.MockToken
 	secretService             *mocks.MockSecretService
 	secretBackendService      *mocks.MockSecretBackendService
-	model                     *mocks.MockModel
+	model                     *mocks.MockModelConfig
 	modelConfigChangesWatcher *mocks.MockNotifyWatcher
 
 	authTag names.Tag
@@ -60,16 +58,13 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
-	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
 	s.leadership = mocks.NewMockChecker(ctrl)
 	s.token = mocks.NewMockToken(ctrl)
 	s.secretService = mocks.NewMockSecretService(ctrl)
 	s.secretBackendService = mocks.NewMockSecretBackendService(ctrl)
-	s.model = mocks.NewMockModel(ctrl)
+	s.model = mocks.NewMockModelConfig(ctrl)
 	s.modelConfigChangesWatcher = mocks.NewMockNotifyWatcher(ctrl)
 	s.expectAuthUnitAgent()
-
-	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.provider, nil })
 
 	var err error
 	s.facade, err = secrets.NewSecretsDrainAPI(
@@ -77,6 +72,7 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 		s.authorizer,
 		loggo.GetLogger("juju.apiserver.secretsdrain"),
 		s.leadership,
+		model.UUID(coretesting.ModelTag.Id()),
 		s.model,
 		s.secretService,
 		s.secretBackendService,
@@ -95,8 +91,6 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(c *gc.C, expectedRevions ...
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-
-	s.model.EXPECT().UUID().Return(coretesting.ModelTag.Id())
 
 	now := time.Now()
 	uri := coresecrets.NewURI()
