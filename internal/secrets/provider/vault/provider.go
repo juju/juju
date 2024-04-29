@@ -13,9 +13,9 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v5"
 	vault "github.com/mittwald/vaultgo"
 
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -140,7 +140,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
-func (p vaultProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
+func (p vaultProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, _ string, removed provider.SecretRevisions) error {
 	modelPath := modelPathPrefix(cfg.ModelName, cfg.ModelUUID)
 	client, err := p.newBackend(modelPath, &cfg.BackendConfig)
 	if err != nil {
@@ -180,11 +180,11 @@ func (p vaultProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBa
 
 // RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
-// owned secrets and read shared secrets for the given entity tag.
+// owned secrets and read shared secrets for the given accessor.
 func (p vaultProvider) RestrictedConfig(
-	ctx context.Context, adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	ctx context.Context, adminCfg *provider.ModelBackendConfig, _, forDrain bool, accessor secrets.Accessor, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	adminUser := tag == nil
+	adminUser := accessor.Kind == secrets.ModelAccessor
 	// Get an admin backend client so we can set up the policies.
 	mountPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
 	backend, err := p.newBackend(mountPath, &adminCfg.BackendConfig)

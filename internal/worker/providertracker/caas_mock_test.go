@@ -250,7 +250,7 @@ func (mr *MockBrokerMockRecorder) EnsureModelOperator(arg0, arg1, arg2, arg3 any
 }
 
 // EnsureSecretAccessToken mocks base method.
-func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 names.Tag, arg2, arg3, arg4 []string) (string, error) {
+func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 string, arg2, arg3, arg4 []string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureSecretAccessToken", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(string)
@@ -394,20 +394,6 @@ func (m *MockBroker) ProxyToApplication(arg0 context.Context, arg1, arg2 string)
 func (mr *MockBrokerMockRecorder) ProxyToApplication(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProxyToApplication", reflect.TypeOf((*MockBroker)(nil).ProxyToApplication), arg0, arg1, arg2)
-}
-
-// RemoveSecretAccessToken mocks base method.
-func (m *MockBroker) RemoveSecretAccessToken(arg0 context.Context, arg1 names.Tag) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveSecretAccessToken", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveSecretAccessToken indicates an expected call of RemoveSecretAccessToken.
-func (mr *MockBrokerMockRecorder) RemoveSecretAccessToken(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).RemoveSecretAccessToken), arg0, arg1)
 }
 
 // SaveJujuSecret mocks base method.

@@ -979,6 +979,11 @@ func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 		return nil, nil, errors.Trace(err)
 	}
 
+	var revisionNotFoundErr error
+	if revision != nil {
+		revisionNotFoundErr = fmt.Errorf("secret revision %d for %s not found%w", *revision, uri, errors.Hide(secreterrors.SecretRevisionNotFound))
+	}
+
 	var (
 		secrets        []*coresecrets.SecretMetadata
 		revisionResult [][]*coresecrets.SecretRevisionMetadata
@@ -996,10 +1001,16 @@ func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 				return errors.Annotatef(err, "querying secret revisions for %q", secret.URI.ID)
 			}
 			revisionResult[i] = secretRevisions
+			if revision != nil && len(secretRevisions) == 0 {
+				return revisionNotFoundErr
+			}
 		}
 		return nil
 	}); err != nil {
 		return nil, nil, errors.Trace(domain.CoerceError(err))
+	}
+	if revision != nil && len(secrets) == 0 {
+		return nil, nil, revisionNotFoundErr
 	}
 
 	return secrets, revisionResult, nil
@@ -1429,35 +1440,64 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 	return uri.WithSource(dbConsumers[0].SourceModelUUID), nil
 }
 
-// GetSecretRevision returns the secret revision with the given URI and revision number,
-// returning an error satisfying [secreterrors.SecretRevisionNotFound] if the secret revision does not exist.
-func (st State) GetSecretRevision(ctx context.Context, uri *coresecrets.URI, revision int) (*coresecrets.SecretRevisionMetadata, error) {
+// ListExternalSecretRevisions returns the secret revisions which are stored externally in
+// a secret backend, returning an error satisfying [secreterrors.SecretNotFound] if the secret does not exist.
+func (st State) ListExternalSecretRevisions(ctx context.Context, uri *coresecrets.URI, revs ...int) ([]coresecrets.ValueRef, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var secretRevisions []*coresecrets.SecretRevisionMetadata
+	selectRevisionParams := []any{secretID{
+		ID: uri.ID,
+	}}
+
+	var revFilter string
+	if len(revs) > 0 {
+		revFilter = "\nAND revision IN ($revisions[:])"
+		selectRevisionParams = append(selectRevisionParams, revisions(revs))
+	}
+
+	query := fmt.Sprintf(`
+SELECT (svr.*) AS (&secretValueRef.*)
+FROM   secret_revision sr
+JOIN   secret_value_ref svr ON svr.revision_uuid = sr.uuid
+WHERE  secret_id = $secretID.id%s
+`, revFilter)
+
+	queryStmt, err := st.Prepare(query, append([]any{secretValueRef{}}, selectRevisionParams...)...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var dbSecretRevisions secretValueRefs
 	if err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		secretRevisions, err = st.listSecretRevisions(ctx, tx, uri, &revision)
-		return errors.Annotatef(err, "querying secret revision %d for %q", revision, uri.ID)
+		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
+			return errors.Trace(err)
+		} else if !isLocal {
+			// Should never happen.
+			return secreterrors.SecretIsNotLocal
+		}
+
+		err = tx.Query(ctx, queryStmt, selectRevisionParams...).GetAll(&dbSecretRevisions)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "retrieving extrnal secret revisions for %q", uri)
+		}
+		return nil
 	}); err != nil {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-
-	if len(secretRevisions) == 0 {
-		return nil, fmt.Errorf("secret revision %d for %q not found%w", revision, uri, errors.Hide(secreterrors.SecretRevisionNotFound))
-	}
-	return secretRevisions[0], nil
+	return dbSecretRevisions.toValueRefs(), nil
 }
 
 func (st State) listSecretRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revision *int) ([]*coresecrets.SecretRevisionMetadata, error) {
 	query := `
 SELECT (sr.*) AS (&secretRevision.*),
+       (svr.*) AS (&secretValueRef.*),
        (sre.*) AS (&secretRevisionExpire.*)
 FROM   secret_revision sr
 LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
+LEFT JOIN secret_value_ref svr ON svr.revision_uuid = sr.uuid
 WHERE  secret_id = $secretRevision.secret_id
 `
 	want := secretRevision{SecretID: uri.ID}
@@ -1466,21 +1506,22 @@ WHERE  secret_id = $secretRevision.secret_id
 		want.Revision = *revision
 	}
 
-	queryStmt, err := st.Prepare(query, secretRevision{}, secretRevisionExpire{})
+	queryStmt, err := st.Prepare(query, secretRevision{}, secretRevisionExpire{}, secretValueRef{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var (
 		dbSecretRevisions       secretRevisions
+		dbSecretValueRefs       secretValueRefs
 		dbSecretRevisionsExpire secretRevisionsExpire
 	)
-	err = tx.Query(ctx, queryStmt, want).GetAll(&dbSecretRevisions, &dbSecretRevisionsExpire)
+	err = tx.Query(ctx, queryStmt, want).GetAll(&dbSecretRevisions, &dbSecretValueRefs, &dbSecretRevisionsExpire)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Annotatef(err, "retrieving secret revisions for %q", uri)
 	}
 
-	return dbSecretRevisions.toSecretRevisions(dbSecretRevisionsExpire)
+	return dbSecretRevisions.toSecretRevisions(dbSecretValueRefs, dbSecretRevisionsExpire)
 }
 
 // GetSecretValue returns the contents - either data or value reference - of a given secret revision,
@@ -2339,7 +2380,102 @@ AND    subject_type_id != $M.remote_application_type`
 	return accessors.toSecretGrants(accessScopes)
 }
 
-// InitialWatchStatementForObsolete returns the initial watch statement and the table name for watching obsolete revisions.
+type (
+	units        []string
+	applications []string
+	models       []string
+)
+
+// ListGrantedSecretsForBackend returns the secret revision info for any
+// secrets from the specified backend for which the specified consumers
+// have been granted the specified access.
+func (st State) ListGrantedSecretsForBackend(
+	ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role coresecrets.SecretRole,
+) ([]*coresecrets.SecretRevisionRef, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT
+     (sm.secret_id) AS (&secretInfo.*),
+     (svr.*) AS (&secretValueRef.*)
+FROM secret_metadata sm
+JOIN secret_revision rev ON rev.secret_id = sm.secret_id
+JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid
+JOIN v_secret_permission sp ON sp.secret_id = sm.secret_id
+WHERE sp.role_id = $secretAccessor.role_id
+AND   svr.backend_uuid = $secretBackendID.id
+AND  (
+    subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($units[:])
+  OR
+    subject_type_id = $secretAccessorType.app_type_id AND subject_id IN ($applications[:])
+  OR
+    subject_type_id = $secretAccessorType.model_type_id AND subject_id IN ($models[:])
+)
+`
+	secretBackendID := secretBackendID{
+		ID: backendID,
+	}
+
+	secretRole := secretAccessor{
+		RoleID: domainsecret.MarshallRole(role),
+	}
+
+	// Ideally we'd use IN tuple but sqlair doesn't support that.
+	var (
+		modelAccessors models
+		appAccessors   applications
+		unitAccessors  units
+	)
+	for _, a := range accessors {
+		switch a.SubjectTypeID {
+		case domainsecret.SubjectUnit:
+			unitAccessors = append(unitAccessors, a.SubjectID)
+		case domainsecret.SubjectApplication:
+			appAccessors = append(appAccessors, a.SubjectID)
+		case domainsecret.SubjectModel:
+			modelAccessors = append(modelAccessors, a.SubjectID)
+		default:
+			continue
+		}
+	}
+
+	queryParams := []any{
+		appAccessors,
+		unitAccessors,
+		modelAccessors,
+		secretAccessorTypeParam,
+		secretRole,
+		secretBackendID,
+	}
+
+	queryStmt, err := st.Prepare(query, append([]any{secretInfo{}, secretValueRef{}}, queryParams...)...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var revisionResult []*coresecrets.SecretRevisionRef
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		var (
+			dbSecrets   secrets
+			dbValueRefs secretValueRefs
+		)
+		err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbValueRefs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotate(err, "querying accessible secrets")
+		}
+		revisionResult, err = dbSecrets.toSecretRevisionRef(dbValueRefs)
+		return errors.Trace(err)
+	}); err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	return revisionResult, nil
+}
+
+// InitialWatchStatementForObsoleteRevision returns the initial watch statement and the table name for watching obsolete revisions.
 func (st State) InitialWatchStatementForObsoleteRevision(
 	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) (string, eventsource.NamespaceQuery) {
@@ -2402,7 +2538,7 @@ func (st State) getRevisionForObsolete(
 	}
 
 	q := fmt.Sprintf(`
-SELECT 
+SELECT
     %s
 FROM secret_revision sr`, selectStmt)
 

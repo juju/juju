@@ -5,9 +5,13 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/secrets"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
 type k8sBackend struct {
@@ -17,12 +21,20 @@ type k8sBackend struct {
 
 // GetContent implements SecretsBackend.
 func (k k8sBackend) GetContent(ctx context.Context, revisionId string) (secrets.SecretValue, error) {
-	return k.broker.GetJujuSecret(ctx, revisionId)
+	v, err := k.broker.GetJujuSecret(ctx, revisionId)
+	if errors.Is(err, errors.NotFound) {
+		err = fmt.Errorf("secret revision %q not found%w", revisionId, errors.Hide(secreterrors.SecretRevisionNotFound))
+	}
+	return v, errors.Trace(err)
 }
 
 // DeleteContent implements SecretsBackend.
 func (k k8sBackend) DeleteContent(ctx context.Context, revisionId string) error {
-	return k.broker.DeleteJujuSecret(ctx, revisionId)
+	err := k.broker.DeleteJujuSecret(ctx, revisionId)
+	if errors.Is(err, errors.NotFound) {
+		err = fmt.Errorf("secret revision %q not found%w", revisionId, errors.Hide(secreterrors.SecretRevisionNotFound))
+	}
+	return errors.Trace(err)
 }
 
 // SaveContent implements SecretsBackend.

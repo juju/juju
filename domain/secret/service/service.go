@@ -31,7 +31,7 @@ type State interface {
 	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
-	GetSecretRevision(ctx context.Context, uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
+	ListExternalSecretRevisions(ctx context.Context, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int, labels domainsecret.Labels,
@@ -52,6 +52,10 @@ type State interface {
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
 	GetSecretAccessScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (*domainsecret.AccessScope, error)
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantParams, error)
+	ListGrantedSecretsForBackend(
+		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role secrets.SecretRole,
+	) ([]*secrets.SecretRevisionRef, error)
+
 	InitialWatchStatementForObsoleteRevision(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (tableName string, statement eventsource.NamespaceQuery)

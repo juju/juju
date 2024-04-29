@@ -49,7 +49,10 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unitTag := names.NewUnitTag("gitlab/0")
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
 	model := mocks.NewMockModel(ctrl)
 	leadershipChecker := mocks.NewMockChecker(ctrl)
 	token := mocks.NewMockToken(ctrl)
@@ -59,14 +62,15 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
 
-	owned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "owned-1"}},
+	owned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-2"},
 	}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
-	read := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "read-1"}},
+	read := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "read-1"}, RevisionID: "read-rev-1"},
 	}
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
@@ -108,35 +112,23 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
 	token.EXPECT().Check().Return(nil)
 
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
-		Kind: secretservice.UnitOwner,
-		ID:   unitTag.Id(),
-	}, {
-		Kind: secretservice.ApplicationOwner,
-		ID:   "gitlab",
-	}}).Return(owned, [][]*coresecrets.SecretRevisionMetadata{{
-		{
-			Revision: 1,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
-		}, {
-			Revision: 2,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
-		},
-	}}, nil)
-	secretService.EXPECT().ListGrantedSecrets(gomock.Any(), secretservice.SecretAccessor{
+	secretService.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", coresecrets.RoleManage, secretservice.SecretAccessor{
 		Kind: secretservice.UnitAccessor,
-		ID:   unitTag.Id(),
+		ID:   accessor.ID,
 	}, secretservice.SecretAccessor{
 		Kind: secretservice.ApplicationAccessor,
 		ID:   "gitlab",
-	}).Return(read, [][]*coresecrets.SecretRevisionMetadata{{
-		{
-			Revision: 1,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
-		},
-	}}, nil)
-	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	}).Return(owned, nil)
+	secretService.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", coresecrets.RoleView, secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   accessor.ID,
+	}, secretservice.SecretAccessor{
+		Kind: secretservice.ApplicationAccessor,
+		ID:   "gitlab",
+	}).Return(read, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
+	unitTag := names.NewUnitTag("gitlab/0")
 	info, err := secrets.BackendConfigInfo(context.Background(), model, true, secretService, secretBackendService, wanted, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
@@ -158,7 +150,10 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unitTag := names.NewUnitTag("gitlab/0")
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
 	model := mocks.NewMockModel(ctrl)
 	leadershipChecker := mocks.NewMockChecker(ctrl)
 	token := mocks.NewMockToken(ctrl)
@@ -168,17 +163,20 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
 
-	unitOwned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "owned-1"}},
+	unitOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-2"},
 	}
-	appOwned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "app-owned-1"}},
+	appOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-2"},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-3"},
 	}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
-	read := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "read-1"}},
+	read := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "read-1"}, RevisionID: "read-rev-1"},
 	}
 	readRevs := map[string]set.Strings{
 		"read-1":      set.NewStrings("read-rev-1"),
@@ -213,47 +211,22 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
 	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
 
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
-		Kind: secretservice.UnitOwner,
-		ID:   unitTag.Id(),
-	}}).Return(unitOwned, [][]*coresecrets.SecretRevisionMetadata{{
-		{
-			Revision: 1,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
-		}, {
-			Revision: 2,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
-		},
-	}}, nil)
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
-		Kind: secretservice.ApplicationOwner,
-		ID:   "gitlab",
-	}}).Return(appOwned, [][]*coresecrets.SecretRevisionMetadata{{
-		{
-			Revision: 1,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-1"},
-		}, {
-			Revision: 2,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-2"},
-		}, {
-			Revision: 3,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
-		},
-	}}, nil)
-	secretService.EXPECT().ListGrantedSecrets(gomock.Any(), secretservice.SecretAccessor{
-		Kind: secretservice.UnitAccessor,
-		ID:   unitTag.Id(),
-	}, secretservice.SecretAccessor{
+	secretService.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", coresecrets.RoleView, secretservice.SecretAccessor{
 		Kind: secretservice.ApplicationAccessor,
 		ID:   "gitlab",
-	}).Return(read, [][]*coresecrets.SecretRevisionMetadata{{
-		{
-			Revision: 1,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
-		},
-	}}, nil)
-	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	}).Return(appOwned, nil)
+	secretService.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", coresecrets.RoleManage, secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   "gitlab/0",
+	}).Return(unitOwned, nil)
+	secretService.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", coresecrets.RoleView, secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   "gitlab/0",
+	}).Return(read, nil)
 
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+
+	unitTag := names.NewUnitTag("gitlab/0")
 	info, err := secrets.BackendConfigInfo(context.Background(), model, true, secretService, secretBackendService, []string{"backend-id"}, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
@@ -275,7 +248,10 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unitTag := names.NewUnitTag("gitlab/0")
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
 	model := mocks.NewMockModel(ctrl)
 	leadershipChecker := mocks.NewMockChecker(ctrl)
 	token := mocks.NewMockToken(ctrl)
@@ -285,17 +261,20 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
 
-	unitOwned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "owned-1"}},
+	unitOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-2"},
 	}
-	appOwned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "app-owned-1"}},
+	appOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-2"},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-3"},
 	}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
-	read := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "read-1"}},
+	read := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "read-1"}, RevisionID: "read-rev-1"},
 	}
 	readRevs := map[string]set.Strings{
 		"read-1":      set.NewStrings("read-rev-1"),
@@ -330,48 +309,25 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
 	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
 
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
-		Kind: secretservice.UnitOwner,
-		ID:   unitTag.Id(),
-	}}).Return(unitOwned, [][]*coresecrets.SecretRevisionMetadata{{
-		{
-			Revision: 1,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
-		}, {
-			Revision: 2,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
-		},
-	}}, nil)
-	secretService.EXPECT().ListCharmSecrets(gomock.Any(), []secretservice.CharmSecretOwner{{
-		Kind: secretservice.ApplicationOwner,
-		ID:   "gitlab",
-	}}).Return(appOwned, [][]*coresecrets.SecretRevisionMetadata{{
-		{
-			Revision: 1,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-1"},
-		}, {
-			Revision: 2,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-2"},
-		}, {
-			Revision: 3,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
-		},
-	}}, nil)
-	secretService.EXPECT().ListGrantedSecrets(gomock.Any(), secretservice.SecretAccessor{
+	secretService.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", coresecrets.RoleManage, secretservice.SecretAccessor{
 		Kind: secretservice.UnitAccessor,
-		ID:   unitTag.Id(),
+		ID:   accessor.ID,
+	}).Return(unitOwned, nil)
+	secretService.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", coresecrets.RoleView, secretservice.SecretAccessor{
+		Kind: secretservice.ApplicationAccessor,
+		ID:   "gitlab",
+	}).Return(appOwned, nil)
+	secretService.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", coresecrets.RoleView, secretservice.SecretAccessor{
+		Kind: secretservice.UnitAccessor,
+		ID:   accessor.ID,
 	}, secretservice.SecretAccessor{
 		Kind: secretservice.ApplicationAccessor,
 		ID:   "gitlab",
-	}).Return(read, [][]*coresecrets.SecretRevisionMetadata{{
-		{
-			Revision: 1,
-			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
-		},
-	}}, nil)
+	}).Return(read, nil)
 
-	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, true, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, true, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
+	unitTag := names.NewUnitTag("gitlab/0")
 	info, err := secrets.DrainBackendConfigInfo(context.Background(), "backend-id", model, secretService, secretBackendService, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{

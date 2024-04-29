@@ -160,6 +160,10 @@ type Owner struct {
 	ID   string
 }
 
+func (o Owner) String() string {
+	return fmt.Sprintf("%s-%s", o.Kind, strings.ReplaceAll(o.ID, "/", "-"))
+}
+
 // SecretMetadata holds metadata about a secret.
 type SecretMetadata struct {
 	// Read only after creation.
@@ -203,6 +207,32 @@ type AccessInfo struct {
 	Target string
 	Scope  string
 	Role   SecretRole
+}
+
+// AccessorKind represents the kind of a secret accessor entity.
+type AccessorKind string
+
+// These represent the kinds of secret accessor.
+const (
+	UnitAccessor  AccessorKind = "unit"
+	ModelAccessor AccessorKind = "model"
+)
+
+// Accessor is the accessor of a secret.
+type Accessor struct {
+	Kind AccessorKind
+	ID   string
+}
+
+func (a Accessor) String() string {
+	return fmt.Sprintf("%s-%s", a.Kind, strings.ReplaceAll(a.ID, "/", "-"))
+}
+
+// SecretRevisionRef is a reference to a secret revision
+// stored in a secret backend.
+type SecretRevisionRef struct {
+	URI        *URI
+	RevisionID string
 }
 
 // SecretRevisionMetadata holds metadata about a secret revision.

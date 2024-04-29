@@ -5,10 +5,12 @@ package juju
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 
 	coresecrets "github.com/juju/juju/core/secrets"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
 // jujuBackend is a dummy backend which returns
@@ -17,12 +19,12 @@ type jujuBackend struct{}
 
 // GetContent implements SecretsBackend.
 func (k jujuBackend) GetContent(ctx context.Context, revisionId string) (coresecrets.SecretValue, error) {
-	return nil, errors.NotFoundf("secret revision %d", revisionId)
+	return nil, fmt.Errorf("secret revision %s not found%w", revisionId, errors.Hide(secreterrors.SecretRevisionNotFound))
 }
 
 // DeleteContent implements SecretsBackend.
 func (k jujuBackend) DeleteContent(ctx context.Context, revisionId string) error {
-	return errors.NotFoundf("secret revision %d", revisionId)
+	return fmt.Errorf("secret revision %s not found%w", revisionId, errors.Hide(secreterrors.SecretRevisionNotFound))
 }
 
 // SaveContent implements SecretsBackend.

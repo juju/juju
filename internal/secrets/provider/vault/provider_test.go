@@ -12,13 +12,13 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	vault "github.com/mittwald/vaultgo"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	jujuvault "github.com/juju/juju/internal/secrets/provider/vault"
@@ -102,7 +102,12 @@ func (s *providerSuite) TestBackendConfigBadClient(c *gc.C) {
 			},
 		},
 	}
-	_, err = p.RestrictedConfig(context.Background(), adminCfg, true, false, nil, nil, nil)
+
+	accessor := secrets.Accessor{
+		Kind: secrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	_, err = p.RestrictedConfig(context.Background(), adminCfg, true, false, accessor, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -152,7 +157,12 @@ func (s *providerSuite) TestBackendConfigAdmin(c *gc.C) {
 			},
 		},
 	}
-	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, false, nil, nil, nil)
+
+	accessor := secrets.Accessor{
+		Kind: secrets.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}
+	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, false, accessor, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], gc.Equals, "foo")
 }
@@ -227,7 +237,12 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *gc.C) {
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
 	}
-	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, false, names.NewUnitTag("ubuntu/0"), ownedRevs, readRevs)
+
+	accessor := secrets.Accessor{
+		Kind: secrets.UnitAccessor,
+		ID:   "ubuntu/0",
+	}
+	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, false, accessor, ownedRevs, readRevs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], gc.Equals, "foo")
 }
@@ -312,7 +327,12 @@ func (s *providerSuite) TestBackendConfigForDrain(c *gc.C) {
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
 	}
-	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, true, names.NewUnitTag("ubuntu/0"), ownedRevs, readRevs)
+
+	accessor := secrets.Accessor{
+		Kind: secrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, true, accessor, ownedRevs, readRevs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], gc.Equals, "foo")
 }

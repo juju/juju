@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -94,7 +95,7 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 			return nil, errors.Trace(err)
 		}
 		val, err := backend.GetContent(context.TODO(), content.ValueRef.RevisionID)
-		if err == nil || !errors.Is(err, errors.NotFound) || lastBackendID == backendID {
+		if err == nil || !errors.Is(err, secreterrors.SecretRevisionNotFound) || lastBackendID == backendID {
 			return val, errors.Trace(err)
 		}
 		lastBackendID = backendID
@@ -164,7 +165,7 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 			return errors.Trace(err)
 		}
 		err = backend.DeleteContent(context.TODO(), content.ValueRef.RevisionID)
-		if err == nil || !errors.Is(err, errors.NotFound) || lastBackendID == backendID {
+		if err == nil || !errors.Is(err, secreterrors.SecretRevisionNotFound) || lastBackendID == backendID {
 			return errors.Trace(err)
 		}
 		lastBackendID = backendID
@@ -183,7 +184,7 @@ func (c *secretsClient) DeleteExternalContent(ref secrets.ValueRef) error {
 		return errors.Trace(err)
 	}
 	err = backend.DeleteContent(context.TODO(), ref.RevisionID)
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, secreterrors.SecretRevisionNotFound) {
 		return nil
 	}
 	return errors.Trace(err)
