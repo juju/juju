@@ -40,7 +40,7 @@ type Unit interface {
 type Machine interface {
 	AllAddresses() ([]Address, error)
 	Units() ([]Unit, error)
-	AllSpaces() (set.Strings, error)
+	AllSpaces(allSubnets network.SubnetInfos) (set.Strings, error)
 }
 
 // Constraints defines the methods supported by constraints used in the space context.

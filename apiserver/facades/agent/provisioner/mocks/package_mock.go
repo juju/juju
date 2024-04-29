@@ -79,18 +79,18 @@ func (mr *MockMachineMockRecorder) AllLinkLayerDevices() *gomock.Call {
 }
 
 // AllSpaces mocks base method.
-func (m *MockMachine) AllSpaces() (set.Strings, error) {
+func (m *MockMachine) AllSpaces(arg0 network.SubnetInfos) (set.Strings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllSpaces")
+	ret := m.ctrl.Call(m, "AllSpaces", arg0)
 	ret0, _ := ret[0].(set.Strings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AllSpaces indicates an expected call of AllSpaces.
-func (mr *MockMachineMockRecorder) AllSpaces() *gomock.Call {
+func (mr *MockMachineMockRecorder) AllSpaces(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces), arg0)
 }
 
 // Constraints mocks base method.
@@ -297,9 +297,9 @@ func (m *MockBridgePolicy) EXPECT() *MockBridgePolicyMockRecorder {
 }
 
 // FindMissingBridgesForContainer mocks base method.
-func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container) ([]network0.DeviceToBridge, int, error) {
+func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container, arg2 network.SubnetInfos) ([]network0.DeviceToBridge, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindMissingBridgesForContainer", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindMissingBridgesForContainer", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]network0.DeviceToBridge)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -307,9 +307,9 @@ func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Mac
 }
 
 // FindMissingBridgesForContainer indicates an expected call of FindMissingBridgesForContainer.
-func (mr *MockBridgePolicyMockRecorder) FindMissingBridgesForContainer(arg0, arg1 any) *gomock.Call {
+func (mr *MockBridgePolicyMockRecorder) FindMissingBridgesForContainer(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindMissingBridgesForContainer", reflect.TypeOf((*MockBridgePolicy)(nil).FindMissingBridgesForContainer), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindMissingBridgesForContainer", reflect.TypeOf((*MockBridgePolicy)(nil).FindMissingBridgesForContainer), arg0, arg1, arg2)
 }
 
 // PopulateContainerLinkLayerDevices mocks base method.

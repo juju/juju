@@ -28439,18 +28439,6 @@
                     },
                     "description": "GetContainerProfileInfo returns information to configure a lxd profile(s) for a\ncontainer based on the charms deployed to the container. It accepts container\ntags as arguments. Unlike machineLXDProfileNames which has the environ\nwrite the lxd profiles and returns the names of profiles already written."
                 },
-                "HostChangesForContainers": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/HostNetworkChangeResults"
-                        }
-                    },
-                    "description": "HostChangesForContainers returns the set of changes that need to be done\nto the host machine to prepare it for the containers to be created.\nPass in a list of the containers that you want the changes for."
-                },
                 "InstanceId": {
                     "type": "object",
                     "properties": {
@@ -29254,26 +29242,6 @@
                         "config"
                     ]
                 },
-                "DeviceBridgeInfo": {
-                    "type": "object",
-                    "properties": {
-                        "bridge-name": {
-                            "type": "string"
-                        },
-                        "host-device-name": {
-                            "type": "string"
-                        },
-                        "mac-address": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "host-device-name",
-                        "bridge-name",
-                        "mac-address"
-                    ]
-                },
                 "DistributionGroupResult": {
                     "type": "object",
                     "properties": {
@@ -29525,43 +29493,6 @@
                         }
                     },
                     "additionalProperties": false
-                },
-                "HostNetworkChange": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "new-bridges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/DeviceBridgeInfo"
-                            }
-                        },
-                        "reconfigure-delay": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "new-bridges",
-                        "reconfigure-delay"
-                    ]
-                },
-                "HostNetworkChangeResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/HostNetworkChange"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
                 },
                 "HostPort": {
                     "type": "object",

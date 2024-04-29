@@ -74,18 +74,18 @@ func (mr *MockContainerMockRecorder) AllLinkLayerDevices() *gomock.Call {
 }
 
 // AllSpaces mocks base method.
-func (m *MockContainer) AllSpaces() (set.Strings, error) {
+func (m *MockContainer) AllSpaces(arg0 network.SubnetInfos) (set.Strings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllSpaces")
+	ret := m.ctrl.Call(m, "AllSpaces", arg0)
 	ret0, _ := ret[0].(set.Strings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AllSpaces indicates an expected call of AllSpaces.
-func (mr *MockContainerMockRecorder) AllSpaces() *gomock.Call {
+func (mr *MockContainerMockRecorder) AllSpaces(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockContainer)(nil).AllSpaces))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockContainer)(nil).AllSpaces), arg0)
 }
 
 // Constraints mocks base method.
@@ -246,19 +246,18 @@ func (mr *MockAddressMockRecorder) DeviceName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeviceName", reflect.TypeOf((*MockAddress)(nil).DeviceName))
 }
 
-// Subnet mocks base method.
-func (m *MockAddress) Subnet() (Subnet, error) {
+// SubnetCIDR mocks base method.
+func (m *MockAddress) SubnetCIDR() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Subnet")
-	ret0, _ := ret[0].(Subnet)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "SubnetCIDR")
+	ret0, _ := ret[0].(string)
+	return ret0
 }
 
-// Subnet indicates an expected call of Subnet.
-func (mr *MockAddressMockRecorder) Subnet() *gomock.Call {
+// SubnetCIDR indicates an expected call of SubnetCIDR.
+func (mr *MockAddressMockRecorder) SubnetCIDR() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnet", reflect.TypeOf((*MockAddress)(nil).Subnet))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetCIDR", reflect.TypeOf((*MockAddress)(nil).SubnetCIDR))
 }
 
 // MockSubnet is a mock of Subnet interface.
@@ -337,18 +336,18 @@ func (mr *MockLinkLayerDeviceMockRecorder) Addresses() *gomock.Call {
 }
 
 // EthernetDeviceForBridge mocks base method.
-func (m *MockLinkLayerDevice) EthernetDeviceForBridge(arg0 string, arg1 bool) (network.InterfaceInfo, error) {
+func (m *MockLinkLayerDevice) EthernetDeviceForBridge(arg0 string, arg1 bool, arg2 network.SubnetInfos) (network.InterfaceInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EthernetDeviceForBridge", arg0, arg1)
+	ret := m.ctrl.Call(m, "EthernetDeviceForBridge", arg0, arg1, arg2)
 	ret0, _ := ret[0].(network.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EthernetDeviceForBridge indicates an expected call of EthernetDeviceForBridge.
-func (mr *MockLinkLayerDeviceMockRecorder) EthernetDeviceForBridge(arg0, arg1 any) *gomock.Call {
+func (mr *MockLinkLayerDeviceMockRecorder) EthernetDeviceForBridge(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EthernetDeviceForBridge", reflect.TypeOf((*MockLinkLayerDevice)(nil).EthernetDeviceForBridge), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EthernetDeviceForBridge", reflect.TypeOf((*MockLinkLayerDevice)(nil).EthernetDeviceForBridge), arg0, arg1, arg2)
 }
 
 // IsAutoStart mocks base method.

@@ -1940,7 +1940,7 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// ProviderCallContext is not required by this logical path and can be nil
-	err := ctx.ProcessOneContainer(s.environ, callCtx, s.policy, 0, s.host, s.container, loggo.GetLogger("juju.apiserver.provisioner"))
+	err := ctx.ProcessOneContainer(s.environ, callCtx, s.policy, 0, s.host, s.container, loggo.GetLogger("juju.apiserver.provisioner"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Config, gc.HasLen, 1)
 
@@ -1995,7 +1995,7 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggo.GetLogger("juju.apiserver.provisioner"))
+	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggo.GetLogger("juju.apiserver.provisioner"), nil)
 	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
 }
 
@@ -2022,7 +2022,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggo.GetLogger("juju.apiserver.provisioner"))
+	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggo.GetLogger("juju.apiserver.provisioner"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -2053,7 +2053,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggo.GetLogger("juju.apiserver.provisioner"))
+	err := ctx.ProcessOneContainer(s.environ, callCtx, nil, 0, s.host, s.container, loggo.GetLogger("juju.apiserver.provisioner"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)

@@ -179,6 +179,7 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
 
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
+	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	expectedApplications := []string{"mysql", "mediawiki"}
 	sort.Strings(expectedApplications)
@@ -219,6 +220,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 	args := s.getShowSpaceArg("default")
 
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
+	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,6 +238,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 	args := s.getShowSpaceArg("default")
 
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
+	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -252,6 +255,7 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 	s.expectDefaultSpace(ctrl, "default", nil)
 	s.Backing.EXPECT().AllEndpointBindings().Return(nil, expErr)
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
+	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	args := s.getShowSpaceArg("default")
 
@@ -272,6 +276,7 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
 
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
+	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	args := s.getShowSpaceArg("default")
 	res, err := s.API.ShowSpace(stdcontext.Background(), args)
@@ -715,11 +720,11 @@ func (s *APISuite) expectMachines(ctrl *gomock.Controller, addresses set.Strings
 	// With this we can ensure that the function correctly adds up multiple machines.
 	anotherMockMachine := spaces.NewMockMachine(ctrl)
 	if machErr != nil {
-		mockMachine.EXPECT().AllSpaces().Return(addresses, addressesErr).AnyTimes()
-		anotherMockMachine.EXPECT().AllSpaces().Return(addresses, addressesErr).AnyTimes()
+		mockMachine.EXPECT().AllSpaces(gomock.Any()).Return(addresses, addressesErr).AnyTimes()
+		anotherMockMachine.EXPECT().AllSpaces(gomock.Any()).Return(addresses, addressesErr).AnyTimes()
 	} else {
-		mockMachine.EXPECT().AllSpaces().Return(addresses, addressesErr)
-		anotherMockMachine.EXPECT().AllSpaces().Return(addresses, addressesErr)
+		mockMachine.EXPECT().AllSpaces(gomock.Any()).Return(addresses, addressesErr)
+		anotherMockMachine.EXPECT().AllSpaces(gomock.Any()).Return(addresses, addressesErr)
 	}
 	mockMachines := []spaces.Machine{mockMachine, anotherMockMachine}
 	s.Backing.EXPECT().AllMachines().Return(mockMachines, machErr)

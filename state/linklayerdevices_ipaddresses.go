@@ -151,13 +151,6 @@ func (addr *Address) SubnetCIDR() string {
 	return addr.doc.SubnetCIDR
 }
 
-// Subnet returns the Subnet this IP address comes from. Returns nil and
-// errors.NotFoundError if the address comes from an unknown subnet (i.e.
-// machine-local one).
-func (addr *Address) Subnet() (*Subnet, error) {
-	return addr.st.SubnetByCIDR(addr.doc.SubnetCIDR)
-}
-
 // ConfigMethod returns the AddressConfigMethod used for this IP address.
 func (addr *Address) ConfigMethod() network.AddressConfigType {
 	return addr.doc.ConfigMethod

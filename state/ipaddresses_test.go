@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -164,42 +163,6 @@ func (s *ipAddressesStateSuite) TestDeviceMethodReturnsNotFoundErrorWhenMissing(
 	c.Assert(err, gc.ErrorMatches, `device with ID .+ not found`)
 }
 
-func (s *ipAddressesStateSuite) TestSubnetMethodReturnsSubnet(c *gc.C) {
-	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.41/16")
-
-	result, err := addresses[0].Subnet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.CIDR(), gc.Equals, "10.20.0.0/16")
-}
-
-func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
-	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.41/16")
-	subnet, err := s.State.SubnetByCIDR("10.20.0.0/16")
-	c.Assert(err, jc.ErrorIsNil)
-	s.ensureEntityDeadAndRemoved(c, subnet)
-
-	result, err := addresses[0].Subnet()
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `subnet "10.20.0.0/16" not found`)
-	c.Assert(result, gc.IsNil)
-}
-
-func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWithUnknownOrLocalSubnet(c *gc.C) {
-	cidrs := []string{"127.0.0.0/8", "::1/128", "8.8.0.0/16"}
-	missingCIDRs := set.NewStrings(cidrs...)
-	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", cidrs...)
-
-	for _, address := range addresses {
-		result, err := address.Subnet()
-		c.Check(result, gc.IsNil)
-		c.Check(err, jc.ErrorIs, errors.NotFound)
-		expectedError := fmt.Sprintf("subnet %q not found", address.SubnetCIDR())
-		c.Check(err, gc.ErrorMatches, expectedError)
-		missingCIDRs.Remove(address.SubnetCIDR())
-	}
-	c.Check(missingCIDRs.SortedValues(), gc.DeepEquals, []string{})
-}
-
 func (s *ipAddressesStateSuite) TestRemoveSuccess(c *gc.C) {
 	_, existingAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
 
@@ -330,79 +293,6 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAlsoRemovesAllAddresses(c *gc.C
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	s.ensureMachineDeadAndRemove(c, s.machine)
 	s.assertNoAddressesOnMachine(c, s.machine)
-}
-
-func (s *ipAddressesStateSuite) TestAllSpacesHandlesUnknownSubnets(c *gc.C) {
-	// This is not one of the registered subnets
-	s.addNamedDeviceWithAddresses(c, "eth0", "172.12.0.10/24")
-	spaces, err := s.machine.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
-}
-
-func resetSubnet(c *gc.C, st *state.State, subnetInfo network.SubnetInfo) {
-	// TODO (hml) 2019-07-26
-	// This comment is no longer valid.  Changes are in progress.
-	// Update when complete.
-	//
-	// We currently don't allow updating a subnet's information, so remove it
-	// and add it with the new value.
-	// XXX(jam): We should add mutation operations instead of this ugly hack
-	subnet, err := st.SubnetByCIDR(subnetInfo.CIDR)
-	c.Assert(err, jc.ErrorIsNil)
-	err = subnet.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = subnet.Remove(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
-	s.addTwoDevicesWithTwoAddressesEach(c)
-	space, err := s.State.AddSpace("default", "default", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, network.SubnetInfo{
-		CIDR:    "10.20.0.0/16",
-		SpaceID: space.Id(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, network.SubnetInfo{
-		CIDR:    "fc00::/64",
-		SpaceID: space.Id(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	spaces, err := s.machine.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space.Id()})
-}
-
-func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
-	s.addTwoDevicesWithTwoAddressesEach(c)
-	space1, err := s.State.AddSpace("default", "default", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, network.SubnetInfo{
-		CIDR:    "10.20.0.0/16",
-		SpaceID: space1.Id(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	space2, err := s.State.AddSpace("dmz-ipv6", "not-default", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, network.SubnetInfo{
-		CIDR:    "fc00::/64",
-		SpaceID: space2.Id(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	spaces, err := s.machine.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space1.Id(), space2.Id()})
-}
-
-func (s *ipAddressesStateSuite) TestAllSpacesReturnsDefaultSpace(c *gc.C) {
-	s.addTwoDevicesWithTwoAddressesEach(c)
-	spaces, err := s.machine.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{network.AlphaSpaceId})
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesDoesNothingWithEmptyArgs(c *gc.C) {

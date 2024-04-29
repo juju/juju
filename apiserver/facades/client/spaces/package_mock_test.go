@@ -270,18 +270,18 @@ func (mr *MockMachineMockRecorder) AllAddresses() *gomock.Call {
 }
 
 // AllSpaces mocks base method.
-func (m *MockMachine) AllSpaces() (set.Strings, error) {
+func (m *MockMachine) AllSpaces(arg0 network.SubnetInfos) (set.Strings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllSpaces")
+	ret := m.ctrl.Call(m, "AllSpaces", arg0)
 	ret0, _ := ret[0].(set.Strings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AllSpaces indicates an expected call of AllSpaces.
-func (mr *MockMachineMockRecorder) AllSpaces() *gomock.Call {
+func (mr *MockMachineMockRecorder) AllSpaces(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces), arg0)
 }
 
 // Units mocks base method.
