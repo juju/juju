@@ -701,7 +701,7 @@ github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c/go.mod h1:jwCfBs/smY
 github.com/juju/mutex/v2 v2.0.0/go.mod h1:jwCfBs/smYDaeZLqeaCi8CB8M+tOes4yf827HoOEoqk=
 github.com/juju/names/v4 v4.0.0/go.mod h1:xpkrQpHbz1DGY+0Geo32ZnyognGA/2vSB++rpu/Z+Lc=
 github.com/juju/naturalsort v1.0.0/go.mod h1:Zqa/vGkXr78k47zM6tFmU9phhxKz/PIdqBzpLhJ86zc=
-github.com/juju/os/v2 v2.2.3/go.mod h1:xGfP9I+Xb/A03NcGBsoJgwr084hPckkQHecaHuV3wBQ=
+github.com/juju/os/v2 v2.2.4/go.mod h1:igGQLjgRSwUery5ZhV/1pZjZkMwnfkAwWCwh5ZfIg+c=
 github.com/juju/packaging/v2 v2.0.1/go.mod h1:JC+FIRTJXGLt9wA+iP3ltkzv+aWVMMojB/R47uIAK0Y=
 github.com/juju/persistent-cookiejar v1.0.0/go.mod h1:zrbmo4nBKaiP/Ez3F67ewkMbzGYfXyMvRtbOfuAwG0w=
 github.com/juju/postgrestest v1.1.0/go.mod h1:/n17Y2T6iFozzXwSCO0JYJ5gSiz2caEtSwAjh/uLXDM=
