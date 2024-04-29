@@ -20,6 +20,8 @@ import (
 type NetworkService interface {
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// GetAllSubnets returns all the subnets for the model.
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 }
 
 // LinkLayerDevice is an indirection for state.LinkLayerDevice.
@@ -30,7 +32,7 @@ type LinkLayerDevice interface {
 	MACAddress() string
 	ParentName() string
 	ParentDevice() (LinkLayerDevice, error)
-	EthernetDeviceForBridge(name string, askForProviderAddress bool) (network.InterfaceInfo, error)
+	EthernetDeviceForBridge(name string, askForProviderAddress bool, allSubnets network.SubnetInfos) (network.InterfaceInfo, error)
 	Addresses() ([]*state.Address, error)
 	VirtualPortType() network.VirtualPortType
 
@@ -71,7 +73,7 @@ var _ LinkLayerDevice = (*linkLayerDevice)(nil)
 type Machine interface {
 	Id() string
 	AllDeviceAddresses() ([]Address, error)
-	AllSpaces() (set.Strings, error)
+	AllSpaces(allSubnets network.SubnetInfos) (set.Strings, error)
 	SetLinkLayerDevices(devicesArgs ...state.LinkLayerDeviceArgs) (err error)
 	AllLinkLayerDevices() ([]LinkLayerDevice, error)
 
@@ -136,8 +138,9 @@ func (m *MachineShim) Raw() *state.Machine {
 
 // Address is an indirection for state.Address.
 type Address interface {
-	Subnet() (Subnet, error)
 	DeviceName() string
+	// SubnetCIDR returns the CIDR of the subnet this IP address comes from.
+	SubnetCIDR() string
 }
 
 // addressShim implements Address.
@@ -148,10 +151,6 @@ type addressShim struct {
 // NewAddress wraps the given state.Address in an addressShim.
 func NewAddress(a *state.Address) Address {
 	return &addressShim{Address: a}
-}
-
-func (a *addressShim) Subnet() (Subnet, error) {
-	return a.Address.Subnet()
 }
 
 // Subnet is an indirection for state.Subnet.

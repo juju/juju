@@ -62,6 +62,8 @@ type NetworkService interface {
 	// An error is returned that satisfied errors.NotFound if the space was not found
 	// or an error static any problems fetching the given space.
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	// GetAllSubnets returns all the subnets for the model.
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -879,6 +881,7 @@ type perContainerHandler interface {
 	ProcessOneContainer(
 		env environs.Environ, callContext envcontext.ProviderCallContext,
 		policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
+		allSubnets network.SubnetInfos,
 	) error
 
 	// SetError will be called whenever there is a problem with the a given
@@ -916,6 +919,11 @@ func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args par
 	}
 	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
 
+	allSubnets, err := api.networkService.GetAllSubnets(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
@@ -940,6 +948,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args par
 			NewMachine(hostMachine),
 			NewMachine(guest),
 			api.logger,
+			allSubnets,
 		); err != nil {
 			handler.SetError(i, err)
 			continue
@@ -965,7 +974,7 @@ func (ctx *prepareOrGetContext) ConfigType() string {
 
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
+	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger, _ network.SubnetInfos,
 ) error {
 	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
@@ -1077,9 +1086,9 @@ type hostChangesContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
+	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger, allSubnets network.SubnetInfos,
 ) error {
-	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest)
+	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
 		return err
 	}
@@ -1129,7 +1138,7 @@ type containerProfileContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *containerProfileContext) ProcessOneContainer(
-	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger loggo.Logger,
+	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger loggo.Logger, _ network.SubnetInfos,
 ) error {
 	units, err := guest.Units()
 	if err != nil {

@@ -225,6 +225,11 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 	if err != nil {
 		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
 	}
+	// Retrieve the list of all subnets, needed for the machine spaces.
+	allSubnets, err := api.networkService.GetAllSubnets(ctx)
+	if err != nil {
+		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
+	}
 
 	results := make([]params.ShowSpaceResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
@@ -263,7 +268,7 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 		// TODO(nvinuesa): This logic should be implemented in the
 		// network service once we finish migrating machines to
 		// dqlite.
-		machineCount, err := api.getMachineCountBySpaceID(space.ID)
+		machineCount, err := api.getMachineCountBySpaceID(space.ID, allSubnets)
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching machine count")
 			results[i].Error = apiservererrors.ServerError(newErr)
@@ -307,14 +312,14 @@ func (api *API) checkSupportsSpaces(ctx stdcontext.Context) error {
 	return nil
 }
 
-func (api *API) getMachineCountBySpaceID(spaceID string) (int, error) {
+func (api *API) getMachineCountBySpaceID(spaceID string, allSubnets network.SubnetInfos) (int, error) {
 	var count int
 	machines, err := api.backing.AllMachines()
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
 	for _, machine := range machines {
-		spacesSet, err := machine.AllSpaces()
+		spacesSet, err := machine.AllSpaces(allSubnets)
 		if err != nil {
 			return 0, errors.Trace(err)
 		}

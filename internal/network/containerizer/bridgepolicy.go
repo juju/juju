@@ -34,8 +34,11 @@ type namedNICsBySpace = map[string]map[string]LinkLayerDevice
 // for guests inside a host machine, along with the creation of network
 // devices on those bridges for the containers to use.
 type BridgePolicy struct {
-	// spaces is a slice of SpaceInfos.
-	spaces corenetwork.SpaceInfos
+	// allSpaces is the list of all available spaces.
+	allSpaces corenetwork.SpaceInfos
+
+	// allSubnets is the list of all available subnets.
+	allSubnets corenetwork.SubnetInfos
 
 	// netBondReconfigureDelay is how much of a delay to inject if we see that
 	// one of the devices being bridged is a BondDevice. This exists because of
@@ -55,13 +58,18 @@ type BridgePolicy struct {
 func NewBridgePolicy(ctx context.Context, cfgGetter environs.ConfigGetter, networkService NetworkService) (*BridgePolicy, error) {
 	cfg := cfgGetter.Config()
 
-	spaces, err := networkService.GetAllSpaces(ctx)
+	allSpaces, err := networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting space infos")
 	}
+	allSubnets, err := networkService.GetAllSubnets(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting subnet infos")
+	}
 
 	return &BridgePolicy{
-		spaces:                    spaces,
+		allSpaces:                 allSpaces,
+		allSubnets:                allSubnets,
 		netBondReconfigureDelay:   cfg.NetBondReconfigureDelay(),
 		containerNetworkingMethod: cfg.ContainerNetworkingMethod(),
 	}, nil
@@ -74,6 +82,7 @@ func NewBridgePolicy(ctx context.Context, cfgGetter environs.ConfigGetter, netwo
 // machine cannot provide.
 func (p *BridgePolicy) FindMissingBridgesForContainer(
 	host Machine, guest Container,
+	allSubnets corenetwork.SubnetInfos,
 ) ([]network.DeviceToBridge, int, error) {
 	guestSpaceInfos, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(host, guest)
 	if err != nil {
@@ -91,10 +100,10 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 					continue
 				}
 				if strings.HasPrefix(device.Name(), "fan-") {
-					addInfo := p.spaces.GetByID(spaceID)
+					addInfo := p.allSpaces.GetByID(spaceID)
 					fanSpacesFound = append(fanSpacesFound, *addInfo)
 				} else {
-					addInfo := p.spaces.GetByID(spaceID)
+					addInfo := p.allSpaces.GetByID(spaceID)
 					spacesFound = append(spacesFound, *addInfo)
 				}
 			}
@@ -164,7 +173,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 	}
 	notFound = notFound.Minus(spacesFound)
 	if len(notFound) != 0 {
-		hostSpaces, err := host.AllSpaces()
+		hostSpaces, err := host.AllSpaces(allSubnets)
 		if err != nil {
 			// log it, but we're returning another error right now
 			logger.Warningf("got error looking for spaces for host machine %q: %v",
@@ -199,7 +208,7 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	devicesPerSpace, err := linkLayerDevicesForSpaces(host, containerSpaces)
+	devicesPerSpace, err := p.linkLayerDevicesForSpaces(host, containerSpaces)
 	if err != nil {
 		logger.Errorf("findSpacesAndDevicesForContainer(%q) got error looking for host spaces: %v",
 			guest.Id(), err)
@@ -238,7 +247,7 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 // Note that devices like 'lxdbr0' that are bridges that might not be
 // externally accessible may be returned if the default space is
 // listed as one of the desired spaces.
-func linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map[string][]LinkLayerDevice, error) {
+func (p *BridgePolicy) linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map[string][]LinkLayerDevice, error) {
 	deviceByName, err := linkLayerDevicesByName(host)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -272,14 +281,18 @@ func linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map
 
 		spaceID := corenetwork.AlphaSpaceId
 
-		subnet, err := addr.Subnet()
+		subnets, err := p.allSubnets.GetByCIDR(addr.SubnetCIDR())
 		if err != nil {
-			if !errors.Is(err, errors.NotFound) {
-				// We don't understand the error, so error out for now
+			return nil, errors.Trace(err)
+		}
+		if len(subnets) > 0 {
+			// Take the first subnet.
+			subnet := subnets[0]
+			if err != nil {
 				return nil, errors.Trace(err)
+			} else {
+				spaceID = subnet.SpaceID
 			}
-		} else {
-			spaceID = subnet.SpaceID()
 		}
 		spaceToDevices = includeDevice(spaceToDevices, spaceID, device)
 	}
@@ -349,7 +362,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 	// Constraints have been left in space name form,
 	// as they are human-readable and can be changed.
 	for _, spaceName := range cons.IncludeSpaces() {
-		if space := p.spaces.GetByName(spaceName); space != nil {
+		if space := p.allSpaces.GetByName(spaceName); space != nil {
 			spaces = append(spaces, *space)
 		}
 	}
@@ -377,7 +390,7 @@ func (p *BridgePolicy) spaceNamesForPrinting(ids set.Strings) string {
 	}
 	names := set.NewStrings()
 	for _, id := range ids.Values() {
-		if info := p.spaces.GetByID(id); info != nil {
+		if info := p.allSpaces.GetByID(id); info != nil {
 			names.Add(fmt.Sprintf("%q", info.Name))
 		} else {
 			// fallback, in case we do not have a name for the given
@@ -398,11 +411,11 @@ func (p *BridgePolicy) spaceNamesForPrinting(ids set.Strings) string {
 // spaces that the user can use to constrain connectivity.
 func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (corenetwork.SpaceInfos, error) {
 	if p.containerNetworkingMethod == "local" {
-		alphaInfo := p.spaces.GetByID(corenetwork.AlphaSpaceId)
+		alphaInfo := p.allSpaces.GetByID(corenetwork.AlphaSpaceId)
 		return corenetwork.SpaceInfos{*alphaInfo}, nil
 	}
 
-	hostSpaces, err := host.AllSpaces()
+	hostSpaces, err := host.AllSpaces(p.allSubnets)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -411,14 +424,14 @@ func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (c
 		containerId, host.Id(), namesHostSpaces)
 
 	if len(hostSpaces) == 1 {
-		hostInfo := p.spaces.GetByID(hostSpaces.Values()[0])
+		hostInfo := p.allSpaces.GetByID(hostSpaces.Values()[0])
 		return corenetwork.SpaceInfos{*hostInfo}, nil
 	}
 	if len(hostSpaces) == 0 {
 		logger.Debugf("container has no desired spaces, " +
 			"and host has no known spaces, triggering fallback " +
 			"to bridge all devices")
-		alphaInfo := p.spaces.GetByID(corenetwork.AlphaSpaceId)
+		alphaInfo := p.allSpaces.GetByID(corenetwork.AlphaSpaceId)
 		return corenetwork.SpaceInfos{*alphaInfo}, nil
 	}
 	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %s",
@@ -514,7 +527,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 			if hostDevice.Type() == corenetwork.BridgeDevice && !skippedDeviceNames.Contains(name) {
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
-				spaceInfo := p.spaces.GetByID(spaceID)
+				spaceInfo := p.allSpaces.GetByID(spaceID)
 				spacesFound = append(spacesFound, *spaceInfo)
 			}
 		}
@@ -532,7 +545,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 		for _, hostDevice := range devicesPerSpace[corenetwork.AlphaSpaceId] {
 			name := hostDevice.Name()
 			if hostDevice.Type() == corenetwork.BridgeDevice && name == localBridgeName {
-				alphaInfo := p.spaces.GetByID(corenetwork.AlphaSpaceId)
+				alphaInfo := p.allSpaces.GetByID(corenetwork.AlphaSpaceId)
 				missingSpaces = missingSpaces.Minus(corenetwork.SpaceInfos{*alphaInfo})
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
@@ -558,7 +571,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 
 	for i, hostBridgeName := range sortedBridgeDeviceNames {
 		hostBridge := devicesByName[hostBridgeName]
-		newDevice, err := hostBridge.EthernetDeviceForBridge(fmt.Sprintf("eth%d", i), askProviderForAddress)
+		newDevice, err := hostBridge.EthernetDeviceForBridge(fmt.Sprintf("eth%d", i), askProviderForAddress, p.allSubnets)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -615,8 +628,9 @@ func (dev ovsBridgeDevice) IsUp() bool                           { return dev.wr
 func (dev ovsBridgeDevice) IsAutoStart() bool                    { return dev.wrappedDev.IsAutoStart() }
 func (dev ovsBridgeDevice) EthernetDeviceForBridge(
 	name string, askForProviderAddress bool,
+	allSubnets corenetwork.SubnetInfos,
 ) (corenetwork.InterfaceInfo, error) {
-	return dev.wrappedDev.EthernetDeviceForBridge(name, askForProviderAddress)
+	return dev.wrappedDev.EthernetDeviceForBridge(name, askForProviderAddress, allSubnets)
 }
 func (dev ovsBridgeDevice) VirtualPortType() corenetwork.VirtualPortType {
 	return dev.wrappedDev.VirtualPortType()

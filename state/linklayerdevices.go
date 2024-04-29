@@ -567,6 +567,7 @@ func (dev *LinkLayerDevice) RemoveAddresses() error {
 // If the device is not a bridge, an error is returned.
 func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 	name string, askProviderForAddress bool,
+	allSubnets network.SubnetInfos,
 ) (network.InterfaceInfo, error) {
 	var newDev network.InterfaceInfo
 
@@ -599,19 +600,22 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 	if len(addrs) > 0 {
 		addr := addrs[0]
 		if askProviderForAddress {
-			sub, err := addr.Subnet()
+			subnets, err := allSubnets.GetByCIDR(addr.SubnetCIDR())
 			if err != nil {
 				return newDev, errors.Annotatef(err,
 					"retrieving subnet %q used by address %q of host machine device %q",
 					addr.SubnetCIDR(), addr.Value(), dev.Name(),
 				)
 			}
+			// Only one network should be returned for the given
+			// address, so we can safely get its first element.
+			sub := subnets[0]
 			newDev.ConfigType = network.ConfigStatic
-			newDev.ProviderSubnetId = sub.ProviderId()
-			newDev.VLANTag = sub.VLANTag()
+			newDev.ProviderSubnetId = sub.ProviderId
+			newDev.VLANTag = sub.VLANTag
 			newDev.IsDefaultGateway = addr.IsDefaultGateway()
 			newDev.Addresses = network.ProviderAddresses{
-				network.NewMachineAddress("", network.WithCIDR(sub.CIDR())).AsProviderAddress()}
+				network.NewMachineAddress("", network.WithCIDR(sub.CIDR)).AsProviderAddress()}
 		} else {
 			newDev.Addresses = network.ProviderAddresses{
 				network.NewMachineAddress("", network.WithCIDR(addr.SubnetCIDR())).AsProviderAddress()}

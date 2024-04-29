@@ -14,6 +14,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 )
 
@@ -815,12 +816,7 @@ func (m *Machine) AllDeviceAddresses() ([]*Address, error) {
 // TODO(jam): 2016-12-18 This should evolve to look at the
 // LinkLayerDevices directly, instead of using the Addresses
 // the devices are in to link back to spaces.
-func (m *Machine) AllSpaces() (set.Strings, error) {
-	subnets, err := m.st.AllSubnets()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving subnets")
-	}
-
+func (m *Machine) AllSpaces(allSubnets network.SubnetInfos) (set.Strings, error) {
 	spaces := set.NewStrings()
 	callback := func(doc *ipAddressDoc) {
 		// Don't bother with these. They are not in a space.
@@ -828,9 +824,9 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 			return
 		}
 
-		for _, sub := range subnets {
-			if sub.CIDR() == doc.SubnetCIDR {
-				spaces.Add(sub.spaceID)
+		for _, sub := range allSubnets {
+			if sub.CIDR == doc.SubnetCIDR {
+				spaces.Add(sub.SpaceID)
 				break
 			}
 		}

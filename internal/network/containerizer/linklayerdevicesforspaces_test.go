@@ -4,6 +4,8 @@
 package containerizer
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/juju/testing"
@@ -20,6 +22,12 @@ type linkLayerDevForSpacesSuite struct {
 
 var _ = gc.Suite(&linkLayerDevForSpacesSuite{})
 
+func (s *linkLayerDevForSpacesSuite) policy() *BridgePolicy {
+	return &BridgePolicy{
+		allSubnets: s.baseSuite.allSubnets,
+	}
+}
+
 // TODO(jam): 2017-01-31 Make sure KVM guests default to virbr0, and LXD guests use lxdbr0
 // Add tests for UseLocal = True, but we have named spaces
 // Add tests for UseLocal = True, but the host device is bridged
@@ -28,10 +36,10 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", "1")
+	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", "1")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
@@ -46,10 +54,10 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", "1")
+	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", "1")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "2"}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "2"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 0)
 }
@@ -58,10 +66,10 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoBridge(c *gc
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICWithIP(ctrl, "eth0", "1")
+	s.expectNICWithIP(c, ctrl, "eth0", "1")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
@@ -77,12 +85,12 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesMultipleSpaces
 	defer ctrl.Finish()
 
 	// Is put into the 'somespace' space
-	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", "1")
+	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", "1")
 	// Now add a NIC in the dmz space, but without a bridge
-	s.expectNICWithIP(ctrl, "eth1", "2")
+	s.expectNICWithIP(c, ctrl, "eth1", "2")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}, {ID: "2"}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}, {ID: "2"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 2)
 
@@ -100,16 +108,16 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithExtraAddre
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", "1")
+	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", "1")
 	// When we poll the machine, we include any IP addresses that we
 	// find. One of them is always the loopback, but we could find any
 	// other addresses that someone created on the machine that we
 	// don't know what they are.
-	s.expectNICWithIP(ctrl, "lo", network.AlphaSpaceId)
-	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
+	s.expectNICWithIP(c, ctrl, "lo", network.AlphaSpaceId)
+	s.expectNICWithIP(c, ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 
@@ -123,11 +131,11 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesInDefaultSpace
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICWithIP(ctrl, "ens4", network.AlphaSpaceId)
-	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
+	s.expectNICWithIP(c, ctrl, "ens4", network.AlphaSpaceId)
+	s.expectNICWithIP(c, ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
@@ -144,13 +152,13 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICAndBridgeWithIP(ctrl, "ens4", "br-ens4", "1")
-	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
+	s.expectNICAndBridgeWithIP(c, ctrl, "ens4", "br-ens4", "1")
+	s.expectNICWithIP(c, ctrl, "ens5", network.AlphaSpaceId)
 	s.expectLoopbackNIC(ctrl)
 	s.expectMachineAddressesDevices()
 
 	spaces := network.SpaceInfos{{ID: network.AlphaSpaceId}, {ID: "1"}}
-	res, err := linkLayerDevicesForSpaces(s.machine, spaces)
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, spaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 2)
 
@@ -175,10 +183,10 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithNoAddress(
 	// address yet (which is the case when we first show up on a machine.)
 	s.expectBridgeDevice(ctrl, "lxdbr0")
 
-	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
+	s.expectNICWithIP(c, ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
@@ -199,15 +207,15 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnores
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICWithIP(ctrl, "ens3", network.AlphaSpaceId)
-	s.expectNICAndBridgeWithIP(ctrl, "ens4", "br-ens4", network.AlphaSpaceId)
+	s.expectNICWithIP(c, ctrl, "ens3", network.AlphaSpaceId)
+	s.expectNICAndBridgeWithIP(c, ctrl, "ens4", "br-ens4", network.AlphaSpaceId)
 	s.expectLoopbackNIC(ctrl)
 	s.expectBridgeDevice(ctrl, "lxcbr0")
 	s.expectBridgeDevice(ctrl, "lxdbr0")
 	s.expectBridgeDevice(ctrl, "virbr0")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	devices, ok := res[network.AlphaSpaceId]
@@ -223,11 +231,11 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *g
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", network.AlphaSpaceId)
+	s.expectNICAndBridgeWithIP(c, ctrl, "eth0", "br-eth0", network.AlphaSpaceId)
 	s.setupForNaturalSort(ctrl)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
+	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	defaultDevices, ok := res[network.AlphaSpaceId]
@@ -273,11 +281,15 @@ func (s *linkLayerDevForSpacesSuite) setupForNaturalSort(ctrl *gomock.Controller
 
 		address := NewMockAddress(ctrl)
 		aExp := address.EXPECT()
-		aExp.Subnet().Return(subnet, nil).AnyTimes()
+		aExp.SubnetCIDR().Return("192.168.0.0/24").AnyTimes()
 		aExp.DeviceName().Return(d.parent).AnyTimes()
 
 		s.addresses = append(s.addresses, address)
 	}
+	s.allSubnets = append(s.allSubnets, network.SubnetInfo{
+		CIDR:    "192.168.0.0/24",
+		SpaceID: network.AlphaSpaceId,
+	})
 }
 
 type baseSuite struct {
@@ -285,8 +297,9 @@ type baseSuite struct {
 
 	machine *MockContainer
 
-	devices   []LinkLayerDevice
-	addresses []Address
+	devices    []LinkLayerDevice
+	addresses  []Address
+	allSubnets network.SubnetInfos
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -310,37 +323,49 @@ func (s *baseSuite) expectMachineAddressesDevices() {
 	mExp.AllDeviceAddresses().Return(s.addresses, nil).AnyTimes()
 }
 
-func (s *baseSuite) expectNICAndBridgeWithIP(ctrl *gomock.Controller, dev, parent, spaceID string) {
+func (s *baseSuite) expectNICAndBridgeWithIP(c *gc.C, ctrl *gomock.Controller, dev, parent, spaceID string) {
 	s.expectDevice(ctrl, dev, parent, network.EthernetDevice, network.NonVirtualPort)
 	s.expectBridgeDevice(ctrl, parent)
 
-	subnet := NewMockSubnet(ctrl)
-	sExp := subnet.EXPECT()
-	sExp.SpaceID().Return(spaceID).AnyTimes()
+	spaceIDint, err := strconv.Atoi(spaceID)
+	c.Assert(err, jc.ErrorIsNil)
 
+	cidr := fmt.Sprintf("10.0.%d.0/24", spaceIDint)
 	address := NewMockAddress(ctrl)
 	aExp := address.EXPECT()
-	aExp.Subnet().Return(subnet, nil).AnyTimes()
+	aExp.SubnetCIDR().Return(cidr).AnyTimes()
 	aExp.DeviceName().Return(parent).AnyTimes()
+
+	// Append the expected subnet.
+	s.allSubnets = append(s.allSubnets, network.SubnetInfo{
+		CIDR:    cidr,
+		SpaceID: spaceID,
+	})
 
 	s.addresses = append(s.addresses, address)
 }
 
-func (s *baseSuite) expectNICWithIP(ctrl *gomock.Controller, dev, spaceID string) *MockLinkLayerDevice {
-	return s.expectNICWithIPAndPortType(ctrl, dev, spaceID, network.NonVirtualPort)
+func (s *baseSuite) expectNICWithIP(c *gc.C, ctrl *gomock.Controller, dev, spaceID string) *MockLinkLayerDevice {
+	return s.expectNICWithIPAndPortType(c, ctrl, dev, spaceID, network.NonVirtualPort)
 }
 
-func (s *baseSuite) expectNICWithIPAndPortType(ctrl *gomock.Controller, devName, spaceID string, portType network.VirtualPortType) *MockLinkLayerDevice {
+func (s *baseSuite) expectNICWithIPAndPortType(c *gc.C, ctrl *gomock.Controller, devName, spaceID string, portType network.VirtualPortType) *MockLinkLayerDevice {
 	dev := s.expectDevice(ctrl, devName, "", network.EthernetDevice, portType)
 
-	subnet := NewMockSubnet(ctrl)
-	sExp := subnet.EXPECT()
-	sExp.SpaceID().Return(spaceID).AnyTimes()
+	spaceIDint, err := strconv.Atoi(spaceID)
+	c.Assert(err, jc.ErrorIsNil)
 
+	cidr := fmt.Sprintf("10.0.%d.0/24", spaceIDint)
 	address := NewMockAddress(ctrl)
 	aExp := address.EXPECT()
-	aExp.Subnet().Return(subnet, nil).AnyTimes()
+	aExp.SubnetCIDR().Return(cidr).AnyTimes()
 	aExp.DeviceName().Return(devName).AnyTimes()
+
+	// Append the expected subnet.
+	s.allSubnets = append(s.allSubnets, network.SubnetInfo{
+		CIDR:    cidr,
+		SpaceID: spaceID,
+	})
 
 	s.addresses = append(s.addresses, address)
 	return dev
@@ -360,25 +385,31 @@ func (s *baseSuite) expectBridgeDevice(ctrl *gomock.Controller, dev string) {
 	s.expectDevice(ctrl, dev, "", network.BridgeDevice, network.NonVirtualPort)
 }
 
-func (s *baseSuite) expectBridgeDeviceWithIP(ctrl *gomock.Controller, dev, spaceID string) {
-	s.expectDeviceWithIP(ctrl, dev, spaceID, network.BridgeDevice)
+func (s *baseSuite) expectBridgeDeviceWithIP(c *gc.C, ctrl *gomock.Controller, dev, spaceID string) {
+	s.expectDeviceWithIP(c, ctrl, dev, spaceID, network.BridgeDevice)
 }
 
-func (s *baseSuite) expectDeviceWithIP(ctrl *gomock.Controller, dev, spaceID string, devType network.LinkLayerDeviceType) *MockLinkLayerDevice {
-	return s.expectDeviceWithParentWithIP(ctrl, dev, "", spaceID, devType)
+func (s *baseSuite) expectDeviceWithIP(c *gc.C, ctrl *gomock.Controller, dev, spaceID string, devType network.LinkLayerDeviceType) *MockLinkLayerDevice {
+	return s.expectDeviceWithParentWithIP(c, ctrl, dev, "", spaceID, devType)
 }
 
-func (s *baseSuite) expectDeviceWithParentWithIP(ctrl *gomock.Controller, dev, parent, spaceID string, devType network.LinkLayerDeviceType) *MockLinkLayerDevice {
+func (s *baseSuite) expectDeviceWithParentWithIP(c *gc.C, ctrl *gomock.Controller, dev, parent, spaceID string, devType network.LinkLayerDeviceType) *MockLinkLayerDevice {
 	d := s.expectDevice(ctrl, dev, parent, devType, network.NonVirtualPort)
 
-	subnet := NewMockSubnet(ctrl)
-	sExp := subnet.EXPECT()
-	sExp.SpaceID().Return(spaceID).AnyTimes()
+	spaceIDint, err := strconv.Atoi(spaceID)
+	c.Assert(err, jc.ErrorIsNil)
 
+	cidr := fmt.Sprintf("10.0.%d.0/24", spaceIDint)
 	address := NewMockAddress(ctrl)
 	aExp := address.EXPECT()
-	aExp.Subnet().Return(subnet, nil).AnyTimes()
+	aExp.SubnetCIDR().Return(cidr).AnyTimes()
 	aExp.DeviceName().Return(dev).AnyTimes()
+
+	// Append the expected subnet.
+	s.allSubnets = append(s.allSubnets, network.SubnetInfo{
+		CIDR:    cidr,
+		SpaceID: spaceID,
+	})
 
 	s.addresses = append(s.addresses, address)
 	return d
@@ -395,7 +426,7 @@ func (s *baseSuite) expectDevice(
 	bEXP.ParentName().Return(parent).AnyTimes()
 	bEXP.VirtualPortType().Return(portType).AnyTimes()
 	bEXP.MACAddress().Return("").AnyTimes()
-	bEXP.EthernetDeviceForBridge(ethernetDeviceMatcher{}, false).DoAndReturn(func(name string, _ bool) (network.InterfaceInfo, error) {
+	bEXP.EthernetDeviceForBridge(ethernetDeviceMatcher{}, false, gomock.Any()).DoAndReturn(func(name string, _ bool, _ network.SubnetInfos) (network.InterfaceInfo, error) {
 		return network.InterfaceInfo{
 			ParentInterfaceName: dev,
 			MACAddress:          "00:16:3e:00:00:00",
