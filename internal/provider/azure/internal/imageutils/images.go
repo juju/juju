@@ -49,12 +49,9 @@ func SeriesImage(
 	var publisher, offering, sku string
 	switch seriesOS {
 	case ostype.Ubuntu:
-		series, err := jujubase.GetSeriesFromBase(base)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		publisher = ubuntuPublisher
-		sku, offering, err = ubuntuSKU(ctx, series, stream, location, client)
+		var err error
+		sku, offering, err = ubuntuSKU(ctx, base, stream, location, client)
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", base.DisplayString())
 		}
@@ -80,22 +77,19 @@ func SeriesImage(
 	}, nil
 }
 
-func offerForUbuntuSeries(series string) (string, string, error) {
-	seriesVersion, err := jujubase.SeriesVersion(series)
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-	seriesVersion = strings.ReplaceAll(seriesVersion, ".", "_")
-	return fmt.Sprintf("0001-com-ubuntu-server-%s", series), seriesVersion, nil
+func offerForUbuntuSeries(series string) string {
+	return fmt.Sprintf("0001-com-ubuntu-server-%s", series)
 }
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
 // matching the given series.
-func ubuntuSKU(ctx envcontext.ProviderCallContext, series, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
-	offer, seriesVersion, err := offerForUbuntuSeries(series)
+func ubuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
+	series, err := jujubase.GetSeriesFromBase(base)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
+	offer := offerForUbuntuSeries(series)
+	version := strings.ReplaceAll(base.Channel.Track, ".", "_")
 	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
 	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
 	if err != nil {
@@ -106,8 +100,8 @@ func ubuntuSKU(ctx envcontext.ProviderCallContext, series, stream, location stri
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
 		logger.Debugf("Found Azure SKU Name: %v", skuName)
-		if !strings.HasPrefix(skuName, seriesVersion) {
-			logger.Debugf("ignoring SKU %q (does not match series %q with version %q)", skuName, series, seriesVersion)
+		if !strings.HasPrefix(skuName, version) {
+			logger.Debugf("ignoring SKU %q (does not match base %q with version %q)", skuName, base, version)
 			continue
 		}
 		version, tag, err := parseUbuntuSKU(skuName)
