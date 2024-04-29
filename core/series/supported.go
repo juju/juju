@@ -369,7 +369,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "24.40",
 		LTS:          true,
-		ESMSupported: true,
 	},
 }
 

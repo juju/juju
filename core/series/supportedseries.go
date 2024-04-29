@@ -145,17 +145,11 @@ func updateSeriesVersions() error {
 	switch hostOS {
 	case jujuos.Ubuntu:
 		for seriesName, s := range sInfo {
-			// If a series not known and listed as supported, don't support it.
-			supported := false
-			if current, ok := ubuntuSeries[SeriesName(seriesName)]; ok {
-				supported = current.Supported
-			}
-
 			ubuntuSeries[SeriesName(seriesName)] = seriesVersion{
 				WorkloadType:             ControllerWorkloadType,
 				Version:                  s.Version,
 				LTS:                      s.LTS,
-				Supported:                s.Supported && supported,
+				Supported:                s.Supported,
 				ESMSupported:             s.ESMSupported,
 				IgnoreDistroInfoUpdate:   false,
 				UpdatedByLocalDistroInfo: s.CreatedByLocalDistroInfo,
