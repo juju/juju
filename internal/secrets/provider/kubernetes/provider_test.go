@@ -127,14 +127,13 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 		},
 	}
 
-	uri := secrets.NewURI()
 	gomock.InOrder(
-		broker.EXPECT().RemoveSecretAccessToken(
-			gomock.Any(), uri,
-		).Return(nil),
+		broker.EXPECT().EnsureSecretAccessToken(
+			gomock.Any(), "gitlab/0", nil, nil, []string{"rev-1", "rev-2"},
+		).Return("token", nil),
 	)
 
-	err = p.CleanupSecrets(context.Background(), adminCfg, uri, provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
+	err = p.CleanupSecrets(context.Background(), adminCfg, "gitlab/0", provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

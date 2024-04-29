@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/secrets"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
 func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
@@ -100,7 +98,7 @@ func (k *kubernetesClient) getSecret(ctx context.Context, secretName string) (*c
 	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, fmt.Errorf("secret %q not found%w", secretName, errors.Hide(secreterrors.SecretRevisionNotFound))
+			return nil, errors.NotFoundf("secret %q", secretName)
 		}
 		return nil, errors.Trace(err)
 	}

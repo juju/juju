@@ -74,7 +74,7 @@ type SecretBackendProvider interface {
 
 	// CleanupSecrets removes any ACLs / resources associated
 	// with the removed secrets.
-	CleanupSecrets(ctx context.Context, cfg *ModelBackendConfig, uri *secrets.URI, removed SecretRevisions) error
+	CleanupSecrets(ctx context.Context, cfg *ModelBackendConfig, unitName string, removed SecretRevisions) error
 
 	// CleanupModel removes any secrets / ACLs / resources
 	// associated with the model config.

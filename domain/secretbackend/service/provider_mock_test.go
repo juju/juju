@@ -56,7 +56,7 @@ func (mr *MockSecretBackendProviderMockRecorder) CleanupModel(arg0 any) *gomock.
 }
 
 // CleanupSecrets mocks base method.
-func (m *MockSecretBackendProvider) CleanupSecrets(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 *secrets.URI, arg3 provider.SecretRevisions) error {
+func (m *MockSecretBackendProvider) CleanupSecrets(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 string, arg3 provider.SecretRevisions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CleanupSecrets", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)

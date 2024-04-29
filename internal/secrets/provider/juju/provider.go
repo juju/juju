@@ -40,7 +40,7 @@ func (p jujuProvider) CleanupModel(*provider.ModelBackendConfig) error {
 }
 
 // CleanupSecrets is not used.
-func (p jujuProvider) CleanupSecrets(_ context.Context, _ *provider.ModelBackendConfig, _ *secrets.URI, _ provider.SecretRevisions) error {
+func (p jujuProvider) CleanupSecrets(_ context.Context, _ *provider.ModelBackendConfig, _ string, _ provider.SecretRevisions) error {
 	return nil
 }
 

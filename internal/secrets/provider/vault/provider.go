@@ -140,7 +140,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
-func (p vaultProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, _ *secrets.URI, removed provider.SecretRevisions) error {
+func (p vaultProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, _ string, removed provider.SecretRevisions) error {
 	modelPath := modelPathPrefix(cfg.ModelName, cfg.ModelUUID)
 	client, err := p.newBackend(modelPath, &cfg.BackendConfig)
 	if err != nil {

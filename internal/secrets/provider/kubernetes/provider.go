@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -79,7 +78,7 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (Broker, clouds
 }
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
-func (p k8sProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, uri *coresecrets.URI, removed provider.SecretRevisions) error {
+func (p k8sProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, unitName string, removed provider.SecretRevisions) error {
 	if len(removed) == 0 {
 		return nil
 	}
@@ -87,7 +86,7 @@ func (p k8sProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBack
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = broker.RemoveSecretAccessToken(ctx, uri)
+	_, err = broker.EnsureSecretAccessToken(ctx, unitName, nil, nil, removed.RevisionIDs())
 	return errors.Trace(err)
 }
 
@@ -116,11 +115,6 @@ func BuiltInConfig(cloudSpec cloudspec.CloudSpec) (*provider.BackendConfig, erro
 // BuiltInName returns the backend name for the k8s in-model backend.
 func BuiltInName(modelName string) string {
 	return modelName + "-local"
-}
-
-// IsBuiltInName returns true of the backend name is the built-in one.
-func IsBuiltInName(backendName string) bool {
-	return strings.HasSuffix(backendName, "-local")
 }
 
 // RestrictedConfig returns the config needed to create a

@@ -5,10 +5,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -27,14 +29,14 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 	}
 
 	// We remove the secret from the backend first.
-	if err := s.removeFromExternal(ctx, uri, params.Revisions...); err != nil {
+	if err := s.removeFromExternal(ctx, uri, params.Accessor, params.Revisions...); err != nil {
 		return errors.Trace(err)
 	}
 
 	return s.st.DeleteSecret(ctx, uri, params.Revisions)
 }
 
-func (s *SecretService) removeFromExternal(ctx context.Context, uri *secrets.URI, revisions ...int) error {
+func (s *SecretService) removeFromExternal(ctx context.Context, uri *secrets.URI, accessor SecretAccessor, revisions ...int) error {
 	externalRevs := make(map[string]provider.SecretRevisions)
 	revs, err := s.st.ListExternalSecretRevisions(ctx, uri, revisions...)
 	if err != nil {
@@ -45,7 +47,6 @@ func (s *SecretService) removeFromExternal(ctx context.Context, uri *secrets.URI
 			externalRevs[valRef.BackendID] = provider.SecretRevisions{}
 		}
 		externalRevs[valRef.BackendID].Add(uri, valRef.RevisionID)
-
 	}
 
 	if len(externalRevs) == 0 {
@@ -60,13 +61,13 @@ func (s *SecretService) removeFromExternal(ctx context.Context, uri *secrets.URI
 	for backendID, r := range externalRevs {
 		backendCfg, ok := cfgInfo.Configs[backendID]
 		if !ok {
-			return errors.NotFoundf("secret backend %q", backendID)
+			return fmt.Errorf("secret backend %q not found%w", backendID, secretbackenderrors.NotFound)
 		}
 		p, err := s.providerGetter(backendCfg.BackendType)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if err := s.removeFromBackend(ctx, p, backendCfg, uri, r); err != nil {
+		if err := s.removeFromBackend(ctx, p, backendCfg, accessor, r); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -75,7 +76,7 @@ func (s *SecretService) removeFromExternal(ctx context.Context, uri *secrets.URI
 
 func (s *SecretService) removeFromBackend(
 	ctx context.Context, p provider.SecretBackendProvider, cfg provider.ModelBackendConfig,
-	uri *secrets.URI, revs provider.SecretRevisions,
+	accessor SecretAccessor, revs provider.SecretRevisions,
 ) error {
 	backend, err := p.NewBackend(&cfg)
 	if err != nil {
@@ -86,8 +87,11 @@ func (s *SecretService) removeFromBackend(
 			return errors.Annotatef(err, "deleting secret content from backend for %q", revId)
 		}
 	}
-	if err := p.CleanupSecrets(ctx, &cfg, uri, revs); err != nil {
-		return errors.Annotate(err, "cleaning secret resources from backend")
+	// For units, we want to clean up any backend artefacts.
+	if accessor.Kind == UnitAccessor {
+		if err := p.CleanupSecrets(ctx, &cfg, accessor.ID, revs); err != nil {
+			return errors.Annotatef(err, "cleaning secret resources from %s backend for unit %q", p.Type(), accessor.ID)
+		}
 	}
 	return nil
 }

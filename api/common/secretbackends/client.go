@@ -38,7 +38,7 @@ func (c *Client) GetSecretBackendConfig(backendID *string) (*provider.ModelBacke
 		args.BackendIDs = []string{*backendID}
 	}
 	err := c.facade.FacadeCall(context.TODO(), "GetSecretBackendConfigs", args, &results)
-	if err != nil && !errors.Is(err, secretbackenderrors.NotFound) {
+	if err != nil && !errors.Is(params.TranslateWellKnownError(err), secretbackenderrors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if err != nil || len(results.Results) == 0 {
@@ -77,7 +77,7 @@ func (c *Client) GetBackendConfigForDrain(backendID *string) (*provider.ModelBac
 		arg.BackendIDs = []string{*backendID}
 	}
 	err := c.facade.FacadeCall(context.TODO(), "GetSecretBackendConfigs", arg, &result)
-	if err != nil && !errors.Is(err, secretbackenderrors.NotFound) {
+	if err != nil && !errors.Is(params.TranslateWellKnownError(err), secretbackenderrors.NotFound) {
 		return nil, "", errors.Trace(err)
 	}
 	if len(result.Results) == 0 {

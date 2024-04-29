@@ -229,9 +229,6 @@ type ApplicationBroker interface {
 type SecretsProvider interface {
 	// EnsureSecretAccessToken ensures the secret related RBAC resources for the provided entity.
 	EnsureSecretAccessToken(ctx context.Context, unitName string, owned, read, removed []string) (string, error)
-
-	// RemoveSecretAccessToken removes the secret related RBAC resources for the provided secret.
-	RemoveSecretAccessToken(ctx context.Context, uri *secrets.URI) error
 }
 
 // SecretsBackend provides an API for managing Juju secrets.
