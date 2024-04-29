@@ -127,7 +127,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 			Tag: "unit-mysql-0", // not a valid machine tag
 		}}}
 	// Only machine 0 can have it's containers updated.
-	results, err := aProvisioner.HostChangesForContainers(context.Background(), args, nil)
+	results, err := aProvisioner.HostChangesForContainers(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
 	c.Skip("dummy provider needs networking https://pad.lv/1651974")
 	// Overall request is ok

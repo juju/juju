@@ -1119,7 +1119,7 @@ func (ctx *hostChangesContext) ConfigType() string {
 // HostChangesForContainers returns the set of changes that need to be done
 // to the host machine to prepare it for the containers to be created.
 // Pass in a list of the containers that you want the changes for.
-func (api *ProvisionerAPI) HostChangesForContainers(ctx stdcontext.Context, args params.Entities, allSubnets network.SubnetInfos) (params.HostNetworkChangeResults, error) {
+func (api *ProvisionerAPI) HostChangesForContainers(ctx stdcontext.Context, args params.Entities) (params.HostNetworkChangeResults, error) {
 	c := &hostChangesContext{
 		result: params.HostNetworkChangeResults{
 			Results: make([]params.HostNetworkChange, len(args.Entities)),
