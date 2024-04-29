@@ -41,9 +41,7 @@ type ModelCreationArgs struct {
 	// Owner is the uuid of the user that owns this model in the Juju controller.
 	Owner user.UUID
 
-	// UUID represents the unique id for the model when being created. This
-	// value is optional and if omitted will be generated for the caller. Use
-	// this value when you are trying to import a model during model migration.
+	// UUID represents the unique id for the model when being created.
 	UUID coremodel.UUID
 }
 
@@ -64,11 +62,8 @@ func (m ModelCreationArgs) Validate() error {
 			return fmt.Errorf("credential: %w", err)
 		}
 	}
-
-	if m.UUID != "" {
-		if err := m.UUID.Validate(); err != nil {
-			return fmt.Errorf("uuid: %w", err)
-		}
+	if err := m.UUID.Validate(); err != nil {
+		return fmt.Errorf("uuid: %w", err)
 	}
 	return nil
 }

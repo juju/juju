@@ -258,10 +258,11 @@ func (m *ModelManagerAPI) createModelNew(
 	// if there was an error. If a failure to rollback occurs, then the endpoint
 	// should at least be somewhat idempotent.
 
+	modelUUID := coremodel.UUID(uuid)
 	creationArgs := model.ModelCreationArgs{
 		CloudRegion: args.CloudRegion,
 		Name:        args.Name,
-		UUID:        coremodel.UUID(uuid),
+		UUID:        modelUUID,
 	}
 
 	// We need to get the controller's default cloud and credential. To help
@@ -329,7 +330,7 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// Create the model in the controller database.
-	modelUUID, finaliser, err := m.modelService.CreateModel(ctx, creationArgs)
+	finaliser, err := m.modelService.CreateModel(ctx, creationArgs)
 	if err != nil {
 		return errors.Annotatef(err, "failed to create model %q", modelUUID)
 	}

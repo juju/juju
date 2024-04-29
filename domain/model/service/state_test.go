@@ -46,12 +46,11 @@ func (d *dummyState) CloudType(
 
 func (d *dummyState) Create(
 	_ context.Context,
-	uuid coremodel.UUID,
 	modelType coremodel.ModelType,
 	args model.ModelCreationArgs,
 ) error {
-	if _, exists := d.models[uuid]; exists {
-		return fmt.Errorf("%w %q", modelerrors.AlreadyExists, uuid)
+	if _, exists := d.models[args.UUID]; exists {
+		return fmt.Errorf("%w %q", modelerrors.AlreadyExists, args.UUID)
 	}
 
 	for _, v := range d.models {
@@ -86,10 +85,10 @@ func (d *dummyState) Create(
 		}
 	}
 
-	d.nonFinalisedModels[uuid] = coremodel.Model{
+	d.nonFinalisedModels[args.UUID] = coremodel.Model{
 		AgentVersion: args.AgentVersion,
 		Name:         args.Name,
-		UUID:         uuid,
+		UUID:         args.UUID,
 		ModelType:    modelType,
 		Cloud:        args.Cloud,
 		CloudRegion:  args.CloudRegion,

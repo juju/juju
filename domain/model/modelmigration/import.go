@@ -47,7 +47,7 @@ func RegisterImport(coordinator Coordinator, logger Logger) {
 type ModelService interface {
 	// CreateModel is responsible for creating a new model that is being
 	// imported.
-	CreateModel(context.Context, domainmodel.ModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
+	CreateModel(context.Context, domainmodel.ModelCreationArgs) (func(context.Context) error, error)
 	// ModelType returns the type of the model.
 	ModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 	// DeleteModel is responsible for removing a model from the system.
@@ -168,18 +168,11 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 
 	// NOTE: Try to get all things that can fail before creating the model in
 	// the database.
-
-	createdModelUUID, finaliser, err := i.modelService.CreateModel(ctx, args)
+	finaliser, err := i.modelService.CreateModel(ctx, args)
 	if err != nil {
 		return fmt.Errorf(
 			"importing model %q with uuid %q during migration: %w",
 			modelName, modelID, err,
-		)
-	}
-	if createdModelUUID != args.UUID {
-		return fmt.Errorf(
-			"importing model %q with uuid %q during migration, created model uuid %q does not match expected uuid %q",
-			modelName, modelID, createdModelUUID, args.UUID,
 		)
 	}
 
@@ -198,6 +191,7 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	// When importing a model, we need to move the model from the prior
 	// controller to the current controller. This is done, during the import
 	// operation, so it never changes once the model is up and running.
+
 	controllerUUID, err := uuid.UUIDFromString(controllerConfig.ControllerUUID())
 	if err != nil {
 		return fmt.Errorf("parsing controller uuid %q: %w", controllerConfig.ControllerUUID(), err)

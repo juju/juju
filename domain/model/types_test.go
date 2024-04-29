@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 )
 
@@ -22,6 +23,7 @@ var _ = gc.Suite(&typesSuite{})
 
 func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 	userUUID := usertesting.GenUserUUID(c)
+	modelUUID := modeltesting.GenModelUUID(c)
 
 	tests := []struct {
 		Args    ModelCreationArgs
@@ -33,6 +35,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				CloudRegion: "my-region",
 				Name:        "",
 				Owner:       userUUID,
+				UUID:        modelUUID,
 			},
 			ErrTest: errors.NotValid,
 		},
@@ -42,6 +45,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
 				Owner:       "",
+				UUID:        modelUUID,
 			},
 			ErrTest: errors.NotValid,
 		},
@@ -51,6 +55,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
 				Owner:       userUUID,
+				UUID:        modelUUID,
 			},
 			ErrTest: errors.NotValid,
 		},
@@ -60,6 +65,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				CloudRegion: "",
 				Name:        "my-awesome-model",
 				Owner:       userUUID,
+				UUID:        modelUUID,
 			},
 			ErrTest: nil,
 		},
@@ -72,6 +78,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				},
 				Name:  "my-awesome-model",
 				Owner: userUUID,
+				UUID:  modelUUID,
 			},
 			ErrTest: errors.NotValid,
 		},
@@ -91,6 +98,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
 				Owner:       userUUID,
+				UUID:        modelUUID,
 			},
 			ErrTest: nil,
 		},
@@ -105,6 +113,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				},
 				Name:  "my-awesome-model",
 				Owner: userUUID,
+				UUID:  modelUUID,
 			},
 			ErrTest: nil,
 		},

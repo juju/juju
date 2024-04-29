@@ -94,7 +94,6 @@ WHERE c.name = ?
 // will be returned.
 func (s *State) Create(
 	ctx context.Context,
-	uuid coremodel.UUID,
 	modelType coremodel.ModelType,
 	input model.ModelCreationArgs,
 ) error {
@@ -104,7 +103,7 @@ func (s *State) Create(
 	}
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return Create(ctx, tx, uuid, modelType, input)
+		return Create(ctx, tx, modelType, input)
 	})
 }
 
@@ -117,24 +116,23 @@ func (s *State) Create(
 func Create(
 	ctx context.Context,
 	tx *sql.Tx,
-	uuid coremodel.UUID,
 	modelType coremodel.ModelType,
 	input model.ModelCreationArgs,
 ) error {
-	if err := createModel(ctx, tx, uuid, modelType, input); err != nil {
-		return fmt.Errorf("creating model %q: %w", uuid, err)
+	if err := createModel(ctx, tx, modelType, input); err != nil {
+		return fmt.Errorf("creating model %q: %w", input.UUID, err)
 	}
 
-	if err := createModelAgent(ctx, tx, uuid, input.AgentVersion); err != nil {
-		return fmt.Errorf("creating model %q agent: %w", uuid, err)
+	if err := createModelAgent(ctx, tx, input.UUID, input.AgentVersion); err != nil {
+		return fmt.Errorf("creating model %q agent: %w", input.UUID, err)
 	}
 
-	if err := setModelSecretBackend(ctx, tx, uuid, modelType); err != nil {
+	if err := setModelSecretBackend(ctx, tx, input.UUID, modelType); err != nil {
 		return err
 	}
 
-	if _, err := registerModelNamespace(ctx, tx, uuid); err != nil {
-		return fmt.Errorf("registering model %q namespace: %w", uuid, err)
+	if _, err := registerModelNamespace(ctx, tx, input.UUID); err != nil {
+		return fmt.Errorf("registering model %q namespace: %w", input.UUID, err)
 	}
 
 	return nil
@@ -377,7 +375,6 @@ INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid)
 func createModel(
 	ctx context.Context,
 	tx *sql.Tx,
-	uuid coremodel.UUID,
 	modelType coremodel.ModelType,
 	input model.ModelCreationArgs,
 ) error {
@@ -438,14 +435,14 @@ WHERE model_type.type = ?
 `
 
 	res, err := tx.ExecContext(ctx, stmt,
-		uuid, cloudUUID, life.Alive, input.Name, input.Owner, modelType,
+		input.UUID.String(), cloudUUID, life.Alive, input.Name, input.Owner, modelType,
 	)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
-		return fmt.Errorf("%w for uuid %q", modelerrors.AlreadyExists, uuid)
+		return fmt.Errorf("%w for uuid %q", modelerrors.AlreadyExists, input.UUID)
 	} else if jujudb.IsErrConstraintUnique(err) {
 		return fmt.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, input.Name, input.Owner)
 	} else if err != nil {
-		return fmt.Errorf("setting model %q information: %w", uuid, err)
+		return fmt.Errorf("setting model %q information: %w", input.UUID, err)
 	}
 
 	if num, err := res.RowsAffected(); err != nil {
@@ -454,14 +451,14 @@ WHERE model_type.type = ?
 		return fmt.Errorf("creating model metadata, expected 1 row to be inserted, got %d", num)
 	}
 
-	if err := setCloudRegion(ctx, uuid, input.Cloud, input.CloudRegion, tx); err != nil {
-		return fmt.Errorf("setting cloud region for model %q: %w", uuid, err)
+	if err := setCloudRegion(ctx, input.UUID, input.Cloud, input.CloudRegion, tx); err != nil {
+		return fmt.Errorf("setting cloud region for model %q: %w", input.UUID, err)
 	}
 
 	if !input.Credential.IsZero() {
-		err := updateCredential(ctx, tx, uuid, input.Credential)
+		err := updateCredential(ctx, tx, input.UUID, input.Credential)
 		if err != nil {
-			return fmt.Errorf("setting cloud credential for model %q: %w", uuid, err)
+			return fmt.Errorf("setting cloud credential for model %q: %w", input.UUID, err)
 		}
 	}
 

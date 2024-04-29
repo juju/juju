@@ -50,7 +50,7 @@ type ModelConfigService interface {
 // ModelService defines a interface for interacting with the underlying state.
 type ModelService interface {
 	// CreateModel creates a model.
-	CreateModel(context.Context, model.ModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
+	CreateModel(context.Context, model.ModelCreationArgs) (func(context.Context) error, error)
 
 	// DefaultModelCloudNameAndCredential returns the default cloud name and
 	// credential that should be used for newly created models that haven't had

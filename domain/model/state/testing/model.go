@@ -128,7 +128,6 @@ func CreateTestModel(
 	modelSt := modelstate.NewState(txnRunner)
 	err = modelSt.Create(
 		context.Background(),
-		modelUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -140,6 +139,7 @@ func CreateTestModel(
 			},
 			Name:  name,
 			Owner: userUUID,
+			UUID:  modelUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

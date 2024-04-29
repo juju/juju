@@ -43,20 +43,8 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // - [modelerrors.AgentVersionNotSupported]
 func CreateModel(
 	args model.ModelCreationArgs,
-) (coremodel.UUID, internaldatabase.BootstrapOpt) {
-	var uuidError error
-	uuid := args.UUID
-	if uuid == "" {
-		uuid, uuidError = coremodel.NewUUID()
-	}
-
-	if uuidError != nil {
-		return coremodel.UUID(""), func(_ context.Context, _, _ database.TxnRunner) error {
-			return fmt.Errorf("generating bootstrap model %q uuid: %w", args.Name, uuidError)
-		}
-	}
-
-	return uuid, func(ctx context.Context, controller, model database.TxnRunner) error {
+) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
 			return fmt.Errorf("model creation args: %w", err)
 		}
@@ -71,10 +59,6 @@ func CreateModel(
 		}
 		args.AgentVersion = agentVersion
 
-		if err := uuid.Validate(); err != nil {
-			return fmt.Errorf("invalid model uuid: %w", err)
-		}
-
 		finaliser := state.GetFinaliser()
 		return controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			modelTypeState := modelTypeStateFunc(
@@ -86,12 +70,12 @@ func CreateModel(
 				return fmt.Errorf("determining cloud type for model %q: %w", args.Name, err)
 			}
 
-			if err := state.Create(ctx, tx, uuid, modelType, args); err != nil {
-				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, uuid, err)
+			if err := state.Create(ctx, tx, modelType, args); err != nil {
+				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, args.UUID, err)
 			}
 
-			if err := finaliser(ctx, tx, uuid); err != nil {
-				return fmt.Errorf("finalising bootstrap model %q with uuid %q: %w", args.Name, uuid, err)
+			if err := finaliser(ctx, tx, args.UUID); err != nil {
+				return fmt.Errorf("finalising bootstrap model %q with uuid %q: %w", args.Name, args.UUID, err)
 			}
 			return nil
 		})

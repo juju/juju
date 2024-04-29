@@ -134,7 +134,6 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err = modelSt.Create(
 		context.Background(),
-		m.uuid,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -147,6 +146,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 			},
 			Name:  "my-test-model",
 			Owner: m.userUUID,
+			UUID:  m.uuid,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +212,6 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 	// We need to first inject a model that does not have a cloud credential set
 	err = st.Create(
 		context.Background(),
-		modelUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -224,6 +223,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 			},
 			Name:  coremodel.ControllerModelName,
 			Owner: userUUID,
+			UUID:  modelUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -337,13 +337,13 @@ func (m *stateSuite) TestCreateModelWithExisting(c *gc.C) {
 		return createModel(
 			ctx,
 			tx,
-			m.uuid,
 			coremodel.IAAS,
 			model.ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "fantasticmodel",
 				Owner:       m.userUUID,
+				UUID:        m.uuid,
 			},
 		)
 	})
@@ -358,13 +358,13 @@ func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
-		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "my-region",
 			Name:        "my-test-model",
 			Owner:       m.userUUID,
+			UUID:        testUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -375,13 +375,13 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
-		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       m.userUUID,
+			UUID:        testUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -392,7 +392,6 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
-		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud: "my-cloud",
@@ -403,6 +402,7 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
+			UUID: testUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -420,7 +420,6 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 
 	err := modelSt.Create(
 		context.Background(),
-		modeltesting.GenModelUUID(c),
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
@@ -432,6 +431,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
+			UUID: modeltesting.GenModelUUID(c),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -439,7 +439,6 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
-		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud: "my-cloud",
@@ -450,6 +449,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
+			UUID: testUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -469,7 +469,6 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 
 	err := modelSt.Create(
 		context.Background(),
-		controllerUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
@@ -481,6 +480,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 				Owner: "test-user",
 				Name:  "foobar",
 			},
+			UUID: controllerUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -495,7 +495,6 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 	testUUID := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
-		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud: "other-cloud",
@@ -506,6 +505,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 				Owner: "test-user",
 				Name:  "foobar",
 			},
+			UUID: testUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -530,13 +530,13 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
-		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       user.UUID("noexist"), // does not exist
+			UUID:        testUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
@@ -554,13 +554,13 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
-		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       m.userUUID,
+			UUID:        testUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
@@ -571,13 +571,13 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
-		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "noexist",
 			CloudRegion: "my-region",
 			Name:        "noregion",
 			Owner:       m.userUUID,
+			UUID:        testUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -673,7 +673,6 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err = modelSt.Create(
 		context.Background(),
-		m.uuid,
 		coremodel.CAAS,
 		model.ModelCreationArgs{
 			Cloud: "minikube",
@@ -684,6 +683,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 			},
 			Name:  "controller",
 			Owner: m.userUUID,
+			UUID:  m.uuid,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -738,7 +738,6 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
 		context.Background(),
-		uuid1,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -751,6 +750,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 			},
 			Name:  "listtest1",
 			Owner: m.userUUID,
+			UUID:  uuid1,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -760,7 +760,6 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 	uuid2 := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
-		uuid2,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -773,6 +772,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 			},
 			Name:  "listtest2",
 			Owner: m.userUUID,
+			UUID:  uuid2,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -849,7 +849,6 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
 		context.Background(),
-		uuid1,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -862,6 +861,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 			},
 			Name:  "owned1",
 			Owner: m.userUUID,
+			UUID:  uuid1,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -870,7 +870,6 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 	uuid2 := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
-		uuid2,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -883,6 +882,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 			},
 			Name:  "owned2",
 			Owner: m.userUUID,
+			UUID:  uuid2,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
