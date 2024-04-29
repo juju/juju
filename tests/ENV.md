@@ -10,7 +10,7 @@ definitive source is the code.
 | `BOOTSTRAP_PROVIDER`         | The provider to use when bootstrapping (see the `provider` package).               |
 | `BOOTSTRAP_REUSE`            | Reuse an existing controller when asked to bootstrap (true/false).                 |
 | `BOOTSTRAP_REUSE_LOCAL`      | The name of a local controller to reuse for testing. Set using the `-l` flag.      |
-| `BOOTSTRAP_SERIES`           | Series to use for the controller. Set using the `-S` flag.                         |
+| `BOOTSTRAP_BASE`             | Base to use for the controller. Set using the `-B` flag.                           |
 | `CONTROLLER_CHARM_CHANNEL`   | The channel to pull the controller charm from (CaaS only).                         |
 | `CONTROLLER_CHARM_PATH_CAAS` | The Charmhub charm name to pull the controller charm from (CaaS only).             |
 | `CONTROLLER_CHARM_PATH_IAAS` | Path to a locally built controller charm to use (IaaS only).                       |

@@ -128,10 +128,10 @@ bootstrap() {
 	fi
 	if [[ ${BOOTSTRAP_REUSE} == "true" && ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
 		# juju show-machine not supported with k8s controllers
-		OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r ".machines | .[] | .series")
+		OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r '.machines | .[] | .base | (.name + "@" + .channel)')
 		if [[ -n ${OUT} ]]; then
-			OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
-			if [[ ${OUT} != "${BOOTSTRAP_SERIES}" ]]; then
+			OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_BASE}" || true)
+			if [[ ${OUT} != "${BOOTSTRAP_BASE}" ]]; then
 				echo "====> Unable to reuse bootstrapped juju"
 				export BOOTSTRAP_REUSE="false"
 			fi
@@ -212,18 +212,18 @@ add_model() {
 # add_images_for_vsphere is used to add-image with known vSphere template paths for LTS series
 # and shouldn't be used by any of the tests directly.
 add_images_for_vsphere() {
-	juju metadata add-image juju-ci-root/templates/jammy-test-template --series jammy
-	juju metadata add-image juju-ci-root/templates/focal-test-template --series focal
+	juju metadata add-image juju-ci-root/templates/jammy-test-template --base ubuntu@22.04
+	juju metadata add-image juju-ci-root/templates/focal-test-template --base ubuntu@20.04
 }
 
 # setup_vsphere_simplestreams generates image metadata for use during vSphere bootstrap.  There is
 # an assumption made with regards to the template name in the Boston vSphere.  This is for internal
 # use only and shouldn't be used by any of the tests directly.
 setup_vsphere_simplestreams() {
-	local dir series
+	local dir base
 
 	dir=${1}
-	series=${2:-"jammy"}
+	base=${2:-"ubuntu@22.04"}
 
 	if [[ ! -f ${dir} ]]; then
 		mkdir "${dir}" || true
@@ -231,7 +231,7 @@ setup_vsphere_simplestreams() {
 
 	cloud_endpoint=$(juju clouds --client --format=json | jq -r ".[\"$BOOTSTRAP_CLOUD\"] | .endpoint")
 	# pipe output to test dir, otherwise becomes part of the return value.
-	juju metadata generate-image -i juju-ci-root/templates/"${series}"-test-template -r "${BOOTSTRAP_REGION}" -d "${dir}" -u "${cloud_endpoint}" -s "${series}" >>"${TEST_DIR}"/simplestreams 2>&1
+	juju metadata generate-image -i juju-ci-root/templates/"${base}"-test-template -r "${BOOTSTRAP_REGION}" -d "${dir}" -u "${cloud_endpoint}" --base "${base}" >>"${TEST_DIR}"/simplestreams 2>&1
 }
 
 # juju_bootstrap is used to bootstrap a model for tracking. This is for internal
@@ -251,23 +251,23 @@ juju_bootstrap() {
 	output=${1}
 	shift
 
-	series=
+	base=
 	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
-		case "${BOOTSTRAP_SERIES}" in
+		case "${BOOTSTRAP_BASE}" in
 		"${CURRENT_LTS}")
-			series="--bootstrap-series=${BOOTSTRAP_SERIES} --config image-stream=daily --force"
+			base="--bootstrap-base=${BOOTSTRAP_BASE} --config image-stream=daily --force"
 			;;
 		"") ;;
 
 		*)
-			series="--bootstrap-series=${BOOTSTRAP_SERIES}"
+			base="--bootstrap-base=${BOOTSTRAP_BASE}"
 			;;
 		esac
 	fi
 
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${cloud_region} ${name} --add-model ${model} --model-default mode= ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${base} ${cloud_region} ${name} --add-model ${model} --model-default mode= ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
@@ -285,7 +285,7 @@ pre_bootstrap() {
 		echo "====> Creating image simplestream metadata for juju ($(green "${version}:${cloud}"))"
 
 		image_streams_dir=${TEST_DIR}/image-streams
-		setup_vsphere_simplestreams "${image_streams_dir}" "${BOOTSTRAP_SERIES}"
+		setup_vsphere_simplestreams "${image_streams_dir}" "${BOOTSTRAP_BASE}"
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS} --metadata-source ${image_streams_dir}"
 		;;
 	esac
