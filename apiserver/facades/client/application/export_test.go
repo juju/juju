@@ -10,6 +10,7 @@ import (
 var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	GetStorageState         = getStorageState
+	GetUnifiedSeries        = getUnifiedSeries
 )
 
 func GetState(st *state.State) Backend {
