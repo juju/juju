@@ -41,8 +41,6 @@ func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudService := serviceFactory.Cloud()
-	credentialSerivce := serviceFactory.Credential()
 
 	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
@@ -55,7 +53,7 @@ func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelC
 			return nil, errors.Trace(err)
 		}
 		defer closer.Release()
-		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), sameController, secretService, cloudService, credentialSerivce, []string{backendID}, false, consumer, leadershipChecker)
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), sameController, secretService, backendService, []string{backendID}, false, consumer, leadershipChecker)
 	}
 	secretInfoGetter := func(modelUUID string) SecretService {
 		return ctx.ServiceFactoryForModel(coremodel.UUID(modelUUID)).Secret(secretBackendAdminConfigGetter)

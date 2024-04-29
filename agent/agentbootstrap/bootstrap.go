@@ -35,6 +35,7 @@ import (
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
+	secretbackendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -253,6 +254,12 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 
+	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
+	modelType := state.ModelTypeIAAS
+	if isCAAS {
+		modelType = state.ModelTypeCAAS
+	}
+
 	databaseBootstrapOptions := []database.BootstrapOpt{
 		// The admin user needs to be added before everything else that
 		// requires being owned by a Juju user.
@@ -261,11 +268,11 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		cloudbootstrap.InsertCloud(b.adminUser.Name(), stateParams.ControllerCloud),
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
+		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
 		modelbootstrap.CreateReadOnlyModel(controllerModelArgs, controllerUUID),
 		modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 	}
-	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
 	if !isCAAS {
 		// TODO(wallyworld) - this is just a placeholder for now
 		databaseBootstrapOptions = append(databaseBootstrapOptions,
@@ -298,10 +305,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 
 	b.logger.Debugf("initializing address %v", info.Addrs)
 
-	modelType := state.ModelTypeIAAS
-	if isCAAS {
-		modelType = state.ModelTypeCAAS
-	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{

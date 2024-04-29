@@ -60,8 +60,6 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudService := serviceFactory.Cloud()
-	credentialSerivce := serviceFactory.Credential()
 
 	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
@@ -70,11 +68,11 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
 	secretBackendConfigGetter := func(stdCtx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
 		// TODO: this method in backend service is a TODO.
-		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), true, secretService, cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), true, secretService, backendService, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	secretBackendDrainConfigGetter := func(stdCtx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		// TODO: this method in backend service is a TODO.
-		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), secretService, cloudService, credentialSerivce, ctx.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), secretService, backendService, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),

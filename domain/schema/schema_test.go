@@ -491,7 +491,7 @@ func (s *schemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *gc.C) 
 
 	backendUUID := utils.MustNewUUID().String()
 
-	s.assertExecSQL(c, "INSERT INTO secret_backend (uuid, name, backend_type) VALUES (?, 'myVault', 'vault');", "", backendUUID)
+	s.assertExecSQL(c, "INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'myVault', 2);", "", backendUUID)
 	s.assertExecSQL(c, "INSERT INTO secret_backend_rotation (backend_uuid, next_rotation_time) VALUES (?, datetime('now', '+1 day'));", "", backendUUID)
 	s.assertExecSQL(c, `UPDATE secret_backend_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE backend_uuid = ?;`, "", backendUUID)
 	s.assertExecSQL(c, `DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;`, "", backendUUID)
@@ -588,24 +588,24 @@ func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {
 	backendUUID1 := utils.MustNewUUID().String()
 	backendUUID2 := utils.MustNewUUID().String()
 	s.assertExecSQL(c,
-		"INSERT INTO secret_backend (uuid, name, backend_type) VALUES (?, 'internal-sb', 'internal');",
+		"INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'controller-sb', 0);",
 		"", backendUUID1)
 	s.assertExecSQL(c,
-		"INSERT INTO secret_backend (uuid, name, backend_type) VALUES (?, 'kubernetes-sb', 'kubernetes');",
+		"INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'kubernetes-sb', 1);",
 		"", backendUUID2)
 	s.assertExecSQL(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
-		"secret backends with type internal or kubernetes are immutable", backendUUID1)
+		"secret backends with type controller or kubernetes are immutable", backendUUID1)
 	s.assertExecSQL(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
-		"secret backends with type internal or kubernetes are immutable", backendUUID2)
+		"secret backends with type controller or kubernetes are immutable", backendUUID2)
 
 	s.assertExecSQL(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
-		"secret backends with type internal or kubernetes are immutable", backendUUID1)
+		"secret backends with type controller or kubernetes are immutable", backendUUID1)
 	s.assertExecSQL(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
-		"secret backends with type internal or kubernetes are immutable", backendUUID2)
+		"secret backends with type controller or kubernetes are immutable", backendUUID2)
 }
 
 func (s *schemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {

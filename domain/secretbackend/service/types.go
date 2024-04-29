@@ -32,3 +32,9 @@ type DeleteSecretBackendParams struct {
 	// DeleteInUse is specified to delete the backend even if it is in use.
 	DeleteInUse bool
 }
+
+// RevisionInfo is used to hold info about an external secret revision.
+type RevisionInfo struct {
+	Revision int
+	ValueRef *coresecrets.ValueRef
+}

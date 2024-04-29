@@ -18,6 +18,7 @@ import (
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	"github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -59,6 +60,8 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
+
+	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 }
 
 type bootstrapSuite struct {

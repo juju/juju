@@ -18,9 +18,49 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
+	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/version"
 )
+
+// CreateInternalSecretBackend creates the internal secret backend on a controller.
+// This should only ever be used from within other state packages.
+// This avoids the need for introducing cyclic imports with tests.
+func CreateInternalSecretBackend(c *gc.C, runner database.TxnRunner) {
+	backendUUID, err := corecredential.NewID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(context.Background(),
+			`
+			INSERT INTO secret_backend (uuid, name, backend_type_id)
+			VALUES (?, ?, ?)
+			ON CONFLICT (name) DO NOTHING
+		`, backendUUID.String(), juju.BackendName, 0)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// CreateKubernetesSecretBackend creates the kubernetes secret backend on a controller.
+// This should only ever be used from within other state packages.
+// This avoids the need for introducing cyclic imports with tests.
+func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
+	backendUUID, err := corecredential.NewID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(context.Background(),
+			`
+			INSERT INTO secret_backend (uuid, name, backend_type_id)
+			VALUES (?, ?, ?)
+			ON CONFLICT (name) DO NOTHING
+		`, backendUUID.String(), kubernetes.BackendName, 1)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 // CreateTestModel is a testing utility function for creating a basic model for
 // a test to rely on. The created model will have it's uuid returned.
@@ -44,6 +84,9 @@ func CreateTestModel(
 
 	runner, err := txnRunner()
 	c.Assert(err, jc.ErrorIsNil)
+
+	CreateInternalSecretBackend(c, runner)
+
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)

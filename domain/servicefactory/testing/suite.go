@@ -24,6 +24,7 @@ import (
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	backendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
@@ -143,6 +144,8 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	}
 
 	uuid, fn := modelbootstrap.CreateModel(controllerArgs)
+	c.Assert(backendbootstrap.CreateDefaultBackends(coremodel.IAAS)(
+		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String())), jc.ErrorIsNil)
 	err := fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.ControllerModelUUID = uuid

@@ -40,7 +40,6 @@ func NewTestAPI(
 	consumer SecretsConsumer,
 	secretTriggers SecretTriggers,
 	backendConfigGetter commonsecrets.BackendConfigGetter,
-	adminConfigGetter commonsecrets.BackendAdminConfigGetter,
 	drainConfigGetter commonsecrets.BackendDrainConfigGetter,
 	remoteClientGetter func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error),
 	crossModelState CrossModelState,

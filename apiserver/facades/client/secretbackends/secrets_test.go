@@ -124,7 +124,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 	if reveal {
 		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 	}
-	s.mockBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), reveal, true, "myvault").
+	s.mockBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), reveal, "myvault").
 		Return([]*secretbackendservice.SecretBackendInfo{
 			{
 				SecretBackend: secrets.SecretBackend{

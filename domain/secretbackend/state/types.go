@@ -13,12 +13,13 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
-	secretbackend "github.com/juju/juju/domain/secretbackend"
+	"github.com/juju/juju/domain/secretbackend"
+	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
 )
 
-// ModelSecretBackend represents a set of data about a model and its secret backend config.
+// ModelSecretBackend represents a set of data about a model and its current secret backend config.
 type ModelSecretBackend struct {
 	// ID is the unique identifier for the model.
 	ID coremodel.UUID `db:"uuid"`
@@ -27,8 +28,13 @@ type ModelSecretBackend struct {
 	// Type is the type of the model.
 	Type coremodel.ModelType `db:"model_type"`
 	// SecretBackendID is the unique identifier for the secret backend configured for the model.
-	// TODO: change to string once we changed the `model_secret_backend.secret_backend_uuid` column to be not null.
-	SecretBackendID sql.NullString `db:"secret_backend_uuid"`
+	SecretBackendID string `db:"secret_backend_uuid"`
+}
+
+// modelDetails represents details about a model.
+type modelDetails struct {
+	// Type is the type of the model.
+	Type coremodel.ModelType `db:"model_type"`
 }
 
 // modelCloudAndCredentialID represents the IDs of a models cloud and cloud
@@ -78,8 +84,8 @@ type SecretBackend struct {
 	ID string `db:"uuid"`
 	// Name is the name of the secret backend.
 	Name string `db:"name"`
-	// BackendType is the type of the secret backend.
-	BackendType string `db:"backend_type"`
+	// BackendType is the id of the secret backend type.
+	BackendTypeID domainsecretbackend.BackendType `db:"backend_type_id"`
 	// TokenRotateInterval is the interval at which the token for the secret backend should be rotated.
 	TokenRotateInterval database.NullDuration `db:"token_rotate_interval"`
 }

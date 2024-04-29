@@ -17,12 +17,13 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	backendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -36,6 +37,7 @@ type secretsDrainSuite struct {
 	leadership                *mocks.MockChecker
 	token                     *mocks.MockToken
 	secretService             *mocks.MockSecretService
+	secretBackendService      *mocks.MockSecretBackendService
 	model                     *mocks.MockModel
 	modelConfigChangesWatcher *mocks.MockNotifyWatcher
 
@@ -62,6 +64,7 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 	s.leadership = mocks.NewMockChecker(ctrl)
 	s.token = mocks.NewMockToken(ctrl)
 	s.secretService = mocks.NewMockSecretService(ctrl)
+	s.secretBackendService = mocks.NewMockSecretBackendService(ctrl)
 	s.model = mocks.NewMockModel(ctrl)
 	s.modelConfigChangesWatcher = mocks.NewMockNotifyWatcher(ctrl)
 	s.expectAuthUnitAgent()
@@ -76,6 +79,7 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		s.model,
 		s.secretService,
+		s.secretBackendService,
 		s.watcherRegistry,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,48 +90,17 @@ func (s *secretsDrainSuite) expectAuthUnitAgent() {
 	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
 }
 
-func (s *secretsDrainSuite) assertGetSecretsToDrain(
-	c *gc.C, modelType state.ModelType, secretBackend string,
-	expectedRevions ...params.SecretRevision,
-) {
+func (s *secretsDrainSuite) assertGetSecretsToDrain(c *gc.C, expectedRevions ...params.SecretRevision) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
-	configAttrs := map[string]interface{}{
-		"name":           "some-name",
-		"type":           "some-type",
-		"uuid":           coretesting.ModelTag.Id(),
-		"secret-backend": secretBackend,
-	}
-	cfg, err := config.New(config.NoDefaults, configAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	s.model.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
-	s.model.EXPECT().Type().Return(modelType)
-
-	s.model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id())
 	s.model.EXPECT().UUID().Return(coretesting.ModelTag.Id())
 
 	now := time.Now()
 	uri := coresecrets.NewURI()
-	s.secretService.EXPECT().ListCharmSecrets(
-		gomock.Any(),
-		[]secretservice.CharmSecretOwner{{
-			Kind: secretservice.UnitOwner,
-			ID:   "mariadb/0",
-		}, {
-			Kind: secretservice.ApplicationOwner,
-			ID:   "mariadb",
-		}}).Return([]*coresecrets.SecretMetadata{{
-		URI:              uri,
-		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
-		Label:            "label",
-		RotatePolicy:     coresecrets.RotateHourly,
-		LatestRevision:   666,
-		LatestExpireTime: &now,
-		NextRotateTime:   &now,
-	}}, [][]*coresecrets.SecretRevisionMetadata{{
+	revisions := []*coresecrets.SecretRevisionMetadata{
 		{
 			// External backend.
 			Revision: 666,
@@ -147,7 +120,38 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 				RevisionID: "rev-668",
 			},
 		},
-	}}, nil)
+	}
+	s.secretService.EXPECT().ListCharmSecrets(
+		gomock.Any(),
+		[]secretservice.CharmSecretOwner{{
+			Kind: secretservice.UnitOwner,
+			ID:   "mariadb/0",
+		}, {
+			Kind: secretservice.ApplicationOwner,
+			ID:   "mariadb",
+		}}).Return([]*coresecrets.SecretMetadata{{
+		URI:              uri,
+		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
+		Label:            "label",
+		RotatePolicy:     coresecrets.RotateHourly,
+		LatestRevision:   666,
+		LatestExpireTime: &now,
+		NextRotateTime:   &now,
+	}}, [][]*coresecrets.SecretRevisionMetadata{revisions}, nil)
+	revInfo := make([]backendservice.RevisionInfo, len(expectedRevions))
+	for i, r := range expectedRevions {
+		revInfo[i] = backendservice.RevisionInfo{
+			Revision: r.Revision,
+		}
+		if r.ValueRef != nil {
+			revInfo[i].ValueRef = &coresecrets.ValueRef{
+				BackendID:  r.ValueRef.BackendID,
+				RevisionID: r.ValueRef.RevisionID,
+			}
+		}
+	}
+	s.secretBackendService.EXPECT().GetRevisionsToDrain(gomock.Any(), model.UUID(coretesting.ModelTag.Id()), revisions).
+		Return(revInfo, nil)
 
 	results, err := s.facade.GetSecretsToDrain(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,46 +169,8 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 	})
 }
 
-func (s *secretsDrainSuite) TestGetSecretsToDrainAutoIAAS(c *gc.C) {
-	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "auto",
-		// External backend.
-		params.SecretRevision{
-			Revision: 666,
-			ValueRef: &params.SecretValueRef{
-				BackendID:  "backend-id",
-				RevisionID: "rev-666",
-			},
-		},
-		// k8s backend.
-		params.SecretRevision{
-			Revision: 668,
-			ValueRef: &params.SecretValueRef{
-				BackendID:  coretesting.ModelTag.Id(),
-				RevisionID: "rev-668",
-			},
-		},
-	)
-}
-
-func (s *secretsDrainSuite) TestGetSecretsToDrainAutoCAAS(c *gc.C) {
-	s.assertGetSecretsToDrain(c, state.ModelTypeCAAS, "auto",
-		// External backend.
-		params.SecretRevision{
-			Revision: 666,
-			ValueRef: &params.SecretValueRef{
-				BackendID:  "backend-id",
-				RevisionID: "rev-666",
-			},
-		},
-		// Internal backend.
-		params.SecretRevision{
-			Revision: 667,
-		},
-	)
-}
-
 func (s *secretsDrainSuite) TestGetSecretsToDrainInternal(c *gc.C) {
-	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, provider.Internal,
+	s.assertGetSecretsToDrain(c,
 		// External backend.
 		params.SecretRevision{
 			Revision: 666,
@@ -224,25 +190,8 @@ func (s *secretsDrainSuite) TestGetSecretsToDrainInternal(c *gc.C) {
 	)
 }
 
-func (s *secretsDrainSuite) TestGetSecretsToDrainExternalIAAS(c *gc.C) {
-	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "backend-id",
-		// Internal backend.
-		params.SecretRevision{
-			Revision: 667,
-		},
-		// k8s backend.
-		params.SecretRevision{
-			Revision: 668,
-			ValueRef: &params.SecretValueRef{
-				BackendID:  coretesting.ModelTag.Id(),
-				RevisionID: "rev-668",
-			},
-		},
-	)
-}
-
-func (s *secretsDrainSuite) TestGetSecretsToDrainExternalCAAS(c *gc.C) {
-	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "backend-id",
+func (s *secretsDrainSuite) TestGetSecretsToDrainExternal(c *gc.C) {
+	s.assertGetSecretsToDrain(c,
 		// Internal backend.
 		params.SecretRevision{
 			Revision: 667,

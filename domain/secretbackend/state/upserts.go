@@ -17,7 +17,7 @@ import (
 func (s *State) upsertBackend(ctx context.Context, tx *sqlair.TX, sb SecretBackend) error {
 	upsertBackendStmt, err := s.Prepare(`
 INSERT INTO secret_backend
-    (uuid, name, backend_type, token_rotate_interval)
+    (uuid, name, backend_type_id, token_rotate_interval)
 VALUES ($SecretBackend.*)
 ON CONFLICT (uuid) DO UPDATE SET
     name=EXCLUDED.name,

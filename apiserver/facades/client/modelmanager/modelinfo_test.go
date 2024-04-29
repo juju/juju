@@ -307,7 +307,7 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return([]*secretbackendservice.SecretBackendInfo{
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return([]*secretbackendservice.SecretBackendInfo{
 		{
 			SecretBackend: coresecrets.SecretBackend{
 				Name:        "myvault",
@@ -365,6 +365,7 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
+		{"UUID", nil},
 		{"Type", nil},
 	})
 }
@@ -374,7 +375,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	s.authorizer.HasWriteTag = mary
 	api, ctrl := s.getAPIWithUser(c, mary)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 
 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
@@ -449,7 +450,7 @@ func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
 func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	start := time.Now().Add(-20 * time.Minute)
 	s.st.migration = &mockMigration{
 		status: "computing optimal bin packing",
@@ -470,7 +471,7 @@ func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
 func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	start := time.Now().Add(-20 * time.Minute)
 	end := time.Now().Add(-10 * time.Minute)
 	s.st.migration = &mockMigration{
@@ -493,7 +494,7 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	results, err := api.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
@@ -504,7 +505,7 @@ func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
 func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
@@ -532,14 +533,14 @@ func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
 func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
 
 func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Dead,
@@ -551,7 +552,7 @@ func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *gc.C) {
 func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Dead,
@@ -563,7 +564,7 @@ func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
 func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
 		desiredLife:  state.Dead,
@@ -575,7 +576,7 @@ func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
 func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Dying,
@@ -587,7 +588,7 @@ func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *gc.C) {
 func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Dying,
@@ -599,7 +600,7 @@ func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
 func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
 		desiredLife:  state.Dying,
@@ -611,7 +612,7 @@ func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
 func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
@@ -619,7 +620,7 @@ func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
 func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
@@ -632,7 +633,7 @@ func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
 func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
@@ -645,7 +646,7 @@ func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
 func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
-	s.mockSecretBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), false, false).Return(nil, nil)
+	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,

@@ -38,8 +38,6 @@ func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, erro
 		return nil, errors.Trace(err)
 	}
 	serviceFactory := context.ServiceFactory()
-	cloudService := serviceFactory.Cloud()
-	credentialSerivce := serviceFactory.Credential()
 	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 
 	secretBackendAdminConfigGetter := func(stdCtx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
@@ -55,6 +53,7 @@ func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, erro
 		leadershipChecker,
 		commonsecrets.SecretsModel(model),
 		secretService,
+		backendService,
 		context.WatcherRegistry(),
 	)
 	if err != nil {
@@ -63,15 +62,14 @@ func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, erro
 
 	secretBackendConfigGetter := func(ctx stdcontext.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
 		return commonsecrets.BackendConfigInfo(
-			ctx, commonsecrets.SecretsModel(model), true, secretService, cloudService, credentialSerivce,
+			ctx, commonsecrets.SecretsModel(model), true, secretService, backendService,
 			backendIDs, wantAll, authTag, leadershipChecker,
 		)
 	}
 	secretBackendDrainConfigGetter := func(ctx stdcontext.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		return commonsecrets.DrainBackendConfigInfo(
 			ctx, backendID, commonsecrets.SecretsModel(model),
-			secretService, cloudService, credentialSerivce,
-			authTag, leadershipChecker,
+			secretService, backendService, authTag, leadershipChecker,
 		)
 	}
 

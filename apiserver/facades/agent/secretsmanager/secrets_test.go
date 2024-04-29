@@ -105,22 +105,6 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			},
 		}, nil
 	}
-	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "backend-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "admin"},
-					},
-				},
-			},
-		}, nil
-	}
 	drainConfigGetter := func(_ context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
@@ -144,7 +128,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
 		s.authorizer, s.watcherRegistry, s.leadership, s.secretService, s.secretsConsumer,
-		s.secretTriggers, backendConfigGetter, adminConfigGetter,
+		s.secretTriggers, backendConfigGetter,
 		drainConfigGetter, remoteClientGetter,
 		s.crossModelState, s.authTag, s.clock,
 	)

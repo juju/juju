@@ -101,7 +101,7 @@ func (s *SecretBackendsAPI) ListSecretBackends(ctx context.Context, arg params.L
 		}
 	}
 
-	backends, err := s.backendService.BackendSummaryInfo(ctx, arg.Reveal, true, arg.Names...)
+	backends, err := s.backendService.BackendSummaryInfo(ctx, arg.Reveal, arg.Names...)
 	if err != nil {
 		return params.ListSecretBackendsResults{}, errors.Trace(err)
 	}

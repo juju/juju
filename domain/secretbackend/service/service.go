@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/cloudspec"
@@ -42,11 +41,6 @@ type Service struct {
 	registry       SecretProviderRegistry
 }
 
-// NewService creates a new Service for interacting with the secret backend state.
-func NewService(st State, logger Logger, controllerUUID string, registry SecretProviderRegistry) *Service {
-	return newService(st, logger, controllerUUID, clock.WallClock, registry)
-}
-
 func newService(
 	st State, logger Logger,
 	controllerUUID string,
@@ -62,73 +56,23 @@ func newService(
 	}
 }
 
-func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {
-	spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	k8sConfig, err := kubernetes.BuiltInConfig(spec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return k8sConfig, nil
-}
-
 // GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user.
 func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error) {
-	var info provider.ModelBackendConfigInfo
-	m, err := s.st.GetModel(ctx, modelUUID)
+	m, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	info.Configs = make(map[string]provider.ModelBackendConfig)
-	// We need to include builtin backends for secret draining and accessing those secrets while drain is in progress.
-	// TODO(secrets) - only use those in use by model
-	// For now, we'll return all backends on the controller.
-	jujuBackendID := s.controllerUUID
-	info.Configs[jujuBackendID] = provider.ModelBackendConfig{
-		ControllerUUID: s.controllerUUID,
-		ModelUUID:      m.ID.String(),
-		ModelName:      m.Name,
-		BackendConfig:  juju.BuiltInConfig(),
 	}
 	currentBackend, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: m.SecretBackendID})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if currentBackend.Name == provider.Auto || currentBackend.Name == provider.Internal {
-		// TODO: The logic for determining the active backend ought to be relocated to an
-		// independent function. This function should then be invoked either when the model
-		// is initially created or when the model's secret backend configuration is reset
-		//  due to the current backend being forcefully removed. Under these circumstances,
-		// the model secret backend will never be set to `auto`; so here we can
-		// simply return the value stored in the database.
-		info.ActiveID = jujuBackendID
-	}
 
-	if m.Type == coremodel.CAAS {
-		cloud, cred, err := s.st.GetModelCloudAndCredential(ctx, modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		k8sConfig, err := getK8sBackendConfig(cloud, cred)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		k8sBackendID := m.ID.String()
-		info.Configs[k8sBackendID] = provider.ModelBackendConfig{
-			ControllerUUID: s.controllerUUID,
-			ModelUUID:      m.ID.String(),
-			ModelName:      m.Name,
-			BackendConfig:  *k8sConfig,
-		}
-		if currentBackend.Name == provider.Auto {
-			info.ActiveID = k8sBackendID
-		}
-	}
+	var info provider.ModelBackendConfigInfo
+	info.Configs = make(map[string]provider.ModelBackendConfig)
 
-	backends, err := s.st.ListSecretBackends(ctx, true)
+	// TODO(secrets) - only use those in use by model
+	// For now, we'll return all backends on the controller.
+	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -136,13 +80,21 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 		if b.Name == currentBackend.Name {
 			info.ActiveID = b.ID
 		}
+
+		cfg := convertConfigToAny(b.Config)
+		if b.Name == kubernetes.BackendName {
+			var err error
+			if cfg, err = s.tryControllerModelK8sBackendConfig(ctx); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		info.Configs[b.ID] = provider.ModelBackendConfig{
 			ControllerUUID: s.controllerUUID,
 			ModelUUID:      m.ID.String(),
 			ModelName:      m.Name,
 			BackendConfig: provider.BackendConfig{
 				BackendType: b.BackendType,
-				Config:      convertConfigToAny(b.Config),
+				Config:      cfg,
 			},
 		}
 	}
@@ -170,15 +122,6 @@ func convertConfigToString(config map[string]interface{}) map[string]string {
 	})
 }
 
-// GetSecretBackendConfigLegacy gets the config needed to create a client to secret backends.
-// TODO - drop when we no longer support juju 3.1.x
-func (s *Service) GetSecretBackendConfigLegacy(
-	ctx context.Context, modelUUID coremodel.UUID, cloud cloud.Cloud, cred cloud.Credential,
-) (*provider.ModelBackendConfigInfo, error) {
-	// TODO: implement once we have secret service in place.
-	return nil, nil
-}
-
 // GetSecretBackendConfig returns the secret backend configuration for the given backend ID.
 func (s *Service) GetSecretBackendConfig(
 	ctx context.Context, modelUUID coremodel.UUID, cloud cloud.Cloud, cred cloud.Credential,
@@ -187,21 +130,35 @@ func (s *Service) GetSecretBackendConfig(
 	return nil, nil
 }
 
-// GetSecretBackendConfigForDrain returns the secret backend configuration
-// for the given backend ID for the drain worker.
-func (s *Service) GetSecretBackendConfigForDrain(
-	ctx context.Context, backendID string,
-	modelUUID coremodel.UUID, cloud cloud.Cloud, cred cloud.Credential,
-) (*provider.ModelBackendConfigInfo, error) {
-	// TODO: implement once we have secret service in place.
-	return nil, nil
+func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {
+	spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	k8sConfig, err := kubernetes.BuiltInConfig(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return k8sConfig, nil
 }
 
-// BackendSummaryInfo returns a summary of the secret backends.
-// If we just want a model's in-use backends, it's the caller's
-// resposibility to provide the backendIDs in the filter.
-func (s *Service) BackendSummaryInfo(ctx context.Context, reveal, all bool, names ...string) ([]*SecretBackendInfo, error) {
-	backends, err := s.st.ListSecretBackends(ctx, all)
+// tryControllerModelK8sBackendConfig returns the k8s backend info for the controller model UUID if it's possible.
+func (s *Service) tryControllerModelK8sBackendConfig(ctx context.Context) (provider.ConfigAttrs, error) {
+	cloud, cred, err := s.st.GetControllerModelCloudAndCredential(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	k8sConfig, err := getK8sBackendConfig(cloud, cred)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return k8sConfig.Config, nil
+}
+
+// BackendSummaryInfoForModel returns a summary of the secret backends
+// which contain secrets from the specified model.
+func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) ([]*SecretBackendInfo, error) {
+	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -217,31 +174,44 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal, all bool, name
 			},
 		})
 	}
-	// If we want all backends, include those which are not in use.
-	// TODO: once the in-use backends feature is implemented, below logic should be updated.
-	// The ListSecretBackends will include the internal and k8s backends. We just need to fill
-	// in the backend configuration for the k8s backend.
-	if all {
-		// The internal (controller) backend.
+	return s.composeBackendInfoResults(ctx, backendInfos, false)
+}
+
+// BackendSummaryInfo returns a summary of the secret backends.
+// If names are specified, just those backends are included, else all.
+func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...string) ([]*SecretBackendInfo, error) {
+	// TODO(secrets) - we need to look up secrets grouped by model
+	// For now, the best we can do is just list the secret backends directly.
+	backends, err := s.st.ListSecretBackends(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	backendInfos := make([]*SecretBackendInfo, 0, len(backends))
+	for _, b := range backends {
 		backendInfos = append(backendInfos, &SecretBackendInfo{
 			SecretBackend: coresecrets.SecretBackend{
-				ID:          s.controllerUUID,
-				Name:        juju.BackendName,
-				BackendType: juju.BackendType,
+				ID:                  b.ID,
+				Name:                b.Name,
+				BackendType:         b.BackendType,
+				TokenRotateInterval: b.TokenRotateInterval,
+				Config:              convertConfigToAny(b.Config),
 			},
 		})
-		k8sBackend, err := tryGetK8sBackend(ctx, s.st, coremodel.UUID(s.controllerUUID))
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if k8sBackend != nil {
-			// For local k8s secrets, corresponding to every hosted model,
-			// do not include the result if there are no secrets.
-			if k8sBackend.NumSecrets > 0 || !all {
-				backendInfos = append(backendInfos, k8sBackend)
-			}
+	}
+	results, err := s.composeBackendInfoResults(ctx, backendInfos, reveal, names...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(secrets) - this will change when we can track secrets for backends
+	for _, b := range results {
+		if b.Name == kubernetes.BackendName {
+			b.Name = kubernetes.BuiltInName("model")
 		}
 	}
+	return results, nil
+}
+
+func (s *Service) composeBackendInfoResults(ctx context.Context, backendInfos []*SecretBackendInfo, reveal bool, names ...string) ([]*SecretBackendInfo, error) {
 	wanted := set.NewStrings(names...)
 	for i := 0; i < len(backendInfos); {
 		b := backendInfos[i]
@@ -250,6 +220,13 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal, all bool, name
 			continue
 		} else {
 			i++
+		}
+		if b.Name == kubernetes.BackendName {
+			cfg, err := s.tryControllerModelK8sBackendConfig(ctx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			b.Config = cfg
 		}
 		p, err := s.registry(b.BackendType)
 		if err != nil {
@@ -277,42 +254,6 @@ func (s *Service) BackendSummaryInfo(ctx context.Context, reveal, all bool, name
 		}
 	}
 	return backendInfos, nil
-}
-
-// tryGetK8sBackend returns the k8s backend info for the given controller UUID if it's possible.
-func tryGetK8sBackend(ctx context.Context, st State, controllerUUID coremodel.UUID) (*SecretBackendInfo, error) {
-	m, err := st.GetModel(ctx, controllerUUID)
-	if errors.Is(err, modelerrors.NotFound) {
-		// TODO: we skip it for now because we the controller model's backend configured
-		// in the model_secret_backend table yet.
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if m.Type != coremodel.CAAS {
-		return nil, nil
-	}
-	// The kubernetes backend.
-	cloud, cred, err := st.GetModelCloudAndCredential(ctx, controllerUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	k8sConfig, err := getK8sBackendConfig(cloud, cred)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &SecretBackendInfo{
-		SecretBackend: coresecrets.SecretBackend{
-			ID:          m.ID.String(),
-			Name:        kubernetes.BuiltInName(m.Name),
-			BackendType: kubernetes.BackendType,
-			Config:      k8sConfig.Config,
-		},
-		// TODO: implement secret count for secret backend.
-		// For now, we just set it to 1 to indicate that the backend is in use.
-		NumSecrets: 1,
-	}, nil
 }
 
 // PingSecretBackend checks the secret backend for the given backend name.
@@ -494,12 +435,19 @@ func (s *Service) GetSecretBackendByName(ctx context.Context, name string) (*cor
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cfg := convertConfigToAny(sb.Config)
+	if name == kubernetes.BackendName {
+		var err error
+		if cfg, err = s.tryControllerModelK8sBackendConfig(ctx); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	return &coresecrets.SecretBackend{
 		ID:                  sb.ID,
 		Name:                sb.Name,
 		BackendType:         sb.BackendType,
 		TokenRotateInterval: sb.TokenRotateInterval,
-		Config:              convertConfigToAny(sb.Config),
+		Config:              cfg,
 	}, nil
 }
 
@@ -558,14 +506,40 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	return errors.Trace(err)
 }
 
-// GetModelSecretBackend returns the secret backend for the given model UUID.
-func (s *Service) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
-	return s.st.GetModelSecretBackend(ctx, modelUUID)
-}
-
 // SetModelSecretBackend sets the secret backend for the given model UUID.
 func (s *Service) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
 	return s.st.SetModelSecretBackend(ctx, modelUUID, backendName)
+}
+
+// GetRevisionsToDrain looks at the supplied revisions and returns any which should be
+// drained to a different backend for the specified model.
+func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []*coresecrets.SecretRevisionMetadata) ([]RevisionInfo, error) {
+	activeBackendDetails, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	jujuBackend, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: juju.BackendName})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var result []RevisionInfo
+	for _, r := range revs {
+		if r.ValueRef != nil {
+			if r.ValueRef.BackendID == activeBackendDetails.SecretBackendID {
+				continue
+			}
+		} else {
+			// Only internal backend secrets have nil ValueRef.
+			if jujuBackend.ID == activeBackendDetails.SecretBackendID {
+				continue
+			}
+		}
+		result = append(result, RevisionInfo{
+			Revision: r.Revision,
+			ValueRef: r.ValueRef,
+		})
+	}
+	return result, nil
 }
 
 // WatchableService defines a service that can be watched for changes.

@@ -14,6 +14,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -106,38 +109,34 @@ func (u *UndertakerAPI) RemoveModel(ctx context.Context) error {
 }
 
 // TODO(secret): all these logic should be moved to secret service.
-func (u *UndertakerAPI) removeModelSecrets(context.Context) error {
-	// TODO: we currently does not set the model default secret backend yet.
-	// So here will get a model's secret backend not found error.
-	// We skip this for now and fix in JUJU-5708.
+func (u *UndertakerAPI) removeModelSecrets(ctx context.Context) error {
+	model, err := u.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	secretBackendCfg, err := u.secretBackendService.GetSecretBackendConfigForAdmin(ctx, coremodel.UUID(model.UUID()))
+	if errors.Is(err, secretbackenderrors.NotFound) || errors.Is(err, modelerrors.NotFound) {
+		// If backends or settings are missing, then no secrets to remove.
+		return nil
+	}
+	if err != nil {
+		return errors.Annotate(err, "getting secrets backends config")
+	}
+	for _, cfg := range secretBackendCfg.Configs {
+		if err := u.removeModelSecretsForBackend(&cfg); err != nil {
+			return errors.Annotatef(err, "cleaning model from inactive secrets provider %q", cfg.BackendType)
+		}
+	}
 	return nil
-	// model, err := u.st.Model()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// secretBackendCfg, err := u.secretBackendService.GetSecretBackendConfigForAdmin(ctx, coremodel.UUID(model.UUID()))
-	// if errors.Is(err, errors.NotFound) {
-	// 	// If backends or settings are missing, then no secrets to remove.
-	// 	return nil
-	// }
-	// if err != nil {
-	// 	return errors.Annotate(err, "getting secrets backends config")
-	// }
-	// for _, cfg := range secretBackendCfg.Configs {
-	// 	if err := u.removeModelSecretsForBackend(&cfg); err != nil {
-	// 		return errors.Annotatef(err, "cleaning model from inactive secrets provider %q", cfg.BackendType)
-	// 	}
-	// }
-	// return nil
 }
 
-// func (u *UndertakerAPI) removeModelSecretsForBackend(cfg *provider.ModelBackendConfig) error {
-// 	p, err := GetProvider(cfg.BackendType)
-// 	if err != nil {
-// 		return errors.Trace(err)
-// 	}
-// 	return p.CleanupModel(cfg)
-// }
+func (u *UndertakerAPI) removeModelSecretsForBackend(cfg *provider.ModelBackendConfig) error {
+	p, err := GetProvider(cfg.BackendType)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return p.CleanupModel(cfg)
+}
 
 func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 	var nothing params.NotifyWatchResult

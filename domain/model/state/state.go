@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	jujudb "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // State represents a type for interacting with the underlying model state.
@@ -125,6 +127,10 @@ func Create(
 
 	if err := createModelAgent(ctx, tx, uuid, input.AgentVersion); err != nil {
 		return fmt.Errorf("creating model %q agent: %w", uuid, err)
+	}
+
+	if err := setModelSecretBackend(ctx, tx, uuid, modelType); err != nil {
+		return err
 	}
 
 	if _, err := registerModelNamespace(ctx, tx, uuid); err != nil {
@@ -298,6 +304,46 @@ INSERT INTO model_agent (model_uuid, previous_version, target_version)
 	return nil
 }
 
+func setModelSecretBackend(
+	ctx context.Context,
+	tx *sql.Tx,
+	modelUUID coremodel.UUID,
+	modelType coremodel.ModelType,
+) error {
+	stmt := `
+INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid)
+    VALUES (?, (SELECT uuid FROM secret_backend WHERE name = ?) )
+`
+
+	backendName := juju.BackendName
+	if modelType == coremodel.CAAS {
+		backendName = kubernetes.BackendName
+	}
+	res, err := tx.ExecContext(ctx, stmt, modelUUID, backendName)
+	if jujudb.IsErrConstraintPrimaryKey(err) {
+		return fmt.Errorf(
+			"%w for uuid %q while setting model secret backend",
+			modelerrors.AlreadyExists, modelUUID,
+		)
+	} else if jujudb.IsErrConstraintForeignKey(err) {
+		return fmt.Errorf(
+			"%w for uuid %q while setting model secret backend",
+			modelerrors.NotFound,
+			modelUUID,
+		)
+	} else if err != nil {
+		return fmt.Errorf("setting model %q secret backend %q: %w", modelUUID, backendName, err)
+	}
+
+	if num, err := res.RowsAffected(); err != nil {
+		return errors.Trace(err)
+	} else if num != 1 {
+		return fmt.Errorf("creating model secet backend record, expected 1 row to be inserted got %d", num)
+	}
+
+	return nil
+}
+
 // createModel is responsible for creating a new model record
 // for the given model UUID. If a model record already exists for the
 // given model uuid then an error satisfying modelerrors.AlreadyExists is
@@ -419,6 +465,7 @@ func (s *State) Delete(
 		return errors.Trace(err)
 	}
 
+	deleteSecretBackend := "DELETE FROM model_secret_backend WHERE model_uuid = ?"
 	deleteModelAgent := "DELETE FROM model_agent WHERE model_uuid = ?"
 	deleteModel := "DELETE FROM model WHERE uuid = ?"
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -426,7 +473,12 @@ func (s *State) Delete(
 			return fmt.Errorf("un-registering model %q database namespaces: %w", uuid, err)
 		}
 
-		_, err := tx.ExecContext(ctx, deleteModelAgent, uuid)
+		_, err := tx.ExecContext(ctx, deleteSecretBackend, uuid)
+		if err != nil {
+			return fmt.Errorf("delete model %q secret backend: %w", uuid, err)
+		}
+
+		_, err = tx.ExecContext(ctx, deleteModelAgent, uuid)
 		if err != nil {
 			return fmt.Errorf("delete model %q agent: %w", uuid, err)
 		}
@@ -486,7 +538,7 @@ FROM model
 WHERE uuid = ?
 `
 	stmt := `
-UPDATE model 
+UPDATE model
 SET finalised = TRUE
 WHERE uuid = ?
 `
