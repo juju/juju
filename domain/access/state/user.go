@@ -811,8 +811,8 @@ type dbModelUserInfo struct {
 	Access string `db:"access_type"`
 }
 
-// ModelUserInfo gets info about all the users on a particular model that the
-// apiUser is allowed to have knowledge of.
+// ModelUserInfo gets information about all the users that have access to the
+// specified model. If the model cannot be found it returns modelerror.Notfound.
 func (st *UserState) ModelUserInfo(ctx context.Context, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -843,8 +843,13 @@ WHERE  m.uuid = $dbModelAccess.model_uuid
 		var result []dbModelUserInfo
 		ma := dbModelAccess{ModelUUID: modelUUID.String()}
 		err := tx.Query(ctx, getModelUserInfoStmt, ma).GetAll(&result)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			// TODO(aflynn): What error should we return for no rows, if any?
+		if errors.Is(err, sqlair.ErrNoRows) {
+			if exists, err := st.checkModelExists(ctx, tx, modelUUID.String()); err != nil {
+				return errors.Trace(domain.CoerceError(err))
+			} else if !exists {
+				return modelerrors.NotFound
+			}
+		} else if err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		}
 		dbModelUserInfos = result
@@ -1004,4 +1009,20 @@ func (st *UserState) uuidForName(
 func (st *UserState) getActiveUUIDStmt() (*sqlair.Statement, error) {
 	return st.Prepare(
 		"SELECT &userUUID.uuid FROM user WHERE name = $userName.name AND IFNULL(removed, false) = false", userUUID{}, userName{})
+}
+
+// checkModelExists returns the model error NotFound if the model cannot be found.
+func (st *UserState) checkModelExists(ctx context.Context, tx *sqlair.TX, modelUUID string) (bool, error) {
+	stmt, err := st.Prepare("SELECT true AS &dbExists FROM model WHERE model.uuid = $dbUUID.uuid", dbUUID{}, dbExists{})
+	if err != nil {
+		return false, err
+	}
+	var exists dbExists
+	err = tx.Query(ctx, stmt, dbUUID{UUID: modelUUID}).Get(&exists)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, nil
 }

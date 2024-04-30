@@ -19,6 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/rpc/params"
@@ -36,6 +37,7 @@ type UserService interface {
 	ResetPassword(ctx context.Context, name string) ([]byte, error)
 	RemoveUser(ctx context.Context, name string) error
 	LastModelConnection(ctx context.Context, modelUUID coremodel.UUID, name string) (time.Time, error)
+	ModelUserInfo(ctx context.Context, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -405,21 +407,35 @@ func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.Mod
 		return results, err
 	}
 
-	users, err := model.Users()
+	userInfos, err := api.userService.ModelUserInfo(ctx, coremodel.UUID(model.UUID()))
 	if err != nil {
-		return results, errors.Trace(err)
+		// Return a server error if it is not possible to get the user info.
+		return []params.ModelUserInfoResult{{
+			Error: apiservererrors.ServerError(err),
+		}}, nil
 	}
 
-	for _, user := range users {
-		var result params.ModelUserInfoResult
-		userInfo, err := common.ModelUserInfo(ctx, api.userService, model.UUID(), user)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-		} else {
-			userInfo.ModelTag = modelTag.String()
-			result.Result = &userInfo
+	for _, userInfo := range userInfos {
+		// If the user is not an admin they should only get information about
+		// themselves.
+		if api.isAdmin || (!api.isAdmin && userInfo.UserName == api.apiUser.Name) {
+			accessLevel, err := params.StateToParamsUserAccessPermission(userInfo.Access)
+			if err != nil {
+				results = append(results, params.ModelUserInfoResult{
+					Error: apiservererrors.ServerError(err),
+				})
+				continue
+			}
+			results = append(results, params.ModelUserInfoResult{
+				Result: &params.ModelUserInfo{
+					ModelTag:       modelTag.String(),
+					UserName:       userInfo.UserName,
+					DisplayName:    userInfo.DisplayName,
+					LastConnection: userInfo.LastConnection,
+					Access:         accessLevel,
+				},
+			})
 		}
-		results = append(results, result)
 	}
 	return results, nil
 }

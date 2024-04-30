@@ -328,19 +328,13 @@ func (e *exporter) modelUsers() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	lastConnections, err := e.readLastConnectionTimes()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	for _, user := range users {
-		lastConn := lastConnections[strings.ToLower(user.UserName)]
 		arg := description.UserArgs{
-			Name:           user.UserTag,
-			DisplayName:    user.DisplayName,
-			CreatedBy:      user.CreatedBy,
-			DateCreated:    user.DateCreated,
-			LastConnection: lastConn,
-			Access:         string(user.Access),
+			Name:        user.UserTag,
+			DisplayName: user.DisplayName,
+			CreatedBy:   user.CreatedBy,
+			DateCreated: user.DateCreated,
+			Access:      string(user.Access),
 		}
 		e.model.AddUser(arg)
 	}
@@ -1880,22 +1874,6 @@ func (e *exporter) cloudContainer(doc *cloudContainerDoc) *description.CloudCont
 		result.Address = e.newAddressArgs(*doc.Address)
 	}
 	return result
-}
-
-func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
-	lastConnections, closer := e.st.db().GetCollection(modelUserLastConnectionC)
-	defer closer()
-
-	var docs []modelUserLastConnectionDoc
-	if err := lastConnections.Find(nil).All(&docs); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := make(map[string]time.Time)
-	for _, doc := range docs {
-		result[doc.UserName] = doc.LastConnection.UTC()
-	}
-	return result, nil
 }
 
 func (e *exporter) readAllConstraints() error {

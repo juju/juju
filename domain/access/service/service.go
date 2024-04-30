@@ -131,6 +131,10 @@ type UserState interface {
 	// A UserNeverConnectedToModel error will be returned if there is no record
 	// of the user logging in to this model.
 	LastModelConnection(context.Context, coremodel.UUID, string) (time.Time, error)
+
+	// ModelUserInfo wil return information about all the users of the specified
+	// model.
+	ModelUserInfo(context.Context, coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // PermissionState describes retrieval and persistence methods for user

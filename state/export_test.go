@@ -28,7 +28,6 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -616,15 +615,6 @@ func MakeActionIdConverter(st *State) func(string) (string, error) {
 		}
 		return actionNotificationIdToActionId(id), err
 	}
-}
-
-func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time.Time) error {
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return model.updateLastModelConnection(e.UserTag, when)
 }
 
 func SetWantsVote(st *State, id string, wantsVote bool) error {

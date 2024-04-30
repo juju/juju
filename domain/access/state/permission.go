@@ -433,8 +433,8 @@ AND     u.removed = false
 	return userAccess, nil
 }
 
-// ModelAccessInfo gets info about all the models a particular user has access to.
-func (st *PermissionState) ModelAccessInfo(ctx context.Context, name string) ([]access.UserModelAccessInfo, error) {
+// UserModelAccessInfo gets info about all the models a particular user has access to.
+func (st *PermissionState) UserModelAccessInfo(ctx context.Context, name string) ([]access.UserModelAccessInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -450,8 +450,8 @@ FROM   v_user_auth u
        JOIN model_type t ON m.model_type_id = t.id
        LEFT JOIN model_last_login mll 
            ON m.uuid = mll.model_uuid AND u.uuid = mll.user_uuid
-WHERE  u.removed = false
-       AND u.name = $userName.name
+WHERE  u.name = $userName.name
+       AND u.removed = false
        AND u.disabled = false
        AND p.object_type = 'model'
        -- We do not need to check the access_type because if there is an entry

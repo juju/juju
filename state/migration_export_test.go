@@ -198,10 +198,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
-	lastConnection := state.NowToTheSecond(s.State)
 	owner, err := s.State.UserAccess(s.Owner, s.Model.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
@@ -210,8 +207,6 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 		CreatedBy: s.Owner,
 		Access:    permission.ReadAccess,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateModelUserLastConnection(s.State, bob, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
@@ -228,14 +223,12 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedAdmin.DisplayName(), gc.Equals, owner.DisplayName)
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated)
-	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
 	c.Assert(exportedAdmin.Access(), gc.Equals, "admin")
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated)
-	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
 	c.Assert(exportedBob.Access(), gc.Equals, "read")
 }
 

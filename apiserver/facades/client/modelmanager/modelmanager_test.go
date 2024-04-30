@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -128,7 +129,6 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			userName: "add-model",
 			access:   permission.AdminAccess,
 		}, {
-
 			userName: "otheruser",
 			access:   permission.WriteAccess,
 		}},
@@ -870,7 +870,13 @@ func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 	s.accessService = mocks.NewMockAccessService(ctrl)
 	as := s.accessService.EXPECT()
 	as.ReadUserAccessLevelForTarget(gomock.Any(), addModelUser.Id(), gomock.AssignableToTypeOf(permission.ID{})).Return(permission.AddModelAccess, nil)
-	as.LastModelConnection(gomock.Any(), gomock.Any(), addModelUser.Id()).Return(time.Time{}, nil)
+	as.ModelUserInfo(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "add-model",
+			DisplayName: "Addy McModel",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	s.setAPIUser(c, addModelUser)
 	_, err := s.api.CreateModel(stdcontext.Background(), createArgs(addModelUser))
@@ -1041,7 +1047,13 @@ func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserT
 
 func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), "admin").Return(time.Time{}, nil)
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
@@ -1054,7 +1066,13 @@ func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), "external@remote").Return(time.Time{}, nil).AnyTimes()
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	s.setAPIUser(c, jujutesting.AdminUser)
 	owner := names.NewUserTag("external@remote")
@@ -1149,7 +1167,13 @@ func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "add-model",
+			DisplayName: "Addy McModel",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	admin := jujutesting.AdminUser
 	s.setAPIUser(c, admin)
@@ -1160,8 +1184,6 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
-
 	err := s.ControllerModel(c).State().SetModelAgentVersion(coretesting.FakeVersionNumber, nil, false, stubUpgrader{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1258,7 +1280,13 @@ func (s *modelManagerStateSuite) TestNonAdminModelManager(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	// TODO(perrito666) this test is not valid until we have
 	// proper controller permission since the only users that
@@ -1327,7 +1355,13 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	// usefulness until proper controller permissions are in place.
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	m, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1379,7 +1413,13 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
@@ -1556,6 +1596,13 @@ func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "foobar",
+			DisplayName: "Fooy McBarer",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1583,6 +1630,13 @@ func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "foobar",
+			DisplayName: "Fooy McBarer",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	userTag := names.NewUserTag("foobar@ubuntuone")
 	apiUser := jujutesting.AdminUser
 	s.setAPIUser(c, apiUser)
@@ -1609,6 +1663,14 @@ func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "foobar",
+			DisplayName: "Fooy McBarer",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -2067,12 +2129,9 @@ func (s *modelManagerStateSuite) revoke(c *gc.C, user names.UserTag, access para
 func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser permission.UserAccess, userTag, creatorTag names.UserTag) {
 	c.Assert(modelUser.UserTag, gc.Equals, userTag)
 	c.Assert(modelUser.CreatedBy, gc.Equals, creatorTag)
-	_, err := s.ControllerModel(c).LastModelConnection(modelUser.UserTag)
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 }
 
 func (s *modelManagerStateSuite) assertModelAccess(c *gc.C, st *state.State) {
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{Entities: []params.Entity{{Tag: m.ModelTag().String()}}})

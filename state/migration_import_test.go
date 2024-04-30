@@ -234,18 +234,6 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser permiss
 	c.Assert(newUser.CreatedBy, gc.Equals, oldUser.CreatedBy)
 	c.Assert(newUser.DateCreated, gc.Equals, oldUser.DateCreated)
 	c.Assert(newUser.Access, gc.Equals, newUser.Access)
-
-	connTime, err := s.Model.LastModelConnection(oldUser.UserTag)
-	if state.IsNeverConnectedError(err) {
-		_, err := s.Model.LastModelConnection(newUser.UserTag)
-		// The new user should also return an error for last connection.
-		c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		newTime, err := s.Model.LastModelConnection(newUser.UserTag)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newTime, gc.Equals, connTime)
-	}
 }
 
 func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {

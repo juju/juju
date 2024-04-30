@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
@@ -68,7 +68,7 @@ type ControllerAccessService interface {
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// LastModelConnection gets the time the specified user last connected to the
 	// model.
-	LastModelConnection(context.Context, model.UUID, string) (time.Time, error)
+	LastModelConnection(context.Context, coremodel.UUID, string) (time.Time, error)
 }
 
 // ControllerAPI provides the Controller API.
@@ -241,7 +241,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	cfg, err := dashboardApp.CharmConfig(coremodel.GenerationMaster)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -277,7 +277,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	cfg, err := dashboardApp.CharmConfig(coremodel.GenerationMaster)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -408,7 +408,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 			},
 		}
 
-		lastConn, err := model.LastModelConnection(c.apiUser)
+		lastConn, err := c.accessService.LastModelConnection(ctx, coremodel.UUID(model.UUID()), c.apiUser.Name())
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)

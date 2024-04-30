@@ -22,7 +22,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		constraintsC,
 		modelsC,
 		modelUsersC,
-		modelUserLastConnectionC,
 		permissionsC,
 		settingsC,
 		generationsC,
@@ -276,20 +275,6 @@ func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
 		"Access",
 	)
 	s.AssertExportedFields(c, permissionDoc{}, fields)
-}
-
-func (s *MigrationSuite) TestModelUserLastConnectionDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		// ID is the same as UserName (but lowercased)
-		"ID",
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ModelUUID",
-		// UserName is captured in the migration.User.
-		"UserName",
-		"LastConnection",
-	)
-	s.AssertExportedFields(c, modelUserLastConnectionDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {

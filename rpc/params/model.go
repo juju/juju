@@ -6,9 +6,11 @@ package params
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/permission"
 )
 
 // ConfigValue encapsulates a configuration
@@ -397,6 +399,19 @@ const (
 	ModelReadAccess  UserAccessPermission = "read"
 	ModelWriteAccess UserAccessPermission = "write"
 )
+
+// StateToParamsUserAccessPermission converts permission.Access to params.AccessPermission.
+func StateToParamsUserAccessPermission(descriptionAccess permission.Access) (UserAccessPermission, error) {
+	switch descriptionAccess {
+	case permission.ReadAccess:
+		return ModelReadAccess, nil
+	case permission.WriteAccess:
+		return ModelWriteAccess, nil
+	case permission.AdminAccess:
+		return ModelAdminAccess, nil
+	}
+	return "", errors.NotValidf("model access permission %q", descriptionAccess)
+}
 
 // DestroyModelsParams holds the arguments for destroying models.
 type DestroyModelsParams struct {

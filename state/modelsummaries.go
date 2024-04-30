@@ -21,12 +21,6 @@ import (
 	"github.com/juju/juju/internal/mongo/utils"
 )
 
-// UserAccessInfo contains just the information about a single user's access to a model and when they last connected.
-type UserAccessInfo struct {
-	permission.UserAccess
-	LastConnection *time.Time
-}
-
 // MachineModelInfo contains the summary information about a machine for a given model.
 type MachineModelInfo struct {
 	Id         string
@@ -410,37 +404,5 @@ func (p *modelSummaryProcessor) fillInJustUser() error {
 	if err := p.fillInPermissions(permissionIds); err != nil {
 		return errors.Trace(err)
 	}
-	return nil
-}
-
-func (p *modelSummaryProcessor) fillInLastAccess() error {
-	// We fill in the last access only for the requesting user.
-	lastAccessIds := make([]string, len(p.modelUUIDs))
-	suffix := ":" + strings.ToLower(p.user.Name())
-	for i, modelUUID := range p.modelUUIDs {
-		lastAccessIds[i] = modelUUID + suffix
-	}
-	lastConnections, closer := p.st.db().GetRawCollection(modelUserLastConnectionC)
-	defer closer()
-	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": lastAccessIds}})
-	query.Select(bson.M{"_id": 1, "model-uuid": 1, "last-connection": 1})
-	query.Batch(100)
-	iter := query.Iter()
-	defer iter.Close()
-	var connInfo modelUserLastConnectionDoc
-	for iter.Next(&connInfo) {
-		idx, ok := p.indexByUUID[connInfo.ModelUUID]
-		if !ok {
-			continue
-		}
-		details := &p.summaries[idx]
-		t := connInfo.LastConnection
-		details.UserLastConnection = &t
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	// Note: We don't care if there are lastAccessIds that are not found, because its possible the user never
-	// actually connected to a model they were given access to.
 	return nil
 }

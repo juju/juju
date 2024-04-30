@@ -28,6 +28,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
@@ -825,6 +826,16 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 	}
 
 	for _, mi := range modelInfos {
+		// TODO(aflynn) Populate modleInfo.UserLastConnection in domain once
+		// ModelSummariesForUser has been moved there from state.
+		lastConnection, err := m.accessService.LastModelConnection(ctx, coremodel.UUID(mi.UUID), userTag.Name())
+		if errors.Is(err, accesserrors.UserNeverConnectedToModel) {
+			mi.UserLastConnection = nil
+		} else if err != nil {
+			return result, errors.Trace(err)
+		} else {
+			mi.UserLastConnection = &lastConnection
+		}
 		summary := m.makeModelSummary(mi)
 		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
 	}
@@ -866,7 +877,7 @@ func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelS
 		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
 	}
 
-	access, err := common.StateToParamsUserAccessPermission(mi.Access)
+	access, err := params.StateToParamsUserAccessPermission(mi.Access)
 	if err == nil {
 		summary.UserAccess = access
 	}
@@ -985,10 +996,10 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 				Type:     string(mi.ModelType),
 				OwnerTag: ownerTag.String(),
 			},
+			//TODO(aflynn): Get ListModels to return the last connection.
 			LastConnection: &t,
 		})
 	}
-
 	return result, nil
 }
 
@@ -1169,30 +1180,34 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		modelAdmin = err == nil
 	}
 
-	users, err := model.Users()
+	userInfos, err := m.accessService.ModelUserInfo(ctx, coremodel.UUID(model.UUID()))
 	if shouldErr(err) {
-		return params.ModelInfo{}, errors.Trace(err)
+		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
 	if err == nil {
-		for _, user := range users {
-			if !modelAdmin && m.authCheck(user.UserTag) != nil {
-				// The authenticated user is neither the controller
-				// superuser, a model administrator, nor the model user, so
-				// has no business knowing about the model user.
-				continue
-			}
-
-			userInfo, err := common.ModelUserInfo(ctx, m.accessService, model.UUID(), user)
-			if err != nil {
-				return params.ModelInfo{}, errors.Trace(err)
-			}
-			info.Users = append(info.Users, userInfo)
-		}
-
-		if len(info.Users) == 0 {
+		if len(userInfos) == 0 {
 			// No users, which means the authenticated user doesn't
 			// have access to the model.
 			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+		}
+
+		for _, userInfo := range userInfos {
+			// If the user is not an admin they should only get information about
+			// themselves.
+			// TODO(aflynn): Replace this check with something more robust.
+			if modelAdmin || (!modelAdmin && userInfo.UserName == m.apiUser.Name()) {
+				accessLevel, err := params.StateToParamsUserAccessPermission(userInfo.Access)
+				if err != nil {
+					return params.ModelInfo{}, errors.Annotate(err, "getting model user access level")
+				}
+				info.Users = append(info.Users, params.ModelUserInfo{
+					ModelTag:       model.ModelTag().String(),
+					UserName:       userInfo.UserName,
+					DisplayName:    userInfo.DisplayName,
+					LastConnection: userInfo.LastConnection,
+					Access:         accessLevel,
+				})
+			}
 		}
 	}
 

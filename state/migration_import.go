@@ -400,18 +400,6 @@ func (i *importer) modelUsers() error {
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
-	// Now set their last connection times.
-	for _, user := range users {
-		i.logger.Debugf("user %s", user.Name())
-		lastConnection := user.LastConnection()
-		if lastConnection.IsZero() {
-			continue
-		}
-		err := i.dbModel.updateLastModelConnection(user.Name(), lastConnection)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
 	return nil
 }
 

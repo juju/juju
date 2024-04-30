@@ -313,7 +313,8 @@ func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess per
 		}
 
 		// Update the last login time for the user.
-		if err := a.authContext.userService.UpdateLastLogin(ctx, coremodel.UUID(model.UUID()), userTag.Name()); err != nil {
+		err := a.authContext.userService.UpdateLastLogin(ctx, coremodel.UUID(model.UUID()), userTag.Name())
+		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
@@ -324,13 +325,11 @@ func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess per
 			return errors.NotValidf("%s as model user", modelAccess.Object.Kind())
 		}
 
-		if err := model.UpdateLastModelConnection(modelAccess.UserTag); err != nil {
-			// Attempt to update the users last login data, if the update
-			// fails, then just report it as a log message and return the
-			// original error message.
-			if err := updateLastLogin(); err != nil {
-				logger.Warningf("updating last login time for %v, %v", userTag, err)
-			}
+		// Attempt to update the users last login data, if the update
+		// fails, then just report it as a log message and return the
+		// original error message.
+		if err := updateLastLogin(); err != nil {
+			logger.Warningf("updating last login time for %v, %v", userTag, err)
 			return errors.Trace(err)
 		}
 	}

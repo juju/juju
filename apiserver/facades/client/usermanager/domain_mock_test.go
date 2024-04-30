@@ -16,6 +16,7 @@ import (
 
 	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
+	access "github.com/juju/juju/domain/access"
 	service "github.com/juju/juju/domain/access/service"
 	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
@@ -131,6 +132,21 @@ func (m *MockUserService) LastModelConnection(arg0 context.Context, arg1 model.U
 func (mr *MockUserServiceMockRecorder) LastModelConnection(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelConnection", reflect.TypeOf((*MockUserService)(nil).LastModelConnection), arg0, arg1, arg2)
+}
+
+// ModelUserInfo mocks base method.
+func (m *MockUserService) ModelUserInfo(arg0 context.Context, arg1 model.UUID) ([]access.ModelUserInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelUserInfo", arg0, arg1)
+	ret0, _ := ret[0].([]access.ModelUserInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelUserInfo indicates an expected call of ModelUserInfo.
+func (mr *MockUserServiceMockRecorder) ModelUserInfo(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUserInfo", reflect.TypeOf((*MockUserService)(nil).ModelUserInfo), arg0, arg1)
 }
 
 // RemoveUser mocks base method.

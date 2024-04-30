@@ -164,6 +164,17 @@ type dbModelAccess struct {
 	ModelUUID string `db:"model_uuid"`
 }
 
+// dbUUID is a struct used to record a UUID in the database.
+type dbUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// dbExists is used to record if a row in the database exists by selecting true
+// into it.
+type dbExists struct {
+	Exists bool `db:exists`
+}
+
 // loginTime is used to record the last time a user logged in when reading from
 // model_last_login.
 // TODO(aflynn): Change this to a time.Time type once SQLair support scanning

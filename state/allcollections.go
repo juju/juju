@@ -163,12 +163,6 @@ func allCollections() CollectionSchema {
 			rawAccess: true,
 		},
 
-		// This collection holds the last time the model user connected
-		// to the model.
-		modelUserLastConnectionC: {
-			rawAccess: true,
-		},
-
 		// -----------------
 
 		// Local collections
@@ -635,7 +629,6 @@ const (
 	migrationsC                = "migrations"
 	migrationsMinionSyncC      = "migrations.minionsync"
 	migrationsStatusC          = "migrations.status"
-	modelUserLastConnectionC   = "modelUserLastConnection"
 	modelUsersC                = "modelusers"
 	modelsC                    = "models"
 	modelEntityRefsC           = "modelEntityRefs"

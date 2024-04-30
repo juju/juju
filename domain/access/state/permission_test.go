@@ -679,7 +679,7 @@ func (s *permissionStateSuite) TestModelAccessInfo(c *gc.C) {
 	err = ust.UpdateLastLogin(context.Background(), s.modelUUID, "bob")
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := pst.ModelAccessInfo(context.Background(), "bob")
+	info, err := pst.UserModelAccessInfo(context.Background(), "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	// Check we have the right number of models
 	c.Assert(info, gc.HasLen, 2)

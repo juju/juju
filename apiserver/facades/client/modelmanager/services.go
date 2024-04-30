@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -117,9 +118,12 @@ type AccessService interface {
 	// ReadUserAccessLevelForTarget returns the Access level for the given
 	// subject (user) on the given target.
 	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error)
-	// LastModelConnection gets the time the specified user last connected to the
-	// model.
-	LastModelConnection(ctx context.Context, modelUUID coremodel.UUID, name string) (time.Time, error)
+	// ModelUserInfo gets information about all the users that have access to the
+	// specified model.
+	ModelUserInfo(ctx context.Context, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
+	// LastModelConnection will return the last login time of the specified user.
+	// The following error types are possible from this function:
+	LastModelConnection(context.Context, coremodel.UUID, string) (time.Time, error)
 }
 
 // NetworkService is the interface that is used to interact with the

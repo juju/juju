@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
@@ -332,40 +331,17 @@ func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
 
 func (s *ModelSummariesSuite) TestContainsAccessInformation(c *gc.C) {
 	modelNameToUUID := s.Setup4Models(c)
-	shared, ph, err := s.StatePool.GetModel(modelNameToUUID["shared"])
+	_, ph, err := s.StatePool.GetModel(modelNameToUUID["shared"])
 	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
-	err = shared.UpdateLastModelConnection(names.NewUserTag("auser"))
-	s.Clock.Advance(time.Hour)
-	c.Assert(err, jc.ErrorIsNil)
-	timeShared := s.Clock.Now().Round(time.Second).UTC()
-	err = shared.UpdateLastModelConnection(names.NewUserTag("user1write"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.Clock.Advance(time.Hour) // give a different time for user2 accessing the shared model
-	err = shared.UpdateLastModelConnection(names.NewUserTag("user2read"))
-	c.Assert(err, jc.ErrorIsNil)
-	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
-	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
-	s.Clock.Advance(time.Hour)
-	timeUser1 := s.Clock.Now().Round(time.Second).UTC()
-	err = user1.UpdateLastModelConnection(names.NewUserTag("user1write"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(summaries, gc.HasLen, 2)
-	times := make(map[string]time.Time)
 	access := make(map[string]permission.Access)
 	for _, summary := range summaries {
-		c.Assert(summary.UserLastConnection, gc.NotNil, gc.Commentf("nil time for %v", summary.Name))
-		times[summary.Name] = summary.UserLastConnection.UTC()
 		access[summary.Name] = summary.Access
 	}
-	c.Check(times, gc.DeepEquals, map[string]time.Time{
-		"shared":     timeShared,
-		"user1model": timeUser1,
-	})
 	c.Check(access, gc.DeepEquals, map[string]permission.Access{
 		"shared":     permission.WriteAccess,
 		"user1model": permission.AdminAccess,
