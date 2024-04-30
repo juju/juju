@@ -51,9 +51,6 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 		Addrs:    opts.ControllerAddresses,
 		CACert:   opts.CACert,
 		ModelTag: names.NewModelTag(opts.ModelUUID),
-
-		Password:  opts.Password,
-		Macaroons: opts.Macaroons,
 	}
 
 	isClientCredentialsProvided := opts.ClientID != "" && opts.ClientSecret != ""
@@ -64,6 +61,8 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 	// In such cases, assigning a user tag to `info.Tag` will result in panic.
 	if !isClientCredentialsProvided {
 		info.Tag = names.NewUserTag(opts.Username)
+		info.Password = opts.Password
+		info.Macaroons = opts.Macaroons
 	}
 
 	if err := info.Validate(); err != nil {
