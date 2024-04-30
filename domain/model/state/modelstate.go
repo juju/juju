@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelState represents a type for interacting with the underlying model
@@ -107,12 +108,15 @@ SELECT uuid,
 FROM model;
 `
 
-	var model coremodel.ReadOnlyModel
+	var (
+		rawControllerUUID string
+		model             coremodel.ReadOnlyModel
+	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, stmt)
 		if err := row.Scan(
 			&model.UUID,
-			&model.ControllerUUID,
+			&rawControllerUUID,
 			&model.Name,
 			&model.Type,
 			&model.Cloud,
@@ -130,6 +134,11 @@ FROM model;
 		}
 		return coremodel.ReadOnlyModel{}, errors.Trace(err)
 	}
+
+	model.ControllerUUID, err = uuid.UUIDFromString(rawControllerUUID)
+	if err != nil {
+		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing controller uuid %q: %w", rawControllerUUID, err)
+	}
 	return model, nil
 }
 
@@ -137,15 +146,16 @@ FROM model;
 // database.
 func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationArgs, tx *sql.Tx) error {
 	stmt := `
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_region, credential_owner, credential_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud, cloud_region, credential_owner, credential_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT (uuid) DO NOTHING;
 `
 	result, err := tx.ExecContext(ctx, stmt,
 		args.UUID,
-		args.ControllerUUID,
+		args.ControllerUUID.String(),
 		args.Name,
 		args.Type,
+		args.AgentVersion.String(),
 		args.Cloud,
 		args.CloudRegion,
 		args.CredentialOwner,

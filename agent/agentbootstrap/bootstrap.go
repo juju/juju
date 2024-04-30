@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -231,9 +232,11 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		permission.ControllerForAccess(permission.SuperuserAccess),
 	)
 
-	controllerUUID := model.UUID(
-		stateParams.ControllerConfig.ControllerUUID(),
-	)
+	controllerUUID, err := uuid.UUIDFromString(stateParams.ControllerConfig.ControllerUUID())
+	if err != nil {
+		return nil, fmt.Errorf("parsing controller uuid %q: %w", stateParams.ControllerConfig.ControllerUUID(), err)
+	}
+
 	controllerModelUUID := model.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
@@ -270,7 +273,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
-		modelbootstrap.CreateReadOnlyModel(controllerModelArgs, controllerUUID),
+		modelbootstrap.CreateReadOnlyModel(controllerModelArgs.UUID, controllerUUID),
 		modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 	}
 	if !isCAAS {

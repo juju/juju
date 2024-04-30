@@ -36,6 +36,7 @@ import (
 	environsContext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -90,7 +91,7 @@ type ModelManagerAPI struct {
 
 	// Broker/Provider management.
 	getBroker      newCaasBrokerFunc
-	controllerUUID coremodel.UUID
+	controllerUUID uuid.UUID
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -99,7 +100,7 @@ func NewModelManagerAPI(
 	st StateBackend,
 	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
-	controllerUUID coremodel.UUID,
+	controllerUUID uuid.UUID,
 	services Services,
 	configSchemaSource config.ConfigSchemaSourceGetter,
 	toolsFinder common.ToolsFinder,
@@ -357,18 +358,10 @@ func (m *ModelManagerAPI) createModelNew(
 		return errors.Annotatef(err, "failed to finalise model %q", modelUUID)
 	}
 
-	// Get the model type for the model, that was written in to the database.
-	// This model type is stored in the controller database, we can then use
-	// that information to create the read-only model info for the model.
-	modelType, err := m.modelService.ModelType(ctx, modelUUID)
-	if err != nil {
-		return errors.Annotatef(err, "failed to get model type for model %q", modelUUID)
-	}
-
 	// Create the model information in the model database. This information
 	// is read-only and is used for providers and brokers without the need
 	// to query the controller database.
-	if err := modelInfoService.CreateModel(ctx, creationArgs.AsReadOnly(m.controllerUUID, modelType)); err != nil {
+	if err := modelInfoService.CreateModel(ctx, creationArgs.UUID, m.controllerUUID); err != nil {
 		return errors.Annotatef(err, "failed to create model info for model %q", modelUUID)
 	}
 

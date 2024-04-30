@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -132,7 +133,8 @@ func (s *ServiceFactorySuite) SeedCloudAndCredential(c *gc.C) {
 func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	ctx := context.Background()
 
-	controllerUUID := coremodel.UUID(jujutesting.ControllerTag.Id())
+	controllerUUID, err := uuid.UUIDFromString(jujutesting.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	controllerArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
@@ -146,11 +148,11 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	uuid, fn := modelbootstrap.CreateModel(controllerArgs)
 	c.Assert(backendbootstrap.CreateDefaultBackends(coremodel.IAAS)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String())), jc.ErrorIsNil)
-	err := fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	s.ControllerModelUUID = uuid
 
-	err = modelbootstrap.CreateReadOnlyModel(controllerArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	err = modelbootstrap.CreateReadOnlyModel(uuid, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelArgs := modeldomain.ModelCreationArgs{
@@ -167,7 +169,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.DefaultModelUUID = uuid
 
-	err = modelbootstrap.CreateReadOnlyModel(modelArgs, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	err = modelbootstrap.CreateReadOnlyModel(uuid, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

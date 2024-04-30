@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -150,12 +151,11 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		return nil
 	}
 
+	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
-	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
-		coremodel.UUID(testing.ControllerTag.Id()),
-		coremodel.IAAS,
-	)).Return(nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -222,12 +222,11 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		return nil
 	}
 
+	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
-	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
-		coremodel.UUID(testing.ControllerTag.Id()),
-		coremodel.IAAS,
-	)).Return(errors.New("boom"))
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 
@@ -298,13 +297,11 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		finalised = true
 		return nil
 	}
+	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
-	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
-		coremodel.UUID(testing.ControllerTag.Id()),
-		coremodel.IAAS,
-	)).Return(errors.New("boom"))
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 
@@ -375,12 +372,11 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		Owner: userUUID,
 		UUID:  modelUUID,
 	}
+	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
-	i.modelService.EXPECT().ModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), args.AsReadOnly(
-		coremodel.UUID(testing.ControllerTag.Id()),
-		coremodel.IAAS,
-	)).Return(errors.New("boom"))
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
 

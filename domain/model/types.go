@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelCreationArgs supplies the information required for instantiating a new
@@ -72,34 +73,6 @@ func (m ModelCreationArgs) Validate() error {
 	return nil
 }
 
-// AsReadOnly returns a ReadOnlyModelCreationArgs struct that is a copy of the
-// ModelCreationArgs struct. This is useful when you want to create a model
-// within the model database.
-func (m ModelCreationArgs) AsReadOnly(
-	controllerUUID coremodel.UUID,
-	modelType coremodel.ModelType,
-) ReadOnlyModelCreationArgs {
-	var (
-		credOwner string
-		credName  string
-	)
-	if !m.Credential.IsZero() {
-		credOwner = m.Credential.Owner
-		credName = m.Credential.Name
-	}
-
-	return ReadOnlyModelCreationArgs{
-		UUID:            m.UUID,
-		ControllerUUID:  controllerUUID,
-		Name:            m.Name,
-		Type:            modelType,
-		Cloud:           m.Cloud,
-		CloudRegion:     m.CloudRegion,
-		CredentialOwner: credOwner,
-		CredentialName:  credName,
-	}
-}
-
 // ReadOnlyModelCreationArgs is a struct that is used to create a model
 // within the model database. This struct is used to create a model with all of
 // its associated metadata.
@@ -109,9 +82,12 @@ type ReadOnlyModelCreationArgs struct {
 	// this value when you are trying to import a model during model migration.
 	UUID coremodel.UUID
 
+	// AgentVersion represents the current target agent version for the model.
+	AgentVersion version.Number
+
 	// ControllerUUID represents the unique id for the controller that the model
 	// is associated with.
-	ControllerUUID coremodel.UUID
+	ControllerUUID uuid.UUID
 
 	// Name is the name of the model.
 	// Must not be empty for a valid struct.
@@ -138,22 +114,4 @@ type ReadOnlyModelCreationArgs struct {
 	// model.
 	// Optional and can be empty.
 	CredentialName string
-}
-
-// Validate is responsible for checking all of the fields of ModelCreationArgs
-// are in a set state that is valid for use.
-func (m ReadOnlyModelCreationArgs) Validate() error {
-	if err := m.UUID.Validate(); err != nil {
-		return fmt.Errorf("uuid: %w", err)
-	}
-	if m.Name == "" {
-		return fmt.Errorf("%w name cannot be empty", errors.NotValid)
-	}
-	if m.Cloud == "" {
-		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
-	}
-	if !m.Type.IsValid() {
-		return fmt.Errorf("%w model type of %q", errors.NotSupported, m.Type)
-	}
-	return nil
 }

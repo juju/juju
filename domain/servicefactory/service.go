@@ -31,6 +31,7 @@ func NewServiceFactory(
 		ControllerFactory: controllerFactory,
 		ModelFactory: NewModelFactory(
 			modelUUID,
+			controllerDB,
 			modelDB,
 			providerTracker,
 			logger,

@@ -17,6 +17,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
 	model0 "github.com/juju/juju/domain/model"
+	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -112,17 +113,17 @@ func (m *MockReadOnlyModelService) EXPECT() *MockReadOnlyModelServiceMockRecorde
 }
 
 // CreateModel mocks base method.
-func (m *MockReadOnlyModelService) CreateModel(arg0 context.Context, arg1 model0.ReadOnlyModelCreationArgs) error {
+func (m *MockReadOnlyModelService) CreateModel(arg0 context.Context, arg1 model.UUID, arg2 uuid.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateModel indicates an expected call of CreateModel.
-func (mr *MockReadOnlyModelServiceMockRecorder) CreateModel(arg0, arg1 any) *gomock.Call {
+func (mr *MockReadOnlyModelServiceMockRecorder) CreateModel(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockReadOnlyModelService)(nil).CreateModel), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockReadOnlyModelService)(nil).CreateModel), arg0, arg1, arg2)
 }
 
 // DeleteModel mocks base method.

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -101,30 +102,38 @@ func CreateModel(
 // its associated metadata. The data will be read-only and cannot be modified
 // once created.
 func CreateReadOnlyModel(
-	args model.ModelCreationArgs,
-	controllerUUID coremodel.UUID,
+	id coremodel.UUID,
+	controllerUUID uuid.UUID,
 ) internaldatabase.BootstrapOpt {
-	return func(ctx context.Context, controller, model database.TxnRunner) error {
-		if err := args.Validate(); err != nil {
-			return fmt.Errorf("model creation args: %w", err)
+	return func(ctx context.Context, controllerDB, modelDB database.TxnRunner) error {
+		if err := id.Validate(); err != nil {
+			return fmt.Errorf("creating read only model, id %q: %w", id, err)
 		}
 
-		if args.UUID == "" {
-			return fmt.Errorf("missing model uuid")
-		}
-
-		var modelType coremodel.ModelType
-		err := controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var m coremodel.Model
+		err := controllerDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			var err error
-			modelType, err = state.GetModelType(ctx, tx, args.UUID)
+			m, err = state.Get(ctx, tx, id)
 			return err
 		})
 		if err != nil {
-			return fmt.Errorf("getting model type: %w", err)
+			return fmt.Errorf("getting model for id %q: %w", id, err)
 		}
 
-		return model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			return state.CreateReadOnlyModel(ctx, args.AsReadOnly(controllerUUID, modelType), tx)
+		args := model.ReadOnlyModelCreationArgs{
+			UUID:            m.UUID,
+			AgentVersion:    m.AgentVersion,
+			ControllerUUID:  controllerUUID,
+			Name:            m.Name,
+			Type:            m.ModelType,
+			Cloud:           m.Cloud,
+			CloudRegion:     m.CloudRegion,
+			CredentialOwner: m.Credential.Owner,
+			CredentialName:  m.Credential.Name,
+		}
+
+		return modelDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			return state.CreateReadOnlyModel(ctx, args, tx)
 		})
 	}
 }
