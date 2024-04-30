@@ -1392,11 +1392,11 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
 		return []string{uri1.ID, uri2.ID}, nil
 	}
-	s.state.EXPECT().InitialWatchStatementForConsumedSecrets("mysql/0").Return("table", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Update, gomock.Any()).Return(mockStringWatcher, nil)
+	s.state.EXPECT().InitialWatchStatementForConsumedSecretsChange("mysql/0").Return("table", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Create, gomock.Any()).Return(mockStringWatcher, nil)
 
 	gomock.InOrder(
-		s.state.EXPECT().GetConsumedSecretURIs(gomock.Any(),
+		s.state.EXPECT().GetConsumedSecretURIsWithChanges(gomock.Any(),
 			"mysql/0", uri1.ID, uri2.ID,
 		).Return([]string{uri1.String(), uri2.String()}, nil),
 	)

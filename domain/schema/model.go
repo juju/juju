@@ -23,13 +23,9 @@ const (
 	tableSecretRotation
 	tableSecretRevisionObsolete
 	tableSecretRevisionExpire
-<<<<<<< HEAD
+	tableSecretRevision
 	tableSubnet
 	tableSubnetAssociation
-	tableSecretUnitConsumer
-=======
-	tableSecretRevision
->>>>>>> 5d04551d31 (Move the obsolete field in table secret_revision to a new table secret_revision_obsolete;)
 )
 
 // ModelDDL is used to create model databases.
@@ -68,19 +64,12 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTable("secret_rotation", "secret_id", tableSecretRotation),
 		changeLogTriggersForTableOnColumn("secret_revision_obsolete", "revision_uuid", "obsolete", tableSecretRevisionObsolete),
 		changeLogTriggersForTable("secret_revision_expire", "revision_uuid", tableSecretRevisionExpire),
-<<<<<<< HEAD
-		changeLogTriggersForTableOnColumn("secret_unit_consumer", "secret_id", "current_revision", tableSecretUnitConsumer),
-		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretAutoPrune),
-		changeLogTriggersForTable(
-			"subnet", "uuid", tableSubnet),
-		changeLogTriggersForTable(
-			"subnet_association", "associated_subnet_uuid", tableSubnetAssociation),
-=======
 		// We only want to watch the new revision INSERT.
 		// To achieve this and have less performance impact on the event stream watcher,
 		// we watch the changes on the immutable revision field.
 		changeLogTriggersForTableOnColumn("secret_revision", "uuid", "revision", tableSecretRevision),
->>>>>>> 5d04551d31 (Move the obsolete field in table secret_revision to a new table secret_revision_obsolete;)
+		changeLogTriggersForTable("subnet", "uuid", tableSubnet),
+		changeLogTriggersForTable("subnet_association", "associated_subnet_uuid", tableSubnetAssociation),
 
 		triggersForImmutableTable("model", "", "model table is immutable"),
 

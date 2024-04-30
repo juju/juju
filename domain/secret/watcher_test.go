@@ -272,14 +272,15 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	uri1 := coresecrets.NewURI()
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	// create revision 2.
-	createNewRevision(c, st, uri1)
 
 	uri2 := coresecrets.NewURI()
 	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	// create revision 2.
-	createNewRevision(c, st, uri2)
+
+	// The consumed revision 1 is the initial revision - will be ignored.
+	saveConsumer(uri1, 1, "mediawiki/0")
+	// The consumed revision 1 is the initial revision - will be ignored.
+	saveConsumer(uri2, 1, "mediawiki/0")
 
 	watcher, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, gc.IsNil)
@@ -288,19 +289,31 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 
 	wC := watchertest.NewStringsWatcherC(c, watcher)
 
-	// The consumed revision 1 is the initial revision - will be ignored.
-	saveConsumer(uri1, 1, "mediawiki/0")
-	// The consumed revision 1 is the initial revision - will be ignored.
-	saveConsumer(uri2, 1, "mediawiki/0")
-	// The consumed revision 2 is the updated current_revision.
-	saveConsumer(uri2, 2, "mediawiki/0")
-
 	// Wait for the initial changes.
 	wC.AssertChange([]string(nil)...)
+	wC.AssertNoChange()
+
+	// create revision 2.
+	createNewRevision(c, st, uri1)
 
 	wC.AssertChange(
-		uri2.String(),
+		uri1.String(),
+	)
+	wC.AssertNoChange()
+
+	// pretent that the agent restarted and the watcher is re-created.
+	watcher1, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher1, gc.NotNil)
+	defer workertest.CleanKill(c, watcher1)
+	wC1 := watchertest.NewStringsWatcherC(c, watcher1)
+	wC1.AssertChange([]string(nil)...)
+	wC1.AssertChange(
+		uri1.String(),
 	)
 
+	// The consumed revision 2 is the updated current_revision.
+	saveConsumer(uri1, 2, "mediawiki/0")
 	wC.AssertNoChange()
+	wC1.AssertNoChange()
 }

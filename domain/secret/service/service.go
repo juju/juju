@@ -67,8 +67,8 @@ type State interface {
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUID ...string,
 	) ([]string, error)
 
-	InitialWatchStatementForConsumedSecrets(unitName string) (string, eventsource.NamespaceQuery)
-	GetConsumedSecretURIs(ctx context.Context, unitName string, consumerIDs ...string) ([]string, error)
+	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
+	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, consumerIDs ...string) ([]string, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

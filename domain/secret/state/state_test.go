@@ -1589,34 +1589,14 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	c.Assert(content, jc.DeepEquals, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
 
 	// Revision 1 is obsolete.
-	var count int
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, `
-			SELECT count(*) FROM secret_revision WHERE secret_id = ?
-			AND revision = ? AND obsolete = True AND pending_delete = True
-		`, uri.ID, 1)
-		if err := row.Scan(&count); err != nil {
-			return err
-		}
-		return row.Err()
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, 1)
+	obsolete, pendingDelete := s.getObsolete(c, uri, 1)
+	c.Check(obsolete, jc.IsTrue)
+	c.Check(pendingDelete, jc.IsTrue)
 
 	// But not revision 2.
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, `
-			SELECT count(*) FROM secret_revision WHERE secret_id = ?
-			AND revision = ? AND obsolete = True AND pending_delete = True
-		`, uri.ID, 2)
-		if err := row.Scan(&count); err != nil {
-			return err
-		}
-		return row.Err()
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, 0)
+	obsolete, pendingDelete = s.getObsolete(c, uri, 2)
+	c.Check(obsolete, jc.IsFalse)
+	c.Check(pendingDelete, jc.IsFalse)
 }
 
 func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
@@ -1716,8 +1696,9 @@ func (s *stateSuite) getObsolete(c *gc.C, uri *coresecrets.URI, rev int) (bool, 
 	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT obsolete, pending_delete
-FROM secret_revision
-WHERE secret_id = ? AND revision = ?`, uri.ID, rev)
+FROM secret_revision_obsolete sro
+INNER JOIN secret_revision sr ON sro.revision_uuid = sr.uuid
+WHERE sr.secret_id = ? AND sr.revision = ?`, uri.ID, rev)
 		err := row.Scan(&obsolete, &pendingDelete)
 		c.Check(err, jc.ErrorIsNil)
 		return nil
@@ -1887,36 +1868,14 @@ func (s *stateSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Revision 1 is obsolete.
-	var count int
-
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, `
-			SELECT count(*) FROM secret_revision WHERE secret_id = ?
-			AND revision = ? AND obsolete = True AND pending_delete = True
-		`, uri.ID, 1)
-		if err := row.Scan(&count); err != nil {
-			return err
-		}
-		return row.Err()
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, 1)
+	obsolete, pendingDelete := s.getObsolete(c, uri, 1)
+	c.Check(obsolete, jc.IsTrue)
+	c.Check(pendingDelete, jc.IsTrue)
 
 	// But not revision 2.
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, `
-			SELECT count(*) FROM secret_revision WHERE secret_id = ?
-			AND revision = ? AND obsolete = True AND pending_delete = True
-		`, uri.ID, 2)
-		if err := row.Scan(&count); err != nil {
-			return err
-		}
-		return row.Err()
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, 0)
+	obsolete, pendingDelete = s.getObsolete(c, uri, 2)
+	c.Check(obsolete, jc.IsFalse)
+	c.Check(pendingDelete, jc.IsFalse)
 }
 
 func (s *stateSuite) TestSaveSecretRemoteConsumerSecretNotExists(c *gc.C) {
@@ -2671,7 +2630,7 @@ func (s *stateSuite) TestInitialWatchStatementForObsoleteRevision(c *gc.C) {
 		[]string{"mysql", "mediawiki"},
 		[]string{"mysql/0", "mediawiki/0"},
 	)
-	c.Assert(tableName, gc.Equals, "secret_revision")
+	c.Assert(tableName, gc.Equals, "secret_revision_obsolete")
 	revisionUUIDs, err := f(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revisionUUIDs, jc.SameContents, []string{
@@ -2980,49 +2939,48 @@ func (s *stateSuite) prepareWatchForConsumedSecrets(c *gc.C, ctx context.Context
 	uri1 := coresecrets.NewURI()
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	// create revision 2.
-	updateSecretContent(c, st, uri1)
 
 	uri2 := coresecrets.NewURI()
 	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
-	// create revision 2.
-	updateSecretContent(c, st, uri2)
 
-	// The consumed revision 1 is the initial revision - will be ignored.
+	// The consumed revision 1.
 	saveConsumer(uri1, 1, "mediawiki/0")
-	// The consumed revision 1 is the initial revision - will be ignored.
+	// The consumed revision 1.
 	saveConsumer(uri2, 1, "mediawiki/0")
-	// The consumed revision 2 is the updated current_revision.
-	saveConsumer(uri2, 2, "mediawiki/0")
+
+	// create revision 2, so mediawiki/0 will receive a consumed secret change event for uri1.
+	updateSecretContent(c, st, uri1)
 	return uri1, uri2
 }
 
 func (s *stateSuite) TestInitialWatchStatementForConsumedSecrets(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 	ctx := context.Background()
-	_, uri2 := s.prepareWatchForConsumedSecrets(c, ctx, st)
-	tableName, f := st.InitialWatchStatementForConsumedSecrets("mediawiki/0")
+	uri1, _ := s.prepareWatchForConsumedSecrets(c, ctx, st)
+	tableName, f := st.InitialWatchStatementForConsumedSecretsChange("mediawiki/0")
 
-	c.Assert(tableName, gc.Equals, "secret_unit_consumer")
+	c.Assert(tableName, gc.Equals, "secret_revision")
 	consumerIDs, err := f(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(consumerIDs, jc.SameContents, []string{
-		uri2.String(),
+		getRevUUID(c, s.DB(), uri1, 2),
 	})
 }
 
-func (s *stateSuite) TestGetConsumedSecretURIs(c *gc.C) {
+func (s *stateSuite) TestGetConsumedSecretURIsWithChanges(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 	ctx := context.Background()
 	uri1, uri2 := s.prepareWatchForConsumedSecrets(c, ctx, st)
 
-	result, err := st.GetConsumedSecretURIs(ctx, "mediawiki/0",
-		uri1.ID,
-		uri2.ID,
+	result, err := st.GetConsumedSecretURIsWithChanges(ctx, "mediawiki/0",
+		getRevUUID(c, s.DB(), uri1, 1),
+		getRevUUID(c, s.DB(), uri1, 2),
+		getRevUUID(c, s.DB(), uri2, 1),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result, jc.SameContents, []string{
-		uri2.String(),
+		uri1.String(),
 	})
 }

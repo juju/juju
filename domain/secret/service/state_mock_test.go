@@ -98,24 +98,24 @@ func (mr *MockStateMockRecorder) DeleteSecret(arg0, arg1, arg2 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockState)(nil).DeleteSecret), arg0, arg1, arg2)
 }
 
-// GetConsumedSecretURIs mocks base method.
-func (m *MockState) GetConsumedSecretURIs(arg0 context.Context, arg1 string, arg2 ...string) ([]string, error) {
+// GetConsumedSecretURIsWithChanges mocks base method.
+func (m *MockState) GetConsumedSecretURIsWithChanges(arg0 context.Context, arg1 string, arg2 ...string) ([]string, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "GetConsumedSecretURIs", varargs...)
+	ret := m.ctrl.Call(m, "GetConsumedSecretURIsWithChanges", varargs...)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetConsumedSecretURIs indicates an expected call of GetConsumedSecretURIs.
-func (mr *MockStateMockRecorder) GetConsumedSecretURIs(arg0, arg1 any, arg2 ...any) *gomock.Call {
+// GetConsumedSecretURIsWithChanges indicates an expected call of GetConsumedSecretURIsWithChanges.
+func (mr *MockStateMockRecorder) GetConsumedSecretURIsWithChanges(arg0, arg1 any, arg2 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumedSecretURIs", reflect.TypeOf((*MockState)(nil).GetConsumedSecretURIs), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumedSecretURIsWithChanges", reflect.TypeOf((*MockState)(nil).GetConsumedSecretURIsWithChanges), varargs...)
 }
 
 // GetModelUUID mocks base method.
@@ -305,19 +305,19 @@ func (mr *MockStateMockRecorder) GrantAccess(arg0, arg1, arg2 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantAccess", reflect.TypeOf((*MockState)(nil).GrantAccess), arg0, arg1, arg2)
 }
 
-// InitialWatchStatementForConsumedSecrets mocks base method.
-func (m *MockState) InitialWatchStatementForConsumedSecrets(arg0 string) (string, eventsource.NamespaceQuery) {
+// InitialWatchStatementForConsumedSecretsChange mocks base method.
+func (m *MockState) InitialWatchStatementForConsumedSecretsChange(arg0 string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchStatementForConsumedSecrets", arg0)
+	ret := m.ctrl.Call(m, "InitialWatchStatementForConsumedSecretsChange", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(eventsource.NamespaceQuery)
 	return ret0, ret1
 }
 
-// InitialWatchStatementForConsumedSecrets indicates an expected call of InitialWatchStatementForConsumedSecrets.
-func (mr *MockStateMockRecorder) InitialWatchStatementForConsumedSecrets(arg0 any) *gomock.Call {
+// InitialWatchStatementForConsumedSecretsChange indicates an expected call of InitialWatchStatementForConsumedSecretsChange.
+func (mr *MockStateMockRecorder) InitialWatchStatementForConsumedSecretsChange(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForConsumedSecrets", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForConsumedSecrets), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForConsumedSecretsChange", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForConsumedSecretsChange), arg0)
 }
 
 // InitialWatchStatementForObsoleteRevision mocks base method.
