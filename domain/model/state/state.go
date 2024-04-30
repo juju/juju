@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	usererrors "github.com/juju/juju/domain/access/errors"
@@ -24,6 +25,7 @@ import (
 	jujudb "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // State represents a type for interacting with the underlying model state.
@@ -360,7 +362,7 @@ INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid)
 // createModel is responsible for creating a new model record
 // for the given model UUID. If a model record already exists for the
 // given model uuid then an error satisfying modelerrors.AlreadyExists is
-// returned. Conversely should the owner already have a model that exists with
+// returned. Conversely, should the owner already have a model that exists with
 // the provided name then a modelerrors.AlreadyExists error will be returned. If
 // the model type supplied is not found then a errors.NotSupported error is
 // returned.
@@ -462,6 +464,10 @@ WHERE model_type.type = ?
 		}
 	}
 
+	if err = addOwnerPermissions(ctx, tx, input.UUID.String(), input.Owner.String()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -479,6 +485,7 @@ func (s *State) Delete(
 
 	deleteSecretBackend := "DELETE FROM model_secret_backend WHERE model_uuid = ?"
 	deleteModelAgent := "DELETE FROM model_agent WHERE model_uuid = ?"
+	deletePermissionStmt := `DELETE FROM permission WHERE grant_on = ?;`
 	deleteModel := "DELETE FROM model WHERE uuid = ?"
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		if err := unregisterModelNamespace(ctx, tx, uuid); err != nil {
@@ -493,6 +500,11 @@ func (s *State) Delete(
 		_, err = tx.ExecContext(ctx, deleteModelAgent, uuid)
 		if err != nil {
 			return fmt.Errorf("delete model %q agent: %w", uuid, err)
+		}
+
+		_, err = tx.ExecContext(ctx, deletePermissionStmt, uuid)
+		if err != nil {
+			return fmt.Errorf("deleting permissions for model %q: %w", uuid, err)
 		}
 
 		res, err := tx.ExecContext(ctx, deleteModel, uuid)
@@ -1105,6 +1117,40 @@ AND cloud_uuid = ?
 		return fmt.Errorf(
 			"%w model %q has different cloud to credential %q",
 			errors.NotValid, uuid, key)
+	}
+	return nil
+}
+
+// addOwnerPermissions inserts an Admin permission for the owner on the given
+// model during create model. The caller has already validated the user exists.
+func addOwnerPermissions(ctx context.Context, tx *sql.Tx, modelUUID, ownerUUID string) error {
+	permUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return err
+	}
+
+	permStmt := `
+INSERT INTO permission (uuid, access_type_id, object_type_id, grant_to, grant_on)
+SELECT ?, at.id, ot.id, ?, ?
+FROM   permission_access_type at,
+       permission_object_type ot
+WHERE  at.type = ?
+AND    ot.type = ?
+`
+	res, err := tx.ExecContext(ctx, permStmt,
+		permUUID.String(), ownerUUID, modelUUID, permission.AdminAccess, permission.Model,
+	)
+
+	if jujudb.IsErrConstraintUnique(err) {
+		return fmt.Errorf("%w for model %q and owner %q", usererrors.PermissionAlreadyExists, modelUUID, ownerUUID)
+	} else if err != nil {
+		return fmt.Errorf("setting permission for model %q: %w", modelUUID, err)
+	}
+
+	if num, err := res.RowsAffected(); err != nil {
+		return errors.Trace(err)
+	} else if num != 1 {
+		return fmt.Errorf("creating model permission metadata, expected 1 row to be inserted, got %d", num)
 	}
 	return nil
 }
