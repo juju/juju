@@ -576,10 +576,23 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertExecSQL(c, `INSERT INTO secret_revision_expire (revision_uuid, expire_time) VALUES (?, datetime('now', '+1 day'));`, "", revisionUUID)
 	s.assertExecSQL(c, `UPDATE secret_revision_expire SET expire_time = datetime('now', '+2 day') WHERE revision_uuid = ?;`, "", revisionUUID)
 	s.assertExecSQL(c, `DELETE FROM secret_revision_expire WHERE revision_uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRevisionExpire, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 1)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionExpire, 1)
+
+	// secret_revision table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretRevision, 2)
+	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRevision, 2)
+
+	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, "", revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
+
+	s.assertChangeLogCount(c, 1, tableSecretRevision, 3)
+	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRevision, 3)
 
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO application (uuid, name, life_id) VALUES (?, 'mysql', 0);`, "", appUUID)

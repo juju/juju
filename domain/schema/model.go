@@ -139,10 +139,9 @@ INSERT INTO change_log_namespace VALUES
     (10, 'secret_rotation', 'Secret rotation changes based on UUID'),
     (11, 'secret_revision_obsolete', 'Secret revision obsolete changes based on UUID'),
     (12, 'secret_revision_expire', 'Secret revision next expire time changes based on UUID'),
-    (13, 'secret_unit_consumer', 'Secret unit consumer current revision changes based on UUID');
-    (14, 'secret_revision', 'Secret revision changes based on UUID');
-    (15, 'subnet', 'Subnet changes based on UUID'),
-    (16, 'subnet_association', 'Subnet association (fan underlay) changes based on UUID'),
+    (13, 'secret_revision', 'Secret revision changes based on UUID'),
+    (14, 'subnet', 'Subnet changes based on UUID'),
+    (15, 'subnet_association', 'Subnet association (fan underlay) changes based on UUID');
 `)
 }
 
