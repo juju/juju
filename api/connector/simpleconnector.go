@@ -52,16 +52,26 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 		CACert:   opts.CACert,
 		ModelTag: names.NewModelTag(opts.ModelUUID),
 
-		Tag:       names.NewUserTag(opts.Username),
 		Password:  opts.Password,
 		Macaroons: opts.Macaroons,
 	}
+
+	isClientCredentialsProvided := opts.ClientID != "" && opts.ClientSecret != ""
+
+	// When the client intends to login via client credentials (like a service
+	// account) they leave `SimpleConfig.Username` empty and assign the client
+	// credentials to `SimpleConfig.ClientID` and `SimpleConfig.ClientSecret`.
+	// In such cases, assigning a user tag to `info.Tag` will result in panic.
+	if !isClientCredentialsProvided {
+		info.Tag = names.NewUserTag(opts.Username)
+	}
+
 	if err := info.Validate(); err != nil {
 		return nil, err
 	}
 
 	dialOpts := api.DefaultDialOpts()
-	if opts.ClientID != "" && opts.ClientSecret != "" {
+	if isClientCredentialsProvided {
 		dialOpts.LoginProvider = api.NewClientCredentialsLoginProvider(
 			opts.ClientID,
 			opts.ClientSecret,
