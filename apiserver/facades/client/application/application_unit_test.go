@@ -2106,69 +2106,6 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.IsNil)
 }
 
-var unifiedSeriesTests = []struct {
-	desc     string
-	param    params.ApplicationDeploy
-	unified  string
-	errMatch string
-}{
-	{
-		desc:    "Series only",
-		param:   params.ApplicationDeploy{Series: "focal", CharmURL: "ch:foo"},
-		unified: "focal",
-	},
-	{
-		desc: "All present",
-		param: params.ApplicationDeploy{
-			Series:      "focal",
-			CharmURL:    "ch:focal/foo",
-			CharmOrigin: &params.CharmOrigin{Series: "focal", Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
-		},
-		unified: "focal",
-	},
-	{
-		desc: "Clash",
-		param: params.ApplicationDeploy{
-			Series:      "jammy",
-			CharmURL:    "ch:foo",
-			CharmOrigin: &params.CharmOrigin{Series: "focal"},
-		},
-		errMatch: `.*inconsistent values for series detected. argument: "jammy", charm origin series: "focal".*`,
-	},
-	{
-		desc: "Clash with base",
-		param: params.ApplicationDeploy{
-			Series:      "jammy",
-			CharmURL:    "ch:foo",
-			CharmOrigin: &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
-		},
-		errMatch: `.*inconsistent values for series detected. argument: "jammy".* charm origin base: "ubuntu@20.04".*`,
-	},
-	{
-		desc: "No series",
-		param: params.ApplicationDeploy{
-			ApplicationName: "foo",
-			CharmURL:        "ch:foo",
-			CharmOrigin:     &params.CharmOrigin{},
-		},
-		errMatch: `unable to determine series for "foo"`,
-	},
-}
-
-func (s *ApplicationSuite) TestGetUnifiedSeries(c *gc.C) {
-	for i, t := range unifiedSeriesTests {
-		c.Logf("Test %d: %s", i, t.desc)
-		unified, err := application.GetUnifiedSeries(t.param)
-		if t.errMatch == "" {
-			if c.Check(err, jc.ErrorIsNil) {
-				c.Check(unified, gc.Equals, t.unified)
-			}
-		} else {
-			c.Check(err, gc.ErrorMatches, t.errMatch)
-		}
-	}
-}
-
 func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -3286,11 +3223,11 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 					InScope:  true,
 					UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
 				},
-			}},
-			ProviderId: "provider-id",
-			Address:    "192.168.1.1",
-		})
-	}
+			},
+		}},
+		ProviderId: "provider-id",
+		Address:    "192.168.1.1",
+	})
 	c.Check(result.Results[1].Error, jc.DeepEquals, &params.Error{
 		Code:    "not found",
 		Message: `unit "mysql/0" not found`,
@@ -3348,11 +3285,11 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 					InScope:  true,
 					UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
 				},
-			}},
-			ProviderId: "provider-id",
-			Address:    "192.168.1.1",
-		})
-	}
+			},
+		}},
+		ProviderId: "provider-id",
+		Address:    "192.168.1.1",
+	})
 	c.Check(*result.Results[1].Result, gc.DeepEquals, params.UnitResult{
 		Tag:             "unit-postgresql-1",
 		WorkloadVersion: "666",

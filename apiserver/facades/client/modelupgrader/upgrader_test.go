@@ -9,7 +9,7 @@ import (
 	"github.com/juju/replicaset/v3"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -65,6 +65,7 @@ var ubuntuVersions = []string{
 	"22.10",
 	"23.04",
 	"23.10",
+	"24.04",
 }
 
 var controllerCfg = controller.Config{

@@ -6,7 +6,9 @@ package charms_test
 import (
 	"net/url"
 
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -407,66 +409,6 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		},
 	}, gc.Commentf("expected to get back the origin recorded by the application"))
-}
-
-var unifiedSeriesTests = []struct {
-	desc     string
-	param    params.AddCharmWithAuth
-	unified  string
-	errMatch string
-}{
-	{
-		desc:    "Series only",
-		param:   params.AddCharmWithAuth{Series: "focal", URL: "ch:foo"},
-		unified: "focal",
-	},
-	{
-		desc: "All present",
-		param: params.AddCharmWithAuth{
-			Series: "focal",
-			URL:    "ch:focal/foo",
-			Origin: params.CharmOrigin{Series: "focal", Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
-		},
-		unified: "focal",
-	},
-	{
-		desc: "Clash",
-		param: params.AddCharmWithAuth{
-			Series: "jammy",
-			URL:    "ch:foo",
-			Origin: params.CharmOrigin{Series: "focal"},
-		},
-		errMatch: `.*inconsistent values for series detected. argument: "jammy", charm origin series: "focal".*`,
-	},
-	{
-		desc: "Clash with base",
-		param: params.AddCharmWithAuth{
-			Series: "jammy",
-			URL:    "ch:foo",
-			Origin: params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
-		},
-		errMatch: `.*inconsistent values for series detected. argument: "jammy".* charm origin base: "ubuntu@20.04".*`,
-	},
-	{
-		desc: "No series",
-		param: params.AddCharmWithAuth{
-			URL: "ch:foo",
-		},
-		errMatch: `unable to determine series for "ch:foo"`,
-	},
-}
-
-func (s *charmsMockSuite) TestGetUnifiedSeries(c *gc.C) {
-	for i, t := range unifiedSeriesTests {
-		c.Logf("Test %d: %s", i, t.desc)
-		unified, err := charms.GetUnifiedSeries(t.param)
-		if t.errMatch == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(unified, gc.Equals, t.unified)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.errMatch)
-		}
-	}
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
