@@ -15,7 +15,7 @@ import (
 
 // API provides access to the action pruner API.
 type API struct {
-	*common.ModelWatcher
+	*common.MongoModelWatcher
 	st         *state.State
 	authorizer facade.Authorizer
 }

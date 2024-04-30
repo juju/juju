@@ -37,7 +37,7 @@ type NetworkService interface {
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
 	*common.LifeGetter
-	*common.ModelWatcher
+	*common.MongoModelWatcher
 	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.StatusGetter
@@ -79,10 +79,9 @@ func NewInstancePollerAPI(
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestricted access.
-	modelWatcher := common.NewModelWatcher(
+	modelWatcher := common.NewMongoModelWatcher(
 		sti,
 		resources,
-		authorizer,
 	)
 	// WatchModelMachines() is allowed with unrestricted access.
 	machinesWatcher := common.NewModelMachinesWatcher(
@@ -103,7 +102,7 @@ func NewInstancePollerAPI(
 
 	return &InstancePollerAPI{
 		LifeGetter:              lifeGetter,
-		ModelWatcher:            modelWatcher,
+		MongoModelWatcher:       modelWatcher,
 		ModelMachinesWatcher:    machinesWatcher,
 		InstanceIdGetter:        instanceIdGetter,
 		StatusGetter:            statusGetter,

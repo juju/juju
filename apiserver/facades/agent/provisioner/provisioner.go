@@ -76,7 +76,7 @@ type ProvisionerAPI struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.APIAddresser
-	*common.ModelWatcher
+	*common.MongoModelWatcher
 	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsGetter
@@ -199,7 +199,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),
-		ModelWatcher:         common.NewModelWatcher(model, resources, authorizer),
+		MongoModelWatcher:    common.NewMongoModelWatcher(model, resources),
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,

@@ -33,7 +33,7 @@ type UndertakerAPI struct {
 	resources facade.Resources
 
 	*common.StatusSetter
-	*common.ModelWatcher
+	*common.MongoModelWatcher
 	cloudspec.CloudSpecer
 
 	secretBackendService SecretBackendService
@@ -68,7 +68,7 @@ func newUndertakerAPI(
 		resources:            resources,
 		secretBackendService: secretBackendService,
 		StatusSetter:         common.NewStatusSetter(st, getCanModifyModel),
-		ModelWatcher:         common.NewModelWatcher(model, resources, authorizer),
+		MongoModelWatcher:    common.NewMongoModelWatcher(model, resources),
 		CloudSpecer:          cloudSpecer,
 	}, nil
 }

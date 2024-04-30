@@ -47,8 +47,8 @@ func newStateFacadeV2(ctx facade.ModelContext) (*FacadeV2, error) {
 		common.AuthFuncForTag(model.ModelTag()),
 	)
 	return &FacadeV2{
-		CloudSpecer:  cloudSpecAPI,
-		ModelWatcher: common.NewModelWatcher(model, resources, authorizer),
+		CloudSpecer:       cloudSpecAPI,
+		MongoModelWatcher: common.NewMongoModelWatcher(model, resources),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			ctx.State(),
 			serviceFactory.ControllerConfig(),
