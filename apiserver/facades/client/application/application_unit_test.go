@@ -1389,9 +1389,9 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
+	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[1].Error, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
+	c.Check(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
 }
 
 func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
@@ -1823,17 +1823,17 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 4)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for container models")
-	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for container models, got 2")
+	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[1].Error, gc.IsNil)
+	c.Check(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for container models")
+	c.Check(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for container models, got 2")
 
-	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "loadbalancer")
+	c.Check(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "loadbalancer")
 	// Check parsing of k8s service annotations.
-	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
-	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "cluster")
-	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-ingress-ssl-redirect"], gc.Equals, true)
-	c.Assert(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
+	c.Check(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
+	c.Check(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "cluster")
+	c.Check(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-ingress-ssl-redirect"], gc.Equals, true)
+	c.Check(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
 }
 
 func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
@@ -3099,7 +3099,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
-	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
+	c.Check(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
 		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
@@ -3110,8 +3110,8 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 			"juju-info": "myspace",
 		},
 	})
-	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
-	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
+	c.Check(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
+	c.Check(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 }
 
 func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
@@ -3228,7 +3228,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 		ProviderId: "provider-id",
 		Address:    "192.168.1.1",
 	})
-	c.Assert(result.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Check(result.Results[1].Error, jc.DeepEquals, &params.Error{
 		Code:    "not found",
 		Message: `unit "mysql/0" not found`,
 	})
@@ -3290,7 +3290,7 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 		ProviderId: "provider-id",
 		Address:    "192.168.1.1",
 	})
-	c.Assert(*result.Results[1].Result, gc.DeepEquals, params.UnitResult{
+	c.Check(*result.Results[1].Result, gc.DeepEquals, params.UnitResult{
 		Tag:             "unit-postgresql-1",
 		WorkloadVersion: "666",
 		Machine:         "1",
@@ -3574,7 +3574,7 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	latest := "latest"
 	branch := "foo"
 
-	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
+	c.Check(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
 		Risk:         "stable",
 		Revision:     &rev,
