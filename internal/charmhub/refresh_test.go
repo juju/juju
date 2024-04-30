@@ -978,7 +978,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	name3 := "baz"
 	config3, err := InstallOneFromChannel(name3, "1/stable", RefreshBase{
 		Name:         "ubuntu",
-		Channel:      "disco",
+		Channel:      "19.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
