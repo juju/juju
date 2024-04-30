@@ -420,16 +420,10 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 		name = b.OS
 		channel = b.Channel.Track
 	default:
-		// If we have a series, we need to convert it to a stable version.
-		// If we have a version, then just pass that through.
-		potential, err := corebase.SeriesVersion(base.Channel)
-		if err == nil {
-			channel = potential
-		} else {
-			channel, err = sanitiseChannel(base.Channel)
-			if err != nil {
-				return transport.Base{}, logAndReturnError(errors.Trace(err))
-			}
+		var err error
+		channel, err = sanitiseChannel(base.Channel)
+		if err != nil {
+			return transport.Base{}, logAndReturnError(errors.Trace(err))
 		}
 	}
 
