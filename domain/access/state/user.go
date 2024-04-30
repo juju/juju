@@ -748,16 +748,11 @@ WHERE      disabled = false`
 		return errors.Annotate(err, "preparing insert defineUserAuthentication query")
 	}
 
-	query := tx.Query(ctx, insertDefineUserAuthenticationStmt, sqlair.M{"name": name, "disabled": false})
-	err = query.Run()
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, insertDefineUserAuthenticationStmt, sqlair.M{"name": name, "disabled": false}).Get(&outcome)
 	if internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Annotatef(accesserrors.UserNotFound, "%q", name)
 	} else if err != nil {
-		return errors.Annotatef(err, "setting authentication for user %q", name)
-	}
-
-	outcome := sqlair.Outcome{}
-	if err := query.Get(&outcome); err != nil {
 		return errors.Annotatef(err, "setting authentication for user %q", name)
 	}
 
