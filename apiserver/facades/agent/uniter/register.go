@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -25,12 +26,20 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // newUniterAPI creates a new instance of the core Uniter API.
-func newUniterAPI(stdCtx context.Context, context facade.ModelContext) (*UniterAPI, error) {
-	serviceFactory := context.ServiceFactory()
+func newUniterAPI(_ context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	serviceFactory := ctx.ServiceFactory()
+	secretBackendService := serviceFactory.SecretBackend(m.ControllerUUID(), provider.Provider)
+	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
+		return secretBackendService.GetSecretBackendConfigForAdmin(stdCtx, model.UUID(m.UUID()))
+	}
 	return newUniterAPIWithServices(
-		stdCtx,
-		context,
+		ctx,
 		serviceFactory.ControllerConfig(),
+		serviceFactory.Secret(secretBackendAdminConfigGetter),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Unit(),
@@ -39,9 +48,9 @@ func newUniterAPI(stdCtx context.Context, context facade.ModelContext) (*UniterA
 
 // newUniterAPIWithServices creates a new instance using the services.
 func newUniterAPIWithServices(
-	stdCtx context.Context,
 	context facade.ModelContext,
 	controllerConfigService ControllerConfigService,
+	secretService SecretService,
 	cloudService CloudService,
 	credentialService CredentialService,
 	unitRemover UnitRemover,
@@ -96,10 +105,6 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretsAPI, err := secretsmanager.NewSecretManagerAPI(stdCtx, context)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	logger := context.Logger().Child("uniter")
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
@@ -110,7 +115,6 @@ func newUniterAPIWithServices(
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
 		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),
-		SecretsManagerAPI:          secretsAPI,
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
@@ -120,6 +124,7 @@ func newUniterAPIWithServices(
 		m:                       m,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
+		secretService:           secretService,
 		networkService:          context.ServiceFactory().Network(),
 		cloudService:            cloudService,
 		credentialService:       credentialService,

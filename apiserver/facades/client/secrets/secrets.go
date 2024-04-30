@@ -5,31 +5,24 @@ package secrets
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.client.secrets")
 
 // SecretsAPI is the backend for the Secrets facade.
 type SecretsAPI struct {
@@ -39,14 +32,8 @@ type SecretsAPI struct {
 	modelUUID      string
 	modelName      string
 
-	activeBackendID string
-	backends        map[string]provider.SecretsBackend
-
 	secretBackendService SecretBackendService
 	secretService        SecretService
-
-	//adminBackendConfigGetter               func(ctx context.Context) (*provider.ModelBackendConfigInfo, error)
-	backendGetter func(context.Context, *provider.ModelBackendConfig) (provider.SecretsBackend, error)
 }
 
 // SecretsAPIV1 is the backend for the Secrets facade v1.
@@ -197,7 +184,7 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			if arg.Filter.Revision != nil {
 				rev = *arg.Filter.Revision
 			}
-			val, err := s.secretContentFromBackend(ctx, m.URI, rev)
+			val, err := s.secretService.GetSecretContentFromBackend(ctx, m.URI, rev)
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
 			}
@@ -239,88 +226,6 @@ func tagFromAccessScope(access secretservice.SecretAccessScope) (names.Tag, erro
 	}
 }
 
-func (s *SecretsAPI) getBackendInfo(ctx context.Context) error {
-	info, err := s.secretBackendService.GetSecretBackendConfigForAdmin(ctx, model.UUID(s.modelUUID))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for id, cfg := range info.Configs {
-		s.backends[id], err = s.backendGetter(ctx, &cfg)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	s.activeBackendID = info.ActiveID
-	return nil
-}
-
-// TODO(secrets) - rework once secret backend service lands
-func (s *SecretsAPI) secretContentFromBackend(ctx context.Context, uri *coresecrets.URI, rev int) (coresecrets.SecretValue, error) {
-	if s.activeBackendID == "" {
-		err := s.getBackendInfo(ctx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	lastBackendID := ""
-	for {
-		val, ref, err := s.secretService.GetSecretValue(ctx, uri, rev, secretservice.SecretAccessor{
-			Kind: secretservice.ModelAccessor,
-			ID:   s.modelUUID,
-		})
-		if err != nil {
-			notFound := errors.Is(err, secreterrors.SecretNotFound) || errors.Is(err, secreterrors.SecretRevisionNotFound)
-			if notFound {
-				return nil, fmt.Errorf("secret %s revision %d not found%w", uri.ID, rev, errors.Hide(secreterrors.SecretRevisionNotFound))
-			}
-			return nil, errors.Trace(err)
-		}
-		if ref == nil {
-			return val, nil
-		}
-
-		backendID := ref.BackendID
-		backend, ok := s.backends[backendID]
-		if !ok {
-			return nil, errors.NotFoundf("external secret backend %q, have %q", backendID, s.backends)
-		}
-		val, err = backend.GetContent(ctx, ref.RevisionID)
-		notFound := errors.Is(err, secreterrors.SecretNotFound) || errors.Is(err, secreterrors.SecretRevisionNotFound)
-		if err == nil || !notFound || lastBackendID == backendID {
-			if notFound {
-				return nil, fmt.Errorf("secret %s revision %d not found%w", uri.ID, rev, errors.Hide(secreterrors.SecretRevisionNotFound))
-			}
-			return val, errors.Trace(err)
-		}
-		lastBackendID = backendID
-		// Secret may have been drained to the active backend.
-		if backendID != s.activeBackendID {
-			continue
-		}
-		// The active backend may have changed.
-		if initErr := s.getBackendInfo(ctx); initErr != nil {
-			return nil, errors.Trace(initErr)
-		}
-		if s.activeBackendID == backendID {
-			return nil, errors.Trace(err)
-		}
-	}
-}
-
-func (s *SecretsAPI) getBackendForUserSecretsWrite(ctx context.Context) (provider.SecretsBackend, error) {
-	if s.activeBackendID == "" {
-		if err := s.getBackendInfo(ctx); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	b, ok := s.backends[s.activeBackendID]
-	if !ok {
-		// This should never happen.
-		return nil, errors.NotFoundf("secret backend %q", s.activeBackendID)
-	}
-	return b, nil
-}
-
 // CreateSecrets isn't on the v1 API.
 func (s *SecretsAPIV1) CreateSecrets(_ context.Context, _ struct{}) {}
 
@@ -332,12 +237,8 @@ func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecret
 	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackendForUserSecretsWrite(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
 	for i, arg := range args.Args {
-		id, err := s.createSecret(ctx, backend, arg)
+		id, err := s.createSecret(ctx, arg)
 		result.Results[i].Result = id
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
@@ -347,10 +248,14 @@ func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecret
 	return result, nil
 }
 
-func (s *SecretsAPI) createSecret(ctx context.Context, backend provider.SecretsBackend, arg params.CreateSecretArg) (_ string, errOut error) {
+func (s *SecretsAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (_ string, errOut error) {
 	if arg.OwnerTag != "" && arg.OwnerTag != s.modelUUID {
 		return "", errors.NotValidf("owner tag %q", arg.OwnerTag)
 	}
+	if len(arg.Content.Data) == 0 {
+		return "", errors.NotValidf("empty secret value")
+	}
+
 	var uri *coresecrets.URI
 	var err error
 	if arg.URI != nil {
@@ -362,36 +267,9 @@ func (s *SecretsAPI) createSecret(ctx context.Context, backend provider.SecretsB
 		uri = coresecrets.NewURI()
 	}
 
-	if len(arg.Content.Data) == 0 {
-		return "", errors.NotValidf("empty secret value")
-	}
-	revId, err := backend.SaveContent(ctx, uri, 1, coresecrets.NewSecretValue(arg.Content.Data))
-	if err != nil && !errors.Is(err, errors.NotSupported) {
-		return "", errors.Trace(err)
-	}
-	if err == nil {
-		defer func() {
-			if errOut != nil {
-				// If we failed to create the secret, we should delete the
-				// secret value from the backend.
-				if err2 := backend.DeleteContent(ctx, revId); err2 != nil &&
-					!errors.Is(err2, errors.NotSupported) &&
-					!errors.Is(err2, errors.NotFound) {
-					logger.Errorf("failed to delete secret %q: %v", revId, err2)
-				}
-			}
-		}()
-		arg.Content.Data = nil
-		arg.Content.ValueRef = &params.SecretValueRef{
-			BackendID:  s.activeBackendID,
-			RevisionID: revId,
-		}
-	}
-
-	err = s.secretService.CreateSecret(ctx, uri, secretservice.CreateSecretParams{
-		Version:            secrets.Version,
-		UserSecret:         true,
-		UpdateSecretParams: fromUpsertParams(s.modelUUID, nil, arg.UpsertSecretArg),
+	err = s.secretService.CreateUserSecret(ctx, uri, secretservice.CreateUserSecretParams{
+		Version:                secrets.Version,
+		UpdateUserSecretParams: fromUpsertParams(s.modelUUID, nil, arg.UpsertSecretArg),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -399,29 +277,21 @@ func (s *SecretsAPI) createSecret(ctx context.Context, backend provider.SecretsB
 	return uri.String(), nil
 }
 
-func fromUpsertParams(modelUUID string, autoPrune *bool, p params.UpsertSecretArg) secretservice.UpdateSecretParams {
-	var valueRef *coresecrets.ValueRef
-	if p.Content.ValueRef != nil {
-		valueRef = &coresecrets.ValueRef{
-			BackendID:  p.Content.ValueRef.BackendID,
-			RevisionID: p.Content.ValueRef.RevisionID,
-		}
-	}
-	return secretservice.UpdateSecretParams{
+func fromUpsertParams(modelUUID string, autoPrune *bool, p params.UpsertSecretArg) secretservice.UpdateUserSecretParams {
+	return secretservice.UpdateUserSecretParams{
 		Accessor:    secretservice.SecretAccessor{Kind: secretservice.ModelAccessor, ID: modelUUID},
 		AutoPrune:   autoPrune,
 		Description: p.Description,
 		Label:       p.Label,
 		Params:      p.Params,
 		Data:        p.Content.Data,
-		ValueRef:    valueRef,
 	}
 }
 
 // UpdateSecrets isn't on the v1 API.
 func (s *SecretsAPIV1) UpdateSecrets(ctx context.Context, _ struct{}) {}
 
-// UpdateSecrets creates new secrets.
+// UpdateSecrets updates user secrets.
 func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSecretArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
@@ -429,12 +299,8 @@ func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSe
 	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackendForUserSecretsWrite(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
 	for i, arg := range args.Args {
-		err := s.updateSecret(ctx, backend, arg)
+		err := s.updateSecret(ctx, arg)
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}
@@ -443,7 +309,7 @@ func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSe
 	return result, nil
 }
 
-func (s *SecretsAPI) updateSecret(ctx context.Context, backend provider.SecretsBackend, arg params.UpdateUserSecretArg) (errOut error) {
+func (s *SecretsAPI) updateSecret(ctx context.Context, arg params.UpdateUserSecretArg) (errOut error) {
 	if err := arg.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -452,36 +318,7 @@ func (s *SecretsAPI) updateSecret(ctx context.Context, backend provider.SecretsB
 		return errors.Trace(err)
 	}
 
-	md, err := s.secretService.GetSecret(ctx, uri)
-	if err != nil {
-		// Check if the uri exists or not.
-		return errors.Trace(err)
-	}
-	if len(arg.Content.Data) > 0 {
-		revId, err := backend.SaveContent(ctx, uri, md.LatestRevision+1, coresecrets.NewSecretValue(arg.Content.Data))
-		if err != nil && !errors.Is(err, errors.NotSupported) {
-			return errors.Trace(err)
-		}
-		if err == nil {
-			defer func() {
-				if errOut != nil {
-					// If we failed to update the secret, we should delete the
-					// secret value from the backend for the new revision.
-					if err2 := backend.DeleteContent(ctx, revId); err2 != nil &&
-						!errors.Is(err2, errors.NotSupported) &&
-						!errors.Is(err2, errors.NotFound) {
-						logger.Errorf("failed to delete secret %q: %v", revId, err2)
-					}
-				}
-			}()
-			arg.Content.Data = nil
-			arg.Content.ValueRef = &params.SecretValueRef{
-				BackendID:  s.activeBackendID,
-				RevisionID: revId,
-			}
-		}
-	}
-	err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(s.modelUUID, arg.AutoPrune, arg.UpsertSecretArg))
+	err = s.secretService.UpdateUserSecret(ctx, uri, fromUpsertParams(s.modelUUID, arg.AutoPrune, arg.UpsertSecretArg))
 	return errors.Trace(err)
 }
 

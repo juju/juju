@@ -2847,7 +2847,7 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 		Data:       coresecrets.SecretData{"foo": "bar"},
 		ExpireTime: ptr(expireTime),
 	}
-	uri := coresecrets.NewURI()
+	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := context.Background()
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2883,6 +2883,8 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 		c.Assert(err, jc.ErrorIs, secreterrors.SecretRevisionNotFound)
 	}
 	_, err = st.GetSecret(ctx, uri)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+	_, _, err = st.GetSecretConsumer(ctx, uri, "someunit/0")
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 
 	_, err = st.GetSecret(ctx, uri2)

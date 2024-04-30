@@ -297,18 +297,18 @@ func (mr *MockSecretServiceMockRecorder) ChangeSecretBackend(ctx, uri, revision,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockSecretService)(nil).ChangeSecretBackend), ctx, uri, revision, params)
 }
 
-// CreateSecret mocks base method.
-func (m *MockSecretService) CreateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.CreateSecretParams) error {
+// CreateCharmSecret mocks base method.
+func (m *MockSecretService) CreateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.CreateCharmSecretParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSecret", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateCharmSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreateSecret indicates an expected call of CreateSecret.
-func (mr *MockSecretServiceMockRecorder) CreateSecret(arg0, arg1, arg2 any) *gomock.Call {
+// CreateCharmSecret indicates an expected call of CreateCharmSecret.
+func (mr *MockSecretServiceMockRecorder) CreateCharmSecret(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockSecretService)(nil).CreateSecret), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCharmSecret", reflect.TypeOf((*MockSecretService)(nil).CreateCharmSecret), arg0, arg1, arg2)
 }
 
 // CreateSecretURIs mocks base method.
@@ -412,34 +412,34 @@ func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(ctx, backe
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGrantedSecretsForBackend", reflect.TypeOf((*MockSecretService)(nil).ListGrantedSecretsForBackend), varargs...)
 }
 
-// ProcessSecretConsumerLabel mocks base method.
-func (m *MockSecretService) ProcessSecretConsumerLabel(ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token) (*secrets.URI, *string, error) {
+// ProcessCharmSecretConsumerLabel mocks base method.
+func (m *MockSecretService) ProcessCharmSecretConsumerLabel(ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token) (*secrets.URI, *string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProcessSecretConsumerLabel", ctx, unitName, uri, label, token)
+	ret := m.ctrl.Call(m, "ProcessCharmSecretConsumerLabel", ctx, unitName, uri, label, token)
 	ret0, _ := ret[0].(*secrets.URI)
 	ret1, _ := ret[1].(*string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// ProcessSecretConsumerLabel indicates an expected call of ProcessSecretConsumerLabel.
-func (mr *MockSecretServiceMockRecorder) ProcessSecretConsumerLabel(ctx, unitName, uri, label, token any) *gomock.Call {
+// ProcessCharmSecretConsumerLabel indicates an expected call of ProcessCharmSecretConsumerLabel.
+func (mr *MockSecretServiceMockRecorder) ProcessCharmSecretConsumerLabel(ctx, unitName, uri, label, token any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSecretConsumerLabel", reflect.TypeOf((*MockSecretService)(nil).ProcessSecretConsumerLabel), ctx, unitName, uri, label, token)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessCharmSecretConsumerLabel", reflect.TypeOf((*MockSecretService)(nil).ProcessCharmSecretConsumerLabel), ctx, unitName, uri, label, token)
 }
 
-// UpdateSecret mocks base method.
-func (m *MockSecretService) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.UpdateSecretParams) error {
+// UpdateCharmSecret mocks base method.
+func (m *MockSecretService) UpdateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.UpdateCharmSecretParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateCharmSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateSecret indicates an expected call of UpdateSecret.
-func (mr *MockSecretServiceMockRecorder) UpdateSecret(arg0, arg1, arg2 any) *gomock.Call {
+// UpdateCharmSecret indicates an expected call of UpdateCharmSecret.
+func (mr *MockSecretServiceMockRecorder) UpdateCharmSecret(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockSecretService)(nil).UpdateSecret), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCharmSecret", reflect.TypeOf((*MockSecretService)(nil).UpdateCharmSecret), arg0, arg1, arg2)
 }
 
 // MockSecretBackendService is a mock of SecretBackendService interface.

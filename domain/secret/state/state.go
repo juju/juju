@@ -1612,21 +1612,21 @@ WITH local AS
 WHERE
        sm.secret_id = $secretRef.secret_id
 AND
-       $secretRef.source_uuid = '' OR
-       $secretRef.source_uuid = (SELECT uuid FROM model)),
+       ($secretRef.source_uuid = '' OR
+       $secretRef.source_uuid = (SELECT uuid FROM model))),
 remote AS
     (SELECT 'remote' AS is_local FROM model
      WHERE $secretRef.source_uuid <> '' AND uuid <> $secretRef.source_uuid)
 SELECT is_local as &M.is_local
 FROM (SELECT * FROM local UNION SELECT * FROM remote)
 `
-
-	queryStmt, err := st.Prepare(query, secretRef{}, sqlair.M{})
+	ref := secretRef{ID: uri.ID, SourceUUID: uri.SourceUUID}
+	queryStmt, err := st.Prepare(query, ref, sqlair.M{})
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	result := sqlair.M{}
-	err = tx.Query(ctx, queryStmt, secretRef{ID: uri.ID, SourceUUID: uri.SourceUUID}).Get(&result)
+	err = tx.Query(ctx, queryStmt, ref).Get(&result)
 	if err == nil {
 		isLocal := result["is_local"]
 		return isLocal == "local", nil
@@ -2730,6 +2730,8 @@ DELETE FROM secret_reference WHERE secret_id = $secretID.id`
 DELETE FROM secret_permission WHERE secret_id = $secretID.id`
 	deleteSecretMetadata := `
 DELETE FROM secret_metadata WHERE secret_id = $secretID.id`
+	deleteSecret := `
+DELETE FROM secret WHERE id = $secretID.id`
 
 	deleteSecretQueries := []string{
 		deleteSecretRotation,
@@ -2741,6 +2743,7 @@ DELETE FROM secret_metadata WHERE secret_id = $secretID.id`
 		deleteSecretRef,
 		deleteSecretPermission,
 		deleteSecretMetadata,
+		deleteSecret,
 	}
 
 	secretIDParamParam := secretID{

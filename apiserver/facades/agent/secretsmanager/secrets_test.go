@@ -5,7 +5,6 @@ package secretsmanager_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/secrets/provider"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -251,243 +249,6 @@ func (s *SecretsManagerSuite) TestCreateSecretURIs(c *gc.C) {
 	}
 }
 
-func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	p := secretservice.CreateSecretParams{
-		Version:    secrets.Version,
-		CharmOwner: &secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: "mariadb"},
-		UpdateSecretParams: secretservice.UpdateSecretParams{
-			LeaderToken:  s.token,
-			RotatePolicy: ptr(coresecrets.RotateDaily),
-			ExpireTime:   ptr(s.clock.Now()),
-			Description:  ptr("my secret"),
-			Label:        ptr("foobar"),
-			Params:       map[string]interface{}{"param": 1},
-			Data:         map[string]string{"foo": "bar"},
-		},
-	}
-	var gotURI *coresecrets.URI
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), p).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, p secretservice.CreateSecretParams) error {
-			gotURI = uri
-			return nil
-		},
-	)
-
-	results, err := s.facade.CreateSecrets(context.Background(), params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{{
-			OwnerTag: "application-mariadb",
-			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: ptr(coresecrets.RotateDaily),
-				ExpireTime:   ptr(s.clock.Now()),
-				Description:  ptr("my secret"),
-				Label:        ptr("foobar"),
-				Params:       map[string]interface{}{"param": 1},
-				Content:      params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-			},
-		}, {
-			UpsertSecretArg: params.UpsertSecretArg{
-				//Content: params.SecretContentParams{},
-			},
-		}, {
-			OwnerTag: "application-mysql",
-			UpsertSecretArg: params.UpsertSecretArg{
-				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-			},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{
-			Result: gotURI.String(),
-		}, {
-			Error: &params.Error{Message: `empty secret value not valid`, Code: params.CodeNotValid},
-		}, {
-			Error: &params.Error{Message: `permission denied`, Code: params.CodeUnauthorized},
-		}},
-	})
-}
-
-func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	p := secretservice.CreateSecretParams{
-		Version:    secrets.Version,
-		CharmOwner: &secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: "mariadb"},
-		UpdateSecretParams: secretservice.UpdateSecretParams{
-			LeaderToken: s.token,
-			Label:       ptr("foobar"),
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), p).Return(
-		fmt.Errorf("dup label %w", state.LabelExists),
-	)
-
-	results, err := s.facade.CreateSecrets(context.Background(), params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{{
-			OwnerTag: "application-mariadb",
-			UpsertSecretArg: params.UpsertSecretArg{
-				Label:   ptr("foobar"),
-				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-			},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{
-			Error: &params.Error{Message: `secret with label "foobar" already exists`, Code: params.CodeAlreadyExists},
-		}},
-	})
-}
-
-func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	p := secretservice.UpdateSecretParams{
-		LeaderToken: s.token,
-		Accessor: secretservice.SecretAccessor{
-			Kind: secretservice.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-		RotatePolicy: ptr(coresecrets.RotateDaily),
-		ExpireTime:   ptr(s.clock.Now()),
-		Description:  ptr("my secret"),
-		Label:        ptr("foobar"),
-		Params:       map[string]interface{}{"param": 1},
-		Data:         map[string]string{"foo": "bar"},
-	}
-	pWithBackendId := p
-	p.ValueRef = &coresecrets.ValueRef{
-		BackendID:  "backend-id",
-		RevisionID: "rev-id",
-	}
-	p.Data = nil
-	uri := coresecrets.NewURI()
-	expectURI := *uri
-	s.secretService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).Return(nil)
-	s.secretService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, pWithBackendId).Return(nil)
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
-
-	results, err := s.facade.UpdateSecrets(context.Background(), params.UpdateSecretArgs{
-		Args: []params.UpdateSecretArg{{
-			URI: uri.String(),
-			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: ptr(coresecrets.RotateDaily),
-				ExpireTime:   ptr(s.clock.Now()),
-				Description:  ptr("my secret"),
-				Label:        ptr("foobar"),
-				Params:       map[string]interface{}{"param": 1},
-				Content:      params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-			},
-		}, {
-			URI: uri.String(),
-			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: ptr(coresecrets.RotateDaily),
-				ExpireTime:   ptr(s.clock.Now()),
-				Description:  ptr("my secret"),
-				Label:        ptr("foobar"),
-				Params:       map[string]interface{}{"param": 1},
-				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
-					BackendID:  "backend-id",
-					RevisionID: "rev-id",
-				}},
-			},
-		}, {
-			URI: uri.String(),
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{}, {}, {
-			Error: &params.Error{Message: `at least one attribute to update must be specified`},
-		}},
-	})
-}
-
-func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-
-	uri := coresecrets.NewURI()
-	expectURI := *uri
-	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
-		LeaderToken: s.token,
-		Accessor: secretservice.SecretAccessor{
-			Kind: secretservice.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-	}).Return(nil)
-
-	results, err := s.facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
-		Args: []params.DeleteSecretArg{{
-			URI: expectURI.String(),
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{}},
-	})
-}
-
-func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-
-	uri := coresecrets.NewURI()
-	expectURI := *uri
-	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
-		LeaderToken: s.token,
-		Accessor: secretservice.SecretAccessor{
-			Kind: secretservice.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-		Revisions: []int{666},
-	}).Return(nil)
-
-	results, err := s.facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
-		Args: []params.DeleteSecretArg{{
-			URI:       expectURI.String(),
-			Revisions: []int{666},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{}},
-	})
-}
-
-func (s *SecretsManagerSuite) TestRemoveSecretNotFound(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-
-	uri := coresecrets.NewURI()
-	expectURI := *uri
-	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
-		LeaderToken: s.token,
-		Accessor: secretservice.SecretAccessor{
-			Kind: secretservice.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-		Revisions: []int{666},
-	}).Return(secreterrors.SecretNotFound)
-
-	results, err := s.facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
-		Args: []params.DeleteSecretArg{{
-			URI:       expectURI.String(),
-			Revisions: []int{666},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, jc.Satisfies, params.IsCodeSecretNotFound)
-}
-
 func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLabel(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -648,7 +409,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretURIArg(c *gc.C) 
 	uri := coresecrets.NewURI()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 
 	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", false, false, nil).
 		Return(668, nil)
@@ -681,7 +442,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *gc.C
 	uri := coresecrets.NewURI()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", nil, "foo", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", nil, "foo", gomock.Any()).Return(uri, nil, nil)
 
 	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", false, false, nil).
 		Return(668, nil)
@@ -714,7 +475,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabel(c *gc.
 	uri := coresecrets.NewURI()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "foo", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "foo", gomock.Any()).Return(uri, nil, nil)
 
 	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", false, false, nil).
 		Return(668, nil)
@@ -746,7 +507,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedS
 	uri := coresecrets.NewURI()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", nil, "foo", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", nil, "foo", gomock.Any()).Return(uri, nil, nil)
 
 	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", false, false, nil).
 		Return(668, nil)
@@ -781,7 +542,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUnitAgent(c *gc.C) {
 	uri := coresecrets.NewURI()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", false, false, nil).
 		Return(666, nil)
 	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, secretservice.SecretAccessor{
@@ -812,7 +573,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerLabelOnly(c *gc.C) {
 	uri := coresecrets.NewURI()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", nil, "label", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", nil, "label", gomock.Any()).Return(uri, nil, nil)
 	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", false, false, nil).
 		Return(666, nil)
 	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, secretservice.SecretAccessor{
@@ -843,7 +604,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 	uri := coresecrets.NewURI()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "label", gomock.Any()).Return(uri, ptr("label"), nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "label", gomock.Any()).Return(uri, ptr("label"), nil)
 	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", true, false, ptr("label")).
 		Return(668, nil)
 
@@ -875,7 +636,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *gc.C) {
 	uri := coresecrets.NewURI()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", false, true, nil).
 		Return(668, nil)
 	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, secretservice.SecretAccessor{
@@ -913,7 +674,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 
 	s.crossModelState.EXPECT().GetToken(names.NewApplicationTag("mariadb")).Return("token", nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(&coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 665,
 	}, nil)
@@ -981,7 +742,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 
 	s.crossModelState.EXPECT().GetToken(names.NewApplicationTag("mariadb")).Return("token", nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "foo", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "foo", gomock.Any()).Return(uri, nil, nil)
 	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(&coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 665,
 	}, nil)
@@ -1049,7 +810,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 
 	s.crossModelState.EXPECT().GetToken(names.NewApplicationTag("mariadb")).Return("token", nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(&coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 665,
 	}, nil)
@@ -1130,7 +891,7 @@ func (s *SecretsManagerSuite) assertGetSecretContentCrossModelNewConsumer(c *gc.
 	s.crossModelState.EXPECT().GetToken(names.NewApplicationTag("mariadb")).Return("token", nil)
 	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(nil, consumerErr)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.secretService.EXPECT().ProcessSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 
 	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
@@ -1500,101 +1261,4 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 			NextTriggerTime: next,
 		}},
 	})
-}
-
-func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	uri := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().GrantSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
-		LeaderToken: s.token,
-		Accessor: secretservice.SecretAccessor{
-			Kind: secretservice.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-		Scope:   secretservice.SecretAccessScope{Kind: secretservice.RelationAccessScope, ID: "wordpress:db mysql:server"},
-		Subject: secretservice.SecretAccessor{Kind: secretservice.UnitAccessor, ID: "wordpress/0"},
-		Role:    coresecrets.RoleView,
-	}).Return(errors.New("boom"))
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-
-	subjectTag := names.NewUnitTag("wordpress/0")
-	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
-	result, err := s.facade.SecretsGrant(context.Background(), params.GrantRevokeSecretArgs{
-		Args: []params.GrantRevokeSecretArg{{
-			URI:         uri.String(),
-			ScopeTag:    scopeTag.String(),
-			SubjectTags: []string{subjectTag.String()},
-			Role:        "view",
-		}, {
-			URI:      uri.String(),
-			ScopeTag: scopeTag.String(),
-			Role:     "bad",
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{
-				Error: &params.Error{Code: "", Message: fmt.Sprintf(`cannot change access to %q for "unit-wordpress-0": boom`, uri.String())},
-			},
-			{
-				Error: &params.Error{Code: params.CodeNotValid, Message: `secret role "bad" not valid`},
-			},
-		},
-	})
-}
-
-func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	uri := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().RevokeSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
-		LeaderToken: s.token,
-		Accessor: secretservice.SecretAccessor{
-			Kind: secretservice.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-		Scope:   secretservice.SecretAccessScope{Kind: secretservice.RelationAccessScope, ID: "wordpress:db mysql:server"},
-		Subject: secretservice.SecretAccessor{Kind: secretservice.UnitAccessor, ID: "wordpress/0"},
-		Role:    coresecrets.RoleView,
-	}).Return(errors.New("boom"))
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-
-	subjectTag := names.NewUnitTag("wordpress/0")
-	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
-	result, err := s.facade.SecretsRevoke(context.Background(), params.GrantRevokeSecretArgs{
-		Args: []params.GrantRevokeSecretArg{{
-			URI:         uri.String(),
-			ScopeTag:    scopeTag.String(),
-			SubjectTags: []string{subjectTag.String()},
-			Role:        "view",
-		}, {
-			URI:      uri.String(),
-			ScopeTag: scopeTag.String(),
-			Role:     "bad",
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{
-				Error: &params.Error{Code: "", Message: fmt.Sprintf(`cannot change access to %q for "unit-wordpress-0": boom`, uri.String())},
-			},
-			{
-				Error: &params.Error{Code: params.CodeNotValid, Message: `secret role "bad" not valid`},
-			},
-		},
-	})
-}
-
-func (s *SecretsManagerSuite) TestUpdateTrackedRevisions(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	uri := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", true, false, nil).
-		Return(668, nil)
-	result, err := s.facade.UpdateTrackedRevisions(context.Background(), []string{uri.ID})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
 }

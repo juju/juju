@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 )
@@ -82,9 +83,12 @@ func (s *SecretService) removeFromBackend(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, revId := range revs.RevisionIDs() {
-		if err = backend.DeleteContent(ctx, revId); err != nil {
-			return errors.Annotatef(err, "deleting secret content from backend for %q", revId)
+	// For models, we need to delete the content.
+	if accessor.Kind == ModelAccessor {
+		for _, revId := range revs.RevisionIDs() {
+			if err = backend.DeleteContent(ctx, revId); err != nil && !errors.Is(err, secreterrors.SecretRevisionNotFound) {
+				return errors.Annotatef(err, "deleting secret content from backend for %q", revId)
+			}
 		}
 	}
 	// For units, we want to clean up any backend artefacts.

@@ -52,13 +52,6 @@ func newSecretsAPI(context facade.ModelContext) (*SecretsAPI, error) {
 	}
 	secretService := serviceFactory.Secret(adminBackendConfigGetter)
 
-	backendGetter := func(ctx stdcontext.Context, cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		p, err := provider.Provider(cfg.BackendType)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return p.NewBackend(cfg)
-	}
 	return &SecretsAPI{
 		authorizer:           context.Auth(),
 		authTag:              context.Auth().GetAuthTag(),
@@ -67,7 +60,5 @@ func newSecretsAPI(context facade.ModelContext) (*SecretsAPI, error) {
 		modelName:            model.Name(),
 		secretService:        secretService,
 		secretBackendService: backendService,
-		backends:             make(map[string]provider.SecretsBackend),
-		backendGetter:        backendGetter,
 	}, nil
 }

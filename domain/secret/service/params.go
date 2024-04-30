@@ -10,18 +10,16 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-// CreateSecretParams are used to create a secret.
-type CreateSecretParams struct {
-	UpdateSecretParams
+// CreateCharmSecretParams are used to create charm a secret.
+type CreateCharmSecretParams struct {
+	UpdateCharmSecretParams
 	Version int
 
-	// Either a charm secret owner is needed, or a user secret is needed.
-	CharmOwner *CharmSecretOwner
-	UserSecret bool
+	CharmOwner CharmSecretOwner
 }
 
-// UpdateSecretParams are used to update a secret.
-type UpdateSecretParams struct {
+// UpdateCharmSecretParams are used to update a charm secret.
+type UpdateCharmSecretParams struct {
 	LeaderToken leadership.Token
 	Accessor    SecretAccessor
 
@@ -32,7 +30,23 @@ type UpdateSecretParams struct {
 	Params       map[string]interface{}
 	Data         secrets.SecretData
 	ValueRef     *secrets.ValueRef
-	AutoPrune    *bool
+}
+
+// CreateUserSecretParams are used to create a user secret.
+type CreateUserSecretParams struct {
+	UpdateUserSecretParams
+	Version int
+}
+
+// UpdateUserSecretParams are used to update a user secret.
+type UpdateUserSecretParams struct {
+	Accessor SecretAccessor
+
+	Description *string
+	Label       *string
+	Params      map[string]interface{}
+	Data        secrets.SecretData
+	AutoPrune   *bool
 }
 
 // DeleteSecretParams are used to delete a secret.

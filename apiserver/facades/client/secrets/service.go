@@ -17,14 +17,13 @@ import (
 type SecretService interface {
 	// Create and update secrets.
 
-	CreateSecret(context.Context, *secrets.URI, secretservice.CreateSecretParams) error
-	UpdateSecret(context.Context, *secrets.URI, secretservice.UpdateSecretParams) error
+	CreateUserSecret(context.Context, *secrets.URI, secretservice.CreateUserSecretParams) error
+	UpdateUserSecret(context.Context, *secrets.URI, secretservice.UpdateUserSecretParams) error
 
 	// View and fetch secrets.
 
-	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
-	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
+	GetSecretContentFromBackend(ctx context.Context, uri *secrets.URI, rev int) (secrets.SecretValue, error)
 	ListSecrets(ctx context.Context, uri *secrets.URI,
 		revision *int,
 		labels domainsecret.Labels,

@@ -4,7 +4,6 @@
 package secrets
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/names/v5"
@@ -12,12 +11,10 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/internal/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretservice.go github.com/juju/juju/apiserver/facades/client/secrets SecretService,SecretBackendService
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/internal/secrets/provider SecretsBackend
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
@@ -27,7 +24,6 @@ func NewTestAPI(
 	authorizer facade.Authorizer,
 	secretService SecretService,
 	secretBackendService SecretBackendService,
-	backendGetter func(context.Context, *provider.ModelBackendConfig) (provider.SecretsBackend, error),
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -39,8 +35,6 @@ func NewTestAPI(
 		controllerUUID:       coretesting.ControllerTag.Id(),
 		modelUUID:            coretesting.ModelTag.Id(),
 		secretService:        secretService,
-		backends:             make(map[string]provider.SecretsBackend),
 		secretBackendService: secretBackendService,
-		backendGetter:        backendGetter,
 	}, nil
 }
