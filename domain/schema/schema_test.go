@@ -310,6 +310,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_value_ref",
 		"secret_content",
 		"secret_revision",
+		"secret_revision_obsolete",
 		"secret_revision_expire",
 		"secret_application_owner",
 		"secret_model_owner",
@@ -408,9 +409,13 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_revision_expire_update",
 		"trg_log_secret_revision_expire_delete",
 
-		"trg_log_secret_revision_insert",
-		"trg_log_secret_revision_update",
-		"trg_log_secret_revision_delete",
+		"trg_log_secret_revision_revision_insert",
+		"trg_log_secret_revision_revision_update",
+		"trg_log_secret_revision_revision_delete",
+
+		"trg_log_secret_revision_obsolete_obsolete_insert",
+		"trg_log_secret_revision_obsolete_obsolete_update",
+		"trg_log_secret_revision_obsolete_obsolete_delete",
 
 		"trg_log_secret_rotation_insert",
 		"trg_log_secret_rotation_update",
@@ -518,9 +523,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	// secret table triggers.
-	s.assertChangeLogCount(c, 1, tableSecretAutoPrune, 0)
-	s.assertChangeLogCount(c, 2, tableSecretAutoPrune, 0)
-	s.assertChangeLogCount(c, 4, tableSecretAutoPrune, 0)
+	s.assertChangeLogCount(c, 1, tableSecretMetadata, 0)
+	s.assertChangeLogCount(c, 2, tableSecretMetadata, 0)
+	s.assertChangeLogCount(c, 4, tableSecretMetadata, 0)
 
 	secretURI := coresecrets.NewURI()
 	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, "", secretURI.ID)
@@ -528,9 +533,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, "", secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, "", secretURI.ID)
 
-	s.assertChangeLogCount(c, 1, tableSecretAutoPrune, 1)
-	s.assertChangeLogCount(c, 2, tableSecretAutoPrune, 1)
-	s.assertChangeLogCount(c, 4, tableSecretAutoPrune, 1)
+	s.assertChangeLogCount(c, 1, tableSecretMetadata, 1)
+	s.assertChangeLogCount(c, 2, tableSecretMetadata, 1)
+	s.assertChangeLogCount(c, 4, tableSecretMetadata, 1)
 
 	// secret_rotation table triggers.
 	s.assertChangeLogCount(c, 1, tableSecretRotation, 0)
@@ -553,7 +558,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 4, tableSecretRevisionObsolete, 0)
 
 	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, "", revisionUUID, secretURI.ID)
-	s.assertExecSQL(c, `UPDATE secret_revision SET obsolete = true WHERE uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision_obsolete (revision_uuid) VALUES (?);`, "", revisionUUID)
+	s.assertExecSQL(c, `UPDATE secret_revision_obsolete SET obsolete = true WHERE revision_uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision_obsolete WHERE revision_uuid = ?;`, "", revisionUUID)
 	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRevisionObsolete, 1)
