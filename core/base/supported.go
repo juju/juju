@@ -274,7 +274,6 @@ const (
 	Kinetic SeriesName = "kinetic"
 	Lunar   SeriesName = "lunar"
 	Mantic  SeriesName = "mantic"
-	Noble   SeriesName = "noble"
 )
 
 var ubuntuSeries = map[SeriesName]seriesVersion{
@@ -382,11 +381,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 	Mantic: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "23.10",
-	},
-	Noble: {
-		WorkloadType: ControllerWorkloadType,
-		Version:      "24.40",
-		LTS:          true,
 	},
 }
 
