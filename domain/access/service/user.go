@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	domainaccess "github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/auth"
 )
@@ -73,8 +73,8 @@ func (s *UserService) GetUserByName(
 	ctx context.Context,
 	name string,
 ) (user.User, error) {
-	if err := domainaccess.ValidateUserName(name); err != nil {
-		return user.User{}, errors.Annotatef(err, "validating username %q", name)
+	if !names.IsValidUser(name) {
+		return user.User{}, errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
 	usr, err := s.st.GetUserByName(ctx, name)
@@ -95,8 +95,8 @@ func (s *UserService) GetUserByAuth(
 	name string,
 	password auth.Password,
 ) (user.User, error) {
-	if err := domainaccess.ValidateUserName(name); err != nil {
-		return user.User{}, errors.Annotatef(err, "validating username %q", name)
+	if !names.IsValidUser(name) {
+		return user.User{}, errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 	if err := password.Validate(); err != nil {
 		return user.User{}, errors.Trace(err)
@@ -124,8 +124,8 @@ func (s *UserService) GetUserByAuth(
 //     and the creator does not exist.
 //   - auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, []byte, error) {
-	if err := domainaccess.ValidateUserName(arg.Name); err != nil {
-		return "", nil, errors.Annotatef(err, "validating user name %q", arg.Name)
+	if !names.IsValidUser(arg.Name) {
+		return "", nil, errors.Annotatef(accesserrors.UserNameNotValid, "%q", arg.Name)
 	}
 
 	if err := arg.CreatorUUID.Validate(); err != nil {
@@ -197,7 +197,7 @@ func (s *UserService) addUserWithActivationKey(ctx context.Context, arg AddUserA
 // - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) RemoveUser(ctx context.Context, name string) error {
-	if err := domainaccess.ValidateUserName(name); err != nil {
+	if !names.IsValidUser(name) {
 		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
@@ -214,7 +214,7 @@ func (s *UserService) RemoveUser(ctx context.Context, name string) error {
 //   - accesserrors.NotFound: If no user by the given name exists.
 //   - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *UserService) SetPassword(ctx context.Context, name string, pass auth.Password) error {
-	if err := domainaccess.ValidateUserName(name); err != nil {
+	if !names.IsValidUser(name) {
 		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
@@ -232,7 +232,7 @@ func (s *UserService) SetPassword(ctx context.Context, name string, pass auth.Pa
 // - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) ResetPassword(ctx context.Context, name string) ([]byte, error) {
-	if err := domainaccess.ValidateUserName(name); err != nil {
+	if !names.IsValidUser(name) {
 		return nil, errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
@@ -252,7 +252,7 @@ func (s *UserService) ResetPassword(ctx context.Context, name string) ([]byte, e
 // - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) EnableUserAuthentication(ctx context.Context, name string) error {
-	if err := domainaccess.ValidateUserName(name); err != nil {
+	if !names.IsValidUser(name) {
 		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
@@ -267,7 +267,7 @@ func (s *UserService) EnableUserAuthentication(ctx context.Context, name string)
 // - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) DisableUserAuthentication(ctx context.Context, name string) error {
-	if err := domainaccess.ValidateUserName(name); err != nil {
+	if !names.IsValidUser(name) {
 		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
@@ -279,11 +279,11 @@ func (s *UserService) DisableUserAuthentication(ctx context.Context, name string
 
 // UpdateLastModelLogin will update the last login time for the user.
 // The following error types are possible from this function:
-// - accesserrors.UserNameNotValid: When the username is not valid.
+// - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.UserNotFound: When the user cannot be found.
 // - modelerrors.NotFound: If no model by the given modelUUID exists.
 func (s *UserService) UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error {
-	if err := domainaccess.ValidateUserName(name); err != nil {
+	if !names.IsValidUser(name) {
 		return errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
@@ -301,7 +301,7 @@ func (s *UserService) UpdateLastModelLogin(ctx context.Context, name string, mod
 // - accesserrors.UserNeverAccessedModel: If there is no record of the user
 // accessing the model.
 func (s *UserService) LastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) (time.Time, error) {
-	if err := domainaccess.ValidateUserName(name); err != nil {
+	if !names.IsValidUser(name) {
 		return time.Time{}, errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
