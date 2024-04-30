@@ -27,8 +27,8 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 	return &API{
-		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), ctx.Auth()),
-		st:           ctx.State(),
-		authorizer:   ctx.Auth(),
+		MongoModelWatcher: common.NewMongoModelWatcher(m, ctx.Resources()),
+		st:                ctx.State(),
+		authorizer:        ctx.Auth(),
 	}, nil
 }

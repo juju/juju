@@ -35,7 +35,7 @@ type ControllerConfigService interface {
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter
-	*common.ModelWatcher
+	*common.MongoModelWatcher
 	*common.AgentEntityWatcher
 	*common.UnitsWatcher
 	*common.ModelMachinesWatcher
@@ -89,10 +89,9 @@ func NewStateFirewallerAPI(
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestricted access.
-	modelWatcher := common.NewModelWatcher(
+	modelWatcher := common.NewMongoModelWatcher(
 		st,
 		resources,
-		authorizer,
 	)
 	// Watch() is supported for applications only.
 	entityWatcher := common.NewAgentEntityWatcher(
@@ -119,7 +118,7 @@ func NewStateFirewallerAPI(
 
 	return &FirewallerAPI{
 		LifeGetter:              lifeGetter,
-		ModelWatcher:            modelWatcher,
+		MongoModelWatcher:       modelWatcher,
 		AgentEntityWatcher:      entityWatcher,
 		UnitsWatcher:            unitsWatcher,
 		ModelMachinesWatcher:    machinesWatcher,

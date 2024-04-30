@@ -106,7 +106,7 @@ func newUniterAPIWithServices(
 		DeadEnsurer:                common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(systemState, resources),
-		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
+		MongoModelWatcher:          common.NewMongoModelWatcher(m, resources),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
 		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),

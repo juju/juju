@@ -82,7 +82,7 @@ type UniterAPI struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
-	*common.ModelWatcher
+	*common.MongoModelWatcher
 	*common.RebootRequester
 	*common.UpgradeSeriesAPI
 	*common.UnitStateAPI

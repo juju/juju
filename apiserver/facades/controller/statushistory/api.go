@@ -15,7 +15,7 @@ import (
 
 // API is the concrete implementation of the Pruner endpoint.
 type API struct {
-	*common.ModelWatcher
+	*common.MongoModelWatcher
 	st         *state.State
 	authorizer facade.Authorizer
 }

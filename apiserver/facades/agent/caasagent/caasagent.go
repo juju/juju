@@ -11,6 +11,6 @@ import (
 // FacadeV2 is the V2 facade of the caas agent
 type FacadeV2 struct {
 	cloudspec.CloudSpecer
-	*common.ModelWatcher
+	*common.MongoModelWatcher
 	*common.ControllerConfigAPI
 }
