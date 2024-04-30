@@ -6,9 +6,11 @@ package secrets
 import (
 	"context"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // SecretService instances provide secret apis.
@@ -38,4 +40,9 @@ type SecretService interface {
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secretservice.SecretAccess, error)
 	GrantSecretAccess(ctx context.Context, uri *secrets.URI, p secretservice.SecretAccessParams) error
 	RevokeSecretAccess(ctx context.Context, uri *secrets.URI, p secretservice.SecretAccessParams) error
+}
+
+// SecretBackendService provides access to the secret backend service,
+type SecretBackendService interface {
+	GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error)
 }

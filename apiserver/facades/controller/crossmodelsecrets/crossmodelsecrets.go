@@ -18,15 +18,15 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 )
 
-type backendConfigGetter func(ctx stdcontext.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error)
 type secretServiceGetter func(modelUUID string) SecretService
 
 // CrossModelSecretsAPI provides access to the CrossModelSecrets API facade.
@@ -38,11 +38,11 @@ type CrossModelSecretsAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	secretServiceGetter secretServiceGetter
-	backendConfigGetter backendConfigGetter
-	crossModelState     CrossModelState
-	stateBackend        StateBackend
-	logger              loggo.Logger
+	secretServiceGetter  secretServiceGetter
+	secretBackendService SecretBackendService
+	crossModelState      CrossModelState
+	stateBackend         StateBackend
+	logger               loggo.Logger
 }
 
 // NewCrossModelSecretsAPI returns a new server-side CrossModelSecretsAPI facade.
@@ -52,21 +52,21 @@ func NewCrossModelSecretsAPI(
 	controllerUUID string,
 	modelUUID string,
 	secretServiceGetter secretServiceGetter,
-	backendConfigGetter backendConfigGetter,
+	secretBackendService SecretBackendService,
 	crossModelState CrossModelState,
 	stateBackend StateBackend,
 	logger loggo.Logger,
 ) (*CrossModelSecretsAPI, error) {
 	return &CrossModelSecretsAPI{
-		resources:           resources,
-		authCtxt:            authContext,
-		controllerUUID:      controllerUUID,
-		modelUUID:           modelUUID,
-		secretServiceGetter: secretServiceGetter,
-		backendConfigGetter: backendConfigGetter,
-		crossModelState:     crossModelState,
-		stateBackend:        stateBackend,
-		logger:              logger,
+		resources:            resources,
+		authCtxt:             authContext,
+		controllerUUID:       controllerUUID,
+		modelUUID:            modelUUID,
+		secretServiceGetter:  secretServiceGetter,
+		secretBackendService: secretBackendService,
+		crossModelState:      crossModelState,
+		stateBackend:         stateBackend,
+		logger:               logger,
 	}, nil
 }
 
@@ -212,10 +212,11 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 		wantRevision = *arg.Revision
 	}
 
-	val, valueRef, err := secretService.GetSecretValue(ctx, uri, wantRevision, secretservice.SecretAccessor{
+	accessor := secretservice.SecretAccessor{
 		Kind: secretservice.UnitAccessor,
 		ID:   consumer.Id(),
-	})
+	}
+	val, valueRef, err := secretService.GetSecretValue(ctx, uri, wantRevision, accessor)
 	content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
 	if err != nil || content.ValueRef == nil {
 		return content, nil, latestRevision, errors.Trace(err)
@@ -226,12 +227,20 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 	// This breaks single controller microk8s cross model secrets, but not assuming
 	// that breaks everything else.
 	sameController := s.controllerUUID == arg.SourceControllerUUID
-	backend, err := s.getBackend(ctx, uri.SourceUUID, sameController, content.ValueRef.BackendID, consumer)
+	backend, err := s.getBackend(ctx, secretService, uri.SourceUUID, sameController, content.ValueRef.BackendID, accessor)
 	return content, backend, latestRevision, errors.Trace(err)
 }
 
-func (s *CrossModelSecretsAPI) getBackend(ctx stdcontext.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*params.SecretBackendConfigResult, error) {
-	cfgInfo, err := s.backendConfigGetter(ctx, modelUUID, sameController, backendID, consumer)
+func (s *CrossModelSecretsAPI) getBackend(
+	ctx stdcontext.Context, secretService SecretService, modelUUID string, sameController bool, backendID string, accessor secretservice.SecretAccessor,
+) (*params.SecretBackendConfigResult, error) {
+	cfgInfo, err := s.secretBackendService.BackendConfigInfo(ctx, secretbackendservice.BackendConfigParams{
+		GrantedSecretsGetter: secretService.ListGrantedSecretsForBackend,
+		Accessor:             accessor,
+		ModelUUID:            model.UUID(modelUUID),
+		BackendIDs:           []string{backendID},
+		SameController:       sameController,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -19,10 +19,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
@@ -38,57 +40,24 @@ type CrossModelSecretsClient interface {
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
 type SecretsManagerAPI struct {
-	authorizer        facade.Authorizer
-	leadershipChecker leadership.Checker
-	secretService     SecretService
-	watcherRegistry   facade.WatcherRegistry
-	secretsTriggers   SecretTriggers
-	secretsConsumer   SecretsConsumer
-	authTag           names.Tag
-	clock             clock.Clock
-	controllerUUID    string
-	modelUUID         string
+	authorizer           facade.Authorizer
+	leadershipChecker    leadership.Checker
+	secretBackendService SecretBackendService
+	secretService        SecretService
+	watcherRegistry      facade.WatcherRegistry
+	secretsTriggers      SecretTriggers
+	secretsConsumer      SecretsConsumer
+	authTag              names.Tag
+	clock                clock.Clock
+	controllerUUID       string
+	modelUUID            string
 
-	backendConfigGetter commonsecrets.BackendConfigGetter
-	drainConfigGetter   commonsecrets.BackendDrainConfigGetter
-	remoteClientGetter  func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error)
+	remoteClientGetter func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error)
 
 	crossModelState CrossModelState
 
 	logger loggo.Logger
 }
-
-// SecretsManagerAPIV1 the secrets manager facade v1.
-// TODO - drop when we no longer support juju 3.1.0
-type SecretsManagerAPIV1 struct {
-	*SecretsManagerAPI
-}
-
-// GetSecretBackendConfig gets the config needed to create a client to secret backends.
-// TODO - drop when we no longer support juju 3.1.x
-func (s *SecretsManagerAPIV1) GetSecretBackendConfig(ctx context.Context) (params.SecretBackendConfigResultsV1, error) {
-	cfgInfo, err := s.backendConfigGetter(ctx, nil, true)
-	if err != nil {
-		return params.SecretBackendConfigResultsV1{}, errors.Trace(err)
-	}
-	result := params.SecretBackendConfigResultsV1{
-		ActiveID: cfgInfo.ActiveID,
-		Configs:  make(map[string]params.SecretBackendConfig),
-	}
-	for id, cfg := range cfgInfo.Configs {
-		result.ControllerUUID = cfg.ControllerUUID
-		result.ModelUUID = cfg.ModelUUID
-		result.ModelName = cfg.ModelName
-		result.Configs[id] = params.SecretBackendConfig{
-			BackendType: cfg.BackendType,
-			Params:      cfg.Config,
-		}
-	}
-	return result, nil
-}
-
-// GetSecretBackendConfigs isn't on the V1 API.
-func (*SecretsManagerAPIV1) GetSecretBackendConfigs(ctx context.Context, _ struct{}) {}
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends.
 func (s *SecretsManagerAPI) GetSecretBackendConfigs(ctx context.Context, arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
@@ -119,7 +88,18 @@ func (s *SecretsManagerAPI) getBackendConfigForDrain(ctx context.Context, arg pa
 	results := params.SecretBackendConfigResults{
 		Results: make(map[string]params.SecretBackendConfigResult, 1),
 	}
-	cfgInfo, err := s.drainConfigGetter(ctx, backendID)
+	appName, _ := names.UnitApplication(s.authTag.Id())
+	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
+	cfgInfo, err := s.secretBackendService.DrainBackendConfigInfo(ctx, secretbackendservice.DrainBackendConfigParams{
+		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
+		LeaderToken:          token,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   s.authTag.Id(),
+		},
+		ModelUUID: model.UUID(s.modelUUID),
+		BackendID: backendID,
+	})
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -144,7 +124,19 @@ func (s *SecretsManagerAPI) getBackendConfigForDrain(ctx context.Context, arg pa
 
 // GetSecretBackendConfig gets the config needed to create a client to secret backends.
 func (s *SecretsManagerAPI) getSecretBackendConfig(ctx context.Context, backendIDs []string) (map[string]params.SecretBackendConfigResult, string, error) {
-	cfgInfo, err := s.backendConfigGetter(ctx, backendIDs, false)
+	appName, _ := names.UnitApplication(s.authTag.Id())
+	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
+	cfgInfo, err := s.secretBackendService.BackendConfigInfo(ctx, secretbackendservice.BackendConfigParams{
+		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
+		LeaderToken:          token,
+		Accessor: secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   s.authTag.Id(),
+		},
+		ModelUUID:      model.UUID(s.modelUUID),
+		BackendIDs:     backendIDs,
+		SameController: true,
+	})
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -172,8 +164,15 @@ func (s *SecretsManagerAPI) getSecretBackendConfig(ctx context.Context, backendI
 	return result, cfgInfo.ActiveID, nil
 }
 
-func (s *SecretsManagerAPI) getBackend(ctx context.Context, backendID string) (*secretsprovider.ModelBackendConfig, bool, error) {
-	cfgInfo, err := s.backendConfigGetter(ctx, []string{backendID}, false)
+func (s *SecretsManagerAPI) getBackend(ctx context.Context, backendID string, accessor secretservice.SecretAccessor, token leadership.Token) (*secretsprovider.ModelBackendConfig, bool, error) {
+	cfgInfo, err := s.secretBackendService.BackendConfigInfo(ctx, secretbackendservice.BackendConfigParams{
+		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
+		LeaderToken:          token,
+		Accessor:             accessor,
+		ModelUUID:            model.UUID(s.modelUUID),
+		BackendIDs:           []string{backendID},
+		SameController:       true,
+	})
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -649,6 +648,8 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 		Kind: secretservice.UnitAccessor,
 		ID:   s.authTag.Id(),
 	}
+	appName, _ := names.UnitApplication(s.authTag.Id())
+	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
 	for i, rev := range arg.Revisions {
 		// TODO(wallworld) - if pendingDelete is true, mark the revision for deletion
 		val, valueRef, err := s.secretService.GetSecretValue(ctx, uri, rev, accessor)
@@ -662,7 +663,7 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 				BackendID:  valueRef.BackendID,
 				RevisionID: valueRef.RevisionID,
 			}
-			backend, draining, err := s.getBackend(ctx, valueRef.BackendID)
+			backend, draining, err := s.getBackend(ctx, valueRef.BackendID, accessor, token)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -737,7 +738,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	if err != nil || content.ValueRef == nil {
 		return content, nil, false, errors.Trace(err)
 	}
-	backend, draining, err := s.getBackend(ctx, content.ValueRef.BackendID)
+	backend, draining, err := s.getBackend(ctx, content.ValueRef.BackendID, accessor, token)
 	return content, backend, draining, errors.Trace(err)
 }
 

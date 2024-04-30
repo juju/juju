@@ -24,8 +24,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets/mocks"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -36,10 +38,11 @@ var _ = gc.Suite(&CrossModelSecretsSuite{})
 type CrossModelSecretsSuite struct {
 	coretesting.BaseSuite
 
-	resources       *common.Resources
-	secretService   *mocks.MockSecretService
-	crossModelState *mocks.MockCrossModelState
-	stateBackend    *mocks.MockStateBackend
+	resources            *common.Resources
+	secretService        *mocks.MockSecretService
+	secretBackendService *mocks.MockSecretBackendService
+	crossModelState      *mocks.MockCrossModelState
+	stateBackend         *mocks.MockStateBackend
 
 	facade *crossmodelsecrets.CrossModelSecretsAPI
 
@@ -101,39 +104,22 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.secretService = mocks.NewMockSecretService(ctrl)
+	s.secretBackendService = mocks.NewMockSecretBackendService(ctrl)
 	s.crossModelState = mocks.NewMockCrossModelState(ctrl)
 	s.stateBackend = mocks.NewMockStateBackend(ctrl)
 
-	secretsStateGetter := func(modelUUID string) crossmodelsecrets.SecretService {
+	secretsServiceGetter := func(modelUUID string) crossmodelsecrets.SecretService {
 		return s.secretService
 	}
-	backendConfigGetter := func(_ context.Context, modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
-		c.Assert(sameController, jc.IsFalse)
-		c.Assert(backendID, gc.Equals, "backend-id")
-		c.Assert(consumer.String(), gc.Equals, "unit-remote-app-666")
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "active-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      modelUUID,
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "vault",
-						Config:      map[string]interface{}{"foo": "bar"},
-					},
-				},
-			},
-		}, nil
-	}
+
 	var err error
 	s.facade, err = crossmodelsecrets.NewCrossModelSecretsAPI(
 		s.resources,
 		s.authContext,
 		coretesting.ControllerTag.Id(),
 		coretesting.ModelTag.Id(),
-		secretsStateGetter,
-		backendConfigGetter,
+		secretsServiceGetter,
+		s.secretBackendService,
 		s.crossModelState,
 		s.stateBackend,
 		loggo.GetLoggerWithTags("juju.apiserver.crossmodelsecrets", corelogger.SECRETS),
@@ -153,6 +139,26 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 
 func (s *CrossModelSecretsSuite) TestGetSecretContentInfoNewConsumer(c *gc.C) {
 	s.assertGetSecretContentInfo(c, true)
+}
+
+type backendConfigParamsMatcher struct {
+	c        *gc.C
+	expected any
+}
+
+func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(secretbackendservice.BackendConfigParams)
+	if !ok {
+		return false
+	}
+	m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+	obtained.GrantedSecretsGetter = nil
+	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	return true
+}
+
+func (m backendConfigParamsMatcher) String() string {
+	return "Match the contents of BackendConfigParams"
 }
 
 func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer bool) {
@@ -181,6 +187,25 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 			RevisionID: "rev-id",
 		}, nil,
 	)
+	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c, expected: secretbackendservice.BackendConfigParams{
+		Accessor:       consumer,
+		ModelUUID:      model.UUID(coretesting.ModelTag.Id()),
+		BackendIDs:     []string{"backend-id"},
+		SameController: false,
+	}}).Return(&provider.ModelBackendConfigInfo{
+		ActiveID: "active-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "vault",
+					Config:      map[string]interface{}{"foo": "bar"},
+				},
+			},
+		},
+	}, nil)
 
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),

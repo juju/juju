@@ -18,14 +18,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -40,9 +41,9 @@ type SecretsManagerSuite struct {
 	authorizer      *facademocks.MockAuthorizer
 	watcherRegistry *facademocks.MockWatcherRegistry
 
-	provider              *mocks.MockSecretBackendProvider
 	leadership            *mocks.MockChecker
 	token                 *mocks.MockToken
+	secretBackendService  *mocks.MockSecretBackendService
 	secretService         *mocks.MockSecretService
 	secretsConsumer       *mocks.MockSecretsConsumer
 	crossModelState       *mocks.MockCrossModelState
@@ -70,10 +71,10 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
-	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
 	s.leadership = mocks.NewMockChecker(ctrl)
 	s.token = mocks.NewMockToken(ctrl)
 	s.secretService = mocks.NewMockSecretService(ctrl)
+	s.secretBackendService = mocks.NewMockSecretBackendService(ctrl)
 	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.crossModelState = mocks.NewMockCrossModelState(ctrl)
 	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
@@ -81,46 +82,8 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsTriggerWatcher = mocks.NewMockSecretTriggerWatcher(ctrl)
 	s.expectAuthUnitAgent()
 
-	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.provider, nil })
-
 	s.clock = testclock.NewClock(time.Now())
 
-	backendConfigGetter := func(_ context.Context, backendIds []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		// wantAll is for 3.1 compatibility only.
-		if wantAll {
-			return nil, errors.NotSupportedf("wantAll")
-		}
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "backend-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "bar"},
-					},
-				},
-			},
-		}, nil
-	}
-	drainConfigGetter := func(_ context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "backend-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "admin"},
-					},
-				},
-			},
-		}, nil
-	}
 	remoteClientGetter := func(_ context.Context, uri *coresecrets.URI) (secretsmanager.CrossModelSecretsClient, error) {
 		return s.remoteClient, nil
 	}
@@ -128,8 +91,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
 		s.authorizer, s.watcherRegistry, s.leadership, s.secretService, s.secretsConsumer,
-		s.secretTriggers, backendConfigGetter,
-		drainConfigGetter, remoteClientGetter,
+		s.secretTriggers, s.secretBackendService, remoteClientGetter,
 		s.crossModelState, s.authTag, s.clock,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -145,8 +107,60 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+type backendConfigParamsMatcher struct {
+	c        *gc.C
+	expected any
+}
+
+func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
+	if obtained, ok := x.(secretbackendservice.BackendConfigParams); ok {
+		m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+		obtained.GrantedSecretsGetter = nil
+		m.c.Assert(obtained, jc.DeepEquals, m.expected)
+		return true
+	}
+	obtained, ok := x.(secretbackendservice.DrainBackendConfigParams)
+	if !ok {
+		return false
+	}
+	m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+	obtained.GrantedSecretsGetter = nil
+	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	return true
+}
+
+func (m backendConfigParamsMatcher) String() string {
+	return "Match the contents of BackendConfigParams"
+}
+
 func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	defer s.setup(c).Finish()
+
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c,
+		expected: secretbackendservice.BackendConfigParams{
+			LeaderToken: s.token,
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   "mariadb/0",
+			},
+			ModelUUID:      model.UUID(coretesting.ModelTag.Id()),
+			BackendIDs:     []string{"backend-id"},
+			SameController: true,
+		}}).Return(&provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+					Config:      map[string]interface{}{"foo": "bar"},
+				},
+			},
+		},
+	}, nil)
 
 	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
@@ -171,6 +185,31 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 
 func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
 	defer s.setup(c).Finish()
+
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.secretBackendService.EXPECT().DrainBackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c,
+		expected: secretbackendservice.DrainBackendConfigParams{
+			LeaderToken: s.token,
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   "mariadb/0",
+			},
+			ModelUUID: model.UUID(coretesting.ModelTag.Id()),
+			BackendID: "backend-id",
+		}}).Return(&provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+					Config:      map[string]interface{}{"foo": "admin"},
+				},
+			},
+		},
+	}, nil)
 
 	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
 		ForDrain:   true,
@@ -1189,6 +1228,31 @@ func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *gc.C) {
 			RevisionID: "rev-id",
 		}, nil,
 	)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c,
+		expected: secretbackendservice.BackendConfigParams{
+			LeaderToken: s.token,
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   "mariadb/0",
+			},
+			ModelUUID:      model.UUID(coretesting.ModelTag.Id()),
+			BackendIDs:     []string{"backend-id"},
+			SameController: true,
+		}}).Return(&provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+					Config:      map[string]interface{}{"foo": "bar"},
+				},
+			},
+		},
+	}, nil)
 
 	results, err := s.facade.GetSecretRevisionContentInfo(context.Background(), params.SecretRevisionArg{
 		URI:       uri.String(),

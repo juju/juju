@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/secrets/provider"
-	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -37,11 +36,12 @@ func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	modelUUID := coremodel.UUID(model.UUID())
 	serviceFactory := context.ServiceFactory()
 	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
 
 	secretBackendAdminConfigGetter := func(stdCtx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(model.UUID()))
+		return backendService.GetSecretBackendConfigForAdmin(stdCtx, modelUUID)
 	}
 	secretService := context.ServiceFactory().Secret(secretBackendAdminConfigGetter)
 
@@ -51,7 +51,8 @@ func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, erro
 		context.Auth(),
 		context.Logger().Child("usersecretsdrain"),
 		leadershipChecker,
-		commonsecrets.SecretsModel(model),
+		modelUUID,
+		model,
 		secretService,
 		backendService,
 		context.WatcherRegistry(),
@@ -60,23 +61,10 @@ func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, erro
 		return nil, errors.Trace(err)
 	}
 
-	secretBackendConfigGetter := func(ctx stdcontext.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		return commonsecrets.BackendConfigInfo(
-			ctx, commonsecrets.SecretsModel(model), true, secretService, backendService,
-			backendIDs, wantAll, authTag, leadershipChecker,
-		)
-	}
-	secretBackendDrainConfigGetter := func(ctx stdcontext.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
-		return commonsecrets.DrainBackendConfigInfo(
-			ctx, backendID, commonsecrets.SecretsModel(model),
-			secretService, backendService, authTag, leadershipChecker,
-		)
-	}
-
 	return &SecretsDrainAPI{
-		SecretsDrainAPI:     commonDrainAPI,
-		drainConfigGetter:   secretBackendDrainConfigGetter,
-		backendConfigGetter: secretBackendConfigGetter,
-		secretsState:        state.NewSecrets(context.State()),
+		SecretsDrainAPI:      commonDrainAPI,
+		modelUUID:            model.UUID(),
+		secretBackendService: backendService,
+		secretService:        secretService,
 	}, nil
 }

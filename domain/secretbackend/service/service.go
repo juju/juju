@@ -12,15 +12,18 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/leadership"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/cloudspec"
@@ -55,6 +58,11 @@ func newService(
 		registry:       registry,
 	}
 }
+
+// For testing.
+var (
+	GetProvider = provider.Provider
+)
 
 // GetSecretBackendConfigForAdmin returns the secret backend configuration for the given backend ID for an admin user.
 func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error) {
@@ -102,6 +110,198 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 		return nil, fmt.Errorf("%w: %q", secretbackenderrors.NotFound, currentBackend.Name)
 	}
 	return &info, nil
+}
+
+// DrainBackendConfigInfo returns the secret backend config for the drain worker to use.
+func (s *Service) DrainBackendConfigInfo(
+	ctx context.Context, p DrainBackendConfigParams,
+) (*provider.ModelBackendConfigInfo, error) {
+	if p.Accessor.Kind != secretservice.UnitAccessor && p.Accessor.Kind != secretservice.ModelAccessor {
+		return nil, errors.NotSupportedf("secret accessor kind %q", p.Accessor.Kind)
+	}
+
+	adminModelCfg, err := s.GetSecretBackendConfigForAdmin(ctx, p.ModelUUID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting admin config for secret backend %q", p.BackendID)
+	}
+	result := provider.ModelBackendConfigInfo{
+		ActiveID: adminModelCfg.ActiveID,
+		Configs:  make(map[string]provider.ModelBackendConfig),
+	}
+	if p.BackendID == "" {
+		p.BackendID = adminModelCfg.ActiveID
+	}
+
+	cfg, ok := adminModelCfg.Configs[p.BackendID]
+	if !ok {
+		return nil, errors.Errorf("missing secret backend %q", p.BackendID)
+	}
+	backendCfg, err := s.backendConfigInfo(ctx,
+		p.GrantedSecretsGetter, p.BackendID, &cfg, p.Accessor, p.LeaderToken, true, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.Configs[p.BackendID] = *backendCfg
+	return &result, nil
+}
+
+// BackendConfigInfo returns the config to create a secret backend
+// for the specified backend IDs.
+// This is called to provide config to a client like a unit agent which
+// needs to access secretService. The accessor is the agent which needs access.
+// The client is expected to be restricted to write only those secretService
+// owned by the agent, and read only those secretService shared with the agent.
+// The result includes config for all relevant backends, including the id
+// of the current active backend.
+func (s *Service) BackendConfigInfo(
+	ctx context.Context, p BackendConfigParams,
+) (*provider.ModelBackendConfigInfo, error) {
+	if p.Accessor.Kind != secretservice.UnitAccessor && p.Accessor.Kind != secretservice.ModelAccessor {
+		return nil, errors.NotSupportedf("secret accessor kind %q", p.Accessor.Kind)
+	}
+
+	adminModelCfg, err := s.GetSecretBackendConfigForAdmin(ctx, p.ModelUUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting configured secrets providers")
+	}
+	result := provider.ModelBackendConfigInfo{
+		ActiveID: adminModelCfg.ActiveID,
+		Configs:  make(map[string]provider.ModelBackendConfig),
+	}
+	if len(p.BackendIDs) == 0 {
+		p.BackendIDs = []string{adminModelCfg.ActiveID}
+	}
+	for _, backendID := range p.BackendIDs {
+		cfg, ok := adminModelCfg.Configs[backendID]
+		if !ok {
+			return nil, errors.Errorf("missing secret backend %q", backendID)
+		}
+		backendCfg, err := s.backendConfigInfo(ctx,
+			p.GrantedSecretsGetter, backendID, &cfg, p.Accessor, p.LeaderToken, p.SameController, false)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Configs[backendID] = *backendCfg
+	}
+	return &result, nil
+}
+
+func (s *Service) backendConfigInfo(
+	ctx context.Context,
+	grantedSecretsGetter GrantedSecretsGetter,
+	backendID string, adminCfg *provider.ModelBackendConfig,
+	accessor secretservice.SecretAccessor, token leadership.Token, sameController, forDrain bool,
+) (*provider.ModelBackendConfig, error) {
+	if grantedSecretsGetter == nil {
+		return nil, errors.Errorf("unexpected nil value for GrantedSecretsGetter")
+	}
+
+	p, err := GetProvider(adminCfg.BackendType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = p.Initialise(adminCfg)
+	if err != nil {
+		return nil, errors.Annotate(err, "initialising secrets provider")
+	}
+
+	ownedRevisions := provider.SecretRevisions{}
+	readRevisions := provider.SecretRevisions{}
+
+	var coreAccessor coresecrets.Accessor
+
+	switch accessor.Kind {
+	case secretservice.UnitAccessor:
+		// Find secretService owned by the agent
+		// (or its app if the agent is a leader).
+		unitName := accessor.ID
+		coreAccessor = coresecrets.Accessor{
+			Kind: coresecrets.UnitAccessor,
+			ID:   unitName,
+		}
+		owners := []secretservice.SecretAccessor{accessor}
+		appName, _ := names.UnitApplication(unitName)
+		isLeader := false
+		if token != nil {
+			err := token.Check()
+			if err != nil && !leadership.IsNotLeaderError(err) {
+				return nil, errors.Trace(err)
+			}
+			isLeader = err == nil
+		}
+		if isLeader {
+			// Leader unit owns application level secretService.
+			owners = append(owners, secretservice.SecretAccessor{
+				Kind: secretservice.ApplicationAccessor,
+				ID:   appName,
+			})
+		} else {
+			// Non leader units can read application level secretService.
+			// Find secretService owned by the application.
+			readOnlyOwner := secretservice.SecretAccessor{
+				Kind: secretservice.ApplicationAccessor,
+				ID:   appName,
+			}
+			revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleView, readOnlyOwner)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			for _, r := range revInfo {
+				readRevisions.Add(r.URI, r.RevisionID)
+			}
+		}
+		revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleManage, owners...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, r := range revInfo {
+			ownedRevisions.Add(r.URI, r.RevisionID)
+		}
+
+		// Granted secretService can be consumed in application level for all units.
+		// We include secretService shared with the app or just the specified unit.
+		consumers := []secretservice.SecretAccessor{{
+			Kind: secretservice.UnitAccessor,
+			ID:   unitName,
+		}, {
+			Kind: secretservice.ApplicationAccessor,
+			ID:   appName,
+		}}
+		revInfo, err = grantedSecretsGetter(ctx, backendID, coresecrets.RoleView, consumers...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, r := range revInfo {
+			readRevisions.Add(r.URI, r.RevisionID)
+		}
+	case secretservice.ModelAccessor:
+		coreAccessor = coresecrets.Accessor{
+			Kind: coresecrets.ModelAccessor,
+			ID:   accessor.ID,
+		}
+		revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleManage, accessor)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, r := range revInfo {
+			ownedRevisions.Add(r.URI, r.RevisionID)
+		}
+	default:
+		return nil, errors.NotSupportedf("secret accessor kind %q", accessor.Kind)
+	}
+
+	s.logger.Debugf("secrets for %s:\nowned: %v\nconsumed:%v", accessor, ownedRevisions, readRevisions)
+	cfg, err := p.RestrictedConfig(ctx, adminCfg, sameController, forDrain, coreAccessor, ownedRevisions, readRevisions)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info := &provider.ModelBackendConfig{
+		ControllerUUID: adminCfg.ControllerUUID,
+		ModelUUID:      adminCfg.ModelUUID,
+		ModelName:      adminCfg.ModelName,
+		BackendConfig:  *cfg,
+	}
+	return info, nil
 }
 
 func convertConfigToAny(config map[string]string) map[string]interface{} {

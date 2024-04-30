@@ -10,6 +10,8 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // SecretTriggers instances provide secret rotation/expiry apis.
@@ -47,4 +49,17 @@ type SecretService interface {
 	) (*secrets.URI, *string, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secretservice.SecretAccess, error)
+	ListGrantedSecretsForBackend(
+		ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secretservice.SecretAccessor,
+	) ([]*secrets.SecretRevisionRef, error)
+}
+
+// SecretBackendService provides access to the secret backend service,
+type SecretBackendService interface {
+	DrainBackendConfigInfo(
+		ctx context.Context, p secretbackendservice.DrainBackendConfigParams,
+	) (*provider.ModelBackendConfigInfo, error)
+	BackendConfigInfo(
+		ctx context.Context, p secretbackendservice.BackendConfigParams,
+	) (*provider.ModelBackendConfigInfo, error)
 }

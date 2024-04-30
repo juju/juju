@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
@@ -27,22 +26,9 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SecretsManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return NewSecretManagerAPIV1(stdCtx, ctx)
-	}, reflect.TypeOf((*SecretsManagerAPIV1)(nil)))
 	registry.MustRegister("SecretsManager", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewSecretManagerAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
-}
-
-// NewSecretManagerAPIV1 creates a SecretsManagerAPIV1.
-// TODO - drop when we no longer support juju 3.1.x
-func NewSecretManagerAPIV1(stdCtx context.Context, context facade.ModelContext) (*SecretsManagerAPIV1, error) {
-	api, err := NewSecretManagerAPI(stdCtx, context)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &SecretsManagerAPIV1{SecretsManagerAPI: api}, nil
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
@@ -66,14 +52,7 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 		return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(model.UUID()))
 	}
 	secretService := serviceFactory.Secret(secretBackendAdminConfigGetter)
-	secretBackendConfigGetter := func(stdCtx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		// TODO: this method in backend service is a TODO.
-		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), true, secretService, backendService, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
-	}
-	secretBackendDrainConfigGetter := func(stdCtx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
-		// TODO: this method in backend service is a TODO.
-		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), secretService, backendService, ctx.Auth().GetAuthTag(), leadershipChecker)
-	}
+
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),
 		serviceFactory.ControllerConfig(),
@@ -106,20 +85,19 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 	}
 
 	return &SecretsManagerAPI{
-		authTag:             ctx.Auth().GetAuthTag(),
-		authorizer:          ctx.Auth(),
-		leadershipChecker:   leadershipChecker,
-		watcherRegistry:     ctx.WatcherRegistry(),
-		secretService:       secretService,
-		secretsTriggers:     secretService,
-		secretsConsumer:     secretService,
-		clock:               clock.WallClock,
-		controllerUUID:      ctx.State().ControllerUUID(),
-		modelUUID:           ctx.State().ModelUUID(),
-		backendConfigGetter: secretBackendConfigGetter,
-		drainConfigGetter:   secretBackendDrainConfigGetter,
-		remoteClientGetter:  remoteClientGetter,
-		crossModelState:     ctx.State().RemoteEntities(),
-		logger:              ctx.Logger().ChildWithTags("secretsmanager", corelogger.SECRETS),
+		authTag:              ctx.Auth().GetAuthTag(),
+		authorizer:           ctx.Auth(),
+		leadershipChecker:    leadershipChecker,
+		watcherRegistry:      ctx.WatcherRegistry(),
+		secretBackendService: backendService,
+		secretService:        secretService,
+		secretsTriggers:      secretService,
+		secretsConsumer:      secretService,
+		clock:                clock.WallClock,
+		controllerUUID:       ctx.State().ControllerUUID(),
+		modelUUID:            ctx.State().ModelUUID(),
+		remoteClientGetter:   remoteClientGetter,
+		crossModelState:      ctx.State().RemoteEntities(),
+		logger:               ctx.Logger().ChildWithTags("secretsmanager", corelogger.SECRETS),
 	}, nil
 }
