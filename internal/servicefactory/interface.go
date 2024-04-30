@@ -69,7 +69,7 @@ type ControllerServiceFactory interface {
 // apiserver for a given model.
 type ModelServiceFactory interface {
 	// Config returns the modelconfig service.
-	Config(modelconfigservice.ModelDefaultsProvider) *modelconfigservice.WatchableService
+	Config() *modelconfigservice.WatchableService
 	// ObjectStore returns the object store service.
 	ObjectStore() *objectstoreservice.WatchableService
 	// Machine returns the machine service.
