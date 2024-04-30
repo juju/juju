@@ -85,11 +85,24 @@ var _ = gc.Suite(&toolsWithMacaroonsIntegrationSuite{})
 
 func (s *toolsWithMacaroonsIntegrationSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
+
+	userService := s.ControllerServiceFactory(c).Access()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bob@authhttpsuite",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.userTag = names.NewUserTag("bob@authhttpsuite")
 	s.AddModelUser(c, s.userTag.Id())
+
 	apiInfo := s.APIInfo(c)
 	baseURL, err := url.Parse(fmt.Sprintf("https://%s/", apiInfo.Addrs[0]))
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.baseURL = baseURL
 	s.modelUUID = s.ControllerModelUUID()
 }
@@ -198,7 +211,7 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 	if client != nil {
 		bclient.Client = client
 	} else {
-		// Configure the default client to skip verification/
+		// Configure the default client to skip verification.
 		tlsConfig := jujuhttp.SecureTLSConfig()
 		tlsConfig.InsecureSkipVerify = true
 		bclient.Client.Transport = jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
@@ -223,7 +236,7 @@ func bakeryGetError(resp *http.Response) error {
 	}
 	var errResp params.ErrorResult
 	if err := json.Unmarshal(data, &errResp); err != nil {
-		return errors.Annotatef(err, "cannot unmarshal body")
+		return errors.Annotatef(err, "cannot unmarshal body %q", string(data))
 	}
 	if errResp.Error == nil {
 		return errors.New("no error found in error response body")

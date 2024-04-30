@@ -257,7 +257,7 @@ func (a *Authenticator) checkCreds(
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
 
-		modelAccess, err := a.authContext.userService.ReadUserAccessForTarget(ctx, userTag.Name(), permission.ID{
+		modelAccess, err := a.authContext.userService.ReadUserAccessForTarget(ctx, userTag.Id(), permission.ID{
 			ObjectType: permission.Model,
 			Key:        model.UUID(),
 		})
@@ -292,7 +292,7 @@ func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.U
 	// No model user found, so see if the user has been granted
 	// access to the controller.
 	st := a.authContext.st
-	controllerAccess, err := a.authContext.userService.ReadUserAccessForTarget(ctx, userTag.Name(), permission.ID{
+	controllerAccess, err := a.authContext.userService.ReadUserAccessForTarget(ctx, userTag.Id(), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        "controller",
 	})
@@ -311,7 +311,6 @@ func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.U
 	if !userTag.IsLocal() {
 		everyoneTag := names.NewUserTag(common.EveryoneTagName)
 
-		// TODO (manadart 2024-04-26): Accommodate this permission check.
 		controllerAccess, err = st.UserAccess(everyoneTag, st.ControllerTag())
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Annotatef(err, "obtaining ControllerUser for everyone group")
@@ -324,14 +323,11 @@ func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.U
 	return errors.NotFoundf("model or controller user")
 }
 
-func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag, model *state.Model) error {
+func (a *Authenticator) updateUserLastLogin(
+	ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag, model *state.Model,
+) error {
 	if !permission.IsEmptyUserAccess(modelAccess) && modelAccess.Object.Kind() != names.ModelTagKind {
 		return errors.NotValidf("%s as model user", modelAccess.Object.Kind())
-	}
-
-	// If the user is not local, we don't update the last login time.
-	if !userTag.IsLocal() {
-		return nil
 	}
 
 	// Update the last login time for the user.
