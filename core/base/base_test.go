@@ -25,27 +25,6 @@ func (s *BaseSuite) TestParseBase(c *gc.C) {
 	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}})
 }
 
-func (s *BaseSuite) TestGetBaseFromSeries(c *gc.C) {
-	base, err := GetBaseFromSeries("jammy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
-}
-
-func (s *BaseSuite) TestGetSeriesFromChannel(c *gc.C) {
-	series, err := GetSeriesFromChannel("ubuntu", "22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "jammy")
-	series, err = GetSeriesFromChannel("ubuntu", "22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "jammy")
-}
-
-func (s *BaseSuite) TestGetSeriesFromBase(c *gc.C) {
-	series, err := GetSeriesFromBase(MakeDefaultBase("ubuntu", "22.04"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "jammy")
-}
-
 func (s *BaseSuite) TestParseBaseFromString(c *gc.C) {
 	base, err := ParseBaseFromString("ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)

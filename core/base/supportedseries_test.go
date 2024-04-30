@@ -11,8 +11,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/core/os/ostype"
 )
 
 const distroInfoContents = `version,codename,series,created,release,eol,eol-server
@@ -103,72 +101,8 @@ func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidSeries(c *gc.
 	}, MustParseBaseFromString))
 }
 
-var getOSFromSeriesTests = []struct {
-	series string
-	want   ostype.OSType
-	err    string
-}{{
-	series: "precise",
-	want:   ostype.Ubuntu,
-}, {
-	series: "centos7",
-	want:   ostype.CentOS,
-}, {
-	series: "genericlinux",
-	want:   ostype.GenericLinux,
-}, {
-	series: "",
-	err:    "series \"\" not valid",
-},
-}
-
-func (s *SupportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
-	for _, t := range getOSFromSeriesTests {
-		got, err := GetOSFromSeries(t.series)
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Assert(got, gc.Equals, t.want)
-		}
-	}
-}
-
-func (s *SupportedSeriesSuite) TestUnknownOSFromSeries(c *gc.C) {
-	_, err := GetOSFromSeries("Xuanhuaceratops")
-	c.Assert(err, jc.Satisfies, IsUnknownOSForSeriesError)
-	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "Xuanhuaceratops"`)
-}
-
-func (s *SupportedSeriesSuite) TestSeriesVersionEmpty(c *gc.C) {
-	_, err := SeriesVersion("")
-	c.Assert(err, gc.ErrorMatches, `.*unknown version for series: "".*`)
-}
-
 func boolPtr(b bool) *bool {
 	return &b
-}
-
-func (s *SupportedSeriesSuite) TestGetBaseFromSeries(c *gc.C) {
-	vers, err := GetBaseFromSeries("jammy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("ubuntu", "22.04"))
-	_, err = GetBaseFromSeries("unknown")
-	c.Assert(err, gc.ErrorMatches, `series "unknown" not valid`)
-	vers, err = GetBaseFromSeries("centos7")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("centos", "7"))
-}
-
-func (s *SupportedSeriesSuite) TestGetSeriesFromOSVersion(c *gc.C) {
-	series, err := GetSeriesFromChannel("ubuntu", "22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "jammy")
-	_, err = GetSeriesFromChannel("bad", "22.04")
-	c.Assert(err, gc.ErrorMatches, `os "bad" version "22.04" not found`)
-	series, err = GetSeriesFromChannel("centos", "7/stable")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "centos7")
 }
 
 func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
