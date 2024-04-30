@@ -5,7 +5,6 @@ package modelmanager_test
 
 import (
 	stdcontext "context"
-	"regexp"
 	"time"
 
 	"github.com/juju/errors"
@@ -25,10 +24,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/migration"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -248,7 +249,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(&caasCred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -908,6 +909,45 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners: permission denied")
 }
 
+func (s *modelManagerSuite) TestUpdatedModel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	as := s.accessService.EXPECT()
+	modelUUID := modeltesting.GenModelUUID(c).String()
+	testUser := names.NewUserTag("foobar")
+	updateArgs := access.UpdatePermissionArgs{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        modelUUID,
+			},
+			Access: permission.WriteAccess,
+		},
+		AddUser: false,
+		ApiUser: jujutesting.AdminUser.Id(),
+		Change:  permission.Grant,
+		Subject: testUser.Id(),
+	}
+	as.UpdatePermission(gomock.Any(), updateArgs).Return(nil)
+
+	s.setAPIUser(c, jujutesting.AdminUser)
+
+	args := params.ModifyModelAccessRequest{
+		Changes: []params.ModifyModelAccess{
+			{
+				UserTag:  testUser.String(),
+				Action:   params.GrantModelAccess,
+				Access:   params.ModelWriteAccess,
+				ModelTag: names.NewModelTag(modelUUID).String(),
+			},
+		}}
+
+	results, err := s.api.ModifyModelAccess(stdcontext.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Check(results.OneError(), jc.ErrorIsNil)
+}
+
 // modelManagerStateSuite contains end-to-end tests.
 // Prefer adding tests to modelManagerSuite above.
 type modelManagerStateSuite struct {
@@ -1457,359 +1497,6 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 }
 
-func (s *modelManagerStateSuite) TestGrantMissingUserFails(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	user := names.NewLocalUserTag("foobar")
-	err = s.grant(c, user, params.ModelReadAccess, m.ModelTag())
-	expectedErr := `could not grant model access: user "foobar" does not exist locally: user "foobar" not found`
-	c.Assert(err, gc.ErrorMatches, expectedErr)
-}
-
-func (s *modelManagerStateSuite) TestGrantMissingModelFails(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeModelUser(c, nil)
-	model := names.NewModelTag("17e4bd2d-3e08-4f3d-b945-087be7ebdce4")
-	err := s.grant(c, user.UserTag, params.ModelReadAccess, model)
-	expectedErr := `.*model "17e4bd2d-3e08-4f3d-b945-087be7ebdce4" not found`
-	c.Assert(err, gc.ErrorMatches, expectedErr)
-}
-
-func (s *modelManagerStateSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeModelUser(c, &factory.ModelUserParams{Access: permission.WriteAccess})
-	err := s.revoke(c, user.UserTag, params.ModelWriteAccess, user.Object.(names.ModelTag))
-	c.Assert(err, gc.IsNil)
-
-	modelUser, err := s.ControllerModel(c).State().UserAccess(user.UserTag, user.Object)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
-}
-
-func (s *modelManagerStateSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeModelUser(c, nil)
-	err := s.revoke(c, user.UserTag, params.ModelReadAccess, user.Object.(names.ModelTag))
-	c.Assert(err, gc.IsNil)
-
-	_, err = s.ControllerModel(c).State().UserAccess(user.UserTag, user.Object)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *modelManagerStateSuite) TestRevokeModelMissingUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	user := names.NewUserTag("bob")
-	err = s.revoke(c, user, params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, gc.ErrorMatches, `could not revoke model access: model user "bob" does not exist`)
-
-	_, err = st.UserAccess(user, m.ModelTag())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
-	s.setAPIUser(c, jujutesting.AdminUser)
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, user.UserTag(), params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, user.UserTag(), params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, gc.ErrorMatches, `user already has "read" access or greater`)
-}
-
-func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
-	apiUser := jujutesting.AdminUser
-	s.setAPIUser(c, apiUser)
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, user.UserTag(), params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(user.UserTag(), m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
-	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
-	s.setAPIUser(c, user.UserTag())
-	s.assertModelAccess(c, st)
-}
-
-func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	userTag := names.NewUserTag("foobar@ubuntuone")
-	apiUser := jujutesting.AdminUser
-	s.setAPIUser(c, apiUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, userTag, params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(userTag, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertNewUser(c, modelUser, userTag, apiUser)
-	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
-	s.setAPIUser(c, userTag)
-	s.assertModelAccess(c, st)
-}
-
-func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
-	apiUser := jujutesting.AdminUser
-	s.setAPIUser(c, apiUser)
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, user.UserTag(), params.ModelWriteAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(user.UserTag(), m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
-	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
-	s.setAPIUser(c, user.UserTag())
-	s.assertModelAccess(c, st)
-}
-
-func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
-	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: permission.ReadAccess})
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, user.UserTag, params.ModelWriteAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(user.UserTag, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
-}
-
-func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiUser := names.NewUserTag("bob@remote")
-	s.setAPIUser(c, apiUser)
-
-	other := names.NewUserTag("other@remote")
-	err = s.grant(c, other, params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	apiUser := names.NewUserTag("bob@remote")
-	s.setAPIUser(c, apiUser)
-
-	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
-	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Id(), Access: permission.ReadAccess})
-
-	other := names.NewUserTag("other@remote")
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, other, params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	st := f.MakeModel(c, nil)
-	defer st.Close()
-
-	apiUser := names.NewUserTag("admin@remote")
-	s.setAPIUser(c, apiUser)
-	stFactory := factory.NewFactory(st, s.StatePool(), coretesting.FakeControllerConfig())
-	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Id(), Access: permission.AdminAccess})
-
-	other := names.NewUserTag("other@remote")
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, other, params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(other, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertNewUser(c, modelUser, other, apiUser)
-	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
-}
-
-func (s *modelManagerStateSuite) TestGrantModelInvalidUserTag(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setAPIUser(c, jujutesting.AdminUser)
-	for _, testParam := range []struct {
-		tag      string
-		validTag bool
-	}{{
-		tag:      "unit-foo/0",
-		validTag: true,
-	}, {
-		tag:      "application-foo",
-		validTag: true,
-	}, {
-		tag:      "relation-wordpress:db mysql:db",
-		validTag: true,
-	}, {
-		tag:      "machine-0",
-		validTag: true,
-	}, {
-		tag:      "user",
-		validTag: false,
-	}, {
-		tag:      "user-Mua^h^h^h^arh",
-		validTag: true,
-	}, {
-		tag:      "user@",
-		validTag: false,
-	}, {
-		tag:      "user@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "user@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "in^valid.",
-		validTag: false,
-	}, {
-		tag:      "",
-		validTag: false,
-	},
-	} {
-		var expectedErr string
-		errPart := `could not modify model access: "` + regexp.QuoteMeta(testParam.tag) + `" is not a valid `
-
-		if testParam.validTag {
-			// The string is a valid tag, but not a user tag.
-			expectedErr = errPart + `user tag`
-		} else {
-			// The string is not a valid tag of any kind.
-			expectedErr = errPart + `tag`
-		}
-
-		args := params.ModifyModelAccessRequest{
-			Changes: []params.ModifyModelAccess{{
-				ModelTag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-				UserTag:  testParam.tag,
-				Action:   params.GrantModelAccess,
-				Access:   params.ModelReadAccess,
-			}}}
-
-		result, err := s.modelmanager.ModifyModelAccess(stdcontext.Background(), args)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	}
-}
-
 func (s *modelManagerStateSuite) TestModifyModelAccessEmptyArgs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1818,24 +1505,7 @@ func (s *modelManagerStateSuite) TestModifyModelAccessEmptyArgs(c *gc.C) {
 
 	result, err := s.modelmanager.ModifyModelAccess(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `could not modify model access: "" model access not valid`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-}
-
-func (s *modelManagerStateSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
-	s.setAPIUser(c, jujutesting.AdminUser)
-	var dance params.ModelAction = "dance"
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  "user-user",
-			Action:   dance,
-			Access:   params.ModelReadAccess,
-			ModelTag: s.ControllerModel(c).ModelTag().String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(stdcontext.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `unknown action "dance"`
+	expectedErr := `could not modify model access: "" is not a valid tag`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 }
 
@@ -2041,53 +1711,6 @@ func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `model deadbeef-0bad-400d-8000-4b1d0d06f00d already uses credential foo/bob/bar`)
-}
-
-//func (s *modelManagerStateSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
-//	c.Check(model.Name, gc.Equals, expected.Name())
-//	c.Check(model.UUID, gc.Equals, expected.UUID())
-//	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
-//}
-
-func (s *modelManagerStateSuite) modifyAccess(c *gc.C, user names.UserTag, action params.ModelAction, access params.UserAccessPermission, model names.ModelTag) error {
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.String(),
-			Action:   action,
-			Access:   access,
-			ModelTag: model.String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(stdcontext.Background(), args)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-func (s *modelManagerStateSuite) grant(c *gc.C, user names.UserTag, access params.UserAccessPermission, model names.ModelTag) error {
-	return s.modifyAccess(c, user, params.GrantModelAccess, access, model)
-}
-
-func (s *modelManagerStateSuite) revoke(c *gc.C, user names.UserTag, access params.UserAccessPermission, model names.ModelTag) error {
-	return s.modifyAccess(c, user, params.RevokeModelAccess, access, model)
-}
-
-func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser permission.UserAccess, userTag, creatorTag names.UserTag) {
-	c.Assert(modelUser.UserTag, gc.Equals, userTag)
-	c.Assert(modelUser.CreatedBy, gc.Equals, creatorTag)
-	_, err := s.ControllerModel(c).LastModelConnection(modelUser.UserTag)
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-}
-
-func (s *modelManagerStateSuite) assertModelAccess(c *gc.C, st *state.State) {
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{Entities: []params.Entity{{Tag: m.ModelTag().String()}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
 }
 
 type fakeProvider struct {

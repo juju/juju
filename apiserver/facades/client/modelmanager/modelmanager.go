@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -28,6 +27,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
@@ -1165,7 +1165,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	// admin.
 	modelAdmin := m.isAdmin
 	if !m.isAdmin {
-		err = m.authorizer.HasPermission(permission.AdminAccess, model.ModelTag())
+		err = m.authorizer.HasPermission(permission.AdminAccess, tag)
 		modelAdmin = err == nil
 	}
 
@@ -1289,11 +1289,6 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 
 	for i, arg := range args.Changes {
 		modelAccess := permission.Access(arg.Access)
-		if err := permission.ValidateModelAccess(modelAccess); err != nil {
-			err = errors.Annotate(err, "could not modify model access")
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 
 		modelTag, err := names.ParseModelTag(arg.ModelTag)
 		if err != nil {
@@ -1316,111 +1311,23 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
+		err = m.accessService.UpdatePermission(ctx, access.UpdatePermissionArgs{
+			AccessSpec: permission.AccessSpec{
+				Target: permission.ID{
+					ObjectType: permission.Model,
+					Key:        modelTag.Id(),
+				},
+				Access: modelAccess,
+			},
+			AddUser: true,
+			ApiUser: m.apiUser.Id(),
+			Change:  permission.AccessChange(arg.Action),
+			Subject: targetUserTag.Id(),
+		})
 
-		result.Results[i].Error = apiservererrors.ServerError(
-			changeModelAccess(m.state, modelTag, m.apiUser, targetUserTag, arg.Action, modelAccess, m.isAdmin))
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin bool, userTag names.UserTag) error {
-	if userIsAdmin {
-		// Just confirm that the model that has been given is a valid model.
-		_, err := st.Model()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}
-
-	// Get the current user's ModelUser for the Model to see if the user has
-	// permission to grant or revoke permissions on the model.
-	currentUser, err := st.UserAccess(userTag, st.ModelTag())
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			// No, this user doesn't have permission.
-			return apiservererrors.ErrPerm
-		}
-		return errors.Annotate(err, "could not retrieve user")
-	}
-	if currentUser.Access != permission.AdminAccess {
-		return apiservererrors.ErrPerm
-	}
-	return nil
-}
-
-// changeModelAccess performs the requested access grant or revoke action for the
-// specified user on the specified model.
-func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.Access, userIsAdmin bool) error {
-	st, release, err := accessor.GetBackend(modelTag.Id())
-	if err != nil {
-		return errors.Annotate(err, "could not lookup model")
-	}
-	defer release()
-
-	if err := userAuthorizedToChangeAccess(st, userIsAdmin, apiUser); err != nil {
-		return errors.Trace(err)
-	}
-
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	switch action {
-	case params.GrantModelAccess:
-		_, err = model.AddUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
-		if errors.Is(err, errors.AlreadyExists) {
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
-			if errors.Is(err, errors.NotFound) {
-				// Conflicts with prior check, must be inconsistent state.
-				err = jujutxn.ErrExcessiveContention
-			}
-			if err != nil {
-				return errors.Annotate(err, "could not look up model access for user")
-			}
-
-			// Only set access if greater access is being granted.
-			if modelUser.Access.EqualOrGreaterModelAccessThan(access) {
-				return errors.Errorf("user already has %q access or greater", access)
-			}
-			if _, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, access); err != nil {
-				return errors.Annotate(err, "could not set model access for user")
-			}
-			return nil
-		}
-		return errors.Annotate(err, "could not grant model access")
-
-	case params.RevokeModelAccess:
-		switch access {
-		case permission.ReadAccess:
-			// Revoking read access removes all access.
-			err := st.RemoveUserAccess(targetUserTag, modelTag)
-			return errors.Annotate(err, "could not revoke model access")
-		case permission.WriteAccess:
-			// Revoking write access sets read-only.
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
-			if err != nil {
-				return errors.Annotate(err, "could not look up model access for user")
-			}
-			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.ReadAccess)
-			return errors.Annotate(err, "could not set model access to read-only")
-		case permission.AdminAccess:
-			// Revoking admin access sets read-write.
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
-			if err != nil {
-				return errors.Annotate(err, "could not look up model access for user")
-			}
-			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.WriteAccess)
-			return errors.Annotate(err, "could not set model access to read-write")
-
-		default:
-			return errors.Errorf("don't know how to revoke %q access", access)
-		}
-
-	default:
-		return errors.Errorf("unknown action %q", action)
-	}
 }
 
 // ModelDefaultsForClouds returns the default config values for the specified
