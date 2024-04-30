@@ -40,6 +40,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -52,6 +53,7 @@ type modelInfoSuite struct {
 	st                       *mockState
 	ctlrSt                   *mockState
 	mockSecretBackendService *mocks.MockSecretBackendService
+	controllerUUID           uuid.UUID
 }
 
 func pUint64(v uint64) *uint64 {
@@ -61,6 +63,10 @@ func pUint64(v uint64) *uint64 {
 var _ = gc.Suite(&modelInfoSuite{})
 
 func (s *modelInfoSuite) SetUpTest(c *gc.C) {
+	var err error
+	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.BaseSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin@local"),
@@ -180,7 +186,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, s.ctlrSt,
-		coremodel.UUID(s.st.ControllerModelUUID()),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
@@ -212,7 +218,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, s.ctlrSt,
-		coremodel.UUID(s.st.ControllerModelUUID()),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
@@ -322,7 +328,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	_true := true
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
 	s.st.CheckCalls(c, []jujutesting.StubCall{
-		{FuncName: "ControllerModelUUID", Args: nil},
 		{FuncName: "ControllerTag", Args: nil},
 		{FuncName: "GetBackend", Args: []interface{}{s.st.model.cfg.UUID()}},
 		{FuncName: "Model", Args: nil},

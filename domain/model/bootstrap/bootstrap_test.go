@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -124,7 +125,7 @@ func (s *modelBootstrapSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
-	controllerUUID := modeltesting.GenModelUUID(c)
+	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	args := model.ModelCreationArgs{
@@ -145,7 +146,7 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateReadOnlyModel(args, controllerUUID)
+	fn = CreateReadOnlyModel(modelUUID, controllerUUID)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }

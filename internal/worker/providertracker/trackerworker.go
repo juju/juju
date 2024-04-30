@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 )
 
 const (
@@ -331,7 +332,7 @@ type providerGetter struct {
 }
 
 // ControllerUUID returns the controller UUID.
-func (g providerGetter) ControllerUUID() coremodel.UUID {
+func (g providerGetter) ControllerUUID() uuid.UUID {
 	return g.model.ControllerUUID
 }
 

@@ -211,18 +211,3 @@ func (mr *MockModelServiceMockRecorder) ListModelsForUser(arg0, arg1 any) *gomoc
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelsForUser", reflect.TypeOf((*MockModelService)(nil).ListModelsForUser), arg0, arg1)
 }
-
-// ModelType mocks base method.
-func (m *MockModelService) ModelType(arg0 context.Context, arg1 model.UUID) (model.ModelType, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelType", arg0, arg1)
-	ret0, _ := ret[0].(model.ModelType)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelType indicates an expected call of ModelType.
-func (mr *MockModelServiceMockRecorder) ModelType(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelType", reflect.TypeOf((*MockModelService)(nil).ModelType), arg0, arg1)
-}

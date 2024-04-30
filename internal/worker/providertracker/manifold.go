@@ -14,12 +14,12 @@ import (
 
 	"github.com/juju/juju/caas"
 	coredependency "github.com/juju/juju/core/dependency"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 )
 
@@ -33,7 +33,7 @@ type ProviderConfigGetter interface {
 	environs.EnvironConfigGetter
 
 	// ControllerUUID returns the UUID of the controller.
-	ControllerUUID() coremodel.UUID
+	ControllerUUID() uuid.UUID
 }
 
 // IAASProviderFunc is a function that returns a IAAS provider.

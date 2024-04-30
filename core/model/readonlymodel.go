@@ -3,6 +3,8 @@
 
 package model
 
+import "github.com/juju/juju/internal/uuid"
+
 // ReadOnlyModel represents the state of a read-only model found in the
 // model database, not the controller database.
 // All the fields are are denormalized from the model database.
@@ -11,7 +13,7 @@ type ReadOnlyModel struct {
 	UUID UUID
 
 	// ControllerUUID represents the controller UUID.
-	ControllerUUID UUID
+	ControllerUUID uuid.UUID
 
 	// Name is the name of the model.
 	Name string

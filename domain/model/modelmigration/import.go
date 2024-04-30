@@ -25,6 +25,7 @@ import (
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -56,7 +57,7 @@ type ModelService interface {
 type ReadOnlyModelService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
-	CreateModel(context.Context, domainmodel.ReadOnlyModelCreationArgs) error
+	CreateModel(context.Context, coremodel.UUID, uuid.UUID) error
 
 	// DeleteModel is responsible for removing a read only model from the system.
 	DeleteModel(context.Context, coremodel.UUID) error
@@ -104,6 +105,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		modelservice.DefaultAgentBinaryFinder(),
 	)
 	i.readOnlyModelService = modelservice.NewModelService(
+		modelstate.NewState(scope.ControllerDB()),
 		modelstate.NewModelState(scope.ModelDB()),
 	)
 	i.userService = accessservice.NewService(accessstate.NewState(scope.ControllerDB(), i.logger))
@@ -121,7 +123,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // If the user specified for the model cannot be found an error satisfying
 // [accesserrors.NotFound] will be returned.
 func (i importOperation) Execute(ctx context.Context, model description.Model) error {
-	modelName, uuid, err := i.getModelNameAndUUID(model)
+	modelName, modelID, err := i.getModelNameAndID(model)
 	if err != nil {
 		return fmt.Errorf("importing model during migration %w", errors.NotValid)
 	}
@@ -129,12 +131,12 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	user, err := i.userService.GetUserByName(ctx, model.Owner().Name())
 	if errors.Is(err, accesserrors.UserNotFound) {
 		return fmt.Errorf("cannot import model %q with uuid %q, %w for name %q",
-			modelName, uuid, accesserrors.UserNotFound, model.Owner().Name(),
+			modelName, modelID, accesserrors.UserNotFound, model.Owner().Name(),
 		)
 	} else if err != nil {
 		return fmt.Errorf(
 			"importing model %q with uuid %q during migration, finding user %q: %w",
-			modelName, uuid, model.Owner().Name(), err,
+			modelName, modelID, model.Owner().Name(), err,
 		)
 	}
 
@@ -153,14 +155,14 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		Credential:   credential,
 		Name:         modelName,
 		Owner:        user.UUID,
-		UUID:         coremodel.UUID(uuid),
+		UUID:         modelID,
 	}
 
 	controllerConfig, err := i.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return fmt.Errorf(
 			"importing model %q with uuid %q during migration, getting controller uuid: %w",
-			modelName, uuid, err,
+			modelName, modelID, err,
 		)
 	}
 
@@ -171,13 +173,13 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	if err != nil {
 		return fmt.Errorf(
 			"importing model %q with uuid %q during migration: %w",
-			modelName, uuid, err,
+			modelName, modelID, err,
 		)
 	}
 	if createdModelUUID != args.UUID {
 		return fmt.Errorf(
 			"importing model %q with uuid %q during migration, created model uuid %q does not match expected uuid %q",
-			modelName, uuid, createdModelUUID, args.UUID,
+			modelName, modelID, createdModelUUID, args.UUID,
 		)
 	}
 
@@ -189,29 +191,24 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	// happy that the model is ready to rock and roll.
 	if err := finaliser(ctx); err != nil {
 		return fmt.Errorf(
-			"finalising imported model %q with uuid %q: %w", modelName, uuid, err,
+			"finalising imported model %q with uuid %q: %w", modelName, modelID, err,
 		)
 	}
 
 	// When importing a model, we need to move the model from the prior
 	// controller to the current controller. This is done, during the import
 	// operation, so it never changes once the model is up and running.
-	controllerUUID := coremodel.UUID(controllerConfig.ControllerUUID())
-
-	modelType, err := i.modelService.ModelType(ctx, createdModelUUID)
+	controllerUUID, err := uuid.UUIDFromString(controllerConfig.ControllerUUID())
 	if err != nil {
-		return fmt.Errorf(
-			"importing model %q with uuid %q during migration, getting model type: %w",
-			modelName, uuid, err,
-		)
+		return fmt.Errorf("parsing controller uuid %q: %w", controllerConfig.ControllerUUID(), err)
 	}
 
 	// If the model is read only, we need to create a read only model.
-	err = i.readOnlyModelService.CreateModel(ctx, args.AsReadOnly(controllerUUID, modelType))
+	err = i.readOnlyModelService.CreateModel(ctx, args.UUID, controllerUUID)
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
-			modelName, uuid, err,
+			modelName, controllerUUID, err,
 		)
 	}
 
@@ -222,33 +219,31 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 // unsuccessful.
 func (i importOperation) Rollback(ctx context.Context, model description.Model) error {
 	// Attempt to rollback the model database if it was created.
-	modelName, uuid, err := i.getModelNameAndUUID(model)
+	modelName, modelID, err := i.getModelNameAndID(model)
 	if err != nil {
 		return fmt.Errorf("rollback of model during migration %w", errors.NotValid)
 	}
 
-	modelUUID := coremodel.UUID(uuid)
-
 	// If the model isn't found, we can simply ignore the error.
-	if err := i.modelService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if err := i.modelService.DeleteModel(ctx, modelID); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return fmt.Errorf(
 			"rollback of model %q with uuid %q during migration: %w",
-			modelName, uuid, err,
+			modelName, modelID, err,
 		)
 	}
 
 	// If the read only model isn't found, we can simply ignore the error.
-	if err := i.readOnlyModelService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if err := i.readOnlyModelService.DeleteModel(ctx, modelID); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return fmt.Errorf(
 			"rollback of read only model %q with uuid %q during migration: %w",
-			modelName, uuid, err,
+			modelName, modelID, err,
 		)
 	}
 
 	return nil
 }
 
-func (i importOperation) getModelNameAndUUID(model description.Model) (string, string, error) {
+func (i importOperation) getModelNameAndID(model description.Model) (string, coremodel.UUID, error) {
 	modelConfig := model.Config()
 	if modelConfig == nil {
 		return "", "", errors.New("model config is empty")
@@ -274,5 +269,5 @@ func (i importOperation) getModelNameAndUUID(model description.Model) (string, s
 		return "", "", fmt.Errorf("establishing model uuid type as string. Got unknown type")
 	}
 
-	return modelNameS, uuidS, nil
+	return modelNameS, coremodel.UUID(uuidS), nil
 }

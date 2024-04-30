@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 	coresecrets "github.com/juju/juju/core/secrets"
 	databasetesting "github.com/juju/juju/internal/database/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type schemaSuite struct {
@@ -615,9 +616,9 @@ func (s *schemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 	controllerUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c,
 		`
-INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_region)
-VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'cloud-region-1');`,
-		"", modelUUID, controllerUUID)
+INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_region)
+VALUES (?, ?, ?, 'my-model', 'caas', 'cloud-1', 'cloud-region-1');`,
+		"", modelUUID, controllerUUID, jujuversion.Current.String())
 	s.assertExecSQL(c,
 		"UPDATE model SET name = 'new-name' WHERE uuid = ?",
 		"model table is immutable", modelUUID)

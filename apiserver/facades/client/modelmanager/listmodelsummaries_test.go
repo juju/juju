@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
 	_ "github.com/juju/juju/internal/provider/ec2"
 	_ "github.com/juju/juju/internal/provider/maas"
 	_ "github.com/juju/juju/internal/provider/openstack"
+	"github.com/juju/juju/internal/uuid"
 	jtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -42,12 +42,18 @@ type ListModelsWithInfoSuite struct {
 	adminUser  names.UserTag
 
 	api *modelmanager.ModelManagerAPI
+
+	controllerUUID uuid.UUID
 }
 
 var _ = gc.Suite(&ListModelsWithInfoSuite{})
 
 func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	var err error
+	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	adminUser := "admin"
 	s.adminUser = names.NewUserTag(adminUser)
@@ -66,7 +72,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.cred = cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
-		coremodel.UUID(coretesting.ControllerTag.Id()),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
@@ -102,7 +108,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		s.st, nil, &mockState{},
-		coremodel.UUID(coretesting.ControllerTag.Id()),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{

@@ -37,6 +37,7 @@ import (
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
 	logger          Logger
+	controllerDB    changestream.WatchableDBFactory
 	modelUUID       model.UUID
 	modelDB         changestream.WatchableDBFactory
 	providerFactory providertracker.ProviderFactory
@@ -46,12 +47,14 @@ type ModelFactory struct {
 // function to obtain a model database.
 func NewModelFactory(
 	modelUUID model.UUID,
+	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
 	logger Logger,
 ) *ModelFactory {
 	return &ModelFactory{
 		logger:          logger,
+		controllerDB:    controllerDB,
 		modelUUID:       modelUUID,
 		modelDB:         modelDB,
 		providerFactory: providerFactory,
@@ -158,6 +161,7 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 
 func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 	return modelservice.NewModelService(
+		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }

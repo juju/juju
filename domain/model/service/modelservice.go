@@ -8,6 +8,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelState is the model state required by this service. This is the model
@@ -20,16 +21,23 @@ type ModelState interface {
 	Delete(ctx context.Context, uuid coremodel.UUID) error
 }
 
+// ModelGetterState represents the state required for reading all model information.
+type ModelGetterState interface {
+	Get(context.Context, coremodel.UUID) (coremodel.Model, error)
+}
+
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
-	st ModelState
+	modelGetterSt ModelGetterState
+	st            ModelState
 }
 
 // NewModelService returns a new Service for interacting with a models state.
-func NewModelService(st ModelState) *ModelService {
+func NewModelService(modelGetterSt ModelGetterState, st ModelState) *ModelService {
 	return &ModelService{
-		st: st,
+		modelGetterSt: modelGetterSt,
+		st:            st,
 	}
 }
 
@@ -40,10 +48,28 @@ func NewModelService(st ModelState) *ModelService {
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use.
 func (s *ModelService) CreateModel(
 	ctx context.Context,
-	args model.ReadOnlyModelCreationArgs,
+	id coremodel.UUID,
+	controllerUUID uuid.UUID,
 ) error {
-	if err := args.Validate(); err != nil {
+	if err := id.Validate(); err != nil {
 		return err
+	}
+
+	m, err := s.modelGetterSt.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	args := model.ReadOnlyModelCreationArgs{
+		UUID:            m.UUID,
+		AgentVersion:    m.AgentVersion,
+		ControllerUUID:  controllerUUID,
+		Name:            m.Name,
+		Type:            m.ModelType,
+		Cloud:           m.Cloud,
+		CloudRegion:     m.CloudRegion,
+		CredentialOwner: m.Credential.Owner,
+		CredentialName:  m.Credential.Name,
 	}
 
 	return s.st.Create(ctx, args)

@@ -233,7 +233,9 @@ WHERE uuid = ?
 		cloudRegion sql.NullString
 		modelType   string
 		userUUID    string
-		credKey     credential.Key
+		credName    sql.NullString
+		credOwner   sql.NullString
+		credCloud   sql.NullString
 		model       coremodel.Model
 	)
 	err := row.Scan(
@@ -243,9 +245,9 @@ WHERE uuid = ?
 		&modelType,
 		&userUUID,
 		&model.OwnerName,
-		&credKey.Cloud,
-		&credKey.Owner,
-		&credKey.Name,
+		&credCloud,
+		&credOwner,
+		&credName,
 		&model.Life,
 	)
 
@@ -258,7 +260,11 @@ WHERE uuid = ?
 	model.CloudRegion = cloudRegion.String
 	model.ModelType = coremodel.ModelType(modelType)
 	model.Owner = user.UUID(userUUID)
-	model.Credential = credKey
+	model.Credential = credential.Key{
+		Name:  credName.String,
+		Cloud: credCloud.String,
+		Owner: credOwner.String,
+	}
 	model.UUID = uuid
 
 	return model, nil

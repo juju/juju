@@ -23,6 +23,7 @@ import (
 	uniterrors "github.com/juju/juju/domain/unit/errors"
 	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type stateSuite struct {
@@ -49,9 +50,9 @@ func (s *stateSuite) setupModel(c *gc.C) string {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud)
-			VALUES (?, ?, "test", "iaas", "fluffy")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
+			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud)
+			VALUES (?, ?, ?, "test", "iaas", "fluffy")
+		`, modelUUID.String(), coretesting.ControllerTag.Id(), jujuversion.Current.String())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

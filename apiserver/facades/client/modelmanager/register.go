@@ -14,9 +14,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -43,8 +43,8 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	controllerUUID := coremodel.UUID(st.ControllerUUID())
-	if err := controllerUUID.Validate(); err != nil {
+	controllerUUID, err := uuid.UUIDFromString(st.ControllerUUID())
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 

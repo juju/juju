@@ -20,6 +20,7 @@ import (
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -61,9 +62,6 @@ type ModelService interface {
 
 	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
 	ListAllModels(context.Context) ([]coremodel.Model, error)
-
-	// ModelType returns the type for for a given model id.
-	ModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 }
 
 // ModelDefaultsService defines a interface for interacting with the model
@@ -85,7 +83,7 @@ type ModelDefaultsService interface {
 type ModelInfoService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
-	CreateModel(context.Context, model.ReadOnlyModelCreationArgs) error
+	CreateModel(context.Context, coremodel.UUID, uuid.UUID) error
 }
 
 // ModelExporter defines a interface for exporting models.

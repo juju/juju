@@ -189,6 +189,7 @@ func NewProviderTrackerModelServiceFactory(
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
 		serviceFactoryLogger{
@@ -207,6 +208,7 @@ func NewModelServiceFactory(
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
 		modelUUID,
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
 		serviceFactoryLogger{

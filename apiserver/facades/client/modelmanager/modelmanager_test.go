@@ -25,8 +25,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/migration"
-	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -62,17 +60,18 @@ func createArgs(owner names.UserTag) params.ModelCreateArgs {
 type modelManagerSuite struct {
 	jtesting.IsolationSuite
 
-	st            *mockState
-	ctlrSt        *mockState
-	caasSt        *mockState
-	caasBroker    *mockCaasBroker
-	cloudService  *mockCloudService
-	accessService *mocks.MockAccessService
-	modelService  *mocks.MockModelService
-	modelExporter *mocks.MockModelExporter
-	authoriser    apiservertesting.FakeAuthorizer
-	api           *modelmanager.ModelManagerAPI
-	caasApi       *modelmanager.ModelManagerAPI
+	st             *mockState
+	ctlrSt         *mockState
+	caasSt         *mockState
+	caasBroker     *mockCaasBroker
+	cloudService   *mockCloudService
+	accessService  *mocks.MockAccessService
+	modelService   *mocks.MockModelService
+	modelExporter  *mocks.MockModelExporter
+	authoriser     apiservertesting.FakeAuthorizer
+	api            *modelmanager.ModelManagerAPI
+	caasApi        *modelmanager.ModelManagerAPI
+	controllerUUID uuid.UUID
 }
 
 var _ = gc.Suite(&modelManagerSuite{})
@@ -88,6 +87,10 @@ func (s *modelManagerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	var err error
+	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	attrs := coretesting.FakeConfig()
 	attrs["agent-version"] = jujuversion.Current.String()
@@ -215,7 +218,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
-		coremodel.UUID(s.st.controllerUUID),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService:         s.cloudService,
@@ -234,7 +237,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	caasCred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	caasApi, err := modelmanager.NewModelManagerAPI(
 		s.caasSt, s.modelExporter, s.ctlrSt,
-		coremodel.UUID(s.st.controllerUUID),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
@@ -271,7 +274,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
-		coremodel.UUID(s.st.controllerUUID),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
@@ -739,7 +742,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
-		coremodel.UUID(s.st.controllerUUID),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService: &mockCloudService{
@@ -918,6 +921,8 @@ type modelManagerStateSuite struct {
 	modelService            *mocks.MockModelService
 
 	store objectstore.ObjectStore
+
+	controllerUUID uuid.UUID
 }
 
 var _ = gc.Suite(&modelManagerStateSuite{})
@@ -928,6 +933,8 @@ func (s *modelManagerStateSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
+	s.controllerUUID = uuid.MustNewUUID()
+
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": jujuversion.Current.String(),
 	}
@@ -966,7 +973,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	toolsFinder := common.NewToolsFinder(s.controllerConfigService, configGetter, st, urlGetter, newEnviron, s.store)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		mockCredentialShim{st}, nil, ctlrSt,
-		modeltesting.GenModelUUID(c),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService:         serviceFactory.Cloud(),
@@ -997,7 +1004,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
-		modeltesting.GenModelUUID(c),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService:         serviceFactory.Cloud(),
@@ -1025,7 +1032,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
-		modeltesting.GenModelUUID(c),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService:         serviceFactory.Cloud(),
@@ -1285,7 +1292,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
-		modeltesting.GenModelUUID(c),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService:         serviceFactory.Cloud(),
@@ -1349,7 +1356,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
-		modeltesting.GenModelUUID(c),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService:         serviceFactory.Cloud(),
@@ -1401,7 +1408,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
-		modeltesting.GenModelUUID(c),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService:         serviceFactory.Cloud(),
@@ -1874,7 +1881,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
-		modeltesting.GenModelUUID(c),
+		s.controllerUUID,
 		modelmanager.Services{
 			ServiceFactoryGetter: nil,
 			CloudService:         serviceFactory.Cloud(),
