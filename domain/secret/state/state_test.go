@@ -2984,3 +2984,68 @@ func (s *stateSuite) TestGetConsumedSecretURIsWithChanges(c *gc.C) {
 		uri1.String(),
 	})
 }
+
+func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *gc.C, ctx context.Context, st *State) (*coresecrets.URI, *coresecrets.URI) {
+	s.setupUnits(c, "mysql")
+
+	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
+		consumer := &coresecrets.SecretConsumerMetadata{
+			CurrentRevision: revision,
+		}
+		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The consumed revision 1.
+	saveRemoteConsumer(uri1, 1, "mediawiki/0")
+	// The consumed revision 1.
+	saveRemoteConsumer(uri2, 1, "mediawiki/0")
+
+	// create revision 2.
+	updateSecretContent(c, st, uri1)
+
+	err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	return uri1, uri2
+}
+
+func (s *stateSuite) TestInitialWatchStatementForRemoteConsumedSecretsChange(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	uri1, _ := s.prepareWatchForRemoteConsumedSecrets(c, ctx, st)
+
+	tableName, f := st.InitialWatchStatementForRemoteConsumedSecretsChange("mediawiki")
+	c.Assert(tableName, gc.Equals, "secret_reference")
+	result, err := f(ctx, s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.SameContents, []string{
+		uri1.ID,
+	})
+}
+
+func (s *stateSuite) TestGetRemoteConsumedSecretURIsWithChanges(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	uri1, uri2 := s.prepareWatchForRemoteConsumedSecrets(c, ctx, st)
+
+	result, err := st.GetRemoteConsumedSecretURIsWithChanges(ctx, "mediawiki",
+		uri1.ID,
+		uri2.ID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result, jc.SameContents, []string{
+		uri1.String(),
+	})
+}
