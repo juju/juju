@@ -4,10 +4,11 @@
 package connector
 
 import (
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/testing"
 	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/testing"
 )
 
 type simpleConnectorSuite struct {
