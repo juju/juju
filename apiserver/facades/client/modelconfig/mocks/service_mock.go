@@ -77,21 +77,6 @@ func (m *MockModelConfigService) EXPECT() *MockModelConfigServiceMockRecorder {
 	return m.recorder
 }
 
-// ModelConfig mocks base method.
-func (m *MockModelConfigService) ModelConfig(arg0 context.Context) (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig", arg0)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockModelConfigServiceMockRecorder) ModelConfig(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModelConfigService)(nil).ModelConfig), arg0)
-}
-
 // ModelConfigValues mocks base method.
 func (m *MockModelConfigService) ModelConfigValues(arg0 context.Context) (config.ConfigValues, error) {
 	m.ctrl.T.Helper()

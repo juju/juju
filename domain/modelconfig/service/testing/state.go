@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // MemoryState implements an in memory representation of the state required for
@@ -21,6 +22,10 @@ type MemoryState struct {
 const (
 	allKeysQuery = "may I please have some keys"
 )
+
+func (*MemoryState) AgentVersion(_ context.Context) (string, error) {
+	return jujuversion.Current.String(), nil
+}
 
 // AllKeysQuery implements the AllKeysQuery func required by state.
 func (s *MemoryState) AllKeysQuery() string {

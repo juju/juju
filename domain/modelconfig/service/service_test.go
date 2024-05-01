@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
@@ -77,6 +78,7 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cfg.AllAttrs(), jc.DeepEquals, map[string]any{
+		"agent-version":  jujuversion.Current.String(),
 		"name":           "wallyworld",
 		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 		"type":           "sometype",
