@@ -182,18 +182,3 @@ type dbExists struct {
 type loginTime struct {
 	Time time.Time `db:"time"`
 }
-
-// dbModelAccessInfo is used to get information about a model that user has access to
-// out of the database.
-type dbModelAccessInfo struct {
-	// Name is the name of the model.
-	Name string `db:"name"`
-	// UUID is the UUID of the model.
-	UUID string `db:"uuid"`
-	// Owner is the owner of the model.
-	Owner string `db:"owner_name"`
-	// Type is the model type (e.g. IaaS or CaaS)
-	Type string `db:"type"`
-	// LastConnection is the time the user last connected to the model.
-	LastConnection *time.Time `db:"time"`
-}

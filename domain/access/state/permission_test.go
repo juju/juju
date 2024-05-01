@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"sort"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -648,70 +647,6 @@ func (s *permissionStateSuite) TestUpsertPermissionRevoke(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtainedUserAccess.UserTag.Id(), gc.Equals, "sue")
 	c.Check(obtainedUserAccess.Access, gc.Equals, corepermission.AddModelAccess)
-}
-
-func (s *permissionStateSuite) TestModelAccessInfo(c *gc.C) {
-	pst := NewPermissionState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
-	ust := NewUserState(s.TxnRunnerFactory())
-
-	// Create access info for bob on the two models.
-	_, err := pst.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: "bob",
-		AccessSpec: corepermission.AccessSpec{
-			Target: corepermission.ID{
-				Key:        s.defaultModelUUID.String(),
-				ObjectType: corepermission.Model,
-			},
-			Access: corepermission.WriteAccess,
-		},
-	})
-	err = ust.UpdateLastLogin(context.Background(), s.defaultModelUUID, "bob")
-	_, err = pst.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
-		User: "bob",
-		AccessSpec: corepermission.AccessSpec{
-			Target: corepermission.ID{
-				Key:        s.modelUUID.String(),
-				ObjectType: corepermission.Model,
-			},
-			Access: corepermission.WriteAccess,
-		},
-	})
-	err = ust.UpdateLastLogin(context.Background(), s.modelUUID, "bob")
-	c.Assert(err, jc.ErrorIsNil)
-
-	info, err := pst.UserModelAccessInfo(context.Background(), "bob")
-	c.Assert(err, jc.ErrorIsNil)
-	// Check we have the right number of models
-	c.Assert(info, gc.HasLen, 2)
-	// Sort the results for consistency in the test.
-	sort.Slice(info, func(i, j int) bool {
-		return info[i].Name < info[j].Name
-	})
-	// Check that the connection times have been found.
-	c.Assert(info[0].LastConnection, gc.NotNil)
-	c.Assert(info[1].LastConnection, gc.NotNil)
-	// Save the LastConnection and set them to nil so the rest of the struct can
-	// be compared to the expected value.
-	time0 := info[0].LastConnection
-	info[0].LastConnection = nil
-	time1 := info[1].LastConnection
-	info[1].LastConnection = nil
-	// Set LastConnection
-	c.Assert(info, jc.DeepEquals, []access.UserModelAccessInfo{
-		{
-			Name:  "default-model",
-			UUID:  s.defaultModelUUID.String(),
-			Owner: "default-model",
-			Type:  "iaas",
-		}, {
-			Name:  "test-model",
-			UUID:  s.modelUUID.String(),
-			Owner: "test-model",
-			Type:  "iaas",
-		},
-	})
-	// Check the connection times are in the expected order.
-	c.Assert(time0.Before(*time1), jc.IsTrue)
 }
 
 func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
