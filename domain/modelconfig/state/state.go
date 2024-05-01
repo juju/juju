@@ -244,3 +244,25 @@ WHERE key = excluded.key
 		return nil
 	})
 }
+
+// CheckSpace checks if the space identified by the given space name exists.
+func (st *State) CheckSpace(ctx context.Context, spaceName string) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	var exists bool
+	return exists, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `SELECT 1 FROM space WHERE name=?`
+		var res int
+		row := tx.QueryRowContext(ctx, stmt, spaceName)
+		if err := row.Scan(&res); errors.Is(err, sql.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return domain.CoerceError(err)
+		}
+		exists = true
+		return nil
+	})
+}

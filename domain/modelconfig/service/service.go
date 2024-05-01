@@ -48,6 +48,9 @@ type State interface {
 	// UpdateModelConfig is responsible for both inserting, updating and
 	// removing model config values for the current model.
 	UpdateModelConfig(context.Context, map[string]string, []string) error
+
+	// CheckSpace checks if the space identified by the given space name exists.
+	CheckSpace(ctx context.Context, spaceName string) (bool, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -295,19 +298,22 @@ func (s *Service) UpdateModelConfig(
 // secrets in dqlite
 type dummySecretsBackendProvider struct{}
 
-// dummySpaceProvider implements validators.SpaceProvider and always returns true.
-// TODO (tlm): These needs to be swapped out with an actual checker when we have
-// spaces in dqlite
-type dummySpaceProvider struct{}
-
 // HasSecretsBackend implements validators.SecretBackendProvider
 func (*dummySecretsBackendProvider) HasSecretsBackend(_ string) (bool, error) {
 	return true, nil
 }
 
-// HasSpace implements validators.SpaceProvider
-func (*dummySpaceProvider) HasSpace(_ string) (bool, error) {
-	return true, nil
+// spaceValidator implements validators.SpaceProvider.
+type spaceValidator struct {
+	st State
+}
+
+// HasSpace implements validators.SpaceProvider. It checks whether the
+// given space exists.
+func (v *spaceValidator) HasSpace(spaceName string) (bool, error) {
+	// TODO(nvinuesa): We should inject the context into this function,
+	// which will come from the environs ValidateFunc.
+	return v.st.CheckSpace(context.TODO(), spaceName)
 }
 
 // updateModelConfigValidator returns a config validator to use on model config
@@ -324,7 +330,9 @@ func (s *Service) updateModelConfigValidator(
 		Validators: []config.Validator{
 			validators.AgentVersionChange(),
 			validators.CharmhubURLChange(),
-			validators.SpaceChecker(&dummySpaceProvider{}),
+			validators.SpaceChecker(&spaceValidator{
+				st: s.st,
+			}),
 			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
 			validators.AuthorizedKeysChange(),
 			s.modelValidator,

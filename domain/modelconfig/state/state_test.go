@@ -168,3 +168,19 @@ func (s *stateSuite) TestAgentVersion(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "1.2.3")
 }
+
+func (s *stateSuite) TestCheckSpace(c *gc.C) {
+	st := state.NewState(s.TxnRunnerFactory())
+	db := s.DB()
+
+	_, err := db.Exec("INSERT INTO space (uuid, name) VALUES ('1', 'foo')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	exists, err := st.CheckSpace(context.Background(), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsFalse)
+
+	exists, err = st.CheckSpace(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsTrue)
+}
