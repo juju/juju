@@ -656,11 +656,7 @@ func (f *FirewallerAPI) WatchSubnets(ctx context.Context, args params.Entities) 
 		return params.StringsWatchResult{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	var (
-		subnetsToWatch set.Strings
-		result         = params.StringsWatchResult{}
-	)
-
+	var subnetsToWatch set.Strings
 	if len(args.Entities) != 0 {
 		subnetsToWatch = set.NewStrings()
 		for _, arg := range args.Entities {
@@ -668,32 +664,20 @@ func (f *FirewallerAPI) WatchSubnets(ctx context.Context, args params.Entities) 
 			if err != nil {
 				return params.StringsWatchResult{}, apiservererrors.ServerError(err)
 			}
-
 			subnetsToWatch.Add(subnetTag.Id())
 		}
 	}
 
-	watcherId, initial, err := f.watchModelSubnets(ctx, subnetsToWatch)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	result.StringsWatcherId = watcherId
-	result.Changes = initial
-	return result, nil
-}
-
-func (f *FirewallerAPI) watchModelSubnets(ctx context.Context, subnetsToWatch set.Strings) (string, []string, error) {
 	watch, err := f.networkService.WatchSubnets(ctx, subnetsToWatch)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return params.StringsWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return f.resources.Register(watch), changes, nil
+	watcherId, initial, err := internal.EnsureRegisterWatcher[[]string](ctx, f.watcherRegistry, watch)
+	if err != nil {
+		return params.StringsWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-	return "", nil, nil
+	return params.StringsWatchResult{StringsWatcherId: watcherId, Changes: initial}, nil
 }
 
 func setEquals(a, b set.Strings) bool {
