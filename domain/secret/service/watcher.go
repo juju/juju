@@ -48,6 +48,8 @@ func NewWatchableService(
 func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error) {
 	table, query := s.st.InitialWatchStatementForConsumedSecretsChange(unitName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
+		// We are only interested in CREATE changes because
+		// the secret_revision.version is immutable anyway.
 		table, changestream.Create, query,
 	)
 	if err != nil {
@@ -63,9 +65,17 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 // of the specified app and retuens a watcher which notifies of secret URIs
 // that have had a new revision added.
 func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
-	ch := make(chan []string, 1)
-	ch <- []string{}
-	return watchertest.NewMockStringsWatcher(ch), nil
+	table, query := s.st.InitialWatchStatementForRemoteConsumedSecretsChange(appName)
+	w, err := s.watcherFactory.NewNamespaceWatcher(
+		table, changestream.All, query,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
+		return s.st.GetRemoteConsumedSecretURIsWithChanges(ctx, appName, secretIDs...)
+	}
+	return newStringsWatcher(w, s.logger, processChanges)
 }
 
 // WatchObsolete returns a watcher for notifying when:

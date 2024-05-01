@@ -317,3 +317,71 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	wC.AssertNoChange()
 	wC1.AssertNoChange()
 }
+
+func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
+	s.setupUnits(c, "mysql")
+
+	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
+
+	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
+		consumer := &coresecrets.SecretConsumerMetadata{
+			CurrentRevision: revision,
+		}
+		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The consumed revision 1 is the initial revision - will be ignored.
+	saveRemoteConsumer(uri1, 1, "mediawiki/0")
+	// The consumed revision 1 is the initial revision - will be ignored.
+	saveRemoteConsumer(uri2, 1, "mediawiki/0")
+
+	watcher, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher, gc.NotNil)
+	defer workertest.CleanKill(c, watcher)
+
+	wC := watchertest.NewStringsWatcherC(c, watcher)
+
+	// Wait for the initial changes.
+	wC.AssertChange([]string(nil)...)
+	wC.AssertNoChange()
+
+	// create revision 2.
+	createNewRevision(c, st, uri1)
+	err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wC.AssertChange(
+		uri1.String(),
+	)
+	wC.AssertNoChange()
+
+	// pretent that the agent restarted and the watcher is re-created.
+	watcher1, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher1, gc.NotNil)
+	defer workertest.CleanKill(c, watcher1)
+	wC1 := watchertest.NewStringsWatcherC(c, watcher1)
+	wC1.AssertChange([]string(nil)...)
+	wC1.AssertChange(
+		uri1.String(),
+	)
+
+	// The consumed revision 2 is the updated current_revision.
+	saveRemoteConsumer(uri1, 2, "mediawiki/0")
+	wC.AssertNoChange()
+	wC1.AssertNoChange()
+}

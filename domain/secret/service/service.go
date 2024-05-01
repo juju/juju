@@ -69,6 +69,9 @@ type State interface {
 
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
 	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, consumerIDs ...string) ([]string, error)
+
+	InitialWatchStatementForRemoteConsumedSecretsChange(appName string) (string, eventsource.NamespaceQuery)
+	GetRemoteConsumedSecretURIsWithChanges(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -501,7 +504,10 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 // This method returns the resulting uri, and optionally the label to update for the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
-) (*secrets.URI, *string, error) {
+) (_ *secrets.URI, _ *string, err error) {
+	defer func() {
+		s.logger.Warningf("ProcessSecretConsumerLabel unit %q, uri %q, label %q, err %v", unitName, uri, label, err)
+	}()
 	modelUUID, err := s.st.GetModelUUID(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting model uuid")
@@ -516,6 +522,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	// For local secrets, check those which may be owned by the caller.
 	if uri == nil || uri.IsLocal(modelUUID) {
 		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(ctx, uri, unitName, label)
+		s.logger.Warningf("getAppOwnedOrUnitOwnedSecretMetadata unit %q, uri %q, label %q, md %v, err %v", unitName, uri, label, md, err)
 		if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
 			return nil, nil, errors.Trace(err)
 		}
@@ -595,6 +602,7 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 	}
 
 	appName, err := names.UnitApplication(unitName)
+	s.logger.Warningf("getAppOwnedOrUnitOwnedSecretMetadata unit %q, appName %q", unitName, appName)
 	if err != nil {
 		// Should never happen.
 		return nil, errors.Trace(err)

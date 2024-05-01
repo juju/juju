@@ -70,8 +70,10 @@ func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string,
 // the label associated with the secret for the consumer.
 // TODO(secrets) - test
 func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh, peek bool, labelToUpdate *string) (int, error) {
+	s.logger.Warningf("GetConsumedRevision: uri: %v, unitName: %v, refresh: %#v, peek: %#v, labelToUpdate: %#v", uri, unitName, refresh, peek, labelToUpdate)
 	consumerInfo, latestRevision, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
-	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
+	s.logger.Warningf("GetConsumedRevision: consumerInfo: %v, latestRevision: %v, err: %v", consumerInfo, latestRevision, err)
+	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) && !errors.Is(err, secreterrors.SecretNotFound) {
 		return 0, errors.Trace(err)
 	}
 	refresh = refresh ||
