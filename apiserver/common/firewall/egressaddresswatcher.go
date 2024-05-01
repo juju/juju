@@ -13,7 +13,15 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/config"
 )
+
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	ModelConfig(ctx context.Context) (*config.Config, error)
+	Watch() (watcher.StringsWatcher, error)
+}
 
 // EgressAddressWatcher reports changes to addresses
 // for local units in a given relation.
@@ -22,7 +30,9 @@ import (
 type EgressAddressWatcher struct {
 	catacomb catacomb.Catacomb
 
-	backend State
+	backend            State
+	modelConfigService ModelConfigService
+
 	appName string
 	rel     Relation
 
@@ -57,17 +67,18 @@ type machineData struct {
 }
 
 // NewEgressAddressWatcher creates an EgressAddressWatcher.
-func NewEgressAddressWatcher(backend State, rel Relation, appName string) (*EgressAddressWatcher, error) {
+func NewEgressAddressWatcher(backend State, modelConfigService ModelConfigService, rel Relation, appName string) (*EgressAddressWatcher, error) {
 	w := &EgressAddressWatcher{
-		backend:          backend,
-		appName:          appName,
-		rel:              rel,
-		known:            make(map[string]string),
-		out:              make(chan []string),
-		addressChanges:   make(chan string),
-		machines:         make(map[string]*machineData),
-		unitToMachine:    make(map[string]string),
-		knownModelEgress: set.NewStrings(),
+		backend:            backend,
+		modelConfigService: modelConfigService,
+		appName:            appName,
+		rel:                rel,
+		known:              make(map[string]string),
+		out:                make(chan []string),
+		addressChanges:     make(chan string),
+		machines:           make(map[string]*machineData),
+		unitToMachine:      make(map[string]string),
+		knownModelEgress:   set.NewStrings(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -93,7 +104,10 @@ func (w *EgressAddressWatcher) loop() error {
 	// TODO(wallyworld) - we just want to watch for egress
 	// address changes but right now can only watch for
 	// any model config change.
-	mw := w.backend.WatchForModelConfigChanges()
+	mw, err := w.modelConfigService.Watch()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := w.catacomb.Add(mw); err != nil {
 		return errors.Trace(err)
 	}
@@ -235,7 +249,7 @@ func (w *EgressAddressWatcher) getEgressSubnets() (set.Strings, error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	cfg, err := w.backend.ModelConfig(ctx)
+	cfg, err := w.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
