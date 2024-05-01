@@ -63,7 +63,7 @@ require (
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v5 v5.0.0
 	github.com/juju/naturalsort v1.0.0
-	github.com/juju/os/v2 v2.2.3
+	github.com/juju/os/v2 v2.2.4
 	github.com/juju/packaging/v2 v2.0.1
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
@@ -106,7 +106,7 @@ require (
 	github.com/vmware/govmomi v0.34.1
 	go.uber.org/mock v0.4.0
 	golang.org/x/crypto v0.21.0
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.23.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sync v0.5.0
 	golang.org/x/sys v0.18.0
