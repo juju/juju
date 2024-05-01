@@ -34,18 +34,19 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
+type egressAddressWatcherFunc func(facade.Resources, firewall.State, firewall.ModelConfigService, params.Entities) (params.StringsWatchResults, error)
 type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
 type offerStatusWatcherFunc func(context.Context, CrossModelRelationsState, string) (OfferWatcher, error)
 type consumedSecretsWatcherFunc func(context.Context, SecretService, string) (corewatcher.StringsWatcher, error)
 
 // CrossModelRelationsAPIv3 provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPIv3 struct {
-	st            CrossModelRelationsState
-	fw            firewall.State
-	secretService SecretService
-	resources     facade.Resources
-	authorizer    facade.Authorizer
+	st                 CrossModelRelationsState
+	fw                 firewall.State
+	secretService      SecretService
+	modelConfigService ModelConfigService
+	resources          facade.Resources
+	authorizer         facade.Authorizer
 
 	mu              sync.Mutex
 	authCtxt        *commoncrossmodel.AuthContext
@@ -66,6 +67,7 @@ func NewCrossModelRelationsAPI(
 	authorizer facade.Authorizer,
 	authCtxt *commoncrossmodel.AuthContext,
 	secretService SecretService,
+	modelConfigService ModelConfigService,
 	egressAddressWatcher egressAddressWatcherFunc,
 	relationStatusWatcher relationStatusWatcherFunc,
 	offerStatusWatcher offerStatusWatcherFunc,
@@ -79,6 +81,7 @@ func NewCrossModelRelationsAPI(
 		authorizer:             authorizer,
 		authCtxt:               authCtxt,
 		secretService:          secretService,
+		modelConfigService:     modelConfigService,
 		egressAddressWatcher:   egressAddressWatcher,
 		relationStatusWatcher:  relationStatusWatcher,
 		offerStatusWatcher:     offerStatusWatcher,
@@ -693,7 +696,7 @@ func (api *CrossModelRelationsAPIv3) WatchEgressAddressesForRelations(ctx contex
 		}
 		relations.Entities = append(relations.Entities, params.Entity{Tag: relationTag.String()})
 	}
-	watchResults, err := api.egressAddressWatcher(api.resources, api.fw, relations)
+	watchResults, err := api.egressAddressWatcher(api.resources, api.fw, api.modelConfigService, relations)
 	if err != nil {
 		return results, err
 	}

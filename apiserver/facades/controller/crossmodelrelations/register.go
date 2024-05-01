@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/secret/service"
 )
 
@@ -27,7 +28,7 @@ func Register(registry facade.FacadeRegistry) {
 func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelationsAPIv3, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	st := ctx.State()
-	model, err := st.Model()
+	m, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
@@ -37,10 +38,11 @@ func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelatio
 			st:      st,
 			Backend: commoncrossmodel.GetBackend(st),
 		},
-		firewall.StateShim(st, model),
+		firewall.StateShim(st, m),
 		ctx.Resources(), ctx.Auth(),
 		authCtxt.(*commoncrossmodel.AuthContext),
 		ctx.ServiceFactory().Secret(service.NotImplementedBackendConfigGetter),
+		ctx.ServiceFactory().Config(ctx.ServiceFactory().ModelDefaults().ModelDefaultsProvider(model.UUID(m.UUID()))),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,
