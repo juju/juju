@@ -19,6 +19,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -45,12 +46,13 @@ var _ = gc.Suite(&crossmodelRelationsSuite{})
 type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
 
+	modelConfigService *MockModelConfigService
+
 	resources     *common.Resources
 	authorizer    *apiservertesting.FakeAuthorizer
 	st            *mockState
 	secretService *mockSecretService
 	bakery        *mockBakeryService
-	authContext   *commoncrossmodel.AuthContext
 	api           *crossmodelrelations.CrossModelRelationsAPIv3
 
 	watchedRelations       params.Entities
@@ -58,9 +60,15 @@ type crossmodelRelationsSuite struct {
 	watchedSecretConsumers []string
 }
 
-func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func (s *crossmodelRelationsSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+
+	return ctrl
+}
+
+func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 	s.bakery = &mockBakeryService{}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -72,7 +80,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 
 	s.st = newMockState()
 	fw := &mockFirewallState{}
-	egressAddressWatcher := func(_ facade.Resources, fws firewall.State, relations params.Entities) (params.StringsWatchResults, error) {
+	egressAddressWatcher := func(_ facade.Resources, fws firewall.State, modelConfigService firewall.ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
 		c.Assert(fw, gc.Equals, fws)
 		s.watchedRelations = relations
 		return params.StringsWatchResults{Results: make([]params.StringsWatchResult, len(relations.Entities))}, nil
@@ -119,7 +127,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = commoncrossmodel.NewAuthContext(
+	authContext, err := commoncrossmodel.NewAuthContext(
 		s.st, thirdPartyKey,
 		commoncrossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
@@ -127,7 +135,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.secretService = newMockSecretService()
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		s.st, fw, s.resources, s.authorizer,
-		s.authContext, s.secretService, egressAddressWatcher, relationStatusWatcher,
+		authContext, s.secretService, s.modelConfigService, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher,
 		loggo.GetLoggerWithTags("juju.apiserver.crossmodelrelations", corelogger.CMR),
 	)
@@ -242,18 +250,34 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.assertPublishRelationsChanges(c, life.Alive, "", false)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.assertPublishRelationsChanges(c, life.Alive, "reason", false)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.assertPublishRelationsChanges(c, life.Dying, "", false)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.assertPublishRelationsChanges(c, life.Dying, "", true)
 }
 
@@ -339,15 +363,27 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 }
 
 func (s *crossmodelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.assertRegisterRemoteRelations(c)
 }
 
 func (s *crossmodelRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.assertRegisterRemoteRelations(c)
 	s.assertRegisterRemoteRelations(c)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	rel := newMockRelation(1)
 	rel.key = "db2:db django:db"
@@ -390,6 +426,10 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 }
 
 func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.relations["db2:db django:db"] = newMockRelation(1)
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
@@ -432,6 +472,10 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 }
 
 func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
 		offerUUID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -483,6 +527,10 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 }
 
 func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	rel := newMockRelation(1)
 	s.st.relations["db2:db django:db"] = rel
@@ -530,6 +578,10 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 }
 
 func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
 		offerUUID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -584,6 +636,10 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 }
 
 func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
 		OfferName: "hosted-mysql", OfferUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479", ApplicationName: "mysql"}
 	app := &mockApplication{name: "mysql", appStatus: status.Waiting}
@@ -639,6 +695,10 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 }
 
 func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityOfferTag(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")] = "token-db2"
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
@@ -708,6 +768,10 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 }
 
 func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityApplicationTag(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
@@ -780,6 +844,10 @@ func ptr[T any](v T) *T {
 }
 
 func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.authorizer.AdminTag = names.NewUserTag("fred")
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
@@ -826,6 +894,10 @@ func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
 }
 
 func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.applications["django"] = &mockApplication{}
@@ -945,6 +1017,10 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 }
 
 func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.secretService.secrets["9m4e2mr0ui3e8a215n4g"] = coresecrets.SecretMetadata{LatestRevision: 666}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.remoteEntities[names.NewApplicationTag("postgresql")] = "token-postgresql"
