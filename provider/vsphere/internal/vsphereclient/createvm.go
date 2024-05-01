@@ -27,6 +27,7 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 )
@@ -85,7 +86,7 @@ type ImportOVAParameters struct {
 	Datastore         *object.Datastore
 	DestinationFolder *object.Folder
 	Arch              string
-	Series            string
+	Base              base.Base
 }
 
 // CreateVirtualMachineParams contains the parameters required for creating
@@ -100,9 +101,6 @@ type CreateVirtualMachineParams struct {
 	// Folder is the path of the VM folder, relative to the root VM folder,
 	// in which to create the VM.
 	Folder string
-
-	// Series is the name of the OS series that the image will run.
-	Series string
 
 	// UserData is the cloud-init user-data.
 	UserData string
@@ -202,11 +200,12 @@ func (c *Client) CreateTemplateVM(
 	// provisioners (i.e. each model's) run on the same controller
 	// machine, so taking a machine lock ensures that only one
 	// process is updating VMDKs at the same time. We lock around
-	// access to the series directory.
+	// access to the base directory.
 	// There is no need for a special case with bootstrapping as
 	// it only occurs once.
+	track := strings.ReplaceAll(ovaArgs.Base.Channel.Track, ".", "")
 	release, err := c.acquireMutex(mutex.Spec{
-		Name:  "vsphere-" + ovaArgs.Series,
+		Name:  fmt.Sprintf("vsphere-%s-%s", ovaArgs.Base.OS, track),
 		Clock: ovaArgs.StatusUpdateParams.Clock,
 		Delay: time.Second,
 	})

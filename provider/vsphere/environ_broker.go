@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
@@ -175,11 +174,7 @@ func (env *sessionEnviron) newRawInstance(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	series, err := corebase.GetSeriesFromBase(args.InstanceConfig.Base)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	vmTemplate, arch, err := tplManager.EnsureTemplate(env.ctx, series, arch)
+	vmTemplate, arch, err := tplManager.EnsureTemplate(env.ctx, args.InstanceConfig.Base, arch)
 	if err != nil {
 		return nil, nil, environs.ZoneIndependentError(err)
 	}
@@ -255,7 +250,6 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name:                   vmName,
 		Folder:                 path.Join(env.getVMFolder(), controllerFolderName(args.ControllerUUID), env.modelFolderName()),
-		Series:                 series,
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
