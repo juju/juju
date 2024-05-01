@@ -171,7 +171,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 
 	logValidator := LogTracingValidator(isLoggingAdmin)
 
-	var validationError config.ValidationError
+	var validationError *config.ValidationError
 	err = c.configService.UpdateModelConfig(ctx, args.Config, nil, logValidator)
 	if errors.As(err, &validationError) {
 		return fmt.Errorf("config key %q %w: %s",
@@ -184,7 +184,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 }
 
 // LogTracingValidator is a logging config validator that checks if a logging
-// change is being requested. Specifically that of trace and to see if the
+// change is being requested, specifically that of trace and to see if the
 // requesting user has the required permission for the change.
 func LogTracingValidator(isAdmin bool) config.ValidatorFunc {
 	return func(cfg, old *config.Config) (*config.Config, error) {

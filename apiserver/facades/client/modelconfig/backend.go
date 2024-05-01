@@ -19,7 +19,6 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	Sequences() (map[string]int, error)
-	SpaceByName(string) error
 	SetModelConstraints(value constraints.Value) error
 	ModelConstraints() (constraints.Value, error)
 }

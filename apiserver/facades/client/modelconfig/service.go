@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// ModelConfigService is an interface for interacting the a models underlying
+// ModelConfigService is an interface for interacting with a model's underlying
 // model configuration values.
 type ModelConfigService interface {
 	ModelConfigValues(context.Context) (config.ConfigValues, error)

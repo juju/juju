@@ -5,7 +5,9 @@ package state_test
 
 import (
 	"context"
+	"database/sql"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -137,4 +139,32 @@ func (s *stateSuite) TestSetModelConfig(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(config, jc.DeepEquals, test.Config)
 	}
+}
+
+// TestAgentVersionNotFound is testing that when we ask for the agent version of
+// of the current model and that data has not been set in the read only model
+// table that a [errors.NotFound] error is returned.
+func (s *stateSuite) TestAgentVersionNotFound(c *gc.C) {
+	st := state.NewState(s.TxnRunnerFactory())
+	version, err := st.AgentVersion(context.Background())
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(version, gc.Equals, "")
+}
+
+// TestAgentVersion is testing the happy path that when agent version is set it
+// is reported back correctly with no errors.
+func (s *stateSuite) TestAgentVersion(c *gc.C) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+            INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud)
+            VALUES ("123", "123", "test", "caas", "1.2.3", "kubernetes")
+        `)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := state.NewState(s.TxnRunnerFactory())
+	version, err := st.AgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "1.2.3")
 }

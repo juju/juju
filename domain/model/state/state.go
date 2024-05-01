@@ -213,6 +213,7 @@ func Get(
 ) (coremodel.Model, error) {
 	modelStmt := `
 SELECT name,
+       ma.target_version           AS agent_version,
        cloud_name,
        cloud_region_name,
        model_type,
@@ -223,6 +224,7 @@ SELECT name,
        cloud_credential_name,
        life
 FROM v_model
+INNER JOIN model_agent ma ON v_model.uuid = ma.model_uuid
 WHERE uuid = ?
 `
 
@@ -230,16 +232,18 @@ WHERE uuid = ?
 
 	var (
 		// cloudRegion could be null
-		cloudRegion sql.NullString
-		modelType   string
-		userUUID    string
-		credName    sql.NullString
-		credOwner   sql.NullString
-		credCloud   sql.NullString
-		model       coremodel.Model
+		agentVersion string
+		cloudRegion  sql.NullString
+		modelType    string
+		userUUID     string
+		credName     sql.NullString
+		credOwner    sql.NullString
+		credCloud    sql.NullString
+		model        coremodel.Model
 	)
 	err := row.Scan(
 		&model.Name,
+		&agentVersion,
 		&model.Cloud,
 		&cloudRegion,
 		&modelType,
@@ -255,6 +259,11 @@ WHERE uuid = ?
 		return coremodel.Model{}, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 	} else if err != nil {
 		return coremodel.Model{}, fmt.Errorf("getting model %q: %w", uuid, domain.CoerceError(err))
+	}
+
+	model.AgentVersion, err = version.Parse(agentVersion)
+	if err != nil {
+		return coremodel.Model{}, fmt.Errorf("parsing model %q agent version %q: %w", uuid, agentVersion, err)
 	}
 
 	model.CloudRegion = cloudRegion.String

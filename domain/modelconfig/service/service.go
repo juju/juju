@@ -31,6 +31,11 @@ type ModelDefaultsProvider interface {
 type State interface {
 	ProviderState
 
+	// AgentVersion returns the current models agent version. If no agent
+	// version has been set for the current model then a error satisfying
+	// [errors.NotFound] is returned.
+	AgentVersion(context.Context) (string, error)
+
 	// ModelConfigHasAttributes returns the set of attributes that model config
 	// currently has set out of the list supplied.
 	ModelConfigHasAttributes(context.Context, []string) ([]string, error)
@@ -79,7 +84,17 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 		return nil, fmt.Errorf("getting model config from state: %w", err)
 	}
 
+	agentVersion, err := s.st.AgentVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting model agent version for model config: %w", err)
+	}
+
 	altConfig := transform.Map(stConfig, func(k, v string) (string, any) { return k, v })
+
+	// We add the agent version to model config here. Over time we need to
+	// remove uses of agent version from model config. We prefer to augment
+	// config with this value on read rather then persisting on writing.
+	altConfig[config.AgentVersionKey] = agentVersion
 	return config.New(config.NoDefaults, altConfig)
 }
 
@@ -222,6 +237,13 @@ func (s *Service) SetModelConfig(
 // being persisted. If an error occurs during validation then a
 // config.ValidationError is returned. The caller can also optionally pass in
 // additional config.Validators to be run.
+//
+// The following validations on model config are run by default:
+// - Agent version is not change between updates.
+// - Charmhub url is not changed between updates.
+// - The networking space chosen is valid and can be used.
+// - The secret backend is valid and can be used.
+// - Authorized keys are not changed.
 func (s *Service) UpdateModelConfig(
 	ctx context.Context,
 	updateAttrs map[string]any,
@@ -289,7 +311,12 @@ func (*dummySpaceProvider) HasSpace(_ string) (bool, error) {
 }
 
 // updateModelConfigValidator returns a config validator to use on model config
-// when it is being updated.
+// when it is being updated. The validator returned will check that:
+// - Agent version is not being changed.
+// - CharmhubURL is not being changed.
+// - Network space exists.
+// - Secret backend exists.
+// - There is no changes to authorized keys.
 func (s *Service) updateModelConfigValidator(
 	additional ...config.Validator,
 ) config.Validator {
