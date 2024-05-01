@@ -19,6 +19,7 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	coretesting "github.com/juju/juju/testing"
@@ -818,10 +819,10 @@ func baseImportOVAParameters(c *gc.C, client *Client) ImportOVAParameters {
 		},
 		TemplateName: "juju-template-" + fakeSHA256,
 		Arch:         "amd64",
-		Series:       "xenial",
+		Base:         base.MustParseBaseFromString("ubuntu@16.04"),
 		DestinationFolder: &object.Folder{
 			Common: object.Common{
-				InventoryPath: "/dc0/vm/juju-vmdks/ctrl/xenial",
+				InventoryPath: "/dc0/vm/juju-vmdks/ctrl/ubuntu_16.04",
 			},
 		},
 		Datastore: object.NewDatastore(client.client.Client, fakeDS),
@@ -842,7 +843,6 @@ func baseCreateVirtualMachineParams(c *gc.C, client *Client) CreateVirtualMachin
 	return CreateVirtualMachineParams{
 		Name:     "vm-0",
 		Folder:   "foo",
-		Series:   "xenial",
 		UserData: "baz",
 		ComputeResource: &mo.ComputeResource{
 			ResourcePool: &types.ManagedObjectReference{

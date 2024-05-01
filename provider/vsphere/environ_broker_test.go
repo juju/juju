@@ -154,7 +154,6 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
 		Name:            "juju-f75cba-0",
 		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
-		Series:          "jammy",
 		Metadata:        startInstArgs.InstanceConfig.Tags,
 		ComputeResource: s.client.computeResources[0].Resource,
 		ResourcePool: types.ManagedObjectReference{
