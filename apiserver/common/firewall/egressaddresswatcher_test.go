@@ -4,9 +4,12 @@
 package firewall_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,6 +17,8 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/environs/config"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -26,6 +31,8 @@ type addressWatcherSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
+
+	modelConfigService *MockModelConfigService
 }
 
 func (s *addressWatcherSuite) SetUpTest(c *gc.C) {
@@ -40,6 +47,14 @@ func (s *addressWatcherSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState(coretesting.ModelTag.Id())
+}
+
+func (s *addressWatcherSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+
+	return ctrl
 }
 
 func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation {
@@ -60,8 +75,19 @@ func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation 
 }
 
 func (s *addressWatcherSuite) TestInitial(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -77,8 +103,19 @@ func (s *addressWatcherSuite) TestInitial(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -106,8 +143,19 @@ func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -134,8 +182,19 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -168,8 +227,19 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -194,9 +264,20 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "")
 	s.st.units["django/0"].assigned = false
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -222,8 +303,19 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -239,8 +331,19 @@ func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -274,8 +377,19 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -316,8 +430,19 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "55.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -354,8 +479,19 @@ func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "2.3.4.5")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -377,8 +513,19 @@ func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "2.3.4.5")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -399,6 +546,17 @@ func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc
 }
 
 func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	rel := s.setupRelation(c, "2.3.4.5")
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.NewSpaceAddress("2.3.4.5")
@@ -411,7 +569,7 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 		},
 	}
 
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -430,9 +588,29 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 }
 
 func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
-	s.st.configAttrs["egress-subnets"] = "10.0.0.1/16"
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelConfig, err := config.New(false, map[string]any{
+		"name":           "donotuse",
+		"type":           "donotuse",
+		"uuid":           "00000000-0000-0000-0000-000000000000",
+		"egress-subnets": "10.0.0.1/16",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelConfigChanged := make(chan []string, 1)
+	modelConfigChanged <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(modelConfigChanged)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).AnyTimes().DoAndReturn(func(context.Context) (*config.Config, error) {
+		return modelConfig, nil
+	})
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -451,14 +629,20 @@ func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change user configured egress addresses.
-	s.st.configAttrs["egress-subnets"] = "192.168.0.1/16"
-	s.st.modelWatcher.changes <- struct{}{}
+	modelConfig, err = modelConfig.Apply(map[string]any{
+		"egress-subnets": "192.168.0.1/16",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	modelConfigChanged <- []string{}
 	wc.AssertChange("192.168.0.1/16")
 	wc.AssertNoChange()
 
 	// Reset user configured egress addresses.
-	s.st.configAttrs["egress-subnets"] = ""
-	s.st.modelWatcher.changes <- struct{}{}
+	modelConfig, err = modelConfig.Apply(map[string]any{
+		"egress-subnets": "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	modelConfigChanged <- []string{}
 	wc.AssertChange("54.1.2.3/32")
 	wc.AssertNoChange()
 
@@ -472,10 +656,30 @@ func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
 }
 
 func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	// Set up a model egress-address to ensure it is ignored when a relation one is used.
-	s.st.configAttrs["egress-subnets"] = "10.0.0.1/16"
+	modelConfig, err := config.New(false, map[string]any{
+		"name":           "donotuse",
+		"type":           "donotuse",
+		"uuid":           "00000000-0000-0000-0000-000000000000",
+		"egress-subnets": "10.0.0.1/16",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelConfigChanged := make(chan []string, 1)
+	modelConfigChanged <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(modelConfigChanged)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).AnyTimes().DoAndReturn(func(context.Context) (*config.Config, error) {
+		return modelConfig, nil
+	})
+
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	w, err := firewall.NewEgressAddressWatcher(s.st, s.modelConfigService, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
@@ -497,8 +701,11 @@ func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change model egress addresses, no change since relation overrides.
-	s.st.configAttrs["egress-subnets"] = "192.168.0.1/16"
-	s.st.modelWatcher.changes <- struct{}{}
+	modelConfig, err = modelConfig.Apply(map[string]any{
+		"egress-subnets": "192.168.0.1/16",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	modelConfigChanged <- []string{}
 	wc.AssertNoChange()
 
 	rel.ew.changes <- []string{"10.1.2.0/8"}
