@@ -4,7 +4,6 @@
 package base
 
 import (
-	"strings"
 	"sync"
 	"time"
 
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/loggo/v2"
 	jujuos "github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
-
-	"github.com/juju/juju/core/os/ostype"
 )
 
 const (
@@ -35,36 +32,6 @@ func getAllSeriesVersions() map[SeriesName]seriesVersion {
 		copy[name] = v
 	}
 	return copy
-}
-
-// GetOSFromSeries will return the operating system based
-// on the series that is passed to it
-func GetOSFromSeries(series string) (ostype.OSType, error) {
-	if series == "" {
-		return ostype.Unknown, errors.NotValidf("series %q", series)
-	}
-
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-
-	seriesName := SeriesName(series)
-	osType, err := getOSFromSeries(seriesName)
-	if err == nil {
-		return osType, nil
-	}
-
-	updateSeriesVersionsOnce()
-	return getOSFromSeries(seriesName)
-}
-
-// DefaultOSTypeNameFromSeries returns the operating system based
-// on the given series, defaulting to Ubuntu for unknown series.
-func DefaultOSTypeNameFromSeries(series string) string {
-	osType, err := GetOSFromSeries(series)
-	if err != nil {
-		osType = ostype.Ubuntu
-	}
-	return strings.ToLower(osType.String())
 }
 
 const (
@@ -122,63 +89,6 @@ func composeSeriesVersions() {
 	}
 }
 
-// SeriesVersion returns the version for the specified series.
-func SeriesVersion(series string) (string, error) {
-	if series == "" {
-		return "", errors.Trace(unknownSeriesVersionError(""))
-	}
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-
-	seriesName := SeriesName(series)
-	if vers, ok := allSeriesVersions[seriesName]; ok {
-		return vers.Version, nil
-	}
-	updateSeriesVersionsOnce()
-	if vers, ok := allSeriesVersions[seriesName]; ok {
-		return vers.Version, nil
-	}
-
-	return "", errors.Trace(unknownSeriesVersionError(series))
-}
-
-// UbuntuVersions returns the ubuntu versions as a map.
-func UbuntuVersions(supported, esmSupported *bool) map[string]string {
-	return ubuntuVersions(supported, esmSupported, ubuntuSeries)
-}
-
-func ubuntuVersions(
-	supported, esmSupported *bool, ubuntuSeries map[SeriesName]seriesVersion,
-) map[string]string {
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-	save := make(map[string]string)
-	for seriesName, val := range ubuntuSeries {
-		if supported != nil && val.Supported != *supported {
-			continue
-		}
-		if esmSupported != nil && val.ESMSupported != *esmSupported {
-			continue
-		}
-		save[seriesName.String()] = val.Version
-	}
-	return save
-}
-
-func getOSFromSeries(series SeriesName) (ostype.OSType, error) {
-	if _, ok := ubuntuSeries[series]; ok {
-		return ostype.Ubuntu, nil
-	}
-	if _, ok := centosSeries[series]; ok {
-		return ostype.CentOS, nil
-	}
-	if series == genericLinuxSeries {
-		return ostype.GenericLinux, nil
-	}
-
-	return ostype.Unknown, errors.Trace(unknownOSForSeriesError(series))
-}
-
 var (
 	logger = loggo.GetLogger("juju.juju.base")
 
@@ -221,22 +131,4 @@ func updateVersionSeries() {
 	for k, v := range allSeriesVersions {
 		versionSeries[v.Version] = string(k)
 	}
-}
-
-type unknownOSForSeriesError string
-
-func (e unknownOSForSeriesError) Error() string {
-	return `unknown OS for series: "` + string(e) + `"`
-}
-
-// IsUnknownOSForSeriesError returns true if err is of type unknownOSForSeriesError.
-func IsUnknownOSForSeriesError(err error) bool {
-	_, ok := errors.Cause(err).(unknownOSForSeriesError)
-	return ok
-}
-
-type unknownSeriesVersionError string
-
-func (e unknownSeriesVersionError) Error() string {
-	return `unknown version for series: "` + string(e) + `"`
 }
