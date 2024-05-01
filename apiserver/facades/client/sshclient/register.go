@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -41,6 +42,7 @@ func newFacade(ctx facade.ModelContext) (*Facade, error) {
 	}
 	return internalFacade(
 		&facadeBackend,
+		ctx.ServiceFactory().Config(ctx.ServiceFactory().ModelDefaults().ModelDefaultsProvider(model.UUID(m.UUID()))),
 		leadershipReader,
 		ctx.Auth(),
 		func(ctx stdcontext.Context, args environs.OpenParams) (Broker, error) {

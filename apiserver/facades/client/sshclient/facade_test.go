@@ -5,10 +5,10 @@ package sshclient_test
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/sshclient"
-	"github.com/juju/juju/apiserver/facades/client/sshclient/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
@@ -32,61 +31,78 @@ import (
 )
 
 type facadeSuite struct {
-	testing.BaseSuite
-	backend          *mockBackend
-	authorizer       *apiservertesting.FakeAuthorizer
-	facade           *sshclient.Facade
-	m0, uFoo, uOther string
+	backend    *MockBackend
+	authorizer *MockAuthorizer
+	broker     *MockBroker
+	model      *MockModel
+
+	modelConfigService *MockModelConfigService
 }
 
 var _ = gc.Suite(&facadeSuite{})
 
-func (s *facadeSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.m0 = names.NewMachineTag("0").String()
-	s.uFoo = names.NewUnitTag("foo/0").String()
-	s.uOther = names.NewUnitTag("other/1").String()
+func (s *facadeSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.backend = NewMockBackend(ctrl)
+	s.authorizer = NewMockAuthorizer(ctrl)
+	s.broker = NewMockBroker(ctrl)
+	s.model = NewMockModel(ctrl)
+
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+
+	return ctrl
 }
 
-func (s *facadeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func (s *facadeSuite) TestNonClientNotAllowed(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	s.backend = new(mockBackend)
-	s.authorizer = new(apiservertesting.FakeAuthorizer)
-	s.authorizer.Tag = names.NewUserTag("igor")
-	s.authorizer.AdminTag = names.NewUserTag("igor")
+	s.authorizer.EXPECT().AuthClient().Return(false)
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.facade = facade
-}
-
-func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
-	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
-}
-
-func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
-	s.authorizer.Tag = names.NewUnitTag("foo/0")
-	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(facade, gc.IsNil)
 }
 
 // TestNonAuthUserDenied tests that a user without admin non
 // superuser permission cannot access a facade function.
 func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("jeremy")
-	s.authorizer.AdminTag = names.NewUserTag("igor")
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
+	s.backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
+	)
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.facade = facade
 
 	args := params.Entities{
-		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
+		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
-	results, err := s.facade.PublicAddress(context.Background(), args)
+	results, err := facade.PublicAddress(context.Background(), args)
 	// Check this was an error permission
 	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
 	c.Assert(results, gc.DeepEquals, params.SSHAddressResults{})
@@ -95,40 +111,80 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 // TestSuperUserAuth tests that a user with superuser privilege
 // can access a facade function.
 func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("superuser-jeremy")
-	s.authorizer.AdminTag = names.NewUserTag("igor")
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+	)
+
+	machine0 := NewMockSSHMachine(ctrl)
+	machine0.EXPECT().PublicAddress().AnyTimes().Return(network.NewSpaceAddress("1.1.1.1"), nil)
+	s.backend.EXPECT().GetMachineForEntity("machine-0").Return(machine0, nil)
+	s.backend.EXPECT().GetMachineForEntity("unit-app-0").Return(machine0, nil)
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.facade = facade
 
 	args := params.Entities{
-		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
+		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
-	results, err := s.facade.PublicAddress(context.Background(), args)
-
+	results, err := facade.PublicAddress(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
-		Results: []params.SSHAddressResult{
-			{Address: "1.1.1.1"},
-			{Address: "3.3.3.3"},
-			{Error: apiservertesting.NotFoundError("entity")},
-		},
+	c.Assert(results, gc.DeepEquals, params.SSHAddressResults{
+		Results: []params.SSHAddressResult{{
+			Address: "1.1.1.1",
+		}, {
+			Address: "1.1.1.1",
+		}},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"GetMachineForEntity", []interface{}{s.m0}},
-		{"GetMachineForEntity", []interface{}{s.uFoo}},
-		{"GetMachineForEntity", []interface{}{s.uOther}},
-	})
-
 }
 
 func (s *facadeSuite) TestPublicAddress(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
-	}
-	results, err := s.facade.PublicAddress(context.Background(), args)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+	)
+
+	machine0 := NewMockSSHMachine(ctrl)
+	machine0.EXPECT().PublicAddress().Return(network.NewSpaceAddress("1.1.1.1"), nil)
+	s.backend.EXPECT().GetMachineForEntity("machine-0").Return(machine0, nil)
+	machine1 := NewMockSSHMachine(ctrl)
+	machine1.EXPECT().PublicAddress().Return(network.NewSpaceAddress("3.3.3.3"), nil)
+	s.backend.EXPECT().GetMachineForEntity("unit-app-0").Return(machine1, nil)
+	s.backend.EXPECT().GetMachineForEntity("unit-foo-0").Return(nil, fmt.Errorf("entity %w", errors.NotFound))
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}, {names.NewUnitTag("foo/0").String()}},
+	}
+	results, err := facade.PublicAddress(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
@@ -136,20 +192,43 @@ func (s *facadeSuite) TestPublicAddress(c *gc.C) {
 			{Address: "3.3.3.3"},
 			{Error: apiservertesting.NotFoundError("entity")},
 		},
-	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"GetMachineForEntity", []interface{}{s.m0}},
-		{"GetMachineForEntity", []interface{}{s.uFoo}},
-		{"GetMachineForEntity", []interface{}{s.uOther}},
 	})
 }
 
 func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{s.uOther}, {s.m0}, {s.uFoo}},
-	}
-	results, err := s.facade.PrivateAddress(context.Background(), args)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+	)
+
+	machine0 := NewMockSSHMachine(ctrl)
+	machine0.EXPECT().PrivateAddress().Return(network.NewSpaceAddress("2.2.2.2"), nil)
+	s.backend.EXPECT().GetMachineForEntity("machine-0").Return(machine0, nil)
+	machine1 := NewMockSSHMachine(ctrl)
+	machine1.EXPECT().PrivateAddress().Return(network.NewSpaceAddress("4.4.4.4"), nil)
+	s.backend.EXPECT().GetMachineForEntity("unit-app-0").Return(machine1, nil)
+	s.backend.EXPECT().GetMachineForEntity("unit-foo-0").Return(nil, fmt.Errorf("entity %w", errors.NotFound))
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{{names.NewUnitTag("foo/0").String()}, {names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
+	}
+	results, err := facade.PrivateAddress(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
@@ -158,19 +237,62 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 			{Address: "4.4.4.4"},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"GetMachineForEntity", []interface{}{s.uOther}},
-		{"GetMachineForEntity", []interface{}{s.m0}},
-		{"GetMachineForEntity", []interface{}{s.uFoo}},
-	})
 }
 
 func (s *facadeSuite) TestAllAddresses(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{s.uOther}, {s.m0}, {s.uFoo}},
-	}
-	results, err := s.facade.AllAddresses(context.Background(), args)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+	)
+
+	machine0Addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("1.1.1.1", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("9.9.9.9", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("2.2.2.2", network.WithScope(network.ScopeCloudLocal)),
+	}
+	machine0LegacyAddresses := network.SpaceAddresses{
+		network.NewSpaceAddress("0.1.2.3", network.WithScope(network.ScopeCloudLocal)),
+	}
+	machine0 := NewMockSSHMachine(ctrl)
+	machine0.EXPECT().AllDeviceSpaceAddresses().Return(machine0Addresses, nil)
+	machine0.EXPECT().Addresses().Return(machine0LegacyAddresses)
+	s.backend.EXPECT().GetMachineForEntity("machine-0").Return(machine0, nil)
+
+	machine1Addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("10.10.10.10", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("3.3.3.3", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("4.4.4.4", network.WithScope(network.ScopeCloudLocal)),
+	}
+	machine1LegacyAddresses := network.SpaceAddresses{
+		network.NewSpaceAddress("0.3.2.1", network.WithScope(network.ScopeCloudLocal)),
+	}
+	machine1 := NewMockSSHMachine(ctrl)
+	machine1.EXPECT().AllDeviceSpaceAddresses().Return(machine1Addresses, nil)
+	machine1.EXPECT().Addresses().Return(machine1LegacyAddresses)
+	s.backend.EXPECT().GetMachineForEntity("unit-app-0").Return(machine1, nil)
+
+	s.backend.EXPECT().GetMachineForEntity("unit-foo-0").Return(nil, fmt.Errorf("entity %w", errors.NotFound))
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{{names.NewUnitTag("foo/0").String()}, {names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
+	}
+	results, err := facade.AllAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHAddressesResults{
 		Results: []params.SSHAddressesResult{
@@ -192,19 +314,45 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 			}},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"GetMachineForEntity", []interface{}{s.uOther}},
-		{"GetMachineForEntity", []interface{}{s.m0}},
-		{"GetMachineForEntity", []interface{}{s.uFoo}},
-	})
 }
 
 func (s *facadeSuite) TestPublicKeys(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{s.m0}, {s.uOther}, {s.uFoo}},
-	}
-	results, err := s.facade.PublicKeys(context.Background(), args)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+	)
+
+	machine0 := NewMockSSHMachine(ctrl)
+	machine0.EXPECT().MachineTag().Return(names.NewMachineTag("0"))
+	s.backend.EXPECT().GetMachineForEntity("machine-0").Return(machine0, nil)
+	machine1 := NewMockSSHMachine(ctrl)
+	machine1.EXPECT().MachineTag().Return(names.NewMachineTag("1"))
+	s.backend.EXPECT().GetMachineForEntity("unit-app-0").Return(machine1, nil)
+	s.backend.EXPECT().GetMachineForEntity("unit-foo-0").Return(nil, fmt.Errorf("entity %w", errors.NotFound))
+
+	s.backend.EXPECT().GetSSHHostKeys(names.NewMachineTag("0")).Return(state.SSHHostKeys{"rsa0", "dsa0"}, nil)
+	s.backend.EXPECT().GetSSHHostKeys(names.NewMachineTag("1")).Return(state.SSHHostKeys{"rsa1", "dsa1"}, nil)
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("foo/0").String()}, {names.NewUnitTag("app/0").String()}},
+	}
+	results, err := facade.PublicKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHPublicKeysResults{
 		Results: []params.SSHPublicKeysResult{
@@ -213,56 +361,100 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 			{PublicKeys: []string{"rsa1", "dsa1"}},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"GetMachineForEntity", []interface{}{s.m0}},
-		{"GetSSHHostKeys", []interface{}{names.NewMachineTag("0")}},
-		{"GetMachineForEntity", []interface{}{s.uOther}},
-		{"GetMachineForEntity", []interface{}{s.uFoo}},
-		{"GetSSHHostKeys", []interface{}{names.NewMachineTag("1")}},
-	})
 }
 
 func (s *facadeSuite) TestProxyTrue(c *gc.C) {
-	s.backend.proxySSH = true
-	result, err := s.facade.Proxy(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.UseProxy, jc.IsTrue)
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"ModelConfig", []interface{}{}},
-	})
-}
-
-func (s *facadeSuite) TestProxyFalse(c *gc.C) {
-	s.backend.proxySSH = false
-	result, err := s.facade.Proxy(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.UseProxy, jc.IsFalse)
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"ModelConfig", []interface{}{}},
-	})
-}
-
-func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	backend := mocks.NewMockBackend(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
-	broker := mocks.NewMockBroker(ctrl)
 
-	backend.EXPECT().ModelTag().Return(testing.ModelTag)
-	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
 
 	gomock.InOrder(
-		authorizer.EXPECT().AuthClient().Return(true),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
-		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
 	)
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(false, map[string]any{
+		"name":      "donotuse",
+		"type":      "donotuse",
+		"uuid":      "00000000-0000-0000-0000-000000000000",
+		"proxy-ssh": "true",
+	}))
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
-			return broker, nil
+			return s.broker, nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.Proxy(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.UseProxy, jc.IsTrue)
+}
+
+func (s *facadeSuite) TestProxyFalse(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+	)
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(false, map[string]any{
+		"name":      "donotuse",
+		"type":      "donotuse",
+		"uuid":      "00000000-0000-0000-0000-000000000000",
+		"proxy-ssh": "false",
+	}))
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.Proxy(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.UseProxy, jc.IsFalse)
+}
+
+func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
+	)
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 	c.Assert(result.Error, gc.IsNil)
@@ -270,29 +462,31 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 }
 
 func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	backend := mocks.NewMockBackend(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
-	broker := mocks.NewMockBroker(ctrl)
 
-	backend.EXPECT().ModelTag().Return(testing.ModelTag)
-	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+	s.backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
 
 	gomock.InOrder(
-		authorizer.EXPECT().AuthClient().Return(true),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
-		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
-		backend.EXPECT().Model().Return(model, nil),
-		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
+		s.backend.EXPECT().Model().Return(s.model, nil),
+		s.model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
-			return broker, nil
+			return s.broker, nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
 	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `facade ModelCredentialForSSH for non "caas" model not supported`)
@@ -300,12 +494,8 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 }
 
 func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	backend := mocks.NewMockBackend(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
-	broker := mocks.NewMockBroker(ctrl)
 
 	cloudSpec := environscloudspec.CloudSpec{
 		Type:             "type",
@@ -318,23 +508,29 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 		SkipTLSVerify:    true,
 	}
 
-	backend.EXPECT().ModelTag().Return(testing.ModelTag)
-	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+	s.backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
 
 	gomock.InOrder(
-		authorizer.EXPECT().AuthClient().Return(true),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
-		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
-		backend.EXPECT().Model().Return(model, nil),
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
-		backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
+		s.backend.EXPECT().Model().Return(s.model, nil),
+		s.model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		s.backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
 	)
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
-			return broker, nil
+			return s.broker, nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
 	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `cloud spec "name" has empty credential not valid`)
@@ -342,40 +538,35 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 }
 
 func (s *facadeSuite) TestModelCredentialForSSH(c *gc.C) {
-	s.assertModelCredentialForSSH(c,
-		func(authorizer *mocks.MockAuthorizer) {
-			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
-			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
-		},
-	)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
+
+	s.assertModelCredentialForSSH(c)
 }
 
 func (s *facadeSuite) TestModelCredentialForSSHAdminAccess(c *gc.C) {
-	s.assertModelCredentialForSSH(c,
-		func(authorizer *mocks.MockAuthorizer) {
-			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
-			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
-		},
-	)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+
+	s.assertModelCredentialForSSH(c)
 }
 
 func (s *facadeSuite) TestModelCredentialForSSHSuperuserAccess(c *gc.C) {
-	s.assertModelCredentialForSSH(c,
-		func(authorizer *mocks.MockAuthorizer) {
-			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil)
-		},
-	)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil)
+
+	s.assertModelCredentialForSSH(c)
 }
 
-func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mocks.MockAuthorizer)) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	backend := mocks.NewMockBackend(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
-	f(authorizer)
-	broker := mocks.NewMockBroker(ctrl)
-
+func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C) {
 	credential := cloud.NewCredential(
 		"auth-type",
 		map[string]string{
@@ -395,26 +586,32 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 		SkipTLSVerify:    true,
 	}
 
-	backend.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
-	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
-	model.EXPECT().ControllerUUID().Return(testing.ControllerTag.Id())
+	s.backend.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
+	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+	s.model.EXPECT().ControllerUUID().Return(testing.ControllerTag.Id())
 
 	gomock.InOrder(
-		authorizer.EXPECT().AuthClient().Return(true),
-		backend.EXPECT().Model().Return(model, nil),
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
-		backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
-		model.EXPECT().Config().Return(nil, nil),
-		broker.EXPECT().GetSecretToken(gomock.Any(), k8sprovider.ExecRBACResourceName).Return("token", nil),
+		s.authorizer.EXPECT().AuthClient().Return(true),
+		s.backend.EXPECT().Model().Return(s.model, nil),
+		s.model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		s.backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
+		s.model.EXPECT().Config().Return(nil, nil),
+		s.broker.EXPECT().GetSecretToken(gomock.Any(), k8sprovider.ExecRBACResourceName).Return("token", nil),
 	)
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
-		func(_ context.Context, arg environs.OpenParams) (sshclient.Broker, error) {
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		nil,
+		s.authorizer,
+		func(ctx context.Context, arg environs.OpenParams) (sshclient.Broker, error) {
 			c.Assert(arg.ControllerUUID, gc.Equals, testing.ControllerTag.Id())
 			c.Assert(arg.Cloud, gc.DeepEquals, cloudSpec)
-			return broker, nil
+			return s.broker, nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
 	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
@@ -436,111 +633,4 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 		CACertificates: []string{testing.CACert},
 		SkipTLSVerify:  true,
 	})
-}
-
-type mockBackend struct {
-	stub     jujutesting.Stub
-	proxySSH bool
-}
-
-func (backend *mockBackend) ModelTag() names.ModelTag {
-	return testing.ModelTag
-}
-
-func (backend *mockBackend) CloudSpec(context.Context) (environscloudspec.CloudSpec, error) {
-	return environscloudspec.CloudSpec{}, errors.NotImplementedf("CloudSpec")
-}
-
-func (backend *mockBackend) Model() (sshclient.Model, error) {
-	return nil, errors.NotImplementedf("CloudSpec")
-}
-
-func (backend *mockBackend) ControllerTag() names.ControllerTag {
-	return testing.ControllerTag
-}
-
-func (backend *mockBackend) ModelConfig(context.Context) (*config.Config, error) {
-	backend.stub.AddCall("ModelConfig")
-	attrs := testing.FakeConfig()
-	attrs["proxy-ssh"] = backend.proxySSH
-	conf, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return conf, nil
-}
-
-func (backend *mockBackend) GetMachineForEntity(tagString string) (sshclient.SSHMachine, error) {
-	backend.stub.AddCall("GetMachineForEntity", tagString)
-	switch tagString {
-	case names.NewMachineTag("0").String():
-		return &mockMachine{
-			tag:            names.NewMachineTag("0"),
-			publicAddress:  "1.1.1.1",
-			privateAddress: "2.2.2.2",
-			addresses: network.SpaceAddresses{
-				network.NewSpaceAddress("9.9.9.9", network.WithScope(network.ScopePublic)),
-			},
-			allNetworkAddresses: network.SpaceAddresses{
-				network.NewSpaceAddress("0.1.2.3", network.WithScope(network.ScopeCloudLocal)),
-				network.NewSpaceAddress("1.1.1.1", network.WithScope(network.ScopePublic)),
-				network.NewSpaceAddress("2.2.2.2", network.WithScope(network.ScopeCloudLocal)),
-			},
-		}, nil
-	case names.NewUnitTag("foo/0").String():
-		return &mockMachine{
-			tag:            names.NewMachineTag("1"),
-			publicAddress:  "3.3.3.3",
-			privateAddress: "4.4.4.4",
-			addresses: network.SpaceAddresses{
-				network.NewSpaceAddress("10.10.10.10", network.WithScope(network.ScopePublic)),
-			},
-			allNetworkAddresses: network.SpaceAddresses{
-				network.NewSpaceAddress("0.3.2.1", network.WithScope(network.ScopeCloudLocal)),
-				network.NewSpaceAddress("3.3.3.3", network.WithScope(network.ScopePublic)),
-				network.NewSpaceAddress("4.4.4.4", network.WithScope(network.ScopeCloudLocal)),
-			},
-		}, nil
-	}
-	return nil, errors.NotFoundf("entity")
-}
-
-func (backend *mockBackend) GetSSHHostKeys(tag names.MachineTag) (state.SSHHostKeys, error) {
-	backend.stub.AddCall("GetSSHHostKeys", tag)
-	switch tag {
-	case names.NewMachineTag("0"):
-		return state.SSHHostKeys{"rsa0", "dsa0"}, nil
-	case names.NewMachineTag("1"):
-		return state.SSHHostKeys{"rsa1", "dsa1"}, nil
-	}
-	return nil, errors.New("machine not found")
-}
-
-type mockMachine struct {
-	tag            names.MachineTag
-	publicAddress  string
-	privateAddress string
-
-	addresses           network.SpaceAddresses
-	allNetworkAddresses network.SpaceAddresses
-}
-
-func (m *mockMachine) MachineTag() names.MachineTag {
-	return m.tag
-}
-
-func (m *mockMachine) PublicAddress() (network.SpaceAddress, error) {
-	return network.NewSpaceAddress(m.publicAddress, network.WithScope(network.ScopePublic)), nil
-}
-
-func (m *mockMachine) PrivateAddress() (network.SpaceAddress, error) {
-	return network.NewSpaceAddress(m.privateAddress, network.WithScope(network.ScopeCloudLocal)), nil
-}
-
-func (m *mockMachine) AllDeviceSpaceAddresses() (network.SpaceAddresses, error) {
-	return m.allNetworkAddresses, nil
-}
-
-func (m *mockMachine) Addresses() network.SpaceAddresses {
-	return m.addresses
 }

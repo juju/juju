@@ -32,10 +32,12 @@ type Facade struct {
 
 	leadershipReader leadership.Reader
 	getBroker        newCaasBrokerFunc
+
+	modelConfigService ModelConfigService
 }
 
 func internalFacade(
-	backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer,
+	backend Backend, modelConfigService ModelConfigService, leadershipReader leadership.Reader, auth facade.Authorizer,
 	getBroker newCaasBrokerFunc,
 ) (*Facade, error) {
 	if !auth.AuthClient() {
@@ -43,10 +45,11 @@ func internalFacade(
 	}
 
 	return &Facade{
-		backend:          backend,
-		authorizer:       auth,
-		leadershipReader: leadershipReader,
-		getBroker:        getBroker,
+		backend:            backend,
+		modelConfigService: modelConfigService,
+		authorizer:         auth,
+		leadershipReader:   leadershipReader,
+		getBroker:          getBroker,
 	}, nil
 }
 
@@ -207,7 +210,7 @@ func (facade *Facade) Proxy(ctx stdcontext.Context) (params.SSHProxyResult, erro
 	if err := facade.checkIsModelAdmin(); err != nil {
 		return params.SSHProxyResult{}, errors.Trace(err)
 	}
-	config, err := facade.backend.ModelConfig(ctx)
+	config, err := facade.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return params.SSHProxyResult{}, err
 	}
