@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/model"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -49,10 +50,12 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		stShim,
 		serviceFactory.Network(),
 		ctx.Resources(),
+		ctx.WatcherRegistry(),
 		ctx.Auth(),
 		cloudSpecAPI,
 		controllerConfigAPI,
 		serviceFactory.ControllerConfig(),
+		serviceFactory.Config(serviceFactory.ModelDefaults().ModelDefaultsProvider(model.UUID(m.UUID()))),
 		ctx.Logger().Child("firewaller"),
 	)
 }
