@@ -23,7 +23,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
-	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -87,7 +86,6 @@ type UniterAPI struct {
 	*common.UpgradeSeriesAPI
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
-	*secretsmanager.SecretsManagerAPI
 
 	lxdProfileAPI           *LXDProfileAPIv2
 	m                       *state.Model
@@ -95,6 +93,7 @@ type UniterAPI struct {
 	cloudService            CloudService
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
+	secretService           SecretService
 	networkService          NetworkService
 	unitRemover             UnitRemover
 	clock                   clock.Clock
@@ -2603,7 +2602,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 
 	// TODO - do in txn once we have support for that
 	if len(changes.SecretCreates) > 0 {
-		result, err := u.SecretsManagerAPI.CreateSecrets(ctx, params.CreateSecretArgs{Args: changes.SecretCreates})
+		result, err := u.createSecrets(ctx, params.CreateSecretArgs{Args: changes.SecretCreates})
 		if err == nil {
 			var errorStrings []string
 			for _, r := range result.Results {
@@ -2620,7 +2619,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretUpdates) > 0 {
-		result, err := u.SecretsManagerAPI.UpdateSecrets(ctx, params.UpdateSecretArgs{Args: changes.SecretUpdates})
+		result, err := u.updateSecrets(ctx, params.UpdateSecretArgs{Args: changes.SecretUpdates})
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2629,7 +2628,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.TrackLatest) > 0 {
-		result, err := u.SecretsManagerAPI.UpdateTrackedRevisions(ctx, changes.TrackLatest)
+		result, err := u.updateTrackedRevisions(ctx, changes.TrackLatest)
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2638,7 +2637,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretGrants) > 0 {
-		result, err := u.SecretsManagerAPI.SecretsGrant(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
+		result, err := u.secretsGrant(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2647,7 +2646,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretRevokes) > 0 {
-		result, err := u.SecretsManagerAPI.SecretsRevoke(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
+		result, err := u.secretsRevoke(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2656,7 +2655,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretDeletes) > 0 {
-		result, err := u.SecretsManagerAPI.RemoveSecrets(ctx, params.DeleteSecretArgs{Args: changes.SecretDeletes})
+		result, err := u.removeSecrets(ctx, params.DeleteSecretArgs{Args: changes.SecretDeletes})
 		if err == nil {
 			err = result.Combine()
 		}

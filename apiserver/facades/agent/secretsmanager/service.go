@@ -39,12 +39,12 @@ type SecretsConsumer interface {
 // SecretService provides core secrets operations.
 type SecretService interface {
 	CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error)
-	CreateSecret(context.Context, *secrets.URI, secretservice.CreateSecretParams) error
-	UpdateSecret(context.Context, *secrets.URI, secretservice.UpdateSecretParams) error
+	CreateCharmSecret(context.Context, *secrets.URI, secretservice.CreateCharmSecretParams) error
+	UpdateCharmSecret(context.Context, *secrets.URI, secretservice.UpdateCharmSecretParams) error
 	DeleteSecret(context.Context, *secrets.URI, secretservice.DeleteSecretParams) error
 	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListCharmSecrets(context.Context, ...secretservice.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	ProcessSecretConsumerLabel(
+	ProcessCharmSecretConsumerLabel(
 		ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
 	) (*secrets.URI, *string, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error

@@ -4,9 +4,14 @@
 package uniter
 
 import (
+	"github.com/juju/clock"
+	"github.com/juju/loggo/v2"
+
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 )
 
@@ -25,6 +30,25 @@ type (
 	StorageFilesystemInterface = storageFilesystemInterface
 	BlockDeviceService         = blockDeviceService
 )
+
+func NewTestAPI(
+	authorizer facade.Authorizer,
+	leadership leadership.Checker,
+	secretService SecretService,
+	clock clock.Clock,
+) (*UniterAPI, error) {
+	if !authorizer.AuthUnitAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	return &UniterAPI{
+		auth:              authorizer,
+		secretService:     secretService,
+		leadershipChecker: leadership,
+		clock:             clock,
+		logger:            loggo.GetLogger("test"),
+	}, nil
+}
 
 func NewStorageAPI(
 	backend backend,

@@ -5,7 +5,6 @@ package secretsmanager
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/secrets"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // CrossModelSecretsClient gets secret content from a cross model controller.
@@ -205,160 +203,6 @@ func (s *SecretsManagerAPI) CreateSecretURIs(ctx context.Context, arg params.Cre
 	}
 	for i, uri := range uris {
 		result.Results[i] = params.StringResult{Result: uri.String()}
-	}
-	return result, nil
-}
-
-// CreateSecrets creates new secrets.
-func (s *SecretsManagerAPI) CreateSecrets(ctx context.Context, args params.CreateSecretArgs) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		id, err := s.createSecret(ctx, arg)
-		result.Results[i].Result = id
-		if errors.Is(err, state.LabelExists) {
-			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
-	if len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
-		return "", errors.NotValidf("empty secret value")
-	}
-	// A unit can only create secrets owned by its app
-	// if it is the leader.
-	secretOwner, err := names.ParseTag(arg.OwnerTag)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if !isSameApplication(s.authTag, secretOwner) {
-		return "", apiservererrors.ErrPerm
-	}
-
-	appName, _ := names.UnitApplication(s.authTag.Id())
-	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
-	var uri *coresecrets.URI
-	if arg.URI != nil {
-		uri, err = coresecrets.ParseURI(*arg.URI)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	} else {
-		uri = coresecrets.NewURI()
-	}
-
-	params := secretservice.CreateSecretParams{
-		Version: secrets.Version,
-		// Secret accessor not needed when creating a secret since we are using the secret owner.
-		UpdateSecretParams: fromUpsertParams(arg.UpsertSecretArg, secretservice.SecretAccessor{}, token),
-	}
-	switch kind := secretOwner.Kind(); kind {
-	case names.UnitTagKind:
-		params.CharmOwner = &secretservice.CharmSecretOwner{Kind: secretservice.UnitOwner, ID: secretOwner.Id()}
-	case names.ApplicationTagKind:
-		params.CharmOwner = &secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: secretOwner.Id()}
-	default:
-		return "", errors.NotValidf("secret owner kind %q", kind)
-	}
-	err = s.secretService.CreateSecret(ctx, uri, params)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return uri.String(), nil
-}
-
-func fromUpsertParams(p params.UpsertSecretArg, accessor secretservice.SecretAccessor, token leadership.Token) secretservice.UpdateSecretParams {
-	var valueRef *coresecrets.ValueRef
-	if p.Content.ValueRef != nil {
-		valueRef = &coresecrets.ValueRef{
-			BackendID:  p.Content.ValueRef.BackendID,
-			RevisionID: p.Content.ValueRef.RevisionID,
-		}
-	}
-	return secretservice.UpdateSecretParams{
-		LeaderToken:  token,
-		Accessor:     accessor,
-		RotatePolicy: p.RotatePolicy,
-		ExpireTime:   p.ExpireTime,
-		Description:  p.Description,
-		Label:        p.Label,
-		Params:       p.Params,
-		Data:         p.Content.Data,
-		ValueRef:     valueRef,
-	}
-}
-
-// UpdateSecrets updates the specified secrets.
-func (s *SecretsManagerAPI) UpdateSecrets(ctx context.Context, args params.UpdateSecretArgs) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		err := s.updateSecret(ctx, arg)
-		if errors.Is(err, state.LabelExists) {
-			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) error {
-	uri, err := coresecrets.ParseURI(arg.URI)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if arg.RotatePolicy == nil && arg.Description == nil && arg.ExpireTime == nil &&
-		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
-		return errors.New("at least one attribute to update must be specified")
-	}
-
-	accessor := secretservice.SecretAccessor{
-		Kind: secretservice.UnitAccessor,
-		ID:   s.authTag.Id(),
-	}
-	appName, _ := names.UnitApplication(s.authTag.Id())
-	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
-	err = s.secretService.UpdateSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, accessor, token))
-	return errors.Trace(err)
-}
-
-// RemoveSecrets removes the specified secrets.
-func (s *SecretsManagerAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-
-	if len(args.Args) == 0 {
-		return result, nil
-	}
-
-	accessor := secretservice.SecretAccessor{
-		Kind: secretservice.UnitAccessor,
-		ID:   s.authTag.Id(),
-	}
-	appName, _ := names.UnitApplication(s.authTag.Id())
-	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
-	for i, arg := range args.Args {
-		uri, err := coresecrets.ParseURI(arg.URI)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		p := secretservice.DeleteSecretParams{
-			LeaderToken: token,
-			Accessor:    accessor,
-			Revisions:   arg.Revisions,
-		}
-		err = s.secretService.DeleteSecret(ctx, uri, p)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 	}
 	return result, nil
 }
@@ -712,7 +556,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	unitName := s.authTag.Id()
 	appName, _ := names.UnitApplication(unitName)
 	token := s.leadershipChecker.LeadershipCheck(appName, unitName)
-	uri, labelToUpdate, err := s.secretService.ProcessSecretConsumerLabel(ctx, unitName, uri, arg.Label, token)
+	uri, labelToUpdate, err := s.secretService.ProcessCharmSecretConsumerLabel(ctx, unitName, uri, arg.Label, token)
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
@@ -740,24 +584,6 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	}
 	backend, draining, err := s.getBackend(ctx, content.ValueRef.BackendID, accessor, token)
 	return content, backend, draining, errors.Trace(err)
-}
-
-// UpdateTrackedRevisions updates the consumer info to track the latest
-// revisions for the specified secrets.
-func (s *SecretsManagerAPI) UpdateTrackedRevisions(ctx context.Context, uris []string) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(uris)),
-	}
-	for i, uriStr := range uris {
-		uri, err := coresecrets.ParseURI(uriStr)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		_, err = s.secretsConsumer.GetConsumedRevision(ctx, uri, s.authTag.Id(), true, false, nil)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
 }
 
 // isSameApplication returns true if the authenticated entity and the specified entity are in the same application.
@@ -964,117 +790,4 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(ctx context.Contex
 	result.WatcherId = id
 	result.Changes = changes
 	return result, nil
-}
-
-type grantRevokeFunc func(context.Context, *coresecrets.URI, secretservice.SecretAccessParams) error
-
-// SecretsGrant grants access to a secret for the specified subjects.
-func (s *SecretsManagerAPI) SecretsGrant(ctx context.Context, args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
-	return s.secretsGrantRevoke(ctx, args, s.secretsConsumer.GrantSecretAccess)
-}
-
-// SecretsRevoke revokes access to a secret for the specified subjects.
-func (s *SecretsManagerAPI) SecretsRevoke(ctx context.Context, args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
-	return s.secretsGrantRevoke(ctx, args, s.secretsConsumer.RevokeSecretAccess)
-}
-
-func accessorFromTag(tag names.Tag) (secretservice.SecretAccessor, error) {
-	result := secretservice.SecretAccessor{
-		ID: tag.Id(),
-	}
-	switch kind := tag.Kind(); kind {
-	case names.ApplicationTagKind:
-		if strings.HasPrefix(result.ID, "remote-") {
-			result.Kind = secretservice.RemoteApplicationAccessor
-		} else {
-			result.Kind = secretservice.ApplicationAccessor
-		}
-	case names.UnitTagKind:
-		result.Kind = secretservice.UnitAccessor
-	case names.ModelTagKind:
-		result.Kind = secretservice.ModelAccessor
-	default:
-		return secretservice.SecretAccessor{}, errors.Errorf("tag kind %q not valid for secret accessor", kind)
-	}
-	return result, nil
-}
-
-func accessScopeFromTag(tag names.Tag) (secretservice.SecretAccessScope, error) {
-	result := secretservice.SecretAccessScope{
-		ID: tag.Id(),
-	}
-	switch kind := tag.Kind(); kind {
-	case names.ApplicationTagKind:
-		result.Kind = secretservice.ApplicationAccessScope
-	case names.UnitTagKind:
-		result.Kind = secretservice.UnitAccessScope
-	case names.RelationTagKind:
-		result.Kind = secretservice.RelationAccessScope
-	case names.ModelTagKind:
-		result.Kind = secretservice.ModelAccessScope
-	default:
-		return secretservice.SecretAccessScope{}, errors.Errorf("tag kind %q not valid for secret access scope", kind)
-	}
-	return result, nil
-}
-
-func (s *SecretsManagerAPI) secretsGrantRevoke(ctx context.Context, args params.GrantRevokeSecretArgs, op grantRevokeFunc) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	one := func(arg params.GrantRevokeSecretArg) error {
-		uri, err := coresecrets.ParseURI(arg.URI)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		var scope secretservice.SecretAccessScope
-		if arg.ScopeTag != "" {
-			scopeTag, err := names.ParseTag(arg.ScopeTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			scope, err = accessScopeFromTag(scopeTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-		role := coresecrets.SecretRole(arg.Role)
-		if role != "" && !role.IsValid() {
-			return errors.NotValidf("secret role %q", arg.Role)
-		}
-
-		accessor := secretservice.SecretAccessor{
-			Kind: secretservice.UnitAccessor,
-			ID:   s.authTag.Id(),
-		}
-		appName, _ := names.UnitApplication(s.authTag.Id())
-		token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
-
-		for _, tagStr := range arg.SubjectTags {
-			subjectTag, err := names.ParseTag(tagStr)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			subject, err := accessorFromTag(subjectTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if err := op(ctx, uri, secretservice.SecretAccessParams{
-				LeaderToken: token,
-				Accessor:    accessor,
-				Scope:       scope,
-				Subject:     subject,
-				Role:        role,
-			}); err != nil {
-				return errors.Annotatef(err, "cannot change access to %q for %q", uri, tagStr)
-			}
-		}
-		return nil
-	}
-	for i, arg := range args.Args {
-		var result params.ErrorResult
-		result.Error = apiservererrors.ServerError(one(arg))
-		results.Results[i] = result
-	}
-	return results, nil
 }

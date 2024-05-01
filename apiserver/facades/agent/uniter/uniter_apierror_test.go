@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/juju/testing"
 )
 
@@ -48,6 +49,8 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	}
 
 	serviceFactory := s.ControllerServiceFactory(c)
-	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, serviceFactory.ControllerConfig(), serviceFactory.Cloud(), serviceFactory.Credential(), serviceFactory.Unit())
+	_, err := uniter.NewUniterAPIWithServices(facadeContext, serviceFactory.ControllerConfig(),
+		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter), serviceFactory.Cloud(),
+		serviceFactory.Credential(), serviceFactory.Unit())
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -30,12 +32,40 @@ type serviceSuite struct {
 	state *MockState
 
 	backendConfigGetter BackendAdminConfigGetter
+
+	secretsBackend *MockSecretsBackend
 }
 
 var _ = gc.Suite(&serviceSuite{})
 
+var backendConfigs = &provider.ModelBackendConfigInfo{
+	ActiveID: "backend-id",
+	Configs: map[string]provider.ModelBackendConfig{
+		"backend-id": {
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "some-model",
+			BackendConfig: provider.BackendConfig{
+				BackendType: "active-type",
+				Config:      map[string]interface{}{"foo": "active-type"},
+			},
+		},
+		"other-backend-id": {
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "some-model",
+			BackendConfig: provider.BackendConfig{
+				BackendType: "other-type",
+				Config:      map[string]interface{}{"foo": "other-type"},
+			},
+		},
+	},
+}
+
 func (s *serviceSuite) SetUpTest(c *gc.C) {
-	s.backendConfigGetter = NotImplementedBackendConfigGetter
+	s.backendConfigGetter = func(context.Context) (*provider.ModelBackendConfigInfo, error) {
+		return backendConfigs, nil
+	}
 }
 
 func (s *serviceSuite) service() *SecretService {
@@ -66,35 +96,265 @@ func (s *serviceSuite) TestCreateUserSecretURIs(c *gc.C) {
 	c.Assert(got[1].SourceUUID, gc.Equals, coretesting.ModelTag.Id())
 }
 
-func (s *serviceSuite) TestCreateUserSecret(c *gc.C) {
+func (s *serviceSuite) TestCreateUserSecretInternal(c *gc.C) {
+	s.assertCreateUserSecret(c, true, false)
+}
+func (s *serviceSuite) TestCreateUserSecretExternalBackend(c *gc.C) {
+	s.assertCreateUserSecret(c, false, false)
+}
+
+func (s *serviceSuite) TestCreateUserSecretExternalBackendFailedAndCleanup(c *gc.C) {
+	s.assertCreateUserSecret(c, false, true)
+}
+
+func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFailed bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.secretsBackend = NewMockSecretsBackend(ctrl)
+	p := NewMockSecretBackendProvider(ctrl)
+	p.EXPECT().Type().Return("active-type").AnyTimes()
+	p.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+		return s.secretsBackend, nil
+	})
+
+	s.PatchValue(&GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
+
 	uri := coresecrets.NewURI()
-	p := domainsecret.UpsertSecretParams{
+	if isInternal {
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+			Return("", errors.NotSupportedf("not supported"))
+	} else {
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+			Return("rev-id", nil)
+	}
+	if finalStepFailed && !isInternal {
+		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
+	}
+
+	params := domainsecret.UpsertSecretParams{
 		Description: ptr("a secret"),
 		Label:       ptr("my secret"),
-		Data:        coresecrets.SecretData{"foo": "bar"},
 		AutoPrune:   ptr(true),
 	}
-	s.state = NewMockState(ctrl)
-	s.state.EXPECT().CreateUserSecret(gomock.Any(), 1, uri, p).Return(nil)
+	if isInternal {
+		params.Data = map[string]string{"foo": "bar"}
+	} else {
+		params.ValueRef = &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		}
+	}
 
-	err := s.service().CreateSecret(context.Background(), uri, CreateSecretParams{
-		UpdateSecretParams: UpdateSecretParams{
-			LeaderToken: successfulToken{},
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().CreateUserSecret(gomock.Any(), 1, uri, params).
+		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ domainsecret.UpsertSecretParams) error {
+			if finalStepFailed {
+				return errors.New("some error")
+			}
+			return nil
+		})
+
+	err := s.service().CreateUserSecret(context.Background(), uri, CreateUserSecretParams{
+		UpdateUserSecretParams: UpdateUserSecretParams{
 			Description: ptr("a secret"),
 			Label:       ptr("my secret"),
 			Data:        map[string]string{"foo": "bar"},
 			AutoPrune:   ptr(true),
 		},
-		Version:    1,
-		UserSecret: true,
+		Version: 1,
+	})
+	if finalStepFailed {
+		c.Assert(err, gc.ErrorMatches, "creating user secret .*some error")
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *serviceSuite) TestUpdateUserSecretInternal(c *gc.C) {
+	s.assertUpdateUserSecret(c, true, false)
+}
+func (s *serviceSuite) TestUpdateUserSecretExternalBackend(c *gc.C) {
+	s.assertUpdateUserSecret(c, false, false)
+}
+
+func (s *serviceSuite) TestUpdateUserSecretExternalBackendFailedAndCleanup(c *gc.C) {
+	s.assertUpdateUserSecret(c, false, true)
+}
+
+func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFailed bool) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.secretsBackend = NewMockSecretsBackend(ctrl)
+	p := NewMockSecretBackendProvider(ctrl)
+	p.EXPECT().Type().Return("active-type").AnyTimes()
+	p.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+		return s.secretsBackend, nil
+	})
+
+	s.PatchValue(&GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
+
+	uri := coresecrets.NewURI()
+	if isInternal {
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+			Return("", errors.NotSupportedf("not supported"))
+	} else {
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+			Return("rev-id", nil)
+	}
+	if finalStepFailed && !isInternal {
+		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
+	}
+
+	params := domainsecret.UpsertSecretParams{
+		Description: ptr("a secret"),
+		Label:       ptr("my secret"),
+		AutoPrune:   ptr(true),
+	}
+	if isInternal {
+		params.Data = map[string]string{"foo": "bar"}
+	} else {
+		params.ValueRef = &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		}
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
+		LatestRevision: 2,
+	}, nil)
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, params).
+		DoAndReturn(func(_ context.Context, _ *coresecrets.URI, _ domainsecret.UpsertSecretParams) error {
+			if finalStepFailed {
+				return errors.New("some error")
+			}
+			return nil
+		})
+
+	err := s.service().UpdateUserSecret(context.Background(), uri, UpdateUserSecretParams{
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		Description: ptr("a secret"),
+		Label:       ptr("my secret"),
+		Data:        map[string]string{"foo": "bar"},
+		AutoPrune:   ptr(true),
+	})
+	if finalStepFailed {
+		c.Assert(err, gc.ErrorMatches, "updating user secret .*some error")
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	exipreTime := time.Now()
+	rotateTime := time.Now().Add(time.Hour)
+	uri := coresecrets.NewURI()
+	p := domainsecret.UpsertSecretParams{
+		RotatePolicy:   ptr(domainsecret.RotateHourly),
+		Description:    ptr("a secret"),
+		Label:          ptr("my secret"),
+		Data:           coresecrets.SecretData{"foo": "bar"},
+		ExpireTime:     ptr(exipreTime),
+		NextRotateTime: ptr(rotateTime),
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().CreateCharmUnitSecret(gomock.Any(), 1, uri, "mariadb/0", gomock.AssignableToTypeOf(p)).
+		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ string, got domainsecret.UpsertSecretParams) error {
+			c.Assert(got.NextRotateTime, gc.NotNil)
+			c.Assert(*got.NextRotateTime, jc.Almost, rotateTime)
+			got.NextRotateTime = nil
+			want := p
+			want.NextRotateTime = nil
+			c.Assert(got, jc.DeepEquals, want)
+			return nil
+		})
+
+	err := s.service().CreateCharmSecret(context.Background(), uri, CreateCharmSecretParams{
+		UpdateCharmSecretParams: UpdateCharmSecretParams{
+			LeaderToken: successfulToken{},
+			Accessor: SecretAccessor{
+				Kind: UnitAccessor,
+				ID:   "mariadb/0",
+			},
+			Description:  ptr("a secret"),
+			Label:        ptr("my secret"),
+			Data:         map[string]string{"foo": "bar"},
+			ExpireTime:   ptr(exipreTime),
+			RotatePolicy: ptr(coresecrets.RotateHourly),
+		},
+		Version: 1,
+		CharmOwner: CharmSecretOwner{
+			Kind: UnitOwner,
+			ID:   "mariadb/0",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateSecretNoRotate(c *gc.C) {
+func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	exipreTime := time.Now()
+	rotateTime := time.Now().Add(time.Hour)
+	uri := coresecrets.NewURI()
+	p := domainsecret.UpsertSecretParams{
+		RotatePolicy:   ptr(domainsecret.RotateHourly),
+		Description:    ptr("a secret"),
+		Label:          ptr("my secret"),
+		Data:           coresecrets.SecretData{"foo": "bar"},
+		ExpireTime:     ptr(exipreTime),
+		NextRotateTime: ptr(rotateTime),
+	}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 1, uri, "mariadb", gomock.AssignableToTypeOf(p)).
+		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ string, got domainsecret.UpsertSecretParams) error {
+			c.Assert(got.NextRotateTime, gc.NotNil)
+			c.Assert(*got.NextRotateTime, jc.Almost, rotateTime)
+			got.NextRotateTime = nil
+			want := p
+			want.NextRotateTime = nil
+			c.Assert(got, jc.DeepEquals, want)
+			return nil
+		})
+
+	err := s.service().CreateCharmSecret(context.Background(), uri, CreateCharmSecretParams{
+		UpdateCharmSecretParams: UpdateCharmSecretParams{
+			LeaderToken: successfulToken{},
+			Accessor: SecretAccessor{
+				Kind: UnitAccessor,
+				ID:   "mariadb/0",
+			},
+			Description:  ptr("a secret"),
+			Label:        ptr("my secret"),
+			Data:         map[string]string{"foo": "bar"},
+			ExpireTime:   ptr(exipreTime),
+			RotatePolicy: ptr(coresecrets.RotateHourly),
+		},
+		Version: 1,
+		CharmOwner: CharmSecretOwner{
+			Kind: ApplicationOwner,
+			ID:   "mariadb",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -105,7 +365,6 @@ func (s *serviceSuite) TestUpdateSecretNoRotate(c *gc.C) {
 		Description:  ptr("a secret"),
 		Label:        ptr("my secret"),
 		Data:         coresecrets.SecretData{"foo": "bar"},
-		AutoPrune:    ptr(true),
 		ExpireTime:   ptr(exipreTime),
 	}
 
@@ -116,7 +375,7 @@ func (s *serviceSuite) TestUpdateSecretNoRotate(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
 
-	err := s.service().UpdateSecret(context.Background(), uri, UpdateSecretParams{
+	err := s.service().UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
@@ -125,13 +384,12 @@ func (s *serviceSuite) TestUpdateSecretNoRotate(c *gc.C) {
 		Description: ptr("a secret"),
 		Label:       ptr("my secret"),
 		Data:        map[string]string{"foo": "bar"},
-		AutoPrune:   ptr(true),
 		ExpireTime:  ptr(exipreTime),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateSecret(c *gc.C) {
+func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -141,7 +399,6 @@ func (s *serviceSuite) TestUpdateSecret(c *gc.C) {
 		Description:  ptr("a secret"),
 		Label:        ptr("my secret"),
 		Data:         coresecrets.SecretData{"foo": "bar"},
-		AutoPrune:    ptr(true),
 	}
 
 	s.state = NewMockState(ctrl)
@@ -151,7 +408,7 @@ func (s *serviceSuite) TestUpdateSecret(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
 
-	err := s.service().UpdateSecret(context.Background(), uri, UpdateSecretParams{
+	err := s.service().UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
@@ -160,7 +417,6 @@ func (s *serviceSuite) TestUpdateSecret(c *gc.C) {
 		Description:  ptr("a secret"),
 		Label:        ptr("my secret"),
 		Data:         map[string]string{"foo": "bar"},
-		AutoPrune:    ptr(true),
 		RotatePolicy: ptr(coresecrets.RotateDaily),
 	})
 	c.Assert(err, jc.ErrorIsNil)
