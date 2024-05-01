@@ -37,16 +37,6 @@ func cfg(c *gc.C, in map[string]interface{}) *config.Config {
 	return cfg
 }
 
-func mockNotifyWatcher(ctrl *gomock.Controller) (*MockNotifyWatcher, chan struct{}) {
-	ch := make(chan struct{})
-	watcher := NewMockNotifyWatcher(ctrl)
-	watcher.EXPECT().Changes().Return(ch).MinTimes(1)
-	watcher.EXPECT().Wait().AnyTimes()
-	watcher.EXPECT().Kill().AnyTimes()
-	watcher.EXPECT().Stop().AnyTimes()
-	return watcher, ch
-}
-
 func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
