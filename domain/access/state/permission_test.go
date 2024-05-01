@@ -168,8 +168,10 @@ func (s *permissionStateSuite) checkPermissionRow(c *gc.C, userUUID string, spec
 	// Find the permission
 	row := db.QueryRow(`
 SELECT uuid, access_type, object_type, grant_to, grant_on
-FROM v_permission
-`)
+FROM   v_permission
+WHERE  grant_to = ?
+AND    grant_on = ?
+`, userUUID, spec.Target.Key)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	var (
 		accessType, objectType, permUuid, grantTo, grantOn string
@@ -263,15 +265,19 @@ func (s *permissionStateSuite) TestDeletePermission(c *gc.C) {
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), spec)
 	c.Assert(err, jc.ErrorIsNil)
 
+	db := s.DB()
+	var numRowBefore int
+	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM permission").Scan(&numRowBefore)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = st.DeletePermission(context.Background(), "bob", target)
 	c.Assert(err, jc.ErrorIsNil)
 
-	db := s.DB()
-
-	var num int
-	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM permission").Scan(&num)
+	// Only one row should be deleted.
+	var numRowAfterDelete int
+	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM permission").Scan(&numRowAfterDelete)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(num, gc.Equals, 0)
+	c.Assert(numRowBefore-numRowAfterDelete, gc.Equals, 1)
 }
 
 func (s *permissionStateSuite) TestDeletePermissionDoesNotExist(c *gc.C) {
@@ -709,6 +715,7 @@ func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
 		s.printClouds(c)
 		s.printPermissions(c)
 		s.printRead(c)
+		s.printModels(c)
 	}
 }
 
@@ -763,20 +770,20 @@ FROM permission
 
 func (s *permissionStateSuite) printUsers(c *gc.C) {
 	rows, _ := s.DB().Query(`
-SELECT u.uuid, u.name, u.created_by_uuid, u.disabled, u.removed
+SELECT u.uuid, u.name, u.created_by_uuid,  u.removed
 FROM v_user_auth u
 `)
 	defer func() { _ = rows.Close() }()
 	var (
-		rowUUID, name     string
-		creatorUUID       user.UUID
-		disabled, removed bool
+		rowUUID, name string
+		creatorUUID   user.UUID
+		removed       bool
 	)
 	c.Logf("USERS")
 	for rows.Next() {
-		err := rows.Scan(&rowUUID, &name, &creatorUUID, &disabled, &removed)
+		err := rows.Scan(&rowUUID, &name, &creatorUUID, &removed)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("LINE %q, %q, %q, %t, %t", rowUUID, name, creatorUUID, disabled, removed)
+		c.Logf("LINE %q, %q, %q,  %t", rowUUID, name, creatorUUID, removed)
 	}
 }
 
@@ -816,7 +823,7 @@ FROM    v_user_auth u
 	for rows.Next() {
 		err := rows.Scan(&permUUID, &grantOn, &grantTo, &accessType, &objectType, &userUUID, &userName, &createName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("LINE: %q, %q, %q, %q, %q, %q, %q, %q", permUUID, grantOn, grantTo, accessType, objectType, userUUID, userName, createName)
+		c.Logf("LINE: uuid %q, on %q, to %q, access %q, object %q, user uuid %q, user name %q, creator name%q", permUUID, grantOn, grantTo, accessType, objectType, userUUID, userName, createName)
 	}
 }
 
@@ -834,6 +841,24 @@ FROM cloud
 	for rows.Next() {
 		err := rows.Scan(&rowUUID, &name)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("%q, %q", rowUUID, name)
+		c.Logf("LINE: uuid %q, name %q", rowUUID, name)
+	}
+}
+
+func (s *permissionStateSuite) printModels(c *gc.C) {
+	rows, _ := s.DB().Query(`
+SELECT uuid, name, owner_uuid
+FROM model
+`)
+	defer func() { _ = rows.Close() }()
+	var (
+		rowUUID, name, ownerUUID string
+	)
+
+	c.Logf("MODELS")
+	for rows.Next() {
+		err := rows.Scan(&rowUUID, &name, &ownerUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("LINE: uuid %q, name %q, owner uuid %q", rowUUID, name, ownerUUID)
 	}
 }
