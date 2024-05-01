@@ -988,7 +988,15 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 			logger.Warningf("for model %v, got an invalid owner: %q", mi.UUID, mi.Owner)
 		}
 
-		t := time.Now()
+		var lastConnection *time.Time
+		lc, err := m.accessService.LastModelConnection(ctx, mi.UUID, userTag.Name())
+		if errors.Is(err, accesserrors.UserNeverConnectedToModel) {
+			lastConnection = nil
+		} else if err != nil {
+			return result, errors.Annotatef(err, "getting last login time for user %q on model %q", userTag.Name(), mi.Name)
+		}
+		lastConnection = &lc
+
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     mi.Name,
@@ -996,8 +1004,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 				Type:     string(mi.ModelType),
 				OwnerTag: ownerTag.String(),
 			},
-			//TODO(aflynn): Get ListModels to return the last connection.
-			LastConnection: &t,
+			LastConnection: lastConnection,
 		})
 	}
 	return result, nil

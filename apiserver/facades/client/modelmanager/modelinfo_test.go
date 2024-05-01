@@ -396,7 +396,6 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 		{"ModelTag", nil},
 		{"ModelTag", nil},
 		{"UUID", nil},
-		{"UUID", nil},
 		{"Type", nil},
 	})
 }

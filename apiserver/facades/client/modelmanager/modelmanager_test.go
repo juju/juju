@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"

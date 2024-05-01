@@ -121,8 +121,9 @@ type AccessService interface {
 	// ModelUserInfo gets information about all the users that have access to the
 	// specified model.
 	ModelUserInfo(ctx context.Context, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
-	// LastModelConnection will return the last login time of the specified user.
-	// The following error types are possible from this function:
+	// LastModelConnection will return the last login time of the specified
+	// user. An accesserrors.UserNeverConnectedToModel error will be returned if
+	// there is no record of the user logging in to this model.
 	LastModelConnection(context.Context, coremodel.UUID, string) (time.Time, error)
 }
 

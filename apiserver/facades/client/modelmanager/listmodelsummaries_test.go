@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs/config"
