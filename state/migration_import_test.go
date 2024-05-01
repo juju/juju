@@ -221,10 +221,6 @@ func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool,
 		Access:    access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	if !lastConnection.IsZero() {
-		err = state.UpdateModelUserLastConnection(s.State, user, lastConnection)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 	return user
 }
 

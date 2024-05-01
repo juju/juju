@@ -158,9 +158,9 @@ WHERE  u.removed = false
 	return usrs, nil
 }
 
-// GetUser will retrieve the user with authentication information (last login,
-// disabled) specified by UUID from the database. If the user does not exist an
-// error that satisfies accesserrors.UserNotFound will be returned.
+// GetUser will retrieve the user with authentication information specified by
+// UUID from the database. If the user does not exist an error that satisfies
+// accesserrors.UserNotFound will be returned.
 func (st *UserState) GetUser(ctx context.Context, uuid user.UUID) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -785,8 +785,6 @@ func (st *UserState) LastModelConnection(ctx context.Context, modelUUID coremode
 			return domain.CoerceError(errors.Trace(err))
 		}
 
-		// Retrieve the timestamp with millisecond presision layed out according
-		// to ISO8601.
 		lastConnection = result.Time
 		if err != nil {
 			return errors.Annotate(err, "parsing time:")
@@ -798,17 +796,6 @@ func (st *UserState) LastModelConnection(ctx context.Context, modelUUID coremode
 		return time.Time{}, errors.Annotatef(err, "getting last login for %q in on model %q", name, modelUUID)
 	}
 	return lastConnection.UTC(), nil
-}
-
-type dbModelUserInfo struct {
-	// The users name.
-	UserName string `db:"name"`
-	// The users display name.
-	DisplayName string `db:"display_name"`
-	// The last time the user connected to the model.
-	LastConnection *time.Time `db:"time"`
-	// The level of access the user has on the model.
-	Access string `db:"access_type"`
 }
 
 // ModelUserInfo gets information about all the users that have access to the
@@ -847,7 +834,7 @@ WHERE  m.uuid = $dbModelAccess.model_uuid
 			if exists, err := st.checkModelExists(ctx, tx, modelUUID.String()); err != nil {
 				return errors.Trace(domain.CoerceError(err))
 			} else if !exists {
-				return modelerrors.NotFound
+				return errors.Annotatef(modelerrors.NotFound, "model uuid %q", modelUUID.String())
 			}
 		} else if err != nil {
 			return errors.Trace(domain.CoerceError(err))
@@ -861,7 +848,7 @@ WHERE  m.uuid = $dbModelAccess.model_uuid
 	var modelUserInfos []access.ModelUserInfo
 	for _, mui := range dbModelUserInfos {
 		accessLevel := permission.Access(mui.Access)
-		if err := accessLevel.Validate(); err != nil {
+		if err := permission.ValidateModelAccess(accessLevel); err != nil {
 			return nil, errors.Annotatef(err, "getting info about model users")
 		}
 		modelUserInfos = append(modelUserInfos, access.ModelUserInfo{
@@ -1013,7 +1000,7 @@ func (st *UserState) getActiveUUIDStmt() (*sqlair.Statement, error) {
 
 // checkModelExists returns the model error NotFound if the model cannot be found.
 func (st *UserState) checkModelExists(ctx context.Context, tx *sqlair.TX, modelUUID string) (bool, error) {
-	stmt, err := st.Prepare("SELECT true AS &dbExists FROM model WHERE model.uuid = $dbUUID.uuid", dbUUID{}, dbExists{})
+	stmt, err := st.Prepare("SELECT true AS &dbExists.exists FROM model WHERE model.uuid = $dbUUID.uuid", dbUUID{}, dbExists{})
 	if err != nil {
 		return false, err
 	}

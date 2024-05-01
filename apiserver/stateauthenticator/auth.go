@@ -306,35 +306,18 @@ func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.U
 }
 
 func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag, model *state.Model) error {
-	updateLastLogin := func() error {
-		// If the user is not local, we don't update the last login time.
-		if !userTag.IsLocal() {
-			return nil
-		}
+	if !permission.IsEmptyUserAccess(modelAccess) && modelAccess.Object.Kind() != names.ModelTagKind {
+		return errors.NotValidf("%s as model user", modelAccess.Object.Kind())
+	}
 
-		// Update the last login time for the user.
-		err := a.authContext.userService.UpdateLastLogin(ctx, coremodel.UUID(model.UUID()), userTag.Name())
-		if err != nil {
-			return errors.Trace(err)
-		}
+	// If the user is not local, we don't update the last login time.
+	if !userTag.IsLocal() {
 		return nil
 	}
 
-	if !permission.IsEmptyUserAccess(modelAccess) {
-		if modelAccess.Object.Kind() != names.ModelTagKind {
-			return errors.NotValidf("%s as model user", modelAccess.Object.Kind())
-		}
-
-		// Attempt to update the users last login data, if the update
-		// fails, then just report it as a log message and return the
-		// original error message.
-		if err := updateLastLogin(); err != nil {
-			logger.Warningf("updating last login time for %v, %v", userTag, err)
-			return errors.Trace(err)
-		}
-	}
-
-	if err := updateLastLogin(); err != nil {
+	// Update the last login time for the user.
+	err := a.authContext.userService.UpdateLastLogin(ctx, coremodel.UUID(model.UUID()), userTag.Name())
+	if err != nil {
 		logger.Warningf("updating last login time for %v, %v", userTag, err)
 	}
 

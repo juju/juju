@@ -947,8 +947,8 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
-
 	// The user now has last login updated.
+
 	user, err := userService.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(user.LastLogin, jc.Almost, now)
@@ -957,7 +957,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	model := s.ControllerModel(c)
 	modelUser, err := model.State().UserAccess(names.NewUserTag("bobbrown"), model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := userService.LastModelConnection(context.Background(), coremodel.UUID(uuid), modelUser.UserTag.Name())
+	when, err := userService.LastModelConnection(context.Background(), coremodel.UUID(model.UUID()), modelUser.UserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, jc.Almost, now)
 }

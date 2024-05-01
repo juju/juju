@@ -304,9 +304,13 @@ func (s *UserService) LastModelConnection(ctx context.Context, modelUUID coremod
 		return time.Time{}, errors.Annotatef(accesserrors.UserNameNotValid, "%q", name)
 	}
 
+	if err := modelUUID.Validate(); err != nil {
+		return time.Time{}, errors.Annotatef(err, "getting last model connection for %q: bad uuid", name)
+	}
+
 	lastConnection, err := s.st.LastModelConnection(ctx, modelUUID, name)
 	if err != nil {
-		return time.Time{}, errors.Annotatef(err, "updating last login for user %q", name)
+		return time.Time{}, errors.Trace(err)
 	}
 	return lastConnection, nil
 }
@@ -314,9 +318,13 @@ func (s *UserService) LastModelConnection(ctx context.Context, modelUUID coremod
 // ModelUserInfo gets information about all the users that have access to the
 // specified model. If the model cannot be found it returns modelerror.Notfound.
 func (s *UserService) ModelUserInfo(ctx context.Context, modelUUID coremodel.UUID) ([]domainaccess.ModelUserInfo, error) {
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Annotatef(err, "getting user info for model %q: bad uuid", modelUUID)
+	}
+
 	info, err := s.st.ModelUserInfo(ctx, modelUUID)
 	if err != nil {
-		return []domainaccess.ModelUserInfo{}, errors.Annotatef(err, "getting model user info")
+		return []domainaccess.ModelUserInfo{}, errors.Trace(err)
 	}
 	return info, nil
 }

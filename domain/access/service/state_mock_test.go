@@ -12,6 +12,7 @@ package service
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
@@ -217,6 +218,36 @@ func (m *MockState) GetUserByName(arg0 context.Context, arg1 string) (user.User,
 func (mr *MockStateMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockState)(nil).GetUserByName), arg0, arg1)
+}
+
+// LastModelConnection mocks base method.
+func (m *MockState) LastModelConnection(arg0 context.Context, arg1 model.UUID, arg2 string) (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastModelConnection", arg0, arg1, arg2)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LastModelConnection indicates an expected call of LastModelConnection.
+func (mr *MockStateMockRecorder) LastModelConnection(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelConnection", reflect.TypeOf((*MockState)(nil).LastModelConnection), arg0, arg1, arg2)
+}
+
+// ModelUserInfo mocks base method.
+func (m *MockState) ModelUserInfo(arg0 context.Context, arg1 model.UUID) ([]access.ModelUserInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelUserInfo", arg0, arg1)
+	ret0, _ := ret[0].([]access.ModelUserInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelUserInfo indicates an expected call of ModelUserInfo.
+func (mr *MockStateMockRecorder) ModelUserInfo(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUserInfo", reflect.TypeOf((*MockState)(nil).ModelUserInfo), arg0, arg1)
 }
 
 // ReadAllAccessForUserAndObjectType mocks base method.
@@ -530,6 +561,36 @@ func (m *MockUserState) GetUserByName(arg0 context.Context, arg1 string) (user.U
 func (mr *MockUserStateMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockUserState)(nil).GetUserByName), arg0, arg1)
+}
+
+// LastModelConnection mocks base method.
+func (m *MockUserState) LastModelConnection(arg0 context.Context, arg1 model.UUID, arg2 string) (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastModelConnection", arg0, arg1, arg2)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LastModelConnection indicates an expected call of LastModelConnection.
+func (mr *MockUserStateMockRecorder) LastModelConnection(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelConnection", reflect.TypeOf((*MockUserState)(nil).LastModelConnection), arg0, arg1, arg2)
+}
+
+// ModelUserInfo mocks base method.
+func (m *MockUserState) ModelUserInfo(arg0 context.Context, arg1 model.UUID) ([]access.ModelUserInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelUserInfo", arg0, arg1)
+	ret0, _ := ret[0].([]access.ModelUserInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelUserInfo indicates an expected call of ModelUserInfo.
+func (mr *MockUserStateMockRecorder) ModelUserInfo(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUserInfo", reflect.TypeOf((*MockUserState)(nil).ModelUserInfo), arg0, arg1)
 }
 
 // RemoveUser mocks base method.

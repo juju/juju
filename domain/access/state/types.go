@@ -172,13 +172,24 @@ type dbUUID struct {
 // dbExists is used to record if a row in the database exists by selecting true
 // into it.
 type dbExists struct {
-	Exists bool `db:exists`
+	Exists bool `db:"exists"`
 }
 
 // loginTime is used to record the last time a user logged in when reading from
 // model_last_login.
-// TODO(aflynn): Change this to a time.Time type once SQLair support scanning
-// into time values.
 type loginTime struct {
 	Time time.Time `db:"time"`
+}
+
+// dbModelUserInfo records information from the database about a user of a
+// model.
+type dbModelUserInfo struct {
+	// The users name.
+	UserName string `db:"name"`
+	// The users display name.
+	DisplayName string `db:"display_name"`
+	// The last time the user connected to the model.
+	LastConnection *time.Time `db:"time"`
+	// The level of access the user has on the model.
+	Access string `db:"access_type"`
 }

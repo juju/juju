@@ -1279,7 +1279,7 @@ func (s *userStateSuite) TestLastModelConnection(c *gc.C) {
 	time2, err := st.LastModelConnection(context.Background(), modelUUID, username2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(time1.Before(time2), jc.IsTrue, gc.Commentf("time1 is after time2 (%s is after %s)", time1, time2))
-	// Simluate a new login from user1
+	// Simulate a new login from user1
 	err = st.UpdateLastLogin(context.Background(), modelUUID, username1)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1308,7 +1308,7 @@ func (s *userStateSuite) TestModelUserInfo(c *gc.C) {
 
 	info, err := ust.ModelUserInfo(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	// Check we have the right number of models
+	// Check we have the right number of users
 	c.Assert(info, gc.HasLen, 3)
 	// Sort the results for consistency in the test.
 	sort.Slice(info, func(i, j int) bool {
@@ -1345,6 +1345,15 @@ func (s *userStateSuite) TestModelUserInfo(c *gc.C) {
 	// Check the connection times are in the expected order.
 	c.Assert(time0.Before(*time1), jc.IsTrue)
 	c.Assert(time1.Before(*time2), jc.IsTrue)
+}
+
+func (s *userStateSuite) TestModelUserInfoModelNotFound(c *gc.C) {
+	ust := NewUserState(s.TxnRunnerFactory())
+	badModelUUID, err := coremodel.NewUUID()
+	c.Assert(err, gc.IsNil)
+	info, err := ust.ModelUserInfo(context.Background(), badModelUUID)
+	c.Assert(info, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `getting info about model users: model uuid "`+badModelUUID.String()+`": model not found`)
 }
 
 func (s *userStateSuite) addTestUser(c *gc.C, st *UserState, name string) (string, user.UUID) {

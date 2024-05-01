@@ -20,8 +20,10 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
@@ -505,7 +507,33 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 	remoteUser1 := f.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
 	remoteUser2 := f.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
 
-	s.userService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil).AnyTimes()
+	s.userService.EXPECT().ModelUserInfo(gomock.Any(), coremodel.UUID(model.UUID())).Return([]access.ModelUserInfo{{
+		UserName:       owner.UserName,
+		DisplayName:    owner.DisplayName,
+		LastConnection: nil,
+		Access:         owner.Access,
+	}, {
+		UserName:       localUser1.UserName,
+		DisplayName:    localUser1.DisplayName,
+		LastConnection: nil,
+		Access:         localUser1.Access,
+	}, {
+		UserName:       localUser2.UserName,
+		DisplayName:    localUser2.DisplayName,
+		LastConnection: nil,
+		Access:         localUser2.Access,
+	}, {
+		UserName:       remoteUser1.UserName,
+		DisplayName:    remoteUser1.DisplayName,
+		LastConnection: nil,
+		Access:         remoteUser1.Access,
+	}, {
+		UserName:       remoteUser2.UserName,
+		DisplayName:    remoteUser2.DisplayName,
+		LastConnection: nil,
+		Access:         remoteUser2.Access,
+	}}, nil)
+
 	results, err := s.api.ModelUserInfo(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: model.ModelTag().String(),
 	}}})
@@ -557,7 +585,6 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 			},
 		},
 	} {
-		r.info.LastConnection = &time.Time{}
 		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
 	}
 

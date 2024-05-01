@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
+	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -493,6 +495,57 @@ func (s *userServiceSuite) TestUpdateLastLogin(c *gc.C) {
 
 	err := s.service().UpdateLastLogin(context.Background(), modelUUID, "name")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestUpdateLastLogin tests a bad username for UpdateLastLogin.
+func (s *userServiceSuite) TestUpdateLastLoginBadUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.service().UpdateLastLogin(context.Background(), modelUUID, "13987*($*($&(*&%(")
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
+// TestLastModelConnection tests the happy path for LastModelConnection.
+func (s *userServiceSuite) TestLastModelConnection(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	t := time.Now()
+	s.state.EXPECT().LastModelConnection(gomock.Any(), modelUUID, "name").Return(t, nil)
+
+	lastConnection, err := s.service().LastModelConnection(context.Background(), modelUUID, "name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lastConnection, gc.Equals, t)
+}
+
+// TestLastModelConnectionBadUsername tests a bad username for LastModelConnection.
+func (s *userServiceSuite) TestLastModelConnectionBadUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service().LastModelConnection(context.Background(), "", "1&(*£*(")
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
+// TestLastModelConnectionBadUUID tests a bad UUID given to LastModelConnection.
+func (s *userServiceSuite) TestLastModelConnectionBadUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service().LastModelConnection(context.Background(), "bad-uuid", "name")
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+// TestModelUserInfo tests the happy path for ModelUserInfo.
+func (s *userServiceSuite) TestModelUserInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.state.EXPECT().ModelUserInfo(gomock.Any(), modelUUID).Return(nil, nil)
+
+	_, err := s.service().ModelUserInfo(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestModelUserInfoBadUUID tests a bad UUID given to ModelUserInfo.
+func (s *userServiceSuite) TestModelUserInfoBadUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service().ModelUserInfo(context.Background(), "bad-uuid")
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
 }
 
 type stringerNotEmpty struct{}

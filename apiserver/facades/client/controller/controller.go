@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
@@ -410,7 +411,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 
 		lastConn, err := c.accessService.LastModelConnection(ctx, coremodel.UUID(model.UUID()), c.apiUser.Name())
 		if err != nil {
-			if !state.IsNeverConnectedError(err) {
+			if !errors.Is(err, accesserrors.UserNeverConnectedToModel) {
 				return result, errors.Trace(err)
 			}
 		} else {
